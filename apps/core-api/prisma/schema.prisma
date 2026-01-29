@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model CatalogItem {
+  id               String          @id @default(uuid())
+  sku              String          @unique
+  brand            String?
+  name             String
+  cost_price       Decimal         @db.Decimal(10, 2)
+  retail_price     Decimal         @db.Decimal(10, 2)
+  unit             String          @default("pcs")
+  specs            Json?
+  superseded_by_id String?
+  superseded_by    CatalogItem?    @relation("Supersession", fields: [superseded_by_id], references: [id])
+  supersedes       CatalogItem[]   @relation("Supersession")
+  stock            InventoryStock?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("catalog_items")
+}
+
+enum LocationType {
+  warehouse
+  shelf
+  bin
+  customer_storage
+}
+
+model StorageLocation {
+  id        String            @id @default(uuid())
+  name      String
+  type      LocationType
+  parent_id String?
+  parent    StorageLocation?  @relation("Hierarchy", fields: [parent_id], references: [id])
+  children  StorageLocation[] @relation("Hierarchy")
+  stocks    InventoryStock[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@map("storage_locations")
+}
+
+model InventoryStock {
+  id                String          @id @default(uuid())
+  catalog_item_id   String          @unique
+  catalog_item      CatalogItem     @relation(fields: [catalog_item_id], references: [id])
+  location_id       String
+  location          StorageLocation @relation(fields: [location_id], references: [id])
+  quantity_on_hand  Int             @default(0)
+  quantity_reserved Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("inventory_stocks")
+}

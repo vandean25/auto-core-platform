@@ -1,0 +1,30 @@
+# Node
+node_modules/
+dist/
+dist-ssr
+*.local
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+apps/core-api/node_modules/
+apps/core-api/dist/
+apps/core-web/node_modules/
+apps/core-web/dist/
+
+# Prisma
+apps/core-api/prisma/*.db
+apps/core-api/prisma/*.db-journal
