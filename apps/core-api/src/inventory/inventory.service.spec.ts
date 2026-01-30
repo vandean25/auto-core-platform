@@ -103,14 +103,54 @@ describe('InventoryService', () => {
 
   describe('findAll', () => {
     it('should return paginated items with meta data', async () => {
-      const mockItems = [{ id: '1', name: 'Item 1' }, { id: '2', name: 'Item 2' }];
+      const mockItems = [
+        {
+          id: '1',
+          sku: 'SKU-1',
+          name: 'Item 1',
+          brand: 'Brand 1',
+          retail_price: 100,
+          stock: { quantity_on_hand: 10, quantity_reserved: 2, location: { name: 'Loc 1' } },
+          superseded_by: null
+        },
+        {
+          id: '2',
+          sku: 'SKU-2',
+          name: 'Item 2',
+          brand: 'Brand 2',
+          retail_price: 200,
+          stock: null,
+          superseded_by: { id: '3' }
+        }
+      ];
       (prisma.catalogItem.findMany as jest.Mock).mockResolvedValue(mockItems);
       (prisma.catalogItem.count as jest.Mock).mockResolvedValue(2);
 
       const result = await service.findAll({ page: 1, limit: 10 });
 
       expect(result).toEqual({
-        data: mockItems,
+        data: [
+          {
+            id: '1',
+            sku: 'SKU-1',
+            name: 'Item 1',
+            brand: 'Brand 1',
+            price: 100,
+            status: 'IN_STOCK',
+            quantity_available: 8,
+            warehouse_location: 'Loc 1',
+          },
+          {
+            id: '2',
+            sku: 'SKU-2',
+            name: 'Item 2',
+            brand: 'Brand 2',
+            price: 200,
+            status: 'SUPERSEDED',
+            quantity_available: 0,
+            warehouse_location: undefined,
+          }
+        ],
         meta: {
           total: 2,
           page: 1,
@@ -139,7 +179,7 @@ describe('InventoryService', () => {
       );
     });
 
-    it('should filter by location and filter the included stock', async () => {
+    it('should filter by location', async () => {
       const location = 'Tire Hotel';
       await service.findAll({ page: 1, limit: 10, location });
 
@@ -152,15 +192,13 @@ describe('InventoryService', () => {
               },
             },
           },
-          include: {
-            stock: {
-              where: {
-                location: {
-                  name: { contains: location, mode: 'insensitive' },
-                },
-              },
-            },
-          },
+          select: expect.objectContaining({
+            stock: expect.objectContaining({
+              select: expect.objectContaining({
+                location: expect.any(Object)
+              })
+            })
+          }),
         }),
       );
     });

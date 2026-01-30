@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { LedgerService } from './ledger.service';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -16,6 +17,7 @@ describe('InventoryController', () => {
       controllers: [InventoryController],
       providers: [
         { provide: InventoryService, useValue: mockInventoryService },
+        { provide: LedgerService, useValue: { getTransactionHistory: jest.fn() } },
       ],
     }).compile();
 

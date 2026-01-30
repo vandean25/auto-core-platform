@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, LocationType } from '@prisma/client';
+import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -11,9 +11,55 @@ const prisma = new PrismaClient({ adapter } as any);
 async function cleanDb() {
     console.log('Cleaning database...');
     // Delete in order to satisfy foreign key constraints
+    await prisma.purchaseOrderItem.deleteMany();
+    await prisma.purchaseOrder.deleteMany();
+    await prisma.vendor.deleteMany();
+    await prisma.inventoryTransaction.deleteMany();
     await prisma.inventoryStock.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.storageLocation.deleteMany();
+}
+
+/**
+ * Helper function to record an inventory transaction (ledger-based approach)
+ */
+async function recordInitialStock(
+    itemId: string,
+    locationId: string,
+    quantity: number,
+    costBasis: number,
+    reserved: number = 0
+) {
+    // Create the transaction record
+    await prisma.inventoryTransaction.create({
+        data: {
+            item_id: itemId,
+            location_id: locationId,
+            quantity: quantity,
+            type: TransactionType.INITIAL_BALANCE,
+            reference_id: 'SEED_SCRIPT',
+            cost_basis: costBasis,
+        },
+    });
+
+    // Update the cached stock
+    await prisma.inventoryStock.upsert({
+        where: {
+            catalog_item_id_location_id: {
+                catalog_item_id: itemId,
+                location_id: locationId,
+            },
+        },
+        update: {
+            quantity_on_hand: { increment: quantity },
+        },
+        create: {
+            catalog_item_id: itemId,
+            location_id: locationId,
+            quantity_on_hand: quantity,
+            quantity_reserved: reserved,
+        },
+    });
 }
 
 async function main() {
@@ -47,7 +93,7 @@ async function main() {
     const partA = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-403-C',
-            brand: 'VAG',
+            brand: 'VW',
             name: 'Oil Filter (Legacy)',
             cost_price: 8.50,
             retail_price: 15.00,
@@ -57,7 +103,7 @@ async function main() {
     const partB = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-403-Q',
-            brand: 'VAG',
+            brand: 'VW',
             name: 'Oil Filter (Improved)',
             cost_price: 9.00,
             retail_price: 16.50,
@@ -67,7 +113,7 @@ async function main() {
     const partC = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-561-B',
-            brand: 'VAG',
+            brand: 'VW',
             name: 'Oil Filter (Current)',
             cost_price: 10.20,
             retail_price: 18.00,
@@ -86,7 +132,7 @@ async function main() {
     });
 
     console.log('Seeding 47 more auto parts...');
-    const brands = ['Bosch', 'Mahle', 'Brembo', 'Shell', 'NGK', 'Valeo', 'Castrol'];
+    const brands = ['VW', 'Audi', 'BMW', 'Mercedes-Benz', 'Ford', 'Toyota', 'Honda', 'Porsche', 'Opel', 'Skoda', 'Castrol', 'Bosch'];
     const categories = [
         { name: 'Oil Filter', prefix: 'OF' },
         { name: 'Brake Pads', prefix: 'BP' },
@@ -114,32 +160,36 @@ async function main() {
         otherParts.push(part);
     }
 
-    console.log('Seeding stock...');
-    // Only Part C has stock
-    await prisma.inventoryStock.create({
-        data: {
-            catalog_item_id: partC.id,
-            location_id: showroom.id,
-            quantity_on_hand: 25,
-            quantity_reserved: 2,
-        },
-    });
+    console.log('Seeding stock using ledger-based transactions...');
+    // Only Part C has stock (using transaction-based approach)
+    await recordInitialStock(
+        partC.id,
+        showroom.id,
+        25,
+        Number(partC.cost_price),
+        2 // reserved quantity
+    );
 
-    // Random stock for other parts
+    // Random stock for other parts (using transaction-based approach)
     for (const part of otherParts) {
         if (Math.random() > 0.3) {
-            await prisma.inventoryStock.create({
-                data: {
-                    catalog_item_id: part.id,
-                    location_id: locations[Math.floor(Math.random() * locations.length)].id,
-                    quantity_on_hand: Math.floor(Math.random() * 50) + 1,
-                    quantity_reserved: Math.floor(Math.random() * 5),
-                },
-            });
+            const quantity = Math.floor(Math.random() * 50) + 1;
+            const reserved = Math.floor(Math.random() * 5);
+            const location = locations[Math.floor(Math.random() * locations.length)];
+
+            await recordInitialStock(
+                part.id,
+                location.id,
+                quantity,
+                Number(part.cost_price),
+                reserved
+            );
         }
     }
 
     console.log('Seed completed successfully!');
+    console.log('✓ All inventory movements recorded as transactions');
+    console.log('✓ Stock cache updated accordingly');
 }
 
 main()

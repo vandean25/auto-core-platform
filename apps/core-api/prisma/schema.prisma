@@ -10,20 +10,22 @@ datasource db {
 }
 
 model CatalogItem {
-  id               String          @id @default(uuid())
-  sku              String          @unique
+  id               String                 @id @default(uuid())
+  sku              String                 @unique
   brand            String?
   name             String
-  cost_price       Decimal         @db.Decimal(10, 2)
-  retail_price     Decimal         @db.Decimal(10, 2)
-  unit             String          @default("pcs")
+  cost_price       Decimal                @db.Decimal(10, 2)
+  retail_price     Decimal                @db.Decimal(10, 2)
+  unit             String                 @default("pcs")
   specs            Json?
   superseded_by_id String?
-  superseded_by    CatalogItem?    @relation("Supersession", fields: [superseded_by_id], references: [id])
-  supersedes       CatalogItem[]   @relation("Supersession")
+  superseded_by    CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
+  supersedes       CatalogItem[]          @relation("Supersession")
   stock            InventoryStock?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  transactions     InventoryTransaction[]
+  purchase_order_items PurchaseOrderItem[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@map("catalog_items")
 }
@@ -36,15 +38,16 @@ enum LocationType {
 }
 
 model StorageLocation {
-  id        String            @id @default(uuid())
-  name      String
-  type      LocationType
-  parent_id String?
-  parent    StorageLocation?  @relation("Hierarchy", fields: [parent_id], references: [id])
-  children  StorageLocation[] @relation("Hierarchy")
-  stocks    InventoryStock[]
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id           String                 @id @default(uuid())
+  name         String
+  type         LocationType
+  parent_id    String?
+  parent       StorageLocation?       @relation("Hierarchy", fields: [parent_id], references: [id])
+  children     StorageLocation[]      @relation("Hierarchy")
+  stocks       InventoryStock[]
+  transactions InventoryTransaction[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@map("storage_locations")
 }
@@ -60,5 +63,85 @@ model InventoryStock {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
+  @@unique([catalog_item_id, location_id])
   @@map("inventory_stocks")
+}
+
+enum TransactionType {
+  PURCHASE_RECEIPT
+  SALE_ISSUE
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  INITIAL_BALANCE
+}
+
+model InventoryTransaction {
+  id           String          @id @default(uuid())
+  item_id      String
+  item         CatalogItem     @relation(fields: [item_id], references: [id])
+  location_id  String
+  location     StorageLocation @relation(fields: [location_id], references: [id])
+  quantity     Decimal         @db.Decimal(10, 3) // Signed: positive = add, negative = remove
+  type         TransactionType
+  reference_id String?         // Invoice #, Workshop Order #, User ID, etc.
+  cost_basis   Decimal?        @db.Decimal(10, 2) // For profit calculation
+  createdAt    DateTime        @default(now())
+
+  @@map("inventory_transactions")
+  @@index([item_id, location_id])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Vendor {
+  id               String   @id @default(uuid())
+  name             String
+  email            String
+  account_number   String
+  supported_brands String[]
+
+  purchase_orders PurchaseOrder[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("vendors")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  COMPLETED
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid())
+  vendor_id    String
+  vendor       Vendor              @relation(fields: [vendor_id], references: [id])
+  status       PurchaseOrderStatus @default(DRAFT)
+  order_number String              @unique
+  items        PurchaseOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id                String  @id @default(uuid())
+  purchase_order_id String
+  purchase_order    PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  catalog_item_id   String
+  catalog_item      CatalogItem   @relation(fields: [catalog_item_id], references: [id])
+  
+  quantity          Int
+  quantity_received Int     @default(0)
+  unit_cost         Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("purchase_order_items")
 }
