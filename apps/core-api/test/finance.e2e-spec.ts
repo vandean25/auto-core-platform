@@ -20,6 +20,11 @@ describe('FinanceModule (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Cleanup
+    await prisma.invoiceItem.deleteMany();
+    await prisma.invoice.deleteMany();
+    await prisma.customer.deleteMany();
+    await prisma.catalogItem.deleteMany();
     await app.close();
   });
 
@@ -69,8 +74,17 @@ describe('FinanceModule (e2e)', () => {
   });
 
   it('Revenue Group Snapshot - Create Invoice Draft', async () => {
-    // 1. Create a catalog item with a revenue group
-    const revGroup = await prisma.revenueGroup.findFirst({ where: { name: 'Parts / Goods 20%' } });
+    // 1. Setup Test Data (Self-contained)
+    const revGroup = await prisma.revenueGroup.upsert({
+        where: { name: 'E2E Test Parts 20%' },
+        update: {},
+        create: {
+            name: 'E2E Test Parts 20%',
+            tax_rate: 20.0,
+            account_number: 'E2E-4000',
+        }
+    });
+
     const customer = await prisma.customer.create({
         data: { name: 'Snapshot Test', email: `snap-${Date.now()}@test.com` },
     });
@@ -81,7 +95,7 @@ describe('FinanceModule (e2e)', () => {
         name: 'Snapshot Item',
         cost_price: 50,
         retail_price: 100,
-        revenue_group_id: revGroup!.id,
+        revenue_group_id: revGroup.id,
       },
     });
 
@@ -102,7 +116,7 @@ describe('FinanceModule (e2e)', () => {
       })
       .expect(201);
 
-    expect(response.body.items[0].revenue_group_name).toBe(revGroup!.name);
+    expect(response.body.items[0].revenue_group_name).toBe(revGroup.name);
     expect(Number(response.body.items[0].tax_rate)).toBe(20);
   });
 });

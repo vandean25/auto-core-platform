@@ -1,5 +1,7 @@
 import { Controller, Get, Patch, Post, Body } from '@nestjs/common';
 import { FinanceService } from './finance.service';
+import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
+import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
 
 @Controller('finance')
 export class FinanceController {
@@ -11,7 +13,7 @@ export class FinanceController {
   }
 
   @Patch('settings')
-  updateSettings(@Body() data: any) {
+  updateSettings(@Body() data: UpdateFinanceSettingsDto) {
     return this.financeService.updateSettings(data);
   }
 
@@ -21,7 +23,7 @@ export class FinanceController {
   }
 
   @Post('revenue-groups')
-  createRevenueGroup(@Body() data: any) {
+  createRevenueGroup(@Body() data: CreateRevenueGroupDto) {
     return this.financeService.createRevenueGroup(data);
   }
 }
