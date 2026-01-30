@@ -13,7 +13,7 @@ export class SalesService {
   constructor(
     private prisma: PrismaService,
     private financeService: FinanceService,
-  ) {}
+  ) { }
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
     const { items, ...invoiceData } = createInvoiceDto;
@@ -22,11 +22,11 @@ export class SalesService {
     let totalNet = 0;
     let totalTax = 0;
 
-    const formattedItems = [];
+    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] = [];
 
     for (const item of items) {
       let taxRate = item.taxRate;
-      let revenueGroupName = null;
+      let revenueGroupName: string | null = null;
 
       if (item.catalogItemId) {
         const catalogItem = await this.prisma.catalogItem.findUnique({
