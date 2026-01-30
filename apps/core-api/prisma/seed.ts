@@ -11,13 +11,19 @@ const prisma = new PrismaClient({ adapter } as any);
 async function cleanDb() {
     console.log('Cleaning database...');
     // Delete in order to satisfy foreign key constraints
+    await prisma.purchaseInvoiceLine.deleteMany();
+    await prisma.purchaseInvoice.deleteMany();
     await prisma.purchaseOrderItem.deleteMany();
     await prisma.purchaseOrder.deleteMany();
     await prisma.vendor.deleteMany();
     await prisma.inventoryTransaction.deleteMany();
     await prisma.inventoryStock.deleteMany();
+    await prisma.invoiceItem.deleteMany();
+    await prisma.invoice.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.storageLocation.deleteMany();
+    await prisma.revenueGroup.deleteMany();
+    await prisma.financeSettings.deleteMany();
 }
 
 /**
@@ -65,6 +71,56 @@ async function recordInitialStock(
 async function main() {
     await cleanDb();
 
+    console.log('Seeding Finance Module settings...');
+    // Revenue Groups (Austrian standards)
+    const revenueGroups = await Promise.all([
+        prisma.revenueGroup.upsert({
+            where: { name: 'Parts / Goods 20%' },
+            update: {},
+            create: {
+                name: 'Parts / Goods 20%',
+                tax_rate: 20.0,
+                account_number: '4000',
+                is_default: true,
+            },
+        }),
+        prisma.revenueGroup.upsert({
+            where: { name: 'Services / Labor 20%' },
+            update: {},
+            create: {
+                name: 'Services / Labor 20%',
+                tax_rate: 20.0,
+                account_number: '4001',
+                is_default: false,
+            },
+        }),
+        prisma.revenueGroup.upsert({
+            where: { name: 'Tax Free / Margin' },
+            update: {},
+            create: {
+                name: 'Tax Free / Margin',
+                tax_rate: 0.0,
+                account_number: '4099',
+                is_default: false,
+            },
+        }),
+    ]);
+
+    // Default Finance Settings
+    await prisma.financeSettings.upsert({
+        where: { id: 1 },
+        update: {},
+        create: {
+            id: 1,
+            fiscal_year_start_month: 1,
+            lock_date: null,
+            next_invoice_number: 1001,
+            invoice_prefix: 'RE-2026-',
+        },
+    });
+
+    const defaultRevenueGroup = revenueGroups[0];
+
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({
         data: {
@@ -97,6 +153,7 @@ async function main() {
             name: 'Oil Filter (Legacy)',
             cost_price: 8.50,
             retail_price: 15.00,
+            revenue_group_id: defaultRevenueGroup.id,
         },
     });
 
@@ -107,6 +164,7 @@ async function main() {
             name: 'Oil Filter (Improved)',
             cost_price: 9.00,
             retail_price: 16.50,
+            revenue_group_id: defaultRevenueGroup.id,
         },
     });
 
@@ -117,6 +175,7 @@ async function main() {
             name: 'Oil Filter (Current)',
             cost_price: 10.20,
             retail_price: 18.00,
+            revenue_group_id: defaultRevenueGroup.id,
         },
     });
 
@@ -155,6 +214,7 @@ async function main() {
                 name: `${category.name} - ${brand} model ${i}`,
                 cost_price: Math.random() * 50 + 10,
                 retail_price: Math.random() * 100 + 60,
+                revenue_group_id: defaultRevenueGroup.id,
             },
         });
         otherParts.push(part);
@@ -190,6 +250,7 @@ async function main() {
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
+    console.log('✓ Revenue groups and default finance settings created');
 }
 
 main()

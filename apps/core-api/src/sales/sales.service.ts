@@ -4,34 +4,56 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FinanceService } from '../finance/finance.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { Prisma, InvoiceStatus, TransactionType } from '@prisma/client';
 
 @Injectable()
 export class SalesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private financeService: FinanceService,
+  ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
     const { items, ...invoiceData } = createInvoiceDto;
 
-    // Calculate totals
+    // Calculate totals and snapshot revenue groups
     let totalNet = 0;
     let totalTax = 0;
 
-    const formattedItems = items.map((item) => {
+    const formattedItems = [];
+
+    for (const item of items) {
+      let taxRate = item.taxRate;
+      let revenueGroupName = null;
+
+      if (item.catalogItemId) {
+        const catalogItem = await this.prisma.catalogItem.findUnique({
+          where: { id: item.catalogItemId },
+          include: { revenue_group: true },
+        });
+
+        if (catalogItem?.revenue_group) {
+          revenueGroupName = catalogItem.revenue_group.name;
+          taxRate = Number(catalogItem.revenue_group.tax_rate);
+        }
+      }
+
       const net = item.quantity * item.unitPrice;
-      const tax = net * (item.taxRate / 100);
+      const tax = net * (taxRate / 100);
       totalNet += net;
       totalTax += tax;
 
-      return {
+      formattedItems.push({
         catalog_item_id: item.catalogItemId,
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unitPrice,
-        tax_rate: item.taxRate,
-      };
-    });
+        tax_rate: taxRate,
+        revenue_group_name: revenueGroupName,
+      });
+    }
 
     const totalGross = totalNet + totalTax;
     const dueDate = new Date();
@@ -73,6 +95,9 @@ export class SalesService {
       throw new BadRequestException('Only DRAFT invoices can be finalized');
     }
 
+    // Validate fiscal period before any changes
+    await this.financeService.validateTransactionDate(invoice.date);
+
     // Execute everything in a single transaction
     return this.prisma.$transaction(async (tx) => {
       // 1. Generate Invoice Number (Atomic)
@@ -87,7 +112,7 @@ export class SalesService {
           });
 
           if (!stock) {
-             throw new BadRequestException(
+            throw new BadRequestException(
               `No stock record found for item ${item.description}`,
             );
           }
@@ -100,11 +125,11 @@ export class SalesService {
             where: {
               catalog_item_id: item.catalog_item_id,
               location_id: locationId,
-              quantity_on_hand: { gte: quantityToDeduct } // Ensure sufficient stock
+              quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
             },
             data: {
-              quantity_on_hand: { decrement: quantityToDeduct }
-            }
+              quantity_on_hand: { decrement: quantityToDeduct },
+            },
           });
 
           if (updateResult.count === 0) {
@@ -133,12 +158,14 @@ export class SalesService {
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
         },
-        include: { items: true, customer: true }
+        include: { items: true, customer: true },
       });
     });
   }
 
-  private async generateInvoiceNumber(tx: Prisma.TransactionClient): Promise<string> {
+  private async generateInvoiceNumber(
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `RE-${year}-`;
 
@@ -166,7 +193,7 @@ export class SalesService {
     });
 
     if (!invoice) {
-        throw new NotFoundException(`Invoice with ID ${id} not found`);
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
     }
     return invoice;
   }
