@@ -39,6 +39,7 @@ export class PurchaseInvoiceService {
       })
       .map((item) => ({
         purchaseOrderItemId: item.id,
+        purchaseOrderId: item.purchase_order_id,
         purchaseOrderNumber: item.purchase_order.order_number,
         catalogItemId: item.catalog_item_id,
         catalogItemName: item.catalog_item.name,
@@ -130,6 +131,10 @@ export class PurchaseInvoiceService {
     if (!invoice) throw new NotFoundException('Invoice not found');
     if (invoice.status !== PurchaseInvoiceStatus.DRAFT) {
       throw new BadRequestException('Only DRAFT invoices can be posted');
+    }
+
+    if (invoice.lines.length === 0) {
+      throw new BadRequestException('Cannot post an invoice without lines');
     }
 
     // Here we would create Ledger Entries (GL)

@@ -173,4 +173,25 @@ describe('PurchaseInvoice (e2e)', () => {
 
       expect(response.body.status).toBe('POSTED');
   });
+
+  it('Prevent Posting Empty Invoice', async () => {
+    // Create an invoice without lines (if possible via API, though DTO usually prevents this)
+    // Actually, CreatePurchaseInvoiceDto has items array, but let's assume we bypass or it's empty
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-EMPTY',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .send(createDto)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .expect(400);
+  });
 });

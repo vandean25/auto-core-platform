@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { usePurchaseOrder, useReceiveGoods } from '@/api/purchase-orders'
+import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from "sonner"
@@ -22,11 +23,19 @@ import {
 import { Input } from '@/components/ui/input'
 import { getPOStatusVariant } from '@/lib/utils'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/api/types'
+import { Receipt } from "lucide-react"
 
 export default function PurchaseOrderDetail() {
     const { id } = useParams<{ id: string }>()
+    const navigate = useNavigate()
     const { data: po, isLoading, error } = usePurchaseOrder(id!)
     const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false)
+    
+    // Fetch unbilled receipts for this vendor to calculate count related to this PO
+    const { data: unbilledItems = [] } = useUnbilledReceipts(po?.vendor_id)
+
+    // Filter unbilled items for this specific PO
+    const poUnbilledCount = unbilledItems.filter(item => item.purchaseOrderNumber === po?.order_number).length
 
     if (isLoading) return <div>Loading order...</div>
     if (error) return <div>Error loading order</div>
@@ -43,6 +52,16 @@ export default function PurchaseOrderDetail() {
                     <Badge className="text-lg px-4 py-1" variant={getPOStatusVariant(po.status)}>
                         {po.status}
                     </Badge>
+                    
+                    <Button 
+                        variant="outline"
+                        disabled={poUnbilledCount === 0}
+                        onClick={() => navigate(`/purchase-invoices/new?vendorId=${po.vendor_id}&poId=${po.id}`)}
+                    >
+                        <Receipt className="mr-2 h-4 w-4" />
+                        Create Bill ({poUnbilledCount} items)
+                    </Button>
+
                     {po.status !== 'COMPLETED' && (
                         <Button onClick={() => setIsReceiveDialogOpen(true)}>
                             Receive Goods
