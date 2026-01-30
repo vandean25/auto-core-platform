@@ -1,6 +1,8 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
+import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
 
 @Injectable()
 export class FinanceService {
@@ -20,12 +22,7 @@ export class FinanceService {
     });
   }
 
-  async updateSettings(data: {
-    fiscal_year_start_month?: number;
-    lock_date?: string | null;
-    next_invoice_number?: number;
-    invoice_prefix?: string;
-  }) {
+  async updateSettings(data: UpdateFinanceSettingsDto) {
     return this.prisma.financeSettings.update({
       where: { id: 1 },
       data: {
@@ -35,6 +32,10 @@ export class FinanceService {
     });
   }
 
+  /**
+   * Validates if a transaction date is allowed.
+   * Transactions occurring on or before the lock_date are blocked.
+   */
   async validateTransactionDate(date: Date) {
     const settings = await this.getSettings();
     if (settings.lock_date && date <= settings.lock_date) {
@@ -50,12 +51,7 @@ export class FinanceService {
     });
   }
 
-  async createRevenueGroup(data: {
-    name: string;
-    tax_rate: number;
-    account_number: string;
-    is_default?: boolean;
-  }) {
+  async createRevenueGroup(data: CreateRevenueGroupDto) {
     return this.prisma.revenueGroup.create({
       data: {
         ...data,
