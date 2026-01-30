@@ -13,6 +13,8 @@ auto-core-platform/
 │   │   │   └── seed.ts    # Database seeding script
 │   │   └── src/
 │   │       ├── inventory/ # Inventory module
+│   │       ├── purchase/  # Purchase Order module
+│   │       ├── vendor/    # Vendor management module
 │   │       └── prisma/    # Prisma service module
 │   │
 │   └── core-web/          # React + Vite frontend
@@ -195,6 +197,33 @@ The frontend runs at **http://localhost:5173**
 }
 ```
 
+### Purchase Orders
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/purchase-orders` | Create a new purchase order |
+| `GET` | `/api/purchase-orders` | List purchase orders (optional `status` filter) |
+| `GET` | `/api/purchase-orders/:id` | Get single purchase order details |
+| `POST` | `/api/purchase-orders/:id/receive` | Receive items against a PO |
+
+### Vendors
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/vendors` | Create a new vendor |
+| `GET` | `/api/vendors` | List all vendors |
+| `GET` | `/api/vendors/:id` | Get single vendor details |
+| `PUT` | `/api/vendors/:id` | Update vendor details |
+
+### Sales
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/sales/invoices` | Create a new invoice (draft) |
+| `PUT` | `/api/sales/invoices/:id/finalize` | Finalize invoice and generate number |
+| `GET` | `/api/sales/invoices` | List invoices |
+| `GET` | `/api/sales/invoices/:id` | Get single invoice details |
+
 ---
 
 ## Frontend Features
@@ -216,6 +245,24 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - 📦 Inventory results with live filtering
 - 🔧 Workshop actions (coming soon)
 
+### Purchase Order Management
+
+- **Create Purchase Orders**: Select vendor, add items, and calculate totals.
+- **Receive Items**: Track received quantities against ordered items.
+- **Status Tracking**: Draft -> Sent -> Partial -> Completed workflow.
+
+### Vendor Management
+
+- **Vendor Directory**: List and search vendors.
+- **Vendor Details**: Manage contact info and supported brands.
+
+### Sales Invoice Management
+
+- **Invoice Editor**: Create and edit invoices with auto-calculations.
+- **Smart Item Search**: Quickly find inventory items to add to invoices.
+- **Status Workflow**: Draft -> Finalized (locks invoice & assigns number).
+- **Stock Integration**: Finalizing an invoice deducts inventory stock.
+
 ---
 
 ## Database Schema
@@ -226,6 +273,9 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - **StorageLocation**: Hierarchical warehouse structure (warehouse → shelf → bin)
 - **InventoryStock**: Current stock levels per item/location
 - **InventoryTransaction**: Full audit trail of all stock movements
+- **Vendor**: Suppliers with contact info and supported brands
+- **PurchaseOrder**: Orders to vendors with status tracking
+- **PurchaseOrderItem**: Individual items within a purchase order
 
 ### Transaction Types
 

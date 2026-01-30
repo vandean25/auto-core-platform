@@ -19,31 +19,9 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog'
-import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getPOStatusVariant } from '@/lib/utils'
-
-interface PurchaseOrderItem {
-    id: string
-    catalog_item_id: string
-    quantity: number
-    quantity_received: number
-    unit_cost: number
-    catalog_item?: {
-        sku: string
-        name: string
-    }
-}
-
-interface PurchaseOrder {
-    id: string
-    order_number: string
-    status: string
-    vendor?: {
-        name: string
-    }
-    items: PurchaseOrderItem[]
-}
+import type { PurchaseOrder, PurchaseOrderItem } from '@/api/types'
 
 export default function PurchaseOrderDetail() {
     const { id } = useParams<{ id: string }>()
