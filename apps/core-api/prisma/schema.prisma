@@ -9,6 +9,41 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================================
+// Finance Settings & Revenue Groups
+// ============================================================================
+
+model RevenueGroup {
+  id             Int           @id @default(autoincrement())
+  name           String        @unique
+  tax_rate       Decimal       @db.Decimal(5, 2)
+  account_number String
+  is_default     Boolean       @default(false)
+  
+  catalog_items  CatalogItem[]
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("revenue_groups")
+}
+
+model FinanceSettings {
+  id                      Int       @id @default(1)
+  fiscal_year_start_month Int       @default(1)
+  lock_date               DateTime?
+  next_invoice_number     Int       @default(1001)
+  invoice_prefix          String    @default("RE-2026-")
+  
+  updatedAt               DateTime  @updatedAt
+
+  @@map("finance_settings")
+}
+
+// ============================================================================
+// Catalog & Inventory
+// ============================================================================
+
 model CatalogItem {
   id               String                 @id @default(uuid())
   sku              String                 @unique
@@ -21,6 +56,8 @@ model CatalogItem {
   superseded_by_id String?
   superseded_by    CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
   supersedes       CatalogItem[]          @relation("Supersession")
+  revenue_group_id Int?
+  revenue_group    RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
   stock            InventoryStock?
   transactions     InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
@@ -233,10 +270,11 @@ model InvoiceItem {
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
   
-  description     String
-  quantity        Decimal      @db.Decimal(10, 2)
-  unit_price      Decimal      @db.Decimal(10, 2)
-  tax_rate        Decimal      @db.Decimal(5, 2)
+  description        String
+  quantity           Decimal      @db.Decimal(10, 2)
+  unit_price         Decimal      @db.Decimal(10, 2)
+  tax_rate           Decimal      @db.Decimal(5, 2)
+  revenue_group_name String?      // Snapshot for accounting export
   
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
