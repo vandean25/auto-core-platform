@@ -28,6 +28,9 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import type { InventoryItem } from "@/api/types"
+
+const DEFAULT_TAX_RATE = 20
 
 export default function InvoiceCreatePage() {
   const navigate = useNavigate()
@@ -57,7 +60,6 @@ export default function InvoiceCreatePage() {
         notes: "Created from web editor"
       })
       toast.success(`Draft saved at ${format(new Date(), 'HH:mm')}`)
-      // In a real app, we might redirect to edit page or update URL
     } catch (error) {
       toast.error("Failed to save draft")
     }
@@ -94,13 +96,13 @@ export default function InvoiceCreatePage() {
     setPartSearchOpen(true)
   }
 
-  const handleSelectPart = (item: any) => {
+  const handleSelectPart = (item: InventoryItem) => {
     if (activeRowIndex !== null) {
       editor.updateItem(activeRowIndex, {
         catalog_item_id: item.id,
         description: item.name,
         unit_price: item.price,
-        tax_rate: 20 // Default tax
+        tax_rate: DEFAULT_TAX_RATE
       })
     }
     setPartSearchOpen(false)
@@ -291,7 +293,7 @@ export default function InvoiceCreatePage() {
          <CommandList>
             <CommandEmpty>No parts found.</CommandEmpty>
             <CommandGroup heading="Inventory">
-               {inventory?.data.map((part: any) => (
+               {inventory?.data.map((part: InventoryItem) => (
                   <CommandItem key={part.id} value={part.name + ' ' + part.sku} onSelect={() => handleSelectPart(part)}>
                      <div className="flex flex-col">
                         <span className="font-medium">{part.name}</span>
