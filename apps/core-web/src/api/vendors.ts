@@ -17,7 +17,12 @@ export function useVendors() {
 export function useCreateVendor() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async (data: Omit<Vendor, 'id'>) => {
+        mutationFn: async (data: {
+            name: string;
+            email: string;
+            account_number: string;
+            brandIds: number[];
+        }) => {
             const res = await fetch(VENDORS_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -25,7 +30,7 @@ export function useCreateVendor() {
                     name: data.name,
                     email: data.email,
                     accountNumber: data.account_number,
-                    supportedBrands: data.supported_brands
+                    brandIds: data.brandIds
                 }),
             })
             if (!res.ok) throw new Error('Failed to create vendor')

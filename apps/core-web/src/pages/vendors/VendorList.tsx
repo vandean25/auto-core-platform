@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import { VendorDialog } from './VendorDialog'
 import { Plus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 export default function VendorList() {
     const { data: vendors, isLoading, error } = useVendors()
@@ -51,7 +52,15 @@ export default function VendorList() {
                                     <TableCell className="font-medium">{vendor.name}</TableCell>
                                     <TableCell>{vendor.email}</TableCell>
                                     <TableCell>{vendor.account_number}</TableCell>
-                                    <TableCell>{vendor.supported_brands.join(', ')}</TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1">
+                                            {vendor.supportedBrands.map(brand => (
+                                                <Badge key={brand.id} variant="outline">
+                                                    {brand.name}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         )}

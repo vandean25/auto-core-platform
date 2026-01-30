@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useVendors } from '@/api/vendors'
 import { useInventory } from '@/api/inventory'
 import { useCreatePO } from '@/api/purchase-orders'
+import { useBrands } from '@/api/brands'
 import { Button } from '@/components/ui/button'
 import { toast } from "sonner"
 import { Input } from '@/components/ui/input'
@@ -17,10 +18,9 @@ import {
 } from '@/components/ui/table'
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty, CommandGroup } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Check, ChevronsUpDown, Trash2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const BRANDS = ['VW', 'Audi', 'BMW', 'Mercedes-Benz', 'Ford', 'Toyota', 'Honda', 'Porsche', 'Opel', 'Skoda']
+import type { Brand } from '@/api/types'
 
 interface POItem {
     catalogItemId: string
@@ -44,7 +44,8 @@ export default function PurchaseOrderCreate() {
     const [step, setStep] = useState(1)
 
     // Step 1: Brand
-    const [selectedBrand, setSelectedBrand] = useState<string>('')
+    const { data: brands, isLoading: isLoadingBrands } = useBrands()
+    const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
 
     // Step 2: Vendor
     const { data: vendors } = useVendors()
@@ -53,13 +54,13 @@ export default function PurchaseOrderCreate() {
     // Step 3: Items
     const [items, setItems] = useState<POItem[]>([])
     const [itemSearch, setItemSearch] = useState('')
-    const { data: inventory } = useInventory({ search: itemSearch, limit: 10, brand: selectedBrand })
+    const { data: inventory } = useInventory({ search: itemSearch, limit: 10, brand: selectedBrand?.name })
     const [openCombobox, setOpenCombobox] = useState(false)
 
     const createPO = useCreatePO()
 
     const filteredVendors = vendors?.filter(v =>
-        selectedBrand ? v.supported_brands.includes(selectedBrand) : true
+        selectedBrand ? v.supportedBrands.some(b => b.id === selectedBrand.id) : true
     )
 
     const handleAddItem = (item: InventoryItem) => {
@@ -69,9 +70,7 @@ export default function PurchaseOrderCreate() {
             name: item.name,
             sku: item.sku,
             quantity: 1,
-            unitCost: item.price // Defaulting to price as cost is not in inventory list type explicitly sometimes, but let's assume price. 
-            // Ideally cost_price should be in CatalogItem and returned. 
-            // For now using price as placeholder.
+            unitCost: item.price
         }])
         setOpenCombobox(false)
     }
@@ -117,18 +116,25 @@ export default function PurchaseOrderCreate() {
             {step === 1 && (
                 <div className="space-y-4">
                     <h2 className="text-xl font-semibold">Step 1: Select Brand</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {BRANDS.map(brand => (
-                            <Button
-                                key={brand}
-                                variant={selectedBrand === brand ? "default" : "outline"}
-                                className="h-20 text-lg"
-                                onClick={() => setSelectedBrand(brand)}
-                            >
-                                {brand}
-                            </Button>
-                        ))}
-                    </div>
+                    {isLoadingBrands ? (
+                        <div className="flex justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {brands?.map(brand => (
+                                <Button
+                                    key={brand.id}
+                                    variant={selectedBrand?.id === brand.id ? "default" : "outline"}
+                                    className="h-24 flex flex-col gap-2 p-4"
+                                    onClick={() => setSelectedBrand(brand)}
+                                >
+                                    {brand.logoUrl && <img src={brand.logoUrl} className="h-8 object-contain" alt="" />}
+                                    <span className={brand.logoUrl ? "text-xs" : "text-lg"}>{brand.name}</span>
+                                </Button>
+                            ))}
+                        </div>
+                    )}
                     <div className="flex justify-end mt-8">
                         <Button onClick={() => setStep(2)} disabled={!selectedBrand}>Next</Button>
                     </div>
@@ -138,7 +144,7 @@ export default function PurchaseOrderCreate() {
             {step === 2 && (
                 <div className="space-y-4">
                     <h2 className="text-xl font-semibold">Step 2: Select Vendor</h2>
-                    <p className="text-muted-foreground">Showing vendors for <strong>{selectedBrand}</strong></p>
+                    <p className="text-muted-foreground">Showing vendors for <strong>{selectedBrand?.name}</strong></p>
 
                     <div className="grid gap-4">
                         {filteredVendors?.length === 0 ? (
@@ -190,9 +196,6 @@ export default function PurchaseOrderCreate() {
                             </PopoverTrigger>
                             <PopoverContent className="w-[400px] p-0" align="start">
                                 <Command shouldFilter={false}>
-                                    {/* We handle filtering via API search param, so disable local command filtering or coordinate them.
-                    For simplicity, we let user type in input which triggers 'itemSearch' state change.
-                 */}
                                     <CommandInput placeholder="Search SKU or Name..." onValueChange={setItemSearch} />
                                     <CommandList>
                                         <CommandEmpty>No item found.</CommandEmpty>
@@ -200,7 +203,7 @@ export default function PurchaseOrderCreate() {
                                             {inventory?.data.map((item) => (
                                                 <CommandItem
                                                     key={item.id}
-                                                    value={item.id} // value is used for selection
+                                                    value={item.id}
                                                     onSelect={() => handleAddItem(item)}
                                                 >
                                                     <Check
