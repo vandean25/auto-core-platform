@@ -214,10 +214,17 @@ model Invoice {
   @@map("invoices")
 }
 
+model InvoiceSequence {
+  year    Int    @id
+  current Int    @default(0)
+
+  @@map("invoice_sequences")
+}
+
 model InvoiceItem {
   id              String       @id @default(uuid())
   invoice_id      String
-  invoice         Invoice      @relation(fields: [invoice_id], references: [id])
+  invoice         Invoice      @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
@@ -231,4 +238,5 @@ model InvoiceItem {
   updatedAt       DateTime     @updatedAt
 
   @@map("invoice_items")
+  @@index([catalog_item_id])
 }

@@ -73,93 +73,83 @@ export class SalesService {
       throw new BadRequestException('Only DRAFT invoices can be finalized');
     }
 
-    // 1. Generate Invoice Number
-    const invoiceNumber = await this.generateInvoiceNumber();
+    // Execute everything in a single transaction
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Generate Invoice Number (Atomic)
+      const invoiceNumber = await this.generateInvoiceNumber(tx);
 
-    // 2. Process Inventory Transactions
-    await this.prisma.$transaction(async (tx) => {
+      // 2. Process Inventory Transactions
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          // Check stock
+          // Find stock location (assuming primary location for now)
           const stock = await tx.inventoryStock.findFirst({
             where: { catalog_item_id: item.catalog_item_id },
           });
 
-          if (!stock || stock.quantity_on_hand < Number(item.quantity)) {
-            throw new BadRequestException(
-              `Insufficient stock for item ${item.description}`,
+          if (!stock) {
+             throw new BadRequestException(
+              `No stock record found for item ${item.description}`,
             );
           }
 
           const locationId = stock.location_id;
+          const quantityToDeduct = Number(item.quantity);
 
-          if (locationId) {
-             // Create Sale Issue Transaction
-              await tx.inventoryTransaction.create({
-                data: {
-                  item_id: item.catalog_item_id,
-                  location_id: locationId,
-                  quantity: new Prisma.Decimal(item.quantity).negated(), // Negative for sale
-                  type: TransactionType.SALE_ISSUE,
-                  reference_id: invoiceNumber,
-                  // Cost basis logic would be more complex (FIFO/LIFO), skipping for MVP
-                },
-              });
+          // Atomic Update with Check (Optimistic Locking via WHERE clause)
+          const updateResult = await tx.inventoryStock.updateMany({
+            where: {
+              catalog_item_id: item.catalog_item_id,
+              location_id: locationId,
+              quantity_on_hand: { gte: quantityToDeduct } // Ensure sufficient stock
+            },
+            data: {
+              quantity_on_hand: { decrement: quantityToDeduct }
+            }
+          });
 
-               // Update Stock Quantity
-              await tx.inventoryStock.updateMany({
-                where: {
-                    catalog_item_id: item.catalog_item_id,
-                    location_id: locationId
-                },
-                data: {
-                    quantity_on_hand: {
-                        decrement: Number(item.quantity)
-                    }
-                }
-              })
-           }
+          if (updateResult.count === 0) {
+            throw new BadRequestException(
+              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+            );
+          }
+
+          // Create Sale Issue Transaction
+          await tx.inventoryTransaction.create({
+            data: {
+              item_id: item.catalog_item_id,
+              location_id: locationId,
+              quantity: new Prisma.Decimal(item.quantity).negated(),
+              type: TransactionType.SALE_ISSUE,
+              reference_id: invoiceNumber,
+            },
+          });
         }
       }
 
-      // 3. Update Invoice Status
-      await tx.invoice.update({
+      // 3. Update Invoice Status and return updated invoice
+      return tx.invoice.update({
         where: { id },
         data: {
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
         },
+        include: { items: true, customer: true }
       });
     });
-
-    return this.prisma.invoice.findUnique({ where: { id } });
   }
 
-  private async generateInvoiceNumber(): Promise<string> {
+  private async generateInvoiceNumber(tx: Prisma.TransactionClient): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `RE-${year}-`;
 
-    const lastInvoice = await this.prisma.invoice.findFirst({
-      where: {
-        invoice_number: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        invoice_number: 'desc',
-      },
+    // Upsert the sequence for the current year
+    const sequence = await tx.invoiceSequence.upsert({
+      where: { year },
+      update: { current: { increment: 1 } },
+      create: { year, current: 1 },
     });
 
-    let nextNumber = 1;
-    if (lastInvoice && lastInvoice.invoice_number) {
-      const parts = lastInvoice.invoice_number.split('-');
-      const lastSeq = parseInt(parts[2], 10);
-      if (!isNaN(lastSeq)) {
-        nextNumber = lastSeq + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    return `${prefix}${sequence.current.toString().padStart(4, '0')}`;
   }
 
   async findAll() {
