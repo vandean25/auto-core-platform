@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { PurchaseController } from './purchase.controller';
 import { PurchaseService } from './purchase.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { PurchaseInvoiceService } from './purchase-invoice.service';
+import { PurchaseInvoiceController } from './purchase-invoice.controller';
+import { VendorUnbilledController } from './vendor-unbilled.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
-import { LedgerService } from '../inventory/ledger.service';
 
 @Module({
   imports: [InventoryModule, PrismaModule],
-  controllers: [PurchaseController],
-  providers: [PurchaseService],
+  controllers: [PurchaseController, PurchaseInvoiceController, VendorUnbilledController],
+  providers: [PurchaseService, PurchaseInvoiceService],
 })
 export class PurchaseModule {}

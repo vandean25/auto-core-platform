@@ -102,9 +102,10 @@ model Vendor {
   account_number   String
   supported_brands String[]
 
-  purchase_orders PurchaseOrder[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  purchase_orders  PurchaseOrder[]
+  purchase_invoices PurchaseInvoice[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@map("vendors")
 }
@@ -139,7 +140,10 @@ model PurchaseOrderItem {
   
   quantity          Int
   quantity_received Int     @default(0)
+  quantity_invoiced Decimal @default(0) @db.Decimal(10, 2)
   unit_cost         Decimal @db.Decimal(10, 2)
+  
+  purchase_invoice_lines PurchaseInvoiceLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -239,4 +243,47 @@ model InvoiceItem {
 
   @@map("invoice_items")
   @@index([catalog_item_id])
+}
+
+enum PurchaseInvoiceStatus {
+  DRAFT
+  POSTED
+  PAID
+}
+
+model PurchaseInvoice {
+  id                    String                @id @default(uuid())
+  vendor_id             String
+  vendor                Vendor                @relation(fields: [vendor_id], references: [id])
+  invoice_number        String?               @unique
+  vendor_invoice_number String
+  status                PurchaseInvoiceStatus @default(DRAFT)
+  invoice_date          DateTime
+  due_date              DateTime
+  total_amount          Decimal               @db.Decimal(10, 2)
+  
+  lines                 PurchaseInvoiceLine[]
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@map("purchase_invoices")
+}
+
+model PurchaseInvoiceLine {
+  id                      String             @id @default(uuid())
+  purchase_invoice_id     String
+  purchase_invoice        PurchaseInvoice    @relation(fields: [purchase_invoice_id], references: [id], onDelete: Cascade)
+  purchase_order_item_id  String?
+  purchase_order_item     PurchaseOrderItem? @relation(fields: [purchase_order_item_id], references: [id])
+  
+  description             String
+  quantity                Decimal            @db.Decimal(10, 2)
+  unit_price              Decimal            @db.Decimal(10, 2)
+  line_total              Decimal            @db.Decimal(10, 2)
+
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  @@map("purchase_invoice_lines")
 }
