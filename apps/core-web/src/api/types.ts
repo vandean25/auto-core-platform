@@ -176,3 +176,29 @@ export interface PurchaseInvoiceLine {
     unit_price: string
     line_total: string
 }
+
+export interface RevenueGroup {
+    id: number
+    name: string
+    tax_rate: string
+    account_number: string
+    is_default: boolean
+}
+
+export interface FinanceSettings {
+    id: number
+    fiscal_year_start_month: number
+    lock_date: string | null
+    next_invoice_number: number
+    invoice_prefix: string
+}
+
+export interface RevenueAnalytics {
+    data: {
+        name: string
+        value: number
+        color: string
+    }[]
+    total: number
+    period: string
+}
