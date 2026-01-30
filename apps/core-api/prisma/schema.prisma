@@ -41,13 +41,35 @@ model FinanceSettings {
 }
 
 // ============================================================================
+// Brands (Master Data)
+// ============================================================================
+
+enum BrandType {
+  VEHICLE_MAKE
+  PART_MANUFACTURER
+}
+
+model Brand {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  type      BrandType
+  logoUrl   String?   @map("logo_url")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  vendors      Vendor[]      @relation("VendorBrands")
+  catalogItems CatalogItem[]
+
+  @@map("brands")
+}
+
+// ============================================================================
 // Catalog & Inventory
 // ============================================================================
 
 model CatalogItem {
   id               String                 @id @default(uuid())
   sku              String                 @unique
-  brand            String?
   name             String
   cost_price       Decimal                @db.Decimal(10, 2)
   retail_price     Decimal                @db.Decimal(10, 2)
@@ -58,6 +80,8 @@ model CatalogItem {
   supersedes       CatalogItem[]          @relation("Supersession")
   revenue_group_id Int?
   revenue_group    RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
+  brand_id         Int?                   @map("brand_id")
+  brand            Brand?                 @relation(fields: [brand_id], references: [id])
   stock            InventoryStock?
   transactions     InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
@@ -137,7 +161,7 @@ model Vendor {
   name             String
   email            String
   account_number   String
-  supported_brands String[]
+  supportedBrands  Brand[]  @relation("VendorBrands")
 
   purchase_orders  PurchaseOrder[]
   purchase_invoices PurchaseInvoice[]

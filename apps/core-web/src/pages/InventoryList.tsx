@@ -21,6 +21,7 @@ import type { InventoryItem, InventoryStatus } from '@/api/types'
 import { cn } from '@/lib/utils'
 import { Inbox } from 'lucide-react'
 import StockTimeline from '@/components/inventory/StockTimeline'
+import { AddItemDialog } from '@/components/AddItemDialog'
 
 const StatusDot = ({ status }: { status: InventoryStatus }) => {
     const colors = {
@@ -99,9 +100,12 @@ export default function InventoryList() {
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6">
-            <div className="mb-8">
-                <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
-                <p className="text-slate-500">Manage your automotive parts and stock levels.</p>
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
+                    <p className="text-slate-500">Manage your automotive parts and stock levels.</p>
+                </div>
+                <AddItemDialog />
             </div>
 
             <div className="rounded-md border border-slate-100 bg-white overflow-hidden">

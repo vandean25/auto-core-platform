@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
 
@@ -28,6 +28,7 @@ export class InventoryController {
     @Query('search') search?: string,
     @Query('location') location?: string,
     @Query('brand') brand?: string,
+    @Query('brandId') brandId?: string,
   ) {
     return await this.inventoryService.findAll({
       page: parseInt(page, 10),
@@ -35,6 +36,12 @@ export class InventoryController {
       search,
       location,
       brand,
+      brandId: brandId ? parseInt(brandId, 10) : undefined,
     });
+  }
+
+  @Post()
+  async createItem(@Body() data: any) {
+    return await this.inventoryService.createItem(data);
   }
 }

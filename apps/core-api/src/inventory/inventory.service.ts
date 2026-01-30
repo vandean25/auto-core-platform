@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -15,6 +15,7 @@ export class InventoryService {
       where: { sku },
       include: {
         stock: true,
+        brand: true,
         superseded_by: {
           select: { sku: true },
         },
@@ -44,7 +45,7 @@ export class InventoryService {
     return {
       sku: item.sku,
       name: item.name,
-      brand: item.brand,
+      brand: item.brand?.name || '',
       quantity_on_hand: onHand,
       quantity_reserved: reserved,
       quantity_available: available,
@@ -62,8 +63,9 @@ export class InventoryService {
     search?: string;
     location?: string;
     brand?: string;
+    brandId?: number;
   }) {
-    const { page = 1, limit = 10, search, location, brand } = options;
+    const { page = 1, limit = 10, search, location, brand, brandId } = options;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -72,12 +74,16 @@ export class InventoryService {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
+        { brand: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
     if (brand) {
-      where.brand = { equals: brand, mode: 'insensitive' };
+      where.brand = { name: { equals: brand, mode: 'insensitive' } };
+    }
+
+    if (brandId) {
+      where.brand_id = brandId;
     }
 
     if (location) {
@@ -91,21 +97,11 @@ export class InventoryService {
     const [items, total] = await Promise.all([
       this.prisma.catalogItem.findMany({
         where,
-        select: {
-          id: true,
-          sku: true,
-          name: true,
+        include: {
           brand: true,
-          retail_price: true,
           stock: {
-            select: {
-              quantity_on_hand: true,
-              quantity_reserved: true,
-              location: {
-                select: {
-                  name: true,
-                },
-              },
+            include: {
+              location: true,
             },
           },
           superseded_by: {
@@ -139,7 +135,8 @@ export class InventoryService {
         id: item.id,
         sku: item.sku,
         name: item.name,
-        brand: item.brand || '',
+        brand: item.brand?.name || '',
+        brand_id: item.brand_id,
         price: Number(item.retail_price),
         status,
         quantity_available: available,
@@ -155,5 +152,36 @@ export class InventoryService {
         last_page,
       },
     };
+  }
+
+  async createItem(data: {
+    sku: string;
+    name: string;
+    cost_price: number;
+    retail_price: number;
+    unit?: string;
+    brandId?: number;
+    revenue_group_id?: number;
+  }) {
+    if (data.brandId) {
+      const brand = await this.prisma.brand.findUnique({
+        where: { id: data.brandId },
+      });
+      if (!brand) {
+        throw new BadRequestException(`Brand with ID ${data.brandId} does not exist`);
+      }
+    }
+
+    return this.prisma.catalogItem.create({
+      data: {
+        sku: data.sku,
+        name: data.name,
+        cost_price: data.cost_price,
+        retail_price: data.retail_price,
+        unit: data.unit || 'pcs',
+        brand_id: data.brandId,
+        revenue_group_id: data.revenue_group_id,
+      },
+    });
   }
 }

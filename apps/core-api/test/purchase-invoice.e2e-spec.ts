@@ -71,6 +71,7 @@ describe('PurchaseInvoice (e2e)', () => {
     await prisma.purchaseOrder.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.vendor.deleteMany();
+    await prisma.brand.deleteMany();
     await app.close();
   });
 

@@ -64,6 +64,8 @@ describe('SalesController (e2e)', () => {
     await prisma.invoice.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.catalogItem.deleteMany();
+    await prisma.revenueGroup.deleteMany();
+    await prisma.brand.deleteMany();
     await app.close();
   });
 

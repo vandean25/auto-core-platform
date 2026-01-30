@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryResponse, InventoryTransaction } from './types'
 
 export const inventoryKeys = {
@@ -37,5 +37,30 @@ export function useInventoryHistory(itemId: string) {
             return response.json()
         },
         enabled: !!itemId,
+    })
+}
+
+export function useCreateInventoryItem() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (data: {
+            sku: string
+            name: string
+            cost_price: number
+            retail_price: number
+            brandId?: number
+            revenue_group_id?: number
+        }) => {
+            const response = await fetch('/api/inventory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            if (!response.ok) throw new Error('Failed to create inventory item')
+            return response.json()
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
     })
 }

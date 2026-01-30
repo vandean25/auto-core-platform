@@ -21,10 +21,14 @@ describe('FinanceModule (e2e)', () => {
 
   afterAll(async () => {
     // Cleanup
+    await prisma.inventoryTransaction.deleteMany();
+    await prisma.inventoryStock.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.catalogItem.deleteMany();
+    await prisma.revenueGroup.deleteMany();
+    await prisma.brand.deleteMany();
     await app.close();
   });
 

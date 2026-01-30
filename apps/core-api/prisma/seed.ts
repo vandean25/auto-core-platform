@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
+import { PrismaClient, LocationType, TransactionType, BrandType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -24,6 +24,7 @@ async function cleanDb() {
     await prisma.storageLocation.deleteMany();
     await prisma.revenueGroup.deleteMany();
     await prisma.financeSettings.deleteMany();
+    await prisma.brand.deleteMany();
 }
 
 /**
@@ -121,6 +122,28 @@ async function main() {
 
     const defaultRevenueGroup = revenueGroups[0];
 
+    console.log('Seeding Brands...');
+    const vehicleMakes = ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Skoda', 'Seat', 'Porsche', 'Toyota', 'Ford'];
+    const partManufacturers = ['Bosch', 'Mahle', 'Mann-Filter', 'Castrol', 'NGK', 'Valeo', 'Hella', 'Continental', 'ZF'];
+
+    const vehicleMakeBrands = await Promise.all(
+        vehicleMakes.map(name => 
+            prisma.brand.create({
+                data: { name, type: BrandType.VEHICLE_MAKE }
+            })
+        )
+    );
+
+    const partManufacturerBrands = await Promise.all(
+        partManufacturers.map(name => 
+            prisma.brand.create({
+                data: { name, type: BrandType.PART_MANUFACTURER }
+            })
+        )
+    );
+
+    const allBrands = [...vehicleMakeBrands, ...partManufacturerBrands];
+
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({
         data: {
@@ -146,36 +169,38 @@ async function main() {
     const locations = [showroom, storage, tireHotel];
 
     console.log('Seeding supersession items (Phase 1: Creation)...');
+    const vwBrand = vehicleMakeBrands.find(b => b.name === 'Volkswagen');
+
     const partA = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-403-C',
-            brand: 'VW',
             name: 'Oil Filter (Legacy)',
             cost_price: 8.50,
             retail_price: 15.00,
             revenue_group_id: defaultRevenueGroup.id,
+            brand_id: vwBrand?.id,
         },
     });
 
     const partB = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-403-Q',
-            brand: 'VW',
             name: 'Oil Filter (Improved)',
             cost_price: 9.00,
             retail_price: 16.50,
             revenue_group_id: defaultRevenueGroup.id,
+            brand_id: vwBrand?.id,
         },
     });
 
     const partC = await prisma.catalogItem.create({
         data: {
             sku: '06J-115-561-B',
-            brand: 'VW',
             name: 'Oil Filter (Current)',
             cost_price: 10.20,
             retail_price: 18.00,
             revenue_group_id: defaultRevenueGroup.id,
+            brand_id: vwBrand?.id,
         },
     });
 
@@ -191,7 +216,6 @@ async function main() {
     });
 
     console.log('Seeding 47 more auto parts...');
-    const brands = ['VW', 'Audi', 'BMW', 'Mercedes-Benz', 'Ford', 'Toyota', 'Honda', 'Porsche', 'Opel', 'Skoda', 'Castrol', 'Bosch'];
     const categories = [
         { name: 'Oil Filter', prefix: 'OF' },
         { name: 'Brake Pads', prefix: 'BP' },
@@ -203,18 +227,18 @@ async function main() {
 
     const otherParts: any[] = [];
     for (let i = 1; i <= 47; i++) {
-        const brand = brands[Math.floor(Math.random() * brands.length)];
+        const brand = allBrands[Math.floor(Math.random() * allBrands.length)];
         const category = categories[Math.floor(Math.random() * categories.length)];
-        const sku = `${category.prefix}-${1000 + i}-${brand.substring(0, 3).toUpperCase()}`;
+        const sku = `${category.prefix}-${1000 + i}-${brand.name.substring(0, 3).toUpperCase()}`;
 
         const part = await prisma.catalogItem.create({
             data: {
                 sku,
-                brand,
-                name: `${category.name} - ${brand} model ${i}`,
+                name: `${category.name} - ${brand.name} model ${i}`,
                 cost_price: Math.random() * 50 + 10,
                 retail_price: Math.random() * 100 + 60,
                 revenue_group_id: defaultRevenueGroup.id,
+                brand_id: brand.id,
             },
         });
         otherParts.push(part);
@@ -251,6 +275,7 @@ async function main() {
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
+    console.log('✓ Brands created and linked to items');
 }
 
 main()

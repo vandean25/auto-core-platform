@@ -4,6 +4,7 @@ import { Loader2, Save, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
 import { useFinanceSettings, useUpdateFinanceSettings, useRevenueGroups } from "@/api/useFinance"
+import { useBrands } from "@/api/brands"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,10 +21,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { RevenueGroupTable } from "@/components/RevenueGroupTable"
 import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
+import { BrandTable } from "@/components/BrandTable"
+import { AddBrandDialog } from "@/components/AddBrandDialog"
+import type { Brand } from "@/api/types"
 
 export default function FinanceSettingsPage() {
     const { data: settings, isLoading } = useFinanceSettings()
     const { data: groups, isLoading: isLoadingGroups } = useRevenueGroups()
+    const { data: brands, isLoading: isLoadingBrands } = useBrands()
     const updateMutation = useUpdateFinanceSettings()
 
     const [formState, setFormState] = React.useState({
@@ -32,6 +37,7 @@ export default function FinanceSettingsPage() {
         next_invoice_number: 0
     })
     const [isAlertOpen, setIsAlertOpen] = React.useState(false)
+    const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
 
     React.useEffect(() => {
         if (settings) {
@@ -82,9 +88,10 @@ export default function FinanceSettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                <TabsList className="grid w-full grid-cols-3 max-w-[600px]">
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
+                    <TabsTrigger value="brands">Brands</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-6">
@@ -158,6 +165,27 @@ export default function FinanceSettingsPage() {
                             </div>
                         ) : (
                             <RevenueGroupTable groups={groups || []} />
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="brands" className="space-y-6">
+                    <div className="p-6 bg-white border rounded-lg shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-lg font-medium">Brands</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Centralized vehicle makes and part manufacturers.
+                                </p>
+                            </div>
+                            <AddBrandDialog brand={editingBrand} onClose={() => setEditingBrand(null)} />
+                        </div>
+                        {isLoadingBrands ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <BrandTable brands={brands || []} onEdit={setEditingBrand} />
                         )}
                     </div>
                 </TabsContent>

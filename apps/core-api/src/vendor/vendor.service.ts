@@ -10,20 +10,30 @@ export class VendorService {
     name: string;
     email: string;
     accountNumber: string;
-    supportedBrands: string[];
+    brandIds?: number[];
   }): Promise<Vendor> {
     return this.prisma.vendor.create({
       data: {
         name: data.name,
         email: data.email,
         account_number: data.accountNumber,
-        supported_brands: data.supportedBrands,
+        supportedBrands: data.brandIds
+          ? {
+              connect: data.brandIds.map((id) => ({ id })),
+            }
+          : undefined,
+      },
+      include: {
+        supportedBrands: true,
       },
     });
   }
 
   async findAll(): Promise<Vendor[]> {
     return this.prisma.vendor.findMany({
+      include: {
+        supportedBrands: true,
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -31,6 +41,9 @@ export class VendorService {
   async findOne(id: string): Promise<Vendor | null> {
     return this.prisma.vendor.findUnique({
       where: { id },
+      include: {
+        supportedBrands: true,
+      },
     });
   }
 
@@ -40,7 +53,7 @@ export class VendorService {
       name?: string;
       email?: string;
       accountNumber?: string;
-      supportedBrands?: string[];
+      brandIds?: number[];
     },
   ): Promise<Vendor> {
     return this.prisma.vendor.update({
@@ -49,7 +62,14 @@ export class VendorService {
         name: data.name,
         email: data.email,
         account_number: data.accountNumber,
-        supported_brands: data.supportedBrands,
+        supportedBrands: data.brandIds
+          ? {
+              set: data.brandIds.map((id) => ({ id })),
+            }
+          : undefined,
+      },
+      include: {
+        supportedBrands: true,
       },
     });
   }

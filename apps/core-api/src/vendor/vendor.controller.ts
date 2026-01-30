@@ -12,7 +12,7 @@ export class VendorController {
       name: string;
       email: string;
       accountNumber: string;
-      supportedBrands: string[];
+      brandIds: number[];
     },
   ) {
     return this.vendorService.create(body);
@@ -36,7 +36,7 @@ export class VendorController {
       name?: string;
       email?: string;
       accountNumber?: string;
-      supportedBrands?: string[];
+      brandIds?: number[];
     },
   ) {
     return this.vendorService.update(id, body);

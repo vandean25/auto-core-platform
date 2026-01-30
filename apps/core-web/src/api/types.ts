@@ -13,6 +13,7 @@ export interface InventoryItem {
     sku: string
     name: string
     brand: string
+    brand_id?: number
     price: number
     status: InventoryStatus
     quantity_available: number
@@ -51,7 +52,7 @@ export interface Vendor {
     name: string
     email: string
     account_number: string
-    supported_brands: string[]
+    supportedBrands: Brand[]
 }
 
 export type PurchaseOrderStatus = 'DRAFT' | 'SENT' | 'PARTIAL' | 'COMPLETED'
@@ -175,6 +176,17 @@ export interface PurchaseInvoiceLine {
     quantity: string
     unit_price: string
     line_total: string
+}
+
+export type BrandType = 'VEHICLE_MAKE' | 'PART_MANUFACTURER'
+
+export interface Brand {
+    id: number
+    name: string
+    type: BrandType
+    logoUrl?: string
+    createdAt: string
+    updatedAt: string
 }
 
 export interface RevenueGroup {
