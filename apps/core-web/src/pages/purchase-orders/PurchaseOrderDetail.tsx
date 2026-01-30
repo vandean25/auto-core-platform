@@ -19,7 +19,9 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog'
+import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { getPOStatusVariant } from '@/lib/utils'
 
 interface PurchaseOrderItem {
     id: string
@@ -60,10 +62,7 @@ export default function PurchaseOrderDetail() {
                     <p className="text-muted-foreground">Vendor: {po.vendor?.name}</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                    <Badge className="text-lg px-4 py-1" variant={
-                        po.status === 'COMPLETED' ? 'default' :
-                            po.status === 'PARTIAL' ? 'secondary' : 'outline'
-                    }>
+                    <Badge className="text-lg px-4 py-1" variant={getPOStatusVariant(po.status)}>
                         {po.status}
                     </Badge>
                     {po.status !== 'COMPLETED' && (

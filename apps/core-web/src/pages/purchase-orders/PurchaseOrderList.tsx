@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useState } from 'react'
+import { getPOStatusVariant } from '@/lib/utils'
 
 export default function PurchaseOrderList() {
     const [viewMode, setViewMode] = useState('open')
@@ -74,10 +75,7 @@ export default function PurchaseOrderList() {
                                         </TableCell>
                                         <TableCell>{po.vendor?.name}</TableCell>
                                         <TableCell>
-                                            <Badge variant={
-                                                po.status === 'COMPLETED' ? 'default' :
-                                                    po.status === 'PARTIAL' ? 'secondary' : 'outline'
-                                            }>
+                                            <Badge variant={getPOStatusVariant(po.status)}>
                                                 {po.status}
                                             </Badge>
                                         </TableCell>
