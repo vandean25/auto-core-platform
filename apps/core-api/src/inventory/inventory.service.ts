@@ -61,8 +61,9 @@ export class InventoryService {
         limit: number;
         search?: string;
         location?: string;
+        brand?: string;
     }) {
-        const { page = 1, limit = 10, search, location } = options;
+        const { page = 1, limit = 10, search, location, brand } = options;
         const skip = (page - 1) * limit;
 
         const where: any = {};
@@ -73,6 +74,10 @@ export class InventoryService {
                 { sku: { contains: search, mode: 'insensitive' } },
                 { brand: { contains: search, mode: 'insensitive' } },
             ];
+        }
+
+        if (brand) {
+            where.brand = { equals: brand, mode: 'insensitive' };
         }
 
         if (location) {
@@ -86,10 +91,21 @@ export class InventoryService {
         const [items, total] = await Promise.all([
             this.prisma.catalogItem.findMany({
                 where,
-                include: {
+                select: {
+                    id: true,
+                    sku: true,
+                    name: true,
+                    brand: true,
+                    retail_price: true,
                     stock: {
-                        include: {
-                            location: true,
+                        select: {
+                            quantity_on_hand: true,
+                            quantity_reserved: true,
+                            location: {
+                                select: {
+                                    name: true,
+                                },
+                            },
                         },
                     },
                     superseded_by: {

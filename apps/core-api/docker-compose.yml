@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: auto-core-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: core_platform
+      # Using template1 in .env was weird, creating a proper DB 'core_platform'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:

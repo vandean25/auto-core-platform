@@ -14,11 +14,13 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { useInventory } from '@/api/inventory'
 import type { InventoryItem, InventoryStatus } from '@/api/types'
 import { cn } from '@/lib/utils'
 import { Inbox } from 'lucide-react'
+import StockTimeline from '@/components/inventory/StockTimeline'
 
 const StatusDot = ({ status }: { status: InventoryStatus }) => {
     const colors = {
@@ -156,62 +158,73 @@ export default function InventoryList() {
                     </SheetHeader>
 
                     {selectedItem && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">SKU</p>
-                                    <p className="font-semibold">{selectedItem.sku}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">Brand</p>
-                                    <p className="font-semibold">{selectedItem.brand}</p>
-                                </div>
-                            </div>
+                        <Tabs defaultValue="overview" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="overview">Overview</TabsTrigger>
+                                <TabsTrigger value="history">History</TabsTrigger>
+                            </TabsList>
 
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-slate-500 uppercase">Name</p>
-                                <p>{selectedItem.name}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">Price</p>
-                                    <p className="text-lg font-bold">
-                                        {new Intl.NumberFormat('de-DE', {
-                                            style: 'currency',
-                                            currency: 'EUR',
-                                        }).format(selectedItem.price)}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">Availability</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <StatusDot status={selectedItem.status} />
-                                        <span className="text-sm font-medium">
-                                            ({selectedItem.quantity_available} units)
-                                        </span>
+                            <TabsContent value="overview" className="space-y-6 mt-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">SKU</p>
+                                        <p className="font-semibold">{selectedItem.sku}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">Brand</p>
+                                        <p className="font-semibold">{selectedItem.brand}</p>
                                     </div>
                                 </div>
-                            </div>
 
-                            {selectedItem.category && (
                                 <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">Category</p>
-                                    <Badge variant="secondary" className="mt-1">
-                                        {selectedItem.category}
-                                    </Badge>
+                                    <p className="text-xs font-medium text-slate-500 uppercase">Name</p>
+                                    <p>{selectedItem.name}</p>
                                 </div>
-                            )}
 
-                            {selectedItem.warehouse_location && (
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-slate-500 uppercase">Location</p>
-                                    <p className="text-sm text-slate-600 font-medium">
-                                        {selectedItem.warehouse_location}
-                                    </p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">Price</p>
+                                        <p className="text-lg font-bold">
+                                            {new Intl.NumberFormat('de-DE', {
+                                                style: 'currency',
+                                                currency: 'EUR',
+                                            }).format(selectedItem.price)}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">Availability</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <StatusDot status={selectedItem.status} />
+                                            <span className="text-sm font-medium">
+                                                ({selectedItem.quantity_available} units)
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
+
+                                {selectedItem.category && (
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">Category</p>
+                                        <Badge variant="secondary" className="mt-1">
+                                            {selectedItem.category}
+                                        </Badge>
+                                    </div>
+                                )}
+
+                                {selectedItem.warehouse_location && (
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium text-slate-500 uppercase">Location</p>
+                                        <p className="text-sm text-slate-600 font-medium">
+                                            {selectedItem.warehouse_location}
+                                        </p>
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="history" className="mt-6">
+                                <StockTimeline itemId={selectedItem.id} />
+                            </TabsContent>
+                        </Tabs>
                     )}
                 </SheetContent>
             </Sheet>
