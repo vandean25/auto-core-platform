@@ -3,20 +3,18 @@ import type { PurchaseOrder } from './types'
 
 const PO_API = '/api/purchase-orders'
 
-export function usePurchaseOrders() {
+export function usePurchaseOrders(filter?: string) {
     return useQuery({
-        queryKey: ['purchase-orders'],
+        queryKey: ['purchase-orders', filter],
         queryFn: async () => {
-            const res = await fetch(PO_API)
+            const params = new URLSearchParams()
+            if (filter) params.append('status', filter)
+            
+            const res = await fetch(`${PO_API}?${params.toString()}`)
             if (!res.ok) throw new Error('Failed to fetch purchase orders')
-            // The API currently returns array or { data, meta }? Controller returns existing service result which is usually just the object or array.
-            // Vendor service findAll returns array. PO service create returns object.
-            // Assuming we will add a findAll endpoint to PO controller properly later, but for now let's assume strictly what we agreed.
-            // Wait, I missed adding a specific "List POs" endpoint in the plan! The plan said "PurchaseOrderList.tsx: List of POs".
-            // I need to add @Get() to PurchaseController. 
-            // For now I'll stub this hook but I must fix backend.
-            return res.json() as Promise<PurchaseOrder[]> // Assumption
+            return res.json() as Promise<PurchaseOrder[]>
         },
+        placeholderData: (previousData) => previousData, 
     })
 }
 

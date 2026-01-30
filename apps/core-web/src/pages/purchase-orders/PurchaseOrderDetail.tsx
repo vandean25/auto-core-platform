@@ -20,7 +20,28 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+
+interface PurchaseOrderItem {
+    id: string
+    catalog_item_id: string
+    quantity: number
+    quantity_received: number
+    unit_cost: number
+    catalog_item?: {
+        sku: string
+        name: string
+    }
+}
+
+interface PurchaseOrder {
+    id: string
+    order_number: string
+    status: string
+    vendor?: {
+        name: string
+    }
+    items: PurchaseOrderItem[]
+}
 
 export default function PurchaseOrderDetail() {
     const { id } = useParams<{ id: string }>()
@@ -66,7 +87,7 @@ export default function PurchaseOrderDetail() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {po.items.map(item => (
+                        {po.items.map((item: PurchaseOrderItem) => (
                             <TableRow key={item.id}>
                                 <TableCell>{item.catalog_item?.sku || 'N/A'}</TableCell>
                                 <TableCell>{item.catalog_item?.name || 'Unknown Item'}</TableCell>
@@ -93,7 +114,7 @@ export default function PurchaseOrderDetail() {
     )
 }
 
-function ReceiveGoodsDialog({ open, onOpenChange, po }: { open: boolean; onOpenChange: (o: boolean) => void; po: any }) {
+function ReceiveGoodsDialog({ open, onOpenChange, po }: { open: boolean; onOpenChange: (o: boolean) => void; po: PurchaseOrder }) {
     const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({})
     const receiveGoods = useReceiveGoods()
 
@@ -103,7 +124,7 @@ function ReceiveGoodsDialog({ open, onOpenChange, po }: { open: boolean; onOpenC
 
     const handleSubmit = () => {
         const itemsToReceive = Object.entries(receiveQuantities)
-            .filter(([_, qty]) => qty > 0)
+            .filter(([, qty]) => qty > 0)
             .map(([itemId, quantity]) => ({ itemId, quantity }))
 
         if (itemsToReceive.length === 0) return
@@ -138,7 +159,7 @@ function ReceiveGoodsDialog({ open, onOpenChange, po }: { open: boolean; onOpenC
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {po.items.map((item: any) => {
+                            {po.items.map((item: PurchaseOrderItem) => {
                                 const remaining = item.quantity - item.quantity_received
                                 if (remaining <= 0) return null
 

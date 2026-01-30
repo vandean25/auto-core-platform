@@ -110,8 +110,12 @@ describe('InventoryService', () => {
           name: 'Item 1',
           brand: 'Brand 1',
           retail_price: 100,
-          stock: { quantity_on_hand: 10, quantity_reserved: 2, location: { name: 'Loc 1' } },
-          superseded_by: null
+          stock: {
+            quantity_on_hand: 10,
+            quantity_reserved: 2,
+            location: { name: 'Loc 1' },
+          },
+          superseded_by: null,
         },
         {
           id: '2',
@@ -120,8 +124,8 @@ describe('InventoryService', () => {
           brand: 'Brand 2',
           retail_price: 200,
           stock: null,
-          superseded_by: { id: '3' }
-        }
+          superseded_by: { id: '3' },
+        },
       ];
       (prisma.catalogItem.findMany as jest.Mock).mockResolvedValue(mockItems);
       (prisma.catalogItem.count as jest.Mock).mockResolvedValue(2);
@@ -149,7 +153,7 @@ describe('InventoryService', () => {
             status: 'SUPERSEDED',
             quantity_available: 0,
             warehouse_location: undefined,
-          }
+          },
         ],
         meta: {
           total: 2,
@@ -195,9 +199,9 @@ describe('InventoryService', () => {
           select: expect.objectContaining({
             stock: expect.objectContaining({
               select: expect.objectContaining({
-                location: expect.any(Object)
-              })
-            })
+                location: expect.any(Object),
+              }),
+            }),
           }),
         }),
       );

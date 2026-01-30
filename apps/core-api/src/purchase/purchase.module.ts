@@ -7,8 +7,8 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { LedgerService } from '../inventory/ledger.service';
 
 @Module({
-    imports: [InventoryModule, PrismaModule],
-    controllers: [PurchaseController],
-    providers: [PurchaseService],
+  imports: [InventoryModule, PrismaModule],
+  controllers: [PurchaseController],
+  providers: [PurchaseService],
 })
-export class PurchaseModule { }
+export class PurchaseModule {}

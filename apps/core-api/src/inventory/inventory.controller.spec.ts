@@ -17,7 +17,10 @@ describe('InventoryController', () => {
       controllers: [InventoryController],
       providers: [
         { provide: InventoryService, useValue: mockInventoryService },
-        { provide: LedgerService, useValue: { getTransactionHistory: jest.fn() } },
+        {
+          provide: LedgerService,
+          useValue: { getTransactionHistory: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -31,7 +34,10 @@ describe('InventoryController', () => {
 
   describe('findAll', () => {
     it('should call inventoryService.findAll with parsed params', async () => {
-      const mockResult = { data: [], meta: { total: 0, page: 1, last_page: 0 } };
+      const mockResult = {
+        data: [],
+        meta: { total: 0, page: 1, last_page: 0 },
+      };
       mockInventoryService.findAll.mockResolvedValue(mockResult);
 
       const result = await controller.findAll('2', '20', 'test', 'location');
