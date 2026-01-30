@@ -124,3 +124,55 @@ export interface Invoice {
     internal_notes?: string
     items: InvoiceItem[]
 }
+
+export interface UnbilledReceiptItem {
+    purchaseOrderItemId: string
+    purchaseOrderId: string
+    purchaseOrderNumber: string
+    catalogItemId: string
+    catalogItemName: string
+    quantityReceived: number
+    quantityInvoiced: number
+    quantityPending: number
+    lastUnitCost: number
+}
+
+export interface CreatePurchaseInvoiceDto {
+    vendorId: string
+    vendorInvoiceNumber: string
+    invoiceDate: string
+    dueDate: string
+    items: PurchaseInvoiceLineDto[]
+}
+
+export interface PurchaseInvoiceLineDto {
+    purchaseOrderItemId?: string
+    description: string
+    quantity: number
+    unitPrice: number
+}
+
+export type PurchaseInvoiceStatus = 'DRAFT' | 'POSTED' | 'PAID'
+
+export interface PurchaseInvoice {
+    id: string
+    vendor_id: string
+    vendor: Vendor
+    vendor_invoice_number: string
+    status: PurchaseInvoiceStatus
+    invoice_date: string
+    due_date: string
+    total_amount: string
+    lines: PurchaseInvoiceLine[]
+    createdAt: string
+}
+
+export interface PurchaseInvoiceLine {
+    id: string
+    purchase_invoice_id: string
+    purchase_order_item_id?: string
+    description: string
+    quantity: string
+    unit_price: string
+    line_total: string
+}

@@ -5,6 +5,7 @@ import PurchaseOrderList from './pages/purchase-orders/PurchaseOrderList'
 import PurchaseOrderCreate from './pages/purchase-orders/PurchaseOrderCreate'
 import PurchaseOrderDetail from './pages/purchase-orders/PurchaseOrderDetail'
 import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
+import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
 import { GlobalSearch } from './components/GlobalSearch'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -19,6 +20,7 @@ function App() {
               <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Inventory</Link>
               <Link to="/vendors" className="text-sm font-medium hover:text-primary transition-colors">Vendors</Link>
               <Link to="/purchase-orders" className="text-sm font-medium hover:text-primary transition-colors">Purchase Orders</Link>
+              <Link to="/purchase-invoices/new" className="text-sm font-medium hover:text-primary transition-colors">New Bill</Link>
               <Link to="/sales/invoices/new" className="text-sm font-medium hover:text-primary transition-colors">New Invoice</Link>
             </nav>
           </div>
@@ -34,6 +36,7 @@ function App() {
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
             <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
+            <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
           </Routes>
           <Toaster />
         </main>
