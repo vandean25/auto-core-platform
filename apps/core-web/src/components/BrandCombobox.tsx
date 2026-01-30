@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useBrands } from "@/api/brands"
+import { Loader2 } from "lucide-react"
 
 interface BrandComboboxProps {
     value?: number
@@ -26,7 +27,7 @@ interface BrandComboboxProps {
 
 export function BrandCombobox({ value, onChange, placeholder = "Select brand..." }: BrandComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const { data: brands } = useBrands()
+  const { data: brands, isLoading } = useBrands()
 
   const selectedBrand = brands?.find(b => b.id === value)
 
@@ -42,8 +43,16 @@ export function BrandCombobox({ value, onChange, placeholder = "Select brand..."
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between"
+            disabled={isLoading}
           >
-            {selectedBrand ? selectedBrand.name : placeholder}
+            {isLoading ? (
+                <div className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Loading...</span>
+                </div>
+            ) : (
+                selectedBrand ? selectedBrand.name : placeholder
+            )}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

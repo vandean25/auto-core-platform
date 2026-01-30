@@ -55,12 +55,24 @@ export class BrandService {
   }
 
   async remove(id: number) {
-    // Check usage
-    const usage = await this.prisma.catalogItem.count({
+    // Check usage in CatalogItems
+    const catalogUsage = await this.prisma.catalogItem.count({
       where: { brand_id: id },
     });
-    if (usage > 0) {
-      throw new ConflictException(`Cannot delete brand with ${usage} catalog items linked`);
+    if (catalogUsage > 0) {
+      throw new ConflictException(`Cannot delete brand with ${catalogUsage} catalog items linked`);
+    }
+
+    // Check usage in Vendors
+    const vendorUsage = await this.prisma.vendor.count({
+      where: {
+        supportedBrands: {
+          some: { id }
+        }
+      }
+    });
+    if (vendorUsage > 0) {
+      throw new ConflictException(`Cannot delete brand with ${vendorUsage} vendors linked`);
     }
 
     try {

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUrl, ValidateIf } from 'class-validator';
 import { BrandType } from '@prisma/client';
 
 export class CreateBrandDto {
@@ -11,7 +11,7 @@ export class CreateBrandDto {
   type: BrandType;
 
   @IsOptional()
-  @IsString()
+  @ValidateIf((o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined)
   @IsUrl()
   logoUrl?: string;
 }
@@ -26,7 +26,7 @@ export class UpdateBrandDto {
   type?: BrandType;
 
   @IsOptional()
-  @IsString()
+  @ValidateIf((o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined)
   @IsUrl()
   logoUrl?: string;
 }
