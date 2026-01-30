@@ -59,4 +59,51 @@ export class FinanceService {
       },
     });
   }
+
+  async getRevenueAnalytics() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const items = await this.prisma.invoiceItem.findMany({
+      where: {
+        invoice: {
+          status: { in: ['FINALIZED', 'PAID'] },
+          date: { gte: startOfMonth },
+        },
+      },
+      select: {
+        revenue_group_name: true,
+        quantity: true,
+        unit_price: true,
+      },
+    });
+
+    const revenueByGroup: Record<string, number> = {};
+    let total = 0;
+
+    items.forEach((item) => {
+      const group = item.revenue_group_name || 'Other';
+      const value = Number(item.quantity) * Number(item.unit_price);
+      revenueByGroup[group] = (revenueByGroup[group] || 0) + value;
+      total += value;
+    });
+
+    const data = Object.entries(revenueByGroup).map(([name, value]) => ({
+      name,
+      value,
+      color: this.getGroupColor(name),
+    }));
+
+    return {
+      data,
+      total,
+      period: now.toISOString().substring(0, 7), // YYYY-MM
+    };
+  }
+
+  private getGroupColor(name: string) {
+    if (name.includes('Parts')) return '#3b82f6'; // Blue
+    if (name.includes('Labor') || name.includes('Services')) return '#22c55e'; // Green
+    return '#94a3b8'; // Slate
+  }
 }

@@ -26,4 +26,9 @@ export class FinanceController {
   createRevenueGroup(@Body() data: CreateRevenueGroupDto) {
     return this.financeService.createRevenueGroup(data);
   }
+
+  @Get('analytics/revenue-by-group')
+  getRevenueAnalytics() {
+    return this.financeService.getRevenueAnalytics();
+  }
 }
