@@ -12,4 +12,4 @@ import { VendorModule } from './vendor/vendor.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

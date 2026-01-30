@@ -8,13 +8,6 @@ import { toast } from "sonner"
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
-import {
     Table,
     TableBody,
     TableCell,
@@ -35,6 +28,15 @@ interface POItem {
     sku: string
     quantity: number
     unitCost: number
+}
+
+interface InventoryItem {
+    id: string
+    name: string
+    sku: string
+    price: number
+    quantity_available: number
+    brand: string
 }
 
 export default function PurchaseOrderCreate() {
@@ -60,7 +62,7 @@ export default function PurchaseOrderCreate() {
         selectedBrand ? v.supported_brands.includes(selectedBrand) : true
     )
 
-    const handleAddItem = (item: any) => {
+    const handleAddItem = (item: InventoryItem) => {
         if (items.find(i => i.catalogItemId === item.id)) return
         setItems([...items, {
             catalogItemId: item.id,

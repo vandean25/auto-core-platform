@@ -8,4 +8,4 @@ import { LedgerService } from './ledger.service';
   controllers: [InventoryController],
   exports: [LedgerService],
 })
-export class InventoryModule { }
+export class InventoryModule {}

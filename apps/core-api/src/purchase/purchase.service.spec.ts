@@ -6,126 +6,195 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 
 describe('PurchaseService', () => {
-    let service: PurchaseService;
-    let prisma: PrismaService;
-    let ledger: LedgerService;
+  let service: PurchaseService;
 
-    const mockPrismaService = {
-        vendor: {
-            create: jest.fn(),
-            findUnique: jest.fn(),
-        },
-        purchaseOrder: {
-            create: jest.fn(),
-            findUnique: jest.fn(),
-            update: jest.fn(),
-        },
-        purchaseOrderItem: {
-            update: jest.fn(),
-        },
-        catalogItem: {
-            findMany: jest.fn(),
-        },
-        storageLocation: {
-            findFirst: jest.fn(),
-        },
-    };
+  const mockPrismaService = {
+    $transaction: jest
+      .fn()
+      .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
+    vendor: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    purchaseOrder: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn(),
+    },
+    purchaseOrderItem: {
+      update: jest.fn(),
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ id: 'poi1', quantity: 10, quantity_received: 0 }),
+    },
+    catalogItem: {
+      findMany: jest.fn(),
+    },
+    storageLocation: {
+      findFirst: jest.fn(),
+    },
+  };
 
-    const mockLedgerService = {
-        recordTransaction: jest.fn(),
-    };
+  const mockLedgerService = {
+    recordTransaction: jest.fn(),
+  };
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                PurchaseService,
-                { provide: PrismaService, useValue: mockPrismaService },
-                { provide: LedgerService, useValue: mockLedgerService },
-            ],
-        }).compile();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PurchaseService,
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: LedgerService, useValue: mockLedgerService },
+      ],
+    }).compile();
 
-        service = module.get<PurchaseService>(PurchaseService);
-        prisma = module.get<PrismaService>(PrismaService);
-        ledger = module.get<LedgerService>(LedgerService);
+    service = module.get<PurchaseService>(PurchaseService);
 
-        jest.clearAllMocks();
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('createPurchaseOrder', () => {
+    it('should throw if vendor not found', async () => {
+      mockPrismaService.vendor.findUnique.mockResolvedValue(null);
+      await expect(service.createPurchaseOrder('v1', [])).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
-    it('should be defined', () => {
-        expect(service).toBeDefined();
+    it('should throw if brand not supported', async () => {
+      mockPrismaService.vendor.findUnique.mockResolvedValue({
+        id: 'v1',
+        name: 'VW Vendor',
+        supported_brands: ['VW'],
+      });
+      mockPrismaService.catalogItem.findMany.mockResolvedValue([
+        { id: 'item1', brand: 'BMW' },
+      ]);
+
+      await expect(
+        service.createPurchaseOrder('v1', [
+          { catalogItemId: 'item1', quantity: 1, unitCost: 10 },
+        ]),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    describe('createPurchaseOrder', () => {
-        it('should throw if vendor not found', async () => {
-            mockPrismaService.vendor.findUnique.mockResolvedValue(null);
-            await expect(service.createPurchaseOrder('v1', [])).rejects.toThrow(NotFoundException);
-        });
+    it('should create PO if brand supported', async () => {
+      mockPrismaService.vendor.findUnique.mockResolvedValue({
+        id: 'v1',
+        name: 'VW Vendor',
+        supported_brands: ['VW'],
+      });
+      mockPrismaService.catalogItem.findMany.mockResolvedValue([
+        { id: 'item1', brand: 'VW' },
+      ]);
+      mockPrismaService.purchaseOrder.create.mockResolvedValue({
+        id: 'po1',
+        order_number: 'PO-2024-001',
+        status: PurchaseOrderStatus.DRAFT,
+      });
 
-        it('should throw if brand not supported', async () => {
-            mockPrismaService.vendor.findUnique.mockResolvedValue({
-                id: 'v1',
-                name: 'VW Vendor',
-                supported_brands: ['VW'],
-            });
-            mockPrismaService.catalogItem.findMany.mockResolvedValue([
-                { id: 'item1', brand: 'BMW' },
-            ]);
+      const result = await service.createPurchaseOrder('v1', [
+        { catalogItemId: 'item1', quantity: 1, unitCost: 10 },
+      ]);
+      expect(result.id).toBe('po1');
+      expect(mockPrismaService.purchaseOrder.create).toHaveBeenCalled();
+    });
+  });
 
-            await expect(
-                service.createPurchaseOrder('v1', [{ catalogItemId: 'item1', quantity: 1, unitCost: 10 }])
-            ).rejects.toThrow(BadRequestException);
-        });
+  describe('receiveItems', () => {
+    it('should receive items and record ledger transaction', async () => {
+      const mockPO = {
+        id: 'order1',
+        order_number: 'PO-1',
+        status: PurchaseOrderStatus.SENT,
+        items: [
+          {
+            id: 'poi1',
+            catalog_item_id: 'item1',
+            quantity: 10,
+            quantity_received: 0,
+            unit_cost: 50,
+          },
+        ],
+      };
 
-        it('should create PO if brand supported', async () => {
-            mockPrismaService.vendor.findUnique.mockResolvedValue({
-                id: 'v1',
-                name: 'VW Vendor',
-                supported_brands: ['VW'],
-            });
-            mockPrismaService.catalogItem.findMany.mockResolvedValue([
-                { id: 'item1', brand: 'VW' },
-            ]);
-            mockPrismaService.purchaseOrder.create.mockResolvedValue({
-                id: 'po1',
-                order_number: 'PO-2024-001',
-                status: PurchaseOrderStatus.DRAFT,
-            });
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue(mockPO);
+      mockPrismaService.storageLocation.findFirst.mockResolvedValue({
+        id: 'loc1',
+        type: 'warehouse',
+      });
+      mockPrismaService.purchaseOrderItem.update.mockResolvedValue({});
+      mockPrismaService.purchaseOrder.update.mockResolvedValue({});
 
-            const result = await service.createPurchaseOrder('v1', [{ catalogItemId: 'item1', quantity: 1, unitCost: 10 }]);
-            expect(result.id).toBe('po1');
-            expect(mockPrismaService.purchaseOrder.create).toHaveBeenCalled();
-        });
+      await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
+
+      expect(mockPrismaService.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: 'poi1' },
+        data: { quantity_received: { increment: 5 } },
+      });
+
+      expect(mockLedgerService.recordTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: 'item1',
+          quantity: 5,
+          type: TransactionType.PURCHASE_RECEIPT,
+          costBasis: 50,
+        }),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('findAll', () => {
+    it('should filter by open status by default', async () => {
+      mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
+      await service.findAll();
+      expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: {
+              in: [
+                PurchaseOrderStatus.DRAFT,
+                PurchaseOrderStatus.SENT,
+                PurchaseOrderStatus.PARTIAL,
+              ],
+            },
+          },
+        }),
+      );
     });
 
-    describe('receiveItems', () => {
-        it('should receive items and record ledger transaction', async () => {
-            const mockPO = {
-                id: 'order1',
-                order_number: 'PO-1',
-                status: PurchaseOrderStatus.SENT,
-                items: [
-                    { id: 'poi1', catalog_item_id: 'item1', quantity: 10, quantity_received: 0, unit_cost: 50 },
-                ],
-            };
-
-            mockPrismaService.purchaseOrder.findUnique.mockResolvedValue(mockPO);
-            mockPrismaService.storageLocation.findFirst.mockResolvedValue({ id: 'loc1', type: 'warehouse' });
-            mockPrismaService.purchaseOrderItem.update.mockResolvedValue({});
-            mockPrismaService.purchaseOrder.update.mockResolvedValue({});
-
-            await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
-
-            expect(mockPrismaService.purchaseOrderItem.update).toHaveBeenCalledWith({
-                where: { id: 'poi1' },
-                data: { quantity_received: { increment: 5 } },
-            });
-
-            expect(mockLedgerService.recordTransaction).toHaveBeenCalledWith(expect.objectContaining({
-                itemId: 'item1',
-                quantity: 5,
-                type: TransactionType.PURCHASE_RECEIPT,
-                costBasis: 50,
-            }));
-        });
+    it('should filter by open status explicitly', async () => {
+      mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
+      await service.findAll('open');
+      expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: {
+              in: [
+                PurchaseOrderStatus.DRAFT,
+                PurchaseOrderStatus.SENT,
+                PurchaseOrderStatus.PARTIAL,
+              ],
+            },
+          },
+        }),
+      );
     });
+
+    it('should return all if filter is all', async () => {
+      mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
+      await service.findAll('all');
+      expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+        }),
+      );
+    });
+  });
 });
