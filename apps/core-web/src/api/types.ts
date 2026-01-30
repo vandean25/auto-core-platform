@@ -78,3 +78,49 @@ export interface PurchaseOrder {
     items: PurchaseOrderItem[]
     createdAt: string
 }
+
+export interface Customer {
+    id: string
+    name: string
+    email: string
+    phone?: string
+    address?: string
+}
+
+export interface Vehicle {
+    id: string
+    make: string
+    model: string
+    year: number
+    vin?: string
+    plate?: string
+}
+
+export type InvoiceStatus = 'DRAFT' | 'FINALIZED' | 'PAID' | 'CANCELLED'
+
+export interface InvoiceItem {
+    id: string
+    catalog_item_id?: string
+    description: string
+    quantity: number
+    unit_price: number
+    tax_rate: number
+}
+
+export interface Invoice {
+    id: string
+    invoice_number: string | null
+    status: InvoiceStatus
+    customer_id: string
+    customer: Customer
+    vehicle_id?: string
+    vehicle?: Vehicle
+    date: string
+    due_date: string
+    total_net: string
+    total_tax: string
+    total_gross: string
+    notes?: string
+    internal_notes?: string
+    items: InvoiceItem[]
+}

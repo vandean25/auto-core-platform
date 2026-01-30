@@ -24,6 +24,7 @@ model CatalogItem {
   stock            InventoryStock?
   transactions     InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
+  invoice_items    InvoiceItem[]
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
@@ -144,4 +145,90 @@ model PurchaseOrderItem {
   updatedAt DateTime @updatedAt
 
   @@map("purchase_order_items")
+}
+
+model Customer {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  address      String?
+  
+  vehicles     Vehicle[]
+  invoices     Invoice[]
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("customers")
+}
+
+model Vehicle {
+  id           String    @id @default(uuid())
+  make         String
+  model        String
+  year         Int
+  vin          String?   @unique
+  plate        String?
+  customer_id  String?
+  customer     Customer? @relation(fields: [customer_id], references: [id])
+  invoices     Invoice[]
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("vehicles")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINALIZED
+  PAID
+  CANCELLED
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  invoice_number String?       @unique // Nullable because it's only generated on FINALIZED
+  customer_id    String
+  customer       Customer      @relation(fields: [customer_id], references: [id])
+  vehicle_id     String?
+  vehicle        Vehicle?      @relation(fields: [vehicle_id], references: [id])
+  
+  status         InvoiceStatus @default(DRAFT)
+  date           DateTime      @default(now())
+  due_date       DateTime
+  
+  total_net      Decimal       @db.Decimal(10, 2)
+  total_tax      Decimal       @db.Decimal(10, 2)
+  total_gross    Decimal       @db.Decimal(10, 2)
+  
+  notes          String?
+  internal_notes String?
+  
+  items          InvoiceItem[]
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id              String       @id @default(uuid())
+  invoice_id      String
+  invoice         Invoice      @relation(fields: [invoice_id], references: [id])
+  
+  catalog_item_id String?
+  catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
+  
+  description     String
+  quantity        Decimal      @db.Decimal(10, 2)
+  unit_price      Decimal      @db.Decimal(10, 2)
+  tax_rate        Decimal      @db.Decimal(5, 2)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("invoice_items")
 }

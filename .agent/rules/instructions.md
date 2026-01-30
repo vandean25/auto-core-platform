@@ -62,11 +62,19 @@ This is a full-stack automotive parts management platform:
 - Use pagination with `page` and `limit` query params
 - Return `{ data, meta }` format for list endpoints
 
+### Testing Standards
+- **Write integration tests for each feature module**:
+  - Focus on end-to-end flows (e.g., creating a PO and receiving items).
+  - Backend tests go in `apps/core-api/test/` as `.e2e-spec.ts` files.
+  - Use the established testing patterns (e.g., `test/purchase-receipt.e2e-spec.ts`).
+  - Ensure tests cover both happy paths and error cases.
+
 ### Database Schema
 - Tables use snake_case via `@@map()` directive
 - IDs are UUIDs
 - Use `createdAt` and `updatedAt` timestamps
 - Supersession chains use self-referencing relations
+- Purchase Orders follow a strict status workflow (DRAFT -> SENT -> PARTIAL -> COMPLETED)
 
 ## File Structure
 ```
@@ -74,6 +82,8 @@ apps/core-api/
 ├── prisma/schema.prisma  # Database schema
 ├── prisma/seed.ts        # Sample data
 ├── src/inventory/        # Inventory module
+├── src/purchase/         # Purchase Order module
+├── src/vendor/           # Vendor module
 └── src/prisma/           # Prisma service
 
 apps/core-web/
