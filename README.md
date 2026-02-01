@@ -12,8 +12,11 @@ auto-core-platform/
 │   │   │   ├── schema.prisma
 │   │   │   └── seed.ts    # Database seeding script
 │   │   └── src/
+│   │       ├── brand/     # Brand Master Data
+│   │       ├── customer/  # CRM & Customer Management
 │   │       ├── inventory/ # Inventory module
 │   │       ├── purchase/  # Purchase Order module
+│   │       ├── sales/     # Sales Order & Invoice module
 │   │       ├── vendor/    # Vendor management module
 │   │       └── prisma/    # Prisma service module
 │   │
@@ -162,40 +165,15 @@ The frontend runs at **http://localhost:5173**
 | `GET` | `/api/inventory/:id` | Get single inventory item |
 | `GET` | `/api/inventory/:id/history` | Get item transaction history |
 
-#### Query Parameters for `/api/inventory`
+### CRM & Sales
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `page` | number | Page number (default: 1) |
-| `limit` | number | Items per page (default: 10) |
-| `search` | string | Fuzzy search by name, SKU, or brand |
-| `location` | string | Filter by storage location |
-
-#### Example Response
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "sku": "CS-OIL-5W30-5L",
-      "name": "Engine Oil 5W-30 5L",
-      "brand": "Castrol",
-      "price": 45.99,
-      "status": "IN_STOCK",
-      "quantity_available": 24,
-      "category": "Oil & Fluids",
-      "warehouse_location": "Warehouse 1"
-    }
-  ],
-  "meta": {
-    "total": 50,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 5
-  }
-}
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/customers` | List customers (searchable) |
+| `POST` | `/api/customers` | Create new customer |
+| `GET` | `/api/sales-orders` | List sales orders (status filter) |
+| `POST` | `/api/sales-orders` | Create sales order |
+| `POST` | `/api/sales-orders/:id/create-invoice` | Convert order to invoice |
 
 ### Purchase Orders
 
@@ -215,18 +193,16 @@ The frontend runs at **http://localhost:5173**
 | `GET` | `/api/vendors/:id` | Get single vendor details |
 | `PUT` | `/api/vendors/:id` | Update vendor details |
 
-### Sales
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/sales/invoices` | Create a new invoice (draft) |
-| `PUT` | `/api/sales/invoices/:id/finalize` | Finalize invoice and generate number |
-| `GET` | `/api/sales/invoices` | List invoices |
-| `GET` | `/api/sales/invoices/:id` | Get single invoice details |
-
 ---
 
 ## Frontend Features
+
+### CRM & Sales Workflow
+
+- **Customer Management**: Full CRM profile with order history, invoices, and vehicle registry.
+- **Sales Orders**: Create draft orders, manage line items, and track status.
+- **Workflow**: Draft -> Confirmed -> Invoice.
+- **Sequential Numbering**: Auto-incrementing order (SO-2026-XXXX) and invoice (RE-2026-XXXX) numbers.
 
 ### Inventory List Page
 
@@ -243,7 +219,6 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - 🔍 Debounced inventory search (300ms)
 - 🚀 Quick actions (Create Invoice, Register Customer)
 - 📦 Inventory results with live filtering
-- 🔧 Workshop actions (coming soon)
 
 ### Purchase Order Management
 
@@ -256,13 +231,6 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - **Vendor Directory**: List and search vendors.
 - **Vendor Details**: Manage contact info and supported brands.
 
-### Sales Invoice Management
-
-- **Invoice Editor**: Create and edit invoices with auto-calculations.
-- **Smart Item Search**: Quickly find inventory items to add to invoices.
-- **Status Workflow**: Draft -> Finalized (locks invoice & assigns number).
-- **Stock Integration**: Finalizing an invoice deducts inventory stock.
-
 ---
 
 ## Database Schema
@@ -273,9 +241,11 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - **StorageLocation**: Hierarchical warehouse structure (warehouse → shelf → bin)
 - **InventoryStock**: Current stock levels per item/location
 - **InventoryTransaction**: Full audit trail of all stock movements
+- **Customer**: Private or Company profiles with contact info
+- **SalesOrder**: Customer orders (Job Cards)
+- **Invoice**: Fiscal documents linked to sales orders
 - **Vendor**: Suppliers with contact info and supported brands
 - **PurchaseOrder**: Orders to vendors with status tracking
-- **PurchaseOrderItem**: Individual items within a purchase order
 
 ### Transaction Types
 
@@ -353,3 +323,5 @@ Ensure PostgreSQL is running and your `DATABASE_URL` in `.env` is correct.
 ## License
 
 UNLICENSED - Private repository
+
+```

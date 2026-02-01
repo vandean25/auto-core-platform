@@ -9,10 +9,13 @@ Auto Core Platform is a full-stack automotive parts management system designed f
 ### Core Modules
 - **Inventory**: Tracks automotive parts, storage locations, and stock levels with a full audit trail (ledger-based).
 - **Purchase (Procurement)**: Manages purchase orders (POs) from draft to completion, including goods receipt and vendor billing.
-- **Sales**: Handles customer invoicing with real-time stock integration and revenue snapshotting.
+- **Sales (CRM & Invoicing)**:
+    - **CRM**: Customer management (Private/Company) with full order and vehicle history.
+    - **Sales Orders**: Workflow from Draft -> Confirmed -> Completed -> Invoice.
+    - **Invoicing**: Generates final tax invoices from completed sales orders with real-time stock integration.
 - **Finance**: Manages global fiscal settings (lock dates, numbering) and revenue categorization for accounting exports.
 - **Brand (Master Data)**: Centralized management of vehicle makes and part manufacturers, enabling consistent categorization and smart filtering.
-- **Vendor & Customer**: Management of external stakeholders and their associated data (vehicles, contact info).
+- **Vendor**: Management of external stakeholders and their associated data (brands, contact info).
 
 ## Technology Stack
 
@@ -41,6 +44,13 @@ auto-core-platform/
 │   ├── core-api/          # NestJS backend
 │   │   ├── prisma/        # Schema and migrations
 │   │   └── src/           # Modular services & controllers
+│   │       ├── brand/     # Brand Master Data
+│   │       ├── customer/  # CRM Module
+│   │       ├── finance/   # Finance Settings & Revenue Groups
+│   │       ├── inventory/ # Inventory & Ledger
+│   │       ├── purchase/  # Procurement
+│   │       ├── sales/     # Sales Orders & Invoices
+│   │       └── vendor/    # Vendor Management
 │   └── core-web/          # React frontend
 │       ├── src/api/       # TanStack Query hooks & types
 │       ├── src/components/# UI & Feature components
@@ -92,7 +102,7 @@ npm run dev
 
 ### Testing Standards
 - **Integration Tests**: Required for each feature module (`apps/core-api/test/*.e2e-spec.ts`).
-- **Flow Focus**: Tests must cover end-to-end business flows (e.g., PO -> Receipt -> Bill).
+- **Flow Focus**: Tests must cover end-to-end business flows (e.g., PO -> Receipt -> Bill, Customer -> Sales Order -> Invoice).
 
 ### API Conventions
 - **Prefix**: All endpoints are prefixed with `/api`.
@@ -101,13 +111,16 @@ npm run dev
 
 ## Database Schema Highlights
 
-- **Centralized Brands**: Uses `Brand` entity to standardize vehicle makes and part manufacturers across vendors and catalog items.
+- **Centralized Brands**: Uses `Brand` entity to standardize vehicle makes and part manufacturers.
 - **Ledger-based Inventory**: Every stock movement is recorded in `InventoryTransaction`.
 - **Fiscal Security**: Transactions are validated against `FinanceSettings.lock_date`.
-- **Snapshotting**: Invoices snapshot `revenue_group_name` and `unit_price` at the moment of sale to preserve historical accuracy.
-- **Workflow State**:
-  - Purchase Orders: `DRAFT` → `SENT` → `PARTIAL` → `COMPLETED`
-  - Invoices: `DRAFT` → `FINALIZED` → `PAID` → `CANCELLED`
+- **Sales Workflow**:
+  - `Customer` (Private/Company) -> `SalesOrder` (Draft) -> `Invoice` (Final).
+  - Numbering: Sequential numbering for Sales Orders (`SO-2026-XXXX`) and Invoices (`RE-2026-XXXX`).
+  - Invoice Snapshot: Invoices snapshot `revenue_group_name` and `unit_price` at the moment of sale.
+- **Relations**:
+  - `InventoryStock` is one-to-many with `CatalogItem` (allows multiple locations).
+  - `SalesOrder` links to `Customer` and optionally `Vehicle`.
 
 ## Known Troubleshooting
 - **Tailwind Utility Errors**: Check `@theme` block format in `index.css`.
