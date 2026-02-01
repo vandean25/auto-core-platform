@@ -16,6 +16,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         }).compile();
 
         app = moduleFixture.createNestApplication();
+        app.setGlobalPrefix('api');
         await app.init();
 
         prisma = app.get<PrismaService>(PrismaService);
@@ -40,6 +41,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         `);
         } catch (error) {
             console.error('Cleanup failed:', error);
+            throw error; // Fail early
         }
 
         // Create test brand
@@ -84,12 +86,12 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
             const poResponse = await request(app.getHttpServer())
                 .post('/api/purchase-orders')
                 .send({
-                    vendor_id: vendorId,
+                    vendorId: vendorId,
                     items: [
                         {
-                            catalog_item_id: catalogItemId,
+                            catalogItemId: catalogItemId,
                             quantity: 10,
-                            unit_cost: 10,
+                            unitCost: 10,
                         },
                     ],
                 })
@@ -120,39 +122,73 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         });
 
         it('should successfully receive additional items and UPDATE inventory stock (second receipt)', async () => {
-            // 1. Create another PO
-            const poResponse = await request(app.getHttpServer())
+            // Create a fresh catalog item for this test to ensure isolation
+            const freshItem = await prisma.catalogItem.create({
+                data: {
+                    sku: 'TEST-FIX-002-' + Date.now(),
+                    name: 'Test Part Fix 2',
+                    unit: 'pcs',
+                    cost_price: 15.0,
+                    retail_price: 30.0,
+                },
+            });
+            const freshItemId = freshItem.id;
+
+            // 1. Create first PO and receive 5 items to establish initial stock
+            const po1Response = await request(app.getHttpServer())
                 .post('/api/purchase-orders')
                 .send({
-                    vendor_id: vendorId,
+                    vendorId: vendorId,
                     items: [
                         {
-                            catalog_item_id: catalogItemId,
+                            catalogItemId: freshItemId,
                             quantity: 5,
-                            unit_cost: 10,
+                            unitCost: 15,
                         },
                     ],
                 })
                 .expect(201);
 
-            const poId = poResponse.body.id;
-
-            // 2. Receive 5 items
             await request(app.getHttpServer())
-                .post(`/api/purchase-orders/${poId}/receive`)
+                .post(`/api/purchase-orders/${po1Response.body.id}/receive`)
+                .send({
+                    items: [{ itemId: freshItemId, quantity: 5 }],
+                })
+                .expect(201);
+
+            // 2. Create another PO and receive more items for the same catalog item
+            const po2Response = await request(app.getHttpServer())
+                .post('/api/purchase-orders')
+                .send({
+                    vendorId: vendorId,
+                    items: [
+                        {
+                            catalogItemId: freshItemId,
+                            quantity: 5,
+                            unitCost: 15,
+                        },
+                    ],
+                })
+                .expect(201);
+
+            const po2Id = po2Response.body.id;
+
+            // Receive 5 more items
+            await request(app.getHttpServer())
+                .post(`/api/purchase-orders/${po2Id}/receive`)
                 .send({
                     items: [
                         {
-                            itemId: catalogItemId,
+                            itemId: freshItemId,
                             quantity: 5,
                         },
                     ],
                 })
                 .expect(201);
 
-            // 3. Verify InventoryStock was updated (5 from prev test + 5 from this test = 10)
+            // 3. Verify InventoryStock was updated (5 from first receipt + 5 from second = 10)
             const stock = await prisma.inventoryStock.findFirst({
-                where: { catalog_item_id: catalogItemId },
+                where: { catalog_item_id: freshItemId },
             });
 
             expect(stock).toBeDefined();

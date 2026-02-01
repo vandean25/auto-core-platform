@@ -9,7 +9,7 @@ export interface RecordTransactionParams {
   quantity: number | Decimal;
   type: TransactionType;
   referenceId?: string;
-  costBasis?: number | Decimal;
+  costBasis?: number | Decimal | null;
 }
 
 @Injectable()
@@ -89,8 +89,6 @@ export class LedgerService {
       throw error;
     }
   }
-
-
 
   /**
    * Gets all transactions for a specific item and location.
