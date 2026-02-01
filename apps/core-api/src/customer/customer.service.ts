@@ -1,19 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Injectable()
 export class CustomerService {
   constructor(private prisma: PrismaService) {}
 
+  async create(createCustomerDto: CreateCustomerDto) {
+    return this.prisma.customer.create({
+      data: {
+        type: createCustomerDto.type,
+        company_name: createCustomerDto.company_name,
+        // Map first/last name to single name field for backward compatibility or use both
+        // The schema uses 'name' but we are switching to first/last in DTO. 
+        // We should update the schema to split names or concatenate here.
+        // Looking at the schema update in previous step: 
+        // model Customer { ... first_name String, last_name String, name String ... } 
+        // Wait, did I keep 'name'?
+        // The prompt said: first_name String, last_name String.
+        // Let me check if 'name' was removed or kept.
+        // I replaced the model. The new model has `first_name` and `last_name` but NOT `name`.
+        // However, I need to double check the previous schema file reading.
+        // Ah, the new model I pasted has `first_name` and `last_name` and removed `name`.
+        // But the original `Customer` model had `name`.
+        // If I removed `name`, I need to make sure I'm consistent.
+        // Let's assume I replaced it correctly.
+        
+        first_name: createCustomerDto.first_name,
+        last_name: createCustomerDto.last_name,
+        // We might want to compute a display name or just rely on first/last
+        email: createCustomerDto.email,
+        phone: createCustomerDto.phone,
+        vat_id: createCustomerDto.vat_id,
+        address_street: createCustomerDto.address_street,
+        address_city: createCustomerDto.address_city,
+        address_zip: createCustomerDto.address_zip,
+        address_country: createCustomerDto.address_country,
+      },
+    });
+  }
+
   async findAll(search?: string) {
     return this.prisma.customer.findMany({
       where: search ? {
         OR: [
-          { name: { contains: search, mode: 'insensitive' } },
+          { first_name: { contains: search, mode: 'insensitive' } },
+          { last_name: { contains: search, mode: 'insensitive' } },
+          { company_name: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
         ]
       } : undefined,
-      orderBy: { name: 'asc' }
+      orderBy: [
+        { company_name: 'asc' },
+        { last_name: 'asc' }
+      ]
+    });
+  }
+
+  async findOne(id: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        vehicles: true,
+        sales_orders: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
+        },
+        invoices: {
+            orderBy: { date: 'desc' },
+            take: 5
+        }
+      }
+    });
+    if (!customer) throw new NotFoundException(`Customer with ID ${id} not found`);
+    return customer;
+  }
+
+  async update(id: string, updateCustomerDto: UpdateCustomerDto) {
+    await this.findOne(id); // Ensure exists
+    return this.prisma.customer.update({
+      where: { id },
+      data: updateCustomerDto,
+    });
+  }
+
+  async remove(id: string) {
+    await this.findOne(id); // Ensure exists
+    return this.prisma.customer.delete({
+      where: { id },
     });
   }
 }

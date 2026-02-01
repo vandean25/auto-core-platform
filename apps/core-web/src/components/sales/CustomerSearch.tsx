@@ -24,6 +24,11 @@ interface CustomerSearchProps {
     onChange: (customer: Customer | null) => void
 }
 
+const getCustomerName = (customer: Customer) => {
+    if (customer.type === 'COMPANY') return customer.company_name
+    return `${customer.first_name} ${customer.last_name}`
+}
+
 export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -38,7 +43,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value ? value.name : "Select customer..."}
+          {value ? getCustomerName(value) : "Select customer..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -51,7 +56,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
               {customers?.map((customer) => (
                 <CommandItem
                   key={customer.id}
-                  value={customer.name}
+                  value={customer.id}
                   onSelect={() => {
                     onChange(customer)
                     setOpen(false)
@@ -63,7 +68,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
                       value?.id === customer.id ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {customer.name}
+                  {getCustomerName(customer)}
                 </CommandItem>
               ))}
             </CommandGroup>

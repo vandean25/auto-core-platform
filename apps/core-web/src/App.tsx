@@ -9,7 +9,11 @@ import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoice
 import FinanceSettingsPage from './pages/FinanceSettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { GlobalSearch } from './components/GlobalSearch'
-import { Toaster } from '@/components/ui/sonner'
+import CustomerList from './pages/customers/CustomerList'
+import CustomerDetail from './pages/customers/CustomerDetail'
+import SalesOrderList from './pages/sales-orders/SalesOrderList'
+import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
+import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
 
 function App() {
   return (
@@ -21,10 +25,11 @@ function App() {
               <Link to="/dashboard" className="font-bold text-xl text-primary">Auto Core Platform</Link>
               <nav className="flex space-x-6">
                 <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">Dashboard</Link>
+                <Link to="/customers" className="text-sm font-medium hover:text-primary transition-colors">Customers</Link>
+                <Link to="/sales-orders" className="text-sm font-medium hover:text-primary transition-colors">Sales Orders</Link>
                 <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Inventory</Link>
                 <Link to="/vendors" className="text-sm font-medium hover:text-primary transition-colors">Vendors</Link>
                 <Link to="/purchase-orders" className="text-sm font-medium hover:text-primary transition-colors">Purchase Orders</Link>
-                <Link to="/sales/invoices/new" className="text-sm font-medium hover:text-primary transition-colors">New Invoice</Link>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
@@ -39,6 +44,11 @@ function App() {
           <Routes>
             <Route path="/" element={<InventoryList />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/customers" element={<CustomerList />} />
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/sales-orders" element={<SalesOrderList />} />
+            <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
+            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
             <Route path="/vendors" element={<VendorList />} />
             <Route path="/purchase-orders" element={<PurchaseOrderList />} />
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />

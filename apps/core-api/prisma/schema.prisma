@@ -34,6 +34,8 @@ model FinanceSettings {
   lock_date               DateTime?
   next_invoice_number     Int       @default(1001)
   invoice_prefix          String    @default("RE-2026-")
+  next_sales_order_number Int       @default(1001)
+  sales_order_prefix      String    @default("SO-2026-")
   
   updatedAt               DateTime  @updatedAt
 
@@ -82,6 +84,7 @@ model CatalogItem {
   transactions     InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
   invoice_items    InvoiceItem[]
+  sales_order_items SalesOrderItem[]
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
@@ -208,18 +211,32 @@ model PurchaseOrderItem {
   @@map("purchase_order_items")
 }
 
+enum CustomerType {
+  PRIVATE
+  COMPANY
+}
+
 model Customer {
-  id           String    @id @default(uuid())
-  name         String
-  email        String    @unique
-  phone        String?
-  address      String?
+  id             String       @id @default(uuid())
+  type           CustomerType @default(PRIVATE)
+  company_name   String?
+  first_name     String
+  last_name      String
+  email          String?      @unique
+  phone          String?
+  vat_id         String?      // UID-Nummer
   
-  vehicles     Vehicle[]
-  invoices     Invoice[]
+  address_street String?
+  address_city   String?
+  address_zip    String?
+  address_country String?     @default("AT")
   
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  vehicles       Vehicle[]
+  invoices       Invoice[]
+  sales_orders   SalesOrder[]
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@map("customers")
 }
@@ -234,11 +251,61 @@ model Vehicle {
   customer_id  String?
   customer     Customer? @relation(fields: [customer_id], references: [id])
   invoices     Invoice[]
+  sales_orders SalesOrder[]
   
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@map("vehicles")
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  INVOICED
+}
+
+model SalesOrder {
+  id           String           @id @default(uuid())
+  order_number String           @unique // e.g., SO-2026-001
+  customer_id  String
+  customer     Customer         @relation(fields: [customer_id], references: [id])
+  vehicle_id   String?
+  vehicle      Vehicle?         @relation(fields: [vehicle_id], references: [id])
+  
+  status       SalesOrderStatus @default(DRAFT)
+  total_amount Decimal          @db.Decimal(10, 2)
+  notes        String?
+  
+  items        SalesOrderItem[]
+  invoice      Invoice?
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("sales_orders")
+}
+
+model SalesOrderItem {
+  id              String       @id @default(uuid())
+  sales_order_id  String
+  sales_order     SalesOrder   @relation(fields: [sales_order_id], references: [id], onDelete: Cascade)
+  
+  catalog_item_id String?
+  catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
+  
+  description     String
+  quantity        Decimal      @db.Decimal(10, 2)
+  unit_price      Decimal      @db.Decimal(10, 2)
+  total           Decimal      @db.Decimal(10, 2) // quantity * unit_price
+  tax_rate        Decimal      @default(20) @db.Decimal(5, 2)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("sales_order_items")
 }
 
 enum InvoiceStatus {
@@ -255,6 +322,8 @@ model Invoice {
   customer       Customer      @relation(fields: [customer_id], references: [id])
   vehicle_id     String?
   vehicle        Vehicle?      @relation(fields: [vehicle_id], references: [id])
+  sales_order_id String?       @unique
+  sales_order    SalesOrder?   @relation(fields: [sales_order_id], references: [id])
   
   status         InvoiceStatus @default(DRAFT)
   date           DateTime      @default(now())

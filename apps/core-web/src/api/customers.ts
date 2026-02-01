@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Customer } from './types'
 
 export const customerKeys = {
     all: ['customers'] as const,
     list: (search?: string) => [...customerKeys.all, 'list', search] as const,
+    detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
 export function useCustomers(search?: string) {
@@ -13,26 +14,77 @@ export function useCustomers(search?: string) {
             const params = new URLSearchParams()
             if (search) params.append('search', search)
             
-            // Assuming the backend has a general search or we use the findAll logic
-            // For now, let's assume /api/customers endpoint exists or we mock it.
-            // Since I didn't create a specific CustomerController with search in previous steps,
-            // I might need to rely on the backend being ready or mock it if it fails.
-            // But wait, I added Customer model to Prisma but I didn't create a CustomerController.
-            // I should create a mock implementation or handle the error gracefully if the endpoint is missing.
-            // Or better, I should assume standard REST behavior and if it fails, I'll fix the backend.
-            // Actually, the prompt "Initialize the SalesInvoice Module" only mentioned Sales module.
-            // It didn't explicitly ask for Customer management API, but it's required for the UI.
-            // I will implement the fetch assuming the endpoint exists or will be added.
-            
             const response = await fetch(`/api/customers?${params.toString()}`)
-            if (!response.ok) {
-                 // Fallback for demo if backend endpoint is missing
-                 if (response.status === 404) {
-                     return []
-                 }
-                throw new Error('Failed to fetch customers')
-            }
+            if (!response.ok) throw new Error('Failed to fetch customers')
             return response.json()
+        },
+    })
+}
+
+export function useCustomer(id: string) {
+    return useQuery<Customer>({
+        queryKey: customerKeys.detail(id),
+        queryFn: async () => {
+            const response = await fetch(`/api/customers/${id}`)
+            if (!response.ok) throw new Error('Failed to fetch customer')
+            return response.json()
+        },
+        enabled: !!id,
+    })
+}
+
+export function useCreateCustomer() {
+    const queryClient = useQueryClient()
+    
+    return useMutation({
+        mutationFn: async (customer: Partial<Customer>) => {
+            const response = await fetch('/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(customer),
+            })
+            if (!response.ok) throw new Error('Failed to create customer')
+            return response.json()
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: customerKeys.all })
+        },
+    })
+}
+
+export function useUpdateCustomer() {
+    const queryClient = useQueryClient()
+    
+    return useMutation({
+        mutationFn: async ({ id, data }: { id: string; data: Partial<Customer> }) => {
+            const response = await fetch(`/api/customers/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+            if (!response.ok) throw new Error('Failed to update customer')
+            return response.json()
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: customerKeys.all })
+            queryClient.invalidateQueries({ queryKey: customerKeys.detail(data.id) })
+        },
+    })
+}
+
+export function useDeleteCustomer() {
+    const queryClient = useQueryClient()
+    
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetch(`/api/customers/${id}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) throw new Error('Failed to delete customer')
+            return response.json()
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: customerKeys.all })
         },
     })
 }
