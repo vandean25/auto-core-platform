@@ -178,12 +178,11 @@ export interface PurchaseInvoiceLine {
     line_total: string
 }
 
-export type BrandType = 'VEHICLE_MAKE' | 'PART_MANUFACTURER'
-
 export interface Brand {
     id: number
     name: string
-    type: BrandType
+    isVehicleMake: boolean
+    isPartManufacturer: boolean
     logoUrl?: string
     createdAt: string
     updatedAt: string

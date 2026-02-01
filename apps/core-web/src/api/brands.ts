@@ -1,18 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Brand, BrandType } from './types'
+import type { Brand } from './types'
 
 export const brandKeys = {
     all: ['brands'] as const,
-    list: (type?: BrandType) => [...brandKeys.all, 'list', { type }] as const,
+    list: (filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean }) => [...brandKeys.all, 'list', filters] as const,
     detail: (id: number) => [...brandKeys.all, 'detail', id] as const,
 }
 
-export function useBrands(type?: BrandType) {
+export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean }) {
     return useQuery<Brand[]>({
-        queryKey: brandKeys.list(type),
+        queryKey: brandKeys.list(filters),
         queryFn: async () => {
             const params = new URLSearchParams()
-            if (type) params.append('type', type)
+            if (filters?.isVehicleMake !== undefined) params.append('isVehicleMake', filters.isVehicleMake.toString())
+            if (filters?.isPartManufacturer !== undefined) params.append('isPartManufacturer', filters.isPartManufacturer.toString())
+            
             const response = await fetch(`/api/brands?${params.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch brands')
             return response.json()

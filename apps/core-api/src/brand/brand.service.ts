@@ -1,15 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
-import { BrandType } from '@prisma/client';
 
 @Injectable()
 export class BrandService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(type?: BrandType) {
+  async findAll(filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean }) {
     return this.prisma.brand.findMany({
-      where: type ? { type } : undefined,
+      where: {
+        ...(filters?.isVehicleMake !== undefined && { isVehicleMake: filters.isVehicleMake }),
+        ...(filters?.isPartManufacturer !== undefined && { isPartManufacturer: filters.isPartManufacturer }),
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -25,6 +27,10 @@ export class BrandService {
   }
 
   async create(createBrandDto: CreateBrandDto) {
+    if (!createBrandDto.isVehicleMake && !createBrandDto.isPartManufacturer) {
+      throw new BadRequestException('Brand must be at least one type');
+    }
+
     try {
       return await this.prisma.brand.create({
         data: createBrandDto,
@@ -38,6 +44,17 @@ export class BrandService {
   }
 
   async update(id: number, updateBrandDto: UpdateBrandDto) {
+    // If updating flags, ensure at least one is true (if provided)
+    if (updateBrandDto.isVehicleMake !== undefined || updateBrandDto.isPartManufacturer !== undefined) {
+        const currentBrand = await this.findOne(id);
+        const nextIsVehicleMake = updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
+        const nextIsPartManufacturer = updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
+        
+        if (!nextIsVehicleMake && !nextIsPartManufacturer) {
+            throw new BadRequestException('Brand must be at least one type');
+        }
+    }
+
     try {
       return await this.prisma.brand.update({
         where: { id },
