@@ -44,18 +44,14 @@ model FinanceSettings {
 // Brands (Master Data)
 // ============================================================================
 
-enum BrandType {
-  VEHICLE_MAKE
-  PART_MANUFACTURER
-}
-
 model Brand {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  type      BrandType
-  logoUrl   String?   @map("logo_url")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id                 Int       @id @default(autoincrement())
+  name               String    @unique
+  isVehicleMake      Boolean   @default(false) @map("is_vehicle_make")
+  isPartManufacturer Boolean   @default(false) @map("is_part_manufacturer")
+  logoUrl            String?   @map("logo_url")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   vendors      Vendor[]      @relation("VendorBrands")
   catalogItems CatalogItem[]
@@ -82,7 +78,7 @@ model CatalogItem {
   revenue_group    RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
   brand_id         Int?                   @map("brand_id")
   brand            Brand?                 @relation(fields: [brand_id], references: [id])
-  stock            InventoryStock?
+  stocks           InventoryStock[]
   transactions     InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
   invoice_items    InvoiceItem[]
@@ -116,7 +112,7 @@ model StorageLocation {
 
 model InventoryStock {
   id                String          @id @default(uuid())
-  catalog_item_id   String          @unique
+  catalog_item_id   String
   catalog_item      CatalogItem     @relation(fields: [catalog_item_id], references: [id])
   location_id       String
   location          StorageLocation @relation(fields: [location_id], references: [id])

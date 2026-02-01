@@ -1,0 +1,9 @@
+
+> core-api@0.0.1 start:dev
+> nest start --watch
+
+[2J[3J[H[[90m22:52:12[0m] Starting compilation in watch mode...
+
+[[90m22:52:20[0m] Found 0 errors. Watching for file changes.
+
+^C^C^C

@@ -1,7 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe } from '@nestjs/common';
 import { BrandService } from './brand.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
-import { BrandType } from '@prisma/client';
 
 @Controller('brands')
 export class BrandController {
@@ -13,8 +12,14 @@ export class BrandController {
   }
 
   @Get()
-  findAll(@Query('type') type?: BrandType) {
-    return this.brandService.findAll(type);
+  findAll(
+    @Query('isVehicleMake') isVehicleMake?: string,
+    @Query('isPartManufacturer') isPartManufacturer?: string,
+  ) {
+    return this.brandService.findAll({
+      isVehicleMake: isVehicleMake === 'true' ? true : isVehicleMake === 'false' ? false : undefined,
+      isPartManufacturer: isPartManufacturer === 'true' ? true : isPartManufacturer === 'false' ? false : undefined,
+    });
   }
 
   @Get(':id')

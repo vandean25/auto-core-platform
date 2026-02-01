@@ -14,7 +14,7 @@ export interface RecordTransactionParams {
 
 @Injectable()
 export class LedgerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Records an inventory transaction and updates the cached stock quantity.
@@ -30,9 +30,11 @@ export class LedgerService {
   ) {
     const { itemId, locationId, quantity, type, referenceId, costBasis } =
       params;
-    const prisma = prismaVal || this.prisma;
 
-    const logic = async (tx: Prisma.TransactionClient) => {
+    // Use the passed transaction client if available, otherwise use this.prisma
+    const tx = prismaVal || this.prisma;
+
+    try {
       // Step A: Insert the InventoryTransaction record
       const transaction = await tx.inventoryTransaction.create({
         data: {
@@ -45,27 +47,34 @@ export class LedgerService {
         },
       });
 
-      // Step B: Update the cached quantity_on_hand in InventoryStock
-      // Use upsert to handle cases where stock record doesn't exist yet
-      const stock = await tx.inventoryStock.upsert({
+      // Step B: Update or create InventoryStock
+      const existingStock = await tx.inventoryStock.findFirst({
         where: {
-          catalog_item_id_location_id: {
-            catalog_item_id: itemId,
-            location_id: locationId,
-          },
-        },
-        update: {
-          quantity_on_hand: {
-            increment: Number(quantity),
-          },
-        },
-        create: {
           catalog_item_id: itemId,
           location_id: locationId,
-          quantity_on_hand: Number(quantity),
-          quantity_reserved: 0,
         },
       });
+
+      let stock;
+      if (existingStock) {
+        stock = await tx.inventoryStock.update({
+          where: { id: existingStock.id },
+          data: {
+            quantity_on_hand: {
+              increment: Number(quantity),
+            },
+          },
+        });
+      } else {
+        stock = await tx.inventoryStock.create({
+          data: {
+            catalog_item_id: itemId,
+            location_id: locationId,
+            quantity_on_hand: Number(quantity),
+            quantity_reserved: 0,
+          },
+        });
+      }
 
       // Step C: Validate that the resulting stock is not negative
       if (stock.quantity_on_hand < 0) {
@@ -75,16 +84,13 @@ export class LedgerService {
       }
 
       return transaction;
-    };
-
-    if (prismaVal) {
-      // Already in a transaction, just run logic
-      return logic(prismaVal);
-    } else {
-      // Start a new transaction
-      return this.prisma.$transaction(logic);
+    } catch (error) {
+      console.error('Error in ledger recordTransaction:', error);
+      throw error;
     }
   }
+
+
 
   /**
    * Gets all transactions for a specific item and location.

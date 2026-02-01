@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, LocationType, TransactionType, BrandType } from '@prisma/client';
+import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -49,24 +49,31 @@ async function recordInitialStock(
         },
     });
 
-    // Update the cached stock
-    await prisma.inventoryStock.upsert({
+    // Update or create the cached stock (using findFirst + create/update to work around Prisma adapter upsert issue)
+    const existingStock = await prisma.inventoryStock.findFirst({
         where: {
-            catalog_item_id_location_id: {
-                catalog_item_id: itemId,
-                location_id: locationId,
-            },
-        },
-        update: {
-            quantity_on_hand: { increment: quantity },
-        },
-        create: {
             catalog_item_id: itemId,
             location_id: locationId,
-            quantity_on_hand: quantity,
-            quantity_reserved: reserved,
         },
     });
+
+    if (existingStock) {
+        await prisma.inventoryStock.update({
+            where: { id: existingStock.id },
+            data: {
+                quantity_on_hand: { increment: quantity },
+            },
+        });
+    } else {
+        await prisma.inventoryStock.create({
+            data: {
+                catalog_item_id: itemId,
+                location_id: locationId,
+                quantity_on_hand: quantity,
+                quantity_reserved: reserved,
+            },
+        });
+    }
 }
 
 async function main() {
@@ -123,26 +130,38 @@ async function main() {
     const defaultRevenueGroup = revenueGroups[0];
 
     console.log('Seeding Brands...');
-    const vehicleMakes = ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Skoda', 'Seat', 'Porsche', 'Toyota', 'Ford'];
-    const partManufacturers = ['Bosch', 'Mahle', 'Mann-Filter', 'Castrol', 'NGK', 'Valeo', 'Hella', 'Continental', 'ZF'];
 
-    const vehicleMakeBrands = await Promise.all(
-        vehicleMakes.map(name => 
+    // Dual Brands (Both Vehicle Make and Part Manufacturer)
+    const dualBrands = ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Porsche'];
+    const dualBrandRecords = await Promise.all(
+        dualBrands.map(name =>
             prisma.brand.create({
-                data: { name, type: BrandType.VEHICLE_MAKE }
+                data: { name, isVehicleMake: true, isPartManufacturer: true }
             })
         )
     );
 
-    const partManufacturerBrands = await Promise.all(
-        partManufacturers.map(name => 
+    // Pure Vehicle Makes
+    const pureVehicleMakes = ['Toyota', 'Ford', 'Skoda', 'Seat'];
+    const pureVehicleMakeRecords = await Promise.all(
+        pureVehicleMakes.map(name =>
             prisma.brand.create({
-                data: { name, type: BrandType.PART_MANUFACTURER }
+                data: { name, isVehicleMake: true, isPartManufacturer: false }
             })
         )
     );
 
-    const allBrands = [...vehicleMakeBrands, ...partManufacturerBrands];
+    // Pure Part Manufacturers
+    const purePartManufacturers = ['Bosch', 'Mahle', 'Mann-Filter', 'Castrol', 'NGK', 'Valeo', 'Hella', 'Continental', 'ZF'];
+    const purePartManufacturerRecords = await Promise.all(
+        purePartManufacturers.map(name =>
+            prisma.brand.create({
+                data: { name, isVehicleMake: false, isPartManufacturer: true }
+            })
+        )
+    );
+
+    const allBrands = [...dualBrandRecords, ...pureVehicleMakeRecords, ...purePartManufacturerRecords];
 
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({
@@ -169,7 +188,7 @@ async function main() {
     const locations = [showroom, storage, tireHotel];
 
     console.log('Seeding supersession items (Phase 1: Creation)...');
-    const vwBrand = vehicleMakeBrands.find(b => b.name === 'Volkswagen');
+    const vwBrand = allBrands.find(b => b.name === 'Volkswagen');
 
     const partA = await prisma.catalogItem.create({
         data: {
@@ -227,7 +246,8 @@ async function main() {
 
     const otherParts: any[] = [];
     for (let i = 1; i <= 47; i++) {
-        const brand = allBrands[Math.floor(Math.random() * allBrands.length)];
+        const brandsForParts = allBrands.filter(b => b.isPartManufacturer);
+        const brand = brandsForParts[Math.floor(Math.random() * brandsForParts.length)];
         const category = categories[Math.floor(Math.random() * categories.length)];
         const sku = `${category.prefix}-${1000 + i}-${brand.name.substring(0, 3).toUpperCase()}`;
 
@@ -275,7 +295,7 @@ async function main() {
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
-    console.log('✓ Brands created and linked to items');
+    console.log('✓ Brands (Dual/Pure) created and linked to items');
 }
 
 main()

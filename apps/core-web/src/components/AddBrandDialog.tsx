@@ -13,15 +13,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useCreateBrand, useUpdateBrand } from "@/api/brands"
-import type { Brand, BrandType } from "@/api/types"
+import type { Brand } from "@/api/types"
 
 interface AddBrandDialogProps {
     brand?: Brand | null
@@ -46,22 +40,30 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
         const name = formData.get("name") as string
-        const type = formData.get("type") as BrandType
         const logoUrl = formData.get("logoUrl") as string
+        const isVehicleMake = formData.get("isVehicleMake") === "on"
+        const isPartManufacturer = formData.get("isPartManufacturer") === "on"
+
+        if (!isVehicleMake && !isPartManufacturer) {
+            toast.error("Brand must be at least one type")
+            return
+        }
 
         try {
             if (brand) {
                 await updateMutation.mutateAsync({
                     id: brand.id,
                     name,
-                    type,
+                    isVehicleMake,
+                    isPartManufacturer,
                     logoUrl: logoUrl || undefined
                 })
                 toast.success("Brand updated")
             } else {
                 await createMutation.mutateAsync({
                     name,
-                    type,
+                    isVehicleMake,
+                    isPartManufacturer,
                     logoUrl: logoUrl || undefined
                 })
                 toast.success("Brand created")
@@ -91,17 +93,18 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
                             <Label htmlFor="name">Name</Label>
                             <Input id="name" name="name" defaultValue={brand?.name} placeholder="e.g., Volkswagen, Bosch" required />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="type">Type</Label>
-                            <Select name="type" defaultValue={brand?.type || "PART_MANUFACTURER"}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="VEHICLE_MAKE">Vehicle Make</SelectItem>
-                                    <SelectItem value="PART_MANUFACTURER">Part Manufacturer</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="space-y-4">
+                            <Label>Brand Types</Label>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="isVehicleMake" name="isVehicleMake" defaultChecked={brand?.isVehicleMake} />
+                                    <Label htmlFor="isVehicleMake" className="font-normal">Vehicle Make (OEM)</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="isPartManufacturer" name="isPartManufacturer" defaultChecked={brand?.isPartManufacturer} />
+                                    <Label htmlFor="isPartManufacturer" className="font-normal">Part Manufacturer (Aftermarket)</Label>
+                                </div>
+                            </div>
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="logoUrl">Logo URL (optional)</Label>

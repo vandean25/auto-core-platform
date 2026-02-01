@@ -56,9 +56,14 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
                             </TableCell>
                             <TableCell className="font-medium">{brand.name}</TableCell>
                             <TableCell>
-                                <Badge variant={brand.type === 'VEHICLE_MAKE' ? 'default' : 'secondary'}>
-                                    {brand.type === 'VEHICLE_MAKE' ? 'Vehicle Make' : 'Part Manufacturer'}
-                                </Badge>
+                                <div className="flex gap-1 flex-wrap">
+                                    {brand.isVehicleMake && (
+                                        <Badge>Vehicle Make</Badge>
+                                    )}
+                                    {brand.isPartManufacturer && (
+                                        <Badge variant="secondary">Part Manufacturer</Badge>
+                                    )}
+                                </div>
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
