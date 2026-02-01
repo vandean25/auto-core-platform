@@ -19,3 +19,10 @@ export function getPOStatusVariant(status: string): "default" | "secondary" | "o
             return 'outline'
     }
 }
+
+export function formatCurrency(amount: number | string) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(Number(amount))
+}

@@ -1,26 +1,59 @@
+import { type ColumnDef } from '@tanstack/react-table'
 import { usePurchaseOrders } from '@/api/purchase-orders'
 import { Button } from '@/components/ui/button'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { useState } from 'react'
 import { getPOStatusVariant } from '@/lib/utils'
+import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { DataTable } from '@/components/data-table/DataTable'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import type { PurchaseOrder } from '@/api/types'
 
 export default function PurchaseOrderList() {
-    const [viewMode, setViewMode] = useState('open')
-    const { data: orders, isLoading, error } = usePurchaseOrders(viewMode)
+    const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+    const { data: responseData, isLoading } = usePurchaseOrders(queryParams)
 
-    if (error) return <div>Error loading orders</div>
+    const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
+    const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+
+    const columns: ColumnDef<PurchaseOrder>[] = [
+        {
+            accessorKey: 'order_number',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" />,
+            cell: ({ row }) => (
+                <Link to={`/purchase-orders/${row.original.id}`} className="hover:underline font-medium">
+                    {row.original.order_number}
+                </Link>
+            ),
+        },
+        {
+            accessorKey: 'vendor.name',
+            id: 'vendor',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Vendor" />,
+        },
+        {
+            accessorKey: 'status',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => (
+                <Badge variant={getPOStatusVariant(row.original.status)}>
+                    {row.original.status}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: 'createdAt',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+            cell: ({ row }) => format(new Date(row.original.createdAt), 'PPP'),
+        },
+        {
+            accessorKey: 'items',
+            header: 'Items',
+            enableSorting: false,
+            cell: ({ row }) => <div className="text-right">{row.original.items?.length || 0}</div>,
+        },
+    ]
 
     return (
         <div className="p-8 space-y-4">
@@ -33,61 +66,15 @@ export default function PurchaseOrderList() {
                 </Button>
             </div>
 
-            <Tabs value={viewMode} onValueChange={setViewMode} className="w-full">
-                <TabsList>
-                    <TabsTrigger value="open">Open Orders</TabsTrigger>
-                    <TabsTrigger value="all">All History</TabsTrigger>
-                </TabsList>
-                
-                <div className="rounded-md border mt-4">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Order #</TableHead>
-                                <TableHead>Vendor</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead className="text-right">Items</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        Loading orders...
-                                    </TableCell>
-                                </TableRow>
-                            ) : orders?.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        {viewMode === 'open' 
-                                            ? "All caught up! No active orders."
-                                            : "No orders found."}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                orders?.map((po) => (
-                                    <TableRow key={po.id} className="cursor-pointer hover:bg-muted/50">
-                                        <TableCell className="font-medium">
-                                            <Link to={`/purchase-orders/${po.id}`} className="hover:underline">
-                                                {po.order_number}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell>{po.vendor?.name}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={getPOStatusVariant(po.status)}>
-                                                {po.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{format(new Date(po.createdAt), 'PPP')}</TableCell>
-                                        <TableCell className="text-right">{po.items?.length || 0}</TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </Tabs>
+            <DataTable
+                columns={columns}
+                data={data}
+                pageCount={pageCount}
+                isLoading={isLoading}
+                searchColumn="order_number"
+                searchPlaceholder="Search orders..."
+                {...tableState}
+            />
         </div>
     )
 }

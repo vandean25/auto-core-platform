@@ -1,27 +1,16 @@
 import React from 'react'
-import {
-    type ColumnDef,
-    flexRender,
-    getCoreRowModel,
-    useReactTable,
-} from '@tanstack/react-table'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
+import { type ColumnDef } from '@tanstack/react-table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { useInventory } from '@/api/inventory'
 import type { InventoryItem, InventoryStatus } from '@/api/types'
 import { cn } from '@/lib/utils'
-import { Inbox } from 'lucide-react'
 import StockTimeline from '@/components/inventory/StockTimeline'
 import { AddItemDialog } from '@/components/AddItemDialog'
+import { DataTable } from '@/components/data-table/DataTable'
+import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 
 const StatusDot = ({ status }: { status: InventoryStatus }) => {
     const colors = {
@@ -38,27 +27,23 @@ const StatusDot = ({ status }: { status: InventoryStatus }) => {
     )
 }
 
-const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Inbox className="h-12 w-12 mb-4 stroke-[1.5]" />
-        <p className="text-lg font-medium">No items found</p>
-        <p className="text-sm">Try adjusting your filters or search terms.</p>
-    </div>
-)
-
 export default function InventoryList() {
-    const { data, isLoading } = useInventory({ limit: 50 })
+    const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+    const { data: responseData, isLoading } = useInventory(queryParams as any)
     const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
+
+    const data = (responseData as any)?.data || []
+    const pageCount = (responseData as any)?.meta?.pageCount || 1
 
     const columns: ColumnDef<InventoryItem>[] = [
         {
             accessorKey: 'status',
-            header: 'STATUS',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
             cell: ({ row }) => <StatusDot status={row.original.status} />,
         },
         {
-            accessorKey: 'part',
-            header: 'PART',
+            accessorKey: 'sku',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Part" />,
             cell: ({ row }) => (
                 <div className="flex flex-col">
                     <span className="font-bold text-slate-900">{row.original.sku}</span>
@@ -68,12 +53,12 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'name',
-            header: 'DESCRIPTION',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
             cell: ({ row }) => <span className="text-slate-700">{row.original.name}</span>,
         },
         {
             accessorKey: 'price',
-            header: () => <div className="text-right">PRICE</div>,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
             cell: ({ row }) => {
                 const amount = parseFloat(row.getValue('price'))
                 const formatted = new Intl.NumberFormat('de-DE', {
@@ -81,22 +66,10 @@ export default function InventoryList() {
                     currency: 'EUR',
                 }).format(amount)
 
-                return <div className="text-right font-medium">{formatted}</div>
+                return <div className="font-medium">{formatted}</div>
             },
         },
     ]
-
-    const table = useReactTable({
-        data: data?.data || [],
-        columns,
-        getCoreRowModel: getCoreRowModel(),
-    })
-
-    if (isLoading) {
-        return <div className="p-8 text-center text-slate-500">Loading inventory...</div>
-    }
-
-    const isEmpty = !data || data.data.length === 0
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6">
@@ -108,49 +81,16 @@ export default function InventoryList() {
                 <AddItemDialog />
             </div>
 
-            <div className="rounded-md border border-slate-100 bg-white overflow-hidden">
-                {isEmpty ? (
-                    <EmptyState />
-                ) : (
-                    <Table>
-                        <TableHeader className="bg-slate-50/50">
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <TableRow key={headerGroup.id} className="hover:bg-transparent border-slate-100">
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead
-                                            key={header.id}
-                                            className="h-10 text-xs font-medium text-slate-500 uppercase tracking-wider px-6"
-                                        >
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody>
-                            {table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                    onClick={() => setSelectedItem(row.original)}
-                                    className="h-16 cursor-pointer hover:bg-slate-50/50 border-slate-100 transition-colors"
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="px-6">
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
-            </div>
+            <DataTable
+                columns={columns}
+                data={data}
+                pageCount={pageCount}
+                isLoading={isLoading}
+                searchColumn="name"
+                searchPlaceholder="Search parts..."
+                onRowClick={setSelectedItem}
+                {...tableState}
+            />
 
             <Sheet open={!!selectedItem} onOpenChange={(open: boolean) => !open && setSelectedItem(null)}>
                 <SheetContent className="sm:max-w-md">

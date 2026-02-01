@@ -7,14 +7,23 @@ export const customerKeys = {
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
-export function useCustomers(search?: string) {
-    return useQuery<Customer[]>({
-        queryKey: customerKeys.list(search),
+export function useCustomers(queryParams?: string) {
+    return useQuery<any>({ // Using any for now to handle data/meta structure or array
+        queryKey: customerKeys.list(queryParams),
         queryFn: async () => {
-            const params = new URLSearchParams()
-            if (search) params.append('search', search)
+            let url = '/api/customers'
+            if (queryParams) {
+                // Check if queryParams is just a search string (legacy) or a params JSON
+                if (queryParams.startsWith('{')) {
+                    url += `?params=${encodeURIComponent(queryParams)}`
+                } else {
+                    const params = new URLSearchParams()
+                    params.append('search', queryParams)
+                    url += `?${params.toString()}`
+                }
+            }
             
-            const response = await fetch(`/api/customers?${params.toString()}`)
+            const response = await fetch(url)
             if (!response.ok) throw new Error('Failed to fetch customers')
             return response.json()
         },

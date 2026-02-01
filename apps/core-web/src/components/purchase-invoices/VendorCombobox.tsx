@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useVendors } from "@/api/vendors"
+import type { Vendor } from "@/api/types"
 
 interface VendorComboboxProps {
     value?: string
@@ -25,9 +26,11 @@ interface VendorComboboxProps {
 
 export function VendorCombobox({ value, onChange }: VendorComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const { data: vendors } = useVendors()
+  const { data: responseData } = useVendors()
+  
+  const vendors = (Array.isArray(responseData) ? responseData : responseData?.data || []) as Vendor[]
 
-  const selectedVendor = vendors?.find(v => v.id === value)
+  const selectedVendor = vendors?.find((v) => v.id === value)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

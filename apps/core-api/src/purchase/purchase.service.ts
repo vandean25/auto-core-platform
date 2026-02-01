@@ -188,8 +188,20 @@ export class PurchaseService {
     }
   }
 
-  async findAll(status?: string) {
+  async findAll(params?: any) {
+    if (params && (params.where || params.orderBy || params.skip)) {
+        const [data, total] = await Promise.all([
+            this.prisma.purchaseOrder.findMany({
+                ...params,
+                include: { vendor: true, items: true },
+            }),
+            this.prisma.purchaseOrder.count({ where: params.where }),
+        ]);
+        return { data, total };
+    }
+
     let where = {};
+    const status = params as string;
     const filter = status || 'open';
 
     if (filter === 'open') {

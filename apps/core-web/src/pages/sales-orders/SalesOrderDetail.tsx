@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useSalesOrder, useCreateInvoiceFromOrder } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +28,6 @@ import {
 
 export default function SalesOrderDetail() {
     const { id } = useParams<{ id: string }>()
-    const navigate = useNavigate()
     const { data: order, isLoading } = useSalesOrder(id!)
     const createInvoiceMutation = useCreateInvoiceFromOrder()
 

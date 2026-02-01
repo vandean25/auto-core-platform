@@ -41,7 +41,18 @@ export class CustomerService {
     });
   }
 
-  async findAll(search?: string) {
+  async findAll(params: any) {
+    // If params is just a Prisma query object from QueryBuilder
+    if (params && (params.where || params.orderBy || params.skip !== undefined)) {
+        const [data, total] = await Promise.all([
+            this.prisma.customer.findMany(params),
+            this.prisma.customer.count({ where: params.where }),
+        ]);
+        return { data, total };
+    }
+
+    // Fallback for legacy calls (if any)
+    const search = params as string;
     return this.prisma.customer.findMany({
       where: search ? {
         OR: [

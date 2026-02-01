@@ -53,7 +53,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           <CommandList>
             <CommandEmpty>No customer found.</CommandEmpty>
             <CommandGroup>
-              {customers?.map((customer) => (
+              {customers?.map((customer: Customer) => (
                 <CommandItem
                   key={customer.id}
                   value={customer.id}

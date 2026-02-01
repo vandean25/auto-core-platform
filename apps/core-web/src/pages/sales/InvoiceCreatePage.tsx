@@ -148,7 +148,9 @@ export default function InvoiceCreatePage() {
             
             {editor.customer && (
               <div className="text-sm text-gray-600 mt-2 pl-1 border-l-2 border-gray-100">
-                <p>{editor.customer.address || "No address provided"}</p>
+                <p>{editor.customer.address_street || "No street provided"}</p>
+                <p>{editor.customer.address_zip} {editor.customer.address_city}</p>
+                <p>{editor.customer.address_country}</p>
                 <p className="mt-1">Email: {editor.customer.email}</p>
               </div>
             )}

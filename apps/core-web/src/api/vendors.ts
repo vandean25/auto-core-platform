@@ -1,15 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Vendor } from './types'
 
 const VENDORS_API = '/api/vendors'
 
-export function useVendors() {
-    return useQuery({
-        queryKey: ['vendors'],
+export function useVendors(queryParams?: string) {
+    return useQuery<any>({
+        queryKey: ['vendors', queryParams],
         queryFn: async () => {
-            const res = await fetch(VENDORS_API)
+            let url = VENDORS_API
+            if (queryParams) {
+                if (queryParams.startsWith('{')) {
+                    url += `?params=${encodeURIComponent(queryParams)}`
+                }
+            }
+            const res = await fetch(url)
             if (!res.ok) throw new Error('Failed to fetch vendors')
-            return res.json() as Promise<Vendor[]>
+            return res.json()
         },
     })
 }

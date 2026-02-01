@@ -61,66 +61,77 @@ export class InventoryService {
    * Finds items in the inventory with pagination, search, and filtering.
    * @param options Pagination, search, and filter options.
    */
-  async findAll(options: {
-    page: number;
-    limit: number;
-    search?: string;
-    location?: string;
-    brand?: string;
-    brandId?: number;
-  }) {
-    const { page = 1, limit = 10, search, location, brand, brandId } = options;
-    const skip = (page - 1) * limit;
+  async findAll(params: any) {
+    let items, total;
 
-    const where: any = {};
+    // Check if using QueryBuilder params (has where/skip/take)
+    if (params && (params.where || params.orderBy || params.skip !== undefined)) {
+        [items, total] = await Promise.all([
+            this.prisma.catalogItem.findMany({
+                ...params,
+                include: {
+                    brand: true,
+                    stocks: {
+                        include: {
+                            location: true,
+                        },
+                    },
+                    superseded_by: {
+                        select: { id: true, sku: true },
+                    },
+                },
+            }),
+            this.prisma.catalogItem.count({ where: params.where }),
+        ]);
+    } else {
+        // Legacy path
+        const { page = 1, limit = 10, search, location, brand, brandId } = params;
+        const skip = (page - 1) * limit;
+        const where: any = {};
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { brand: { name: { contains: search, mode: 'insensitive' } } },
-      ];
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { sku: { contains: search, mode: 'insensitive' } },
+                { brand: { name: { contains: search, mode: 'insensitive' } } },
+            ];
+        }
+
+        if (brand) where.brand = { name: { equals: brand, mode: 'insensitive' } };
+        if (brandId) where.brand_id = brandId;
+        if (location) {
+            where.stocks = {
+                some: {
+                    location: {
+                        name: { contains: location, mode: 'insensitive' },
+                    },
+                },
+            };
+        }
+
+        [items, total] = await Promise.all([
+            this.prisma.catalogItem.findMany({
+                where,
+                include: {
+                    brand: true,
+                    stocks: {
+                        include: {
+                            location: true,
+                        },
+                    },
+                    superseded_by: {
+                        select: { id: true, sku: true },
+                    },
+                },
+                skip,
+                take: limit,
+            }),
+            this.prisma.catalogItem.count({ where }),
+        ]);
     }
 
-    if (brand) {
-      where.brand = { name: { equals: brand, mode: 'insensitive' } };
-    }
-
-    if (brandId) {
-      where.brand_id = brandId;
-    }
-
-    if (location) {
-      where.stocks = {
-        some: {
-          location: {
-            name: { contains: location, mode: 'insensitive' },
-          },
-        },
-      };
-    }
-
-    const [items, total] = await Promise.all([
-      this.prisma.catalogItem.findMany({
-        where,
-        include: {
-          brand: true,
-          stocks: {
-            include: {
-              location: true,
-            },
-          },
-          superseded_by: {
-            select: { id: true, sku: true },
-          },
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.catalogItem.count({ where }),
-    ]);
-
-    const last_page = Math.ceil(total / limit);
+    // Common transformation logic
+    const last_page = Math.ceil(total / (params.take || params.limit || 10));
 
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {
@@ -154,7 +165,7 @@ export class InventoryService {
       data: transformedItems,
       meta: {
         total,
-        page,
+        page: params.page || (params.skip / (params.take || 10)) + 1, // Estimate page for legacy or QB
         last_page,
       },
     };

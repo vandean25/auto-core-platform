@@ -3,18 +3,26 @@ import type { PurchaseOrder } from './types'
 
 const PO_API = '/api/purchase-orders'
 
-export function usePurchaseOrders(filter?: string) {
-    return useQuery({
-        queryKey: ['purchase-orders', filter],
+export function usePurchaseOrders(queryParams?: string) {
+    return useQuery<any>({
+        queryKey: ['purchase-orders', queryParams],
         queryFn: async () => {
-            const params = new URLSearchParams()
-            if (filter) params.append('status', filter)
+            let url = PO_API
+            if (queryParams) {
+                if (queryParams.startsWith('{')) {
+                    url += `?params=${encodeURIComponent(queryParams)}`
+                } else {
+                    const params = new URLSearchParams()
+                    params.append('status', queryParams)
+                    url += `?${params.toString()}`
+                }
+            }
             
-            const res = await fetch(`${PO_API}?${params.toString()}`)
+            const res = await fetch(url)
             if (!res.ok) throw new Error('Failed to fetch purchase orders')
-            return res.json() as Promise<PurchaseOrder[]>
+            return res.json()
         },
-        placeholderData: (previousData) => previousData, 
+        placeholderData: (previousData: any) => previousData, 
     })
 }
 

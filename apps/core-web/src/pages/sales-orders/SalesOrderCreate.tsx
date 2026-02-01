@@ -10,7 +10,7 @@ import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { useCreateSalesOrder } from '@/api/sales-orders'
 import { useInventory } from '@/api/inventory'
 import { useCustomer } from '@/api/customers'
-import { Trash2, Plus, ArrowLeft, Search } from 'lucide-react'
+import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import {
@@ -58,7 +58,7 @@ export default function SalesOrderCreate() {
         },
     })
 
-    const { fields, append, remove, update } = useFieldArray({
+    const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: 'items',
     })
@@ -140,7 +140,7 @@ export default function SalesOrderCreate() {
                              <FormField
                                 control={form.control}
                                 name="customer_id"
-                                render={({ field }) => (
+                                render={({ field }: { field: any }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Customer</FormLabel>
                                         <FormControl>
@@ -159,7 +159,7 @@ export default function SalesOrderCreate() {
                                 <FormField
                                     control={form.control}
                                     name="notes"
-                                    render={({ field }) => (
+                                    render={({ field }: { field: any }) => (
                                         <FormItem>
                                             <FormLabel>Internal Notes</FormLabel>
                                             <FormControl>
@@ -233,7 +233,7 @@ export default function SalesOrderCreate() {
                                                      <FormField
                                                         control={form.control}
                                                         name={`items.${index}.description`}
-                                                        render={({ field }) => (
+                                                        render={({ field }: { field: any }) => (
                                                             <Input {...field} />
                                                         )}
                                                     />
@@ -242,7 +242,7 @@ export default function SalesOrderCreate() {
                                                      <FormField
                                                         control={form.control}
                                                         name={`items.${index}.quantity`}
-                                                        render={({ field }) => (
+                                                        render={({ field }: { field: any }) => (
                                                             <Input type="number" min="1" {...field} />
                                                         )}
                                                     />
@@ -251,7 +251,7 @@ export default function SalesOrderCreate() {
                                                      <FormField
                                                         control={form.control}
                                                         name={`items.${index}.unit_price`}
-                                                        render={({ field }) => (
+                                                        render={({ field }: { field: any }) => (
                                                             <Input type="number" step="0.01" {...field} />
                                                         )}
                                                     />

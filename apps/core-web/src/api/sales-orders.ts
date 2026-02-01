@@ -1,20 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { SalesOrder, SalesOrderStatus } from './types'
+import type { SalesOrder } from './types'
 
 export const salesOrderKeys = {
     all: ['sales-orders'] as const,
-    list: (status?: SalesOrderStatus) => [...salesOrderKeys.all, 'list', status] as const,
+    list: (queryParams?: string) => [...salesOrderKeys.all, 'list', queryParams] as const,
     detail: (id: string) => [...salesOrderKeys.all, 'detail', id] as const,
 }
 
-export function useSalesOrders(status?: SalesOrderStatus) {
-    return useQuery<SalesOrder[]>({
-        queryKey: salesOrderKeys.list(status),
+export function useSalesOrders(queryParams?: string) {
+    return useQuery<any>({
+        queryKey: salesOrderKeys.list(queryParams),
         queryFn: async () => {
-            const params = new URLSearchParams()
-            if (status) params.append('status', status)
+            let url = '/api/sales-orders'
+            if (queryParams) {
+                if (queryParams.startsWith('{')) {
+                    url += `?params=${encodeURIComponent(queryParams)}`
+                } else {
+                    const params = new URLSearchParams()
+                    params.append('status', queryParams)
+                    url += `?${params.toString()}`
+                }
+            }
             
-            const response = await fetch(`/api/sales-orders?${params.toString()}`)
+            const response = await fetch(url)
             if (!response.ok) throw new Error('Failed to fetch sales orders')
             return response.json()
         },
@@ -83,7 +91,7 @@ export function useCreateInvoiceFromOrder() {
             if (!response.ok) throw new Error('Failed to create invoice from order')
             return response.json()
         },
-        onSuccess: (invoice, orderId) => {
+        onSuccess: (_invoice, orderId) => {
             queryClient.invalidateQueries({ queryKey: salesOrderKeys.detail(orderId) })
             // We might also want to invalidate invoices list if we had one
         },

@@ -20,7 +20,7 @@ import { Command, CommandInput, CommandList, CommandItem, CommandEmpty, CommandG
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Check, ChevronsUpDown, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Brand } from '@/api/types'
+import type { Brand, Vendor } from '@/api/types'
 
 interface POItem {
     catalogItemId: string
@@ -48,19 +48,23 @@ export default function PurchaseOrderCreate() {
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
 
     // Step 2: Vendor
-    const { data: vendors } = useVendors()
+    const { data: vendorsResponse } = useVendors()
+    const vendors = (Array.isArray(vendorsResponse) ? vendorsResponse : (vendorsResponse as any)?.data || []) as Vendor[]
+    
     const [selectedVendorId, setSelectedVendorId] = useState<string>('')
 
     // Step 3: Items
     const [items, setItems] = useState<POItem[]>([])
     const [itemSearch, setItemSearch] = useState('')
-    const { data: inventory } = useInventory({ search: itemSearch, limit: 10, brand: selectedBrand?.name })
+    const { data: inventoryResponse } = useInventory({ search: itemSearch, limit: 10, brand: selectedBrand?.name })
+    const inventory = inventoryResponse as any; // Cast for now as response structure handles data/meta
+
     const [openCombobox, setOpenCombobox] = useState(false)
 
     const createPO = useCreatePO()
 
-    const filteredVendors = vendors?.filter(v =>
-        selectedBrand ? v.supportedBrands.some(b => b.id === selectedBrand.id) : true
+    const filteredVendors = vendors?.filter((v: Vendor) =>
+        selectedBrand ? v.supportedBrands.some((b: Brand) => b.id === selectedBrand.id) : true
     )
 
     const handleAddItem = (item: InventoryItem) => {
@@ -151,7 +155,7 @@ export default function PurchaseOrderCreate() {
                             <div className="text-red-500">No vendors found for this brand.</div>
                         ) : (
                             <div className="grid grid-cols-1 gap-2">
-                                {filteredVendors?.map(vendor => (
+                                {filteredVendors?.map((vendor: Vendor) => (
                                     <div
                                         key={vendor.id}
                                         className={cn(
@@ -200,7 +204,7 @@ export default function PurchaseOrderCreate() {
                                     <CommandList>
                                         <CommandEmpty>No item found.</CommandEmpty>
                                         <CommandGroup>
-                                            {inventory?.data.map((item) => (
+                                            {inventory?.data.map((item: InventoryItem) => (
                                                 <CommandItem
                                                     key={item.id}
                                                     value={item.id}

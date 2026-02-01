@@ -14,6 +14,7 @@ import CustomerDetail from './pages/customers/CustomerDetail'
 import SalesOrderList from './pages/sales-orders/SalesOrderList'
 import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
 import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (

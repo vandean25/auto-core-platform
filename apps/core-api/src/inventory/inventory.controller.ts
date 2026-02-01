@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, BadRequestException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
+import { QueryBuilder } from '../common/utils/query-builder';
 
 @Controller('inventory')
 export class InventoryController {
@@ -29,7 +30,23 @@ export class InventoryController {
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
+    @Query('params') params?: string
   ) {
+    if (params) {
+        let queryParams;
+        try {
+            queryParams = JSON.parse(params);
+        } catch (error) {
+            throw new BadRequestException('Invalid params JSON');
+        }
+
+        const whitelist = ['sku', 'name', 'brand.name', 'createdAt'];
+        const searchFields = ['sku', 'name', 'brand.name'];
+        const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+        
+        return await this.inventoryService.findAll(prismaQuery);
+    }
+
     return await this.inventoryService.findAll({
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),

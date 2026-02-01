@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, User, Phone, Mail, MapPin, ArrowLeft, Plus } from 'lucide-react'
+import { Phone, Mail, MapPin, ArrowLeft, Plus } from 'lucide-react'
 import {
     Table,
     TableBody,

@@ -57,7 +57,24 @@ export class SalesOrderService {
     });
   }
 
-  async findAll(status?: SalesOrderStatus) {
+  async findAll(params: any) {
+    // If params is just a Prisma query object from QueryBuilder
+    if (params && (params.where || params.orderBy || params.skip !== undefined)) {
+        const [data, total] = await Promise.all([
+            this.prisma.salesOrder.findMany({
+                ...params,
+                include: {
+                    customer: true,
+                    vehicle: true,
+                    items: true
+                }
+            }),
+            this.prisma.salesOrder.count({ where: params.where }),
+        ]);
+        return { data, total };
+    }
+
+    const status = params as SalesOrderStatus;
     return this.prisma.salesOrder.findMany({
       where: status ? { status } : undefined,
       include: {
@@ -91,7 +108,7 @@ export class SalesOrderService {
     const order = await this.findOne(id);
     
     // If updating items, recalculate total
-    let itemsUpdate = undefined;
+    let itemsUpdate: any = undefined;
     let totalAmount = order.total_amount;
 
     if (updateDto.items) {

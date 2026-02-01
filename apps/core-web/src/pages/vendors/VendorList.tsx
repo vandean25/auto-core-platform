@@ -1,24 +1,52 @@
 import { useState } from 'react'
+import { type ColumnDef } from '@tanstack/react-table'
 import { useVendors } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
 import { VendorDialog } from './VendorDialog'
 import { Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { DataTable } from '@/components/data-table/DataTable'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import type { Vendor } from '@/api/types'
 
 export default function VendorList() {
-    const { data: vendors, isLoading, error } = useVendors()
+    const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+    const { data: responseData, isLoading } = useVendors(queryParams)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-    if (isLoading) return <div>Loading vendors...</div>
-    if (error) return <div>Error loading vendors</div>
+    const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
+    const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+
+    const columns: ColumnDef<Vendor>[] = [
+        {
+            accessorKey: 'name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+            cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+        },
+        {
+            accessorKey: 'email',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+        },
+        {
+            accessorKey: 'account_number',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Account #" />,
+        },
+        {
+            accessorKey: 'supportedBrands',
+            header: 'Supported Brands',
+            enableSorting: false,
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.supportedBrands?.map((brand) => (
+                        <Badge key={brand.id} variant="outline">
+                            {brand.name}
+                        </Badge>
+                    ))}
+                </div>
+            ),
+        },
+    ]
 
     return (
         <div className="p-8 space-y-4">
@@ -29,44 +57,15 @@ export default function VendorList() {
                 </Button>
             </div>
 
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Account #</TableHead>
-                            <TableHead>Supported Brands</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {vendors?.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center">
-                                    No vendors found.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            vendors?.map((vendor) => (
-                                <TableRow key={vendor.id}>
-                                    <TableCell className="font-medium">{vendor.name}</TableCell>
-                                    <TableCell>{vendor.email}</TableCell>
-                                    <TableCell>{vendor.account_number}</TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-wrap gap-1">
-                                            {vendor.supportedBrands.map(brand => (
-                                                <Badge key={brand.id} variant="outline">
-                                                    {brand.name}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            <DataTable
+                columns={columns}
+                data={data}
+                pageCount={pageCount}
+                isLoading={isLoading}
+                searchColumn="name"
+                searchPlaceholder="Search vendors..."
+                {...tableState}
+            />
 
             <VendorDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
         </div>

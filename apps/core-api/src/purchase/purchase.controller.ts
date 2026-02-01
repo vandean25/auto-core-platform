@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { PurchaseService } from './purchase.service';
+import { QueryBuilder } from '../common/utils/query-builder';
 
 @Controller('purchase-orders')
 export class PurchaseController {
@@ -40,7 +41,30 @@ export class PurchaseController {
   }
 
   @Get()
-  async findAll(@Query('status') status?: string) {
+  async findAll(@Query('status') status?: string, @Query('params') params?: string) {
+    if (params) {
+        let queryParams;
+        try {
+            queryParams = JSON.parse(params);
+        } catch {
+            throw new BadRequestException('Invalid params JSON');
+        }
+
+        const whitelist = ['order_number', 'status', 'vendor.name', 'total_amount', 'createdAt', 'created_at', 'expected_date'];
+        const searchFields = ['order_number', 'vendor.name'];
+        const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+        
+        const result = await this.purchaseService.findAll(prismaQuery) as any;
+        return {
+            data: result.data,
+            meta: {
+                total: result.total,
+                page: queryParams.page ?? 1,
+                pageSize: queryParams.pageSize ?? 25,
+                pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
+            }
+        };
+    }
     return this.purchaseService.findAll(status);
   }
 
