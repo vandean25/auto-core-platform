@@ -80,12 +80,52 @@ export interface PurchaseOrder {
     createdAt: string
 }
 
+export type CustomerType = 'PRIVATE' | 'COMPANY'
+
 export interface Customer {
     id: string
-    name: string
+    type: CustomerType
+    company_name?: string
+    first_name: string
+    last_name: string
     email: string
     phone?: string
-    address?: string
+    vat_id?: string
+    address_street?: string
+    address_city?: string
+    address_zip?: string
+    address_country?: string
+}
+
+export type SalesOrderStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED'
+
+export interface SalesOrderItem {
+    id: string
+    catalog_item_id?: string
+    catalog_item?: {
+        sku: string
+        name: string
+    }
+    description: string
+    quantity: string
+    unit_price: string
+    total: string
+    tax_rate: string
+}
+
+export interface SalesOrder {
+    id: string
+    order_number: string
+    customer_id: string
+    customer: Customer
+    vehicle_id?: string
+    vehicle?: Vehicle
+    status: SalesOrderStatus
+    total_amount: string
+    notes?: string
+    items: SalesOrderItem[]
+    invoice?: Invoice
+    createdAt: string
 }
 
 export interface Vehicle {
