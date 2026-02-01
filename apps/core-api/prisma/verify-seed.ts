@@ -33,9 +33,9 @@ async function verify() {
     }
 
     // 4. Stock for Chain
-    const stockA = await prisma.inventoryStock.findUnique({ where: { catalog_item_id: partA?.id } });
-    const stockB = await prisma.inventoryStock.findUnique({ where: { catalog_item_id: partB?.id } });
-    const stockC = await prisma.inventoryStock.findUnique({ where: { catalog_item_id: partC?.id } });
+    const stockA = await prisma.inventoryStock.findFirst({ where: { catalog_item_id: partA?.id } });
+    const stockB = await prisma.inventoryStock.findFirst({ where: { catalog_item_id: partB?.id } });
+    const stockC = await prisma.inventoryStock.findFirst({ where: { catalog_item_id: partC?.id } });
 
     console.log(`Stock for A: ${stockA ? 'Exists (Incorrect)' : 'None (Correct)'}`);
     console.log(`Stock for B: ${stockB ? 'Exists (Incorrect)' : 'None (Correct)'}`);

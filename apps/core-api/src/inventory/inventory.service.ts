@@ -14,10 +14,14 @@ export class InventoryService {
     const item = await this.prisma.catalogItem.findUnique({
       where: { sku },
       include: {
-        stock: true,
+        stocks: {
+          include: {
+            location: true,
+          },
+        },
         brand: true,
         superseded_by: {
-          select: { sku: true },
+          select: { id: true, sku: true },
         },
       },
     });
@@ -28,7 +32,7 @@ export class InventoryService {
 
     // If there is a superseding part, recursively check its availability
     if (item.superseded_by) {
-      const suggestion = await this.checkAvailability(item.superseded_by.sku);
+      const suggestion: any = await this.checkAvailability(item.superseded_by.sku);
       return {
         ...suggestion,
         original_sku: sku,
@@ -37,9 +41,9 @@ export class InventoryService {
       };
     }
 
-    // Base case: No more supersessions, return current stock
-    const onHand = item.stock?.quantity_on_hand || 0;
-    const reserved = item.stock?.quantity_reserved || 0;
+    // Base case: No more supersessions, return current stock summed across all locations
+    const onHand = item.stocks.reduce((sum, s) => sum + s.quantity_on_hand, 0);
+    const reserved = item.stocks.reduce((sum, s) => sum + s.quantity_reserved, 0);
     const available = onHand - reserved;
 
     return {
@@ -87,9 +91,11 @@ export class InventoryService {
     }
 
     if (location) {
-      where.stock = {
-        location: {
-          name: { contains: location, mode: 'insensitive' },
+      where.stocks = {
+        some: {
+          location: {
+            name: { contains: location, mode: 'insensitive' },
+          },
         },
       };
     }
@@ -99,13 +105,13 @@ export class InventoryService {
         where,
         include: {
           brand: true,
-          stock: {
+          stocks: {
             include: {
               location: true,
             },
           },
           superseded_by: {
-            select: { id: true },
+            select: { id: true, sku: true },
           },
         },
         skip,
@@ -118,8 +124,8 @@ export class InventoryService {
 
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {
-      const onHand = item.stock?.quantity_on_hand || 0;
-      const reserved = item.stock?.quantity_reserved || 0;
+      const onHand = item.stocks.reduce((sum, s) => sum + s.quantity_on_hand, 0);
+      const reserved = item.stocks.reduce((sum, s) => sum + s.quantity_reserved, 0);
       const available = onHand - reserved;
 
       let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
@@ -140,7 +146,7 @@ export class InventoryService {
         price: Number(item.retail_price),
         status,
         quantity_available: available,
-        warehouse_location: item.stock?.location?.name,
+        warehouse_location: item.stocks[0]?.location?.name || 'N/A',
       };
     });
 
