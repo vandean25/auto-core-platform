@@ -202,7 +202,7 @@ export class PurchaseService {
 
     let where = {};
     const status = params as string;
-    const filter = status || 'open';
+    const filter = status || 'all';
 
     if (filter === 'open') {
       where = {

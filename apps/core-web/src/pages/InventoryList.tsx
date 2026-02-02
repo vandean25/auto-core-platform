@@ -29,7 +29,17 @@ const StatusDot = ({ status }: { status: InventoryStatus }) => {
 
 export default function InventoryList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-    const { data: responseData, isLoading } = useInventory(queryParams as any)
+    
+    const parsedParams = React.useMemo(() => {
+        if (!queryParams) return {}
+        try {
+            return JSON.parse(queryParams)
+        } catch {
+            return {}
+        }
+    }, [queryParams])
+
+    const { data: responseData, isLoading } = useInventory(parsedParams)
     const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
 
     const data = (responseData as any)?.data || []
