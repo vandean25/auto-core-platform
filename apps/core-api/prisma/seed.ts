@@ -167,6 +167,7 @@ async function main() {
     const showroom = await prisma.storageLocation.create({
         data: {
             name: 'Main Showroom (Vienna)',
+            code: 'WH-VIE-01',
             type: LocationType.warehouse,
         },
     });
@@ -174,6 +175,7 @@ async function main() {
     const storage = await prisma.storageLocation.create({
         data: {
             name: 'Workshop Storage (Graz)',
+            code: 'WH-GRZ-01',
             type: LocationType.warehouse,
         },
     });
@@ -181,6 +183,7 @@ async function main() {
     const tireHotel = await prisma.storageLocation.create({
         data: {
             name: 'Tire Hotel (Basement)',
+            code: 'WH-TIRE-01',
             type: LocationType.warehouse,
         },
     });

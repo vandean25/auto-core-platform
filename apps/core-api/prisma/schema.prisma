@@ -93,6 +93,7 @@ model CatalogItem {
 
 enum LocationType {
   warehouse
+  aisle
   shelf
   bin
   customer_storage
@@ -100,6 +101,7 @@ enum LocationType {
 
 model StorageLocation {
   id           String                 @id @default(uuid())
+  code         String                 @unique
   name         String
   type         LocationType
   parent_id    String?
@@ -109,6 +111,7 @@ model StorageLocation {
   transactions InventoryTransaction[]
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
+  deletedAt    DateTime?
 
   @@map("storage_locations")
 }

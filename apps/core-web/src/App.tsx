@@ -14,6 +14,7 @@ import CustomerDetail from './pages/customers/CustomerDetail'
 import SalesOrderList from './pages/sales-orders/SalesOrderList'
 import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
 import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
+import LocationManagement from './pages/LocationManagement'
 import { Toaster } from '@/components/ui/sonner'
 
 function App() {
@@ -28,7 +29,13 @@ function App() {
                 <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">Dashboard</Link>
                 <Link to="/customers" className="text-sm font-medium hover:text-primary transition-colors">Customers</Link>
                 <Link to="/sales-orders" className="text-sm font-medium hover:text-primary transition-colors">Sales Orders</Link>
-                <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Inventory</Link>
+                <div className="group relative">
+                    <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Inventory</Link>
+                    <div className="absolute hidden group-hover:block w-48 bg-white border shadow-md rounded-md mt-0 z-50">
+                        <Link to="/" className="block px-4 py-2 text-sm hover:bg-slate-100">Stock List</Link>
+                        <Link to="/inventory/locations" className="block px-4 py-2 text-sm hover:bg-slate-100">Bin Management</Link>
+                    </div>
+                </div>
                 <Link to="/vendors" className="text-sm font-medium hover:text-primary transition-colors">Vendors</Link>
                 <Link to="/purchase-orders" className="text-sm font-medium hover:text-primary transition-colors">Purchase Orders</Link>
               </nav>
@@ -44,6 +51,7 @@ function App() {
         <main className="container mx-auto py-10 px-4">
           <Routes>
             <Route path="/" element={<InventoryList />} />
+            <Route path="/inventory/locations" element={<LocationManagement />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/customers" element={<CustomerList />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />

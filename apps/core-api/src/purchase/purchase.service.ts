@@ -135,7 +135,7 @@ export class PurchaseService {
           });
           if (!location) {
             location = await tx.storageLocation.create({
-              data: { name: 'Default Warehouse', type: 'warehouse' },
+              data: { name: 'Default Warehouse', code: 'WH-001', type: 'warehouse' },
             });
           }
 
