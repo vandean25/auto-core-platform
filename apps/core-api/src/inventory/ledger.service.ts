@@ -34,6 +34,21 @@ export class LedgerService {
     // Use the passed transaction client if available, otherwise use this.prisma
     const tx = prismaVal || this.prisma;
 
+    // Validate Location is a BIN
+    // We need to fetch the location to check its type.
+    // Note: This adds a read query to every stock transaction.
+    const location = await tx.storageLocation.findUnique({
+        where: { id: locationId }
+    });
+    
+    if (!location) {
+        throw new BadRequestException(`Location ${locationId} not found`);
+    }
+
+    if (location.type !== 'bin') {
+        throw new BadRequestException(`Stock can only be stored in BIN locations. Current type: ${location.type} (${location.name})`);
+    }
+
     try {
       // Step A: Insert the InventoryTransaction record
       const transaction = await tx.inventoryTransaction.create({
