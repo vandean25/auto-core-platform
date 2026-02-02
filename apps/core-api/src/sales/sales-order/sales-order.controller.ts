@@ -15,33 +15,57 @@ export class SalesOrderController {
   }
 
   @Get()
-  async findAll(@Query('status') status?: SalesOrderStatus, @Query('params') params?: string) {
+  async findAll(
+    @Query('status') status?: SalesOrderStatus,
+    @Query('params') params?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    let queryParams: any = {};
+
     if (params) {
-        let queryParams;
         try {
             queryParams = JSON.parse(params);
         } catch (error) {
             throw new BadRequestException('Invalid JSON in params query parameter');
         }
-
-        const whitelist = ['status', 'order_number', 'total_amount', 'createdAt', 'customer.last_name', 'customer.company_name'];
-        const searchFields = ['order_number', 'customer.last_name', 'customer.company_name'];
-        
-        const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
-        const result = await this.salesOrderService.findAll(prismaQuery) as any;
-        
-        return {
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: queryParams.page ?? 1,
-                pageSize: queryParams.pageSize ?? 25,
-                pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
-            }
-        };
     }
 
-    return this.salesOrderService.findAll(status);
+    // Support standard query params (merging with JSON params if present)
+    if (!queryParams.page && page) queryParams.page = parseInt(page, 10);
+    if (!queryParams.pageSize) {
+        if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+        else if (limit) queryParams.pageSize = parseInt(limit, 10);
+    }
+    if (!queryParams.search && search) queryParams.search = search;
+
+    // Handle filters
+    if (status) {
+        if (!queryParams.filters) queryParams.filters = [];
+        // Avoid duplicate status filter
+        const hasStatus = queryParams.filters.some((f: any) => f.field === 'status');
+        if (!hasStatus) {
+            queryParams.filters.push({ field: 'status', operator: 'equals', value: status });
+        }
+    }
+
+    const whitelist = ['status', 'order_number', 'total_amount', 'createdAt', 'customer.last_name', 'customer.company_name'];
+    const searchFields = ['order_number', 'customer.last_name', 'customer.company_name'];
+    
+    const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+    const result = await this.salesOrderService.findAll(prismaQuery) as any;
+    
+    return {
+        data: result.data,
+        meta: {
+            total: result.total,
+            page: queryParams.page ?? 1,
+            pageSize: queryParams.pageSize ?? 25,
+            pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
+        }
+    };
   }
 
   @Get(':id')
