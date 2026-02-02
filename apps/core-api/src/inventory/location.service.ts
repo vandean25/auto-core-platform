@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LocationType, Prisma } from '@prisma/client';
+import { LocationType } from '@prisma/client';
 
 @Injectable()
 export class LocationService {
@@ -22,6 +22,26 @@ export class LocationService {
   async getTree() {
     const locations = await this.findAll();
     return this.buildTree(locations);
+  }
+
+  async getChildren(parentId: string) {
+    return this.prisma.storageLocation.findMany({
+      where: { parent_id: parentId, deletedAt: null },
+      orderBy: { name: 'asc' },
+      include: {
+         _count: {
+          select: { children: true, stocks: true }
+        }
+      }
+    });
+  }
+
+  async getBins() {
+    return this.prisma.storageLocation.findMany({
+      where: { type: 'bin', deletedAt: null },
+      orderBy: { name: 'asc' },
+      include: { parent: true }
+    });
   }
 
   private buildTree(locations: any[], parentId: string | null = null): any[] {

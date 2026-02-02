@@ -130,20 +130,40 @@ export class PurchaseService {
             data: { quantity_received: { increment: received.quantity } },
           });
 
-          let location = await tx.storageLocation.findFirst({
+          let warehouse = await tx.storageLocation.findFirst({
             where: { type: 'warehouse' },
           });
-          if (!location) {
-            location = await tx.storageLocation.create({
+          if (!warehouse) {
+            warehouse = await tx.storageLocation.create({
               data: { name: 'Default Warehouse', code: 'WH-001', type: 'warehouse' },
             });
+          }
+
+          // Ensure General Bin exists for this warehouse
+          let generalBin = await tx.storageLocation.findFirst({
+              where: { 
+                  parent_id: warehouse.id, 
+                  type: 'bin', 
+                  name: 'General Bin' 
+              }
+          });
+
+          if (!generalBin) {
+              generalBin = await tx.storageLocation.create({
+                  data: {
+                      name: 'General Bin',
+                      code: `${warehouse.code}-GEN`,
+                      type: 'bin',
+                      parent_id: warehouse.id
+                  }
+              });
           }
 
           // Record the inventory transaction using the ledger service
           await this.ledgerService.recordTransaction(
             {
               itemId: received.itemId,
-              locationId: location.id,
+              locationId: generalBin.id,
               quantity: received.quantity,
               type: TransactionType.PURCHASE_RECEIPT,
               referenceId: po.order_number,
