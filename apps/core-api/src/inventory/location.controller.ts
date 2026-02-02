@@ -11,6 +11,16 @@ export class LocationController {
     return this.locationService.getTree();
   }
 
+  @Get('bins')
+  getBins() {
+    return this.locationService.getBins();
+  }
+
+  @Get(':id/children')
+  getChildren(@Param('id') id: string) {
+    return this.locationService.getChildren(id);
+  }
+
   @Get()
   findAll() {
     return this.locationService.findAll();
