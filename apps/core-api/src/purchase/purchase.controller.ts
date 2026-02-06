@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { PurchaseService } from './purchase.service';
 import { QueryBuilder } from '../common/utils/query-builder';
+import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
 
 @Controller('purchase-orders')
 export class PurchaseController {
@@ -18,22 +20,24 @@ export class PurchaseController {
 
   @Post()
   async createPurchaseOrder(
-    @Body()
-    body: {
-      vendorId: string;
-      items: { catalogItemId: string; quantity: number; unitCost: number }[];
-    },
+    @Body() createPurchaseOrderDto: CreatePurchaseOrderDto,
   ) {
-    return this.purchaseService.createPurchaseOrder(body.vendorId, body.items);
+    return this.purchaseService.createPurchaseOrder(
+      createPurchaseOrderDto.vendorId,
+      createPurchaseOrderDto.items,
+    );
   }
 
   @Post(':id/receive')
   async receiveItems(
     @Param('id') orderId: string,
-    @Body() body: { items: { itemId: string; quantity: number }[] },
+    @Body() receivePurchaseOrderDto: ReceivePurchaseOrderDto,
     @Res() res: express.Response,
   ) {
-    const result = await this.purchaseService.receiveItems(orderId, body.items);
+    const result = await this.purchaseService.receiveItems(
+      orderId,
+      receivePurchaseOrderDto.items,
+    );
     if (!result) {
       throw new BadRequestException('Receipt failed to return data');
     }
