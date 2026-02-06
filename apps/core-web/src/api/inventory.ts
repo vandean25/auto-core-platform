@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryResponse, InventoryTransaction } from './types'
+import { fetchWithAuth } from './client'
 
 export const inventoryKeys = {
     all: ['inventory'] as const,
@@ -17,7 +18,7 @@ export function useInventory(params: { page?: number; limit?: number; search?: s
             if (params.search) searchParams.append('search', params.search)
             if (params.brand) searchParams.append('brand', params.brand)
 
-            const response = await fetch(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
             if (!response.ok) {
                 throw new Error('Network response was not ok')
             }
@@ -30,7 +31,7 @@ export function useInventoryHistory(itemId: string) {
     return useQuery<InventoryTransaction[]>({
         queryKey: inventoryKeys.history(itemId),
         queryFn: async () => {
-            const response = await fetch(`/api/inventory/${itemId}/history`)
+            const response = await fetchWithAuth(`/api/inventory/${itemId}/history`)
             if (!response.ok) {
                 throw new Error('Failed to fetch inventory history')
             }
@@ -51,7 +52,7 @@ export function useCreateInventoryItem() {
             brandId?: number
             revenue_group_id?: number
         }) => {
-            const response = await fetch('/api/inventory', {
+            const response = await fetchWithAuth('/api/inventory', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),

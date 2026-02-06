@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Customer } from './types'
+import { fetchWithAuth } from './client'
 
 export const customerKeys = {
     all: ['customers'] as const,
@@ -23,7 +24,7 @@ export function useCustomers(queryParams?: string) {
                 }
             }
             
-            const response = await fetch(url)
+            const response = await fetchWithAuth(url)
             if (!response.ok) throw new Error('Failed to fetch customers')
             return response.json()
         },
@@ -34,7 +35,7 @@ export function useCustomer(id: string) {
     return useQuery<Customer>({
         queryKey: customerKeys.detail(id),
         queryFn: async () => {
-            const response = await fetch(`/api/customers/${id}`)
+            const response = await fetchWithAuth(`/api/customers/${id}`)
             if (!response.ok) throw new Error('Failed to fetch customer')
             return response.json()
         },
@@ -47,7 +48,7 @@ export function useCreateCustomer() {
     
     return useMutation({
         mutationFn: async (customer: Partial<Customer>) => {
-            const response = await fetch('/api/customers', {
+            const response = await fetchWithAuth('/api/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(customer),
@@ -66,7 +67,7 @@ export function useUpdateCustomer() {
     
     return useMutation({
         mutationFn: async ({ id, data }: { id: string; data: Partial<Customer> }) => {
-            const response = await fetch(`/api/customers/${id}`, {
+            const response = await fetchWithAuth(`/api/customers/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -86,7 +87,7 @@ export function useDeleteCustomer() {
     
     return useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`/api/customers/${id}`, {
+            const response = await fetchWithAuth(`/api/customers/${id}`, {
                 method: 'DELETE',
             })
             if (!response.ok) throw new Error('Failed to delete customer')

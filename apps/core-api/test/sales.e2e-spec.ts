@@ -11,11 +11,13 @@ describe('SalesController (e2e)', () => {
   let catalogItemId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
 
@@ -69,7 +71,7 @@ describe('SalesController (e2e)', () => {
     await app.close();
   });
 
-  it('/sales/invoices (POST) - Create Draft', async () => {
+  it('/api/sales/invoices (POST) - Create Draft', async () => {
     const createInvoiceDto = {
       customerId: customerId,
       items: [
@@ -84,7 +86,8 @@ describe('SalesController (e2e)', () => {
     };
 
     const response = await request(app.getHttpServer())
-      .post('/sales/invoices')
+      .post('/api/sales/invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createInvoiceDto)
       .expect(201);
 
@@ -109,7 +112,8 @@ describe('SalesController (e2e)', () => {
     };
 
     const draftResponse = await request(app.getHttpServer())
-      .post('/sales/invoices')
+      .post('/api/sales/invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createInvoiceDto)
       .expect(201);
 
@@ -117,7 +121,8 @@ describe('SalesController (e2e)', () => {
 
     // 2. Finalize
     const finalizeResponse = await request(app.getHttpServer())
-      .put(`/sales/invoices/${invoiceId}/finalize`)
+      .put(`/api/sales/invoices/${invoiceId}/finalize`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(finalizeResponse.body.status).toBe('FINALIZED');

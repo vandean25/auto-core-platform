@@ -13,6 +13,7 @@ describe('PurchaseInvoice (e2e)', () => {
   let purchaseOrderItemId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -80,6 +81,7 @@ describe('PurchaseInvoice (e2e)', () => {
   it('/vendors/:id/unbilled-receipts (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body).toHaveLength(1);
@@ -105,6 +107,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
@@ -121,6 +124,7 @@ describe('PurchaseInvoice (e2e)', () => {
   it('/vendors/:id/unbilled-receipts (GET) - Check Remaining', async () => {
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body[0].quantityPending).toBe(5); // 10 received - 5 invoiced
@@ -144,6 +148,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(400);
   });
@@ -167,11 +172,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body.status).toBe('POSTED');
@@ -190,11 +197,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .set('x-api-key', 'test-api-key')
       .expect(400);
   });
 });

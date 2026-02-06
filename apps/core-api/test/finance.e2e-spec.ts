@@ -9,6 +9,7 @@ describe('FinanceModule (e2e)', () => {
   let prisma: PrismaService;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -37,6 +38,7 @@ describe('FinanceModule (e2e)', () => {
   it('/finance/settings (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/finance/settings')
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body).toHaveProperty('id', 1);
@@ -47,6 +49,7 @@ describe('FinanceModule (e2e)', () => {
     const lockDate = new Date('2025-12-31').toISOString();
     const response = await request(app.getHttpServer())
       .patch('/finance/settings')
+      .set('x-api-key', 'test-api-key')
       .send({ lock_date: lockDate })
       .expect(200);
 
@@ -76,6 +79,7 @@ describe('FinanceModule (e2e)', () => {
     // 3. Try to finalize (Settings locked up to 2025-12-31)
     await request(app.getHttpServer())
       .put(`/sales/invoices/${invoice.id}/finalize`)
+      .set('x-api-key', 'test-api-key')
       .expect(403);
   });
 
@@ -108,6 +112,7 @@ describe('FinanceModule (e2e)', () => {
     // 2. Create invoice draft
     const response = await request(app.getHttpServer())
       .post('/sales/invoices')
+      .set('x-api-key', 'test-api-key')
       .send({
         customerId: customer.id,
         items: [

@@ -5,6 +5,7 @@ import type {
     PurchaseInvoice, 
     PurchaseInvoiceStatus 
 } from './types'
+import { fetchWithAuth } from './client'
 
 export const purchaseInvoiceKeys = {
     all: ['purchase-invoices'] as const,
@@ -18,7 +19,7 @@ export function useUnbilledReceipts(vendorId: string | undefined) {
         queryKey: purchaseInvoiceKeys.unbilled(vendorId),
         queryFn: async () => {
             if (!vendorId) return []
-            const response = await fetch(`/api/vendors/${vendorId}/unbilled-receipts`)
+            const response = await fetchWithAuth(`/api/vendors/${vendorId}/unbilled-receipts`)
             if (!response.ok) throw new Error('Failed to fetch unbilled receipts')
             return response.json()
         },
@@ -34,7 +35,7 @@ export function usePurchaseInvoices(params: { vendorId?: string; status?: Purcha
             if (params.vendorId) searchParams.append('vendorId', params.vendorId)
             if (params.status) searchParams.append('status', params.status)
             
-            const response = await fetch(`/api/purchase-invoices?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/purchase-invoices?${searchParams.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch purchase invoices')
             return response.json()
         },
@@ -45,7 +46,7 @@ export function usePurchaseInvoice(id: string) {
     return useQuery<PurchaseInvoice>({
         queryKey: purchaseInvoiceKeys.detail(id),
         queryFn: async () => {
-            const response = await fetch(`/api/purchase-invoices/${id}`)
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}`)
             if (!response.ok) throw new Error('Failed to fetch purchase invoice')
             return response.json()
         },
@@ -57,7 +58,7 @@ export function useCreatePurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (payload: CreatePurchaseInvoiceDto) => {
-            const response = await fetch('/api/purchase-invoices', {
+            const response = await fetchWithAuth('/api/purchase-invoices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -75,7 +76,7 @@ export function usePostPurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`/api/purchase-invoices/${id}/post`, {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}/post`, {
                 method: 'PATCH',
             })
             if (!response.ok) throw new Error('Failed to post purchase invoice')

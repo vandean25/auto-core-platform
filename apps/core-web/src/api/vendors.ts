@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchWithAuth } from './client'
 
 const VENDORS_API = '/api/vendors'
 
@@ -12,7 +13,7 @@ export function useVendors(queryParams?: string) {
                     url += `?params=${encodeURIComponent(queryParams)}`
                 }
             }
-            const res = await fetch(url)
+            const res = await fetchWithAuth(url)
             if (!res.ok) throw new Error('Failed to fetch vendors')
             return res.json()
         },
@@ -28,7 +29,7 @@ export function useCreateVendor() {
             account_number: string;
             brandIds: number[];
         }) => {
-            const res = await fetch(VENDORS_API, {
+            const res = await fetchWithAuth(VENDORS_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

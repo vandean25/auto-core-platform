@@ -11,6 +11,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
   let catalogItemId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -85,6 +86,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
+        .set('x-api-key', 'test-api-key')
         .send({
           vendorId: vendorId,
           items: [
@@ -102,6 +104,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Receive 5 items (PARTIAL)
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
+        .set('x-api-key', 'test-api-key')
         .send({
           items: [
             {
@@ -137,6 +140,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create first PO and receive 5 items to establish initial stock
       const po1Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
+        .set('x-api-key', 'test-api-key')
         .send({
           vendorId: vendorId,
           items: [
@@ -151,6 +155,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po1Response.body.id}/receive`)
+        .set('x-api-key', 'test-api-key')
         .send({
           items: [{ itemId: freshItemId, quantity: 5 }],
         })
@@ -159,6 +164,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Create another PO and receive more items for the same catalog item
       const po2Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
+        .set('x-api-key', 'test-api-key')
         .send({
           vendorId: vendorId,
           items: [
@@ -176,6 +182,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // Receive 5 more items
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po2Id}/receive`)
+        .set('x-api-key', 'test-api-key')
         .send({
           items: [
             {
