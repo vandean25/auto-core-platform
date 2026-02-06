@@ -13,6 +13,7 @@ import { CustomerModule } from './customer/customer.module';
 import { FinanceModule } from './finance/finance.module';
 import { BrandModule } from './brand/brand.module';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module';
+import { WorkshopModule } from './workshop/workshop.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { SalesOrderModule } from './sales/sales-order/sales-order.module';
     FinanceModule,
     BrandModule,
     SalesOrderModule,
+    WorkshopModule,
   ],
   controllers: [AppController],
   providers: [

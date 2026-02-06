@@ -237,6 +237,7 @@ model Customer {
   vehicles       Vehicle[]
   invoices       Invoice[]
   sales_orders   SalesOrder[]
+  workshop_orders WorkshopOrder[]
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -255,6 +256,7 @@ model Vehicle {
   customer     Customer? @relation(fields: [customer_id], references: [id])
   invoices     Invoice[]
   sales_orders SalesOrder[]
+  workshop_orders WorkshopOrder[]
   
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -416,4 +418,34 @@ model PurchaseInvoiceLine {
   updatedAt               DateTime           @updatedAt
 
   @@map("purchase_invoice_lines")
+}
+
+// ============================================================================
+// Workshop Intake
+// ============================================================================
+
+enum WorkshopOrderStatus {
+  SCHEDULED
+  INTAKE
+  IN_PROGRESS
+  COMPLETED
+}
+
+model WorkshopOrder {
+  id           String              @id @default(uuid())
+  status       WorkshopOrderStatus @default(INTAKE)
+
+  customer_id  String
+  customer     Customer            @relation(fields: [customer_id], references: [id])
+  vehicle_id   String
+  vehicle      Vehicle             @relation(fields: [vehicle_id], references: [id])
+
+  odometer     Int
+  fuel_level   Int                 // 0-100
+  notes        String?
+
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("workshop_orders")
 }

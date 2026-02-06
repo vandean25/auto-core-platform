@@ -8,6 +8,7 @@ import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
 import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
 import FinanceSettingsPage from './pages/FinanceSettingsPage'
 import DashboardPage from './pages/DashboardPage'
+import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
 import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
@@ -38,6 +39,7 @@ function App() {
                 </div>
                 <Link to="/vendors" className="text-sm font-medium hover:text-primary transition-colors">Vendors</Link>
                 <Link to="/purchase-orders" className="text-sm font-medium hover:text-primary transition-colors">Purchase Orders</Link>
+                <Link to="/workshop/intake" className="text-sm font-medium hover:text-primary transition-colors">Workshop Intake</Link>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
@@ -65,6 +67,7 @@ function App() {
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
             <Route path="/finance/settings" element={<FinanceSettingsPage />} />
+            <Route path="/workshop/intake" element={<IntakeDashboard />} />
           </Routes>
           <Toaster />
         </main>
