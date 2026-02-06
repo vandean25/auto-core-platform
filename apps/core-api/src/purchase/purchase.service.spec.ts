@@ -181,8 +181,7 @@ describe('PurchaseService', () => {
   });
 
   describe('findAll', () => {
-    // Corrected expectation to match code implementation (default 'all' means empty where)
-    it('should filter by open status by default (if code actually did that, but it defaults to all)', async () => {
+    it('should return all orders by default when no filter is specified', async () => {
       mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
       await service.findAll();
       // Based on code: filter defaults to 'all', which means where is {}
