@@ -29,18 +29,22 @@ export class VendorService {
     });
   }
 
-  async findAll(params?: any): Promise<any> { // return type any to support paginated response
-    if (params && (params.where || params.orderBy || params.skip !== undefined)) {
-        const [data, total] = await Promise.all([
-            this.prisma.vendor.findMany({
-                ...params,
-                include: {
-                    supportedBrands: true,
-                },
-            }),
-            this.prisma.vendor.count({ where: params.where }),
-        ]);
-        return { data, total };
+  async findAll(params?: any): Promise<any> {
+    // return type any to support paginated response
+    if (
+      params &&
+      (params.where || params.orderBy || params.skip !== undefined)
+    ) {
+      const [data, total] = await Promise.all([
+        this.prisma.vendor.findMany({
+          ...params,
+          include: {
+            supportedBrands: true,
+          },
+        }),
+        this.prisma.vendor.count({ where: params.where }),
+      ]);
+      return { data, total };
     }
 
     return this.prisma.vendor.findMany({

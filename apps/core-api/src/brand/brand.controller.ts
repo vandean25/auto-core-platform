@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { BrandService } from './brand.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 
@@ -17,8 +27,18 @@ export class BrandController {
     @Query('isPartManufacturer') isPartManufacturer?: string,
   ) {
     return this.brandService.findAll({
-      isVehicleMake: isVehicleMake === 'true' ? true : isVehicleMake === 'false' ? false : undefined,
-      isPartManufacturer: isPartManufacturer === 'true' ? true : isPartManufacturer === 'false' ? false : undefined,
+      isVehicleMake:
+        isVehicleMake === 'true'
+          ? true
+          : isVehicleMake === 'false'
+            ? false
+            : undefined,
+      isPartManufacturer:
+        isPartManufacturer === 'true'
+          ? true
+          : isPartManufacturer === 'false'
+            ? false
+            : undefined,
     });
   }
 
@@ -28,7 +48,10 @@ export class BrandController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateBrandDto: UpdateBrandDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateBrandDto: UpdateBrandDto,
+  ) {
     return this.brandService.update(id, updateBrandDto);
   }
 

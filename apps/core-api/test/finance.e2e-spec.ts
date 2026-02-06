@@ -14,7 +14,9 @@ describe('FinanceModule (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
   });
@@ -80,17 +82,17 @@ describe('FinanceModule (e2e)', () => {
   it('Revenue Group Snapshot - Create Invoice Draft', async () => {
     // 1. Setup Test Data (Self-contained)
     const revGroup = await prisma.revenueGroup.upsert({
-        where: { name: 'E2E Test Parts 20%' },
-        update: {},
-        create: {
-            name: 'E2E Test Parts 20%',
-            tax_rate: 20.0,
-            account_number: 'E2E-4000',
-        }
+      where: { name: 'E2E Test Parts 20%' },
+      update: {},
+      create: {
+        name: 'E2E Test Parts 20%',
+        tax_rate: 20.0,
+        account_number: 'E2E-4000',
+      },
     });
 
     const customer = await prisma.customer.create({
-        data: { name: 'Snapshot Test', email: `snap-${Date.now()}@test.com` },
+      data: { name: 'Snapshot Test', email: `snap-${Date.now()}@test.com` },
     });
 
     const catalogItem = await prisma.catalogItem.create({

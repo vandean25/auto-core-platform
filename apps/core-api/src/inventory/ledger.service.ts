@@ -14,7 +14,7 @@ export interface RecordTransactionParams {
 
 @Injectable()
 export class LedgerService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Records an inventory transaction and updates the cached stock quantity.
@@ -38,15 +38,17 @@ export class LedgerService {
     // We need to fetch the location to check its type.
     // Note: This adds a read query to every stock transaction.
     const location = await tx.storageLocation.findUnique({
-        where: { id: locationId }
+      where: { id: locationId },
     });
-    
+
     if (!location) {
-        throw new BadRequestException(`Location ${locationId} not found`);
+      throw new BadRequestException(`Location ${locationId} not found`);
     }
 
     if (location.type !== 'bin') {
-        throw new BadRequestException(`Stock can only be stored in BIN locations. Current type: ${location.type} (${location.name})`);
+      throw new BadRequestException(
+        `Stock can only be stored in BIN locations. Current type: ${location.type} (${location.name})`,
+      );
     }
 
     try {

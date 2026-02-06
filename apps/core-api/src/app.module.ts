@@ -13,7 +13,17 @@ import { BrandModule } from './brand/brand.module';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module';
 
 @Module({
-  imports: [PrismaModule, InventoryModule, PurchaseModule, VendorModule, SalesModule, CustomerModule, FinanceModule, BrandModule, SalesOrderModule],
+  imports: [
+    PrismaModule,
+    InventoryModule,
+    PurchaseModule,
+    VendorModule,
+    SalesModule,
+    CustomerModule,
+    FinanceModule,
+    BrandModule,
+    SalesOrderModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -18,7 +18,9 @@ describe('PurchaseInvoice (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
 
@@ -49,15 +51,15 @@ describe('PurchaseInvoice (e2e)', () => {
         order_number: `PO-INV-${Date.now()}`,
         status: 'COMPLETED', // Simulating received
         items: {
-            create: {
-                catalog_item_id: catalogItemId,
-                quantity: 10,
-                quantity_received: 10, // Full receipt
-                unit_cost: 10,
-            }
-        }
+          create: {
+            catalog_item_id: catalogItemId,
+            quantity: 10,
+            quantity_received: 10, // Full receipt
+            unit_cost: 10,
+          },
+        },
       },
-      include: { items: true }
+      include: { items: true },
     });
     purchaseOrderId = po.id;
     purchaseOrderItemId = po.items[0].id;
@@ -102,16 +104,16 @@ describe('PurchaseInvoice (e2e)', () => {
     };
 
     const response = await request(app.getHttpServer())
-        .post('/purchase-invoices')
-        .send(createDto)
-        .expect(201);
-    
+      .post('/purchase-invoices')
+      .send(createDto)
+      .expect(201);
+
     expect(response.body.status).toBe('DRAFT');
     expect(response.body.total_amount).toBe('50');
 
     // Verify PO Item updated
     const poItem = await prisma.purchaseOrderItem.findUnique({
-        where: { id: purchaseOrderItemId }
+      where: { id: purchaseOrderItemId },
     });
     expect(Number(poItem?.quantity_invoiced)).toBe(5);
   });
@@ -126,53 +128,53 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('/purchase-invoices (POST) - Prevent Over-Invoicing', async () => {
     const createDto = {
-        vendorId: vendorId,
-        vendorInvoiceNumber: 'INV-002',
-        invoiceDate: new Date().toISOString(),
-        dueDate: new Date().toISOString(),
-        items: [
-          {
-            purchaseOrderItemId: purchaseOrderItemId,
-            description: 'Over Invoice Item',
-            quantity: 6, // Only 5 pending
-            unitPrice: 10,
-          },
-        ],
-      };
-  
-      await request(app.getHttpServer())
-          .post('/purchase-invoices')
-          .send(createDto)
-          .expect(400);
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-002',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Over Invoice Item',
+          quantity: 6, // Only 5 pending
+          unitPrice: 10,
+        },
+      ],
+    };
+
+    await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .send(createDto)
+      .expect(400);
   });
 
   it('Post Invoice', async () => {
-      // Create another draft first
-      const createDto = {
-        vendorId: vendorId,
-        vendorInvoiceNumber: 'INV-003',
-        invoiceDate: new Date().toISOString(),
-        dueDate: new Date().toISOString(),
-        items: [
-          {
-            purchaseOrderItemId: purchaseOrderItemId,
-            description: 'Post Test Item',
-            quantity: 5,
-            unitPrice: 10,
-          },
-        ],
-      };
+    // Create another draft first
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-003',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Post Test Item',
+          quantity: 5,
+          unitPrice: 10,
+        },
+      ],
+    };
 
-      const draft = await request(app.getHttpServer())
-        .post('/purchase-invoices')
-        .send(createDto)
-        .expect(201);
-      
-      const response = await request(app.getHttpServer())
-        .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .expect(200);
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .send(createDto)
+      .expect(201);
 
-      expect(response.body.status).toBe('POSTED');
+    const response = await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .expect(200);
+
+    expect(response.body.status).toBe('POSTED');
   });
 
   it('Prevent Posting Empty Invoice', async () => {

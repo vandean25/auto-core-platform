@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
 import { QueryBuilder } from '../common/utils/query-builder';
+import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 
 @Controller('inventory')
 export class InventoryController {
@@ -30,21 +39,25 @@ export class InventoryController {
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
-    @Query('params') params?: string
+    @Query('params') params?: string,
   ) {
     if (params) {
-        let queryParams;
-        try {
-            queryParams = JSON.parse(params);
-        } catch (error) {
-            throw new BadRequestException('Invalid params JSON');
-        }
+      let queryParams;
+      try {
+        queryParams = JSON.parse(params);
+      } catch (error) {
+        throw new BadRequestException('Invalid params JSON');
+      }
 
-        const whitelist = ['sku', 'name', 'brand.name', 'createdAt'];
-        const searchFields = ['sku', 'name', 'brand.name'];
-        const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
-        
-        return await this.inventoryService.findAll(prismaQuery);
+      const whitelist = ['sku', 'name', 'brand.name', 'createdAt'];
+      const searchFields = ['sku', 'name', 'brand.name'];
+      const prismaQuery = QueryBuilder.buildPrismaQuery(
+        queryParams,
+        whitelist,
+        searchFields,
+      );
+
+      return await this.inventoryService.findAll(prismaQuery);
     }
 
     return await this.inventoryService.findAll({
@@ -58,7 +71,7 @@ export class InventoryController {
   }
 
   @Post()
-  async createItem(@Body() data: any) {
-    return await this.inventoryService.createItem(data);
+  async createItem(@Body() createInventoryItemDto: CreateInventoryItemDto) {
+    return await this.inventoryService.createItem(createInventoryItemDto);
   }
 }

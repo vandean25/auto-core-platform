@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -14,32 +24,48 @@ export class CustomerController {
   }
 
   @Get()
-  async findAll(@Query('search') search?: string, @Query('params') params?: string) {
+  async findAll(
+    @Query('search') search?: string,
+    @Query('params') params?: string,
+  ) {
     if (params) {
-        let queryParams;
-        try {
-            queryParams = JSON.parse(params);
-        } catch (error) {
-            throw new BadRequestException('Invalid JSON in params query parameter');
-        }
+      let queryParams;
+      try {
+        queryParams = JSON.parse(params);
+      } catch (error) {
+        throw new BadRequestException('Invalid JSON in params query parameter');
+      }
 
-        const whitelist = ['first_name', 'last_name', 'company_name', 'email', 'type', 'phone', 'address_city', 'createdAt'];
-        const searchFields = ['first_name', 'last_name', 'company_name', 'email'];
-        
-        const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
-        const result = await this.customerService.findAll(prismaQuery) as any;
-        
-        return {
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: queryParams.page ?? 1,
-                pageSize: queryParams.pageSize ?? 25,
-                pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
-            }
-        };
+      const whitelist = [
+        'first_name',
+        'last_name',
+        'company_name',
+        'email',
+        'type',
+        'phone',
+        'address_city',
+        'createdAt',
+      ];
+      const searchFields = ['first_name', 'last_name', 'company_name', 'email'];
+
+      const prismaQuery = QueryBuilder.buildPrismaQuery(
+        queryParams,
+        whitelist,
+        searchFields,
+      );
+      const result = (await this.customerService.findAll(prismaQuery)) as any;
+
+      return {
+        data: result.data,
+        meta: {
+          total: result.total,
+          page: queryParams.page ?? 1,
+          pageSize: queryParams.pageSize ?? 25,
+          pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
+        },
+      };
     }
-    
+
     // Backward compatibility
     return this.customerService.findAll(search);
   }
@@ -50,7 +76,10 @@ export class CustomerController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
     return this.customerService.update(id, updateCustomerDto);
   }
 

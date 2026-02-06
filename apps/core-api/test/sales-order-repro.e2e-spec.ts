@@ -6,26 +6,26 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { SalesOrderStatus } from '@prisma/client';
 
 describe('Sales Order Filters (Repro Issue #10)', () => {
-    let app: INestApplication;
-    let prisma: PrismaService;
-    let customerId: string;
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let customerId: string;
 
-    beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
-        app = moduleFixture.createNestApplication();
-        // Global pipes might be needed if the validation relies on them, but for this test maybe not critical
-        // But app.setGlobalPrefix('api') is critical as per the other test
-        app.setGlobalPrefix('api'); 
-        await app.init();
+    app = moduleFixture.createNestApplication();
+    // Global pipes might be needed if the validation relies on them, but for this test maybe not critical
+    // But app.setGlobalPrefix('api') is critical as per the other test
+    app.setGlobalPrefix('api');
+    await app.init();
 
-        prisma = app.get<PrismaService>(PrismaService);
+    prisma = app.get<PrismaService>(PrismaService);
 
-        // Clean up
-        try {
-             await prisma.$executeRawUnsafe(`
+    // Clean up
+    try {
+      await prisma.$executeRawUnsafe(`
                 TRUNCATE TABLE 
                     "invoice_items",
                     "invoices",
@@ -40,96 +40,99 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
                     "vendors"
                 CASCADE;
             `);
-        } catch (error) {
-            console.error('Cleanup failed:', error);
-        }
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+    }
 
-        // Create Customer
-        const customer = await prisma.customer.create({
-            data: {
-                first_name: 'Jane',
-                last_name: 'Doe',
-                email: 'jane.doe@example.com',
-                type: 'PRIVATE'
-            }
-        });
-        customerId = customer.id;
+    // Create Customer
+    const customer = await prisma.customer.create({
+      data: {
+        first_name: 'Jane',
+        last_name: 'Doe',
+        email: 'jane.doe@example.com',
+        type: 'PRIVATE',
+      },
+    });
+    customerId = customer.id;
 
-        // Create 3 Sales Orders
-        await prisma.salesOrder.createMany({
-            data: [
-                {
-                    order_number: 'SO-TEST-1',
-                    customer_id: customerId,
-                    status: SalesOrderStatus.DRAFT,
-                    total_amount: 100
-                },
-                {
-                    order_number: 'SO-TEST-2',
-                    customer_id: customerId,
-                    status: SalesOrderStatus.CONFIRMED,
-                    total_amount: 200
-                },
-                {
-                    order_number: 'SO-TEST-3',
-                    customer_id: customerId,
-                    status: SalesOrderStatus.DRAFT,
-                    total_amount: 300
-                }
-            ]
-        });
+    // Create 3 Sales Orders
+    await prisma.salesOrder.createMany({
+      data: [
+        {
+          order_number: 'SO-TEST-1',
+          customer_id: customerId,
+          status: SalesOrderStatus.DRAFT,
+          total_amount: 100,
+        },
+        {
+          order_number: 'SO-TEST-2',
+          customer_id: customerId,
+          status: SalesOrderStatus.CONFIRMED,
+          total_amount: 200,
+        },
+        {
+          order_number: 'SO-TEST-3',
+          customer_id: customerId,
+          status: SalesOrderStatus.DRAFT,
+          total_amount: 300,
+        },
+      ],
+    });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('should respect pagination parameters (standard)', async () => {
+    // ... existing test ...
+    // Request page 2, page size 1. Should return 1 item (the 2nd one).
+    const res = await request(app.getHttpServer())
+      .get(`/api/sales-orders?page=2&pageSize=1`)
+      .expect(200);
+
+    console.log(
+      'Returned data length (standard):',
+      res.body.length || res.body.data?.length,
+    );
+
+    // If it ignores pagination, it returns all 3 (or default 25).
+    // If it works, it returns 1.
+    // Current implementation returns array directly if params is missing
+    if (Array.isArray(res.body)) {
+      expect(res.body.length).toBe(1);
+    } else {
+      expect(res.body.data.length).toBe(1);
+    }
+  });
+
+  it('should respect pagination parameters (JSON)', async () => {
+    const params = JSON.stringify({
+      page: 1,
+      pageSize: 1,
     });
 
-    afterAll(async () => {
-        await app.close();
-    });
+    const res = await request(app.getHttpServer())
+      .get(`/api/sales-orders?params=${encodeURIComponent(params)}`)
+      .expect(200);
 
-    it('should respect pagination parameters (standard)', async () => {
-        // ... existing test ...
-        // Request page 2, page size 1. Should return 1 item (the 2nd one).
-        const res = await request(app.getHttpServer())
-            .get(`/api/sales-orders?page=2&pageSize=1`)
-            .expect(200);
+    // Should return 1 item (Page 1)
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.meta.pageSize).toBe(1);
+  });
 
-        console.log('Returned data length (standard):', res.body.length || res.body.data?.length);
-        
-        // If it ignores pagination, it returns all 3 (or default 25).
-        // If it works, it returns 1.
-        // Current implementation returns array directly if params is missing
-        if (Array.isArray(res.body)) {
-             expect(res.body.length).toBe(1);
-        } else {
-             expect(res.body.data.length).toBe(1);
-        }
-    });
+  it('should respect filtering (standard)', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/sales-orders?status=CONFIRMED`)
+      .expect(200);
 
-    it('should respect pagination parameters (JSON)', async () => {
-        const params = JSON.stringify({
-            page: 1,
-            pageSize: 1
-        });
-
-        const res = await request(app.getHttpServer())
-            .get(`/api/sales-orders?params=${encodeURIComponent(params)}`)
-            .expect(200);
-
-        // Should return 1 item (Page 1)
-        expect(res.body.data.length).toBe(1);
-        expect(res.body.meta.pageSize).toBe(1);
-    });
-
-    it('should respect filtering (standard)', async () => {
-        const res = await request(app.getHttpServer())
-            .get(`/api/sales-orders?status=CONFIRMED`)
-            .expect(200);
-
-        // Should return 1 item
-        if (Array.isArray(res.body)) {
-             expect(res.body.length).toBe(1);
-             expect(res.body[0].status).toBe('CONFIRMED');
-        } else {
-             expect(res.body.data.length).toBe(1);
-             expect(res.body.data[0].status).toBe('CONFIRMED');
-        }
-    });
+    // Should return 1 item
+    if (Array.isArray(res.body)) {
+      expect(res.body.length).toBe(1);
+      expect(res.body[0].status).toBe('CONFIRMED');
+    } else {
+      expect(res.body.data.length).toBe(1);
+      expect(res.body.data[0].status).toBe('CONFIRMED');
+    }
+  });
 });

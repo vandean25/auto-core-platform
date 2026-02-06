@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { LocationService } from './location.service';
 import { LocationType } from '@prisma/client';
 
@@ -27,16 +35,30 @@ export class LocationController {
   }
 
   @Post()
-  create(@Body() body: { name: string; code: string; type: LocationType; parentId?: string }) {
+  create(
+    @Body()
+    body: {
+      name: string;
+      code: string;
+      type: LocationType;
+      parentId?: string;
+    },
+  ) {
     return this.locationService.create(body);
   }
 
   @Patch(':id')
   update(
-      @Param('id') id: string,
-      @Body() body: { name?: string; code?: string; type?: LocationType; parentId?: string }
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      code?: string;
+      type?: LocationType;
+      parentId?: string;
+    },
   ) {
-      return this.locationService.update(id, body);
+    return this.locationService.update(id, body);
   }
 
   @Delete(':id')
