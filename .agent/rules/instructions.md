@@ -115,3 +115,11 @@ npm run build              # Production build
 2. **Import errors?** Ensure type-only imports use `import type`
 3. **Prisma errors?** Run `npx prisma generate` after pulling schema changes
 4. **API 404?** Ensure backend is running on port 3000
+
+## MCP Servers & Skills
+This project uses the following MCP servers:
+- **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc).
+- **github-mcp-server**: For GitHub operations.
+- **prisma-mcp-server**: For database schema management.
+
+Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.

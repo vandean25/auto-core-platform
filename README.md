@@ -61,15 +61,18 @@ npm install
 
 The backend uses **Prisma** with **PostgreSQL**.
 
-#### Option A: Local PostgreSQL
+#### Option A: Neon PostgreSQL (Recommended)
+This project uses **Neon** for the database.
+Check `apps/core-api/.env` and ensure `DATABASE_URL` is set to your Neon connection string.
 
+#### Option B: Local PostgreSQL
 Create a `.env` file in `apps/core-api/`:
 
 ```env
 DATABASE_URL="postgresql://username:password@localhost:5432/auto_core?schema=public"
 ```
 
-#### Option B: Docker PostgreSQL
+#### Option C: Docker PostgreSQL
 
 ```bash
 docker run -d \
