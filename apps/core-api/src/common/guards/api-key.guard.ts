@@ -20,11 +20,11 @@ export class ApiKeyGuard implements CanActivate {
       console.error(
         'API_KEY environment variable is not set. All requests will be rejected.',
       );
-      return false;
+      throw new UnauthorizedException('Unauthorized');
     }
 
     if (apiKey !== validApiKey) {
-      throw new UnauthorizedException('Invalid API Key');
+      throw new UnauthorizedException('Unauthorized');
     }
 
     return true;
