@@ -173,16 +173,6 @@ export class LocationService {
     if (!parent) throw new NotFoundException('Parent location not found');
 
     // Strict Hierarchy Rules
-    const rules: Record<string, LocationType[]> = {
-      [LocationType.aisle]: [LocationType.warehouse],
-      [LocationType.shelf]: [LocationType.aisle, LocationType.warehouse],
-      [LocationType.bin]: [
-        LocationType.shelf,
-        LocationType.aisle,
-        LocationType.warehouse,
-      ],
-      [LocationType.customer_storage]: [LocationType.warehouse],
-    };
 
     const allowedParents: Record<string, LocationType[]> = {
       [LocationType.aisle]: [LocationType.warehouse],

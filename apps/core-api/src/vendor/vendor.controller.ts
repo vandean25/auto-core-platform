@@ -10,22 +10,16 @@ import {
 } from '@nestjs/common';
 import { VendorService } from './vendor.service';
 import { QueryBuilder } from '../common/utils/query-builder';
+import { CreateVendorDto } from './dto/create-vendor.dto';
+import { UpdateVendorDto } from './dto/update-vendor.dto';
 
 @Controller('vendors')
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
 
   @Post()
-  async create(
-    @Body()
-    body: {
-      name: string;
-      email: string;
-      accountNumber: string;
-      brandIds: number[];
-    },
-  ) {
-    return this.vendorService.create(body);
+  async create(@Body() createVendorDto: CreateVendorDto) {
+    return this.vendorService.create(createVendorDto);
   }
 
   @Get()
@@ -68,14 +62,8 @@ export class VendorController {
   @Put(':id')
   async update(
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      email?: string;
-      accountNumber?: string;
-      brandIds?: number[];
-    },
+    @Body() updateVendorDto: UpdateVendorDto,
   ) {
-    return this.vendorService.update(id, body);
+    return this.vendorService.update(id, updateVendorDto);
   }
 }

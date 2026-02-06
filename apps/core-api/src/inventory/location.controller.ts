@@ -8,7 +8,9 @@ import {
   Delete,
 } from '@nestjs/common';
 import { LocationService } from './location.service';
-import { LocationType } from '@prisma/client';
+
+import { CreateLocationDto } from './dto/create-location.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 
 @Controller('inventory/locations')
 export class LocationController {
@@ -35,30 +37,16 @@ export class LocationController {
   }
 
   @Post()
-  create(
-    @Body()
-    body: {
-      name: string;
-      code: string;
-      type: LocationType;
-      parentId?: string;
-    },
-  ) {
-    return this.locationService.create(body);
+  create(@Body() createLocationDto: CreateLocationDto) {
+    return this.locationService.create(createLocationDto);
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      code?: string;
-      type?: LocationType;
-      parentId?: string;
-    },
+    @Body() updateLocationDto: UpdateLocationDto,
   ) {
-    return this.locationService.update(id, body);
+    return this.locationService.update(id, updateLocationDto);
   }
 
   @Delete(':id')
