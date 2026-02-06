@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, ValidateIf, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsUrl,
+  ValidateIf,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateBrandDto {
   @IsString()
@@ -12,7 +19,9 @@ export class CreateBrandDto {
   isPartManufacturer: boolean;
 
   @IsOptional()
-  @ValidateIf((o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined)
+  @ValidateIf(
+    (o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
+  )
   @IsUrl()
   logoUrl?: string;
 }
@@ -31,7 +40,9 @@ export class UpdateBrandDto {
   isPartManufacturer?: boolean;
 
   @IsOptional()
-  @ValidateIf((o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined)
+  @ValidateIf(
+    (o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
+  )
   @IsUrl()
   logoUrl?: string;
 }

@@ -8,6 +8,6 @@ import { FinanceModule } from '../../finance/finance.module';
   imports: [PrismaModule, FinanceModule],
   controllers: [SalesOrderController],
   providers: [SalesOrderService],
-  exports: [SalesOrderService]
+  exports: [SalesOrderService],
 })
 export class SalesOrderModule {}

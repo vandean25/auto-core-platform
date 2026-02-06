@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -32,7 +36,9 @@ export class InventoryService {
 
     // If there is a superseding part, recursively check its availability
     if (item.superseded_by) {
-      const suggestion: any = await this.checkAvailability(item.superseded_by.sku);
+      const suggestion: any = await this.checkAvailability(
+        item.superseded_by.sku,
+      );
       return {
         ...suggestion,
         original_sku: sku,
@@ -43,7 +49,10 @@ export class InventoryService {
 
     // Base case: No more supersessions, return current stock summed across all locations
     const onHand = item.stocks.reduce((sum, s) => sum + s.quantity_on_hand, 0);
-    const reserved = item.stocks.reduce((sum, s) => sum + s.quantity_reserved, 0);
+    const reserved = item.stocks.reduce(
+      (sum, s) => sum + s.quantity_reserved,
+      0,
+    );
     const available = onHand - reserved;
 
     return {
@@ -65,69 +74,72 @@ export class InventoryService {
     let items, total;
 
     // Check if using QueryBuilder params (has where/skip/take)
-    if (params && (params.where || params.orderBy || params.skip !== undefined)) {
-        [items, total] = await Promise.all([
-            this.prisma.catalogItem.findMany({
-                ...params,
-                include: {
-                    brand: true,
-                    stocks: {
-                        include: {
-                            location: true,
-                        },
-                    },
-                    superseded_by: {
-                        select: { id: true, sku: true },
-                    },
-                },
-            }),
-            this.prisma.catalogItem.count({ where: params.where }),
-        ]);
+    if (
+      params &&
+      (params.where || params.orderBy || params.skip !== undefined)
+    ) {
+      [items, total] = await Promise.all([
+        this.prisma.catalogItem.findMany({
+          ...params,
+          include: {
+            brand: true,
+            stocks: {
+              include: {
+                location: true,
+              },
+            },
+            superseded_by: {
+              select: { id: true, sku: true },
+            },
+          },
+        }),
+        this.prisma.catalogItem.count({ where: params.where }),
+      ]);
     } else {
-        // Legacy path
-        const { page = 1, limit = 10, search, location, brand, brandId } = params;
-        const skip = (page - 1) * limit;
-        const where: any = {};
+      // Legacy path
+      const { page = 1, limit = 10, search, location, brand, brandId } = params;
+      const skip = (page - 1) * limit;
+      const where: any = {};
 
-        if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { sku: { contains: search, mode: 'insensitive' } },
-                { brand: { name: { contains: search, mode: 'insensitive' } } },
-            ];
-        }
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { brand: { name: { contains: search, mode: 'insensitive' } } },
+        ];
+      }
 
-        if (brand) where.brand = { name: { equals: brand, mode: 'insensitive' } };
-        if (brandId) where.brand_id = brandId;
-        if (location) {
-            where.stocks = {
-                some: {
-                    location: {
-                        name: { contains: location, mode: 'insensitive' },
-                    },
-                },
-            };
-        }
+      if (brand) where.brand = { name: { equals: brand, mode: 'insensitive' } };
+      if (brandId) where.brand_id = brandId;
+      if (location) {
+        where.stocks = {
+          some: {
+            location: {
+              name: { contains: location, mode: 'insensitive' },
+            },
+          },
+        };
+      }
 
-        [items, total] = await Promise.all([
-            this.prisma.catalogItem.findMany({
-                where,
-                include: {
-                    brand: true,
-                    stocks: {
-                        include: {
-                            location: true,
-                        },
-                    },
-                    superseded_by: {
-                        select: { id: true, sku: true },
-                    },
-                },
-                skip,
-                take: limit,
-            }),
-            this.prisma.catalogItem.count({ where }),
-        ]);
+      [items, total] = await Promise.all([
+        this.prisma.catalogItem.findMany({
+          where,
+          include: {
+            brand: true,
+            stocks: {
+              include: {
+                location: true,
+              },
+            },
+            superseded_by: {
+              select: { id: true, sku: true },
+            },
+          },
+          skip,
+          take: limit,
+        }),
+        this.prisma.catalogItem.count({ where }),
+      ]);
     }
 
     // Common transformation logic
@@ -135,8 +147,14 @@ export class InventoryService {
 
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {
-      const onHand = item.stocks.reduce((sum, s) => sum + s.quantity_on_hand, 0);
-      const reserved = item.stocks.reduce((sum, s) => sum + s.quantity_reserved, 0);
+      const onHand = item.stocks.reduce(
+        (sum, s) => sum + s.quantity_on_hand,
+        0,
+      );
+      const reserved = item.stocks.reduce(
+        (sum, s) => sum + s.quantity_reserved,
+        0,
+      );
       const available = onHand - reserved;
 
       let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
@@ -165,7 +183,7 @@ export class InventoryService {
       data: transformedItems,
       meta: {
         total,
-        page: params.page || (params.skip / (params.take || 10)) + 1, // Estimate page for legacy or QB
+        page: params.page || params.skip / (params.take || 10) + 1, // Estimate page for legacy or QB
         last_page,
       },
     };
@@ -185,7 +203,9 @@ export class InventoryService {
         where: { id: data.brandId },
       });
       if (!brand) {
-        throw new BadRequestException(`Brand with ID ${data.brandId} does not exist`);
+        throw new BadRequestException(
+          `Brand with ID ${data.brandId} does not exist`,
+        );
       }
     }
 

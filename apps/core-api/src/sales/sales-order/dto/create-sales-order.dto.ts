@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDecimal, IsNumber, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDecimal,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreateSalesOrderItemDto {
   @IsUUID()

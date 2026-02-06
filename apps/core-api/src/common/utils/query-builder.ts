@@ -1,6 +1,16 @@
 export interface FilterParam {
   field: string;
-  operator: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn';
+  operator:
+    | 'equals'
+    | 'contains'
+    | 'startsWith'
+    | 'endsWith'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'in'
+    | 'notIn';
   value: any;
 }
 
@@ -25,7 +35,12 @@ export interface PrismaQueryResult<T = any> {
 }
 
 export class QueryBuilder {
-  static buildWhere(filters: FilterParam[] = [], whitelist: string[], globalSearch?: string, searchFields?: string[]): any {
+  static buildWhere(
+    filters: FilterParam[] = [],
+    whitelist: string[],
+    globalSearch?: string,
+    searchFields?: string[],
+  ): any {
     const where: any = {};
 
     // 1. Process explicit filters
@@ -55,32 +70,35 @@ export class QueryBuilder {
 
     // 2. Process Global Search (OR condition)
     if (globalSearch && searchFields && searchFields.length > 0) {
-      const searchConditions = searchFields.map(field => {
+      const searchConditions = searchFields.map((field) => {
         // Only allow searching if the field is in whitelist or explicitly allowed for search
         // For simplicity, we assume searchFields are valid
         const parts = field.split('.');
         if (parts.length === 1) {
-            return { [field]: { contains: globalSearch, mode: 'insensitive' } };
+          return { [field]: { contains: globalSearch, mode: 'insensitive' } };
         }
         // Nested search
         const nestedCondition: any = {};
         let current = nestedCondition;
         for (let i = 0; i < parts.length - 1; i++) {
-            current[parts[i]] = {};
-            current = current[parts[i]];
+          current[parts[i]] = {};
+          current = current[parts[i]];
         }
-        current[parts[parts.length - 1]] = { contains: globalSearch, mode: 'insensitive' };
+        current[parts[parts.length - 1]] = {
+          contains: globalSearch,
+          mode: 'insensitive',
+        };
         return nestedCondition;
       });
 
       if (Object.keys(where).length > 0) {
         where['AND'] = [
-            { ...where }, // Existing specific filters
-            { OR: searchConditions } // Plus global search
+          { ...where }, // Existing specific filters
+          { OR: searchConditions }, // Plus global search
         ];
         // Clean up the top-level keys that were moved to AND
         for (const key of Object.keys(where)) {
-            if (key !== 'AND') delete where[key];
+          if (key !== 'AND') delete where[key];
         }
       } else {
         where['OR'] = searchConditions;
@@ -115,7 +133,10 @@ export class QueryBuilder {
     return orderBy.length > 0 ? orderBy : undefined;
   }
 
-  static buildPagination(page: number = 1, pageSize: number = 25): { skip: number; take: number } {
+  static buildPagination(
+    page: number = 1,
+    pageSize: number = 25,
+  ): { skip: number; take: number } {
     const safePage = Math.max(1, page);
     const safePageSize = Math.max(1, Math.min(100, pageSize)); // Cap at 100
 
@@ -125,7 +146,11 @@ export class QueryBuilder {
     };
   }
 
-  static buildPrismaQuery(params: QueryParams, whitelist: string[], searchFields?: string[]): PrismaQueryResult {
+  static buildPrismaQuery(
+    params: QueryParams,
+    whitelist: string[],
+    searchFields?: string[],
+  ): PrismaQueryResult {
     const { filters, sorting, page, pageSize, search } = params;
 
     const where = this.buildWhere(filters, whitelist, search, searchFields);

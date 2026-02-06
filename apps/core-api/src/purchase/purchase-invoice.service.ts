@@ -18,8 +18,8 @@ export class PurchaseInvoiceService {
           vendor_id: vendorId,
         },
         quantity_received: {
-            gt: 0 
-        }
+          gt: 0,
+        },
       },
       include: {
         purchase_order: true,
@@ -30,12 +30,12 @@ export class PurchaseInvoiceService {
     // Filter in memory or use raw query for complex decimal comparison if needed.
     // Prisma Decimal comparison in where clause works, but comparing two columns is tricky.
     // We'll filter in JS for simplicity as this list shouldn't be massive per vendor.
-    
+
     return poItems
       .filter((item) => {
-          const received = item.quantity_received;
-          const invoiced = Number(item.quantity_invoiced);
-          return received > invoiced;
+        const received = item.quantity_received;
+        const invoiced = Number(item.quantity_invoiced);
+        return received > invoiced;
       })
       .map((item) => ({
         purchaseOrderItemId: item.id,
@@ -45,7 +45,8 @@ export class PurchaseInvoiceService {
         catalogItemName: item.catalog_item.name,
         quantityReceived: item.quantity_received,
         quantityInvoiced: Number(item.quantity_invoiced),
-        quantityPending: item.quantity_received - Number(item.quantity_invoiced),
+        quantityPending:
+          item.quantity_received - Number(item.quantity_invoiced),
         lastUnitCost: Number(item.unit_cost),
       }));
   }
@@ -61,10 +62,13 @@ export class PurchaseInvoiceService {
         });
 
         if (!poItem) {
-          throw new NotFoundException(`PO Item ${line.purchaseOrderItemId} not found`);
+          throw new NotFoundException(
+            `PO Item ${line.purchaseOrderItemId} not found`,
+          );
         }
 
-        const pending = poItem.quantity_received - Number(poItem.quantity_invoiced);
+        const pending =
+          poItem.quantity_received - Number(poItem.quantity_invoiced);
         if (line.quantity > pending) {
           throw new BadRequestException(
             `Cannot invoice ${line.quantity} for item ${line.description}. Only ${pending} pending.`,
@@ -100,8 +104,8 @@ export class PurchaseInvoiceService {
           },
         },
         include: {
-            lines: true
-        }
+          lines: true,
+        },
       });
 
       // Update quantity_invoiced on PO items
@@ -139,10 +143,10 @@ export class PurchaseInvoiceService {
 
     // Here we would create Ledger Entries (GL)
     // For now, just update status
-    
+
     return this.prisma.purchaseInvoice.update({
-        where: { id },
-        data: { status: PurchaseInvoiceStatus.POSTED }
+      where: { id },
+      data: { status: PurchaseInvoiceStatus.POSTED },
     });
   }
 
@@ -164,7 +168,7 @@ export class PurchaseInvoiceService {
       where: { id },
       include: { vendor: true, lines: true },
     });
-     if (!invoice) throw new NotFoundException('Invoice not found');
-     return invoice;
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    return invoice;
   }
 }

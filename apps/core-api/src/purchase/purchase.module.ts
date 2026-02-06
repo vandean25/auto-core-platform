@@ -9,7 +9,11 @@ import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [InventoryModule, PrismaModule],
-  controllers: [PurchaseController, PurchaseInvoiceController, VendorUnbilledController],
+  controllers: [
+    PurchaseController,
+    PurchaseInvoiceController,
+    VendorUnbilledController,
+  ],
   providers: [PurchaseService, PurchaseInvoiceService],
 })
 export class PurchaseModule {}

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 
@@ -6,11 +11,18 @@ import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 export class BrandService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean }) {
+  async findAll(filters?: {
+    isVehicleMake?: boolean;
+    isPartManufacturer?: boolean;
+  }) {
     return this.prisma.brand.findMany({
       where: {
-        ...(filters?.isVehicleMake !== undefined && { isVehicleMake: filters.isVehicleMake }),
-        ...(filters?.isPartManufacturer !== undefined && { isPartManufacturer: filters.isPartManufacturer }),
+        ...(filters?.isVehicleMake !== undefined && {
+          isVehicleMake: filters.isVehicleMake,
+        }),
+        ...(filters?.isPartManufacturer !== undefined && {
+          isPartManufacturer: filters.isPartManufacturer,
+        }),
       },
       orderBy: { name: 'asc' },
     });
@@ -37,7 +49,9 @@ export class BrandService {
       });
     } catch (error) {
       if (error.code === 'P2002') {
-        throw new ConflictException(`Brand with name "${createBrandDto.name}" already exists`);
+        throw new ConflictException(
+          `Brand with name "${createBrandDto.name}" already exists`,
+        );
       }
       throw error;
     }
@@ -45,14 +59,19 @@ export class BrandService {
 
   async update(id: number, updateBrandDto: UpdateBrandDto) {
     // If updating flags, ensure at least one is true (if provided)
-    if (updateBrandDto.isVehicleMake !== undefined || updateBrandDto.isPartManufacturer !== undefined) {
-        const currentBrand = await this.findOne(id);
-        const nextIsVehicleMake = updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
-        const nextIsPartManufacturer = updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
-        
-        if (!nextIsVehicleMake && !nextIsPartManufacturer) {
-            throw new BadRequestException('Brand must be at least one type');
-        }
+    if (
+      updateBrandDto.isVehicleMake !== undefined ||
+      updateBrandDto.isPartManufacturer !== undefined
+    ) {
+      const currentBrand = await this.findOne(id);
+      const nextIsVehicleMake =
+        updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
+      const nextIsPartManufacturer =
+        updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
+
+      if (!nextIsVehicleMake && !nextIsPartManufacturer) {
+        throw new BadRequestException('Brand must be at least one type');
+      }
     }
 
     try {
@@ -77,19 +96,23 @@ export class BrandService {
       where: { brand_id: id },
     });
     if (catalogUsage > 0) {
-      throw new ConflictException(`Cannot delete brand with ${catalogUsage} catalog items linked`);
+      throw new ConflictException(
+        `Cannot delete brand with ${catalogUsage} catalog items linked`,
+      );
     }
 
     // Check usage in Vendors
     const vendorUsage = await this.prisma.vendor.count({
       where: {
         supportedBrands: {
-          some: { id }
-        }
-      }
+          some: { id },
+        },
+      },
     });
     if (vendorUsage > 0) {
-      throw new ConflictException(`Cannot delete brand with ${vendorUsage} vendors linked`);
+      throw new ConflictException(
+        `Cannot delete brand with ${vendorUsage} vendors linked`,
+      );
     }
 
     try {

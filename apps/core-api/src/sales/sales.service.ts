@@ -13,7 +13,7 @@ export class SalesService {
   constructor(
     private prisma: PrismaService,
     private financeService: FinanceService,
-  ) { }
+  ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
     const { items, ...invoiceData } = createInvoiceDto;
@@ -22,7 +22,8 @@ export class SalesService {
     let totalNet = 0;
     let totalTax = 0;
 
-    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] = [];
+    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
+      [];
 
     for (const item of items) {
       let taxRate = item.taxRate;

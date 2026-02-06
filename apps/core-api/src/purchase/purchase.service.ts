@@ -12,7 +12,7 @@ export class PurchaseService {
   constructor(
     private prisma: PrismaService,
     private ledgerService: LedgerService,
-  ) { }
+  ) {}
 
   private generateOrderNumber(): string {
     const date = new Date();
@@ -94,7 +94,9 @@ export class PurchaseService {
 
         for (const received of receivedItems) {
           if (!received.itemId) {
-            throw new BadRequestException('itemId is required for each received item');
+            throw new BadRequestException(
+              'itemId is required for each received item',
+            );
           }
 
           const poItem = po.items.find(
@@ -102,7 +104,9 @@ export class PurchaseService {
           );
           if (!poItem) {
             // Log available catalog_item_ids for debugging
-            const availableIds = po.items.map(i => i.catalog_item_id).join(', ');
+            const availableIds = po.items
+              .map((i) => i.catalog_item_id)
+              .join(', ');
             throw new BadRequestException(
               `Item ${received.itemId} not in this PO. Available: ${availableIds}`,
             );
@@ -135,28 +139,32 @@ export class PurchaseService {
           });
           if (!warehouse) {
             warehouse = await tx.storageLocation.create({
-              data: { name: 'Default Warehouse', code: 'WH-001', type: 'warehouse' },
+              data: {
+                name: 'Default Warehouse',
+                code: 'WH-001',
+                type: 'warehouse',
+              },
             });
           }
 
           // Ensure General Bin exists for this warehouse
           let generalBin = await tx.storageLocation.findFirst({
-              where: { 
-                  parent_id: warehouse.id, 
-                  type: 'bin', 
-                  name: 'General Bin' 
-              }
+            where: {
+              parent_id: warehouse.id,
+              type: 'bin',
+              name: 'General Bin',
+            },
           });
 
           if (!generalBin) {
-              generalBin = await tx.storageLocation.create({
-                  data: {
-                      name: 'General Bin',
-                      code: `${warehouse.code}-GEN`,
-                      type: 'bin',
-                      parent_id: warehouse.id
-                  }
-              });
+            generalBin = await tx.storageLocation.create({
+              data: {
+                name: 'General Bin',
+                code: `${warehouse.code}-GEN`,
+                type: 'bin',
+                parent_id: warehouse.id,
+              },
+            });
           }
 
           // Record the inventory transaction using the ledger service
@@ -173,7 +181,6 @@ export class PurchaseService {
           );
         }
 
-
         const updatedPO = await tx.purchaseOrder.findUnique({
           where: { id: orderId },
           include: { items: true },
@@ -184,7 +191,9 @@ export class PurchaseService {
         const allReceived = updatedPO.items.every(
           (i) => i.quantity_received >= i.quantity,
         );
-        const anyReceived = updatedPO.items.some((i) => i.quantity_received > 0);
+        const anyReceived = updatedPO.items.some(
+          (i) => i.quantity_received > 0,
+        );
         let newStatus = po.status;
 
         if (allReceived) newStatus = PurchaseOrderStatus.COMPLETED;
@@ -210,14 +219,14 @@ export class PurchaseService {
 
   async findAll(params?: any) {
     if (params && (params.where || params.orderBy || params.skip)) {
-        const [data, total] = await Promise.all([
-            this.prisma.purchaseOrder.findMany({
-                ...params,
-                include: { vendor: true, items: true },
-            }),
-            this.prisma.purchaseOrder.count({ where: params.where }),
-        ]);
-        return { data, total };
+      const [data, total] = await Promise.all([
+        this.prisma.purchaseOrder.findMany({
+          ...params,
+          include: { vendor: true, items: true },
+        }),
+        this.prisma.purchaseOrder.count({ where: params.where }),
+      ]);
+      return { data, total };
     }
 
     let where = {};

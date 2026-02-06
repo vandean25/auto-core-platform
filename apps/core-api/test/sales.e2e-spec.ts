@@ -94,33 +94,33 @@ describe('SalesController (e2e)', () => {
   });
 
   it('Finalize Invoice Workflow', async () => {
-     // 1. Create Draft
-     const createInvoiceDto = {
-        customerId: customerId,
-        items: [
-          {
-            catalogItemId: catalogItemId,
-            description: 'Finalize Test Item',
-            quantity: 1,
-            unitPrice: 100,
-            taxRate: 0,
-          },
-        ],
-      };
-  
-      const draftResponse = await request(app.getHttpServer())
-        .post('/sales/invoices')
-        .send(createInvoiceDto)
-        .expect(201);
-      
-      const invoiceId = draftResponse.body.id;
+    // 1. Create Draft
+    const createInvoiceDto = {
+      customerId: customerId,
+      items: [
+        {
+          catalogItemId: catalogItemId,
+          description: 'Finalize Test Item',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 0,
+        },
+      ],
+    };
 
-      // 2. Finalize
-      const finalizeResponse = await request(app.getHttpServer())
-        .put(`/sales/invoices/${invoiceId}/finalize`)
-        .expect(200);
+    const draftResponse = await request(app.getHttpServer())
+      .post('/sales/invoices')
+      .send(createInvoiceDto)
+      .expect(201);
 
-      expect(finalizeResponse.body.status).toBe('FINALIZED');
-      expect(finalizeResponse.body.invoice_number).toMatch(/^RE-\d{4}-\d{4}$/);
+    const invoiceId = draftResponse.body.id;
+
+    // 2. Finalize
+    const finalizeResponse = await request(app.getHttpServer())
+      .put(`/sales/invoices/${invoiceId}/finalize`)
+      .expect(200);
+
+    expect(finalizeResponse.body.status).toBe('FINALIZED');
+    expect(finalizeResponse.body.invoice_number).toMatch(/^RE-\d{4}-\d{4}$/);
   });
 });
