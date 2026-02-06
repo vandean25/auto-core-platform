@@ -11,6 +11,7 @@ describe('Sales Order Workflow (e2e)', () => {
   let catalogItemId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -40,6 +41,7 @@ describe('Sales Order Workflow (e2e)', () => {
             `);
     } catch (error) {
       console.error('Cleanup failed:', error);
+      throw error;
     }
 
     // Create Customer
@@ -74,6 +76,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 1. Create Sales Order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
+      .set('x-api-key', 'test-api-key')
       .send({
         customer_id: customerId,
         items: [
@@ -97,6 +100,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 2. Update Sales Order (Change Quantity)
     await request(app.getHttpServer())
       .patch(`/api/sales-orders/${orderId}`)
+      .set('x-api-key', 'test-api-key')
       .send({
         items: [
           {
@@ -119,6 +123,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 3. Convert to Invoice
     const invoiceRes = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderId}/create-invoice`)
+      .set('x-api-key', 'test-api-key')
       .expect(201);
 
     expect(invoiceRes.body.sales_order_id).toBe(orderId);
@@ -136,6 +141,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Create order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
+      .set('x-api-key', 'test-api-key')
       .send({
         customer_id: customerId,
         items: [
@@ -161,6 +167,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Attempt Delete
     await request(app.getHttpServer())
       .delete(`/api/sales-orders/${orderId}`)
+      .set('x-api-key', 'test-api-key')
       .expect(400); // Bad Request
   });
 
@@ -171,11 +178,18 @@ describe('Sales Order Workflow (e2e)', () => {
     const [res1, res2] = await Promise.all([
       req
         .post('/api/sales-orders')
+        .set('x-api-key', 'test-api-key')
         .send({ customer_id: customerId, items: [] }),
       req
         .post('/api/sales-orders')
+        .set('x-api-key', 'test-api-key')
         .send({ customer_id: customerId, items: [] }),
     ]);
+
+    expect(res1.status).toBe(201);
+    expect(res2.status).toBe(201);
+    expect(res1.body.order_number).toBeDefined();
+    expect(res2.body.order_number).toBeDefined();
 
     const num1 = parseInt(res1.body.order_number.split('-').pop());
     const num2 = parseInt(res2.body.order_number.split('-').pop());

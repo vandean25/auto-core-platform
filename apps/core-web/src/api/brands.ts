@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Brand } from './types'
+import { fetchWithAuth } from './client'
 
 export const brandKeys = {
     all: ['brands'] as const,
@@ -15,7 +16,7 @@ export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacture
             if (filters?.isVehicleMake !== undefined) params.append('isVehicleMake', filters.isVehicleMake.toString())
             if (filters?.isPartManufacturer !== undefined) params.append('isPartManufacturer', filters.isPartManufacturer.toString())
             
-            const response = await fetch(`/api/brands?${params.toString()}`)
+            const response = await fetchWithAuth(`/api/brands?${params.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch brands')
             return response.json()
         },
@@ -26,7 +27,7 @@ export function useCreateBrand() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (data: Omit<Brand, 'id' | 'createdAt' | 'updatedAt'>) => {
-            const response = await fetch('/api/brands', {
+            const response = await fetchWithAuth('/api/brands', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -44,7 +45,7 @@ export function useUpdateBrand() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async ({ id, ...data }: Partial<Brand> & { id: number }) => {
-            const response = await fetch(`/api/brands/${id}`, {
+            const response = await fetchWithAuth(`/api/brands/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -62,7 +63,7 @@ export function useDeleteBrand() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(`/api/brands/${id}`, {
+            const response = await fetchWithAuth(`/api/brands/${id}`, {
                 method: 'DELETE',
             })
             if (!response.ok) {

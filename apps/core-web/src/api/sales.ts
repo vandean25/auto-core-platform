@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
+import { fetchWithAuth } from './client'
 
 export interface CreateInvoicePayload {
     customerId: string
@@ -18,7 +19,7 @@ export interface CreateInvoicePayload {
 export function useCreateInvoice() {
     return useMutation({
         mutationFn: async (payload: CreateInvoicePayload) => {
-            const response = await fetch('/api/sales/invoices', {
+            const response = await fetchWithAuth('/api/sales/invoices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -33,7 +34,7 @@ export function useFinalizeInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (invoiceId: string) => {
-            const response = await fetch(`/api/sales/invoices/${invoiceId}/finalize`, {
+            const response = await fetchWithAuth(`/api/sales/invoices/${invoiceId}/finalize`, {
                 method: 'PUT',
             })
             if (!response.ok) throw new Error('Failed to finalize invoice')
@@ -49,7 +50,7 @@ export function useInvoice(id: string) {
     return useQuery<Invoice>({
         queryKey: ['invoices', id],
         queryFn: async () => {
-             const response = await fetch(`/api/sales/invoices/${id}`)
+             const response = await fetchWithAuth(`/api/sales/invoices/${id}`)
              if (!response.ok) throw new Error('Failed to fetch invoice')
              return response.json()
         },

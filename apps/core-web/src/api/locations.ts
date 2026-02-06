@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchWithAuth } from './client'
 
 export type LocationType = 'warehouse' | 'aisle' | 'shelf' | 'bin' | 'customer_storage'
 
@@ -26,7 +27,7 @@ export function useLocationTree() {
     return useQuery<StorageLocation[]>({
         queryKey: locationKeys.tree(),
         queryFn: async () => {
-            const response = await fetch('/api/inventory/locations/tree')
+            const response = await fetchWithAuth('/api/inventory/locations/tree')
             if (!response.ok) throw new Error('Failed to fetch location tree')
             return response.json()
         },
@@ -37,7 +38,7 @@ export function useLocations() {
     return useQuery<StorageLocation[]>({
         queryKey: locationKeys.list(),
         queryFn: async () => {
-            const response = await fetch('/api/inventory/locations')
+            const response = await fetchWithAuth('/api/inventory/locations')
             if (!response.ok) throw new Error('Failed to fetch locations')
             return response.json()
         },
@@ -48,7 +49,7 @@ export function useCreateLocation() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (data: { name: string; code: string; type: LocationType; parentId?: string }) => {
-            const response = await fetch('/api/inventory/locations', {
+            const response = await fetchWithAuth('/api/inventory/locations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -69,7 +70,7 @@ export function useDeleteLocation() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`/api/inventory/locations/${id}`, {
+            const response = await fetchWithAuth(`/api/inventory/locations/${id}`, {
                 method: 'DELETE',
             })
             if (!response.ok) {

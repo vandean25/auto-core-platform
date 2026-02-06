@@ -11,6 +11,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
   let customerId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -42,6 +43,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
             `);
     } catch (error) {
       console.error('Cleanup failed:', error);
+      throw error;
     }
 
     // Create Customer
@@ -89,12 +91,8 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
     // Request page 2, page size 1. Should return 1 item (the 2nd one).
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?page=2&pageSize=1`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
-
-    console.log(
-      'Returned data length (standard):',
-      res.body.length || res.body.data?.length,
-    );
 
     // If it ignores pagination, it returns all 3 (or default 25).
     // If it works, it returns 1.
@@ -114,6 +112,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
 
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?params=${encodeURIComponent(params)}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // Should return 1 item (Page 1)
@@ -124,6 +123,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
   it('should respect filtering (standard)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?status=CONFIRMED`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // Should return 1 item

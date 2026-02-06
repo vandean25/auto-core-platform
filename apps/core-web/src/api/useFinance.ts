@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { FinanceSettings, RevenueGroup, RevenueAnalytics } from './types'
+import { fetchWithAuth } from './client'
 
 export const financeKeys = {
     all: ['finance'] as const,
@@ -12,7 +13,7 @@ export function useFinanceSettings() {
     return useQuery<FinanceSettings>({
         queryKey: financeKeys.settings(),
         queryFn: async () => {
-            const response = await fetch('/api/finance/settings')
+            const response = await fetchWithAuth('/api/finance/settings')
             if (!response.ok) throw new Error('Failed to fetch finance settings')
             return response.json()
         },
@@ -23,7 +24,7 @@ export function useUpdateFinanceSettings() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (data: Partial<FinanceSettings>) => {
-            const response = await fetch('/api/finance/settings', {
+            const response = await fetchWithAuth('/api/finance/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -41,7 +42,7 @@ export function useRevenueGroups() {
     return useQuery<RevenueGroup[]>({
         queryKey: financeKeys.revenueGroups(),
         queryFn: async () => {
-            const response = await fetch('/api/finance/revenue-groups')
+            const response = await fetchWithAuth('/api/finance/revenue-groups')
             if (!response.ok) throw new Error('Failed to fetch revenue groups')
             return response.json()
         },
@@ -52,7 +53,7 @@ export function useCreateRevenueGroup() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async (data: Omit<RevenueGroup, 'id'>) => {
-            const response = await fetch('/api/finance/revenue-groups', {
+            const response = await fetchWithAuth('/api/finance/revenue-groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -70,7 +71,7 @@ export function useRevenueAnalytics() {
     return useQuery<RevenueAnalytics>({
         queryKey: financeKeys.analytics('revenue-by-group'),
         queryFn: async () => {
-            const response = await fetch('/api/finance/analytics/revenue-by-group')
+            const response = await fetchWithAuth('/api/finance/analytics/revenue-by-group')
             if (!response.ok) throw new Error('Failed to fetch revenue analytics')
             return response.json()
         },

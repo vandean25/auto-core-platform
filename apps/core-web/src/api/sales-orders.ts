@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SalesOrder } from './types'
+import { fetchWithAuth } from './client'
 
 export const salesOrderKeys = {
     all: ['sales-orders'] as const,
@@ -22,7 +23,7 @@ export function useSalesOrders(queryParams?: string) {
                 }
             }
             
-            const response = await fetch(url)
+            const response = await fetchWithAuth(url)
             if (!response.ok) throw new Error('Failed to fetch sales orders')
             return response.json()
         },
@@ -33,7 +34,7 @@ export function useSalesOrder(id: string) {
     return useQuery<SalesOrder>({
         queryKey: salesOrderKeys.detail(id),
         queryFn: async () => {
-            const response = await fetch(`/api/sales-orders/${id}`)
+            const response = await fetchWithAuth(`/api/sales-orders/${id}`)
             if (!response.ok) throw new Error('Failed to fetch sales order')
             return response.json()
         },
@@ -46,7 +47,7 @@ export function useCreateSalesOrder() {
     
     return useMutation({
         mutationFn: async (order: any) => {
-            const response = await fetch('/api/sales-orders', {
+            const response = await fetchWithAuth('/api/sales-orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(order),
@@ -65,7 +66,7 @@ export function useUpdateSalesOrder() {
     
     return useMutation({
         mutationFn: async ({ id, data }: { id: string; data: any }) => {
-            const response = await fetch(`/api/sales-orders/${id}`, {
+            const response = await fetchWithAuth(`/api/sales-orders/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -85,7 +86,7 @@ export function useCreateInvoiceFromOrder() {
     
     return useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`/api/sales-orders/${id}/create-invoice`, {
+            const response = await fetchWithAuth(`/api/sales-orders/${id}/create-invoice`, {
                 method: 'POST',
             })
             if (!response.ok) throw new Error('Failed to create invoice from order')
