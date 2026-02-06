@@ -141,24 +141,10 @@ export class LocationService {
     // Strict Hierarchy Rules
     const rules: Record<string, LocationType[]> = {
       [LocationType.aisle]: [LocationType.warehouse],
-      [LocationType.shelf]: [LocationType.aisle, LocationType.warehouse], // Allowing skip level if needed? "AISLE parent must be WAREHOUSE". Let's assume strict.
+      [LocationType.shelf]: [LocationType.aisle, LocationType.warehouse],
       [LocationType.bin]: [LocationType.shelf, LocationType.aisle, LocationType.warehouse],
       [LocationType.customer_storage]: [LocationType.warehouse]
     };
-
-    // Let's refine strictness based on issue description "AISLE parent must be WAREHOUSE"
-    // I'll implement standard strictness but allow some flexibility for bin/shelf to be directly in warehouse if needed?
-    // Issue says "Hierarchical", implying strict levels.
-    // But commonly, small warehouses might just have Bins.
-    // I will allow:
-    // AISLE -> WAREHOUSE
-    // SHELF -> AISLE
-    // BIN -> SHELF or AISLE (if no shelves) or WAREHOUSE (if very simple)
-
-    // Actually, let's enforce: 
-    // AISLE parent must be WAREHOUSE.
-    // SHELF parent must be AISLE or WAREHOUSE.
-    // BIN parent must be SHELF, AISLE, or WAREHOUSE.
 
     const allowedParents: Record<string, LocationType[]> = {
       [LocationType.aisle]: [LocationType.warehouse],
