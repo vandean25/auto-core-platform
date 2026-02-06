@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import {
   Injectable,
   BadRequestException,
@@ -16,7 +17,7 @@ export class PurchaseService {
 
   private generateOrderNumber(): string {
     const date = new Date();
-    return `PO-${date.getFullYear()}-${Math.floor(Math.random() * 10000)
+    return `PO-${date.getFullYear()}-${randomInt(0, 10000)
       .toString()
       .padStart(4, '0')}`;
   }
