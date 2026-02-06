@@ -136,9 +136,11 @@ export default function CustomerList() {
             columnFilters: tableState.columnFilters,
             sorting: tableState.sorting,
             pagination: tableState.pagination,
+            globalFilter: tableState.globalFilter,
         },
         pageCount: pageCount,
         onColumnFiltersChange: tableState.setColumnFilters,
+        onGlobalFilterChange: tableState.setGlobalFilter,
         onSortingChange: tableState.setSorting,
         onPaginationChange: tableState.setPagination,
         getCoreRowModel: getCoreRowModel(),
@@ -161,7 +163,7 @@ export default function CustomerList() {
                 </Button>
             </div>
 
-            <DataTableToolbar table={table} searchColumn="company_name" placeholder="Search customers..." />
+            <DataTableToolbar table={table} placeholder="Search customers..." />
 
             <div className="border rounded-md">
                 <Table>

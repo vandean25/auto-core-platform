@@ -63,6 +63,8 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     pageSize: initialParams?.pageSize || defaultPageSize,
   }))
 
+  const [globalFilter, setGlobalFilter] = React.useState<string>(() => initialParams?.search || "")
+
   // Debounce URL Updates
   React.useEffect(() => {
     const timeout = setTimeout(() => {
@@ -88,10 +90,11 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
         sorting: sortParams.length > 0 ? sortParams : undefined,
         page: pagination.pageIndex + 1,
         pageSize: pagination.pageSize,
+        search: globalFilter || undefined,
       }
 
       // Only add params if there's something to query
-      if (!queryObj.filters && !queryObj.sorting && queryObj.page === 1 && queryObj.pageSize === defaultPageSize) {
+      if (!queryObj.filters && !queryObj.sorting && !queryObj.search && queryObj.page === 1 && queryObj.pageSize === defaultPageSize) {
           setSearchParams((prev) => {
               const newParams = new URLSearchParams(prev)
               newParams.delete("params")
@@ -107,7 +110,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     }, debounceMs)
 
     return () => clearTimeout(timeout)
-  }, [columnFilters, sorting, pagination, setSearchParams, defaultPageSize, debounceMs])
+  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs])
 
   return {
     columnFilters,
@@ -116,6 +119,8 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     setSorting,
     pagination,
     setPagination,
+    globalFilter,
+    setGlobalFilter,
     // Helper to get the current query string for API calls
     queryParams: searchParams.get("params") || undefined,
   }
