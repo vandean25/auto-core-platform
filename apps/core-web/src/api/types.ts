@@ -253,3 +253,44 @@ export interface RevenueAnalytics {
     total: number
     period: string
 }
+
+export type WorkshopOrderStatus = 'SCHEDULED' | 'INTAKE' | 'IN_PROGRESS' | 'COMPLETED'
+
+export interface WorkshopOrder {
+    id: string
+    status: WorkshopOrderStatus
+    customer_id: string
+    customer: Customer
+    vehicle_id: string
+    vehicle: Vehicle
+    odometer: number
+    fuel_level: number
+    notes?: string
+    createdAt: string
+}
+
+export interface WorkshopSearchResponse {
+    vehicles: (Vehicle & { customer: Customer | null })[]
+    customers: (Customer & { vehicles: Vehicle[] })[]
+}
+
+export interface CreateWorkshopOrderPayload {
+    customerId: string
+    vehicleId: string
+    odometer: number
+    fuelLevel: number
+    notes?: string
+}
+
+export interface RegisterIntakePayload {
+    vin: string
+    plate: string
+    make: string
+    model: string
+    year: number
+    customerId?: string
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+}
