@@ -27,6 +27,8 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean
   columnFilters: ColumnFiltersState
   setColumnFilters: OnChangeFn<ColumnFiltersState>
+  globalFilter?: string
+  setGlobalFilter?: OnChangeFn<string>
   sorting: SortingState
   setSorting: OnChangeFn<SortingState>
   pagination: PaginationState
@@ -43,6 +45,8 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   columnFilters,
   setColumnFilters,
+  globalFilter,
+  setGlobalFilter,
   sorting,
   setSorting,
   pagination,
@@ -59,8 +63,10 @@ export function DataTable<TData, TValue>({
       columnFilters,
       sorting,
       pagination,
+      globalFilter,
     },
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),

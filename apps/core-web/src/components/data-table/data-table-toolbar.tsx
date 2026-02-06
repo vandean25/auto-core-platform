@@ -16,17 +16,26 @@ export function DataTableToolbar<TData>({
   searchColumn,
   placeholder = "Filter...",
 }: DataTableToolbarProps<TData>) {
-  const isFiltered = table.getState().columnFilters.length > 0
+  const isFiltered = table.getState().columnFilters.length > 0 || !!table.getState().globalFilter
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-1 items-center space-x-2">
-        {searchColumn && (
+        {searchColumn ? (
             <Input
             placeholder={placeholder}
             value={(table.getColumn(searchColumn)?.getFilterValue() as string) ?? ""}
             onChange={(event) =>
                 table.getColumn(searchColumn)?.setFilterValue(event.target.value)
+            }
+            className="h-8 w-[150px] lg:w-[250px]"
+            />
+        ) : (
+            <Input
+            placeholder={placeholder}
+            value={(table.getState().globalFilter as string) ?? ""}
+            onChange={(event) =>
+                table.setGlobalFilter(event.target.value)
             }
             className="h-8 w-[150px] lg:w-[250px]"
             />
