@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,14 @@ import { Plus, Wrench } from 'lucide-react'
 
 export function IntakeDashboard() {
   const [search, setSearch] = useState('')
-  const { data, isLoading } = useWorkshopSearch(search)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data, isLoading } = useWorkshopSearch(debouncedSearch)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<{id: string, description: string, customerId: string} | null>(null)
 
