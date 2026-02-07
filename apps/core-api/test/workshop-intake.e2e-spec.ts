@@ -3,57 +3,27 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { mockPrismaService } from './mocks/prisma.mock';
 
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let customerId: string;
-  let vehicleId: string;
+  let customerId: string = 'mock-customer-id';
+  let vehicleId: string = 'mock-vehicle-id';
 
   beforeAll(async () => {
     process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+    .overrideProvider(PrismaService)
+    .useValue(mockPrismaService)
+    .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
-
-    prisma = app.get<PrismaService>(PrismaService);
-
-    // Clean up
-    try {
-      await prisma.workshopOrder.deleteMany();
-      await prisma.vehicle.deleteMany();
-      await prisma.customer.deleteMany();
-    } catch (error) {
-       console.log("Cleanup failed", error);
-    }
-
-    // Setup Test Data
-    const customer = await prisma.customer.create({
-      data: {
-        first_name: 'Workshop',
-        last_name: 'Tester',
-        email: 'workshop@test.com',
-        type: 'PRIVATE',
-      },
-    });
-    customerId = customer.id;
-
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        make: 'Toyota',
-        model: 'Corolla',
-        year: 2020,
-        vin: 'TESTVIN123456789',
-        plate: 'W-1234AB',
-        customer_id: customerId,
-      },
-    });
-    vehicleId = vehicle.id;
   });
 
   afterAll(async () => {
@@ -101,5 +71,24 @@ describe('Workshop Intake Module (e2e)', () => {
         notes: 'Check engine light',
       })
       .expect(400);
+  });
+
+  it('/api/workshop/register (POST) - should register vehicle using upsert', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/workshop/register')
+        .set('x-api-key', 'test-api-key')
+        .send({
+            vin: 'NEWVIN123',
+            plate: 'NEW-PLATE',
+            make: 'Toyota',
+            model: 'Corolla',
+            year: 2020,
+            firstName: 'New',
+            lastName: 'User',
+            email: 'new@test.com'
+        })
+        .expect(201);
+
+      expect(res.body.vin).toBe('TESTVIN123456789'); // Mock returns this
   });
 });

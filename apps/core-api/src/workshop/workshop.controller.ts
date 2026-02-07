@@ -3,7 +3,7 @@ import { WorkshopService } from './workshop.service';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
 
-@Controller('api/workshop')
+@Controller('workshop')
 export class WorkshopController {
   constructor(private readonly workshopService: WorkshopService) {}
 
