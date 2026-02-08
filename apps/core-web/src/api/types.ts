@@ -270,8 +270,16 @@ export interface WorkshopOrder {
 }
 
 export interface WorkshopSearchResponse {
-    vehicles: (Vehicle & { customer: Customer | null })[]
-    customers: (Customer & { vehicles: Vehicle[] })[]
+    data: {
+        vehicles: (Vehicle & { customer: Customer | null })[]
+        customers: (Customer & { vehicles: Vehicle[] })[]
+    }
+    meta: {
+        total: number
+        page: number
+        limit: number
+        totalPages: number
+    }
 }
 
 export interface CreateWorkshopOrderPayload {

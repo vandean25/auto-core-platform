@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
-import { RegisterIntakeDto } from './dto/register-intake.dto';
+import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
+import type { RegisterIntakeDto } from './dto/register-intake.dto';
 import { WorkshopOrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class WorkshopService {
       } else {
         const customer = await this.prisma.customer.create({
           data: {
-            first_name: dto.firstName,
-            last_name: dto.lastName,
+            first_name: dto.firstName || '',
+            last_name: dto.lastName || '',
             email: dto.email,
             phone: dto.phone,
             type: 'PRIVATE',
@@ -29,6 +29,9 @@ export class WorkshopService {
         });
         customerId = customer.id;
       }
+    } else {
+      const exists = await this.prisma.customer.findUnique({ where: { id: customerId } });
+      if (!exists) throw new NotFoundException(`Customer ${customerId} not found`);
     }
 
     // Use upsert for vehicle to handle existing VINs (returning customers/vehicles)
@@ -57,6 +60,13 @@ export class WorkshopService {
   }
 
   async create(dto: CreateWorkshopOrderDto) {
+    const [customer, vehicle] = await Promise.all([
+      this.prisma.customer.findUnique({ where: { id: dto.customerId } }),
+      this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } }),
+    ]);
+    if (!customer) throw new NotFoundException(`Customer ${dto.customerId} not found`);
+    if (!vehicle) throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
+
     return this.prisma.workshopOrder.create({
       data: {
         customer_id: dto.customerId,
@@ -65,6 +75,10 @@ export class WorkshopService {
         fuel_level: dto.fuelLevel,
         notes: dto.notes,
         status: WorkshopOrderStatus.INTAKE,
+      },
+      include: {
+        customer: true,
+        vehicle: true,
       },
     });
   }
@@ -99,6 +113,14 @@ export class WorkshopService {
       },
     });
 
-    return { vehicles, customers };
+    return {
+      data: { vehicles, customers },
+      meta: {
+        total: vehicles.length + customers.length,
+        page: 1,
+        limit: 100, // Hardcoded for now as per current logic
+        totalPages: 1,
+      },
+    };
   }
 }

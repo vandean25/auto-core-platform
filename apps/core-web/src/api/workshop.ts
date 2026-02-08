@@ -6,7 +6,7 @@ export const useWorkshopSearch = (query: string) => {
     return useQuery<WorkshopSearchResponse>({
         queryKey: ['workshop', 'search', query],
         queryFn: async () => {
-            if (!query || query.length < 2) return { vehicles: [], customers: [] }
+            if (!query || query.length < 2) return { data: { vehicles: [], customers: [] }, meta: { total: 0, page: 1, limit: 0, totalPages: 0 } }
             const response = await fetchWithAuth(`/api/workshop/search?q=${encodeURIComponent(query)}`)
             if (!response.ok) throw new Error('Failed to search')
             return response.json()

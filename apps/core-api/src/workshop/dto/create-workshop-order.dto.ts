@@ -1,11 +1,11 @@
-import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateWorkshopOrderDto {
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   customerId: string;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   vehicleId: string;
 
