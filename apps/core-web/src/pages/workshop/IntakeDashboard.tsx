@@ -48,10 +48,10 @@ export function IntakeDashboard() {
 
       {data && (
         <div className="grid gap-6 md:grid-cols-2">
-            {data.vehicles.length > 0 && (
+            {data.data.vehicles.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Vehicles</h2>
-                    {data.vehicles.map(vehicle => (
+                    {data.data.vehicles.map(vehicle => (
                         <Card key={vehicle.id} className="hover:bg-slate-50 transition-colors">
                             <CardContent className="p-4 flex justify-between items-center">
                                 <div>
@@ -78,10 +78,10 @@ export function IntakeDashboard() {
                 </div>
             )}
 
-            {data.customers.length > 0 && (
+            {data.data.customers.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Customers</h2>
-                    {data.customers.map(customer => (
+                    {data.data.customers.map(customer => (
                         <Card key={customer.id} className="hover:bg-slate-50 transition-colors">
                             <CardContent className="p-4">
                                 <div className="font-bold">{customer.first_name} {customer.last_name}</div>
@@ -116,7 +116,7 @@ export function IntakeDashboard() {
         </div>
       )}
 
-      {data && search.length >= 2 && data.vehicles.length === 0 && data.customers.length === 0 && !isLoading && (
+      {data && debouncedSearch.length >= 2 && data.data.vehicles.length === 0 && data.data.customers.length === 0 && !isLoading && (
         <div className="text-center p-8 border border-dashed rounded-lg text-muted-foreground">
             <p className="mb-2">No results found.</p>
             <Button variant="outline" onClick={() => setIsRegisterOpen(true)}>Register new vehicle</Button>
