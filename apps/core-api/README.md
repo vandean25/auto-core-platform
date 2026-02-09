@@ -59,6 +59,36 @@ $ npm run test:cov
 
 ## Deployment
 
+### Docker
+
+This project includes a `Dockerfile` optimized for production deployment (e.g., Google Cloud Run).
+
+#### Building the Image
+
+```bash
+docker build -t core-api .
+```
+
+#### Running the Container
+
+To run the container locally, you need to provide the necessary environment variables.
+
+```bash
+docker run -p 3000:3000 \
+  -e PORT=3000 \
+  -e DATABASE_URL="postgresql://user:password@host:5432/db" \
+  -e API_KEY="your-secret-api-key" \
+  -e FRONTEND_URL="https://your-frontend-url.com" \
+  core-api
+```
+
+**Environment Variables:**
+
+- `PORT`: The port the application should listen on (default: 3000).
+- `DATABASE_URL`: Connection string for the PostgreSQL database.
+- `API_KEY`: Secret key required for authentication (sent via `x-api-key` header).
+- `FRONTEND_URL`: The URL of the allowed frontend origin (for CORS).
+
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
