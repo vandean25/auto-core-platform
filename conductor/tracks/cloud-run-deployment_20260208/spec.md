@@ -8,7 +8,7 @@ This feature aims to prepare the `apps/core-api` (NestJS) application for produc
     - The application must strictly allow requests only from the trusted Frontend URL.
     - This URL must be configurable via an environment variable `FRONTEND_URL`.
     - Default behavior should block cross-origin requests if the origin does not match `FRONTEND_URL`.
-    - For this deployment, `FRONTEND_URL` will be set to `https://auto-core-platform-vande.web.app/`.
+    - For this deployment, `FRONTEND_URL` will be set to `https://auto-core-platform-vande.web.app`.
 - **Global Authentication Guard**:
     - Implement a global authentication guard to secure all endpoints by default.
     - Provide a `@Public()` decorator to explicitly exempt public endpoints (e.g., health checks, login/auth routes).
@@ -26,7 +26,7 @@ This feature aims to prepare the `apps/core-api` (NestJS) application for produc
     - Adhere to the principle of least privilege for network access (CORS) and endpoint access (Auth Guard).
 
 ## Acceptance Criteria
-- [ ] **CORS**: Requests from `https://auto-core-platform-vande.web.app/` are accepted, while requests from other origins are rejected (when configured).
+- [ ] **CORS**: Requests from `https://auto-core-platform-vande.web.app` are accepted, while requests from other origins are rejected (when configured).
 - [ ] **Auth**: Accessing a protected route without a token returns 401 Unauthorized.
 - [ ] **Auth**: Accessing a route marked with `@Public()` works without a token.
 - [ ] **Docker**: The Docker image builds successfully and is significantly smaller than a standard development image.
