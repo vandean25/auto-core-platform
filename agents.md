@@ -42,7 +42,7 @@ Auto Core Platform is a full-stack automotive parts management system designed f
 
 ## Architecture & Structure
 
-```
+```text
 auto-core-platform/
 ├── apps/
 │   ├── core-api/          # NestJS backend
@@ -162,7 +162,7 @@ npm run build              # Production build
 
 ## MCP Servers & Skills
 This project uses the following MCP servers:
-- **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc).
+- **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc.).
 - **github-mcp-server**: For GitHub operations.
 - **prisma-mcp-server**: For database schema management.
 
