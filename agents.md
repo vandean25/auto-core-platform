@@ -15,7 +15,7 @@ Auto Core Platform is a full-stack automotive parts management system designed f
 - **Purchase (Procurement)**: Manages purchase orders (POs) from draft to completion, including goods receipt and vendor billing.
 - **Sales (CRM & Invoicing)**:
     - **CRM**: Customer management (Private/Company) with full order and vehicle history.
-    - **Sales Orders**: Workflow from Draft -> Confirmed -> Completed -> Invoice.
+    - **Sales Orders**: Workflow from Draft -> Confirmed -> In Progress -> Completed -> Invoiced.
     - **Invoicing**: Generates final tax invoices from completed sales orders with real-time stock integration.
 - **Finance**: Manages global fiscal settings (lock dates, numbering) and revenue categorization for accounting exports.
 - **Brand (Master Data)**: Centralized management of vehicle makes and part manufacturers, enabling consistent categorization and smart filtering.
@@ -66,13 +66,13 @@ auto-core-platform/
 ## Critical Rules & Development Conventions
 
 ### TypeScript Configuration
-- **Type Safety**: Enforced `verbatimModuleSyntax`. **ALWAYS** use `import type` for type-only imports.
+- **Type Safety**: `verbatimModuleSyntax` is enforced in `apps/core-web`. Use `import type` for all type-only imports (recommended project-wide, required in frontend).
   ```typescript
   // ✅ Correct
   import type { InventoryItem, InventoryResponse } from './types'
   import { useQuery } from '@tanstack/react-query'
   
-  // ❌ Wrong - causes runtime errors
+  // ❌ Wrong - can fail under verbatimModuleSyntax
   import { InventoryItem, InventoryResponse } from './types'
   ```
 
@@ -92,7 +92,7 @@ auto-core-platform/
 ### API Conventions
 - **Prefix**: All endpoints are prefixed with `/api`.
 - **Formatting**: List endpoints return `{ data, meta }` format for list endpoints. Use pagination with `page` and `limit` query params.
-- **Proxy**: Vite handles `/api` proxying to backend `http://localhost:3000` in dev mode.
+- **Proxy**: Vite handles `/api` proxying to backend `http://127.0.0.1:3000` in dev mode.
 
 ### Testing Standards
 - **Write integration tests for each feature module**:
