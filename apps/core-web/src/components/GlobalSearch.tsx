@@ -18,25 +18,17 @@ import {
 } from "@/components/ui/command"
 import { useGlobalSearch } from "@/hooks/useGlobalSearch"
 
-export function GlobalSearch() {
-    const [open, setOpen] = React.useState(false)
+interface GlobalSearchProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+}
+
+export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     const [search, setSearch] = React.useState("")
     const { data: searchResults, isLoading } = useGlobalSearch(search)
 
-    React.useEffect(() => {
-        const down = (e: KeyboardEvent) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                setOpen((open) => !open)
-            }
-        }
-
-        document.addEventListener("keydown", down)
-        return () => document.removeEventListener("keydown", down)
-    }, [])
-
     return (
-        <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandDialog open={open} onOpenChange={onOpenChange}>
             <CommandInput
                 placeholder="Type a command or search inventory..."
                 value={search}
@@ -46,15 +38,15 @@ export function GlobalSearch() {
                 <CommandEmpty>No results found.</CommandEmpty>
 
                 <CommandGroup heading="🚀 Actions">
-                    <CommandItem onSelect={() => { console.log("Navigate to Create Invoice"); setOpen(false) }}>
+                    <CommandItem onSelect={() => { console.log("Navigate to Create Invoice"); onOpenChange(false) }}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         <span>Create New Invoice</span>
-                        <CommandShortcut>⌘I</CommandShortcut>
+                        <CommandShortcut>{navigator.userAgent.includes('Mac') ? '⌘I' : 'Ctrl+I'}</CommandShortcut>
                     </CommandItem>
-                    <CommandItem onSelect={() => { console.log("Navigate to Register Customer"); setOpen(false) }}>
+                    <CommandItem onSelect={() => { console.log("Navigate to Register Customer"); onOpenChange(false) }}>
                         <User className="mr-2 h-4 w-4" />
                         <span>Register New Customer</span>
-                        <CommandShortcut>⌘N</CommandShortcut>
+                        <CommandShortcut>{navigator.userAgent.includes('Mac') ? '⌘N' : 'Ctrl+N'}</CommandShortcut>
                     </CommandItem>
                 </CommandGroup>
 
@@ -69,7 +61,7 @@ export function GlobalSearch() {
                                 key={item.id}
                                 onSelect={() => {
                                     console.log(`Navigate to inventory item: ${item.id}`);
-                                    setOpen(false);
+                                    onOpenChange(false);
                                 }}
                             >
                                 <Package className="mr-2 h-4 w-4" />
