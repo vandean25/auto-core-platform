@@ -1,4 +1,19 @@
 export const API_KEY = import.meta.env.VITE_API_KEY;
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '');
+
+function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
+  if (!API_BASE_URL) return input;
+
+  if (typeof input === 'string' && input.startsWith('/api/')) {
+    return `${API_BASE_URL}${input}`;
+  }
+
+  if (input instanceof URL && input.pathname.startsWith('/api/')) {
+    return new URL(`${API_BASE_URL}${input.pathname}${input.search}`);
+  }
+
+  return input;
+}
 
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
@@ -14,5 +29,5 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
     headers,
   };
 
-  return fetch(input, config);
+  return fetch(resolveApiUrl(input), config);
 }

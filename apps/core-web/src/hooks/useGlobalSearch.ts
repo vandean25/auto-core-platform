@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { InventoryResponse } from '@/api/types'
 import { inventoryKeys } from '@/api/inventory'
+import { fetchWithAuth } from '@/api/client'
 
 export function useGlobalSearch(searchTerm: string) {
     const [debouncedSearch, setDebouncedSearch] = useState(searchTerm)
@@ -23,7 +24,7 @@ export function useGlobalSearch(searchTerm: string) {
             searchParams.append('search', debouncedSearch)
             searchParams.append('limit', '3')
 
-            const response = await fetch(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
             if (!response.ok) {
                 throw new Error('Search failed')
             }
