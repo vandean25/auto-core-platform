@@ -193,7 +193,7 @@ jobs:
         run: npm test -- --ci --runInBand
 
   frontend:
-    name: Frontend Build
+    name: Frontend Build and Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -211,6 +211,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
 
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
