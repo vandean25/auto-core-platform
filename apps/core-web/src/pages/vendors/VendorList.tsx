@@ -49,9 +49,12 @@ export default function VendorList() {
     ]
 
     return (
-        <div className="p-8 space-y-4">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Vendors</h1>
+        <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
+                    <p className="text-slate-500">Manage your suppliers and service providers.</p>
+                </div>
                 <Button onClick={() => setIsDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" /> Add Vendor
                 </Button>

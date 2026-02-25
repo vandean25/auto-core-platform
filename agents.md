@@ -84,6 +84,26 @@ auto-core-platform/
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop).
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
 
+### Page Layout Defaults
+- **Main Container**: Wrap page content in `<div className="w-full max-w-7xl mx-auto p-6 space-y-6">` (adjust `space-y-` based on need, `space-y-6` or `space-y-8` is common).
+- **Header Section**: Use a flex container for titles and actions:
+  ```tsx
+  <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center gap-4"> {/* Optional gap for back button + title */}
+          <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Page Title</h1>
+              <p className="text-slate-500">Optional subtitle description.</p>
+          </div>
+      </div>
+      <div className="flex gap-2"> {/* Optional container for multiple action buttons */}
+          {/* Actions / Buttons go here */}
+      </div>
+  </div>
+  ```
+- **Typography/Colors**: Use `text-2xl font-semibold tracking-tight` for main page headers, and `text-slate-500` for subtitles instead of `text-muted-foreground`.
+- **Lists / Tables**: Prefer using the shared `DataTable` component abstraction (`@/components/data-table/DataTable`) over constructing raw tables in `src/pages/` components for listing data.
+
+
 ### Backend Patterns
 - **Services**: Business logic stays in services; controllers handle HTTP routing. Services go in feature modules (e.g., `src/inventory/inventory.service.ts`).
 - **Prisma**: Use `PrismaService` for all DB operations. Schema uses `snake_case` via `@@map()`. Always run `npx prisma generate` after schema changes. Seed data is in `prisma/seed.ts`. Use `npx prisma migrate dev` for development migrations.

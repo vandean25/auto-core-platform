@@ -4,10 +4,12 @@ import { Package, Users, Receipt, TrendingUp } from "lucide-react"
 
 export default function DashboardPage() {
     return (
-        <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Welcome back to Auto Core Platform.</p>
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+                    <p className="text-slate-500">Welcome back to Auto Core Platform.</p>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

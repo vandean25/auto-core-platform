@@ -28,25 +28,27 @@ export default function CustomerDetail() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link to="/customers">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        {customer.type === 'COMPANY' ? customer.company_name : `${customer.first_name} ${customer.last_name}`}
-                    </h1>
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        {customer.type === 'COMPANY' && <Badge variant="outline">Company</Badge>}
-                        <span>ID: {customer.id.substring(0, 8)}</span>
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link to="/customers">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            {customer.type === 'COMPANY' ? customer.company_name : `${customer.first_name} ${customer.last_name}`}
+                        </h1>
+                        <div className="flex items-center gap-2 text-slate-500 text-sm">
+                            {customer.type === 'COMPANY' && <Badge variant="outline">Company</Badge>}
+                            <span>ID: {customer.id.substring(0, 8)}</span>
+                        </div>
                     </div>
                 </div>
-                <div className="ml-auto flex gap-2">
+                <div className="flex gap-2">
                     <Button asChild>
-                         <Link to={`/sales-orders/new?customerId=${customer.id}`}>
+                        <Link to={`/sales-orders/new?customerId=${customer.id}`}>
                             <Plus className="mr-2 h-4 w-4" /> New Order
                         </Link>
                     </Button>
@@ -64,7 +66,7 @@ export default function CustomerDetail() {
                             <a href={`mailto:${customer.email}`} className="hover:underline">{customer.email}</a>
                         </div>
                         {customer.phone && (
-                             <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-muted-foreground" />
                                 <a href={`tel:${customer.phone}`} className="hover:underline">{customer.phone}</a>
                             </div>
@@ -78,7 +80,7 @@ export default function CustomerDetail() {
                             </div>
                         </div>
                         {customer.vat_id && (
-                             <div className="pt-2 border-t">
+                            <div className="pt-2 border-t">
                                 <span className="text-sm font-medium">VAT ID:</span> <span className="text-sm text-muted-foreground">{customer.vat_id}</span>
                             </div>
                         )}
@@ -86,7 +88,7 @@ export default function CustomerDetail() {
                 </Card>
 
                 <div className="md:col-span-2">
-                     <Tabs defaultValue="orders">
+                    <Tabs defaultValue="orders">
                         <TabsList>
                             <TabsTrigger value="orders">Active Orders</TabsTrigger>
                             <TabsTrigger value="invoices">Invoice History</TabsTrigger>
@@ -133,7 +135,7 @@ export default function CustomerDetail() {
                             </Card>
                         </TabsContent>
                         <TabsContent value="invoices" className="mt-4">
-                             <Card>
+                            <Card>
                                 <CardContent className="p-0">
                                     <Table>
                                         <TableHeader>
@@ -145,7 +147,7 @@ export default function CustomerDetail() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                             {(customer as any).invoices?.map((invoice: any) => (
+                                            {(customer as any).invoices?.map((invoice: any) => (
                                                 <TableRow key={invoice.id}>
                                                     <TableCell className="font-medium">{invoice.invoice_number || 'Draft'}</TableCell>
                                                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -153,7 +155,7 @@ export default function CustomerDetail() {
                                                     <TableCell className="text-right">{formatCurrency(Number(invoice.total_gross))}</TableCell>
                                                 </TableRow>
                                             ))}
-                                             {(!((customer as any).invoices) || (customer as any).invoices.length === 0) && (
+                                            {(!((customer as any).invoices) || (customer as any).invoices.length === 0) && (
                                                 <TableRow>
                                                     <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">No recent invoices</TableCell>
                                                 </TableRow>
@@ -176,7 +178,7 @@ export default function CustomerDetail() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                             {(customer as any).vehicles?.map((vehicle: any) => (
+                                            {(customer as any).vehicles?.map((vehicle: any) => (
                                                 <TableRow key={vehicle.id}>
                                                     <TableCell className="font-medium">{vehicle.make} {vehicle.model}</TableCell>
                                                     <TableCell>{vehicle.year}</TableCell>
@@ -184,7 +186,7 @@ export default function CustomerDetail() {
                                                     <TableCell>{vehicle.plate}</TableCell>
                                                 </TableRow>
                                             ))}
-                                             {(!((customer as any).vehicles) || (customer as any).vehicles.length === 0) && (
+                                            {(!((customer as any).vehicles) || (customer as any).vehicles.length === 0) && (
                                                 <TableRow>
                                                     <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">No vehicles registered</TableCell>
                                                 </TableRow>

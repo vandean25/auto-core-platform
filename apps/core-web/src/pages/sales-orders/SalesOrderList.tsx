@@ -47,8 +47,8 @@ export default function SalesOrderList() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
             cell: ({ row }) => (
                 <span>
-                    {row.original.customer.type === 'COMPANY' 
-                        ? row.original.customer.company_name 
+                    {row.original.customer.type === 'COMPANY'
+                        ? row.original.customer.company_name
                         : `${row.original.customer.first_name} ${row.original.customer.last_name}`}
                 </span>
             ),
@@ -90,13 +90,11 @@ export default function SalesOrderList() {
     ]
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
-                    <p className="text-muted-foreground">
-                        Manage your sales pipeline and job cards.
-                    </p>
+                    <h1 className="text-2xl font-semibold tracking-tight">Sales Orders</h1>
+                    <p className="text-slate-500">Manage your sales pipeline and job cards.</p>
                 </div>
                 <Button asChild>
                     <Link to="/sales-orders/new">

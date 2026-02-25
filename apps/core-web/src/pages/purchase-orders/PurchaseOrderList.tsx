@@ -56,9 +56,12 @@ export default function PurchaseOrderList() {
     ]
 
     return (
-        <div className="p-8 space-y-4">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Purchase Orders</h1>
+        <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Purchase Orders</h1>
+                    <p className="text-slate-500">Manage your orders and track incoming deliveries.</p>
+                </div>
                 <Button asChild>
                     <Link to="/purchase-orders/new">
                         <Plus className="mr-2 h-4 w-4" /> Create PO

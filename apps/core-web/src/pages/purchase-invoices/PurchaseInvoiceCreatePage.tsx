@@ -10,12 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table"
 
 import { VendorCombobox } from "@/components/purchase-invoices/VendorCombobox"
@@ -44,7 +44,7 @@ export default function PurchaseInvoiceCreatePage() {
         d.setDate(d.getDate() + 30)
         return format(d, 'yyyy-MM-dd')
     })
-    
+
     const [lines, setLines] = React.useState<InvoiceLine[]>([])
     const [isImportModalOpen, setIsImportModalOpen] = React.useState(false)
 
@@ -126,9 +126,11 @@ export default function PurchaseInvoiceCreatePage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="w-full max-w-7xl mx-auto p-6">
             <div className="flex items-center justify-between mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Create Purchase Invoice</h1>
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Invoice</h1>
+                </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
                     <Button onClick={handleSave} disabled={createInvoiceMutation.isPending}>
@@ -166,8 +168,8 @@ export default function PurchaseInvoiceCreatePage() {
                             <Package className="h-4 w-4" />
                             <span>{unbilledItems.length} unbilled receipts available for this vendor</span>
                         </div>
-                        <Button 
-                            variant="secondary" 
+                        <Button
+                            variant="secondary"
                             size="sm"
                             disabled={unbilledItems.length === 0}
                             onClick={() => setIsImportModalOpen(true)}
@@ -195,7 +197,7 @@ export default function PurchaseInvoiceCreatePage() {
                                 <TableRow key={line.tempId}>
                                     <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
                                     <TableCell>
-                                        <Input 
+                                        <Input
                                             value={line.description}
                                             onChange={e => updateLine(index, { description: e.target.value })}
                                         />
@@ -204,14 +206,14 @@ export default function PurchaseInvoiceCreatePage() {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Input 
+                                        <Input
                                             type="number"
                                             value={line.quantity}
                                             onChange={e => updateLine(index, { quantity: parseFloat(e.target.value) || 0 })}
                                         />
                                     </TableCell>
                                     <TableCell>
-                                        <Input 
+                                        <Input
                                             type="number"
                                             value={line.unitPrice}
                                             onChange={e => updateLine(index, { unitPrice: parseFloat(e.target.value) || 0 })}
@@ -248,8 +250,8 @@ export default function PurchaseInvoiceCreatePage() {
                 </div>
             </div>
 
-            <UnbilledReceiptsModal 
-                open={isImportModalOpen} 
+            <UnbilledReceiptsModal
+                open={isImportModalOpen}
                 onOpenChange={setIsImportModalOpen}
                 items={unbilledItems}
                 onAdd={handleImport}

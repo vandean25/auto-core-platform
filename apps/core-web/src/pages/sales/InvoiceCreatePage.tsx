@@ -41,7 +41,7 @@ export default function InvoiceCreatePage() {
   const [partSearchOpen, setPartSearchOpen] = React.useState(false)
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)
   const [inventorySearch, setInventorySearch] = React.useState("")
-  
+
   const { data: inventory } = useInventory({ search: inventorySearch, limit: 10 })
 
   const handleSaveDraft = async () => {
@@ -51,11 +51,11 @@ export default function InvoiceCreatePage() {
       await createInvoiceMutation.mutateAsync({
         customerId: editor.customer.id,
         items: editor.items.map(item => ({
-            catalogItemId: item.catalog_item_id,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unit_price,
-            taxRate: item.tax_rate
+          catalogItemId: item.catalog_item_id,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          taxRate: item.tax_rate
         })),
         notes: "Created from web editor"
       })
@@ -66,29 +66,29 @@ export default function InvoiceCreatePage() {
   }
 
   const handleFinalize = async () => {
-     if (!editor.customer) return
-     if (!confirm("Are you sure? This will lock the invoice and deduct stock.")) return
+    if (!editor.customer) return
+    if (!confirm("Are you sure? This will lock the invoice and deduct stock.")) return
 
-     try {
-       // First create draft/save
-       const invoice = await createInvoiceMutation.mutateAsync({
-         customerId: editor.customer.id,
-         items: editor.items.map(item => ({
-             catalogItemId: item.catalog_item_id,
-             description: item.description,
-             quantity: item.quantity,
-             unitPrice: item.unit_price,
-             taxRate: item.tax_rate
-         })),
-       })
-       
-       // Then finalize
-       await finalizeInvoiceMutation.mutateAsync(invoice.id)
-       toast.success("Invoice finalized and number generated!")
-       navigate("/sales/invoices") // Redirect to list
-     } catch (error) {
-       toast.error("Failed to finalize invoice")
-     }
+    try {
+      // First create draft/save
+      const invoice = await createInvoiceMutation.mutateAsync({
+        customerId: editor.customer.id,
+        items: editor.items.map(item => ({
+          catalogItemId: item.catalog_item_id,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          taxRate: item.tax_rate
+        })),
+      })
+
+      // Then finalize
+      await finalizeInvoiceMutation.mutateAsync(invoice.id)
+      toast.success("Invoice finalized and number generated!")
+      navigate("/sales/invoices") // Redirect to list
+    } catch (error) {
+      toast.error("Failed to finalize invoice")
+    }
   }
 
   const openPartSearch = (index: number) => {
@@ -110,23 +110,23 @@ export default function InvoiceCreatePage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="w-full max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold tracking-tight">New Invoice</h1>
-          <Badge variant="secondary" className="text-lg px-3 py-1 bg-gray-100 text-gray-600">
+          <h1 className="text-2xl font-semibold tracking-tight">New Invoice</h1>
+          <Badge variant="secondary" className="px-3 py-1 bg-gray-100 text-gray-600">
             DRAFT
           </Badge>
         </div>
         <div className="flex gap-4">
           <Button variant="secondary" onClick={handleSaveDraft} disabled={createInvoiceMutation.isPending}>
-             {createInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {createInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Draft
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleFinalize} 
+          <Button
+            variant="destructive"
+            onClick={handleFinalize}
             disabled={!editor.isValid || finalizeInvoiceMutation.isPending}
           >
             Finalize & Print
@@ -136,7 +136,7 @@ export default function InvoiceCreatePage() {
 
       {/* Paper Container */}
       <div className="max-w-5xl mx-auto bg-white shadow-sm border rounded-lg p-8">
-        
+
         {/* Sections A & B */}
         <div className="grid grid-cols-2 gap-12 mb-12">
           {/* Section A: Customer */}
@@ -145,7 +145,7 @@ export default function InvoiceCreatePage() {
               Bill To
             </Label>
             <CustomerSearch value={editor.customer} onChange={editor.setCustomer} />
-            
+
             {editor.customer && (
               <div className="text-sm text-gray-600 mt-2 pl-1 border-l-2 border-gray-100">
                 <p>{editor.customer.address_street || "No street provided"}</p>
@@ -158,28 +158,28 @@ export default function InvoiceCreatePage() {
 
           {/* Section B: Meta Data */}
           <div className="space-y-4 text-right">
-             <div className="flex flex-col items-end gap-2">
-                <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-                    Invoice Date
-                </Label>
-                <Input 
-                    type="date" 
-                    className="w-40 text-right"
-                    value={format(editor.date, 'yyyy-MM-dd')}
-                    onChange={(e) => editor.setDate(new Date(e.target.value))}
-                />
-             </div>
-             <div className="flex flex-col items-end gap-2">
-                <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
-                    Due Date
-                </Label>
-                <Input 
-                    type="date" 
-                    className="w-40 text-right"
-                    value={format(editor.dueDate, 'yyyy-MM-dd')}
-                    onChange={(e) => editor.setDueDate(new Date(e.target.value))}
-                />
-             </div>
+            <div className="flex flex-col items-end gap-2">
+              <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
+                Invoice Date
+              </Label>
+              <Input
+                type="date"
+                className="w-40 text-right"
+                value={format(editor.date, 'yyyy-MM-dd')}
+                onChange={(e) => editor.setDate(new Date(e.target.value))}
+              />
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
+                Due Date
+              </Label>
+              <Input
+                type="date"
+                className="w-40 text-right"
+                value={format(editor.dueDate, 'yyyy-MM-dd')}
+                onChange={(e) => editor.setDueDate(new Date(e.target.value))}
+              />
+            </div>
           </div>
         </div>
 
@@ -200,66 +200,66 @@ export default function InvoiceCreatePage() {
             <TableBody>
               {editor.items.map((item, index) => (
                 <TableRow key={item.tempId}>
-                   <TableCell className="text-center text-muted-foreground">
-                      {index + 1}
-                   </TableCell>
-                   <TableCell>
-                      <div className="relative">
-                        <Input 
-                            value={item.description}
-                            onChange={(e) => editor.updateItem(index, { description: e.target.value })}
-                            placeholder="Service or Item Name"
-                            className="pr-10"
-                        />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full text-muted-foreground hover:text-foreground"
-                            onClick={() => openPartSearch(index)}
-                        >
-                            <Search className="h-4 w-4" />
-                        </Button>
-                      </div>
-                   </TableCell>
-                   <TableCell>
-                      <Input 
-                        type="number" 
-                        min="0"
-                        value={item.quantity}
-                        onChange={(e) => editor.updateItem(index, { quantity: parseFloat(e.target.value) || 0 })}
+                  <TableCell className="text-center text-muted-foreground">
+                    {index + 1}
+                  </TableCell>
+                  <TableCell>
+                    <div className="relative">
+                      <Input
+                        value={item.description}
+                        onChange={(e) => editor.updateItem(index, { description: e.target.value })}
+                        placeholder="Service or Item Name"
+                        className="pr-10"
                       />
-                   </TableCell>
-                   <TableCell>
-                      <Input 
-                        type="number"
-                        min="0" 
-                        step="0.01"
-                        value={item.unit_price}
-                        onChange={(e) => editor.updateItem(index, { unit_price: parseFloat(e.target.value) || 0 })}
-                      />
-                   </TableCell>
-                   <TableCell>
-                      <Input 
-                        type="number"
-                        min="0"
-                        max="100" 
-                        value={item.tax_rate}
-                        onChange={(e) => editor.updateItem(index, { tax_rate: parseFloat(e.target.value) || 0 })}
-                      />
-                   </TableCell>
-                   <TableCell className="text-right font-medium">
-                      €{((item.quantity * item.unit_price) * (1 + item.tax_rate / 100)).toFixed(2)}
-                   </TableCell>
-                   <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => editor.removeItem(index)}>
-                        <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full text-muted-foreground hover:text-foreground"
+                        onClick={() => openPartSearch(index)}
+                      >
+                        <Search className="h-4 w-4" />
                       </Button>
-                   </TableCell>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={item.quantity}
+                      onChange={(e) => editor.updateItem(index, { quantity: parseFloat(e.target.value) || 0 })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => editor.updateItem(index, { unit_price: parseFloat(e.target.value) || 0 })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={item.tax_rate}
+                      onChange={(e) => editor.updateItem(index, { tax_rate: parseFloat(e.target.value) || 0 })}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    €{((item.quantity * item.unit_price) * (1 + item.tax_rate / 100)).toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => editor.removeItem(index)}>
+                      <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          
+
           <Button variant="outline" className="mt-4" onClick={editor.addItem}>
             <Plus className="mr-2 h-4 w-4" /> Add Line Item
           </Button>
@@ -267,44 +267,44 @@ export default function InvoiceCreatePage() {
 
         {/* Section D: Totals */}
         <div className="flex justify-end border-t pt-8">
-           <div className="w-64 space-y-3">
-              <div className="flex justify-between text-sm text-muted-foreground">
-                 <span>Subtotal</span>
-                 <span>€{editor.totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                 <span>Tax (VAT)</span>
-                 <span>€{editor.totals.taxTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xl font-bold pt-3 border-t">
-                 <span>Total</span>
-                 <span>€{editor.totals.total.toFixed(2)}</span>
-              </div>
-           </div>
+          <div className="w-64 space-y-3">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span>€{editor.totals.subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Tax (VAT)</span>
+              <span>€{editor.totals.taxTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-xl font-bold pt-3 border-t">
+              <span>Total</span>
+              <span>€{editor.totals.total.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
 
       </div>
 
       {/* Part Search Dialog */}
       <CommandDialog open={partSearchOpen} onOpenChange={setPartSearchOpen}>
-         <CommandInput 
-            placeholder="Search inventory..." 
-            value={inventorySearch}
-            onValueChange={setInventorySearch}
-         />
-         <CommandList>
-            <CommandEmpty>No parts found.</CommandEmpty>
-            <CommandGroup heading="Inventory">
-               {inventory?.data.map((part: InventoryItem) => (
-                  <CommandItem key={part.id} value={part.name + ' ' + part.sku} onSelect={() => handleSelectPart(part)}>
-                     <div className="flex flex-col">
-                        <span className="font-medium">{part.name}</span>
-                        <span className="text-xs text-muted-foreground">{part.sku} • Stock: {part.quantity_available} • €{part.price}</span>
-                     </div>
-                  </CommandItem>
-               ))}
-            </CommandGroup>
-         </CommandList>
+        <CommandInput
+          placeholder="Search inventory..."
+          value={inventorySearch}
+          onValueChange={setInventorySearch}
+        />
+        <CommandList>
+          <CommandEmpty>No parts found.</CommandEmpty>
+          <CommandGroup heading="Inventory">
+            {inventory?.data.map((part: InventoryItem) => (
+              <CommandItem key={part.id} value={part.name + ' ' + part.sku} onSelect={() => handleSelectPart(part)}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{part.name}</span>
+                  <span className="text-xs text-muted-foreground">{part.sku} • Stock: {part.quantity_available} • €{part.price}</span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
       </CommandDialog>
 
     </div>

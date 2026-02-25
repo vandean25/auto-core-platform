@@ -30,7 +30,7 @@ export default function PurchaseOrderDetail() {
     const navigate = useNavigate()
     const { data: po, isLoading, error } = usePurchaseOrder(id!)
     const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false)
-    
+
     // Fetch unbilled receipts for this vendor to calculate count related to this PO
     const { data: unbilledItems = [] } = useUnbilledReceipts(po?.vendor_id)
 
@@ -42,18 +42,18 @@ export default function PurchaseOrderDetail() {
     if (!po) return <div>Order not found</div>
 
     return (
-        <div className="p-8 space-y-8">
-            <div className="flex justify-between items-start">
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
+            <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold">{po.order_number}</h1>
-                    <p className="text-muted-foreground">Vendor: {po.vendor?.name}</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">{po.order_number}</h1>
+                    <p className="text-slate-500">Vendor: {po.vendor?.name}</p>
                 </div>
                 <div className="flex items-center space-x-4">
                     <Badge className="text-lg px-4 py-1" variant={getPOStatusVariant(po.status)}>
                         {po.status}
                     </Badge>
-                    
-                    <Button 
+
+                    <Button
                         variant="outline"
                         disabled={poUnbilledCount === 0}
                         onClick={() => navigate(`/purchase-invoices/new?vendorId=${po.vendor_id}&poId=${po.id}`)}

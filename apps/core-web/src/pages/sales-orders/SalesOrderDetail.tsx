@@ -58,8 +58,8 @@ export default function SalesOrderDetail() {
     }
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
-             <div className="flex items-center justify-between">
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild>
                         <Link to="/sales-orders">
@@ -67,18 +67,18 @@ export default function SalesOrderDetail() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
                             {order.order_number}
                             <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-slate-500">
                             Created on {new Date(order.createdAt).toLocaleDateString()}
                         </p>
                     </div>
                 </div>
                 <div className="flex gap-2">
                     {order.status !== 'INVOICED' && order.status !== 'DRAFT' && (
-                         <AlertDialog>
+                        <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button size="lg" className="gap-2">
                                     <FileText className="h-4 w-4" /> Create Invoice
@@ -100,15 +100,15 @@ export default function SalesOrderDetail() {
                         </AlertDialog>
                     )}
                     {/* Allow converting DRAFT directly if needed, or require CONFIRMED step first. 
-                        For now, let's allow it for any non-invoiced status for flexibility unless business logic forbids. 
-                    */}
+                         For now, let's allow it for any non-invoiced status for flexibility unless business logic forbids. 
+                     */}
                     {order.status === 'DRAFT' && (
-                         <Button onClick={handleCreateInvoice} size="lg" className="gap-2">
+                        <Button onClick={handleCreateInvoice} size="lg" className="gap-2">
                             <FileText className="h-4 w-4" /> Create Invoice
                         </Button>
                     )}
-                     {order.status === 'INVOICED' && (
-                         <Button variant="outline" size="lg" className="gap-2" disabled>
+                    {order.status === 'INVOICED' && (
+                        <Button variant="outline" size="lg" className="gap-2" disabled>
                             <CheckCircle2 className="h-4 w-4 text-green-500" /> Invoiced
                         </Button>
                     )}
@@ -116,12 +116,12 @@ export default function SalesOrderDetail() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <Card className="md:col-span-2">
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Order Items</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                         <Table>
+                        <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Description</TableHead>
@@ -144,20 +144,20 @@ export default function SalesOrderDetail() {
                                 ))}
                             </TableBody>
                         </Table>
-                         <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
+                        <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
                             <span className="text-muted-foreground font-medium">Total Amount:</span>
                             <span className="text-2xl font-bold">{formatCurrency(Number(order.total_amount))}</span>
                         </div>
                     </CardContent>
                 </Card>
 
-                 <div className="space-y-6">
+                <div className="space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Customer</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <div className="font-medium text-lg">
+                            <div className="font-medium text-lg">
                                 {order.customer.type === 'COMPANY' ? order.customer.company_name : `${order.customer.first_name} ${order.customer.last_name}`}
                             </div>
                             <div className="text-sm text-muted-foreground mt-2">
@@ -198,7 +198,7 @@ export default function SalesOrderDetail() {
                             </p>
                         </CardContent>
                     </Card>
-                 </div>
+                </div>
             </div>
         </div>
     )
