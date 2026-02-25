@@ -9,6 +9,43 @@ permissions:
   contents: read
 
 jobs:
+  contract-guard:
+    name: Contract Guard (Invoice tax_rate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Verify backend/frontend tax contract alignment
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+
+          const dto = fs.readFileSync('apps/core-api/src/sales/dto/create-invoice.dto.ts', 'utf8')
+          if (!/taxRate:\s*number\b/.test(dto)) {
+            throw new Error('Backend DTO contract changed: CreateInvoiceItemDto.taxRate must remain number.')
+          }
+
+          const webTypes = fs.readFileSync('apps/core-web/src/api/types.ts', 'utf8')
+          const invoiceItemBlock = webTypes.match(/export interface InvoiceItem\s*{[\s\S]*?}/)
+          if (!invoiceItemBlock || !/tax_rate:\s*number\b/.test(invoiceItemBlock[0])) {
+            throw new Error('Frontend API contract mismatch: InvoiceItem.tax_rate must be number.')
+          }
+
+          const invoiceCreatePage = fs.readFileSync('apps/core-web/src/pages/sales/InvoiceCreatePage.tsx', 'utf8')
+          const mapsTaxRate = /taxRate:\s*(Number\()?\s*item\.tax_rate/.test(invoiceCreatePage)
+          if (!mapsTaxRate) {
+            throw new Error('Invoice payload mapping missing: expected taxRate to map from item.tax_rate.')
+          }
+
+          console.log('Contract guard passed.')
+          NODE
+
   backend:
     name: Backend Build and Test
     runs-on: ubuntu-latest
@@ -39,7 +76,7 @@ jobs:
         run: npm test -- --ci --runInBand
 
   frontend:
-    name: Frontend Build
+    name: Frontend Build and Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,6 +94,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
 
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
