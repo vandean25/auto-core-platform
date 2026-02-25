@@ -415,5 +415,3 @@ Check:
 ## License
 
 UNLICENSED - Private repository
-
-```
