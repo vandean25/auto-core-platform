@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  contract-guard:
-    name: Contract Guard (Invoice tax_rate)
+  api-contract:
+    name: API Contract (OpenAPI + Generated Types)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,14 +21,98 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify backend/frontend tax contract alignment
+      - name: Install backend dependencies
+        run: npm --prefix apps/core-api ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix apps/core-web ci
+
+      - name: Regenerate OpenAPI spec
+        run: npm --prefix apps/core-api run openapi:generate
+
+      - name: Regenerate frontend API types
+        run: npm --prefix apps/core-web run api:types:generate
+
+      - name: Verify committed contract artifacts are up to date
+        run: git diff --exit-code -- apps/core-api/openapi/openapi.json apps/core-web/src/api/generated/openapi.ts
+
+  contract-guard:
+    name: Contract Guard (API Type Drift)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Verify backend/frontend contract alignment
         run: |
           node - <<'NODE'
           const fs = require('node:fs')
+          const path = require('node:path')
 
-          const dto = fs.readFileSync('apps/core-api/src/sales/dto/create-invoice.dto.ts', 'utf8')
-          if (!/taxRate:\s*number\b/.test(dto)) {
+          function collectDtoFiles(dir) {
+            const out = []
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name)
+              if (entry.isDirectory()) {
+                out.push(...collectDtoFiles(full))
+              } else if (entry.isFile() && entry.name.endsWith('.dto.ts')) {
+                out.push(full)
+              }
+            }
+            return out
+          }
+
+          // Generic DTO hygiene guard for all backend DTO files.
+          const dtoFiles = collectDtoFiles('apps/core-api/src')
+          for (const file of dtoFiles) {
+            const src = fs.readFileSync(file, 'utf8')
+            if (/\:\s*any\b/.test(src)) {
+              throw new Error(`DTO guard failed (${file}): avoid using 'any' in DTO fields.`)
+            }
+
+            const lines = src.split(/\r?\n/)
+            let inClass = false
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i]
+              if (/^\s*export\s+class\s+/.test(line)) inClass = true
+              if (inClass && /^\s*}\s*$/.test(line)) inClass = false
+              if (!inClass) continue
+
+              const isProp = /^\s*[A-Za-z_][A-Za-z0-9_]*\??:\s*[^;]+;/.test(line)
+              if (!isProp) continue
+
+              let hasDecorator = false
+              for (let j = i - 1; j >= 0; j--) {
+                const prev = lines[j].trim()
+                if (!prev) break
+                if (prev.startsWith('@')) {
+                  hasDecorator = true
+                  break
+                }
+                if (prev.endsWith('{') || prev.startsWith('export class ')) break
+              }
+              if (!hasDecorator) {
+                throw new Error(`DTO guard failed (${file}:${i + 1}): DTO property is missing validation decorators.`)
+              }
+            }
+          }
+
+          const invoiceDto = fs.readFileSync('apps/core-api/src/sales/dto/create-invoice.dto.ts', 'utf8')
+          if (!/taxRate:\s*number\b/.test(invoiceDto)) {
             throw new Error('Backend DTO contract changed: CreateInvoiceItemDto.taxRate must remain number.')
+          }
+          const salesOrderDto = fs.readFileSync('apps/core-api/src/sales/sales-order/dto/create-sales-order.dto.ts', 'utf8')
+          if (!/tax_rate\?:\s*number\b/.test(salesOrderDto)) {
+            throw new Error('Backend DTO contract changed: CreateSalesOrderItemDto.tax_rate must remain optional number.')
+          }
+          const revenueGroupDto = fs.readFileSync('apps/core-api/src/finance/dto/create-revenue-group.dto.ts', 'utf8')
+          if (!/tax_rate:\s*number\b/.test(revenueGroupDto)) {
+            throw new Error('Backend DTO contract changed: CreateRevenueGroupDto.tax_rate must remain number.')
           }
 
           const webTypes = fs.readFileSync('apps/core-web/src/api/types.ts', 'utf8')
@@ -36,18 +120,30 @@ jobs:
           if (!invoiceItemBlock || !/tax_rate:\s*number\b/.test(invoiceItemBlock[0])) {
             throw new Error('Frontend API contract mismatch: InvoiceItem.tax_rate must be number.')
           }
+          const salesOrderItemBlock = webTypes.match(/export interface SalesOrderItem\s*{[\s\S]*?}/)
+          if (!salesOrderItemBlock || !/tax_rate:\s*number\b/.test(salesOrderItemBlock[0])) {
+            throw new Error('Frontend API contract mismatch: SalesOrderItem.tax_rate must be number.')
+          }
           const revenueGroupBlock = webTypes.match(/export interface RevenueGroup\s*{[\s\S]*?}/)
           if (!revenueGroupBlock || !/tax_rate:\s*number\b/.test(revenueGroupBlock[0])) {
             throw new Error('Frontend API contract mismatch: RevenueGroup.tax_rate must be number.')
           }
-          if (/tax_rate:\s*string\s*\|\s*number\b/.test(revenueGroupBlock[0])) {
-            throw new Error('RevenueGroup.tax_rate drift detected: string | number is not allowed.')
+          if (/tax_rate:\s*string\s*(\|\s*number)?\b/.test(webTypes)) {
+            throw new Error('tax_rate drift detected in frontend shared API types: string-based tax_rate is not allowed.')
           }
 
           const invoiceCreatePage = fs.readFileSync('apps/core-web/src/pages/sales/InvoiceCreatePage.tsx', 'utf8')
           const mapsTaxRate = /taxRate:\s*(Number\()?\s*item\.tax_rate/.test(invoiceCreatePage)
           if (!mapsTaxRate) {
             throw new Error('Invoice payload mapping missing: expected taxRate to map from item.tax_rate.')
+          }
+          const salesOrderCreatePage = fs.readFileSync('apps/core-web/src/pages/sales-orders/SalesOrderCreate.tsx', 'utf8')
+          if (!/tax_rate:\s*Number\(\s*item\.tax_rate\s*\)/.test(salesOrderCreatePage)) {
+            throw new Error('Sales order payload mapping missing: expected tax_rate to be normalized with Number(item.tax_rate).')
+          }
+          const revenueGroupDialog = fs.readFileSync('apps/core-web/src/components/AddRevenueGroupDialog.tsx', 'utf8')
+          if (!/tax_rate:\s*parseFloat\(/.test(revenueGroupDialog)) {
+            throw new Error('Revenue group payload mapping missing: expected tax_rate to use parseFloat().')
           }
 
           console.log('Contract guard passed.')

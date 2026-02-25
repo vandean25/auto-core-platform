@@ -242,6 +242,8 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run test` | Run unit tests |
 | `npm run test:e2e` | Run end-to-end tests |
 | `npm run lint` | Lint and fix code |
+| `npm run openapi:generate` | Generate OpenAPI spec to `openapi/openapi.json` |
+| `npm run openapi:check` | Regenerate OpenAPI and fail if spec drift is uncommitted |
 | `npx prisma studio` | Open Prisma Studio (database GUI) |
 | `npx prisma migrate dev` | Apply pending migrations |
 | `npx prisma db seed` | Seed database with sample data |
@@ -254,6 +256,24 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Lint code |
+| `npm run api:types:generate` | Generate API types from backend OpenAPI |
+| `npm run api:types:check` | Regenerate API types and fail if drift is uncommitted |
+
+---
+
+## API Contract Workflow (Long-Term)
+
+The project now treats backend OpenAPI as the source of truth for API contracts.
+
+1. Generate backend spec:
+   - `npm --prefix apps/core-api run openapi:generate`
+2. Generate frontend API types from that spec:
+   - `npm --prefix apps/core-web run api:types:generate`
+3. Commit updated artifacts when API contracts change:
+   - `apps/core-api/openapi/openapi.json`
+   - `apps/core-web/src/api/generated/openapi.ts`
+
+PR checks enforce this by regenerating both files and failing if there is uncommitted drift.
 
 ---
 
