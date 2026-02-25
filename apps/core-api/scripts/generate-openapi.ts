@@ -4,6 +4,10 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../src/app.module';
 
+/**
+ * Boots the Nest app in-process and writes the current OpenAPI document
+ * to `apps/core-api/openapi/openapi.json` for CI contract checks.
+ */
 async function generateOpenApiSpec() {
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api');
