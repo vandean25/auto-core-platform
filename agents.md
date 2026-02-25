@@ -114,6 +114,15 @@ auto-core-platform/
 - **Formatting**: List endpoints return `{ data, meta }` format for list endpoints. Use pagination with `page` and `limit` query params.
 - **Proxy**: Vite handles `/api` proxying to backend `http://127.0.0.1:3000` in dev mode.
 
+### API Contract Source of Truth
+- **OpenAPI is authoritative**: Backend contract is generated to `apps/core-api/openapi/openapi.json`.
+- **Frontend types are generated**: Use `apps/core-web/src/api/generated/openapi.ts` from OpenAPI instead of manually duplicating DTO contracts.
+- **Required update flow when backend DTO/controller contract changes**:
+  1. `npm --prefix apps/core-api run openapi:generate`
+  2. `npm --prefix apps/core-web run api:types:generate`
+  3. Commit both generated files.
+- **CI enforcement**: PR workflow regenerates OpenAPI + frontend generated types and fails on drift.
+
 ### Testing Standards
 - **Write integration tests for each feature module**:
   - Focus on end-to-end flows (e.g., creating a PO and receiving items, Customer -> Sales Order -> Invoice).
