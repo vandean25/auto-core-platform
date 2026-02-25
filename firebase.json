@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "auto-core-platform-vande",
     "public": "apps/core-web/dist",
     "ignore": [
       "firebase.json",

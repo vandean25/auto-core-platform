@@ -31,20 +31,34 @@ steps:
     args:
       - -lc
       - |
+        set -euo pipefail
         npm ci
-        npx prisma migrate deploy
+        set +e
+        MIGRATE_OUTPUT="$$(npx prisma migrate deploy 2>&1)"
+        MIGRATE_EXIT=$?
+        set -e
+        echo "$$MIGRATE_OUTPUT"
+        if [ "$$MIGRATE_EXIT" -ne 0 ]; then
+          if echo "$$MIGRATE_OUTPUT" | grep -q "P3005"; then
+            echo "Skipping migrate deploy because the database is not baselined yet."
+          else
+            exit "$$MIGRATE_EXIT"
+          fi
+        fi
 
   - id: build-api-image
-    name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
+    name: gcr.io/cloud-builders/docker
     args:
-      - -lc
-      - |
-        set -euo pipefail
-        test -n "${TAG_NAME:-}"
-        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
-        gcloud builds submit apps/core-api --tag "$IMAGE" --project "${_BACKEND_PROJECT}"
-        echo "$IMAGE" > /workspace/.api_image
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
+      - apps/core-api
+
+  - id: push-api-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
 
   - id: deploy-cloud-run
     name: gcr.io/cloud-builders/gcloud
@@ -53,9 +67,9 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        IMAGE="$(cat /workspace/.api_image)"
+        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
         gcloud run deploy "${_RUN_SERVICE}" \
-          --image "$IMAGE" \
+          --image "$$IMAGE" \
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
@@ -90,9 +104,9 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        RUN_URL="$(cat /workspace/.run_url)"
-        export VITE_API_BASE_URL="$RUN_URL"
-        export VITE_API_KEY="$API_KEY"
+        RUN_URL="$$(cat /workspace/.run_url)"
+        export VITE_API_BASE_URL="$$RUN_URL"
+        export VITE_API_KEY="$$API_KEY"
         export VITE_FIREBASE_API_KEY="${_VITE_FIREBASE_API_KEY}"
         export VITE_FIREBASE_AUTH_DOMAIN="${_VITE_FIREBASE_AUTH_DOMAIN}"
         export VITE_FIREBASE_PROJECT_ID="${_VITE_FIREBASE_PROJECT_ID}"
@@ -102,11 +116,8 @@ steps:
         npm run build
 
   - id: deploy-firebase-hosting
-    name: node:22
-    entrypoint: bash
+    name: us-docker.pkg.dev/firebase-cli/us/firebase
     args:
-      - -lc
-      - |
-        set -euo pipefail
-        npm i -g firebase-tools
-        firebase deploy --project "${_FRONTEND_PROJECT}" --only hosting --non-interactive
+      - deploy
+      - --project=${_FRONTEND_PROJECT}
+      - --only=hosting
