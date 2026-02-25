@@ -131,6 +131,81 @@ The frontend runs at **http://localhost:5173**
 
 ---
 
+## Production Hosting & Auth
+
+### Project Split
+
+- **Backend + Cloud Build Project**: `auto-core-platform`
+- **Frontend Hosting + Firebase Auth Project**: `auto-core-platform-vande`
+
+This split is supported. Deploys run from Cloud Build in `auto-core-platform` and deploy hosting to `auto-core-platform-vande`.
+
+### Firebase Auth (Frontend)
+
+The frontend uses Firebase Authentication and supports:
+
+- Email/Password
+- Google Sign-In
+
+All app routes are protected behind login in production.
+
+### Frontend Environment Variables
+
+Set these in build/deploy environment for `apps/core-web`:
+
+```env
+VITE_API_BASE_URL=
+VITE_API_KEY=
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_APP_ID=
+VITE_ALLOWED_LOGIN_EMAILS=
+```
+
+`VITE_ALLOWED_LOGIN_EMAILS` is a comma-separated allowlist (example: `van.dean25@gmail.com,admin@company.com`).
+If empty, any authenticated Firebase user can access the UI.
+
+### Firebase Console Requirements
+
+In Firebase project `auto-core-platform-vande`:
+
+1. Enable Authentication providers you use (`Email/Password`, `Google`).
+2. Ensure authorized domains include your hosting domains.
+3. Create/allow users who should sign in.
+
+---
+
+## CI/CD (Tag Trigger)
+
+The release trigger deploys on tags matching `^v.*$`.
+
+- Build file: `cloudbuild.yaml`
+- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
+
+### Required APIs
+
+In **build project** (`auto-core-platform`):
+
+- `cloudbuild.googleapis.com`
+- `firebase.googleapis.com` (Firebase Management API)
+- `firebasehosting.googleapis.com` (Firebase Hosting API)
+
+In **Firebase project** (`auto-core-platform-vande`):
+
+- `identitytoolkit.googleapis.com`
+- `firebase.googleapis.com`
+
+### Required IAM for build service account
+
+Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
+
+- `roles/firebase.admin`
+- `roles/firebasehosting.admin`
+- `roles/serviceusage.apiKeysViewer`
+
+---
+
 ## Available Commands
 
 ### Backend (`apps/core-api`)
@@ -320,6 +395,20 @@ npx prisma generate
 ### Database Connection Refused
 
 Ensure PostgreSQL is running and your `DATABASE_URL` in `.env` is correct.
+
+### Cloud Build Firebase Deploy Error
+
+If Cloud Build fails on hosting deploy with errors like:
+
+- `Failed to get Firebase project ...`
+- `Firebase Management API has not been used in project ...`
+- `Firebase Hosting API has not been used in project ...`
+
+Check:
+
+1. `firebase.googleapis.com` and `firebasehosting.googleapis.com` are enabled in **build project** (`auto-core-platform`).
+2. Build service account has Firebase roles on **hosting project** (`auto-core-platform-vande`).
+3. `firebase.json` contains the correct hosting site name.
 
 ---
 
