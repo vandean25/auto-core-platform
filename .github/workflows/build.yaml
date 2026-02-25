@@ -69,6 +69,11 @@ jobs:
           const fs = require('node:fs')
           const path = require('node:path')
 
+          /**
+           * Recursively collects backend DTO source files for guard checks.
+           * @param {string} dir Root directory to scan.
+           * @returns {string[]} Absolute or relative file paths.
+           */
           function collectDtoFiles(dir) {
             const out = []
             for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

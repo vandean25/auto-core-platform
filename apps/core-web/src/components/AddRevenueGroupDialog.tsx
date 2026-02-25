@@ -16,10 +16,16 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCreateRevenueGroup } from "@/api/useFinance"
 
+/**
+ * Dialog for creating a finance revenue group from settings.
+ */
 export function AddRevenueGroupDialog() {
     const [open, setOpen] = React.useState(false)
     const createMutation = useCreateRevenueGroup()
 
+    /**
+     * Collects form values and submits a typed create payload to the API.
+     */
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
