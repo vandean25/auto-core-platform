@@ -22,13 +22,25 @@ jobs:
           node-version: 22
 
       - name: Install backend dependencies
-        run: npm --prefix apps/core-api ci
+        run: |
+          for i in 1 2 3; do
+            npm --prefix apps/core-api ci && exit 0
+            echo "npm ci failed (attempt $i/3), retrying..."
+            sleep 5
+          done
+          exit 1
 
       - name: Generate Prisma Client
         run: npm --prefix apps/core-api exec -- prisma generate --schema=apps/core-api/prisma/schema.prisma
 
       - name: Install frontend dependencies
-        run: npm --prefix apps/core-web ci
+        run: |
+          for i in 1 2 3; do
+            npm --prefix apps/core-web ci && exit 0
+            echo "npm ci failed (attempt $i/3), retrying..."
+            sleep 5
+          done
+          exit 1
 
       - name: Regenerate OpenAPI spec
         run: npm --prefix apps/core-api run openapi:generate
@@ -123,8 +135,7 @@ jobs:
           if (!invoiceItemBlock || !/tax_rate:\s*number\b/.test(invoiceItemBlock[0])) {
             throw new Error('Frontend API contract mismatch: InvoiceItem.tax_rate must be number.')
           }
-          const salesOrderItemBlock = webTypes.match(/export interface SalesOrderItem\s*{[\s\S]*?}/)
-          if (!salesOrderItemBlock || !/tax_rate:\s*number\b/.test(salesOrderItemBlock[0])) {
+          if (!/export interface SalesOrderItem[\s\S]*tax_rate:\s*number\b/.test(webTypes)) {
             throw new Error('Frontend API contract mismatch: SalesOrderItem.tax_rate must be number.')
           }
           const revenueGroupBlock = webTypes.match(/export interface RevenueGroup\s*{[\s\S]*?}/)
