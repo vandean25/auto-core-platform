@@ -166,6 +166,30 @@ VITE_ALLOWED_LOGIN_EMAILS=
 `VITE_ALLOWED_LOGIN_EMAILS` is a comma-separated allowlist (example: `van.dean25@gmail.com,admin@company.com`).
 If empty, any authenticated Firebase user can access the UI.
 
+For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+After editing env values, restart the Vite dev server.
+
+### Create Login User (Email/Password)
+
+If Firebase Email/Password is enabled but you do not have a user yet, create one with the Identity Toolkit API:
+
+```bash
+curl -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=<VITE_FIREBASE_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@your-domain.com","password":"StrongPassword123!","returnSecureToken":true}'
+```
+
+You can also create users from Firebase Console:
+Authentication -> Users -> Add user.
+
 ### Firebase Console Requirements
 
 In Firebase project `auto-core-platform-vande`:
