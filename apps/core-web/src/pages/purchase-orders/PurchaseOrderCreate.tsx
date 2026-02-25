@@ -50,7 +50,7 @@ export default function PurchaseOrderCreate() {
     // Step 2: Vendor
     const { data: vendorsResponse } = useVendors()
     const vendors = (Array.isArray(vendorsResponse) ? vendorsResponse : (vendorsResponse as any)?.data || []) as Vendor[]
-    
+
     const [selectedVendorId, setSelectedVendorId] = useState<string>('')
 
     // Step 3: Items
@@ -107,8 +107,12 @@ export default function PurchaseOrderCreate() {
     }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto space-y-8">
-            <h1 className="text-2xl font-bold">Create Purchase Order</h1>
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Order</h1>
+                </div>
+            </div>
 
             {/* Steps Indicator */}
             <div className="flex space-x-4 mb-8">

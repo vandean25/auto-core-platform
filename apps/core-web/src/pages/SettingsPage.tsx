@@ -61,8 +61,8 @@ const LocationTreeItem = ({
                 </div>
 
                 {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-blue-500" /> :
-                 location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
-                 <div className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
+                    location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
+                        <div className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
 
                 <span className="font-medium text-sm">{location.name}</span>
                 <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-400 group-hover:text-slate-600 transition-colors">
@@ -187,7 +187,7 @@ function StorageLocationsTab() {
                                 <label className="text-sm font-medium">Name</label>
                                 <Input
                                     value={newItem.name}
-                                    onChange={e => setNewItem({...newItem, name: e.target.value})}
+                                    onChange={e => setNewItem({ ...newItem, name: e.target.value })}
                                     placeholder="e.g. Main Warehouse"
                                     required
                                 />
@@ -197,7 +197,7 @@ function StorageLocationsTab() {
                                 <label className="text-sm font-medium">Code (Unique)</label>
                                 <Input
                                     value={newItem.code}
-                                    onChange={e => setNewItem({...newItem, code: e.target.value})}
+                                    onChange={e => setNewItem({ ...newItem, code: e.target.value })}
                                     placeholder="e.g. WH-001"
                                     required
                                 />
@@ -207,7 +207,7 @@ function StorageLocationsTab() {
                                 <label className="text-sm font-medium">Type</label>
                                 <Select
                                     value={newItem.type}
-                                    onValueChange={(val: LocationType) => setNewItem({...newItem, type: val})}
+                                    onValueChange={(val: LocationType) => setNewItem({ ...newItem, type: val })}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -225,7 +225,7 @@ function StorageLocationsTab() {
                                 <label className="text-sm font-medium">Parent Location</label>
                                 <Select
                                     value={newItem.parentId}
-                                    onValueChange={(val) => setNewItem({...newItem, parentId: val === 'none' ? '' : val})}
+                                    onValueChange={(val) => setNewItem({ ...newItem, parentId: val === 'none' ? '' : val })}
                                     disabled={newItem.type === 'warehouse'}
                                 >
                                     <SelectTrigger>
@@ -323,10 +323,12 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-                <p className="text-muted-foreground">Manage your platform configuration, master data, and storage locations.</p>
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+                    <p className="text-slate-500">Manage your platform configuration, master data, and storage locations.</p>
+                </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">

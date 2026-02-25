@@ -28,3 +28,6 @@ apps/core-web/dist/
 # Prisma
 apps/core-api/prisma/*.db
 apps/core-api/prisma/*.db-journal
+
+# Firebase
+.firebase/

@@ -46,7 +46,7 @@ export default function SalesOrderCreate() {
     const [searchParams] = useSearchParams()
     const preselectedCustomerId = searchParams.get('customerId')
     const createMutation = useCreateSalesOrder()
-    
+
     // Fetch customer if ID is in URL
     const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
 
@@ -117,16 +117,18 @@ export default function SalesOrderCreate() {
     const currentTotal = calculateTotal(form.watch('items'))
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
-             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <button onClick={() => navigate(-1)}>
-                        <ArrowLeft className="h-4 w-4" />
-                    </button>
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">New Sales Order</h1>
-                    <p className="text-muted-foreground text-sm">Create a draft order for a customer.</p>
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild>
+                        <button onClick={() => navigate(-1)}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </button>
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">New Sales Order</h1>
+                        <p className="text-slate-500">Create a draft order for a customer.</p>
+                    </div>
                 </div>
             </div>
 
@@ -137,14 +139,14 @@ export default function SalesOrderCreate() {
                             <CardTitle>Customer Details</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <FormField
+                            <FormField
                                 control={form.control}
                                 name="customer_id"
                                 render={({ field }: { field: any }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Customer</FormLabel>
                                         <FormControl>
-                                            <CustomerSearch 
+                                            <CustomerSearch
                                                 value={preselectedCustomer || (field.value ? { id: field.value, type: 'PRIVATE', first_name: 'Loading...', last_name: '', email: '' } as any : null)}
                                                 onChange={(customer) => {
                                                     field.onChange(customer?.id)
@@ -176,7 +178,7 @@ export default function SalesOrderCreate() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Order Items</CardTitle>
-                             <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
+                            <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline">
                                         <Plus className="mr-2 h-4 w-4" /> Add Item
@@ -230,7 +232,7 @@ export default function SalesOrderCreate() {
                                         fields.map((item, index) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>
-                                                     <FormField
+                                                    <FormField
                                                         control={form.control}
                                                         name={`items.${index}.description`}
                                                         render={({ field }: { field: any }) => (
@@ -239,7 +241,7 @@ export default function SalesOrderCreate() {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                     <FormField
+                                                    <FormField
                                                         control={form.control}
                                                         name={`items.${index}.quantity`}
                                                         render={({ field }: { field: any }) => (
@@ -248,7 +250,7 @@ export default function SalesOrderCreate() {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                     <FormField
+                                                    <FormField
                                                         control={form.control}
                                                         name={`items.${index}.unit_price`}
                                                         render={({ field }: { field: any }) => (
