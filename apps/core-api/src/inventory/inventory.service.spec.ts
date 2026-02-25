@@ -36,11 +36,13 @@ describe('InventoryService', () => {
       mockPrismaService.catalogItem.findUnique.mockResolvedValue({
         sku: 'PART-A',
         name: 'Brake Pad',
-        brand: 'Bosch',
-        stock: {
-          quantity_on_hand: 10,
-          quantity_reserved: 2,
-        },
+        brand: { name: 'Bosch' },
+        stocks: [
+          {
+            quantity_on_hand: 10,
+            quantity_reserved: 2,
+          },
+        ],
         superseded_by: null,
       });
 
@@ -65,11 +67,13 @@ describe('InventoryService', () => {
       const partB = {
         sku: 'PART-B',
         name: 'New Brake Pad',
-        brand: 'Bosch',
-        stock: {
-          quantity_on_hand: 5,
-          quantity_reserved: 1,
-        },
+        brand: { name: 'Bosch' },
+        stocks: [
+          {
+            quantity_on_hand: 5,
+            quantity_reserved: 1,
+          },
+        ],
         superseded_by: null,
       };
 
@@ -108,22 +112,26 @@ describe('InventoryService', () => {
           id: '1',
           sku: 'SKU-1',
           name: 'Item 1',
-          brand: 'Brand 1',
+          brand: { name: 'Brand 1' },
+          brand_id: 1,
           retail_price: 100,
-          stock: {
-            quantity_on_hand: 10,
-            quantity_reserved: 2,
-            location: { name: 'Loc 1' },
-          },
+          stocks: [
+            {
+              quantity_on_hand: 10,
+              quantity_reserved: 2,
+              location: { name: 'Loc 1' },
+            },
+          ],
           superseded_by: null,
         },
         {
           id: '2',
           sku: 'SKU-2',
           name: 'Item 2',
-          brand: 'Brand 2',
+          brand: { name: 'Brand 2' },
+          brand_id: 2,
           retail_price: 200,
-          stock: null,
+          stocks: [],
           superseded_by: { id: '3' },
         },
       ];
@@ -139,6 +147,7 @@ describe('InventoryService', () => {
             sku: 'SKU-1',
             name: 'Item 1',
             brand: 'Brand 1',
+            brand_id: 1,
             price: 100,
             status: 'IN_STOCK',
             quantity_available: 8,
@@ -149,10 +158,11 @@ describe('InventoryService', () => {
             sku: 'SKU-2',
             name: 'Item 2',
             brand: 'Brand 2',
+            brand_id: 2,
             price: 200,
             status: 'SUPERSEDED',
             quantity_available: 0,
-            warehouse_location: undefined,
+            warehouse_location: 'N/A',
           },
         ],
         meta: {
@@ -176,7 +186,7 @@ describe('InventoryService', () => {
             OR: [
               { name: { contains: search, mode: 'insensitive' } },
               { sku: { contains: search, mode: 'insensitive' } },
-              { brand: { contains: search, mode: 'insensitive' } },
+              { brand: { name: { contains: search, mode: 'insensitive' } } },
             ],
           },
         }),
@@ -190,16 +200,18 @@ describe('InventoryService', () => {
       expect(prisma.catalogItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            stock: {
-              location: {
-                name: { contains: location, mode: 'insensitive' },
+            stocks: {
+              some: {
+                location: {
+                  name: { contains: location, mode: 'insensitive' },
+                },
               },
             },
           },
-          select: expect.objectContaining({
-            stock: expect.objectContaining({
-              select: expect.objectContaining({
-                location: expect.any(Object),
+          include: expect.objectContaining({
+            stocks: expect.objectContaining({
+              include: expect.objectContaining({
+                location: true,
               }),
             }),
           }),
