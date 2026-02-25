@@ -1,32 +1,19 @@
 import { useState } from 'react'
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { type ColumnDef } from "@tanstack/react-table"
 import { useCustomers, useDeleteCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
 import { Plus, Trash2, Edit2, User, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
+import { DataTable } from '@/components/data-table/DataTable'
 
 export default function CustomerList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useCustomers(queryParams)
-    
+
     // Handle both legacy array response and new paginated response
     const customers: Customer[] = Array.isArray(responseData) ? responseData : responseData?.data || []
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount || 1
@@ -129,127 +116,31 @@ export default function CustomerList() {
         },
     ]
 
-    const table = useReactTable({
-        data: customers,
-        columns,
-        state: {
-            columnFilters: tableState.columnFilters,
-            sorting: tableState.sorting,
-            pagination: tableState.pagination,
-            globalFilter: tableState.globalFilter,
-        },
-        pageCount: pageCount,
-        onColumnFiltersChange: tableState.setColumnFilters,
-        onGlobalFilterChange: tableState.setGlobalFilter,
-        onSortingChange: tableState.setSorting,
-        onPaginationChange: tableState.setPagination,
-        getCoreRowModel: getCoreRowModel(),
-        manualPagination: true,
-        manualSorting: true,
-        manualFiltering: true,
-    })
-
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-                    <p className="text-muted-foreground">
-                        Manage your customer database and CRM.
-                    </p>
+                    <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
+                    <p className="text-slate-500">Manage your customer database and CRM.</p>
                 </div>
                 <Button onClick={handleCreate}>
                     <Plus className="mr-2 h-4 w-4" /> Add Customer
                 </Button>
             </div>
 
-            <DataTableToolbar table={table} placeholder="Search customers..." />
+            <DataTable
+                columns={columns}
+                data={customers}
+                pageCount={pageCount}
+                isLoading={isLoading}
+                searchPlaceholder="Search customers..."
+                {...tableState}
+            />
 
-            <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    )
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="text-center py-8">
-                                    Loading customers...
-                                </TableCell>
-                            </TableRow>
-                        ) : table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                >
-                                    No results.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                >
-                    Previous
-                </Button>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span>Page</span>
-                    <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
-                    <span>of</span>
-                    <span className="font-medium">{table.getPageCount()}</span>
-                </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                >
-                    Next
-                </Button>
-            </div>
-
-            <CustomerDialog 
-                open={isDialogOpen} 
-                onOpenChange={setIsDialogOpen} 
-                customer={selectedCustomer} 
+            <CustomerDialog
+                open={isDialogOpen}
+                onOpenChange={setIsDialogOpen}
+                customer={selectedCustomer}
             />
         </div>
     )
