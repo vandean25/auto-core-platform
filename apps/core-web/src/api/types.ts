@@ -110,7 +110,7 @@ export interface SalesOrderItem {
     quantity: string
     unit_price: string
     total: string
-    tax_rate: string
+    tax_rate: number
 }
 
 export interface SalesOrder {
@@ -231,7 +231,7 @@ export interface Brand {
 export interface RevenueGroup {
     id: number
     name: string
-    tax_rate: string
+    tax_rate: number
     account_number: string
     is_default: boolean
 }

@@ -19,19 +19,19 @@ import { useCreateRevenueGroup } from "@/api/useFinance"
 export function AddRevenueGroupDialog() {
     const [open, setOpen] = React.useState(false)
     const createMutation = useCreateRevenueGroup()
-    
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
-        
+
         try {
             await createMutation.mutateAsync({
                 name: formData.get("name") as string,
-                tax_rate: (formData.get("tax_rate") as unknown as string),
+                tax_rate: parseFloat(formData.get("tax_rate") as string),
                 account_number: formData.get("account_number") as string,
                 is_default: formData.get("is_default") === "on",
-            } as any)
-            
+            })
+
             toast.success("Revenue group created")
             setOpen(false)
         } catch (error) {

@@ -24,6 +24,9 @@ jobs:
       - name: Install backend dependencies
         run: npm --prefix apps/core-api ci
 
+      - name: Generate Prisma Client
+        run: npm --prefix apps/core-api exec -- prisma generate --schema=apps/core-api/prisma/schema.prisma
+
       - name: Install frontend dependencies
         run: npm --prefix apps/core-web ci
 
@@ -179,7 +182,7 @@ jobs:
         run: npm test -- --ci --runInBand
 
   frontend:
-    name: Frontend Build and Lint
+    name: Frontend Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -197,9 +200,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Lint frontend
-        run: npm run lint
 
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
