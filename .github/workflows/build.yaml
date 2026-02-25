@@ -36,6 +36,13 @@ jobs:
           if (!invoiceItemBlock || !/tax_rate:\s*number\b/.test(invoiceItemBlock[0])) {
             throw new Error('Frontend API contract mismatch: InvoiceItem.tax_rate must be number.')
           }
+          const revenueGroupBlock = webTypes.match(/export interface RevenueGroup\s*{[\s\S]*?}/)
+          if (!revenueGroupBlock || !/tax_rate:\s*number\b/.test(revenueGroupBlock[0])) {
+            throw new Error('Frontend API contract mismatch: RevenueGroup.tax_rate must be number.')
+          }
+          if (/tax_rate:\s*string\s*\|\s*number\b/.test(revenueGroupBlock[0])) {
+            throw new Error('RevenueGroup.tax_rate drift detected: string | number is not allowed.')
+          }
 
           const invoiceCreatePage = fs.readFileSync('apps/core-web/src/pages/sales/InvoiceCreatePage.tsx', 'utf8')
           const mapsTaxRate = /taxRate:\s*(Number\()?\s*item\.tax_rate/.test(invoiceCreatePage)
