@@ -1,5 +1,15 @@
 import 'dotenv/config';
-import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
+import {
+    PrismaClient,
+    LocationType,
+    TransactionType,
+    CustomerType,
+    SalesOrderStatus,
+    InvoiceStatus,
+    WorkshopOrderStatus,
+    PurchaseOrderStatus,
+    PurchaseInvoiceStatus
+} from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -11,15 +21,23 @@ const prisma = new PrismaClient({ adapter } as any);
 async function cleanDb() {
     console.log('Cleaning database...');
     // Delete in order to satisfy foreign key constraints
+    await prisma.workshopOrder.deleteMany();
+    await prisma.invoiceItem.deleteMany();
+    await prisma.invoice.deleteMany();
+    await prisma.invoiceSequence.deleteMany();
+    await prisma.salesOrderItem.deleteMany();
+    await prisma.salesOrder.deleteMany();
+    await prisma.vehicle.deleteMany();
+    await prisma.customer.deleteMany();
+    
     await prisma.purchaseInvoiceLine.deleteMany();
     await prisma.purchaseInvoice.deleteMany();
     await prisma.purchaseOrderItem.deleteMany();
     await prisma.purchaseOrder.deleteMany();
     await prisma.vendor.deleteMany();
+    
     await prisma.inventoryTransaction.deleteMany();
     await prisma.inventoryStock.deleteMany();
-    await prisma.invoiceItem.deleteMany();
-    await prisma.invoice.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.storageLocation.deleteMany();
     await prisma.revenueGroup.deleteMany();
@@ -294,11 +312,181 @@ async function main() {
         }
     }
 
+    console.log('Seeding Vendors...');
+    const vendors = await Promise.all([
+        prisma.vendor.create({
+            data: {
+                name: 'AutoParts Wholesale Ltd.',
+                email: 'sales@autoparts-wholesale.com',
+                account_number: 'VEND-101',
+                supportedBrands: { connect: dualBrandRecords.slice(0, 3).map(b => ({ id: b.id })) }
+            }
+        }),
+        prisma.vendor.create({
+            data: {
+                name: 'Genuine Components Austria',
+                email: 'orders@genuine-comp.at',
+                account_number: 'VEND-202',
+                supportedBrands: { connect: purePartManufacturerRecords.slice(0, 5).map(b => ({ id: b.id })) }
+            }
+        })
+    ]);
+
+    console.log('Seeding Customers and Vehicles...');
+    const customers = await Promise.all([
+        prisma.customer.create({
+            data: {
+                first_name: 'Max',
+                last_name: 'Mustermann',
+                email: 'max.mustermann@example.at',
+                phone: '+43 664 1234567',
+                type: CustomerType.PRIVATE,
+                address_street: 'Hauptstraße 1',
+                address_city: 'Wien',
+                address_zip: '1010',
+                vehicles: {
+                    create: [
+                        { make: 'Volkswagen', model: 'Golf VIII', year: 2022, vin: 'WVWZZZCDZMW123456', plate: 'W-12345-X' },
+                        { make: 'Audi', model: 'A4 Avant', year: 2020, vin: 'WAUZZZF4ZLA654321', plate: 'W-54321-Y' }
+                    ]
+                }
+            },
+            include: { vehicles: true }
+        }),
+        prisma.customer.create({
+            data: {
+                first_name: 'Anna',
+                last_name: 'Schmidt',
+                email: 'anna.schmidt@business.com',
+                company_name: 'Schmidt Consulting GmbH',
+                type: CustomerType.COMPANY,
+                vat_id: 'ATU12345678',
+                address_street: 'Gewerbepark 5',
+                address_city: 'Graz',
+                address_zip: '8010',
+                vehicles: {
+                    create: [
+                        { make: 'BMW', model: '520d Touring', year: 2023, vin: 'WBA51AF0X0L112233', plate: 'G-98765-Z' }
+                    ]
+                }
+            },
+            include: { vehicles: true }
+        }),
+        prisma.customer.create({
+            data: {
+                first_name: 'Thomas',
+                last_name: 'Gruber',
+                email: 'thomas.gruber@private.at',
+                type: CustomerType.PRIVATE,
+                vehicles: {
+                    create: [
+                        { make: 'Toyota', model: 'Corolla', year: 2018, vin: 'JTNB10K500334455', plate: 'P-11223-A' }
+                    ]
+                }
+            },
+            include: { vehicles: true }
+        })
+    ]);
+
+    console.log('Seeding Sales Orders...');
+    const customer1 = customers[0];
+    const customer2 = customers[1];
+
+    const salesOrders = await Promise.all([
+        prisma.salesOrder.create({
+            data: {
+                order_number: 'SO-2026-1001',
+                customer_id: customer1.id,
+                vehicle_id: customer1.vehicles[0].id,
+                status: SalesOrderStatus.CONFIRMED,
+                total_amount: 150.00,
+                notes: 'Brake pad replacement scheduled',
+                items: {
+                    create: [
+                        {
+                            description: 'Front Brake Pads (A-Grade)',
+                            quantity: 1,
+                            unit_price: 125.00,
+                            total: 125.00,
+                            tax_rate: 20.0,
+                        },
+                        {
+                            description: 'Labor (30 min)',
+                            quantity: 0.5,
+                            unit_price: 50.00,
+                            total: 25.00,
+                            tax_rate: 20.0,
+                        }
+                    ]
+                }
+            }
+        }),
+        prisma.salesOrder.create({
+            data: {
+                order_number: 'SO-2026-1002',
+                customer_id: customer2.id,
+                vehicle_id: customer2.vehicles[0].id,
+                status: SalesOrderStatus.DRAFT,
+                total_amount: 85.50,
+                items: {
+                    create: [
+                        {
+                            description: 'Oil Filter Replacement',
+                            quantity: 1,
+                            unit_price: 85.50,
+                            total: 85.50,
+                            tax_rate: 20.0,
+                        }
+                    ]
+                }
+            }
+        })
+    ]);
+
+    console.log('Seeding Workshop Orders (Intake)...');
+    await prisma.workshopOrder.create({
+        data: {
+            customer_id: customer1.id,
+            vehicle_id: customer1.vehicles[1].id,
+            status: WorkshopOrderStatus.INTAKE,
+            odometer: 45678,
+            fuel_level: 75,
+            notes: 'Customer reports unusual noise when braking'
+        }
+    });
+
+    console.log('Seeding Purchase Orders...');
+    const vendor1 = vendors[0];
+    await prisma.purchaseOrder.create({
+        data: {
+            order_number: 'PO-2026-001',
+            vendor_id: vendor1.id,
+            status: PurchaseOrderStatus.SENT,
+            items: {
+                create: [
+                    {
+                        catalog_item_id: otherParts[0].id,
+                        quantity: 10,
+                        unit_cost: 15.50,
+                    },
+                    {
+                        catalog_item_id: otherParts[1].id,
+                        quantity: 5,
+                        unit_cost: 42.00,
+                    }
+                ]
+            }
+        }
+    });
+
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
     console.log('✓ Brands (Dual/Pure) created and linked to items');
+    console.log('✓ Vendors and linked brands created');
+    console.log('✓ Customers and Vehicles created');
+    console.log('✓ Sales Orders, Workshop Orders and Purchase Orders created');
 }
 
 main()

@@ -10,6 +10,7 @@ import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoice
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
+import WorkshopOrdersList from './pages/workshop/WorkshopOrdersList'
 import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
@@ -82,7 +83,8 @@ function App() {
                 <NavLink to="/purchase-orders" className={navLinkClass}>Purchase Orders</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/workshop/intake" className={navLinkClass}>Workshop</NavLink>
+                <NavLink to="/workshop/orders" className={navLinkClass} end>Workshop</NavLink>
+                <NavLink to="/workshop/intake" className={navLinkClass}>Intake</NavLink>
               </nav>
             </div>
 
@@ -141,6 +143,7 @@ function App() {
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/workshop/orders" element={<WorkshopOrdersList />} />
             <Route path="/workshop/intake" element={<IntakeDashboard />} />
           </Routes>
           <Toaster />

@@ -27,7 +27,7 @@ export interface QueryParams {
   search?: string; // Global search fallback
 }
 
-export interface PrismaQueryResult<T = any> {
+export interface PrismaQueryResult<T = unknown> {
   where: T;
   orderBy: T | T[];
   skip: number;

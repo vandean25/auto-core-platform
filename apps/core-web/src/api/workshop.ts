@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
-import type { WorkshopSearchResponse, CreateWorkshopOrderPayload, WorkshopOrder, RegisterIntakePayload } from './types'
+import type { 
+    WorkshopSearchResponse, 
+    CreateWorkshopOrderPayload, 
+    WorkshopOrder, 
+    RegisterIntakePayload,
+    WorkshopOrdersResponse
+} from './types'
 
 export const useWorkshopSearch = (query: string) => {
     return useQuery<WorkshopSearchResponse>({
@@ -47,6 +53,18 @@ export const useRegisterIntake = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workshop'] })
+        }
+    })
+}
+
+export const useWorkshopOrders = (queryParams?: string) => {
+    return useQuery<WorkshopOrdersResponse>({
+        queryKey: ['workshop', 'orders', queryParams],
+        queryFn: async () => {
+            const url = queryParams ? `/api/workshop?params=${encodeURIComponent(queryParams)}` : '/api/workshop'
+            const response = await fetchWithAuth(url)
+            if (!response.ok) throw new Error('Failed to fetch workshop orders')
+            return response.json()
         }
     })
 }

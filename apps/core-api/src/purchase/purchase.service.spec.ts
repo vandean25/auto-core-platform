@@ -73,7 +73,11 @@ describe('PurchaseService', () => {
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
       });
       mockPrismaService.catalogItem.findMany.mockResolvedValue([
-        { id: 'item1', brand: { id: 'brand_bmw', name: 'BMW' }, brand_id: 'brand_bmw' },
+        {
+          id: 'item1',
+          brand: { id: 'brand_bmw', name: 'BMW' },
+          brand_id: 'brand_bmw',
+        },
       ]);
 
       await expect(
@@ -90,7 +94,11 @@ describe('PurchaseService', () => {
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
       });
       mockPrismaService.catalogItem.findMany.mockResolvedValue([
-        { id: 'item1', brand: { id: 'brand_vw', name: 'VW' }, brand_id: 'brand_vw' },
+        {
+          id: 'item1',
+          brand: { id: 'brand_vw', name: 'VW' },
+          brand_id: 'brand_vw',
+        },
       ]);
       mockPrismaService.purchaseOrder.create.mockResolvedValue({
         id: 'po1',
@@ -112,7 +120,11 @@ describe('PurchaseService', () => {
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
       });
       mockPrismaService.catalogItem.findMany.mockResolvedValue([
-        { id: 'item1', brand: { id: 'brand_vw', name: 'VW' }, brand_id: 'brand_vw' },
+        {
+          id: 'item1',
+          brand: { id: 'brand_vw', name: 'VW' },
+          brand_id: 'brand_vw',
+        },
       ]);
       mockPrismaService.purchaseOrder.create.mockResolvedValue({
         id: 'po1',
@@ -129,7 +141,8 @@ describe('PurchaseService', () => {
       expect(mathRandomSpy).not.toHaveBeenCalled();
 
       // Verify order number format in the create call arguments
-      const createCallArgs = mockPrismaService.purchaseOrder.create.mock.calls[0][0];
+      const createCallArgs =
+        mockPrismaService.purchaseOrder.create.mock.calls[0][0];
       expect(createCallArgs.data.order_number).toMatch(/^PO-\d{4}-\d{4}$/);
 
       mathRandomSpy.mockRestore();

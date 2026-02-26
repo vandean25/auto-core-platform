@@ -28,9 +28,7 @@ describe('Security (e2e)', () => {
   });
 
   it('should block access without API key', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(401);
+    return request(app.getHttpServer()).get('/').expect(401);
   });
 
   it('should block access with invalid API key', () => {

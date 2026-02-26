@@ -8,17 +8,17 @@ import { mockPrismaService } from './mocks/prisma.mock';
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let customerId: string = 'mock-customer-id';
-  let vehicleId: string = 'mock-vehicle-id';
+  const customerId: string = 'mock-customer-id';
+  const vehicleId: string = 'mock-vehicle-id';
 
   beforeAll(async () => {
     process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-    .overrideProvider(PrismaService)
-    .useValue(mockPrismaService)
-    .compile();
+      .overrideProvider(PrismaService)
+      .useValue(mockPrismaService)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -74,21 +74,21 @@ describe('Workshop Intake Module (e2e)', () => {
   });
 
   it('/api/workshop/register (POST) - should register vehicle using upsert', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/workshop/register')
-        .set('x-api-key', 'test-api-key')
-        .send({
-            vin: 'NEWVIN123',
-            plate: 'NEW-PLATE',
-            make: 'Toyota',
-            model: 'Corolla',
-            year: 2020,
-            firstName: 'New',
-            lastName: 'User',
-            email: 'new@test.com'
-        })
-        .expect(201);
+    const res = await request(app.getHttpServer())
+      .post('/api/workshop/register')
+      .set('x-api-key', 'test-api-key')
+      .send({
+        vin: 'NEWVIN123',
+        plate: 'NEW-PLATE',
+        make: 'Toyota',
+        model: 'Corolla',
+        year: 2020,
+        firstName: 'New',
+        lastName: 'User',
+        email: 'new@test.com',
+      })
+      .expect(201);
 
-      expect(res.body.vin).toBe('TESTVIN123456789'); // Mock returns this
+    expect(res.body.vin).toBe('TESTVIN123456789'); // Mock returns this
   });
 });

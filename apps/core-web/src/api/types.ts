@@ -302,3 +302,13 @@ export interface RegisterIntakePayload {
     email?: string
     phone?: string
 }
+
+export interface WorkshopOrdersResponse {
+    data: WorkshopOrder[]
+    meta: {
+        total: number
+        page: number
+        limit: number
+        totalPages: number
+    }
+}
