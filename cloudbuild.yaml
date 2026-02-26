@@ -33,7 +33,7 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        npm ci
+        npm install --legacy-peer-deps
         set +e
         MIGRATE_OUTPUT="$$(npx prisma migrate deploy 2>&1)"
         MIGRATE_EXIT=$?
@@ -118,7 +118,7 @@ steps:
         export VITE_FIREBASE_PROJECT_ID="${_VITE_FIREBASE_PROJECT_ID}"
         export VITE_FIREBASE_APP_ID="${_VITE_FIREBASE_APP_ID}"
         export VITE_ALLOWED_LOGIN_EMAILS="${_VITE_ALLOWED_LOGIN_EMAILS}"
-        npm ci
+        npm install --legacy-peer-deps
         npm run build
 
   - id: deploy-firebase-hosting
