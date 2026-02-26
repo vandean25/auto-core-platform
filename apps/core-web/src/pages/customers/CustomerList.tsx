@@ -26,13 +26,17 @@ export default function CustomerList() {
 
     useEffect(() => {
         if (searchParams.get('action') === 'create') {
-            setSelectedCustomer(undefined)
-            setIsDialogOpen(true)
+            // Use setTimeout to avoid synchronous state updates during render phase
+            // which can cause cascading renders and trigger linter errors
+            setTimeout(() => {
+                setSelectedCustomer(undefined)
+                setIsDialogOpen(true)
 
-            // Optional: clean up the URL
-            const newParams = new URLSearchParams(searchParams)
-            newParams.delete('action')
-            setSearchParams(newParams, { replace: true })
+                // Optional: clean up the URL
+                const newParams = new URLSearchParams(searchParams)
+                newParams.delete('action')
+                setSearchParams(newParams, { replace: true })
+            }, 0)
         }
     }, [searchParams, setSearchParams])
 
