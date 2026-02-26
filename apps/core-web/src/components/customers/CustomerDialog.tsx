@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,6 +66,26 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
             toast.error('Failed to save customer')
         }
     }
+
+    useEffect(() => {
+        if (customer) {
+            form.reset(customer)
+        } else {
+            form.reset({
+                type: 'PRIVATE',
+                first_name: '',
+                last_name: '',
+                company_name: '',
+                email: '',
+                phone: '',
+                vat_id: '',
+                address_street: '',
+                address_city: '',
+                address_zip: '',
+                address_country: 'AT',
+            })
+        }
+    }, [customer, form])
 
     const handleOpenChange = (newOpen: boolean) => {
         setOpen(newOpen)
