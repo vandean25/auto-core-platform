@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { type ColumnDef } from "@tanstack/react-table"
 import { useCustomers, useDeleteCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
@@ -13,6 +14,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 export default function CustomerList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useCustomers(queryParams)
+    const [searchParams, setSearchParams] = useSearchParams()
 
     // Handle both legacy array response and new paginated response
     const customers: Customer[] = Array.isArray(responseData) ? responseData : responseData?.data || []
@@ -21,6 +23,18 @@ export default function CustomerList() {
     const deleteMutation = useDeleteCustomer()
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+    useEffect(() => {
+        if (searchParams.get('action') === 'create') {
+            setSelectedCustomer(undefined)
+            setIsDialogOpen(true)
+
+            // Optional: clean up the URL
+            const newParams = new URLSearchParams(searchParams)
+            newParams.delete('action')
+            setSearchParams(newParams, { replace: true })
+        }
+    }, [searchParams, setSearchParams])
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this customer?')) return
