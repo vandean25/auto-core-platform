@@ -29,6 +29,20 @@ interface CustomerDialogProps {
     onOpenChange?: (open: boolean) => void
 }
 
+const DEFAULT_CUSTOMER: Partial<Customer> = {
+    type: 'PRIVATE',
+    first_name: '',
+    last_name: '',
+    company_name: '',
+    email: '',
+    phone: '',
+    vat_id: '',
+    address_street: '',
+    address_city: '',
+    address_zip: '',
+    address_country: 'AT',
+}
+
 export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpenChange }: CustomerDialogProps) {
     const [open, setOpen] = useState(false)
     const isEdit = !!customer
@@ -36,19 +50,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     const updateMutation = useUpdateCustomer()
 
     const form = useForm<Partial<Customer>>({
-        defaultValues: customer || {
-            type: 'PRIVATE',
-            first_name: '',
-            last_name: '',
-            company_name: '',
-            email: '',
-            phone: '',
-            vat_id: '',
-            address_street: '',
-            address_city: '',
-            address_zip: '',
-            address_country: 'AT',
-        },
+        defaultValues: customer || DEFAULT_CUSTOMER,
     })
 
     const onSubmit = async (data: Partial<Customer>) => {
@@ -71,19 +73,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
         if (customer) {
             form.reset(customer)
         } else {
-            form.reset({
-                type: 'PRIVATE',
-                first_name: '',
-                last_name: '',
-                company_name: '',
-                email: '',
-                phone: '',
-                vat_id: '',
-                address_street: '',
-                address_city: '',
-                address_zip: '',
-                address_country: 'AT',
-            })
+            form.reset(DEFAULT_CUSTOMER)
         }
     }, [customer, form])
 
