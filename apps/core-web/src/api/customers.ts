@@ -1,27 +1,31 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Customer } from './types'
 import { fetchWithAuth } from './client'
+import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 
 export const customerKeys = {
     all: ['customers'] as const,
-    list: (search?: string) => [...customerKeys.all, 'list', search] as const,
+    list: (queryParams?: DataTableQueryParams) => [...customerKeys.all, 'list', queryParams] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
-export function useCustomers(queryParams?: string) {
+export function useCustomers(queryParams?: DataTableQueryParams) {
     return useQuery<any>({ // Using any for now to handle data/meta structure or array
         queryKey: customerKeys.list(queryParams),
         queryFn: async () => {
             let url = '/api/customers'
             if (queryParams) {
-                // Check if queryParams is just a search string (legacy) or a params JSON
-                if (queryParams.startsWith('{')) {
-                    url += `?params=${encodeURIComponent(queryParams)}`
-                } else {
-                    const params = new URLSearchParams()
-                    params.append('search', queryParams)
-                    url += `?${params.toString()}`
-                }
+                const params = new URLSearchParams()
+                params.append('page', String(queryParams.page))
+                params.append('pageSize', String(queryParams.pageSize))
+                if (queryParams.search) params.append('search', queryParams.search)
+                if (queryParams.sortField) params.append('sortField', queryParams.sortField)
+                if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
+
+                const typeFilter = queryParams.filters.find((f) => f.field === 'type')?.value
+                if (typeFilter) params.append('type', typeFilter)
+
+                url += `?${params.toString()}`
             }
             
             const response = await fetchWithAuth(url)

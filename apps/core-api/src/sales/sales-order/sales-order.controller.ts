@@ -7,8 +7,8 @@ import {
   Param,
   Query,
   Delete,
-  BadRequestException,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { SalesOrderService } from './sales-order.service';
 import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
@@ -25,46 +25,44 @@ export class SalesOrderController {
   }
 
   @Get()
+  @ApiQuery({ name: 'status', required: false, schema: { type: 'string', enum: ['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED'] } })
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
-    @Query('params') params?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    let queryParams: any = {};
-
-    if (params) {
-      try {
-        queryParams = JSON.parse(params);
-      } catch (error) {
-        throw new BadRequestException('Invalid JSON in params query parameter');
-      }
+    const queryParams: any = {};
+    if (page) queryParams.page = parseInt(page, 10);
+    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+    else if (limit) queryParams.pageSize = parseInt(limit, 10);
+    if (search) queryParams.search = search;
+    if (sortField) {
+      queryParams.sorting = [
+        {
+          field: sortField,
+          direction: sortDirection ?? 'asc',
+        },
+      ];
     }
 
-    // Support standard query params (merging with JSON params if present)
-    if (!queryParams.page && page) queryParams.page = parseInt(page, 10);
-    if (!queryParams.pageSize) {
-      if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
-      else if (limit) queryParams.pageSize = parseInt(limit, 10);
-    }
-    if (!queryParams.search && search) queryParams.search = search;
-
-    // Handle filters
     if (status) {
-      if (!queryParams.filters) queryParams.filters = [];
-      // Avoid duplicate status filter
-      const hasStatus = queryParams.filters.some(
-        (f: any) => f.field === 'status',
-      );
-      if (!hasStatus) {
-        queryParams.filters.push({
+      queryParams.filters = [
+        {
           field: 'status',
           operator: 'equals',
           value: status,
-        });
-      }
+        },
+      ];
     }
 
     const whitelist = [

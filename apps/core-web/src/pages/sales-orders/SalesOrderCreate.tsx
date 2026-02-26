@@ -97,7 +97,7 @@ export default function SalesOrderCreate() {
     // Item Search Logic
     const [itemSearchOpen, setItemSearchOpen] = useState(false)
     const [itemSearchQuery, setItemSearchQuery] = useState('')
-    const { data: inventory } = useInventory({ search: itemSearchQuery, limit: 10 })
+    const { data: inventory } = useInventory({ search: itemSearchQuery, pageSize: 10 })
 
     const handleAddItem = (item: any) => {
         append({

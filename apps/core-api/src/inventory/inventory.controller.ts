@@ -5,11 +5,10 @@ import {
   Body,
   Param,
   Query,
-  BadRequestException,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
-import { QueryBuilder } from '../common/utils/query-builder';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 
 @Controller('inventory')
@@ -32,37 +31,23 @@ export class InventoryController {
   }
 
   @Get()
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'location', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'brand', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'brandId', required: false, schema: { type: 'integer', minimum: 1 } })
   async findAll(
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '10',
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
-    @Query('params') params?: string,
   ) {
-    if (params) {
-      let queryParams;
-      try {
-        queryParams = JSON.parse(params);
-      } catch (error) {
-        throw new BadRequestException('Invalid params JSON');
-      }
-
-      const whitelist = ['sku', 'name', 'brand.name', 'createdAt'];
-      const searchFields = ['sku', 'name', 'brand.name'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
-
-      return await this.inventoryService.findAll(prismaQuery);
-    }
-
     return await this.inventoryService.findAll({
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
       search,
       location,
       brand,

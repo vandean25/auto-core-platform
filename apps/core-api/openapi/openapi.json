@@ -67,23 +67,25 @@
         "parameters": [
           {
             "name": "page",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "limit",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "search",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -91,7 +93,7 @@
           },
           {
             "name": "location",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -99,7 +101,7 @@
           },
           {
             "name": "brand",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -107,18 +109,11 @@
           },
           {
             "name": "brandId",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "params",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           }
         ],
@@ -323,18 +318,64 @@
         "parameters": [
           {
             "name": "status",
-            "required": true,
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SENT",
+                "PARTIAL",
+                "COMPLETED",
+                "open",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "params",
-            "required": true,
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
@@ -553,11 +594,49 @@
         "operationId": "VendorController_findAll",
         "parameters": [
           {
-            "name": "params",
-            "required": true,
+            "name": "search",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
@@ -735,18 +814,60 @@
         "parameters": [
           {
             "name": "search",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "params",
-            "required": true,
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRIVATE",
+                "COMPANY"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
@@ -1077,50 +1198,72 @@
         "parameters": [
           {
             "name": "status",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "params",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "CONFIRMED",
+                "IN_PROGRESS",
+                "COMPLETED",
+                "INVOICED"
+              ]
             }
           },
           {
             "name": "page",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "pageSize",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "limit",
-            "required": true,
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "search",
-            "required": true,
+            "name": "sortField",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],

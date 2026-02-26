@@ -9,6 +9,7 @@ import {
   BadRequestException,
   Query,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
 import { QueryBuilder } from '../common/utils/query-builder';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
@@ -45,18 +46,37 @@ export class PurchaseController {
   }
 
   @Get()
+  @ApiQuery({ name: 'status', required: false, schema: { type: 'string', enum: ['DRAFT', 'SENT', 'PARTIAL', 'COMPLETED', 'open', 'all'] } })
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
   async findAll(
     @Query('status') status?: string,
-    @Query('params') params?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    if (params) {
-      let queryParams;
-      try {
-        queryParams = JSON.parse(params);
-      } catch {
-        throw new BadRequestException('Invalid params JSON');
-      }
+    const queryParams: any = {};
+    if (search) queryParams.search = search;
+    if (page) queryParams.page = parseInt(page, 10);
+    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+    if (sortField) {
+      queryParams.sorting = [
+        {
+          field: sortField,
+          direction: sortDirection ?? 'asc',
+        },
+      ];
+    }
+    if (status && status !== 'open' && status !== 'all') {
+      queryParams.filters = [{ field: 'status', operator: 'equals', value: status }];
+    }
 
+    if (Object.keys(queryParams).length > 0) {
       const whitelist = [
         'order_number',
         'status',
@@ -67,12 +87,7 @@ export class PurchaseController {
         'expected_date',
       ];
       const searchFields = ['order_number', 'vendor.name'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
-
+      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
       const result = (await this.purchaseService.findAll(prismaQuery)) as any;
       return {
         data: result.data,
@@ -84,6 +99,7 @@ export class PurchaseController {
         },
       };
     }
+
     return this.purchaseService.findAll(status);
   }
 

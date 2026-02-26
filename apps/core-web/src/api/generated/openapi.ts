@@ -637,14 +637,13 @@ export interface operations {
     };
     InventoryController_findAll: {
         parameters: {
-            query: {
-                page: string;
-                limit: string;
-                search: string;
-                location: string;
-                brand: string;
-                brandId: string;
-                params: string;
+            query?: {
+                page?: number;
+                limit?: number;
+                search?: string;
+                location?: string;
+                brand?: string;
+                brandId?: number;
             };
             header?: never;
             path?: never;
@@ -816,9 +815,13 @@ export interface operations {
     };
     PurchaseController_findAll: {
         parameters: {
-            query: {
-                status: string;
-                params: string;
+            query?: {
+                status?: "DRAFT" | "SENT" | "PARTIAL" | "COMPLETED" | "open" | "all";
+                search?: string;
+                page?: number;
+                pageSize?: number;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -997,8 +1000,12 @@ export interface operations {
     };
     VendorController_findAll: {
         parameters: {
-            query: {
-                params: string;
+            query?: {
+                search?: string;
+                page?: number;
+                pageSize?: number;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -1155,9 +1162,13 @@ export interface operations {
     };
     CustomerController_findAll: {
         parameters: {
-            query: {
-                search: string;
-                params: string;
+            query?: {
+                search?: string;
+                type?: "PRIVATE" | "COMPANY";
+                page?: number;
+                pageSize?: number;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -1452,13 +1463,14 @@ export interface operations {
     };
     SalesOrderController_findAll: {
         parameters: {
-            query: {
-                status: string;
-                params: string;
-                page: string;
-                pageSize: string;
-                limit: string;
-                search: string;
+            query?: {
+                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+                page?: number;
+                pageSize?: number;
+                limit?: number;
+                search?: string;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
