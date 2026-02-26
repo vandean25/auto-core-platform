@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useNavigate } from "react-router-dom"
 import {
     PlusCircle,
     User,
@@ -26,6 +27,7 @@ interface GlobalSearchProps {
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     const [search, setSearch] = React.useState("")
     const { data: searchResults, isLoading } = useGlobalSearch(search)
+    const navigate = useNavigate()
 
     return (
         <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +45,10 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                         <span>Create New Invoice</span>
                         <CommandShortcut>{navigator.userAgent.includes('Mac') ? '⌘I' : 'Ctrl+I'}</CommandShortcut>
                     </CommandItem>
-                    <CommandItem onSelect={() => { console.log("Navigate to Register Customer"); onOpenChange(false) }}>
+                    <CommandItem onSelect={() => {
+                        navigate('/customers?action=create')
+                        onOpenChange(false)
+                    }}>
                         <User className="mr-2 h-4 w-4" />
                         <span>Register New Customer</span>
                         <CommandShortcut>{navigator.userAgent.includes('Mac') ? '⌘N' : 'Ctrl+N'}</CommandShortcut>
