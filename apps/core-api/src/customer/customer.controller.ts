@@ -7,8 +7,8 @@ import {
   Param,
   Delete,
   Query,
-  BadRequestException,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -24,18 +24,37 @@ export class CustomerController {
   }
 
   @Get()
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'type', required: false, schema: { type: 'string', enum: ['PRIVATE', 'COMPANY'] } })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
   async findAll(
     @Query('search') search?: string,
-    @Query('params') params?: string,
+    @Query('type') type?: 'PRIVATE' | 'COMPANY',
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    if (params) {
-      let queryParams;
-      try {
-        queryParams = JSON.parse(params);
-      } catch (error) {
-        throw new BadRequestException('Invalid JSON in params query parameter');
-      }
+    const queryParams: any = {};
+    if (search) queryParams.search = search;
+    if (page) queryParams.page = parseInt(page, 10);
+    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+    if (sortField) {
+      queryParams.sorting = [
+        {
+          field: sortField,
+          direction: sortDirection ?? 'asc',
+        },
+      ];
+    }
+    if (type) {
+      queryParams.filters = [{ field: 'type', operator: 'equals', value: type }];
+    }
 
+    if (Object.keys(queryParams).length > 0) {
       const whitelist = [
         'first_name',
         'last_name',
@@ -47,12 +66,7 @@ export class CustomerController {
         'createdAt',
       ];
       const searchFields = ['first_name', 'last_name', 'company_name', 'email'];
-
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
+      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
       const result = (await this.customerService.findAll(prismaQuery)) as any;
 
       return {
@@ -66,7 +80,6 @@ export class CustomerController {
       };
     }
 
-    // Backward compatibility
     return this.customerService.findAll(search);
   }
 

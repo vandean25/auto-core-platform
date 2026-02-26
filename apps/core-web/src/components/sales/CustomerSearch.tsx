@@ -32,7 +32,13 @@ const getCustomerName = (customer: Customer) => {
 export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
-  const { data: customers } = useCustomers(search)
+  const { data: customersResponse } = useCustomers({
+    page: 1,
+    pageSize: 10,
+    search: search || undefined,
+    filters: [],
+  })
+  const customers: Customer[] = Array.isArray(customersResponse) ? customersResponse : customersResponse?.data || []
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -53,7 +59,7 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
           <CommandList>
             <CommandEmpty>No customer found.</CommandEmpty>
             <CommandGroup>
-              {customers?.map((customer: Customer) => (
+              {customers.map((customer: Customer) => (
                 <CommandItem
                   key={customer.id}
                   value={customer.id}

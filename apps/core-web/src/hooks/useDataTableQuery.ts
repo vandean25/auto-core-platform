@@ -11,15 +11,23 @@ interface UseDataTableQueryOptions {
   debounceMs?: number
 }
 
-interface FilterParam {
+export interface FilterParam {
   field: string
-  operator: string
-  value: any
+  value: string
 }
 
 interface SortParam {
   field: string
   direction: "asc" | "desc"
+}
+
+export interface DataTableQueryParams {
+  page: number
+  pageSize: number
+  search?: string
+  sortField?: string
+  sortDirection?: "asc" | "desc"
+  filters: FilterParam[]
 }
 
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
@@ -28,27 +36,43 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
 
   // Initial State from URL
   const initialParams = React.useMemo(() => {
-    const paramsStr = searchParams.get("params")
-    if (!paramsStr) return null
-    try {
-      return JSON.parse(paramsStr)
-    } catch {
-      return null
+    const page = Number(searchParams.get("page") ?? 1)
+    const pageSize = Number(searchParams.get("pageSize") ?? defaultPageSize)
+    const search = searchParams.get("search") ?? ""
+    const sortField = searchParams.get("sortField")
+    const sortDirection = searchParams.get("sortDirection")
+
+    const filters: FilterParam[] = []
+    for (const [key, value] of searchParams.entries()) {
+      if (key.startsWith("filter_")) {
+        filters.push({
+          field: key.replace("filter_", ""),
+          value,
+        })
+      }
     }
-  }, [searchParams])
+
+    const sorting: SortParam[] = sortField
+      ? [{ field: sortField, direction: sortDirection === "desc" ? "desc" : "asc" }]
+      : []
+
+    return {
+      page: Number.isFinite(page) && page > 0 ? page : 1,
+      pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : defaultPageSize,
+      search,
+      filters,
+      sorting,
+    }
+  }, [searchParams, defaultPageSize])
 
   // Table State
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    () => {
-      if (!initialParams?.filters) return []
-      return initialParams.filters.map((f: FilterParam) => ({
-        id: f.field,
-        value: f.value, // Simplified: assuming 'equals' or handled elsewhere for now. 
-                        // Real implementation needs to map operators back to UI state.
-                        // For this iteration, we focus on syncing state -> URL.
-      }))
-    }
-  )
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(() => {
+    if (!initialParams?.filters) return []
+    return initialParams.filters.map((f: FilterParam) => ({
+      id: f.field,
+      value: f.value,
+    }))
+  })
 
   const [sorting, setSorting] = React.useState<SortingState>(() => {
     if (!initialParams?.sorting) return []
@@ -68,49 +92,59 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   // Debounce URL Updates
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      const filters: FilterParam[] = columnFilters.map((filter) => {
-          // Complex filter mapping would go here. 
-          // For now, assuming standard 'contains' for strings, 'equals' for others could be implicit
-          // But the backend expects 'operator'.
-          // We'll default to 'contains' for now or need a way to store operator in columnFilters value
-          return {
-            field: filter.id,
-            operator: 'contains', // Defaulting for simplicity in this MVP
-            value: filter.value,
-          }
-      })
+      const filters: FilterParam[] = columnFilters.map((filter) => ({
+        field: filter.id,
+        value: String(filter.value),
+      }))
 
       const sortParams: SortParam[] = sorting.map((sort) => ({
         field: sort.id,
         direction: sort.desc ? "desc" : "asc",
       }))
 
-      const queryObj = {
-        filters: filters.length > 0 ? filters : undefined,
-        sorting: sortParams.length > 0 ? sortParams : undefined,
-        page: pagination.pageIndex + 1,
-        pageSize: pagination.pageSize,
-        search: globalFilter || undefined,
-      }
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
 
-      // Only add params if there's something to query
-      if (!queryObj.filters && !queryObj.sorting && !queryObj.search && queryObj.page === 1 && queryObj.pageSize === defaultPageSize) {
-          setSearchParams((prev) => {
-              const newParams = new URLSearchParams(prev)
-              newParams.delete("params")
-              return newParams
-          })
-      } else {
-          setSearchParams((prev) => {
-              const newParams = new URLSearchParams(prev)
-              newParams.set("params", JSON.stringify(queryObj))
-              return newParams
-          })
-      }
+        // clear table-related params first
+        for (const key of Array.from(next.keys())) {
+          if (
+            key === "page" ||
+            key === "pageSize" ||
+            key === "search" ||
+            key === "sortField" ||
+            key === "sortDirection" ||
+            key.startsWith("filter_")
+          ) {
+            next.delete(key)
+          }
+        }
+
+        const page = pagination.pageIndex + 1
+        if (page > 1) next.set("page", String(page))
+        if (pagination.pageSize !== defaultPageSize) next.set("pageSize", String(pagination.pageSize))
+        if (globalFilter) next.set("search", globalFilter)
+        if (sortParams[0]) {
+          next.set("sortField", sortParams[0].field)
+          next.set("sortDirection", sortParams[0].direction)
+        }
+        for (const filter of filters) {
+          next.set(`filter_${filter.field}`, String(filter.value))
+        }
+        return next
+      })
     }, debounceMs)
 
     return () => clearTimeout(timeout)
   }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, debounceMs])
+
+  const queryFilters: FilterParam[] = React.useMemo(
+    () =>
+      columnFilters.map((filter) => ({
+        field: filter.id,
+        value: String(filter.value),
+      })),
+    [columnFilters],
+  )
 
   return {
     columnFilters,
@@ -121,7 +155,13 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
     setPagination,
     globalFilter,
     setGlobalFilter,
-    // Helper to get the current query string for API calls
-    queryParams: searchParams.get("params") || undefined,
+    queryParams: {
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      search: globalFilter || undefined,
+      sortField: sorting[0]?.id,
+      sortDirection: sorting[0] ? (sorting[0].desc ? "desc" : "asc") : undefined,
+      filters: queryFilters,
+    } satisfies DataTableQueryParams,
   }
 }

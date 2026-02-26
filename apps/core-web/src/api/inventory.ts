@@ -4,17 +4,17 @@ import { fetchWithAuth } from './client'
 
 export const inventoryKeys = {
     all: ['inventory'] as const,
-    list: (params: { page?: number; limit?: number; search?: string }) => [...inventoryKeys.all, 'list', params] as const,
+    list: (params: { page?: number; pageSize?: number; search?: string; brand?: string }) => [...inventoryKeys.all, 'list', params] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
 }
 
-export function useInventory(params: { page?: number; limit?: number; search?: string; brand?: string } = {}) {
+export function useInventory(params: { page?: number; pageSize?: number; search?: string; brand?: string } = {}) {
     return useQuery<InventoryResponse>({
         queryKey: [...inventoryKeys.list(params), params.brand],
         queryFn: async () => {
             const searchParams = new URLSearchParams()
             if (params.page) searchParams.append('page', params.page.toString())
-            if (params.limit) searchParams.append('limit', params.limit.toString())
+            if (params.pageSize) searchParams.append('limit', params.pageSize.toString())
             if (params.search) searchParams.append('search', params.search)
             if (params.brand) searchParams.append('brand', params.brand)
 

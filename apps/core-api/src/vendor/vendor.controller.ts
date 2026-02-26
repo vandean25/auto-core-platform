@@ -6,8 +6,8 @@ import {
   Param,
   Put,
   Query,
-  BadRequestException,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
 import { QueryBuilder } from '../common/utils/query-builder';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -23,23 +23,35 @@ export class VendorController {
   }
 
   @Get()
-  async findAll(@Query('params') params?: string) {
-    if (params) {
-      let queryParams;
-      try {
-        queryParams = JSON.parse(params);
-      } catch {
-        throw new BadRequestException('Invalid params JSON');
-      }
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  async findAll(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
+  ) {
+    const queryParams: any = {};
+    if (search) queryParams.search = search;
+    if (page) queryParams.page = parseInt(page, 10);
+    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+    if (sortField) {
+      queryParams.sorting = [
+        {
+          field: sortField,
+          direction: sortDirection ?? 'asc',
+        },
+      ];
+    }
 
+    if (Object.keys(queryParams).length > 0) {
       const whitelist = ['name', 'email', 'account_number', 'createdAt'];
       const searchFields = ['name', 'email', 'account_number'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
-
+      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
       const result = await this.vendorService.findAll(prismaQuery);
       return {
         data: result.data,
@@ -51,6 +63,7 @@ export class VendorController {
         },
       };
     }
+
     return this.vendorService.findAll();
   }
 

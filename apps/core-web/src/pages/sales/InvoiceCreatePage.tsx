@@ -42,7 +42,7 @@ export default function InvoiceCreatePage() {
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)
   const [inventorySearch, setInventorySearch] = React.useState("")
 
-  const { data: inventory } = useInventory({ search: inventorySearch, limit: 10 })
+  const { data: inventory } = useInventory({ search: inventorySearch, pageSize: 10 })
 
   const handleSaveDraft = async () => {
     if (!editor.customer) return

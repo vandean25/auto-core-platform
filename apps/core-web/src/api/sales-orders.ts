@@ -1,26 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SalesOrder } from './types'
 import { fetchWithAuth } from './client'
+import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 
 export const salesOrderKeys = {
     all: ['sales-orders'] as const,
-    list: (queryParams?: string) => [...salesOrderKeys.all, 'list', queryParams] as const,
+    list: (queryParams?: DataTableQueryParams) => [...salesOrderKeys.all, 'list', queryParams] as const,
     detail: (id: string) => [...salesOrderKeys.all, 'detail', id] as const,
 }
 
-export function useSalesOrders(queryParams?: string) {
+export function useSalesOrders(queryParams?: DataTableQueryParams) {
     return useQuery<any>({
         queryKey: salesOrderKeys.list(queryParams),
         queryFn: async () => {
             let url = '/api/sales-orders'
             if (queryParams) {
-                if (queryParams.startsWith('{')) {
-                    url += `?params=${encodeURIComponent(queryParams)}`
-                } else {
-                    const params = new URLSearchParams()
-                    params.append('status', queryParams)
-                    url += `?${params.toString()}`
+                const params = new URLSearchParams()
+                params.append('page', String(queryParams.page))
+                params.append('pageSize', String(queryParams.pageSize))
+                if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
+                if (queryParams.sortField) {
+                    const sortField = queryParams.sortField === 'customer' ? 'customer.last_name' : queryParams.sortField
+                    params.append('sortField', sortField)
                 }
+
+                const orderNumberFilter = queryParams.filters.find((f) => f.field === 'order_number')?.value
+                const statusFilter = queryParams.filters.find((f) => f.field === 'status')?.value
+                const search = queryParams.search ?? orderNumberFilter
+                if (search) params.append('search', search)
+                if (statusFilter) params.append('status', statusFilter)
+
+                url += `?${params.toString()}`
             }
             
             const response = await fetchWithAuth(url)

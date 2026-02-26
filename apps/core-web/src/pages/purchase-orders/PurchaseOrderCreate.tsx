@@ -56,7 +56,7 @@ export default function PurchaseOrderCreate() {
     // Step 3: Items
     const [items, setItems] = useState<POItem[]>([])
     const [itemSearch, setItemSearch] = useState('')
-    const { data: inventoryResponse } = useInventory({ search: itemSearch, limit: 10, brand: selectedBrand?.name })
+    const { data: inventoryResponse } = useInventory({ search: itemSearch, pageSize: 10, brand: selectedBrand?.name })
     const inventory = inventoryResponse as any; // Cast for now as response structure handles data/meta
 
     const [openCombobox, setOpenCombobox] = useState(false)
