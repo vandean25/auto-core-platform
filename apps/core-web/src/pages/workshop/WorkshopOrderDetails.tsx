@@ -260,7 +260,7 @@ export function WorkshopOrderDetails() {
                 className='w-full min-h-24 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
                 placeholder='Customer reported issue...'
                 defaultValue={order.reportedIssue || order.reported_issue || ''}
-                key={`reported-issue-${order.id}-${order.updatedAt}`}
+                key={`reported-issue-${order.id}-${order.reportedIssue || order.reported_issue || ''}`}
                 onBlur={(e) => void handleSaveReportedIssue(e.currentTarget.value)}
               />
             </CardContent>
@@ -328,7 +328,7 @@ export function WorkshopOrderDetails() {
                 className='w-full min-h-28 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
                 placeholder='Notes visible to service advisors and mechanics...'
                 defaultValue={order.notes || ''}
-                key={`notes-${order.id}-${order.updatedAt}`}
+                key={`notes-${order.id}-${order.notes || ''}`}
                 onBlur={(e) => void handleSaveNotes(e.currentTarget.value)}
               />
             </CardContent>
