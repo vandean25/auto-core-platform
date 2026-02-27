@@ -29,7 +29,10 @@ export function buildDataTableUrl(
   const searchFallback = options.searchFallbackFilterFields
     ?.map((field) => queryParams.filters.find((f) => f.field === field)?.value)
     .find(Boolean)
-  const search = queryParams.search ?? searchFallback
+  const search =
+    typeof queryParams.search === 'string' && queryParams.search.trim() !== ''
+      ? queryParams.search
+      : searchFallback
   if (search) {
     params.append('search', search)
   }
