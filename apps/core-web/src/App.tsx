@@ -10,6 +10,7 @@ import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoice
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
+import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
 import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
@@ -142,6 +143,7 @@ function App() {
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/workshop/intake" element={<IntakeDashboard />} />
+            <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
           </Routes>
           <Toaster />
         </main>
