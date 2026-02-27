@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,6 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiQuery } from '@nestjs/swagger';
 import { WorkshopService } from './workshop.service';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
@@ -30,6 +32,11 @@ export class WorkshopController {
   }
 
   @Get('orders')
+  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
   findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -37,6 +44,20 @@ export class WorkshopController {
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
+    const integerPattern = /^\d+$/;
+    const isInvalidPage =
+      page !== undefined &&
+      (!integerPattern.test(page) || parseInt(page, 10) <= 0);
+    const isInvalidPageSize =
+      pageSize !== undefined &&
+      (!integerPattern.test(pageSize) || parseInt(pageSize, 10) <= 0);
+
+    if (isInvalidPage || isInvalidPageSize) {
+      throw new BadRequestException(
+        'page and pageSize must be positive integers',
+      );
+    }
+
     return this.workshopService.findAll({
       search,
       page: page ? parseInt(page, 10) : undefined,

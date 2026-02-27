@@ -16,6 +16,8 @@ This project supports pulling local `.env` files from Google Secret Manager (GSM
 
 1. Copy mapping template:
    - `Copy-Item secrets/gsm-mapping.example.json secrets/gsm-mapping.json` (PowerShell)
+   - `copy secrets\gsm-mapping.example.json secrets\gsm-mapping.json` (Windows cmd)
+   - `cp secrets/gsm-mapping.example.json secrets/gsm-mapping.json` (macOS/Linux)
 2. Update secret names in `secrets/gsm-mapping.json` to match your GSM secret names.
 
 `secrets/gsm-mapping.json` is ignored by git and can contain machine-specific mappings.
@@ -47,4 +49,3 @@ Dry-run:
 3. Store only mapping templates in git.
 4. Use separate secrets for `dev`, `staging`, and `prod`.
 5. Give AI agents separate low-privilege service identities.
-

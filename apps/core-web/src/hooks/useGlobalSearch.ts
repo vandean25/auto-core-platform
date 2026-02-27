@@ -19,8 +19,6 @@ export function useGlobalSearch(searchTerm: string) {
     return useQuery<InventoryResponse>({
         queryKey: inventoryKeys.list({ search: debouncedSearch, pageSize }),
         queryFn: async () => {
-            if (!debouncedSearch) return { data: [], meta: { total: 0, page: 1, limit: pageSize, totalPages: 0 } }
-
             const searchParams = new URLSearchParams()
             searchParams.append('search', debouncedSearch)
             searchParams.append('pageSize', String(pageSize))

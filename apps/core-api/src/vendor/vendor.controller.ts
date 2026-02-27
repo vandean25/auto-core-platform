@@ -8,7 +8,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
 import { QueryBuilder } from '../common/utils/query-builder';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -89,6 +89,12 @@ export class VendorController {
   }
 
   @Delete(':id')
+  @ApiResponse({ status: 204, description: 'Vendor deleted successfully.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Vendor cannot be deleted because linked records exist.',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor not found.' })
   async remove(@Param('id') id: string) {
     return this.vendorService.remove(id);
   }

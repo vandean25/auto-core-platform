@@ -7,10 +7,22 @@ import { formatCurrency } from '@/lib/utils'
 
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
-  const { data: invoice, isLoading } = useInvoice(id)
+  const { data: invoice, isLoading, isError, error } = useInvoice(id)
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Loading invoice...</div>
+  }
+
+  if (isError) {
+    const status = (error as any)?.response?.status ?? (error as any)?.status
+    if (status === 404) {
+      return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
+    }
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        {(error as any)?.message || 'Failed to load invoice'}
+      </div>
+    )
   }
 
   if (!invoice) {
@@ -103,4 +115,3 @@ export default function InvoiceDetailPage() {
     </div>
   )
 }
-

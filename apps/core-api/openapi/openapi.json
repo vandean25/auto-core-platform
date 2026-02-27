@@ -737,8 +737,14 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
+          "204": {
+            "description": "Vendor deleted successfully."
+          },
+          "400": {
+            "description": "Vendor cannot be deleted because linked records exist."
+          },
+          "404": {
+            "description": "Vendor not found."
           }
         },
         "tags": [
@@ -1460,7 +1466,7 @@
         "parameters": [
           {
             "name": "search",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -1468,23 +1474,25 @@
           },
           {
             "name": "page",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "pageSize",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "sortField",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -1492,10 +1500,14 @@
           },
           {
             "name": "sortDirection",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],

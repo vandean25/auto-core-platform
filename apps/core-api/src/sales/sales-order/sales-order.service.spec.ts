@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SalesOrderStatus } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service';
@@ -12,6 +12,7 @@ describe('SalesOrderService', () => {
     salesOrder: {
       findUnique: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
   };
 
@@ -33,46 +34,21 @@ describe('SalesOrderService', () => {
   });
 
   it('deletes sales order only when it is DRAFT and has no invoice', async () => {
-    mockPrisma.salesOrder.findUnique.mockResolvedValue({
-      id: 'so-1',
-      status: SalesOrderStatus.DRAFT,
-      invoice: null,
-      items: [],
-    });
-    mockPrisma.salesOrder.delete.mockResolvedValue({ id: 'so-1' });
+    mockPrisma.salesOrder.deleteMany.mockResolvedValue({ count: 1 });
 
-    await service.remove('so-1');
-
-    expect(mockPrisma.salesOrder.delete).toHaveBeenCalledWith({
-      where: { id: 'so-1' },
+    await expect(service.remove('so-1')).resolves.toEqual({ id: 'so-1' });
+    expect(mockPrisma.salesOrder.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: 'so-1',
+        status: SalesOrderStatus.DRAFT,
+        invoice: null,
+      },
     });
   });
 
-  it('blocks delete when invoice exists', async () => {
-    mockPrisma.salesOrder.findUnique.mockResolvedValue({
-      id: 'so-1',
-      status: SalesOrderStatus.DRAFT,
-      invoice: { id: 'inv-1' },
-      items: [],
-    });
-
+  it('blocks delete when atomic condition does not match', async () => {
+    mockPrisma.salesOrder.deleteMany.mockResolvedValue({ count: 0 });
     await expect(service.remove('so-1')).rejects.toThrow(BadRequestException);
-  });
-
-  it('blocks delete when status is not DRAFT', async () => {
-    mockPrisma.salesOrder.findUnique.mockResolvedValue({
-      id: 'so-1',
-      status: SalesOrderStatus.CONFIRMED,
-      invoice: null,
-      items: [],
-    });
-
-    await expect(service.remove('so-1')).rejects.toThrow(BadRequestException);
-  });
-
-  it('throws not found for missing sales order', async () => {
-    mockPrisma.salesOrder.findUnique.mockResolvedValue(null);
-    await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+    expect(mockPrisma.salesOrder.deleteMany).toHaveBeenCalled();
   });
 });
-

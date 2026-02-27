@@ -46,5 +46,10 @@ export function buildDataTableUrl(
     }
   }
 
-  return `${baseUrl}?${params.toString()}`
+  const query = params.toString()
+  if (!query) {
+    return baseUrl
+  }
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  return `${baseUrl}${sep}${query}`
 }

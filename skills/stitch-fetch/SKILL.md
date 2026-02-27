@@ -111,5 +111,5 @@ Write-Output "Done. Files saved to: $outDir"
 
 ## Notes
 
-- Stitch hosted URLs can expire. If a downloaded file is empty, call `get_screen` again and re-download.
+- Stitch-hosted URLs can expire. If a downloaded file is empty, call `get_screen` again and re-download.
 - Keep API keys out of repo files. Use local user config or environment variables.

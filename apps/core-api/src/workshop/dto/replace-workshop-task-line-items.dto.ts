@@ -24,10 +24,12 @@ class WorkshopTaskLineItemDto {
 
   @IsNumber()
   @Min(0.01)
+  @Type(() => Number)
   qty: number;
 
   @IsNumber()
   @Min(0)
+  @Type(() => Number)
   unitPrice: number;
 }
 
@@ -37,4 +39,3 @@ export class ReplaceWorkshopTaskLineItemsDto {
   @Type(() => WorkshopTaskLineItemDto)
   items: WorkshopTaskLineItemDto[];
 }
-

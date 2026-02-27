@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -56,14 +57,7 @@ interface TaskDetailDrawerProps {
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
-}
+const STABLE_EMPTY_ITEMS: TaskLineItem[] = []
 
 export function TaskDetailDrawer({
   open,
@@ -79,7 +73,8 @@ export function TaskDetailDrawer({
   const itemInputRef = useRef<HTMLInputElement | null>(null)
 
   const taskTitle = task?.title ?? 'Task Detail'
-  const items = task?.lineItems ?? []
+  const status = task?.status ?? 'IN_PROGRESS'
+  const items = task?.lineItems ?? STABLE_EMPTY_ITEMS
   const subtotal = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
 
   function appendQuickItem() {
@@ -119,10 +114,13 @@ export function TaskDetailDrawer({
               <SheetTitle className="text-lg font-semibold tracking-tight">{taskTitle}</SheetTitle>
               <div className="w-[220px]">
                 <Select
-                  value={task?.status ?? 'IN_PROGRESS'}
+                  value={status}
                   onValueChange={(v) => {
                     if (!task) return
-                    onTaskStatusChange(task.id, v as TaskStatus)
+                    const nextStatus = v as TaskStatus
+                    if (nextStatus !== task.status) {
+                      onTaskStatusChange(task.id, nextStatus)
+                    }
                   }}
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -173,7 +171,7 @@ export function TaskDetailDrawer({
                             <TableCell className="font-medium">{item.itemNo}</TableCell>
                             <TableCell className="text-muted-foreground">{item.description}</TableCell>
                             <TableCell>{item.qty}</TableCell>
-                            <TableCell>{formatMoney(item.unitPrice)}</TableCell>
+                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -213,7 +211,7 @@ export function TaskDetailDrawer({
                 </div>
 
                 <div className="mt-2 text-xs text-muted-foreground">
-                  {items.length} lines · Subtotal {formatMoney(subtotal)}
+                  {items.length} lines · Subtotal {formatCurrency(subtotal)}
                 </div>
               </TabsContent>
 
@@ -221,10 +219,14 @@ export function TaskDetailDrawer({
                 <textarea
                   className="w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Mechanic observations, measurements, and service notes..."
-                  value={task?.mechanicNotes ?? ''}
-                  onChange={(e) => {
+                  defaultValue={task?.mechanicNotes ?? ''}
+                  key={`mechanic-notes-${task?.id ?? 'none'}`}
+                  onBlur={(e) => {
                     if (!task) return
-                    onTaskMechanicNotesChange(task.id, e.target.value)
+                    const nextNotes = e.currentTarget.value
+                    if (nextNotes !== (task.mechanicNotes ?? '')) {
+                      onTaskMechanicNotesChange(task.id, nextNotes)
+                    }
                   }}
                 />
               </TabsContent>

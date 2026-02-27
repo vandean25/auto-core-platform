@@ -26,7 +26,13 @@ export default function SalesOrderList() {
             await deleteMutation.mutateAsync(id)
             toast.success('Sales order deleted')
         } catch (error: any) {
-            toast.error(error?.message || 'Failed to delete sales order')
+            const userMessage =
+                error?.response?.data?.message ||
+                error?.data?.message ||
+                error?.message ||
+                String(error) ||
+                'Failed to delete sales order'
+            toast.error(userMessage)
         }
     }
 
