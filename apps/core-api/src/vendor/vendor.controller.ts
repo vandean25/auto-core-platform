@@ -36,9 +36,16 @@ export class VendorController {
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
     const queryParams: any = {};
+    const parsedPage = page ? parseInt(page, 10) : NaN;
+    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
+
     if (search) queryParams.search = search;
-    if (page) queryParams.page = parseInt(page, 10);
-    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
+    if (Number.isFinite(parsedPage) && parsedPage > 0) {
+      queryParams.page = parsedPage;
+    }
+    if (Number.isFinite(parsedPageSize) && parsedPageSize > 0) {
+      queryParams.pageSize = parsedPageSize;
+    }
     if (sortField) {
       queryParams.sorting = [
         {

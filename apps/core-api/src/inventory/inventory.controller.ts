@@ -32,26 +32,36 @@ export class InventoryController {
 
   @Get()
   @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'location', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'brand', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'brandId', required: false, schema: { type: 'integer', minimum: 1 } })
   async findAll(
     @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
     @Query('search') search?: string,
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
   ) {
+    const parsedPage = page ? parseInt(page, 10) : NaN;
+    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
+    const parsedBrandId = brandId ? parseInt(brandId, 10) : NaN;
+
     return await this.inventoryService.findAll({
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 10,
+      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+      pageSize:
+        Number.isFinite(parsedPageSize) && parsedPageSize > 0
+          ? parsedPageSize
+          : 10,
       search,
       location,
       brand,
-      brandId: brandId ? parseInt(brandId, 10) : undefined,
+      brandId:
+        Number.isFinite(parsedBrandId) && parsedBrandId > 0
+          ? parsedBrandId
+          : undefined,
     });
   }
 

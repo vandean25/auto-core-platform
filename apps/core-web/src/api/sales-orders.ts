@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SalesOrder } from './types'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { buildDataTableUrl } from './data-table-query'
 
 export const salesOrderKeys = {
     all: ['sales-orders'] as const,
@@ -13,25 +14,11 @@ export function useSalesOrders(queryParams?: DataTableQueryParams) {
     return useQuery<any>({
         queryKey: salesOrderKeys.list(queryParams),
         queryFn: async () => {
-            let url = '/api/sales-orders'
-            if (queryParams) {
-                const params = new URLSearchParams()
-                params.append('page', String(queryParams.page))
-                params.append('pageSize', String(queryParams.pageSize))
-                if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
-                if (queryParams.sortField) {
-                    const sortField = queryParams.sortField === 'customer' ? 'customer.last_name' : queryParams.sortField
-                    params.append('sortField', sortField)
-                }
-
-                const orderNumberFilter = queryParams.filters.find((f) => f.field === 'order_number')?.value
-                const statusFilter = queryParams.filters.find((f) => f.field === 'status')?.value
-                const search = queryParams.search ?? orderNumberFilter
-                if (search) params.append('search', search)
-                if (statusFilter) params.append('status', statusFilter)
-
-                url += `?${params.toString()}`
-            }
+            const url = buildDataTableUrl('/api/sales-orders', queryParams, {
+                sortFieldMap: { customer: 'customer.last_name' },
+                searchFallbackFilterFields: ['order_number'],
+                exactFilterMap: { status: 'status' },
+            })
             
             const response = await fetchWithAuth(url)
             if (!response.ok) throw new Error('Failed to fetch sales orders')

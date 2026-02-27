@@ -38,7 +38,11 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     search: search || undefined,
     filters: [],
   })
-  const customers: Customer[] = Array.isArray(customersResponse) ? customersResponse : customersResponse?.data || []
+  const customers: Customer[] = Array.isArray(customersResponse)
+    ? customersResponse
+    : Array.isArray(customersResponse?.data)
+      ? customersResponse.data
+      : []
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

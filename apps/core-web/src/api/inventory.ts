@@ -10,11 +10,11 @@ export const inventoryKeys = {
 
 export function useInventory(params: { page?: number; pageSize?: number; search?: string; brand?: string } = {}) {
     return useQuery<InventoryResponse>({
-        queryKey: [...inventoryKeys.list(params), params.brand],
+        queryKey: [...inventoryKeys.list(params)],
         queryFn: async () => {
             const searchParams = new URLSearchParams()
             if (params.page) searchParams.append('page', params.page.toString())
-            if (params.pageSize) searchParams.append('limit', params.pageSize.toString())
+            if (params.pageSize) searchParams.append('pageSize', params.pageSize.toString())
             if (params.search) searchParams.append('search', params.search)
             if (params.brand) searchParams.append('brand', params.brand)
 
