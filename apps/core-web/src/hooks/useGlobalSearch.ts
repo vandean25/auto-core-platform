@@ -6,6 +6,7 @@ import { fetchWithAuth } from '@/api/client'
 
 export function useGlobalSearch(searchTerm: string) {
     const [debouncedSearch, setDebouncedSearch] = useState(searchTerm)
+    const pageSize = 3
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -16,13 +17,13 @@ export function useGlobalSearch(searchTerm: string) {
     }, [searchTerm])
 
     return useQuery<InventoryResponse>({
-        queryKey: inventoryKeys.list({ search: debouncedSearch, pageSize: 3 }),
+        queryKey: inventoryKeys.list({ search: debouncedSearch, pageSize }),
         queryFn: async () => {
-            if (!debouncedSearch) return { data: [], meta: { total: 0, page: 1, limit: 3, totalPages: 0 } }
+            if (!debouncedSearch) return { data: [], meta: { total: 0, page: 1, limit: pageSize, totalPages: 0 } }
 
             const searchParams = new URLSearchParams()
             searchParams.append('search', debouncedSearch)
-            searchParams.append('limit', '3')
+            searchParams.append('pageSize', String(pageSize))
 
             const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
             if (!response.ok) {

@@ -97,8 +97,17 @@ export class InventoryService {
       ]);
     } else {
       // Legacy path
-      const { page = 1, limit = 10, search, location, brand, brandId } = params;
-      const skip = (page - 1) * limit;
+      const {
+        page = 1,
+        pageSize,
+        limit = 10,
+        search,
+        location,
+        brand,
+        brandId,
+      } = params;
+      const effectivePageSize = pageSize ?? limit;
+      const skip = (page - 1) * effectivePageSize;
       const where: any = {};
 
       if (search) {
@@ -136,14 +145,16 @@ export class InventoryService {
             },
           },
           skip,
-          take: limit,
+          take: effectivePageSize,
         }),
         this.prisma.catalogItem.count({ where }),
       ]);
     }
 
     // Common transformation logic
-    const last_page = Math.ceil(total / (params.take || params.limit || 10));
+    const last_page = Math.ceil(
+      total / (params.take || params.pageSize || params.limit || 10),
+    );
 
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {

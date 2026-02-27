@@ -45,20 +45,24 @@ describe('InventoryController', () => {
       expect(result).toBe(mockResult);
       expect(service.findAll).toHaveBeenCalledWith({
         page: 2,
-        limit: 20,
+        pageSize: 20,
         search: 'test',
         location: 'location',
+        brand: undefined,
+        brandId: undefined,
       });
     });
 
-    it('should use default values for page and limit', async () => {
+    it('should use default values for page and pageSize', async () => {
       await controller.findAll();
 
       expect(service.findAll).toHaveBeenCalledWith({
         page: 1,
-        limit: 10,
+        pageSize: 10,
         search: undefined,
         location: undefined,
+        brand: undefined,
+        brandId: undefined,
       });
     });
   });

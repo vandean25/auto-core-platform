@@ -75,7 +75,7 @@
             }
           },
           {
-            "name": "limit",
+            "name": "pageSize",
             "required": false,
             "in": "query",
             "schema": {
@@ -1222,15 +1222,6 @@
           },
           {
             "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "limit",
             "required": false,
             "in": "query",
             "schema": {

@@ -29,22 +29,26 @@ export class SalesOrderController {
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
   @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'limit', required: false, schema: { type: 'integer', minimum: 1 } })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
-    @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
     const queryParams: any = {};
-    if (page) queryParams.page = parseInt(page, 10);
-    if (pageSize) queryParams.pageSize = parseInt(pageSize, 10);
-    else if (limit) queryParams.pageSize = parseInt(limit, 10);
+    const parsedPage = page ? parseInt(page, 10) : NaN;
+    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
+
+    if (Number.isFinite(parsedPage) && parsedPage > 0) {
+      queryParams.page = parsedPage;
+    }
+    if (Number.isFinite(parsedPageSize) && parsedPageSize > 0) {
+      queryParams.pageSize = parsedPageSize;
+    }
     if (search) queryParams.search = search;
     if (sortField) {
       queryParams.sorting = [
