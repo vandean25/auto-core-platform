@@ -67,16 +67,21 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
     return () => clearTimeout(timer)
   }, [search])
 
-  useEffect(() => {
-    if (!open) {
-      setSearch('')
-      setDebouncedSearch('')
-      setSelectedVehicle(null)
-      setSelectedCustomer(null)
-      setCustomerMode('existing')
-      setActiveTab('existing')
+  const resetDialogState = () => {
+    setSearch('')
+    setDebouncedSearch('')
+    setSelectedVehicle(null)
+    setSelectedCustomer(null)
+    setCustomerMode('existing')
+    setActiveTab('existing')
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetDialogState()
     }
-  }, [open])
+    onOpenChange(nextOpen)
+  }
 
   const { data: searchData, isLoading } = useWorkshopSearch(debouncedSearch)
   const vehicles = (searchData as WorkshopSearchResponse | undefined)?.data?.vehicles ?? []
@@ -123,7 +128,7 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
       })
 
         toast.success('Workshop order created')
-        onOpenChange(false)
+        handleDialogOpenChange(false)
         navigate(`/workshop/orders/${order.id}`)
         return
       }
@@ -164,7 +169,7 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
       })
 
       toast.success('Workshop order created')
-      onOpenChange(false)
+      handleDialogOpenChange(false)
       navigate(`/workshop/orders/${order.id}`)
     } catch {
       toast.error('Failed to create workshop order')
@@ -172,7 +177,7 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Create Workshop Order</DialogTitle>
@@ -382,7 +387,7 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancel
             </Button>
             <Button

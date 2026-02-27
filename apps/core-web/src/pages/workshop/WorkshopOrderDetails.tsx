@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -47,8 +47,6 @@ export function WorkshopOrderDetails() {
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [draftNotes, setDraftNotes] = useState('')
-  const [draftReportedIssue, setDraftReportedIssue] = useState('')
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
@@ -60,12 +58,6 @@ export function WorkshopOrderDetails() {
     if (!activeTaskId) return null
     return tasks.find((task) => task.id === activeTaskId) ?? null
   }, [activeTaskId, tasks])
-
-  useEffect(() => {
-    if (!order) return
-    setDraftNotes(order.notes || '')
-    setDraftReportedIssue(order.reportedIssue || order.reported_issue || '')
-  }, [order?.id, order?.notes, order?.reportedIssue, order?.reported_issue])
 
   if (isLoading) {
     return <div className='p-8 text-center text-sm text-muted-foreground'>Loading workshop order...</div>
@@ -91,10 +83,8 @@ export function WorkshopOrderDetails() {
   const customerPhone = order.customer.phone ?? ''
   const canCreateInvoice = order.status === 'COMPLETED' && !order.invoice
 
-  const handleSaveNotes = async () => {
-    const nextNotes = draftNotes
+  const handleSaveNotes = async (nextNotes: string) => {
     if (nextNotes === (order.notes ?? '')) return
-
     try {
       await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
       toast.success('Internal notes saved')
@@ -103,12 +93,13 @@ export function WorkshopOrderDetails() {
     }
   }
 
-  const handleSaveReportedIssue = async () => {
-    const nextIssue = draftReportedIssue
+  const handleSaveReportedIssue = async (nextIssue: string) => {
     if (nextIssue === (order.reportedIssue || order.reported_issue || '')) return
-
     try {
-      await updateOrder.mutateAsync({ id: order.id, reportedIssue: nextIssue })
+      await updateOrder.mutateAsync({
+        id: order.id,
+        reportedIssue: nextIssue,
+      })
       toast.success('Reported issue saved')
     } catch (error: any) {
       toast.error(error?.message || 'Failed to save reported issue')
@@ -268,9 +259,9 @@ export function WorkshopOrderDetails() {
               <textarea
                 className='w-full min-h-24 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
                 placeholder='Customer reported issue...'
-                value={draftReportedIssue}
-                onChange={(e) => setDraftReportedIssue(e.target.value)}
-                onBlur={() => void handleSaveReportedIssue()}
+                defaultValue={order.reportedIssue || order.reported_issue || ''}
+                key={`reported-issue-${order.id}-${order.updatedAt}`}
+                onBlur={(e) => void handleSaveReportedIssue(e.currentTarget.value)}
               />
             </CardContent>
           </Card>
@@ -336,9 +327,9 @@ export function WorkshopOrderDetails() {
               <textarea
                 className='w-full min-h-28 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
                 placeholder='Notes visible to service advisors and mechanics...'
-                value={draftNotes}
-                onChange={(e) => setDraftNotes(e.target.value)}
-                onBlur={() => void handleSaveNotes()}
+                defaultValue={order.notes || ''}
+                key={`notes-${order.id}-${order.updatedAt}`}
+                onBlur={(e) => void handleSaveNotes(e.currentTarget.value)}
               />
             </CardContent>
           </Card>
