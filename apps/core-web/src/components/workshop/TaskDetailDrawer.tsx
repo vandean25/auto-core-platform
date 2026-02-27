@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -73,7 +73,6 @@ export function TaskDetailDrawer({
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
 }: TaskDetailDrawerProps) {
-  const [status, setStatus] = useState<TaskStatus>('IN_PROGRESS')
   const [newType, setNewType] = useState<LineItemType>('PART')
   const [newItemNo, setNewItemNo] = useState('')
   const [newQty, setNewQty] = useState('1')
@@ -81,23 +80,7 @@ export function TaskDetailDrawer({
 
   const taskTitle = task?.title ?? 'Task Detail'
   const items = task?.lineItems ?? []
-
-  useEffect(() => {
-    if (task) setStatus(task.status)
-  }, [task])
-
-  useEffect(() => {
-    if (!task) return
-    onTaskStatusChange(task.id, status)
-  }, [status, task, onTaskStatusChange])
-
-  const totals = useMemo(() => {
-    const total = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
-    return {
-      total,
-      count: items.length,
-    }
-  }, [items])
+  const subtotal = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
 
   function appendQuickItem() {
     if (!task) return
@@ -107,7 +90,7 @@ export function TaskDetailDrawer({
     if (!itemNo || !Number.isFinite(qty) || qty <= 0) return
 
     const next: TaskLineItem = {
-      id: `li-${Date.now()}`,
+      id: `li-${task.id}-${items.length + 1}`,
       type: newType,
       itemNo,
       description: newType === 'LABOR' ? 'Labor line item' : 'Part line item',
@@ -135,7 +118,13 @@ export function TaskDetailDrawer({
             <div className="pr-8 space-y-3">
               <SheetTitle className="text-lg font-semibold tracking-tight">{taskTitle}</SheetTitle>
               <div className="w-[220px]">
-                <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+                <Select
+                  value={task?.status ?? 'IN_PROGRESS'}
+                  onValueChange={(v) => {
+                    if (!task) return
+                    onTaskStatusChange(task.id, v as TaskStatus)
+                  }}
+                >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -224,7 +213,7 @@ export function TaskDetailDrawer({
                 </div>
 
                 <div className="mt-2 text-xs text-muted-foreground">
-                  {totals.count} lines · Subtotal {formatMoney(totals.total)}
+                  {items.length} lines · Subtotal {formatMoney(subtotal)}
                 </div>
               </TabsContent>
 
