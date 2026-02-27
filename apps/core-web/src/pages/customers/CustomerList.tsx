@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { type ColumnDef } from "@tanstack/react-table"
 import { useCustomers, useDeleteCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
-import { Plus, Trash2, Edit2, User, Building2 } from 'lucide-react'
+import { Plus, User, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 
 export default function CustomerList() {
+    const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useCustomers(queryParams)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -45,14 +46,9 @@ export default function CustomerList() {
         try {
             await deleteMutation.mutateAsync(id)
             toast.success('Customer deleted')
-        } catch (error) {
-            toast.error('Failed to delete customer')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to delete customer')
         }
-    }
-
-    const handleEdit = (customer: Customer) => {
-        setSelectedCustomer(customer)
-        setIsDialogOpen(true)
     }
 
     const handleCreate = () => {
@@ -119,19 +115,6 @@ export default function CustomerList() {
                 </div>
             ),
         },
-        {
-            id: "actions",
-            cell: ({ row }) => (
-                <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}>
-                        <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(row.original.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
-            ),
-        },
     ]
 
     return (
@@ -142,7 +125,7 @@ export default function CustomerList() {
                     <p className="text-slate-500">Manage your customer database and CRM.</p>
                 </div>
                 <Button onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Customer
+                    <Plus className="mr-2 h-4 w-4" /> Customer
                 </Button>
             </div>
 
@@ -152,6 +135,14 @@ export default function CustomerList() {
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchPlaceholder="Search customers..."
+                onRowClick={(row) => navigate(`/customers/${row.id}`)}
+                getRowContextActions={(row) => [
+                    {
+                        label: "Delete",
+                        onClick: () => void handleDelete(row.id),
+                        destructive: true,
+                    },
+                ]}
                 {...tableState}
             />
 

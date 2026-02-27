@@ -162,6 +162,33 @@ The frontend runs at **http://localhost:5173**
 
 ---
 
+## Frontend List UI Standard
+
+Use this as the default blueprint whenever creating or refactoring list pages.
+
+- **Container/layout**: `w-full max-w-7xl mx-auto p-6` with standard header spacing (`mb-8`).
+- **Header typography**: title uses `text-2xl font-semibold tracking-tight`; subtitle uses `text-slate-500`.
+- **Top-right create action**: use plus icon with entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.
+- **Table implementation**: use shared `DataTable` + `DataTableColumnHeader` patterns instead of ad-hoc tables for list views.
+- **Search behavior**: each list must provide search and it should match against all relevant visible row fields (same behavior expected as the Item list).
+- **Sorting behavior**: sortable columns should use the shared header sort behavior for consistency across modules.
+- **Column sizing**: keep column widths aligned across lists using the Item list proportions as the baseline.
+- **Status UI**: render statuses with shared `StatusBadge` (`@/components/status/StatusBadge`) to keep size, typography, and color mapping consistent app-wide.
+- **Row interaction**: clicking a row should open that entity's detail page/card; avoid separate inline edit/detail icon buttons in list rows.
+- **Right-click action**: right-clicking a row should expose a `Delete` action where the backend supports deletion for that entity.
+
+---
+
+## Entity Deletion Policy
+
+Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-policy.md).
+
+- Use delete only where policy allows.
+- Prefer cancel/archive/status transitions for transactional and financial entities.
+- Backend guards are the source of truth; frontend should hide clearly disallowed actions and display backend error messages.
+
+---
+
 ## Production Hosting & Auth
 
 ### Project Split

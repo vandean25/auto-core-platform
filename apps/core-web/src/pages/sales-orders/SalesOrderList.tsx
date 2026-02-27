@@ -1,30 +1,32 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { useSalesOrders } from '@/api/sales-orders'
+import { useDeleteSalesOrder, useSalesOrders } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Plus, ArrowRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { formatCurrency } from '@/lib/utils'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import type { SalesOrder } from '@/api/types'
+import { toast } from 'sonner'
 
 export default function SalesOrderList() {
+    const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useSalesOrders(queryParams)
+    const deleteMutation = useDeleteSalesOrder()
 
     const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
     const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'DRAFT': return 'bg-slate-500'
-            case 'CONFIRMED': return 'bg-blue-500'
-            case 'IN_PROGRESS': return 'bg-orange-500'
-            case 'COMPLETED': return 'bg-green-500'
-            case 'INVOICED': return 'bg-purple-500'
-            default: return 'bg-slate-500'
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this sales order?')) return
+        try {
+            await deleteMutation.mutateAsync(id)
+            toast.success('Sales order deleted')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to delete sales order')
         }
     }
 
@@ -64,28 +66,12 @@ export default function SalesOrderList() {
         {
             accessorKey: 'status',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-            cell: ({ row }) => (
-                <Badge className={getStatusColor(row.original.status)}>
-                    {row.original.status}
-                </Badge>
-            ),
+            cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'total_amount',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
             cell: ({ row }) => <div className="text-right font-medium">{formatCurrency(Number(row.original.total_amount))}</div>,
-        },
-        {
-            id: 'actions',
-            cell: ({ row }) => (
-                <div className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/sales-orders/${row.original.id}`}>
-                            Details <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
-                </div>
-            ),
         },
     ]
 
@@ -98,7 +84,7 @@ export default function SalesOrderList() {
                 </div>
                 <Button asChild>
                     <Link to="/sales-orders/new">
-                        <Plus className="mr-2 h-4 w-4" /> New Order
+                        <Plus className="mr-2 h-4 w-4" /> Order
                     </Link>
                 </Button>
             </div>
@@ -110,6 +96,18 @@ export default function SalesOrderList() {
                 isLoading={isLoading}
                 searchColumn="order_number"
                 searchPlaceholder="Search orders..."
+                onRowClick={(row) => navigate(`/sales-orders/${row.id}`)}
+                getRowContextActions={(row) =>
+                    row.status === 'DRAFT'
+                        ? [
+                              {
+                                  label: 'Delete',
+                                  onClick: () => void handleDelete(row.id),
+                                  destructive: true,
+                              },
+                          ]
+                        : []
+                }
                 {...tableState}
             />
         </div>

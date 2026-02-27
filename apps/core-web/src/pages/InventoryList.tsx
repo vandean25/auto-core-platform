@@ -4,28 +4,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { useInventory } from '@/api/inventory'
-import type { InventoryItem, InventoryStatus } from '@/api/types'
-import { cn } from '@/lib/utils'
+import type { InventoryItem } from '@/api/types'
 import StockTimeline from '@/components/inventory/StockTimeline'
 import { AddItemDialog } from '@/components/AddItemDialog'
 import { DataTable } from '@/components/data-table/DataTable'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-
-const StatusDot = ({ status }: { status: InventoryStatus }) => {
-    const colors = {
-        IN_STOCK: 'bg-green-500',
-        OUT_OF_STOCK: 'bg-red-500',
-        SUPERSEDED: 'bg-orange-500',
-    }
-
-    return (
-        <div className="flex items-center gap-2">
-            <span className={cn('h-2 w-2 rounded-full', colors[status])} />
-            <span className="capitalize">{status.replace('_', ' ').toLowerCase()}</span>
-        </div>
-    )
-}
+import { StatusBadge } from '@/components/status/StatusBadge'
 
 export default function InventoryList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
@@ -45,7 +30,7 @@ export default function InventoryList() {
         {
             accessorKey: 'status',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-            cell: ({ row }) => <StatusDot status={row.original.status} />,
+            cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'sku',
@@ -144,7 +129,7 @@ export default function InventoryList() {
                                     <div className="space-y-1">
                                         <p className="text-xs font-medium text-slate-500 uppercase">Availability</p>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <StatusDot status={selectedItem.status} />
+                                            <StatusBadge status={selectedItem.status} />
                                             <span className="text-sm font-medium">
                                                 ({selectedItem.quantity_available} units)
                                             </span>

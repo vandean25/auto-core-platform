@@ -103,6 +103,15 @@ auto-core-platform/
 - **Typography/Colors**: Use `text-2xl font-semibold tracking-tight` for main page headers, and `text-slate-500` for subtitles instead of `text-muted-foreground`.
 - **Lists / Tables**: Prefer using the shared `DataTable` component abstraction (`@/components/data-table/DataTable`) over constructing raw tables in `src/pages/` components for listing data.
 
+### List Page UI Standard (Required for New Lists)
+- **Header**: Use the standard title/subtitle block with `text-2xl font-semibold tracking-tight` and `text-slate-500`.
+- **Top-right create action**: Use a plus icon with entity-only label format: `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.
+- **Search behavior**: Every list must include a search bar and it must search across all relevant visible fields (not only a single column), matching the Item list behavior.
+- **Sorting**: Every list must support sortable column headers via the shared `DataTable`/`DataTableColumnHeader` pattern, consistent with other primary lists.
+- **Column sizing**: Keep column widths consistent across lists and use the Item list proportions as the reference baseline to avoid layout drift between modules.
+- **Status rendering**: Use the shared `StatusBadge` component (`@/components/status/StatusBadge`) for status cells and status chips to keep font size, spacing, and color mapping consistent across the app.
+- **Row interaction**: Clicking a table row must open that entity's detail card/page. Avoid separate row-level edit/detail icon buttons in list rows.
+- **Row context action**: Right-clicking a row should expose a contextual `Delete` action (when the entity supports deletion).
 
 ### Backend Patterns
 - **Services**: Business logic stays in services; controllers handle HTTP routing. Services go in feature modules (e.g., `src/inventory/inventory.service.ts`).
@@ -188,6 +197,11 @@ npm run build              # Production build
 2. **Import errors?** Ensure type-only imports use `import type`.
 3. **Prisma errors / Type Errors?** Run `npx prisma generate` after pulling schema changes.
 4. **API 404s?** Confirm backend is running on port 3000 and proxy is active.
+
+## Entity Deletion Policy
+- Source of truth: `docs/deletion-policy.md`
+- Apply policy before adding any new delete endpoint or UI delete action.
+- Backend must enforce all deletion rules; frontend should only mirror policy for UX, never replace backend validation.
 
 ## MCP Servers & Skills
 This project uses the following MCP servers:

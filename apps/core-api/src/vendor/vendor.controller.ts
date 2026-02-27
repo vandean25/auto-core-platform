@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Put,
@@ -85,5 +86,10 @@ export class VendorController {
     @Body() updateVendorDto: UpdateVendorDto,
   ) {
     return this.vendorService.update(id, updateVendorDto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.vendorService.remove(id);
   }
 }

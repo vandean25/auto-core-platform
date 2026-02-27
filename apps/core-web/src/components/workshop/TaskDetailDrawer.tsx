@@ -41,13 +41,19 @@ interface TaskLineItem {
 interface RepairTask {
   id: string
   title: string
+  done: boolean
   status: TaskStatus
+  lineItems: TaskLineItem[]
+  mechanicNotes: string
 }
 
 interface TaskDetailDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   task: RepairTask | null
+  onTaskStatusChange: (taskId: string, status: TaskStatus) => void
+  onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
+  onTaskMechanicNotesChange: (taskId: string, notes: string) => void
 }
 
 function formatMoney(value: number) {
@@ -59,36 +65,31 @@ function formatMoney(value: number) {
   }).format(value)
 }
 
-export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerProps) {
+export function TaskDetailDrawer({
+  open,
+  onOpenChange,
+  task,
+  onTaskStatusChange,
+  onTaskLineItemsChange,
+  onTaskMechanicNotesChange,
+}: TaskDetailDrawerProps) {
   const [status, setStatus] = useState<TaskStatus>('IN_PROGRESS')
-  const [items, setItems] = useState<TaskLineItem[]>([
-    {
-      id: 'li-1',
-      type: 'LABOR',
-      itemNo: 'LAB-001',
-      description: 'Diagnostic and inspection',
-      qty: 1,
-      unitPrice: 120,
-    },
-    {
-      id: 'li-2',
-      type: 'PART',
-      itemNo: 'BRK-PAD-F',
-      description: 'Front brake pads set',
-      qty: 1,
-      unitPrice: 189,
-    },
-  ])
   const [newType, setNewType] = useState<LineItemType>('PART')
   const [newItemNo, setNewItemNo] = useState('')
   const [newQty, setNewQty] = useState('1')
   const itemInputRef = useRef<HTMLInputElement | null>(null)
 
   const taskTitle = task?.title ?? 'Task Detail'
+  const items = task?.lineItems ?? []
 
   useEffect(() => {
     if (task) setStatus(task.status)
   }, [task])
+
+  useEffect(() => {
+    if (!task) return
+    onTaskStatusChange(task.id, status)
+  }, [status, task, onTaskStatusChange])
 
   const totals = useMemo(() => {
     const total = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
@@ -99,6 +100,8 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
   }, [items])
 
   function appendQuickItem() {
+    if (!task) return
+
     const itemNo = newItemNo.trim()
     const qty = Number(newQty)
     if (!itemNo || !Number.isFinite(qty) || qty <= 0) return
@@ -112,7 +115,7 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
       unitPrice: newType === 'LABOR' ? 95 : 35,
     }
 
-    setItems((current) => [...current, next])
+    onTaskLineItemsChange(task.id, [...items, next])
     setNewItemNo('')
     setNewQty('1')
     requestAnimationFrame(() => itemInputRef.current?.focus())
@@ -126,14 +129,14 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[480px] p-0 bg-white border-slate-200">
+      <SheetContent side="right" className="w-full sm:max-w-[480px] p-0">
         <div className="h-full flex flex-col">
-          <SheetHeader className="px-6 py-5 border-b border-slate-200">
+          <SheetHeader className="px-6 py-5 border-b">
             <div className="pr-8 space-y-3">
               <SheetTitle className="text-lg font-semibold tracking-tight">{taskTitle}</SheetTitle>
               <div className="w-[220px]">
                 <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                  <SelectTrigger className="h-9 text-xs border-slate-300">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -144,7 +147,7 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
                   </SelectContent>
                 </Select>
               </div>
-              <SheetDescription className="text-xs text-slate-500">
+              <SheetDescription className="text-xs">
                 Task details, labor lines, parts, and mechanic notes.
               </SheetDescription>
             </div>
@@ -152,40 +155,34 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
 
           <div className="flex-1 overflow-hidden px-6 py-4">
             <Tabs defaultValue="labor-parts" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 bg-slate-100">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="labor-parts">Labor & Parts</TabsTrigger>
                 <TabsTrigger value="mechanic-notes">Mechanic Notes</TabsTrigger>
               </TabsList>
 
               <TabsContent value="labor-parts" className="mt-4 flex-1 min-h-0">
-                <div className="h-full min-h-[440px] border border-slate-200 rounded-xl bg-white relative pb-[74px]">
+                <div className="h-full min-h-[440px] border rounded-xl relative pb-[74px]">
                   <div className="h-full overflow-auto">
                     <Table>
-                      <TableHeader className="sticky top-0 bg-white z-10">
-                        <TableRow className="hover:bg-white">
-                          <TableHead className="w-[84px] text-xs text-slate-500">Type</TableHead>
-                          <TableHead className="text-xs text-slate-500">Item No.</TableHead>
-                          <TableHead className="text-xs text-slate-500">Description</TableHead>
-                          <TableHead className="w-[54px] text-xs text-slate-500">Qty</TableHead>
-                          <TableHead className="w-[96px] text-xs text-slate-500">Unit Price</TableHead>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[84px] text-xs">Type</TableHead>
+                          <TableHead className="text-xs">Item No.</TableHead>
+                          <TableHead className="text-xs">Description</TableHead>
+                          <TableHead className="w-[54px] text-xs">Qty</TableHead>
+                          <TableHead className="w-[96px] text-xs">Unit Price</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {items.map((item) => (
-                          <TableRow key={item.id} className="hover:bg-slate-50">
+                          <TableRow key={item.id}>
                             <TableCell>
-                              <Badge
-                                className={
-                                  item.type === 'LABOR'
-                                    ? 'bg-violet-100 text-violet-700 hover:bg-violet-100'
-                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-100'
-                                }
-                              >
+                              <Badge variant={item.type === 'LABOR' ? 'secondary' : 'outline'}>
                                 {item.type === 'LABOR' ? 'Labor' : 'Part'}
                               </Badge>
                             </TableCell>
-                            <TableCell className="font-medium text-slate-700">{item.itemNo}</TableCell>
-                            <TableCell className="text-slate-600">{item.description}</TableCell>
+                            <TableCell className="font-medium">{item.itemNo}</TableCell>
+                            <TableCell className="text-muted-foreground">{item.description}</TableCell>
                             <TableCell>{item.qty}</TableCell>
                             <TableCell>{formatMoney(item.unitPrice)}</TableCell>
                           </TableRow>
@@ -194,10 +191,10 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
                     </Table>
                   </div>
 
-                  <div className="absolute left-0 right-0 bottom-0 border-t border-blue-100 bg-blue-50/50 px-3 py-2">
+                  <div className="absolute left-0 right-0 bottom-0 border-t bg-muted/40 px-3 py-2">
                     <div className="grid grid-cols-[98px_1fr_70px] gap-2">
                       <Select value={newType} onValueChange={(v) => setNewType(v as LineItemType)}>
-                        <SelectTrigger className="h-8 bg-white border-blue-200 text-xs">
+                        <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -212,7 +209,7 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
                         onChange={(e) => setNewItemNo(e.target.value)}
                         onKeyDown={handleQuickAddKeyDown}
                         placeholder="Search item or type item no..."
-                        className="h-8 bg-white border-blue-200 text-xs"
+                        className="h-8 text-xs"
                       />
 
                       <Input
@@ -220,22 +217,26 @@ export function TaskDetailDrawer({ open, onOpenChange, task }: TaskDetailDrawerP
                         onChange={(e) => setNewQty(e.target.value)}
                         onKeyDown={handleQuickAddKeyDown}
                         placeholder="Qty"
-                        className="h-8 bg-white border-blue-200 text-xs text-right"
+                        className="h-8 text-xs text-right"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                   {totals.count} lines · Subtotal {formatMoney(totals.total)}
                 </div>
               </TabsContent>
 
               <TabsContent value="mechanic-notes" className="mt-4 flex-1">
                 <textarea
-                  className="w-full min-h-[460px] rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Mechanic observations, measurements, and service notes..."
-                  defaultValue="Pads are worn unevenly on front axle. Rotor runout measured at 0.08mm. Recommend replacing front pads and resurfacing rotors."
+                  value={task?.mechanicNotes ?? ''}
+                  onChange={(e) => {
+                    if (!task) return
+                    onTaskMechanicNotesChange(task.id, e.target.value)
+                  }}
                 />
               </TabsContent>
             </Tabs>

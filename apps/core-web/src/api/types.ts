@@ -255,6 +255,28 @@ export interface RevenueAnalytics {
 }
 
 export type WorkshopOrderStatus = 'SCHEDULED' | 'INTAKE' | 'IN_PROGRESS' | 'COMPLETED'
+export type WorkshopTaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'WAITING_PARTS' | 'DONE'
+export type WorkshopLineItemType = 'LABOR' | 'PART'
+
+export interface WorkshopTaskLineItem {
+    id: string
+    type: WorkshopLineItemType
+    itemNo: string
+    description: string
+    qty: number
+    unitPrice: number
+}
+
+export interface WorkshopTask {
+    id: string
+    title: string
+    status: WorkshopTaskStatus
+    done: boolean
+    mechanic_notes?: string
+    mechanicNotes?: string
+    line_items?: WorkshopTaskLineItem[]
+    lineItems?: WorkshopTaskLineItem[]
+}
 
 export interface WorkshopOrder {
     id: string
@@ -265,7 +287,11 @@ export interface WorkshopOrder {
     vehicle: Vehicle
     odometer: number
     fuel_level: number
+    reported_issue?: string
+    reportedIssue?: string
     notes?: string
+    tasks?: WorkshopTask[]
+    invoice?: Invoice | null
     createdAt: string
 }
 
@@ -287,6 +313,7 @@ export interface CreateWorkshopOrderPayload {
     vehicleId: string
     odometer: number
     fuelLevel: number
+    reportedIssue?: string
     notes?: string
 }
 

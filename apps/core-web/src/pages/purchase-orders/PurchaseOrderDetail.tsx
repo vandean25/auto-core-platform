@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { usePurchaseOrder, useReceiveGoods } from '@/api/purchase-orders'
 import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { toast } from "sonner"
 import {
     Table,
@@ -21,7 +20,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { getPOStatusVariant } from '@/lib/utils'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import type { PurchaseOrder, PurchaseOrderItem } from '@/api/types'
 import { Receipt } from "lucide-react"
 
@@ -49,9 +48,7 @@ export default function PurchaseOrderDetail() {
                     <p className="text-slate-500">Vendor: {po.vendor?.name}</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                    <Badge className="text-lg px-4 py-1" variant={getPOStatusVariant(po.status)}>
-                        {po.status}
-                    </Badge>
+                    <StatusBadge status={po.status} />
 
                     <Button
                         variant="outline"

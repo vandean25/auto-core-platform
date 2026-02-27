@@ -238,6 +238,13 @@ export class SalesOrderService {
 
   async remove(id: string) {
     const order = await this.findOne(id);
+
+    if (order.invoice) {
+      throw new BadRequestException(
+        'Sales order cannot be deleted once an invoice exists. Use cancellation flow instead.',
+      );
+    }
+
     if (order.status !== SalesOrderStatus.DRAFT) {
       throw new BadRequestException('Only DRAFT orders can be deleted');
     }

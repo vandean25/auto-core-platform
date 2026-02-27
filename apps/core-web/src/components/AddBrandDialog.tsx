@@ -79,7 +79,7 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
             {!brand && (
                 <DialogTrigger asChild>
                     <Button size="sm">
-                        <Plus className="mr-2 h-4 w-4" /> Add Brand
+                        <Plus className="mr-2 h-4 w-4" /> Brand
                     </Button>
                 </DialogTrigger>
             )}

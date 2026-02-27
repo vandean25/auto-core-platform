@@ -8,6 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import { useEffect, useState } from "react"
 
 import {
   Table,
@@ -36,6 +37,13 @@ interface DataTableProps<TData, TValue> {
   searchColumn?: string
   searchPlaceholder?: string
   onRowClick?: (row: TData) => void
+  getRowContextActions?: (
+    row: TData
+  ) => Array<{
+    label: string
+    onClick: (row: TData) => void
+    destructive?: boolean
+  }>
 }
 
 export function DataTable<TData, TValue>({
@@ -54,7 +62,27 @@ export function DataTable<TData, TValue>({
   searchColumn,
   searchPlaceholder,
   onRowClick,
+  getRowContextActions,
 }: DataTableProps<TData, TValue>) {
+  const [contextMenu, setContextMenu] = useState<{
+    row: TData
+    x: number
+    y: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!contextMenu) return
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setContextMenu(null)
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape)
+    return () => window.removeEventListener("keydown", handleEscape)
+  }, [contextMenu])
+
   const table = useReactTable({
     data,
     columns,
@@ -118,6 +146,17 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                   onClick={() => onRowClick?.(row.original)}
+                  onContextMenu={(event) => {
+                    const actions = getRowContextActions?.(row.original)
+                    if (!actions || actions.length === 0) return
+
+                    event.preventDefault()
+                    setContextMenu({
+                      row: row.original,
+                      x: event.clientX,
+                      y: event.clientY,
+                    })
+                  }}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -167,6 +206,39 @@ export function DataTable<TData, TValue>({
             Next
         </Button>
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => setContextMenu(null)}
+          onContextMenu={(event) => {
+            event.preventDefault()
+            setContextMenu(null)
+          }}
+        >
+          <div
+            className="fixed z-50 min-w-40 rounded-md border bg-popover p-1 shadow-md"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {getRowContextActions?.(contextMenu.row).map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={`w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent ${
+                  action.destructive ? "text-destructive" : "text-foreground"
+                }`}
+                onClick={() => {
+                  action.onClick(contextMenu.row)
+                  setContextMenu(null)
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

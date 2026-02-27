@@ -21,12 +21,14 @@ describe('PurchaseService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      delete: jest.fn(),
     },
     purchaseOrderItem: {
       update: jest.fn(),
       findUnique: jest
         .fn()
         .mockResolvedValue({ id: 'poi1', quantity: 10, quantity_received: 0 }),
+      deleteMany: jest.fn(),
     },
     catalogItem: {
       findMany: jest.fn(),
@@ -218,6 +220,61 @@ describe('PurchaseService', () => {
           where: {},
         }),
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete DRAFT purchase order with no received or invoiced items', async () => {
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [
+          {
+            quantity_received: 0,
+            quantity_invoiced: 0,
+            purchase_invoice_lines: [],
+          },
+        ],
+      });
+      mockPrismaService.purchaseOrderItem.deleteMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.purchaseOrder.delete.mockResolvedValue({ id: 'po-1' });
+
+      await service.remove('po-1');
+
+      expect(mockPrismaService.purchaseOrderItem.deleteMany).toHaveBeenCalledWith({
+        where: { purchase_order_id: 'po-1' },
+      });
+      expect(mockPrismaService.purchaseOrder.delete).toHaveBeenCalledWith({
+        where: { id: 'po-1' },
+      });
+    });
+
+    it('should block deleting non-draft purchase order', async () => {
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        id: 'po-2',
+        status: PurchaseOrderStatus.PARTIAL,
+        items: [],
+      });
+
+      await expect(service.remove('po-2')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should block deleting purchase order with received items', async () => {
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        id: 'po-3',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [
+          {
+            quantity_received: 1,
+            quantity_invoiced: 0,
+            purchase_invoice_lines: [],
+          },
+        ],
+      });
+
+      await expect(service.remove('po-3')).rejects.toThrow(BadRequestException);
     });
   });
 });

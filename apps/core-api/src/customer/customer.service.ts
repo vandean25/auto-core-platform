@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -101,6 +105,27 @@ export class CustomerService {
 
   async remove(id: string) {
     await this.findOne(id); // Ensure exists
+
+    const [salesOrdersCount, invoicesCount, workshopOrdersCount, vehiclesCount] =
+      await Promise.all([
+        this.prisma.salesOrder.count({ where: { customer_id: id } }),
+        this.prisma.invoice.count({ where: { customer_id: id } }),
+        this.prisma.workshopOrder.count({ where: { customer_id: id } }),
+        this.prisma.vehicle.count({ where: { customer_id: id } }),
+      ]);
+
+    if (salesOrdersCount > 0 || invoicesCount > 0 || workshopOrdersCount > 0) {
+      throw new BadRequestException(
+        'Customer cannot be deleted because it has linked orders or invoices. Use archive/deactivate instead.',
+      );
+    }
+
+    if (vehiclesCount > 0) {
+      throw new BadRequestException(
+        'Customer cannot be deleted while vehicles are linked. Reassign or remove vehicles first.',
+      );
+    }
+
     return this.prisma.customer.delete({
       where: { id },
     });

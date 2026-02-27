@@ -49,7 +49,7 @@ export function AddRevenueGroupDialog() {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" /> Add Group
+                    <Plus className="mr-2 h-4 w-4" /> Group
                 </Button>
             </DialogTrigger>
             <DialogContent>

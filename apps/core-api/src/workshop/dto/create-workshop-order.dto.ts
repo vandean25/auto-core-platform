@@ -20,5 +20,9 @@ export class CreateWorkshopOrderDto {
 
   @IsString()
   @IsOptional()
+  reportedIssue?: string;
+
+  @IsString()
+  @IsOptional()
   notes?: string;
 }
