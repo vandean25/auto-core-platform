@@ -19,7 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
-    "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json"
+    "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
+    "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"

@@ -31,3 +31,6 @@ apps/core-api/prisma/*.db-journal
 
 # Firebase
 .firebase/
+
+# Local secret mapping
+secrets/gsm-mapping.json

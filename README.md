@@ -105,6 +105,37 @@ npx prisma migrate dev
 npx prisma db seed
 ```
 
+### 3. Shared Secrets via Google Secret Manager (Recommended)
+
+Use GSM so all machines/agents pull the same credentials without committing secrets.
+
+1. Authenticate and set project:
+
+```bash
+gcloud auth login
+gcloud config set project auto-core-platform-vande
+```
+
+2. Create local mapping file from template:
+
+```powershell
+Copy-Item secrets/gsm-mapping.example.json secrets/gsm-mapping.json
+```
+
+3. Update `secrets/gsm-mapping.json` with your real GSM secret names.
+
+4. Pull secrets:
+
+```bash
+# Backend -> apps/core-api/.env
+npm --prefix apps/core-api run secrets:pull
+
+# Frontend -> apps/core-web/.env.local
+npm --prefix apps/core-web run secrets:pull
+```
+
+Detailed reference: `docs/google-secret-manager.md`
+
 ---
 
 ## Development
