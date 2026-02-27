@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import { Phone, Mail, MapPin, ArrowLeft, Plus } from 'lucide-react'
 import {
     Table,
@@ -49,7 +50,7 @@ export default function CustomerDetail() {
                 <div className="flex gap-2">
                     <Button asChild>
                         <Link to={`/sales-orders/new?customerId=${customer.id}`}>
-                            <Plus className="mr-2 h-4 w-4" /> New Order
+                            <Plus className="mr-2 h-4 w-4" /> Order
                         </Link>
                     </Button>
                 </div>
@@ -120,7 +121,7 @@ export default function CustomerDetail() {
                                                         </Link>
                                                     </TableCell>
                                                     <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                                                    <TableCell><Badge variant="secondary">{order.status}</Badge></TableCell>
+                                                    <TableCell><StatusBadge status={order.status} /></TableCell>
                                                     <TableCell className="text-right">{formatCurrency(Number(order.total_amount))}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -151,7 +152,7 @@ export default function CustomerDetail() {
                                                 <TableRow key={invoice.id}>
                                                     <TableCell className="font-medium">{invoice.invoice_number || 'Draft'}</TableCell>
                                                     <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                                                    <TableCell><Badge variant="outline">{invoice.status}</Badge></TableCell>
+                                                    <TableCell><StatusBadge status={invoice.status} /></TableCell>
                                                     <TableCell className="text-right">{formatCurrency(Number(invoice.total_gross))}</TableCell>
                                                 </TableRow>
                                             ))}

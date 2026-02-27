@@ -75,3 +75,22 @@ export function useReceiveGoods() {
         },
     })
 }
+
+export function useDeletePurchaseOrder() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetchWithAuth(`${PO_API}/${id}`, {
+                method: 'DELETE',
+            })
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({ message: 'Failed to delete purchase order' }))
+                throw new Error(error.message || 'Failed to delete purchase order')
+            }
+            return id
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+        },
+    })
+}

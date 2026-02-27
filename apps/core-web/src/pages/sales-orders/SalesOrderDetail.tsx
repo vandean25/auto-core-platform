@@ -2,7 +2,6 @@ import { useParams, Link } from 'react-router-dom'
 import { useSalesOrder, useCreateInvoiceFromOrder } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
     Table,
     TableBody,
@@ -14,6 +13,7 @@ import {
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, FileText, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -46,17 +46,6 @@ export default function SalesOrderDetail() {
     if (isLoading) return <div className="p-8 text-center">Loading order...</div>
     if (!order) return <div className="p-8 text-center">Order not found</div>
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'DRAFT': return 'bg-slate-500'
-            case 'CONFIRMED': return 'bg-blue-500'
-            case 'IN_PROGRESS': return 'bg-orange-500'
-            case 'COMPLETED': return 'bg-green-500'
-            case 'INVOICED': return 'bg-purple-500'
-            default: return 'bg-slate-500'
-        }
-    }
-
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
             <div className="flex items-center justify-between mb-8">
@@ -69,7 +58,7 @@ export default function SalesOrderDetail() {
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
                             {order.order_number}
-                            <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                            <StatusBadge status={order.status} />
                         </h1>
                         <p className="text-slate-500">
                             Created on {new Date(order.createdAt).toLocaleDateString()}

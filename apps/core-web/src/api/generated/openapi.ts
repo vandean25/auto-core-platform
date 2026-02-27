@@ -190,7 +190,7 @@ export interface paths {
         get: operations["PurchaseController_findOne"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["PurchaseController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -286,7 +286,7 @@ export interface paths {
         get: operations["VendorController_findOne"];
         put: operations["VendorController_update"];
         post?: never;
-        delete?: never;
+        delete: operations["VendorController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -523,9 +523,89 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["WorkshopController_findAll"];
         put?: never;
         post: operations["WorkshopController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_updateOrder"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_updateTask"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_replaceTaskLineItems"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/create-invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_createInvoiceFromOrder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -571,6 +651,10 @@ export interface components {
         UpdateSalesOrderDto: Record<string, never>;
         RegisterIntakeDto: Record<string, never>;
         CreateWorkshopOrderDto: Record<string, never>;
+        UpdateWorkshopOrderDto: Record<string, never>;
+        CreateWorkshopTaskDto: Record<string, never>;
+        UpdateWorkshopTaskDto: Record<string, never>;
+        ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
     };
     responses: never;
     parameters: never;
@@ -900,6 +984,25 @@ export interface operations {
             };
         };
     };
+    PurchaseController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     PurchaseInvoiceController_findAll: {
         parameters: {
             query: {
@@ -1075,6 +1178,25 @@ export interface operations {
                 "application/json": components["schemas"]["UpdateVendorDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VendorController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -1607,6 +1729,29 @@ export interface operations {
             };
         };
     };
+    WorkshopController_findAll: {
+        parameters: {
+            query: {
+                search: string;
+                page: string;
+                pageSize: string;
+                sortField: string;
+                sortDirection: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkshopController_create: {
         parameters: {
             query?: never;
@@ -1619,6 +1764,138 @@ export interface operations {
                 "application/json": components["schemas"]["CreateWorkshopOrderDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_updateOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkshopTaskDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopTaskDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_replaceTaskLineItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceWorkshopTaskLineItemsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_createInvoiceFromOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {

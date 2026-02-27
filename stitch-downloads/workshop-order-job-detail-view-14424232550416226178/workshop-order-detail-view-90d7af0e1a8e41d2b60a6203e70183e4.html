@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workshop Order Job Detail View - Auto Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0F172A", // Dark Slate/Navy from screenshot
+                        "primary-light": "#1E293B",
+                        "accent-blue": "#E0F2FE", // Light blue for badges
+                        "accent-blue-text": "#0369A1",
+                        "background-light": "#F8FAFC", // Very light gray/blue tint
+                        "background-dark": "#0f1117",
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1e212b",
+                        "border-light": "#E2E8F0",
+                        "border-dark": "#2d313a",
+                        "text-primary-light": "#0F172A",
+                        "text-primary-dark": "#E2E8F0",
+                        "text-secondary-light": "#64748B",
+                        "text-secondary-dark": "#94a3b8",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem", // 8px
+                    },
+                },
+            },
+        };
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-sans text-text-primary-light dark:text-text-primary-dark antialiased transition-colors duration-200">
+<nav class="bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark px-6 py-3 sticky top-0 z-50">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-8">
+<div class="flex items-center font-bold text-xl tracking-tight text-primary dark:text-white">
+                    Auto Core
+                </div>
+<div class="hidden md:flex items-center space-x-1">
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Dashboard</a>
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Customers</a>
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Sales</a>
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Inventory</a>
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Vendors</a>
+<a class="px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white rounded-md transition-colors" href="#">Purchase Orders</a>
+<a class="px-3 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-primary dark:text-white rounded-md" href="#">Workshop</a>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<div class="relative hidden lg:block">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-outlined text-gray-400 text-[20px]">search</span>
+</span>
+<input class="pl-10 pr-16 py-1.5 text-sm border border-border-light dark:border-border-dark rounded-md bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark focus:ring-1 focus:ring-primary focus:border-primary placeholder-gray-400" placeholder="Search" type="text"/>
+<div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+<span class="text-xs text-gray-400 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">Ctrl+K</span>
+</div>
+</div>
+<button class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-white">
+<span class="material-icons-outlined text-[20px]">settings</span>
+</button>
+<div class="flex items-center space-x-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+<span>van.dean25@gmail.com</span>
+</div>
+<button class="flex items-center space-x-1 px-3 py-1.5 border border-border-light dark:border-border-dark rounded-md text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<span class="material-icons-outlined text-[18px]">logout</span>
+<span>Sign out</span>
+</button>
+</div>
+</div>
+</nav>
+<main class="max-w-7xl mx-auto px-6 py-8">
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<h1 class="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Workshop Order #WO-2026-0042</h1>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-blue text-accent-blue-text border border-blue-200">
+                        In Progress
+                    </span>
+</div>
+<p class="text-text-secondary-light dark:text-text-secondary-dark">Manage repair details, tasks, and billing.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center px-4 py-2 border border-border-light dark:border-border-dark rounded-md bg-surface-light dark:bg-surface-dark text-sm font-medium text-text-primary-light dark:text-text-primary-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm">
+<span class="material-icons-outlined text-[18px] mr-2">print</span>
+                    Print Job Card
+                </button>
+<button class="flex items-center justify-center px-4 py-2 border border-transparent rounded-md bg-primary text-sm font-medium text-white hover:bg-primary-light transition-colors shadow-sm">
+<span class="material-icons-outlined text-[18px] mr-2">receipt_long</span>
+                    Create Invoice
+                </button>
+</div>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="space-y-6 lg:col-span-1">
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">Customer Info</h3>
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark text-[20px]">person</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark font-medium">
+                                MM
+                            </div>
+<div>
+<p class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Max Mustermann</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Customer since 2021</p>
+</div>
+</div>
+<div class="pt-4 border-t border-border-light dark:border-border-dark space-y-3">
+<div class="flex items-start gap-3 text-sm">
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark text-[18px] mt-0.5">email</span>
+<span class="text-text-primary-light dark:text-text-primary-dark break-all">max.mustermann@example.at</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark text-[18px]">phone</span>
+<span class="text-text-primary-light dark:text-text-primary-dark">+43 664 1234567</span>
+</div>
+<div class="flex items-start gap-3 text-sm">
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark text-[18px] mt-0.5">location_on</span>
+<span class="text-text-primary-light dark:text-text-primary-dark">Hauptstraße 1<br/>1010 Wien, AT</span>
+</div>
+</div>
+<button class="w-full mt-2 flex items-center justify-center px-4 py-2 border border-border-light dark:border-border-dark rounded-md bg-white dark:bg-gray-800 text-sm font-medium text-text-primary-light dark:text-text-primary-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+<span class="material-icons-outlined text-[18px] mr-2">call</span>
+                            Call Customer
+                        </button>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">Vehicle Info</h3>
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark text-[20px]">directions_car</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+<span class="material-icons-outlined text-text-secondary-light dark:text-text-secondary-dark">image</span>
+</div>
+<div>
+<p class="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">BMW X5 xDrive40i</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">2023 Model • Black Sapphire</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div class="p-3 rounded bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark">
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1">License Plate</p>
+<p class="text-sm font-mono font-medium text-text-primary-light dark:text-text-primary-dark">W-12345X</p>
+</div>
+<div class="p-3 rounded bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark">
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1">Current Mileage</p>
+<p class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">45,230 km</p>
+</div>
+</div>
+<div class="text-sm">
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-1">VIN</p>
+<p class="font-mono text-xs text-text-primary-light dark:text-text-primary-dark select-all bg-gray-50 dark:bg-gray-800 p-2 rounded border border-border-light dark:border-border-dark">WBA1234567890ABCDE</p>
+</div>
+</div>
+</div>
+</div>
+<div class="space-y-6 lg:col-span-2">
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-6 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">Reported Issue</h3>
+<span class="px-2 py-1 text-xs font-medium rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800">High Priority</span>
+</div>
+<div class="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-md border border-red-100 dark:border-red-900/30">
+<p class="text-sm text-text-primary-light dark:text-text-primary-dark leading-relaxed">
+                            "Customer states there is a loud squeaking noise coming from the front wheels when braking at low speeds. The noise seems to be more prominent in the mornings or when the car is cold. Also requested a general check-up of fluid levels."
+                        </p>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-6 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">Repair Tasks</h3>
+<button class="text-sm text-primary dark:text-blue-400 font-medium hover:underline">+ Add Task</button>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-3 pb-4 border-b border-border-light dark:border-border-dark group">
+<div class="flex h-6 items-center">
+<input checked="" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700" id="task-1" name="task-1" type="checkbox"/>
+</div>
+<div class="flex-1">
+<label class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark line-through opacity-60" for="task-1">Inspect front brake pads and discs</label>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5">Technician: Thomas Gruber • 0.5h</p>
+</div>
+<div class="opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-gray-400 hover:text-red-500"><span class="material-icons-outlined text-[18px]">delete</span></button>
+</div>
+</div>
+<div class="flex items-start gap-3 pb-4 border-b border-border-light dark:border-border-dark group">
+<div class="flex h-6 items-center">
+<input class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700" id="task-2" name="task-2" type="checkbox"/>
+</div>
+<div class="flex-1">
+<label class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark" for="task-2">Replace front brake pads (OEM)</label>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">Pending Parts</span>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Est. 1.0h</p>
+</div>
+</div>
+<div class="opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-gray-400 hover:text-red-500"><span class="material-icons-outlined text-[18px]">delete</span></button>
+</div>
+</div>
+<div class="flex items-start gap-3 group">
+<div class="flex h-6 items-center">
+<input class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-700" id="task-3" name="task-3" type="checkbox"/>
+</div>
+<div class="flex-1">
+<label class="text-sm font-medium text-text-primary-light dark:text-text-primary-dark" for="task-3">Top up washer fluid &amp; coolant</label>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5">Est. 0.25h</p>
+</div>
+<div class="opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-gray-400 hover:text-red-500"><span class="material-icons-outlined text-[18px]">delete</span></button>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-6 shadow-sm">
+<h3 class="text-base font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">Internal Notes</h3>
+<div class="relative">
+<textarea class="block w-full rounded-md border-border-light dark:border-border-dark bg-white dark:bg-gray-800 text-sm shadow-sm focus:border-primary focus:ring-primary dark:text-white dark:focus:ring-blue-500 sm:text-sm p-3" placeholder="Add notes for technicians or service advisors..." rows="4"></textarea>
+<div class="absolute bottom-3 right-3">
+<button class="text-xs font-medium text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">Save Note</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>

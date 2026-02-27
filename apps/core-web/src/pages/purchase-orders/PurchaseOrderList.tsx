@@ -1,22 +1,34 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { usePurchaseOrders } from '@/api/purchase-orders'
+import { useDeletePurchaseOrder, usePurchaseOrders } from '@/api/purchase-orders'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { getPOStatusVariant } from '@/lib/utils'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import type { PurchaseOrder } from '@/api/types'
+import { toast } from 'sonner'
 
 export default function PurchaseOrderList() {
+    const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = usePurchaseOrders(queryParams)
+    const deleteMutation = useDeletePurchaseOrder()
 
     const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
     const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this purchase order?')) return
+        try {
+            await deleteMutation.mutateAsync(id)
+            toast.success('Purchase order deleted')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to delete purchase order')
+        }
+    }
 
     const columns: ColumnDef<PurchaseOrder>[] = [
         {
@@ -36,11 +48,7 @@ export default function PurchaseOrderList() {
         {
             accessorKey: 'status',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-            cell: ({ row }) => (
-                <Badge variant={getPOStatusVariant(row.original.status)}>
-                    {row.original.status}
-                </Badge>
-            ),
+            cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'createdAt',
@@ -64,7 +72,7 @@ export default function PurchaseOrderList() {
                 </div>
                 <Button asChild>
                     <Link to="/purchase-orders/new">
-                        <Plus className="mr-2 h-4 w-4" /> Create PO
+                        <Plus className="mr-2 h-4 w-4" /> Purchase Order
                     </Link>
                 </Button>
             </div>
@@ -76,6 +84,18 @@ export default function PurchaseOrderList() {
                 isLoading={isLoading}
                 searchColumn="order_number"
                 searchPlaceholder="Search orders..."
+                onRowClick={(row) => navigate(`/purchase-orders/${row.id}`)}
+                getRowContextActions={(row) =>
+                    row.status === 'DRAFT'
+                        ? [
+                              {
+                                  label: 'Delete',
+                                  onClick: () => void handleDelete(row.id),
+                                  destructive: true,
+                              },
+                          ]
+                        : []
+                }
                 {...tableState}
             />
         </div>

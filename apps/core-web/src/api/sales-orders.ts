@@ -95,3 +95,23 @@ export function useCreateInvoiceFromOrder() {
         },
     })
 }
+
+export function useDeleteSalesOrder() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetchWithAuth(`/api/sales-orders/${id}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: 'Failed to delete sales order' }))
+                throw new Error(error.message || 'Failed to delete sales order')
+            }
+            return id
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: salesOrderKeys.all })
+        },
+    })
+}

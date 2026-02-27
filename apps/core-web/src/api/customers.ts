@@ -94,7 +94,10 @@ export function useDeleteCustomer() {
             const response = await fetchWithAuth(`/api/customers/${id}`, {
                 method: 'DELETE',
             })
-            if (!response.ok) throw new Error('Failed to delete customer')
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: 'Failed to delete customer' }))
+                throw new Error(error.message || 'Failed to delete customer')
+            }
             return response.json()
         },
         onSuccess: () => {

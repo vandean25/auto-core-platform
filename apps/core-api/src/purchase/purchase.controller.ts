@@ -2,6 +2,7 @@ import * as express from 'express';
 import {
   Controller,
   Post,
+  Delete,
   Body,
   Param,
   Get,
@@ -113,5 +114,10 @@ export class PurchaseController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.purchaseService.remove(id);
   }
 }

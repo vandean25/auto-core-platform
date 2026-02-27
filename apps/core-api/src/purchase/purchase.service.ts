@@ -264,4 +264,56 @@ export class PurchaseService {
       },
     });
   }
+
+  async remove(id: string) {
+    const order = await this.prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            purchase_invoice_lines: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    if (order.status !== PurchaseOrderStatus.DRAFT) {
+      throw new BadRequestException('Only DRAFT purchase orders can be deleted');
+    }
+
+    const hasReceivedItems = order.items.some((item) => item.quantity_received > 0);
+    if (hasReceivedItems) {
+      throw new BadRequestException(
+        'Purchase order cannot be deleted because items were already received.',
+      );
+    }
+
+    const hasInvoicedItems = order.items.some((item) => {
+      const invoicedQty =
+        typeof (item.quantity_invoiced as any)?.gt === 'function'
+          ? (item.quantity_invoiced as any).gt(0)
+          : Number(item.quantity_invoiced) > 0;
+
+      return invoicedQty || item.purchase_invoice_lines.length > 0;
+    });
+    if (hasInvoicedItems) {
+      throw new BadRequestException(
+        'Purchase order cannot be deleted because it is linked to purchase invoices.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.purchaseOrderItem.deleteMany({
+        where: { purchase_order_id: id },
+      });
+
+      return tx.purchaseOrder.delete({
+        where: { id },
+      });
+    });
+  }
 }

@@ -6,11 +6,13 @@ import PurchaseOrderList from './pages/purchase-orders/PurchaseOrderList'
 import PurchaseOrderCreate from './pages/purchase-orders/PurchaseOrderCreate'
 import PurchaseOrderDetail from './pages/purchase-orders/PurchaseOrderDetail'
 import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
+import InvoiceDetailPage from './pages/sales/InvoiceDetailPage'
 import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
 import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
+import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
 import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
@@ -83,7 +85,7 @@ function App() {
                 <NavLink to="/purchase-orders" className={navLinkClass}>Purchase Orders</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/workshop/intake" className={navLinkClass}>Workshop</NavLink>
+                <NavLink to="/workshop/orders" className={navLinkClass}>Workshop Orders</NavLink>
               </nav>
             </div>
 
@@ -140,9 +142,11 @@ function App() {
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
             <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
+            <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/workshop/intake" element={<IntakeDashboard />} />
+            <Route path="/workshop/orders" element={<WorkshopOrderList />} />
             <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
           </Routes>
           <Toaster />

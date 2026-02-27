@@ -34,3 +34,8 @@ apps/core-api/prisma/*.db-journal
 
 # Local secret mapping
 secrets/gsm-mapping.json
+
+# Local temp/debug artifacts
+.tmp_*.txt
+*.dev.out.log
+*.dev.err.log

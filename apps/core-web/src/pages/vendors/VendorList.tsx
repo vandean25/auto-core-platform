@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { useVendors } from '@/api/vendors'
+import { useDeleteVendor, useVendors } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
 import { VendorDialog } from './VendorDialog'
 import { Plus } from 'lucide-react'
@@ -9,14 +9,26 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import type { Vendor } from '@/api/types'
+import { toast } from 'sonner'
 
 export default function VendorList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useVendors(queryParams)
+    const deleteMutation = useDeleteVendor()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
     const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this vendor?')) return
+        try {
+            await deleteMutation.mutateAsync(id)
+            toast.success('Vendor deleted')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to delete vendor')
+        }
+    }
 
     const columns: ColumnDef<Vendor>[] = [
         {
@@ -56,7 +68,7 @@ export default function VendorList() {
                     <p className="text-slate-500">Manage your suppliers and service providers.</p>
                 </div>
                 <Button onClick={() => setIsDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Vendor
+                    <Plus className="mr-2 h-4 w-4" /> Vendor
                 </Button>
             </div>
 
@@ -67,6 +79,13 @@ export default function VendorList() {
                 isLoading={isLoading}
                 searchColumn="name"
                 searchPlaceholder="Search vendors..."
+                getRowContextActions={(row) => [
+                    {
+                        label: 'Delete',
+                        onClick: () => void handleDelete(row.id),
+                        destructive: true,
+                    },
+                ]}
                 {...tableState}
             />
 

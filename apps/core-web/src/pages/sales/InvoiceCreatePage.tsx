@@ -11,7 +11,6 @@ import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -29,6 +28,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import type { InventoryItem } from "@/api/types"
+import { StatusBadge } from "@/components/status/StatusBadge"
 
 const DEFAULT_TAX_RATE = 20
 
@@ -115,9 +115,7 @@ export default function InvoiceCreatePage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">New Invoice</h1>
-          <Badge variant="secondary" className="px-3 py-1 bg-gray-100 text-gray-600">
-            DRAFT
-          </Badge>
+          <StatusBadge status="DRAFT" />
         </div>
         <div className="flex gap-4">
           <Button variant="secondary" onClick={handleSaveDraft} disabled={createInvoiceMutation.isPending}>

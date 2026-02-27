@@ -329,6 +329,8 @@ model Invoice {
   vehicle        Vehicle?      @relation(fields: [vehicle_id], references: [id])
   sales_order_id String?       @unique
   sales_order    SalesOrder?   @relation(fields: [sales_order_id], references: [id])
+  workshop_order_id String?    @unique
+  workshop_order  WorkshopOrder? @relation(fields: [workshop_order_id], references: [id])
   
   status         InvoiceStatus @default(DRAFT)
   date           DateTime      @default(now())
@@ -442,10 +444,59 @@ model WorkshopOrder {
 
   odometer     Int
   fuel_level   Int                 // 0-100
+  reported_issue String?
   notes        String?
+  tasks        WorkshopTask[]
+  invoice      Invoice?
 
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
   @@map("workshop_orders")
+}
+
+enum WorkshopTaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  WAITING_PARTS
+  DONE
+}
+
+enum WorkshopLineItemType {
+  LABOR
+  PART
+}
+
+model WorkshopTask {
+  id                String             @id @default(uuid())
+  workshop_order_id String
+  workshop_order    WorkshopOrder      @relation(fields: [workshop_order_id], references: [id], onDelete: Cascade)
+
+  title             String
+  status            WorkshopTaskStatus @default(NOT_STARTED)
+  mechanic_notes    String?
+
+  line_items        WorkshopTaskLineItem[]
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@map("workshop_tasks")
+}
+
+model WorkshopTaskLineItem {
+  id                String               @id @default(uuid())
+  workshop_task_id  String
+  workshop_task     WorkshopTask         @relation(fields: [workshop_task_id], references: [id], onDelete: Cascade)
+
+  type              WorkshopLineItemType
+  item_no           String
+  description       String
+  quantity          Decimal              @db.Decimal(10, 2)
+  unit_price        Decimal              @db.Decimal(10, 2)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@map("workshop_task_line_items")
 }
