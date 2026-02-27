@@ -196,3 +196,31 @@ This project uses the following MCP servers:
 - **prisma-mcp-server**: For database schema management.
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
+
+### Local Project Skills
+- **Stitch Fetch Skill**: `skills/stitch-fetch/SKILL.md`
+  - Use it to fetch Stitch screen metadata and download image/code assets via hosted URLs using `curl -L`.
+
+## Google Secret Manager (Shared Dev Secrets)
+
+Use Google Secret Manager (GSM) as the source of truth for local dev credentials across machines and agents.
+
+### Files
+- Mapping template: `secrets/gsm-mapping.example.json`
+- Local mapping (gitignored): `secrets/gsm-mapping.json`
+- Pull script: `tools/pull-secrets-from-gsm.mjs`
+- Full guide: `docs/google-secret-manager.md`
+
+### One-time Setup (per machine)
+1. `gcloud auth login`
+2. `gcloud config set project auto-core-platform-vande`
+3. `Copy-Item secrets/gsm-mapping.example.json secrets/gsm-mapping.json`
+4. Update `secrets/gsm-mapping.json` secret names to match your GSM secrets.
+
+### Pull Secrets
+- Backend env (`apps/core-api/.env`):
+  - `npm --prefix apps/core-api run secrets:pull`
+- Frontend env (`apps/core-web/.env.local`):
+  - `npm --prefix apps/core-web run secrets:pull`
+
+Never commit real secret values or generated local `.env` files.

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-web",
     "api:types:generate": "openapi-typescript ../core-api/openapi/openapi.json -o src/api/generated/openapi.ts",
     "api:types:check": "npm run api:types:generate && git diff --exit-code -- src/api/generated/openapi.ts"
   },
