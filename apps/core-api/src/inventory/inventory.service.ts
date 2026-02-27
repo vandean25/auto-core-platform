@@ -151,7 +151,7 @@ export class InventoryService {
       ]);
     }
 
-    // Common transformation logic
+    // Pagination precedence: take > pageSize > limit > default(10)
     const last_page = Math.ceil(
       total / (params.take || params.pageSize || params.limit || 10),
     );

@@ -276,5 +276,23 @@ describe('PurchaseService', () => {
 
       await expect(service.remove('po-3')).rejects.toThrow(BadRequestException);
     });
+
+    it('should block deleting purchase order with invoiced items', async () => {
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        id: 'po-4',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [
+          {
+            quantity_received: 0,
+            quantity_invoiced: 0,
+            purchase_invoice_lines: [{ id: 'pil-1' }],
+          },
+        ],
+      });
+
+      await expect(service.remove('po-4')).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.purchaseOrderItem.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.purchaseOrder.delete).not.toHaveBeenCalled();
+    });
   });
 });

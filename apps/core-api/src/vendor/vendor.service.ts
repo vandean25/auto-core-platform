@@ -95,7 +95,7 @@ export class VendorService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<Vendor> {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
     });

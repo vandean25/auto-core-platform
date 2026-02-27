@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
+import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
@@ -40,7 +41,7 @@ export default function WorkshopOrderList() {
       orderNo: order.id,
       customer: getCustomerName(order),
       vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
-      openedAt: new Date(order.createdAt).toLocaleString(),
+      openedAt: format(new Date(order.createdAt), 'PPP'),
       status: order.status,
     }))
   }, [responseData])
@@ -89,6 +90,7 @@ export default function WorkshopOrderList() {
         data={rows}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
+        searchColumn='orderNo'
         searchPlaceholder='Search workshop orders...'
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
         {...tableState}

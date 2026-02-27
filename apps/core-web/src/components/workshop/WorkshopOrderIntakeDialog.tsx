@@ -74,6 +74,22 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
     setSelectedCustomer(null)
     setCustomerMode('existing')
     setActiveTab('existing')
+    setNewVehicle({
+      vin: '',
+      plate: '',
+      make: '',
+      model: '',
+      year: String(new Date().getFullYear()),
+    })
+    setNewCustomer({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+    })
+    setOdometer('')
+    setFuelLevel('50')
+    setNotes('')
   }
 
   const handleDialogOpenChange = (nextOpen: boolean) => {

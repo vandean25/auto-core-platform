@@ -122,6 +122,11 @@ gcloud config set project auto-core-platform-vande
 Copy-Item secrets/gsm-mapping.example.json secrets/gsm-mapping.json
 ```
 
+```bash
+# macOS/Linux
+cp secrets/gsm-mapping.example.json secrets/gsm-mapping.json
+```
+
 3. Update `secrets/gsm-mapping.json` with your real GSM secret names.
 
 4. Pull secrets:

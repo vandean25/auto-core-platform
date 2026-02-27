@@ -50,8 +50,8 @@ export function WorkshopOrderDetails() {
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
-    lineItems: task.lineItems ?? task.line_items ?? [],
-    mechanicNotes: task.mechanicNotes ?? task.mechanic_notes ?? '',
+    lineItems: task.lineItems ?? [],
+    mechanicNotes: task.mechanicNotes ?? '',
   })), [order])
 
   const activeTask = useMemo(() => {

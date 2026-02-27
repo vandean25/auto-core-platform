@@ -237,19 +237,20 @@ export class SalesOrderService {
   }
 
   async remove(id: string) {
-    const order = await this.findOne(id);
+    const result = await this.prisma.salesOrder.deleteMany({
+      where: {
+        id,
+        status: SalesOrderStatus.DRAFT,
+        invoice: null,
+      },
+    });
 
-    if (order.invoice) {
+    if (result.count === 0) {
       throw new BadRequestException(
-        'Sales order cannot be deleted once an invoice exists. Use cancellation flow instead.',
+        'Sales order can only be deleted when it is DRAFT and has no invoice.',
       );
     }
 
-    if (order.status !== SalesOrderStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT orders can be deleted');
-    }
-    return this.prisma.salesOrder.delete({
-      where: { id },
-    });
+    return { id };
   }
 }

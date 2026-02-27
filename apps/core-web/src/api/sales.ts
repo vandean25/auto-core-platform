@@ -51,7 +51,16 @@ export function useInvoice(id: string) {
         queryKey: ['invoices', id],
         queryFn: async () => {
              const response = await fetchWithAuth(`/api/sales/invoices/${id}`)
-             if (!response.ok) throw new Error('Failed to fetch invoice')
+             if (!response.ok) {
+                const payload = await response.json().catch(() => ({}))
+                const error = new Error(payload?.message || 'Failed to fetch invoice') as Error & {
+                    status?: number
+                    response?: { status: number; data: unknown }
+                }
+                error.status = response.status
+                error.response = { status: response.status, data: payload }
+                throw error
+             }
              return response.json()
         },
         enabled: !!id,

@@ -490,6 +490,7 @@ model WorkshopTaskLineItem {
   workshop_task     WorkshopTask         @relation(fields: [workshop_task_id], references: [id], onDelete: Cascade)
 
   type              WorkshopLineItemType
+  // For PART this stores SKU/part number; for LABOR this stores a labor code.
   item_no           String
   description       String
   quantity          Decimal              @db.Decimal(10, 2)

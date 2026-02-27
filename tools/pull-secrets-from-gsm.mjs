@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 function parseArgs(argv) {
   const out = {
@@ -14,9 +14,16 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
-    if (arg === '--mapping') out.mapping = argv[++i]
-    else if (arg === '--target') out.target = argv[++i]
-    else if (arg === '--project') out.projectId = argv[++i]
+    if (arg === '--mapping') {
+      if (i + 1 >= argv.length) throw new Error('Missing value for --mapping')
+      out.mapping = argv[++i]
+    } else if (arg === '--target') {
+      if (i + 1 >= argv.length) throw new Error('Missing value for --target')
+      out.target = argv[++i]
+    } else if (arg === '--project') {
+      if (i + 1 >= argv.length) throw new Error('Missing value for --project')
+      out.projectId = argv[++i]
+    }
     else if (arg === '--dry-run') out.dryRun = true
     else if (arg === '--help' || arg === '-h') out.help = true
     else throw new Error(`Unknown argument: ${arg}`)
@@ -37,25 +44,26 @@ Examples:
 }
 
 function runGcloud(secretName, projectId, version = 'latest') {
+  const args = [
+    'secrets',
+    'versions',
+    'access',
+    String(version),
+    `--secret=${secretName}`,
+    `--project=${projectId}`,
+    '--quiet',
+  ]
+
   if (process.platform === 'win32') {
-    const command =
-      `gcloud secrets versions access ${String(version)} ` +
-      `--secret=${secretName} --project=${projectId} --quiet`
-    return execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return execFileSync('gcloud.cmd', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   }
-  return execFileSync(
-    'gcloud',
-    [
-      'secrets',
-      'versions',
-      'access',
-      String(version),
-      `--secret=${secretName}`,
-      `--project=${projectId}`,
-      '--quiet',
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-  )
+  return execFileSync('gcloud', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 function serializeEnvValue(raw) {

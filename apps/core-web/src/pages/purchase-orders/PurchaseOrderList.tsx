@@ -26,7 +26,13 @@ export default function PurchaseOrderList() {
             await deleteMutation.mutateAsync(id)
             toast.success('Purchase order deleted')
         } catch (error: any) {
-            toast.error(error?.message || 'Failed to delete purchase order')
+            const userMessage =
+                error?.response?.data?.message ||
+                error?.data?.message ||
+                error?.message ||
+                String(error) ||
+                'Failed to delete purchase order'
+            toast.error(userMessage)
         }
     }
 

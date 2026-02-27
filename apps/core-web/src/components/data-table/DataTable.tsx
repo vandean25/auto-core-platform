@@ -8,7 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   Table,
@@ -69,6 +69,17 @@ export function DataTable<TData, TValue>({
     x: number
     y: number
   } | null>(null)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  const openRowContextMenu = (row: TData, x: number, y: number) => {
+    const actions = getRowContextActions?.(row)
+    if (!actions || actions.length === 0) return false
+
+    setContextMenu({ row, x, y })
+    setMenuPosition({ top: y, left: x })
+    return true
+  }
 
   useEffect(() => {
     if (!contextMenu) return
@@ -81,6 +92,19 @@ export function DataTable<TData, TValue>({
 
     window.addEventListener("keydown", handleEscape)
     return () => window.removeEventListener("keydown", handleEscape)
+  }, [contextMenu])
+
+  useEffect(() => {
+    if (!contextMenu || !menuRef.current) return
+
+    const menuWidth = menuRef.current.offsetWidth
+    const menuHeight = menuRef.current.offsetHeight
+    const maxLeft = Math.max(0, window.innerWidth - menuWidth)
+    const maxTop = Math.max(0, window.innerHeight - menuHeight)
+    const clampedLeft = Math.max(0, Math.min(contextMenu.x, maxLeft))
+    const clampedTop = Math.max(0, Math.min(contextMenu.y, maxTop))
+
+    setMenuPosition({ top: clampedTop, left: clampedLeft })
   }, [contextMenu])
 
   const table = useReactTable({
@@ -147,16 +171,18 @@ export function DataTable<TData, TValue>({
                   data-state={row.getIsSelected() && "selected"}
                   onClick={() => onRowClick?.(row.original)}
                   onContextMenu={(event) => {
-                    const actions = getRowContextActions?.(row.original)
-                    if (!actions || actions.length === 0) return
-
                     event.preventDefault()
-                    setContextMenu({
-                      row: row.original,
-                      x: event.clientX,
-                      y: event.clientY,
-                    })
+                    openRowContextMenu(row.original, event.clientX, event.clientY)
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) {
+                      return
+                    }
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    event.preventDefault()
+                    openRowContextMenu(row.original, rect.left + 12, rect.top + rect.height / 2)
+                  }}
+                  tabIndex={getRowContextActions?.(row.original)?.length ? 0 : undefined}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -218,8 +244,12 @@ export function DataTable<TData, TValue>({
         >
           <div
             className="fixed z-50 min-w-40 rounded-md border bg-popover p-1 shadow-md"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
+            style={{
+              top: menuPosition?.top ?? contextMenu.y,
+              left: menuPosition?.left ?? contextMenu.x,
+            }}
             onClick={(event) => event.stopPropagation()}
+            ref={menuRef}
           >
             {getRowContextActions?.(contextMenu.row).map((action) => (
               <button

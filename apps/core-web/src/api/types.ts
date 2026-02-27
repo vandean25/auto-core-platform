@@ -272,9 +272,7 @@ export interface WorkshopTask {
     title: string
     status: WorkshopTaskStatus
     done: boolean
-    mechanic_notes?: string
     mechanicNotes?: string
-    line_items?: WorkshopTaskLineItem[]
     lineItems?: WorkshopTaskLineItem[]
 }
 
