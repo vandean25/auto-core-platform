@@ -639,7 +639,7 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
-                limit?: number;
+                pageSize?: number;
                 search?: string;
                 location?: string;
                 brand?: string;
@@ -1467,7 +1467,6 @@ export interface operations {
                 status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
                 page?: number;
                 pageSize?: number;
-                limit?: number;
                 search?: string;
                 sortField?: string;
                 sortDirection?: "asc" | "desc";
