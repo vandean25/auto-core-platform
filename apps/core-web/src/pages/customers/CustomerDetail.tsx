@@ -56,10 +56,10 @@ export default function CustomerDetail() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <Card className="lg:col-span-1">
                     <CardHeader>
-                        <CardTitle>Contact Information</CardTitle>
+                        <CardTitle className="text-base font-semibold">Contact Information</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export default function CustomerDetail() {
                     </CardContent>
                 </Card>
 
-                <div className="md:col-span-2">
+                <div className="lg:col-span-2">
                     <Tabs defaultValue="orders">
                         <TabsList>
                             <TabsTrigger value="orders">Active Orders</TabsTrigger>

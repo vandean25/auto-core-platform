@@ -4,6 +4,7 @@ import { usePurchaseOrder, useReceiveGoods } from '@/api/purchase-orders'
 import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
 import { toast } from "sonner"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     Table,
     TableBody,
@@ -67,35 +68,83 @@ export default function PurchaseOrderDetail() {
                 </div>
             </div>
 
-            <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>Item</TableHead>
-                            <TableHead className="text-right">Ordered</TableHead>
-                            <TableHead className="text-right">Received</TableHead>
-                            <TableHead className="text-right">Remaining</TableHead>
-                            <TableHead className="text-right">Cost</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {po.items.map((item: PurchaseOrderItem) => (
-                            <TableRow key={item.id}>
-                                <TableCell>{item.catalog_item?.sku || 'N/A'}</TableCell>
-                                <TableCell>{item.catalog_item?.name || 'Unknown Item'}</TableCell>
-                                <TableCell className="text-right">{item.quantity}</TableCell>
-                                <TableCell className="text-right text-green-600 font-medium">
-                                    {item.quantity_received}
-                                </TableCell>
-                                <TableCell className="text-right text-orange-600">
-                                    {item.quantity - item.quantity_received}
-                                </TableCell>
-                                <TableCell className="text-right">${item.unit_cost}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="space-y-6 lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Purchase Order</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-sm">
+                            <div>
+                                <div className="text-muted-foreground">Order #</div>
+                                <div className="font-medium">{po.order_number}</div>
+                            </div>
+                            <div>
+                                <div className="text-muted-foreground">Created</div>
+                                <div className="font-medium">{new Date(po.createdAt).toLocaleDateString()}</div>
+                            </div>
+                            <div>
+                                <div className="text-muted-foreground">Items</div>
+                                <div className="font-medium">{po.items.length}</div>
+                            </div>
+                            <div>
+                                <div className="text-muted-foreground">Unbilled Receipts</div>
+                                <div className="font-medium">{poUnbilledCount} items</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Vendor</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            <div className="font-medium">{po.vendor?.name}</div>
+                            {po.vendor?.email && <div className="text-muted-foreground">{po.vendor.email}</div>}
+                            {po.vendor?.account_number && (
+                                <div className="text-muted-foreground">Account: {po.vendor.account_number}</div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="lg:col-span-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Line Items</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>SKU</TableHead>
+                                        <TableHead>Item</TableHead>
+                                        <TableHead className="text-right">Ordered</TableHead>
+                                        <TableHead className="text-right">Received</TableHead>
+                                        <TableHead className="text-right">Remaining</TableHead>
+                                        <TableHead className="text-right">Cost</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {po.items.map((item: PurchaseOrderItem) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>{item.catalog_item?.sku || 'N/A'}</TableCell>
+                                            <TableCell>{item.catalog_item?.name || 'Unknown Item'}</TableCell>
+                                            <TableCell className="text-right">{item.quantity}</TableCell>
+                                            <TableCell className="text-right text-green-600 font-medium">
+                                                {item.quantity_received}
+                                            </TableCell>
+                                            <TableCell className="text-right text-orange-600">
+                                                {item.quantity - item.quantity_received}
+                                            </TableCell>
+                                            <TableCell className="text-right">${item.unit_cost}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
 
             <ReceiveGoodsDialog

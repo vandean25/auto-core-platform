@@ -104,50 +104,17 @@ export default function SalesOrderDetail() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Order Items</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>Qty</TableHead>
-                                    <TableHead>Price</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {order.items.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{item.description}</div>
-                                            <div className="text-xs text-muted-foreground">{item.catalog_item?.sku}</div>
-                                        </TableCell>
-                                        <TableCell>{Number(item.quantity)}</TableCell>
-                                        <TableCell>{formatCurrency(Number(item.unit_price))}</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(Number(item.total))}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
-                            <span className="text-muted-foreground font-medium">Total Amount:</span>
-                            <span className="text-2xl font-bold">{formatCurrency(Number(order.total_amount))}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="space-y-6 lg:col-span-1">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Customer</CardTitle>
+                            <CardTitle className="text-base font-semibold">Customer</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="font-medium text-lg">
-                                {order.customer.type === 'COMPANY' ? order.customer.company_name : `${order.customer.first_name} ${order.customer.last_name}`}
+                                {order.customer.type === 'COMPANY'
+                                    ? order.customer.company_name
+                                    : `${order.customer.first_name} ${order.customer.last_name}`}
                             </div>
                             <div className="text-sm text-muted-foreground mt-2">
                                 <div>{order.customer.email}</div>
@@ -167,7 +134,7 @@ export default function SalesOrderDetail() {
                     {order.vehicle && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Vehicle</CardTitle>
+                                <CardTitle className="text-base font-semibold">Vehicle</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="font-medium">{order.vehicle.make} {order.vehicle.model}</div>
@@ -179,12 +146,49 @@ export default function SalesOrderDetail() {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Notes</CardTitle>
+                            <CardTitle className="text-base font-semibold">Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                                 {order.notes || "No notes."}
                             </p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="lg:col-span-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Order Items</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead>Qty</TableHead>
+                                        <TableHead>Price</TableHead>
+                                        <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {order.items.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{item.description}</div>
+                                                <div className="text-xs text-muted-foreground">{item.catalog_item?.sku}</div>
+                                            </TableCell>
+                                            <TableCell>{Number(item.quantity)}</TableCell>
+                                            <TableCell>{formatCurrency(Number(item.unit_price))}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(Number(item.total))}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
+                                <span className="text-muted-foreground font-medium">Total Amount:</span>
+                                <span className="text-2xl font-bold">{formatCurrency(Number(order.total_amount))}</span>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
