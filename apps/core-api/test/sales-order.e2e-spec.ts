@@ -9,6 +9,7 @@ describe('Sales Order Workflow (e2e)', () => {
   let prisma: PrismaService;
   let customerId: string;
   let catalogItemId: string;
+  let locationId: string;
 
   beforeAll(async () => {
     process.env.API_KEY = 'test-api-key';
@@ -66,6 +67,22 @@ describe('Sales Order Workflow (e2e)', () => {
       },
     });
     catalogItemId = item.id;
+
+    const location = await prisma.storageLocation.create({
+      data: {
+        name: `SO-Location-${Date.now()}`,
+        type: 'warehouse',
+      },
+    });
+    locationId = location.id;
+
+    await prisma.inventoryStock.create({
+      data: {
+        catalog_item_id: catalogItemId,
+        location_id: locationId,
+        quantity_on_hand: 100,
+      },
+    });
   });
 
   afterAll(async () => {
@@ -127,10 +144,23 @@ describe('Sales Order Workflow (e2e)', () => {
       .expect(201);
 
     expect(invoiceRes.body.sales_order_id).toBe(orderId);
-    expect(invoiceRes.body.invoice_number).toMatch(/RE-2026-\d+/);
+    expect(invoiceRes.body.invoice_number).toBeNull();
     expect(invoiceRes.body.status).toBe('DRAFT');
 
-    // Verify Order Status Updated
+    const pendingOrder = await prisma.salesOrder.findUnique({
+      where: { id: orderId },
+    });
+    expect(pendingOrder.status).toBe('DRAFT');
+
+    // 4. Finalize invoice to lock order
+    const finalizeRes = await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    expect(finalizeRes.body.status).toBe('FINALIZED');
+    expect(finalizeRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
+
     const finalOrder = await prisma.salesOrder.findUnique({
       where: { id: orderId },
     });

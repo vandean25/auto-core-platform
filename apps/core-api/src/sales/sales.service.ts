@@ -6,7 +6,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { Prisma, InvoiceStatus, TransactionType } from '@prisma/client';
+import {
+  Prisma,
+  InvoiceStatus,
+  SalesOrderStatus,
+  TransactionType,
+} from '@prisma/client';
 
 @Injectable()
 export class SalesService {
@@ -153,7 +158,7 @@ export class SalesService {
       }
 
       // 3. Update Invoice Status and return updated invoice
-      return tx.invoice.update({
+      const updatedInvoice = await tx.invoice.update({
         where: { id },
         data: {
           status: InvoiceStatus.FINALIZED,
@@ -161,6 +166,15 @@ export class SalesService {
         },
         include: { items: true, customer: true },
       });
+
+      if (invoice.sales_order_id) {
+        await tx.salesOrder.update({
+          where: { id: invoice.sales_order_id },
+          data: { status: SalesOrderStatus.INVOICED },
+        });
+      }
+
+      return updatedInvoice;
     });
   }
 
