@@ -19,6 +19,7 @@ const statusClassMap: Record<string, string> = {
   DONE: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   INVOICED: 'border-violet-200 bg-violet-100 text-violet-700',
   FINALIZED: 'border-violet-200 bg-violet-100 text-violet-700',
+  ISSUED: 'border-violet-200 bg-violet-100 text-violet-700',
   POSTED: 'border-indigo-200 bg-indigo-100 text-indigo-700',
   PAID: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   CANCELLED: 'border-rose-200 bg-rose-100 text-rose-700',

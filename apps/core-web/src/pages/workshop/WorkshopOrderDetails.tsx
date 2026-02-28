@@ -9,8 +9,9 @@ import { Phone, Plus, Printer, FileText } from 'lucide-react'
 import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
+import { InvoiceDrawer } from '@/components/invoices/InvoiceDrawer'
+import { useCreateDraftInvoice } from '@/api/invoices'
 import {
-  useCreateInvoiceFromWorkshopOrder,
   useCreateWorkshopTask,
   useReplaceWorkshopTaskLineItems,
   useUpdateWorkshopOrder,
@@ -43,10 +44,12 @@ export function WorkshopOrderDetails() {
   const createTask = useCreateWorkshopTask()
   const updateTask = useUpdateWorkshopTask()
   const replaceTaskLineItems = useReplaceWorkshopTaskLineItems()
-  const createInvoice = useCreateInvoiceFromWorkshopOrder()
+  const createDraftInvoice = useCreateDraftInvoice()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false)
+  const [draftInvoiceIds, setDraftInvoiceIds] = useState<Record<string, string>>({})
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
@@ -82,8 +85,14 @@ export function WorkshopOrderDetails() {
   const customerName = getCustomerName(order)
   const customerPhone = order.customer.phone ?? ''
   const canCreateInvoice = order.status === 'COMPLETED' && !order.invoice
+  const isLocked = order.status === 'INVOICED'
+  const activeInvoiceId = draftInvoiceIds[order.id] ?? order.invoice?.id ?? null
+  const invoiceActionLabel = activeInvoiceId ? 'View Invoice' : 'Generate Invoice'
+  const isInvoiceActionDisabled =
+    (!activeInvoiceId && !canCreateInvoice) || createDraftInvoice.isPending
 
   const handleSaveNotes = async (nextNotes: string) => {
+    if (isLocked) return
     if (nextNotes === (order.notes ?? '')) return
     try {
       await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
@@ -94,6 +103,7 @@ export function WorkshopOrderDetails() {
   }
 
   const handleSaveReportedIssue = async (nextIssue: string) => {
+    if (isLocked) return
     if (nextIssue === (order.reportedIssue || order.reported_issue || '')) return
     try {
       await updateOrder.mutateAsync({
@@ -107,6 +117,7 @@ export function WorkshopOrderDetails() {
   }
 
   const handleAddTask = async () => {
+    if (isLocked) return
     const title = newTaskTitle.trim()
     if (!title) return
 
@@ -121,6 +132,7 @@ export function WorkshopOrderDetails() {
   }
 
   const handleTaskStatusChange = async (taskId: string, status: WorkshopTaskStatus) => {
+    if (isLocked) return
     try {
       await updateTask.mutateAsync({ orderId: order.id, taskId, status })
     } catch (error: any) {
@@ -129,6 +141,7 @@ export function WorkshopOrderDetails() {
   }
 
   const handleTaskMechanicNotesChange = async (taskId: string, notes: string) => {
+    if (isLocked) return
     try {
       await updateTask.mutateAsync({ orderId: order.id, taskId, mechanicNotes: notes })
     } catch (error: any) {
@@ -140,6 +153,7 @@ export function WorkshopOrderDetails() {
     taskId: string,
     items: Array<{ type: WorkshopLineItemType; itemNo: string; description: string; qty: number; unitPrice: number }>,
   ) => {
+    if (isLocked) return
     try {
       await replaceTaskLineItems.mutateAsync({ orderId: order.id, taskId, items })
     } catch (error: any) {
@@ -152,15 +166,20 @@ export function WorkshopOrderDetails() {
   }
 
   const handleCreateInvoice = async () => {
+    if (activeInvoiceId) {
+      setInvoiceDrawerOpen(true)
+      return
+    }
     if (!canCreateInvoice) {
       toast.error('Invoice can be created only for completed and not-yet-invoiced workshop orders.')
       return
     }
 
     try {
-      const invoice = await createInvoice.mutateAsync(order.id)
+      const invoice = await createDraftInvoice.mutateAsync(order.id)
+      setDraftInvoiceIds((prev) => ({ ...prev, [order.id]: invoice.id }))
+      setInvoiceDrawerOpen(true)
       toast.success(`Invoice created (${invoice.invoice_number || invoice.id})`)
-      navigate(`/sales/invoices/${invoice.id}`)
     } catch (error: any) {
       toast.error(error?.message || 'Failed to create invoice')
     }
@@ -186,9 +205,9 @@ export function WorkshopOrderDetails() {
             <Printer className='h-4 w-4 mr-2' />
             Print Job Card
           </Button>
-          <Button onClick={handleCreateInvoice} disabled={!canCreateInvoice || createInvoice.isPending}>
+          <Button onClick={handleCreateInvoice} disabled={isInvoiceActionDisabled}>
             <FileText className='h-4 w-4 mr-2' />
-            {createInvoice.isPending ? 'Creating...' : 'Create Invoice'}
+            {createDraftInvoice.isPending ? 'Creating...' : invoiceActionLabel}
           </Button>
         </div>
       </div>
@@ -256,11 +275,12 @@ export function WorkshopOrderDetails() {
               </div>
             </CardHeader>
             <CardContent className='text-sm leading-relaxed'>
-              <textarea
-                className='w-full min-h-24 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
+            <textarea
+                className='w-full min-h-24 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted/40'
                 placeholder='Customer reported issue...'
                 defaultValue={order.reportedIssue || order.reported_issue || ''}
                 key={`reported-issue-${order.id}-${order.reportedIssue || order.reported_issue || ''}`}
+                readOnly={isLocked}
                 onBlur={(e) => void handleSaveReportedIssue(e.currentTarget.value)}
               />
             </CardContent>
@@ -282,8 +302,15 @@ export function WorkshopOrderDetails() {
                     }}
                     placeholder='New task title...'
                     className='h-8'
+                    disabled={isLocked}
                   />
-                  <Button variant='outline' size='sm' className='h-8' onClick={() => void handleAddTask()}>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-8'
+                    onClick={() => void handleAddTask()}
+                    disabled={isLocked}
+                  >
                     <Plus className='h-3.5 w-3.5 mr-1' />
                     Task
                   </Button>
@@ -302,11 +329,12 @@ export function WorkshopOrderDetails() {
                   className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors'
                 >
                   <div className='flex items-center gap-3 text-left'>
-                    <Checkbox
-                      checked={task.done}
-                      onCheckedChange={(checked) => void handleToggleTask(task.id, checked === true)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                  <Checkbox
+                    checked={task.done}
+                    onCheckedChange={(checked) => void handleToggleTask(task.id, checked === true)}
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={isLocked}
+                  />
                     <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
                       {task.title}
                     </span>
@@ -325,10 +353,11 @@ export function WorkshopOrderDetails() {
             </CardHeader>
             <CardContent>
               <textarea
-                className='w-full min-h-28 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring'
+                className='w-full min-h-28 rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted/40'
                 placeholder='Notes visible to service advisors and mechanics...'
                 defaultValue={order.notes || ''}
                 key={`notes-${order.id}-${order.notes || ''}`}
+                readOnly={isLocked}
                 onBlur={(e) => void handleSaveNotes(e.currentTarget.value)}
               />
             </CardContent>
@@ -353,6 +382,14 @@ export function WorkshopOrderDetails() {
         onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
         onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
         onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+        readOnly={isLocked}
+      />
+
+      <InvoiceDrawer
+        open={invoiceDrawerOpen}
+        onOpenChange={setInvoiceDrawerOpen}
+        invoiceId={activeInvoiceId}
+        orderId={order.id}
       />
     </div>
   )

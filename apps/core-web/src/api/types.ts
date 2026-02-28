@@ -137,7 +137,9 @@ export interface Vehicle {
     plate?: string
 }
 
-export type InvoiceStatus = 'DRAFT' | 'FINALIZED' | 'PAID' | 'CANCELLED'
+export type InvoiceStatus = 'DRAFT' | 'FINALIZED' | 'ISSUED' | 'PAID' | 'CANCELLED'
+
+export type DiscountType = 'PERCENTAGE' | 'FLAT_AMOUNT'
 
 export interface InvoiceItem {
     id: string
@@ -146,6 +148,10 @@ export interface InvoiceItem {
     quantity: number
     unit_price: number
     tax_rate: number
+    line_discount_type?: DiscountType | null
+    line_discount_value?: number | string | null
+    line_total?: number | string | null
+    revenue_group_name?: string | null
 }
 
 export interface Invoice {
@@ -156,11 +162,15 @@ export interface Invoice {
     customer: Customer
     vehicle_id?: string
     vehicle?: Vehicle
+    sales_order_id?: string | null
+    workshop_order_id?: string | null
     date: string
     due_date: string
     total_net: string
     total_tax: string
     total_gross: string
+    global_discount_type?: DiscountType | null
+    global_discount_value?: number | string | null
     notes?: string
     internal_notes?: string
     items: InvoiceItem[]
@@ -254,7 +264,7 @@ export interface RevenueAnalytics {
     period: string
 }
 
-export type WorkshopOrderStatus = 'SCHEDULED' | 'INTAKE' | 'IN_PROGRESS' | 'COMPLETED'
+export type WorkshopOrderStatus = 'SCHEDULED' | 'INTAKE' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED'
 export type WorkshopTaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'WAITING_PARTS' | 'DONE'
 export type WorkshopLineItemType = 'LABOR' | 'PART'
 
