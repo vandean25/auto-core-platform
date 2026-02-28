@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,8 +26,8 @@ const SEARCH_LIMIT = 100;
 @Injectable()
 export class WorkshopService {
   constructor(
-    private prisma: PrismaService,
-    private invoicesService: InvoicesService,
+    @Inject(PrismaService) private prisma: PrismaService,
+    @Inject(InvoicesService) private invoicesService: InvoicesService,
   ) {}
 
   private deriveOrderStatus(taskStatuses: WorkshopTaskStatus[]) {
@@ -263,7 +264,7 @@ export class WorkshopService {
       include: {
         customer: true,
         vehicle: true,
-        invoice: true,
+        invoice: { select: { id: true, invoice_number: true } },
         tasks: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -293,7 +294,7 @@ export class WorkshopService {
       include: {
         customer: true,
         vehicle: true,
-        invoice: true,
+        invoice: { select: { id: true, invoice_number: true } },
         tasks: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -310,7 +311,10 @@ export class WorkshopService {
     return this.prisma.$transaction(async (tx) => {
       const order = await tx.workshopOrder.findUnique({
         where: { id: orderId },
-        include: { tasks: true, invoice: true },
+        include: {
+          tasks: true,
+          invoice: { select: { id: true, invoice_number: true } },
+        },
       });
 
       if (!order) {
@@ -372,7 +376,10 @@ export class WorkshopService {
         },
         include: {
           workshop_order: {
-            select: { status: true, invoice: true },
+            select: {
+              status: true,
+              invoice: { select: { id: true, invoice_number: true } },
+            },
           },
         },
       });
@@ -429,7 +436,10 @@ export class WorkshopService {
       },
       include: {
         workshop_order: {
-          select: { status: true, invoice: true },
+          select: {
+            status: true,
+            invoice: { select: { id: true, invoice_number: true } },
+          },
         },
       },
     });

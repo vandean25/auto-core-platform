@@ -35,7 +35,7 @@ export class InvoicesService {
               line_items: true,
             },
           },
-          invoice: true,
+          invoice: { select: { id: true, invoice_number: true } },
         },
       });
 
@@ -183,16 +183,16 @@ export class InvoicesService {
       totalNet = totalNet.add(net);
       totalTax = totalTax.add(tax);
 
-        return {
-          description: line.description,
-          quantity,
-          unit_price: unitPrice,
-          tax_rate: DEFAULT_VAT_RATE,
-          line_discount_type: null,
-          line_discount_value: null,
-          line_total: net,
-        };
-      });
+      return {
+        description: line.description,
+        quantity,
+        unit_price: unitPrice,
+        tax_rate: DEFAULT_VAT_RATE,
+        line_discount_type: null,
+        line_discount_value: null,
+        line_total: net,
+      };
+    });
 
     return { itemsData, totalNet, totalTax };
   }

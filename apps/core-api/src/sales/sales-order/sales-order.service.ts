@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,8 +13,8 @@ import { FinanceService } from '../../finance/finance.service';
 @Injectable()
 export class SalesOrderService {
   constructor(
-    private prisma: PrismaService,
-    private financeService: FinanceService,
+    @Inject(PrismaService) private prisma: PrismaService,
+    @Inject(FinanceService) private financeService: FinanceService,
   ) {}
 
   async create(createDto: CreateSalesOrderDto) {
@@ -107,7 +108,7 @@ export class SalesOrderService {
         },
         customer: true,
         vehicle: true,
-        invoice: true,
+        invoice: { select: { id: true, invoice_number: true } },
       },
     });
     if (!order) throw new NotFoundException(`Sales Order ${id} not found`);
