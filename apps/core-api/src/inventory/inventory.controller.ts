@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ApiQuery } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
@@ -31,12 +24,24 @@ export class InventoryController {
   }
 
   @Get()
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'location', required: false, schema: { type: 'string' } })
   @ApiQuery({ name: 'brand', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'brandId', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'brandId',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   async findAll(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,

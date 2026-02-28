@@ -25,12 +25,31 @@ export class SalesOrderController {
   }
 
   @Get()
-  @ApiQuery({ name: 'status', required: false, schema: { type: 'string', enum: ['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED'] } })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    schema: {
+      type: 'string',
+      enum: ['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED'],
+    },
+  })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  @ApiQuery({
+    name: 'sortDirection',
+    required: false,
+    schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
     @Query('page') page?: string,

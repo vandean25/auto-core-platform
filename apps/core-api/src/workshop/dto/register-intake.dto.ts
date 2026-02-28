@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional, ValidateIf, Min, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsInt,
+  IsOptional,
+  ValidateIf,
+  Min,
+  IsEmail,
+} from 'class-validator';
 
 export class RegisterIntakeDto {
   // Vehicle Details
@@ -28,12 +36,12 @@ export class RegisterIntakeDto {
   customerId?: string;
 
   // New Customer Details (if customerId is missing)
-  @ValidateIf(o => !o.customerId)
+  @ValidateIf((o) => !o.customerId)
   @IsString()
   @IsNotEmpty()
   firstName?: string;
 
-  @ValidateIf(o => !o.customerId)
+  @ValidateIf((o) => !o.customerId)
   @IsString()
   @IsNotEmpty()
   lastName?: string;

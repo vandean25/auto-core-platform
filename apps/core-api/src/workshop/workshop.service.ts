@@ -11,13 +11,12 @@ import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
 import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
 import {
-  InvoiceStatus,
   Prisma,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { FinanceService } from '../finance/finance.service';
+import { InvoicesService } from '../invoices/invoices.service';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -27,7 +26,7 @@ const SEARCH_LIMIT = 100;
 export class WorkshopService {
   constructor(
     private prisma: PrismaService,
-    private financeService: FinanceService,
+    private invoicesService: InvoicesService,
   ) {}
 
   private deriveOrderStatus(taskStatuses: WorkshopTaskStatus[]) {
@@ -41,6 +40,12 @@ export class WorkshopService {
       return WorkshopOrderStatus.INTAKE;
     }
     return WorkshopOrderStatus.IN_PROGRESS;
+  }
+
+  private assertOrderEditable(status: WorkshopOrderStatus) {
+    if (status === WorkshopOrderStatus.INVOICED) {
+      throw new BadRequestException('Workshop order is already invoiced');
+    }
   }
 
   private normalizeWorkshopOrder(order: any) {
@@ -89,7 +94,8 @@ export class WorkshopService {
       const exists = await this.prisma.customer.findUnique({
         where: { id: customerId },
       });
-      if (!exists) throw new NotFoundException(`Customer ${customerId} not found`);
+      if (!exists)
+        throw new NotFoundException(`Customer ${customerId} not found`);
     }
 
     const vehicle = await this.prisma.vehicle.upsert({
@@ -169,8 +175,15 @@ export class WorkshopService {
             {
               customer: {
                 OR: [
-                  { first_name: { contains: params.search, mode: 'insensitive' } },
-                  { last_name: { contains: params.search, mode: 'insensitive' } },
+                  {
+                    first_name: {
+                      contains: params.search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    last_name: { contains: params.search, mode: 'insensitive' },
+                  },
                   {
                     company_name: {
                       contains: params.search,
@@ -265,7 +278,8 @@ export class WorkshopService {
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    this.assertOrderEditable(existing.status);
 
     const updated = await this.prisma.workshopOrder.update({
       where: { id },
@@ -299,6 +313,7 @@ export class WorkshopService {
       if (!order) {
         throw new NotFoundException(`Workshop order ${orderId} not found`);
       }
+      this.assertOrderEditable(order.status);
 
       const task = await tx.workshopTask.create({
         data: {
@@ -311,7 +326,10 @@ export class WorkshopService {
         },
       });
 
-      const allTaskStatuses = [...order.tasks.map((t) => t.status), task.status];
+      const allTaskStatuses = [
+        ...order.tasks.map((t) => t.status),
+        task.status,
+      ];
       const nextOrderStatus = this.deriveOrderStatus(allTaskStatuses);
       if (nextOrderStatus !== order.status) {
         await tx.workshopOrder.update({
@@ -339,11 +357,17 @@ export class WorkshopService {
           id: taskId,
           workshop_order_id: orderId,
         },
+        include: {
+          workshop_order: {
+            select: { status: true },
+          },
+        },
       });
 
       if (!task) {
         throw new NotFoundException(`Task ${taskId} not found for this order`);
       }
+      this.assertOrderEditable(task.workshop_order.status);
 
       await tx.workshopTask.update({
         where: { id: taskId },
@@ -359,7 +383,9 @@ export class WorkshopService {
         select: { status: true },
       });
 
-      const nextOrderStatus = this.deriveOrderStatus(tasks.map((t) => t.status));
+      const nextOrderStatus = this.deriveOrderStatus(
+        tasks.map((t) => t.status),
+      );
       await tx.workshopOrder.update({
         where: { id: orderId },
         data: { status: nextOrderStatus },
@@ -379,11 +405,17 @@ export class WorkshopService {
         id: taskId,
         workshop_order_id: orderId,
       },
+      include: {
+        workshop_order: {
+          select: { status: true },
+        },
+      },
     });
 
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found for this order`);
     }
+    this.assertOrderEditable(task.workshop_order.status);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.workshopTaskLineItem.deleteMany({
@@ -411,125 +443,7 @@ export class WorkshopService {
   }
 
   async createInvoiceFromOrder(orderId: string) {
-    await this.financeService.validateTransactionDate(new Date());
-
-    const order = await this.prisma.workshopOrder.findUnique({
-      where: { id: orderId },
-      include: {
-        tasks: {
-          include: {
-            line_items: true,
-          },
-        },
-        invoice: true,
-      },
-    });
-
-    if (!order) {
-      throw new NotFoundException(`Workshop order ${orderId} not found`);
-    }
-
-    if (order.status !== WorkshopOrderStatus.COMPLETED) {
-      throw new BadRequestException(
-        'Only COMPLETED workshop orders can create invoices',
-      );
-    }
-
-    const lineItems = order.tasks.flatMap((task) => task.line_items);
-    if (lineItems.length === 0) {
-      throw new BadRequestException(
-        'Cannot create invoice because no labor/parts lines exist on tasks',
-      );
-    }
-
-    const revenueGroups = await this.prisma.revenueGroup.findMany({
-      select: { id: true, name: true, tax_rate: true },
-    });
-    const laborGroup = revenueGroups.find((group) =>
-      /labor|service/i.test(group.name),
-    );
-    const partsGroup = revenueGroups.find((group) =>
-      /part|goods/i.test(group.name),
-    );
-    if (!laborGroup || !partsGroup) {
-      throw new BadRequestException(
-        'Required revenue groups are missing. Configure labor and parts revenue groups before creating workshop invoices.',
-      );
-    }
-
-    let totalNet = new Prisma.Decimal(0);
-    let totalTax = new Prisma.Decimal(0);
-
-    const invoiceItems = lineItems.map((line) => {
-      const revenueGroup =
-        line.type === WorkshopLineItemType.LABOR ? laborGroup : partsGroup;
-      const quantity = new Prisma.Decimal(line.quantity);
-      const unitPrice = new Prisma.Decimal(line.unit_price);
-      const net = quantity.mul(unitPrice);
-      const taxRate = new Prisma.Decimal(revenueGroup.tax_rate);
-      const tax = net.mul(taxRate).div(100);
-
-      totalNet = totalNet.add(net);
-      totalTax = totalTax.add(tax);
-
-      return {
-        description: line.description,
-        quantity,
-        unit_price: unitPrice,
-        tax_rate: taxRate,
-        revenue_group_name: revenueGroup.name,
-      };
-    });
-
-    const totalGross = totalNet.add(totalTax);
-
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      const fetchedOrder = await tx.workshopOrder.findUnique({
-        where: { id: orderId },
-        include: {
-          invoice: true,
-          tasks: {
-            include: {
-              line_items: true,
-            },
-          },
-        },
-      });
-
-      if (!fetchedOrder) {
-        throw new NotFoundException(`Workshop order ${orderId} not found`);
-      }
-
-      if (fetchedOrder.invoice) {
-        throw new BadRequestException('Workshop order is already invoiced');
-      }
-
-      const settings = await tx.financeSettings.update({
-        where: { id: 1 },
-        data: { next_invoice_number: { increment: 1 } },
-      });
-      const invoiceNumber = `${settings.invoice_prefix}${settings.next_invoice_number - 1}`;
-
-      return tx.invoice.create({
-        data: {
-          invoice_number: invoiceNumber,
-          customer_id: fetchedOrder.customer_id,
-          vehicle_id: fetchedOrder.vehicle_id,
-          workshop_order_id: fetchedOrder.id,
-          status: InvoiceStatus.DRAFT,
-          due_date: new Date(new Date().setDate(new Date().getDate() + 14)),
-          total_net: totalNet,
-          total_tax: totalTax,
-          total_gross: totalGross,
-          notes: fetchedOrder.notes,
-          items: {
-            create: invoiceItems,
-          },
-        },
-      });
-    });
-
-    return invoice;
+    return this.invoicesService.createDraftInvoice(orderId);
   }
 
   async search(query: string) {
@@ -559,26 +473,27 @@ export class WorkshopService {
       ],
     };
 
-    const [vehicles, customers, vehicleTotal, customerTotal] = await Promise.all([
-      this.prisma.vehicle.findMany({
-        where: vehicleWhere,
-        include: {
-          customer: true,
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.customer.findMany({
-        where: customerWhere,
-        include: {
-          vehicles: true,
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.vehicle.count({ where: vehicleWhere }),
-      this.prisma.customer.count({ where: customerWhere }),
-    ]);
+    const [vehicles, customers, vehicleTotal, customerTotal] =
+      await Promise.all([
+        this.prisma.vehicle.findMany({
+          where: vehicleWhere,
+          include: {
+            customer: true,
+          },
+          skip,
+          take: limit,
+        }),
+        this.prisma.customer.findMany({
+          where: customerWhere,
+          include: {
+            vehicles: true,
+          },
+          skip,
+          take: limit,
+        }),
+        this.prisma.vehicle.count({ where: vehicleWhere }),
+        this.prisma.customer.count({ where: customerWhere }),
+      ]);
 
     const total = vehicleTotal + customerTotal;
 

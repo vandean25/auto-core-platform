@@ -14,4 +14,3 @@ export class UpdateWorkshopTaskDto {
   @IsOptional()
   mechanicNotes?: string;
 }
-

@@ -25,11 +25,27 @@ export class CustomerController {
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'type', required: false, schema: { type: 'string', enum: ['PRIVATE', 'COMPANY'] } })
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    schema: { type: 'string', enum: ['PRIVATE', 'COMPANY'] },
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  @ApiQuery({
+    name: 'sortDirection',
+    required: false,
+    schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
   async findAll(
     @Query('search') search?: string,
     @Query('type') type?: 'PRIVATE' | 'COMPANY',
@@ -58,7 +74,9 @@ export class CustomerController {
       ];
     }
     if (type) {
-      queryParams.filters = [{ field: 'type', operator: 'equals', value: type }];
+      queryParams.filters = [
+        { field: 'type', operator: 'equals', value: type },
+      ];
     }
 
     if (Object.keys(queryParams).length > 0) {
@@ -73,7 +91,11 @@ export class CustomerController {
         'createdAt',
       ];
       const searchFields = ['first_name', 'last_name', 'company_name', 'email'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+      const prismaQuery = QueryBuilder.buildPrismaQuery(
+        queryParams,
+        whitelist,
+        searchFields,
+      );
       const result = (await this.customerService.findAll(prismaQuery)) as any;
 
       return {

@@ -1,0 +1,23 @@
+{
+  "name": "graph-db",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "ingest": "tsx ingest-prisma.ts",
+    "ingest:code": "ts-node ingest-code.ts",
+    "link:graph": "ts-node link-code-to-db.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "madge": "^8.0.0",
+    "neo4j-driver": "^5.28.0"
+  },
+  "devDependencies": {
+    "@types/madge": "^5.0.3",
+    "@types/node": "^22.10.7",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  }
+}
