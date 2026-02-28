@@ -55,6 +55,7 @@ interface TaskDetailDrawerProps {
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
+  readOnly?: boolean
 }
 
 const STABLE_EMPTY_ITEMS: TaskLineItem[] = []
@@ -66,6 +67,7 @@ export function TaskDetailDrawer({
   onTaskStatusChange,
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
+  readOnly = false,
 }: TaskDetailDrawerProps) {
   const [newType, setNewType] = useState<LineItemType>('PART')
   const [newItemNo, setNewItemNo] = useState('')
@@ -78,7 +80,7 @@ export function TaskDetailDrawer({
   const subtotal = items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0)
 
   function appendQuickItem() {
-    if (!task) return
+    if (!task || readOnly) return
 
     const itemNo = newItemNo.trim()
     const qty = Number(newQty)
@@ -115,6 +117,7 @@ export function TaskDetailDrawer({
               <div className="w-[220px]">
                 <Select
                   value={status}
+                  disabled={readOnly}
                   onValueChange={(v) => {
                     if (!task) return
                     const nextStatus = v as TaskStatus
@@ -178,36 +181,41 @@ export function TaskDetailDrawer({
                     </Table>
                   </div>
 
-                  <div className="absolute left-0 right-0 bottom-0 border-t bg-muted/40 px-3 py-2">
-                    <div className="grid grid-cols-[98px_1fr_70px] gap-2">
-                      <Select value={newType} onValueChange={(v) => setNewType(v as LineItemType)}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="LABOR">Labor</SelectItem>
-                          <SelectItem value="PART">Part</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {!readOnly && (
+                    <div className="absolute left-0 right-0 bottom-0 border-t bg-muted/40 px-3 py-2">
+                      <div className="grid grid-cols-[98px_1fr_70px] gap-2">
+                        <Select
+                          value={newType}
+                          onValueChange={(v) => setNewType(v as LineItemType)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LABOR">Labor</SelectItem>
+                            <SelectItem value="PART">Part</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                      <Input
-                        ref={itemInputRef}
-                        value={newItemNo}
-                        onChange={(e) => setNewItemNo(e.target.value)}
-                        onKeyDown={handleQuickAddKeyDown}
-                        placeholder="Search item or type item no..."
-                        className="h-8 text-xs"
-                      />
+                        <Input
+                          ref={itemInputRef}
+                          value={newItemNo}
+                          onChange={(e) => setNewItemNo(e.target.value)}
+                          onKeyDown={handleQuickAddKeyDown}
+                          placeholder="Search item or type item no..."
+                          className="h-8 text-xs"
+                        />
 
-                      <Input
-                        value={newQty}
-                        onChange={(e) => setNewQty(e.target.value)}
-                        onKeyDown={handleQuickAddKeyDown}
-                        placeholder="Qty"
-                        className="h-8 text-xs text-right"
-                      />
+                        <Input
+                          value={newQty}
+                          onChange={(e) => setNewQty(e.target.value)}
+                          onKeyDown={handleQuickAddKeyDown}
+                          placeholder="Qty"
+                          className="h-8 text-xs text-right"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="mt-2 text-xs text-muted-foreground">
@@ -217,12 +225,14 @@ export function TaskDetailDrawer({
 
               <TabsContent value="mechanic-notes" className="mt-4 flex-1">
                 <textarea
-                  className="w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted/40"
                   placeholder="Mechanic observations, measurements, and service notes..."
                   defaultValue={task?.mechanicNotes ?? ''}
                   key={`mechanic-notes-${task?.id ?? 'none'}`}
+                  readOnly={readOnly}
                   onBlur={(e) => {
                     if (!task) return
+                    if (readOnly) return
                     const nextNotes = e.currentTarget.value
                     if (nextNotes !== (task.mechanicNotes ?? '')) {
                       onTaskMechanicNotesChange(task.id, nextNotes)
