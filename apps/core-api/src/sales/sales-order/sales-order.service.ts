@@ -176,6 +176,9 @@ export class SalesOrderService {
     if (order.status === SalesOrderStatus.INVOICED) {
       throw new BadRequestException('Order is already invoiced');
     }
+    if (order.invoice) {
+      throw new BadRequestException('Order already has an invoice');
+    }
 
     // 1. Calculate Invoice Totals
     let totalNet = new Prisma.Decimal(0);
@@ -200,18 +203,10 @@ export class SalesOrderService {
 
     const totalGross = totalNet.add(totalTax);
 
-    // 2. Create Invoice and Update Order in Transaction
+    // 2. Create Invoice in Transaction
     return this.prisma.$transaction(async (tx) => {
-      // Get and increment invoice number atomically
-      const settings = await tx.financeSettings.update({
-        where: { id: 1 },
-        data: { next_invoice_number: { increment: 1 } },
-      });
-      const invoiceNumber = `${settings.invoice_prefix}${settings.next_invoice_number - 1}`;
-
       const invoice = await tx.invoice.create({
         data: {
-          invoice_number: invoiceNumber, // Set the generated number
           customer_id: order.customer_id,
           vehicle_id: order.vehicle_id,
           sales_order_id: order.id,
@@ -225,11 +220,6 @@ export class SalesOrderService {
             create: invoiceItemsData,
           },
         },
-      });
-
-      await tx.salesOrder.update({
-        where: { id: order.id },
-        data: { status: SalesOrderStatus.INVOICED },
       });
 
       return invoice;
