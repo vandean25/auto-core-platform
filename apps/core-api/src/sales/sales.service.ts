@@ -168,6 +168,27 @@ export class SalesService {
       });
 
       if (invoice.sales_order_id) {
+        const salesOrder = await tx.salesOrder.findUnique({
+          where: { id: invoice.sales_order_id },
+          select: { status: true },
+        });
+
+        if (!salesOrder) {
+          throw new NotFoundException('Sales order not found');
+        }
+
+        const allowedStatuses = new Set([
+          SalesOrderStatus.CONFIRMED,
+          SalesOrderStatus.IN_PROGRESS,
+          SalesOrderStatus.COMPLETED,
+        ]);
+
+        if (!allowedStatuses.has(salesOrder.status)) {
+          throw new BadRequestException(
+            'Sales order must be CONFIRMED, IN_PROGRESS, or COMPLETED to be invoiced',
+          );
+        }
+
         await tx.salesOrder.update({
           where: { id: invoice.sales_order_id },
           data: { status: SalesOrderStatus.INVOICED },

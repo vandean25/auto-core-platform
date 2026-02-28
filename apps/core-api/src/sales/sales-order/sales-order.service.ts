@@ -176,9 +176,6 @@ export class SalesOrderService {
     if (order.status === SalesOrderStatus.INVOICED) {
       throw new BadRequestException('Order is already invoiced');
     }
-    if (order.invoice) {
-      throw new BadRequestException('Order already has an invoice');
-    }
 
     // 1. Calculate Invoice Totals
     let totalNet = new Prisma.Decimal(0);
@@ -205,24 +202,34 @@ export class SalesOrderService {
 
     // 2. Create Invoice in Transaction
     return this.prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.create({
-        data: {
-          customer_id: order.customer_id,
-          vehicle_id: order.vehicle_id,
-          sales_order_id: order.id,
-          status: InvoiceStatus.DRAFT,
-          due_date: new Date(new Date().setDate(new Date().getDate() + 14)), // Default 14 days
-          total_net: totalNet,
-          total_tax: totalTax,
-          total_gross: totalGross,
-          notes: order.notes,
-          items: {
-            create: invoiceItemsData,
+      try {
+        const invoice = await tx.invoice.create({
+          data: {
+            customer_id: order.customer_id,
+            vehicle_id: order.vehicle_id,
+            sales_order_id: order.id,
+            status: InvoiceStatus.DRAFT,
+            due_date: new Date(new Date().setDate(new Date().getDate() + 14)), // Default 14 days
+            total_net: totalNet,
+            total_tax: totalTax,
+            total_gross: totalGross,
+            notes: order.notes,
+            items: {
+              create: invoiceItemsData,
+            },
           },
-        },
-      });
+        });
 
-      return invoice;
+        return invoice;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new BadRequestException('Order already has an invoice');
+        }
+        throw error;
+      }
     });
   }
 
