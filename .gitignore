@@ -41,3 +41,6 @@ secrets/gsm-mapping.json
 
 # Neo4j local data
 tools/graph-db/data/
+
+# playwright test artifacts
+.playwright-cli/
