@@ -30,8 +30,6 @@ import {
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
 
-const VAT_RATE = 0.2
-
 interface InvoiceDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -136,7 +134,13 @@ export function InvoiceDrawer({
     subtotalNet -
       calculateDiscountAmount(subtotalNet, resolvedGlobalDiscount.type, globalValue),
   )
-  const vatAmount = discountedNet * VAT_RATE
+  const lineTaxTotal = lineSummaries.reduce((sum, line) => {
+    const taxRate = Number(line.item.tax_rate ?? 0) / 100
+    return sum + line.lineTotal * taxRate
+  }, 0)
+  const effectiveTaxRate = subtotalNet > 0 ? lineTaxTotal / subtotalNet : 0
+  const vatAmount =
+    subtotalNet > 0 ? (lineTaxTotal * discountedNet) / subtotalNet : 0
   const totalGross = discountedNet + vatAmount
 
   const handleLineDiscountTypeChange = async (item: InvoiceItem, value: string) => {
@@ -395,7 +399,9 @@ export function InvoiceDrawer({
                     )}
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">20% MWSt (VAT)</span>
+                    <span className="text-muted-foreground">
+                      {`${(effectiveTaxRate * 100).toFixed(2)}% MWSt (VAT)`}
+                    </span>
                     <span>{formatCurrency(vatAmount)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 font-semibold">

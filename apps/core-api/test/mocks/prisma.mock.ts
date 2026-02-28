@@ -52,8 +52,14 @@ export const mockPrismaService = {
     deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn().mockImplementation((args) => {
-      if (args.where.email === 'workshop@test.com')
-        return Promise.resolve(null);
+      if (args?.where?.email === 'workshop@test.com')
+        return Promise.resolve({
+          id: 'mock-customer-id',
+          first_name: 'Workshop',
+          last_name: 'Tester',
+          email: 'workshop@test.com',
+          type: 'PRIVATE',
+        });
       return Promise.resolve(null);
     }),
     create: jest.fn().mockResolvedValue({

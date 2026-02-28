@@ -38,7 +38,7 @@ function getVehicleLabel(order: any) {
 export function WorkshopOrderDetails() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
-  const { data: order, isLoading } = useWorkshopOrder(id)
+  const { data: order, isLoading, refetch } = useWorkshopOrder(id)
 
   const updateOrder = useUpdateWorkshopOrder()
   const createTask = useCreateWorkshopTask()
@@ -49,7 +49,6 @@ export function WorkshopOrderDetails() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false)
-  const [draftInvoiceIds, setDraftInvoiceIds] = useState<Record<string, string>>({})
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
@@ -86,7 +85,7 @@ export function WorkshopOrderDetails() {
   const customerPhone = order.customer.phone ?? ''
   const canCreateInvoice = order.status === 'COMPLETED' && !order.invoice
   const isLocked = order.status === 'INVOICED'
-  const activeInvoiceId = draftInvoiceIds[order.id] ?? order.invoice?.id ?? null
+  const activeInvoiceId = order.invoice?.id ?? null
   const invoiceActionLabel = activeInvoiceId ? 'View Invoice' : 'Generate Invoice'
   const isInvoiceActionDisabled =
     (!activeInvoiceId && !canCreateInvoice) || createDraftInvoice.isPending
@@ -177,7 +176,7 @@ export function WorkshopOrderDetails() {
 
     try {
       const invoice = await createDraftInvoice.mutateAsync(order.id)
-      setDraftInvoiceIds((prev) => ({ ...prev, [order.id]: invoice.id }))
+      await refetch()
       setInvoiceDrawerOpen(true)
       toast.success(`Invoice created (${invoice.invoice_number || invoice.id})`)
     } catch (error: any) {

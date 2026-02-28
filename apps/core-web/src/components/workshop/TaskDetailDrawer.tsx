@@ -225,7 +225,9 @@ export function TaskDetailDrawer({
 
               <TabsContent value="mechanic-notes" className="mt-4 flex-1">
                 <textarea
-                  className="w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted/40"
+                  className={`w-full min-h-[460px] rounded-xl border p-3 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                    readOnly ? 'bg-muted/40' : ''
+                  }`}
                   placeholder="Mechanic observations, measurements, and service notes..."
                   defaultValue={task?.mechanicNotes ?? ''}
                   key={`mechanic-notes-${task?.id ?? 'none'}`}
