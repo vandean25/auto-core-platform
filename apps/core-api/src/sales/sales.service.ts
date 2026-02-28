@@ -177,7 +177,7 @@ export class SalesService {
           throw new NotFoundException('Sales order not found');
         }
 
-        const allowedStatuses = new Set([
+        const allowedStatuses = new Set<SalesOrderStatus>([
           SalesOrderStatus.CONFIRMED,
           SalesOrderStatus.IN_PROGRESS,
           SalesOrderStatus.COMPLETED,
