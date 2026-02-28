@@ -628,6 +628,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invoices/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InvoicesController_createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invoices/{id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InvoicesController_issue"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -655,6 +687,7 @@ export interface components {
         CreateWorkshopTaskDto: Record<string, never>;
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
+        CreateDraftInvoiceDto: Record<string, never>;
     };
     responses: never;
     parameters: never;
@@ -1198,7 +1231,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            /** @description Vendor deleted successfully. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Vendor cannot be deleted because linked records exist. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Vendor not found. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1731,12 +1779,12 @@ export interface operations {
     };
     WorkshopController_findAll: {
         parameters: {
-            query: {
-                search: string;
-                page: string;
-                pageSize: string;
-                sortField: string;
-                sortDirection: string;
+            query?: {
+                search?: string;
+                page?: number;
+                pageSize?: number;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -1912,6 +1960,46 @@ export interface operations {
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftInvoiceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

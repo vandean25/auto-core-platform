@@ -33,10 +33,22 @@ export class WorkshopController {
 
   @Get('orders')
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  @ApiQuery({
+    name: 'sortDirection',
+    required: false,
+    schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
   findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,

@@ -25,10 +25,22 @@ export class VendorController {
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  @ApiQuery({
+    name: 'sortDirection',
+    required: false,
+    schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
   async findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -59,7 +71,11 @@ export class VendorController {
     if (Object.keys(queryParams).length > 0) {
       const whitelist = ['name', 'email', 'account_number', 'createdAt'];
       const searchFields = ['name', 'email', 'account_number'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+      const prismaQuery = QueryBuilder.buildPrismaQuery(
+        queryParams,
+        whitelist,
+        searchFields,
+      );
       const result = await this.vendorService.findAll(prismaQuery);
       return {
         data: result.data,

@@ -106,13 +106,17 @@ export class CustomerService {
   async remove(id: string) {
     await this.findOne(id); // Ensure exists
 
-    const [salesOrdersCount, invoicesCount, workshopOrdersCount, vehiclesCount] =
-      await Promise.all([
-        this.prisma.salesOrder.count({ where: { customer_id: id } }),
-        this.prisma.invoice.count({ where: { customer_id: id } }),
-        this.prisma.workshopOrder.count({ where: { customer_id: id } }),
-        this.prisma.vehicle.count({ where: { customer_id: id } }),
-      ]);
+    const [
+      salesOrdersCount,
+      invoicesCount,
+      workshopOrdersCount,
+      vehiclesCount,
+    ] = await Promise.all([
+      this.prisma.salesOrder.count({ where: { customer_id: id } }),
+      this.prisma.invoice.count({ where: { customer_id: id } }),
+      this.prisma.workshopOrder.count({ where: { customer_id: id } }),
+      this.prisma.vehicle.count({ where: { customer_id: id } }),
+    ]);
 
     if (salesOrdersCount > 0 || invoicesCount > 0 || workshopOrdersCount > 0) {
       throw new BadRequestException(

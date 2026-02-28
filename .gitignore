@@ -37,5 +37,7 @@ secrets/gsm-mapping.json
 
 # Local temp/debug artifacts
 .tmp_*.txt
-*.dev.out.log
-*.dev.err.log
+*.log
+
+# Neo4j local data
+tools/graph-db/data/

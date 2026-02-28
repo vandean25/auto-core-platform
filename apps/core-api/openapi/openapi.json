@@ -1735,6 +1735,53 @@
           "Workshop"
         ]
       }
+    },
+    "/api/invoices/drafts": {
+      "post": {
+        "operationId": "InvoicesController_createDraft",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDraftInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/api/invoices/{id}/issue": {
+      "patch": {
+        "operationId": "InvoicesController_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
     }
   },
   "info": {
@@ -1836,6 +1883,10 @@
         "properties": {}
       },
       "ReplaceWorkshopTaskLineItemsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateDraftInvoiceDto": {
         "type": "object",
         "properties": {}
       }

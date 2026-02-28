@@ -69,4 +69,3 @@ describe('CustomerService', () => {
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
   });
 });
-

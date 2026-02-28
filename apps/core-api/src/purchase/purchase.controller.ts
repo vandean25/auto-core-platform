@@ -47,12 +47,31 @@ export class PurchaseController {
   }
 
   @Get()
-  @ApiQuery({ name: 'status', required: false, schema: { type: 'string', enum: ['DRAFT', 'SENT', 'PARTIAL', 'COMPLETED', 'open', 'all'] } })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    schema: {
+      type: 'string',
+      enum: ['DRAFT', 'SENT', 'PARTIAL', 'COMPLETED', 'open', 'all'],
+    },
+  })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'page', required: false, schema: { type: 'integer', minimum: 1 } })
-  @ApiQuery({ name: 'pageSize', required: false, schema: { type: 'integer', minimum: 1 } })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
   @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'sortDirection', required: false, schema: { type: 'string', enum: ['asc', 'desc'] } })
+  @ApiQuery({
+    name: 'sortDirection',
+    required: false,
+    schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
   async findAll(
     @Query('status') status?: string,
     @Query('search') search?: string,
@@ -81,7 +100,9 @@ export class PurchaseController {
       ];
     }
     if (status && status !== 'open' && status !== 'all') {
-      queryParams.filters = [{ field: 'status', operator: 'equals', value: status }];
+      queryParams.filters = [
+        { field: 'status', operator: 'equals', value: status },
+      ];
     }
 
     if (Object.keys(queryParams).length > 0) {
@@ -95,7 +116,11 @@ export class PurchaseController {
         'expected_date',
       ];
       const searchFields = ['order_number', 'vendor.name'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+      const prismaQuery = QueryBuilder.buildPrismaQuery(
+        queryParams,
+        whitelist,
+        searchFields,
+      );
       const result = (await this.purchaseService.findAll(prismaQuery)) as any;
       return {
         data: result.data,

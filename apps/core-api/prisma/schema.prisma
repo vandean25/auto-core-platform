@@ -316,8 +316,14 @@ model SalesOrderItem {
 enum InvoiceStatus {
   DRAFT
   FINALIZED
+  ISSUED
   PAID
   CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT_AMOUNT
 }
 
 model Invoice {
@@ -335,6 +341,9 @@ model Invoice {
   status         InvoiceStatus @default(DRAFT)
   date           DateTime      @default(now())
   due_date       DateTime
+
+  global_discount_type  DiscountType?
+  global_discount_value Decimal?      @db.Decimal(10, 2)
   
   total_net      Decimal       @db.Decimal(10, 2)
   total_tax      Decimal       @db.Decimal(10, 2)
@@ -370,6 +379,9 @@ model InvoiceItem {
   quantity           Decimal      @db.Decimal(10, 2)
   unit_price         Decimal      @db.Decimal(10, 2)
   tax_rate           Decimal      @db.Decimal(5, 2)
+  line_discount_type  DiscountType?
+  line_discount_value Decimal?      @db.Decimal(10, 2)
+  line_total          Decimal?      @db.Decimal(10, 2)
   revenue_group_name String?      // Snapshot for accounting export
   
   createdAt       DateTime     @default(now())
@@ -431,6 +443,7 @@ enum WorkshopOrderStatus {
   INTAKE
   IN_PROGRESS
   COMPLETED
+  INVOICED
 }
 
 model WorkshopOrder {

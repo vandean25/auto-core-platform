@@ -14,6 +14,7 @@ import { FinanceModule } from './finance/finance.module';
 import { BrandModule } from './brand/brand.module';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module';
 import { WorkshopModule } from './workshop/workshop.module';
+import { InvoicesModule } from './invoices/invoices.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { WorkshopModule } from './workshop/workshop.module';
     BrandModule,
     SalesOrderModule,
     WorkshopModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [

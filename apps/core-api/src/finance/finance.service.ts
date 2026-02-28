@@ -67,7 +67,7 @@ export class FinanceService {
     const items = await this.prisma.invoiceItem.findMany({
       where: {
         invoice: {
-          status: { in: ['FINALIZED', 'PAID'] },
+          status: { in: ['FINALIZED', 'ISSUED', 'PAID'] },
           date: { gte: startOfMonth },
         },
       },
