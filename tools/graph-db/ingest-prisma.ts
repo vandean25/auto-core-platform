@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import neo4j from "neo4j-driver";
+import type { Driver } from "neo4j-driver";
+import { createNeo4jDriver } from "./neo4j-config.js";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, "..", "..");
@@ -61,7 +62,7 @@ const extractRelationships = (
       }
       const typeToken = match[2];
       const targetModel = typeToken.replace(/\[\]|\?/g, "");
-      if (modelSet.has(targetModel) && targetModel !== block.name) {
+      if (modelSet.has(targetModel)) {
         edges.add(`${block.name}::${targetModel}`);
       }
     }
@@ -78,7 +79,7 @@ const sleep = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
-const waitForNeo4j = async (driver: neo4j.Driver) => {
+const waitForNeo4j = async (driver: Driver) => {
   const maxAttempts = 10;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -95,10 +96,7 @@ const waitForNeo4j = async (driver: neo4j.Driver) => {
 };
 
 const ingestModels = async () => {
-  const driver = neo4j.driver(
-    "bolt://localhost:7687",
-    neo4j.auth.basic("neo4j", "autocore123")
-  );
+  const driver = createNeo4jDriver();
   const session = driver.session();
 
   try {

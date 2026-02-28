@@ -1888,7 +1888,15 @@
       },
       "CreateDraftInvoiceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "example": "workshop-order-id"
+          }
+        },
+        "required": [
+          "workshopOrderId"
+        ]
       }
     }
   }

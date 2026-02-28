@@ -7,6 +7,17 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+
+export type PurchaseOrderWithRelations =
+  Prisma.PurchaseOrderGetPayload<{
+    include: { vendor: true; items: true };
+  }>;
+
+export interface PaginatedPurchaseOrderResult {
+  data: PurchaseOrderWithRelations[];
+  total: number;
+}
 
 @Injectable()
 export class PurchaseService {
@@ -218,14 +229,26 @@ export class PurchaseService {
     }
   }
 
-  async findAll(params?: any) {
-    if (params && (params.where || params.orderBy || params.skip)) {
+  async findAll(
+    params: Prisma.PurchaseOrderFindManyArgs,
+  ): Promise<PaginatedPurchaseOrderResult>;
+  async findAll(status?: string): Promise<PurchaseOrderWithRelations[]>;
+  async findAll(
+    params?: Prisma.PurchaseOrderFindManyArgs | string,
+  ): Promise<PaginatedPurchaseOrderResult | PurchaseOrderWithRelations[]> {
+    if (
+      params &&
+      typeof params === 'object' &&
+      ('where' in params || 'orderBy' in params || 'skip' in params)
+    ) {
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
-          ...params,
+          ...(params as Prisma.PurchaseOrderFindManyArgs),
           include: { vendor: true, items: true },
         }),
-        this.prisma.purchaseOrder.count({ where: params.where }),
+        this.prisma.purchaseOrder.count({
+          where: (params as Prisma.PurchaseOrderFindManyArgs).where,
+        }),
       ]);
       return { data, total };
     }

@@ -12,6 +12,7 @@ describe('WorkshopService', () => {
     workshopOrder: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     workshopTask: {
       findFirst: jest.fn(),
@@ -60,15 +61,15 @@ describe('WorkshopService', () => {
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.DONE },
     ]);
-    mockPrisma.workshopOrder.update.mockResolvedValue({});
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.updateTask('wo-1', 't-1', {
       status: WorkshopTaskStatus.DONE,
     });
 
-    expect(mockPrisma.workshopOrder.update).toHaveBeenCalledWith({
-      where: { id: 'wo-1' },
+    expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
   });

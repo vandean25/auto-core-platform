@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "ingest": "tsx ingest-prisma.ts",
-    "ingest:code": "ts-node ingest-code.ts",
-    "link:graph": "ts-node link-code-to-db.ts",
+    "ingest:code": "tsx ingest-code.ts",
+    "link:graph": "tsx link-code-to-db.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {

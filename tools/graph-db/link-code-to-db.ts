@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import neo4j from "neo4j-driver";
+import { createNeo4jDriver } from "./neo4j-config.js";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, "..", "..");
@@ -10,11 +10,30 @@ const repoRoot = path.resolve(moduleDir, "..", "..");
 const toCamelCase = (value: string) =>
   value.length ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
 
+const resolveSourcePath = (filePath: string) => {
+  if (path.isAbsolute(filePath)) {
+    return filePath;
+  }
+
+  const normalized = path.normalize(filePath).replace(/^[/\\]+/, "");
+  const apiPrefix = path.normalize(path.join("apps", "core-api", "src"));
+
+  if (normalized.startsWith(apiPrefix)) {
+    return path.resolve(repoRoot, normalized);
+  }
+
+  return path.resolve(repoRoot, "apps", "core-api", "src", normalized);
+};
+
+const matchesModelUsage = (fileText: string, modelName: string) => {
+  const camelName = toCamelCase(modelName);
+  const prismaPattern = new RegExp(`\\bprisma\\s*\\.\\s*${camelName}\\b`);
+  const modelPattern = new RegExp(`\\b${modelName}\\b`);
+  return prismaPattern.test(fileText) || modelPattern.test(fileText);
+};
+
 const linkCodeToDb = async () => {
-  const driver = neo4j.driver(
-    "neo4j://localhost:7687",
-    neo4j.auth.basic("neo4j", "autocore123")
-  );
+  const driver = createNeo4jDriver();
   const session = driver.session();
 
   try {
@@ -35,18 +54,16 @@ const linkCodeToDb = async () => {
     let bridgeCount = 0;
 
     for (const filePath of filePaths) {
-      const absolutePath = path.isAbsolute(filePath)
-        ? filePath
-        : path.resolve(repoRoot, "apps", "core-api", "src", filePath);
+      const absolutePath = resolveSourcePath(filePath);
+      if (!fs.existsSync(absolutePath)) {
+        console.warn(`Skipping missing file: ${absolutePath}`);
+        continue;
+      }
       const fileText = fs.readFileSync(absolutePath, "utf8");
       const fileName = path.basename(filePath);
 
       for (const modelName of modelNames) {
-        const camelName = toCamelCase(modelName);
-        if (
-          fileText.includes(`prisma.${camelName}`) ||
-          fileText.includes(modelName)
-        ) {
+        if (matchesModelUsage(fileText, modelName)) {
           await session.run(
             "MATCH (c:CodeFile {path: $filePath}), (m:DatabaseModel {name: $modelName}) MERGE (c)-[:QUERIES_DB]->(m)",
             { filePath, modelName }

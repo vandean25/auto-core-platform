@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
-import { InvoiceStatus, Prisma, WorkshopOrderStatus } from '@prisma/client';
+import {
+  DiscountType,
+  InvoiceStatus,
+  Prisma,
+  WorkshopOrderStatus,
+} from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(20);
@@ -60,66 +65,95 @@ export class InvoicesService {
       const { itemsData, totalNet, totalTax } =
         this.buildInvoiceItems(lineItems);
       const totalGross = totalNet.add(totalTax);
-
-      return tx.invoice.create({
-        data: {
-          customer_id: order.customer_id,
-          vehicle_id: order.vehicle_id,
-          workshop_order_id: order.id,
-          status: InvoiceStatus.DRAFT,
-          date: new Date(),
-          due_date: this.buildDueDate(),
-          total_net: totalNet,
-          total_tax: totalTax,
-          total_gross: totalGross,
-          notes: order.notes,
-          items: {
-            create: itemsData,
-          },
-        },
-        include: {
-          items: true,
-          customer: true,
-          vehicle: true,
-          workshop_order: true,
-        },
+      this.assertDiscountPair('Global', null, null);
+      itemsData.forEach((item, index) => {
+        this.assertDiscountPair(
+          `Line item ${index + 1}`,
+          item.line_discount_type,
+          item.line_discount_value,
+        );
       });
+
+      try {
+        return await tx.invoice.create({
+          data: {
+            customer_id: order.customer_id,
+            vehicle_id: order.vehicle_id,
+            workshop_order_id: order.id,
+            status: InvoiceStatus.DRAFT,
+            date: new Date(),
+            due_date: this.buildDueDate(),
+            total_net: totalNet,
+            total_tax: totalTax,
+            total_gross: totalGross,
+            notes: order.notes,
+            items: {
+              create: itemsData,
+            },
+          },
+          include: {
+            items: true,
+            customer: true,
+            vehicle: true,
+            workshop_order: true,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new BadRequestException('Workshop order is already invoiced');
+        }
+        throw error;
+      }
     });
   }
 
   async issueInvoice(invoiceId: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { workshop_order: true },
-    });
-
-    if (!invoice) {
-      throw new NotFoundException('Invoice not found');
-    }
-
-    if (!invoice.workshop_order_id) {
-      throw new BadRequestException(
-        'Invoice is not linked to a workshop order',
-      );
-    }
-    const workshopOrderId = invoice.workshop_order_id;
-
-    if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT invoices can be issued');
-    }
-
-    await this.financeService.validateTransactionDate(invoice.date);
-
     return this.prisma.$transaction(async (tx) => {
-      const invoiceNumber =
-        invoice.invoice_number ?? (await this.generateInvoiceNumber(tx));
-
-      const updated = await tx.invoice.update({
+      const invoice = await tx.invoice.findUnique({
         where: { id: invoiceId },
-        data: {
-          status: InvoiceStatus.ISSUED,
-          invoice_number: invoiceNumber,
-        },
+        include: { workshop_order: true },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException('Invoice not found');
+      }
+
+      if (!invoice.workshop_order_id) {
+        throw new BadRequestException(
+          'Invoice is not linked to a workshop order',
+        );
+      }
+
+      await this.financeService.validateTransactionDate(invoice.date);
+
+      const updateResult = await tx.invoice.updateMany({
+        where: { id: invoiceId, status: InvoiceStatus.DRAFT },
+        data: { status: InvoiceStatus.ISSUED },
+      });
+
+      if (updateResult.count === 0) {
+        throw new BadRequestException('Only DRAFT invoices can be issued');
+      }
+
+      let invoiceNumber = invoice.invoice_number;
+      if (!invoiceNumber) {
+        invoiceNumber = await this.generateInvoiceNumber(tx);
+        await tx.invoice.update({
+          where: { id: invoiceId },
+          data: { invoice_number: invoiceNumber },
+        });
+      }
+
+      await tx.workshopOrder.update({
+        where: { id: invoice.workshop_order_id },
+        data: { status: WorkshopOrderStatus.INVOICED },
+      });
+
+      const updated = await tx.invoice.findUnique({
+        where: { id: invoiceId },
         include: {
           items: true,
           customer: true,
@@ -128,10 +162,9 @@ export class InvoicesService {
         },
       });
 
-      await tx.workshopOrder.update({
-        where: { id: workshopOrderId },
-        data: { status: WorkshopOrderStatus.INVOICED },
-      });
+      if (!updated) {
+        throw new NotFoundException('Invoice not found');
+      }
 
       return updated;
     });
@@ -150,14 +183,16 @@ export class InvoicesService {
       totalNet = totalNet.add(net);
       totalTax = totalTax.add(tax);
 
-      return {
-        description: line.description,
-        quantity,
-        unit_price: unitPrice,
-        tax_rate: DEFAULT_VAT_RATE,
-        line_total: net,
-      };
-    });
+        return {
+          description: line.description,
+          quantity,
+          unit_price: unitPrice,
+          tax_rate: DEFAULT_VAT_RATE,
+          line_discount_type: null,
+          line_discount_value: null,
+          line_total: net,
+        };
+      });
 
     return { itemsData, totalNet, totalTax };
   }
@@ -171,6 +206,20 @@ export class InvoicesService {
 
   private calculateLineTax(net: Prisma.Decimal, taxRate: Prisma.Decimal) {
     return net.mul(taxRate).div(100);
+  }
+
+  private assertDiscountPair(
+    label: string,
+    discountType: DiscountType | null | undefined,
+    discountValue: Prisma.Decimal | number | string | null | undefined,
+  ) {
+    const hasType = discountType !== null && discountType !== undefined;
+    const hasValue = discountValue !== null && discountValue !== undefined;
+    if (hasType !== hasValue) {
+      throw new BadRequestException(
+        `${label} discount requires both type and value.`,
+      );
+    }
   }
 
   private buildDueDate() {

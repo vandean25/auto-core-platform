@@ -1,4 +1,3 @@
-import * as express from 'express';
 import {
   Controller,
   Post,
@@ -6,15 +5,16 @@ import {
   Body,
   Param,
   Get,
-  Res,
   BadRequestException,
   Query,
+  HttpCode,
 } from '@nestjs/common';
 import { ApiQuery } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
 import { QueryBuilder } from '../common/utils/query-builder';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
+import type { Prisma } from '@prisma/client';
 
 @Controller('purchase-orders')
 export class PurchaseController {
@@ -31,10 +31,10 @@ export class PurchaseController {
   }
 
   @Post(':id/receive')
+  @HttpCode(201)
   async receiveItems(
     @Param('id') orderId: string,
     @Body() receivePurchaseOrderDto: ReceivePurchaseOrderDto,
-    @Res() res: express.Response,
   ) {
     const result = await this.purchaseService.receiveItems(
       orderId,
@@ -43,7 +43,7 @@ export class PurchaseController {
     if (!result) {
       throw new BadRequestException('Receipt failed to return data');
     }
-    return res.status(201).json(result);
+    return result;
   }
 
   @Get()
@@ -55,7 +55,13 @@ export class PurchaseController {
       enum: ['DRAFT', 'SENT', 'PARTIAL', 'COMPLETED', 'open', 'all'],
     },
   })
-  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    schema: {
+      type: 'string',
+    },
+  })
   @ApiQuery({
     name: 'page',
     required: false,
@@ -66,7 +72,13 @@ export class PurchaseController {
     required: false,
     schema: { type: 'integer', minimum: 1 },
   })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
+  @ApiQuery({
+    name: 'sortField',
+    required: false,
+    schema: {
+      type: 'string',
+    },
+  })
   @ApiQuery({
     name: 'sortDirection',
     required: false,
@@ -116,12 +128,13 @@ export class PurchaseController {
         'expected_date',
       ];
       const searchFields = ['order_number', 'vendor.name'];
-      const prismaQuery = QueryBuilder.buildPrismaQuery(
-        queryParams,
-        whitelist,
-        searchFields,
-      );
-      const result = (await this.purchaseService.findAll(prismaQuery)) as any;
+      const prismaQuery: Prisma.PurchaseOrderFindManyArgs =
+        QueryBuilder.buildPrismaQuery(
+          queryParams,
+          whitelist,
+          searchFields,
+        );
+      const result = await this.purchaseService.findAll(prismaQuery);
       return {
         data: result.data,
         meta: {

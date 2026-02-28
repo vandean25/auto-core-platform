@@ -687,7 +687,10 @@ export interface components {
         CreateWorkshopTaskDto: Record<string, never>;
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
-        CreateDraftInvoiceDto: Record<string, never>;
+        CreateDraftInvoiceDto: {
+            /** @example workshop-order-id */
+            workshopOrderId: string;
+        };
     };
     responses: never;
     parameters: never;
