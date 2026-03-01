@@ -5,6 +5,7 @@ import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatCurrency } from '@/lib/utils'
 import {
     Table,
     TableBody,
@@ -113,8 +114,8 @@ export default function PurchaseOrderDetail() {
                         <CardHeader>
                             <CardTitle className="text-base font-semibold">Line Items</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
+                        <CardContent className="p-0 overflow-x-auto">
+                            <Table className="min-w-[700px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>SKU</TableHead>
@@ -137,7 +138,11 @@ export default function PurchaseOrderDetail() {
                                             <TableCell className="text-right text-orange-600">
                                                 {item.quantity - item.quantity_received}
                                             </TableCell>
-                                            <TableCell className="text-right">${item.unit_cost}</TableCell>
+                                            <TableCell className="text-right">
+                                                {item.unit_cost === null || item.unit_cost === undefined
+                                                    ? '—'
+                                                    : formatCurrency(item.unit_cost)}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

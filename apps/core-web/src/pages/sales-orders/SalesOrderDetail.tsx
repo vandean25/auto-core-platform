@@ -172,17 +172,27 @@ export default function SalesOrderDetail() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {order.items.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell>
-                                                <div className="font-medium">{item.description}</div>
-                                                <div className="text-xs text-muted-foreground">{item.catalog_item?.sku}</div>
+                                    {order.items.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                                                No items on this order.
                                             </TableCell>
-                                            <TableCell>{Number(item.quantity)}</TableCell>
-                                            <TableCell>{formatCurrency(Number(item.unit_price))}</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(Number(item.total))}</TableCell>
                                         </TableRow>
-                                    ))}
+                                    ) : (
+                                        order.items.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell>
+                                                    <div className="font-medium">{item.description}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {item.catalog_item?.sku}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{Number(item.quantity)}</TableCell>
+                                                <TableCell>{formatCurrency(Number(item.unit_price))}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(Number(item.total))}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
                             <div className="p-4 flex justify-end items-center gap-4 border-t bg-slate-50">
