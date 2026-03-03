@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { InventoryResponse, InventoryTransaction } from './types'
+import type { InventoryItem, InventoryResponse, InventoryTransaction } from './types'
 import { fetchWithAuth } from './client'
 
 export const inventoryKeys = {
     all: ['inventory'] as const,
     list: (params: { page?: number; pageSize?: number; search?: string; brand?: string }) => [...inventoryKeys.all, 'list', params] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
+    sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
 }
 
 export function useInventory(params: { page?: number; pageSize?: number; search?: string; brand?: string } = {}) {
@@ -38,6 +39,29 @@ export function useInventoryHistory(itemId: string) {
             return response.json()
         },
         enabled: !!itemId,
+    })
+}
+
+export function useInventoryItemBySku(sku?: string, itemId?: string) {
+    return useQuery<InventoryItem | null>({
+        queryKey: inventoryKeys.sku(sku, itemId),
+        queryFn: async () => {
+            if (!sku) return null
+            const searchParams = new URLSearchParams()
+            searchParams.append('search', sku)
+            searchParams.append('pageSize', '10')
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
+            if (!response.ok) {
+                throw new Error('Failed to fetch inventory item')
+            }
+            const payload = (await response.json()) as InventoryResponse
+            const match =
+                payload.data.find((item) => (itemId ? item.id === itemId : item.sku === sku)) ||
+                payload.data[0] ||
+                null
+            return match
+        },
+        enabled: !!sku,
     })
 }
 

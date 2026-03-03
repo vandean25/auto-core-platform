@@ -129,11 +129,7 @@ export class PurchaseController {
       ];
       const searchFields = ['order_number', 'vendor.name'];
       const prismaQuery: Prisma.PurchaseOrderFindManyArgs =
-        QueryBuilder.buildPrismaQuery(
-          queryParams,
-          whitelist,
-          searchFields,
-        );
+        QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
       const result = await this.purchaseService.findAll(prismaQuery);
       return {
         data: result.data,

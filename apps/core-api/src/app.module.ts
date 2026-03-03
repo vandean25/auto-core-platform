@@ -15,6 +15,8 @@ import { BrandModule } from './brand/brand.module';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module';
 import { WorkshopModule } from './workshop/workshop.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { LaborModule } from './labor/labor.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { InvoicesModule } from './invoices/invoices.module';
     SalesOrderModule,
     WorkshopModule,
     InvoicesModule,
+    LaborModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [

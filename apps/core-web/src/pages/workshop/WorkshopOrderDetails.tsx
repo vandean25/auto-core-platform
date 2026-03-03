@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { CircleDollarSign, Clock3, Package, Phone, Plus, Printer, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Phone, Plus, Printer, FileText } from 'lucide-react'
 import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { InvoiceDrawer } from '@/components/invoices/InvoiceDrawer'
 import { useCreateDraftInvoice } from '@/api/invoices'
+import { formatCurrency } from '@/lib/utils'
 import {
   useCreateWorkshopTask,
   useReplaceWorkshopTaskLineItems,
@@ -18,7 +20,7 @@ import {
   useUpdateWorkshopTask,
   useWorkshopOrder,
 } from '@/api/workshop'
-import type { WorkshopLineItemType, WorkshopTask, WorkshopTaskStatus } from '@/api/types'
+import type { WorkshopLineItemType, WorkshopTask, WorkshopTaskLineItem, WorkshopTaskStatus } from '@/api/types'
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
@@ -49,17 +51,55 @@ export function WorkshopOrderDetails() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false)
+  const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
+  const [isDockedLayout, setIsDockedLayout] = useState(
+    typeof window !== 'undefined'
+      ? window.matchMedia('(min-width: 1536px)').matches
+      : false,
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia('(min-width: 1536px)')
+    const update = () => setIsDockedLayout(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
-    lineItems: task.lineItems ?? [],
+    lineItems: taskLineItemOverrides[task.id] ?? task.lineItems ?? [],
     mechanicNotes: task.mechanicNotes ?? '',
-  })), [order])
+  })), [order, taskLineItemOverrides])
 
   const activeTask = useMemo(() => {
     if (!activeTaskId) return null
     return tasks.find((task) => task.id === activeTaskId) ?? null
   }, [activeTaskId, tasks])
+  const taskTotals = useMemo(() => {
+    return new Map(
+      tasks.map((task) => {
+        const lineItems = task.lineItems ?? []
+        const parts = lineItems
+          .filter((lineItem) => lineItem.type === 'PART')
+          .reduce((sum, lineItem) => sum + lineItem.qty * lineItem.unitPrice, 0)
+        const labor = lineItems
+          .filter((lineItem) => lineItem.type === 'LABOR')
+          .reduce((sum, lineItem) => sum + lineItem.qty * lineItem.unitPrice, 0)
+        return [task.id, { parts, labor, total: parts + labor }]
+      }),
+    )
+  }, [tasks])
+  const orderPartsTotal = useMemo(
+    () => Array.from(taskTotals.values()).reduce((sum, totals) => sum + totals.parts, 0),
+    [taskTotals],
+  )
+  const orderLaborTotal = useMemo(
+    () => Array.from(taskTotals.values()).reduce((sum, totals) => sum + totals.labor, 0),
+    [taskTotals],
+  )
+  const orderGrandTotal = orderPartsTotal + orderLaborTotal
 
   if (isLoading) {
     return <div className='p-8 text-center text-sm text-muted-foreground'>Loading workshop order...</div>
@@ -150,12 +190,44 @@ export function WorkshopOrderDetails() {
 
   const handleTaskLineItemsChange = async (
     taskId: string,
-    items: Array<{ type: WorkshopLineItemType; itemNo: string; description: string; qty: number; unitPrice: number }>,
+    items: Array<{ id?: string; type: WorkshopLineItemType; itemNo: string; description: string; qty: number; unitPrice: number }>,
   ) => {
     if (isLocked) return
+    const previousItems = tasks.find((task) => task.id === taskId)?.lineItems ?? []
+    const nextItemsForUi: WorkshopTaskLineItem[] = items.map((item, index) => ({
+      id: item.id ?? `tmp-${taskId}-${index}`,
+      type: item.type,
+      itemNo: item.itemNo,
+      description: item.description,
+      qty: item.qty,
+      unitPrice: item.unitPrice,
+    }))
+    setTaskLineItemOverrides((previous) => ({
+      ...previous,
+      [taskId]: nextItemsForUi,
+    }))
     try {
-      await replaceTaskLineItems.mutateAsync({ orderId: order.id, taskId, items })
+      await replaceTaskLineItems.mutateAsync({
+        orderId: order.id,
+        taskId,
+        items: items.map(({ type, itemNo, description, qty, unitPrice }) => ({
+          type,
+          itemNo,
+          description,
+          qty,
+          unitPrice,
+        })),
+      })
+      setTaskLineItemOverrides((previous) => {
+        const next = { ...previous }
+        delete next[taskId]
+        return next
+      })
     } catch (error: any) {
+      setTaskLineItemOverrides((previous) => ({
+        ...previous,
+        [taskId]: previousItems,
+      }))
       toast.error(error?.message || 'Failed to update task line items')
     }
   }
@@ -190,29 +262,84 @@ export function WorkshopOrderDetails() {
     window.print()
     document.title = previousTitle
   }
+  const activeTaskForPanel = activeTask
+    ? {
+        ...activeTask,
+        lineItems: activeTask.lineItems ?? [],
+        mechanicNotes: activeTask.mechanicNotes ?? '',
+      }
+    : null
 
   return (
-    <div className='w-full max-w-7xl mx-auto p-6 space-y-6'>
-      <div className='flex items-center justify-between mb-8'>
-        <div className='flex items-center gap-3'>
-          <h1 className='text-2xl font-semibold tracking-tight'>#{order.id}</h1>
-          <StatusBadge status={order.status} />
-        </div>
+    <div
+      className={`w-full space-y-6 transition-[max-width,padding,margin] duration-250 ${
+        isDockedLayout && activeTaskForPanel
+          ? 'max-w-[1800px] px-4 2xl:px-6 py-6 mx-auto'
+          : 'max-w-7xl px-6 py-6 mx-auto'
+      }`}
+    >
+      <div className='2xl:flex 2xl:items-start 2xl:justify-start 2xl:gap-4'>
+        <motion.div
+          className={`w-full min-w-0 space-y-6 2xl:min-w-[960px] 2xl:flex-1 transition-transform duration-250 ${
+            isDockedLayout && activeTask ? '2xl:-translate-x-3' : '2xl:translate-x-0'
+          }`}
+        >
+          <Card className='mb-8'>
+            <CardContent className='p-4 sm:p-5'>
+              <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+                <div className='space-y-3'>
+                  <div className='flex items-center gap-3'>
+                    <h1 className='text-2xl font-semibold tracking-tight'>#{order.id}</h1>
+                    <StatusBadge status={order.status} />
+                  </div>
 
-        <div className='flex gap-2'>
-          <Button variant='outline' onClick={handlePrint}>
-            <Printer className='h-4 w-4 mr-2' />
-            Print Job Card
-          </Button>
-          <Button onClick={handleCreateInvoice} disabled={isInvoiceActionDisabled}>
-            <FileText className='h-4 w-4 mr-2' />
-            {createDraftInvoice.isPending ? 'Creating...' : invoiceActionLabel}
-          </Button>
-        </div>
-      </div>
+                  <div className='flex flex-wrap gap-2'>
+                    <Button variant='outline' onClick={handlePrint}>
+                      <Printer className='h-4 w-4 mr-2' />
+                      Print Job Card
+                    </Button>
+                    <Button onClick={handleCreateInvoice} disabled={isInvoiceActionDisabled}>
+                      <FileText className='h-4 w-4 mr-2' />
+                      {createDraftInvoice.isPending ? 'Creating...' : invoiceActionLabel}
+                    </Button>
+                  </div>
+                </div>
 
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
-        <div className='space-y-6 lg:col-span-1'>
+                <div className='w-full lg:w-auto lg:pl-4'>
+                  <div className='grid grid-cols-1 sm:grid-cols-3 gap-2 lg:min-w-[460px]'>
+                    <div className='rounded-xl border bg-muted/40 px-3 py-2'>
+                      <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+                        <Package className='h-3.5 w-3.5' />
+                        <span>Total Parts</span>
+                      </div>
+                      <div className='mt-1 text-sm font-medium'>{formatCurrency(orderPartsTotal)}</div>
+                    </div>
+                    <div className='rounded-xl border bg-muted/40 px-3 py-2'>
+                      <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+                        <Clock3 className='h-3.5 w-3.5' />
+                        <span>Total Labor</span>
+                      </div>
+                      <div className='mt-1 text-sm font-medium'>{formatCurrency(orderLaborTotal)}</div>
+                    </div>
+                    <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
+                      <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
+                        <CircleDollarSign className='h-3.5 w-3.5' />
+                        <span>Grand Total</span>
+                      </div>
+                      <div className='mt-1 text-sm font-semibold text-primary'>{formatCurrency(orderGrandTotal)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
+            <motion.div
+              className='space-y-6 lg:col-span-1'
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
+            >
           <Card>
             <CardHeader className='pb-3'>
               <CardTitle className='text-base font-semibold'>Customer Info</CardTitle>
@@ -243,7 +370,7 @@ export function WorkshopOrderDetails() {
             </CardHeader>
             <CardContent className='space-y-3 text-sm'>
               <div className='font-medium'>{getVehicleLabel(order)}</div>
-              <div className='grid grid-cols-2 gap-3'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                 <div>
                   <div className='text-muted-foreground'>VIN</div>
                   <div className='font-medium'>{order.vehicle.vin || 'N/A'}</div>
@@ -263,9 +390,13 @@ export function WorkshopOrderDetails() {
               </div>
             </CardContent>
           </Card>
-        </div>
+            </motion.div>
 
-        <div className='space-y-6 lg:col-span-2'>
+            <motion.div
+              className='space-y-6 lg:col-span-2'
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
+            >
           <Card>
             <CardHeader className='pb-3'>
               <div className='flex items-center justify-between'>
@@ -324,6 +455,7 @@ export function WorkshopOrderDetails() {
                 <button
                   key={task.id}
                   type='button'
+                  data-workshop-task-row='true'
                   onClick={() => setActiveTaskId(task.id)}
                   className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors'
                 >
@@ -337,7 +469,8 @@ export function WorkshopOrderDetails() {
                     <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
                       {task.title}
                     </span>
-                    <span className='ml-auto'>
+                    <span className='ml-auto flex items-center gap-2'>
+                      <span className='text-sm font-semibold'>{formatCurrency(taskTotals.get(task.id)?.total ?? 0)}</span>
                       <StatusBadge status={task.status} />
                     </span>
                   </div>
@@ -361,28 +494,51 @@ export function WorkshopOrderDetails() {
               />
             </CardContent>
           </Card>
-        </div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        <AnimatePresence>
+          {isDockedLayout && activeTaskForPanel && (
+            <motion.div
+              className='w-[1000px] min-w-[1000px] max-w-[1000px] shrink-0 sticky top-20'
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
+              exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: 'easeIn' } }}
+            >
+              <TaskDetailDrawer
+                variant='docked'
+                workshopOrderId={order.id}
+                open={!!activeTaskForPanel}
+                onOpenChange={(open) => {
+                  if (!open) setActiveTaskId(null)
+                }}
+                task={activeTaskForPanel}
+                onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
+                onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
+                onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+                readOnly={isLocked}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <TaskDetailDrawer
-        open={!!activeTask}
-        onOpenChange={(open) => {
-          if (!open) setActiveTaskId(null)
-        }}
-        task={
-          activeTask
-            ? {
-                ...activeTask,
-                lineItems: activeTask.lineItems ?? [],
-                mechanicNotes: activeTask.mechanicNotes ?? '',
-              }
-            : null
-        }
-        onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-        onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-        onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-        readOnly={isLocked}
-      />
+      {!isDockedLayout && (
+        <TaskDetailDrawer
+          variant='drawer'
+          workshopOrderId={order.id}
+          open={!!activeTaskForPanel}
+          onOpenChange={(open) => {
+            if (!open) setActiveTaskId(null)
+          }}
+          task={activeTaskForPanel}
+          onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
+          onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
+          onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+          readOnly={isLocked}
+        />
+      )}
 
       <InvoiceDrawer
         open={invoiceDrawerOpen}

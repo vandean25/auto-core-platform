@@ -133,6 +133,7 @@ export interface Vehicle {
     make: string
     model: string
     year: number
+    engine_code?: string
     vin?: string
     plate?: string
 }
@@ -313,6 +314,44 @@ export interface WorkshopSearchResponse {
         page: number
         limit: number
         totalPages: number
+    }
+}
+
+export interface LaborOperationSearchItem {
+    id: string
+    code: string
+    description: string
+    standardAw: number
+    hourlyRate: number
+}
+
+export interface LaborOperationSearchResponse {
+    data: LaborOperationSearchItem[]
+    meta: {
+        total: number
+        limit: number
+    }
+}
+
+export interface CatalogPartSearchItem {
+    id: string
+    supplierPartNumber: string
+    oemNumber: string | null
+    description: string
+    brand: string
+    quantityOnHand: number
+    binLocation: string | null
+    costPrice: number | null
+    retailPrice: number | null
+}
+
+export interface CatalogSearchResponse {
+    labor: LaborOperationSearchItem[]
+    parts: CatalogPartSearchItem[]
+    meta: {
+        laborCount: number
+        partCount: number
+        limit: number
     }
 }
 

@@ -9,10 +9,9 @@ import { LedgerService } from '../inventory/ledger.service';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
-export type PurchaseOrderWithRelations =
-  Prisma.PurchaseOrderGetPayload<{
-    include: { vendor: true; items: true };
-  }>;
+export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
+  include: { vendor: true; items: true };
+}>;
 
 export interface PaginatedPurchaseOrderResult {
   data: PurchaseOrderWithRelations[];
@@ -243,11 +242,11 @@ export class PurchaseService {
     ) {
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
-          ...(params as Prisma.PurchaseOrderFindManyArgs),
+          ...params,
           include: { vendor: true, items: true },
         }),
         this.prisma.purchaseOrder.count({
-          where: (params as Prisma.PurchaseOrderFindManyArgs).where,
+          where: params.where,
         }),
       ]);
       return { data, total };

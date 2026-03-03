@@ -1,6 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { Settings, Search, LogOut } from 'lucide-react'
 import InventoryList from './pages/InventoryList'
+import InventoryLedgerPage from './pages/inventory/InventoryLedgerPage'
 import VendorList from './pages/vendors/VendorList'
 import PurchaseOrderList from './pages/purchase-orders/PurchaseOrderList'
 import PurchaseOrderCreate from './pages/purchase-orders/PurchaseOrderCreate'
@@ -33,6 +35,58 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       ? 'bg-primary/10 text-primary'
       : 'text-muted-foreground hover:text-foreground hover:bg-accent',
   )
+
+function AppRoutes() {
+  const location = useLocation()
+
+  return (
+    <LayoutGroup id="app-routes">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } }}
+          exit={{ opacity: 0, y: -6, transition: { duration: 0.16, ease: 'easeIn' } }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<InventoryList />} />
+            <Route path="/inventory" element={<InventoryList />} />
+            <Route path="/inventory/:itemId/ledger" element={<InventoryLedgerPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/customers" element={<CustomerList />} />
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/sales-orders" element={<SalesOrderList />} />
+            <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
+            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+            <Route path="/vendors" element={<VendorList />} />
+            <Route path="/purchase-orders" element={<PurchaseOrderList />} />
+            <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
+            <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+            <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
+            <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/workshop/intake" element={<IntakeDashboard />} />
+            <Route path="/workshop/orders" element={<WorkshopOrderList />} />
+            <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
+    </LayoutGroup>
+  )
+}
+
+function AppMain() {
+  const location = useLocation()
+  const isWorkshopOrderDetails = /^\/workshop\/orders\/[^/]+$/.test(location.pathname)
+
+  return (
+    <main className={isWorkshopOrderDetails ? "w-full py-8 px-0" : "container mx-auto py-8 px-4"}>
+      <AppRoutes />
+      <Toaster />
+    </main>
+  )
+}
 
 function App() {
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -78,7 +132,7 @@ function App() {
                 <NavLink to="/sales-orders" className={navLinkClass}>Sales</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/" className={navLinkClass} end>Inventory</NavLink>
+                <NavLink to="/inventory" className={navLinkClass}>Inventory</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />
                 <NavLink to="/vendors" className={navLinkClass}>Vendors</NavLink>
@@ -128,29 +182,7 @@ function App() {
 
         <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
-        <main className="container mx-auto py-8 px-4">
-          <Routes>
-            <Route path="/" element={<InventoryList />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/customers" element={<CustomerList />} />
-            <Route path="/customers/:id" element={<CustomerDetail />} />
-            <Route path="/sales-orders" element={<SalesOrderList />} />
-            <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
-            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
-            <Route path="/vendors" element={<VendorList />} />
-            <Route path="/purchase-orders" element={<PurchaseOrderList />} />
-            <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
-            <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
-            <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
-            <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
-            <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/workshop/intake" element={<IntakeDashboard />} />
-            <Route path="/workshop/orders" element={<WorkshopOrderList />} />
-            <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
-          </Routes>
-          <Toaster />
-        </main>
+        <AppMain />
       </div>
     </Router>
   )

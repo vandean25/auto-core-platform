@@ -1,23 +1,18 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useInventory } from '@/api/inventory'
+import { useBrands } from '@/api/brands'
 import type { InventoryItem } from '@/api/types'
-import StockTimeline from '@/components/inventory/StockTimeline'
 import { AddItemDialog } from '@/components/AddItemDialog'
 import { DataTable } from '@/components/data-table/DataTable'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
-
-const formatPrice = (amount: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(amount)
+import { InventoryItemInfoCard } from '@/components/inventory/InventoryItemInfoCard'
 
 export default function InventoryList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
@@ -28,9 +23,8 @@ export default function InventoryList() {
         pageSize: queryParams.pageSize,
         search: queryParams.search ?? searchFromNameFilter,
     })
+    const { data: brandOptions = [] } = useBrands({ isPartManufacturer: true })
     const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
-    const [showLedger, setShowLedger] = React.useState(false)
-    const [hasShownLedger, setHasShownLedger] = React.useState(false)
 
     const data = (responseData as any)?.data || []
     const pageCount = (responseData as any)?.meta?.pageCount || 1
@@ -61,8 +55,11 @@ export default function InventoryList() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
             cell: ({ row }) => {
                 const amount = Number(row.getValue('price'))
-
-                return <div className="font-medium">{formatPrice(amount)}</div>
+                return (
+                    <div className="font-medium">
+                        {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)}
+                    </div>
+                )
             },
         },
     ]
@@ -86,131 +83,81 @@ export default function InventoryList() {
                 searchPlaceholder="Search parts..."
                 onRowClick={(item) => {
                     setSelectedItem(item)
-                    setShowLedger(false)
-                    setHasShownLedger(false)
                 }}
                 {...tableState}
             />
 
             <Sheet
+                modal={false}
                 open={!!selectedItem}
                 onOpenChange={(open: boolean) => {
                     if (!open) {
                         setSelectedItem(null)
-                        setShowLedger(false)
-                        setHasShownLedger(false)
                     }
                 }}
             >
-                <SheetContent className="sm:max-w-5xl">
-                    <SheetHeader className="mb-6">
-                        <SheetTitle className="text-xl">Item Details</SheetTitle>
-                        <SheetDescription>
-                            Technical specifications and stock information for {selectedItem?.sku}.
-                        </SheetDescription>
-                    </SheetHeader>
+                <SheetContent
+                    side="right"
+                    overlayClassName="bg-transparent pointer-events-none"
+                    className="w-[90vw] sm:w-[32vw] sm:max-w-[32vw] data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0"
+                    onInteractOutside={(event) => {
+                        const target = event.target as HTMLElement | null
+                        if (target?.closest('[data-table-row="true"]')) {
+                            event.preventDefault()
+                        }
+                    }}
+                >
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1, transition: { duration: 0.25 } }}
+                    >
+                        <SheetHeader className="mb-6">
+                            <SheetTitle className="text-xl">Item Details</SheetTitle>
+                            <SheetDescription>
+                                Technical specifications and stock information for {selectedItem?.sku}.
+                            </SheetDescription>
+                        </SheetHeader>
 
-                    {selectedItem && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                            <div className="space-y-6 lg:col-span-1">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                                        <CardTitle className="text-base font-semibold">Item Info</CardTitle>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                setShowLedger((prev) => {
-                                                    const next = !prev
-                                                    if (next) setHasShownLedger(true)
-                                                    return next
-                                                })
+                        {selectedItem && (
+                            <motion.div
+                                layoutId="item-info-card"
+                                className="relative"
+                                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                            >
+                                <AnimatePresence mode="popLayout" initial={false}>
+                                    <motion.div
+                                        key={selectedItem.id}
+                                        layout
+                                        className="w-full"
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0, transition: { duration: 0.2 } }}
+                                        exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+                                    >
+                                        <InventoryItemInfoCard
+                                            item={selectedItem}
+                                            editable
+                                            brandOptions={brandOptions}
+                                            onChange={(patch) => {
+                                                setSelectedItem((prev) => (prev ? { ...prev, ...patch } : prev))
                                             }}
-                                        >
-                                            {showLedger ? 'Hide Ledger' : 'Show Ledger'}
-                                        </Button>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4 text-sm">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">SKU</p>
-                                                <p className="font-semibold">{selectedItem.sku}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">Brand</p>
-                                                <p className="font-semibold">{selectedItem.brand}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-medium text-slate-500 uppercase">Name</p>
-                                            <p>{selectedItem.name}</p>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">Price</p>
-                                                <p className="text-lg font-bold">{formatPrice(selectedItem.price)}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">Availability</p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <StatusBadge status={selectedItem.status} />
-                                                    <span className="text-sm font-medium">
-                                                        ({selectedItem.quantity_available} units)
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {selectedItem.category && (
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">Category</p>
-                                                <Badge variant="secondary" className="mt-1">
-                                                    {selectedItem.category}
-                                                </Badge>
-                                            </div>
-                                        )}
-
-                                        {selectedItem.warehouse_location && (
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-500 uppercase">Location</p>
-                                                <p className="text-sm text-slate-600 font-medium">
-                                                    {selectedItem.warehouse_location}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            <div className="lg:col-span-2">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base font-semibold">Stock Ledger</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {!showLedger && (
-                                            <div className="text-sm text-muted-foreground">
-                                                Click &quot;Show Ledger&quot; to view recent stock movements.
-                                            </div>
-                                        )}
-                                        {hasShownLedger && (
-                                            <div
-                                                className={`transition-all duration-300 ${
-                                                    showLedger
-                                                        ? 'opacity-100 translate-y-0'
-                                                        : 'opacity-0 -translate-y-2 pointer-events-none h-0 overflow-hidden'
-                                                }`}
-                                            >
-                                                <StockTimeline itemId={selectedItem.id} />
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    )}
+                                            action={
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link
+                                                        to={`/inventory/${selectedItem.id}/ledger?sku=${encodeURIComponent(
+                                                            selectedItem.sku
+                                                        )}`}
+                                                        state={{ item: selectedItem }}
+                                                    >
+                                                        Show Ledger
+                                                    </Link>
+                                                </Button>
+                                            }
+                                        />
+                                    </motion.div>
+                                </AnimatePresence>
+                            </motion.div>
+                        )}
+                    </motion.div>
                 </SheetContent>
             </Sheet>
         </div>
