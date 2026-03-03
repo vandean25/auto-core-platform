@@ -1,6 +1,9 @@
 -- AlterTable
 ALTER TABLE "vehicles" ADD COLUMN "engine_code" TEXT;
 
+-- CreateIndex
+CREATE INDEX "vehicles_engine_code_idx" ON "vehicles"("engine_code");
+
 -- CreateTable
 CREATE TABLE "labor_operations" (
     "id" TEXT NOT NULL,

@@ -125,10 +125,12 @@ export default function InventoryLedgerPage() {
                           transaction.cost_basis === null || transaction.cost_basis === undefined
                             ? null
                             : Number(transaction.cost_basis)
+                        const transactionTypeLabel =
+                          transactionLabels[transaction.type]?.trim() || transaction.type || 'Unknown'
                         return (
                           <TableRow key={transaction.id}>
                             <TableCell>{formatLedgerDate(transaction.createdAt)}</TableCell>
-                            <TableCell>{transactionLabels[transaction.type]}</TableCell>
+                            <TableCell>{transactionTypeLabel}</TableCell>
                             <TableCell>{transaction.reference_id ?? '—'}</TableCell>
                             <TableCell>{transaction.location?.name ?? '—'}</TableCell>
                             <TableCell className="text-right">

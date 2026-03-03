@@ -92,19 +92,21 @@ export const useLaborSearch = (
   workshopOrderId: string,
   enabled = true,
 ) => {
+  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedWorkshopOrderId = workshopOrderId.trim()
   return useQuery<LaborOperationSearchResponse>({
-    queryKey: ['labor', 'search', query, workshopOrderId],
+    queryKey: ['labor', 'search', normalizedQuery, normalizedWorkshopOrderId],
     queryFn: async () => {
-      if (!query.trim() || !workshopOrderId) {
+      if (!normalizedQuery || !normalizedWorkshopOrderId) {
         return { data: [], meta: { total: 0, limit: 20 } }
       }
       const response = await fetchWithAuth(
-        `${LABOR_API}/search?q=${encodeURIComponent(query)}&workshopOrderId=${encodeURIComponent(workshopOrderId)}`,
+        `${LABOR_API}/search?q=${encodeURIComponent(normalizedQuery)}&workshopOrderId=${encodeURIComponent(normalizedWorkshopOrderId)}`,
       )
       if (!response.ok) throw new Error('Failed to search labor operations')
       return response.json()
     },
-    enabled: enabled && query.trim().length >= 2 && !!workshopOrderId,
+    enabled: enabled && normalizedQuery.length >= 2 && !!normalizedWorkshopOrderId,
   })
 }
 
@@ -113,19 +115,21 @@ export const useCatalogSearch = (
   workshopOrderId: string,
   enabled = true,
 ) => {
+  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedWorkshopOrderId = workshopOrderId.trim()
   return useQuery<CatalogSearchResponse>({
-    queryKey: ['catalog', 'search', query, workshopOrderId],
+    queryKey: ['catalog', 'search', normalizedQuery, normalizedWorkshopOrderId],
     queryFn: async () => {
-      if (!query.trim() || !workshopOrderId) {
+      if (!normalizedQuery || !normalizedWorkshopOrderId) {
         return { labor: [], parts: [], meta: { laborCount: 0, partCount: 0, limit: 20 } }
       }
       const response = await fetchWithAuth(
-        `${CATALOG_API}/search?q=${encodeURIComponent(query)}&workshopOrderId=${encodeURIComponent(workshopOrderId)}`,
+        `${CATALOG_API}/search?q=${encodeURIComponent(normalizedQuery)}&workshopOrderId=${encodeURIComponent(normalizedWorkshopOrderId)}`,
       )
       if (!response.ok) throw new Error('Failed to search catalog')
       return response.json()
     },
-    enabled: enabled && query.trim().length >= 2 && !!workshopOrderId,
+    enabled: enabled && normalizedQuery.length >= 2 && !!normalizedWorkshopOrderId,
   })
 }
 
