@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { Settings, Search, LogOut } from 'lucide-react'
 import InventoryList from './pages/InventoryList'
@@ -49,7 +49,7 @@ function AppRoutes() {
           exit={{ opacity: 0, y: -6, transition: { duration: 0.16, ease: 'easeIn' } }}
         >
           <Routes location={location}>
-            <Route path="/" element={<InventoryList />} />
+            <Route path="/" element={<Navigate to="/inventory" replace />} />
             <Route path="/inventory" element={<InventoryList />} />
             <Route path="/inventory/:itemId/ledger" element={<InventoryLedgerPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />

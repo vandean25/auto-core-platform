@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -52,6 +52,7 @@ export function WorkshopOrderDetails() {
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false)
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
+  const lineItemSaveSeq = useRef<Record<string, number>>({})
   const [isDockedLayout, setIsDockedLayout] = useState(
     typeof window !== 'undefined'
       ? window.matchMedia('(min-width: 1536px)').matches
@@ -193,6 +194,8 @@ export function WorkshopOrderDetails() {
     items: Array<{ id?: string; type: WorkshopLineItemType; itemNo: string; description: string; qty: number; unitPrice: number }>,
   ) => {
     if (isLocked) return
+    const saveSeq = (lineItemSaveSeq.current[taskId] ?? 0) + 1
+    lineItemSaveSeq.current[taskId] = saveSeq
     const previousItems = tasks.find((task) => task.id === taskId)?.lineItems ?? []
     const nextItemsForUi: WorkshopTaskLineItem[] = items.map((item, index) => ({
       id: item.id ?? `tmp-${taskId}-${index}`,
@@ -218,12 +221,14 @@ export function WorkshopOrderDetails() {
           unitPrice,
         })),
       })
+      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
       setTaskLineItemOverrides((previous) => {
         const next = { ...previous }
         delete next[taskId]
         return next
       })
     } catch (error: any) {
+      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
       setTaskLineItemOverrides((previous) => ({
         ...previous,
         [taskId]: previousItems,

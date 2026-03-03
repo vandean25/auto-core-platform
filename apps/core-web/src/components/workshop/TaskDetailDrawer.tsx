@@ -260,6 +260,7 @@ export function TaskDetailDrawer({
       qtyInputRef.current?.select()
       return
     }
+    if (!isSuggestionStateReady) return
     stageFromKeyboard()
   }
 
@@ -282,8 +283,14 @@ export function TaskDetailDrawer({
     )
   }
 
-  const showSuggestions = !stagedLineItem && searchQuery.trim().length >= 2
+  const normalizedSearchQuery = searchQuery.trim()
+  const showSuggestions = !stagedLineItem && normalizedSearchQuery.length >= 2
   const hasResults = laborSuggestions.length > 0 || partSuggestions.length > 0
+  const isSuggestionStateReady =
+    normalizedSearchQuery.length >= 2 &&
+    debouncedSearchQuery === normalizedSearchQuery &&
+    !isSearchingCatalog &&
+    hasResults
   const isDocked = variant === 'docked'
 
   const panelBody = (

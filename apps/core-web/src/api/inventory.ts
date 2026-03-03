@@ -55,11 +55,11 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
                 throw new Error('Failed to fetch inventory item')
             }
             const payload = (await response.json()) as InventoryResponse
-            const match =
-                payload.data.find((item) => (itemId ? item.id === itemId : item.sku === sku)) ||
-                payload.data[0] ||
-                null
-            return match
+            const match = payload.data.find((item) => (itemId ? item.id === itemId : item.sku === sku))
+            if (itemId) {
+                return match ?? null
+            }
+            return match ?? payload.data[0] ?? null
         },
         enabled: !!sku,
     })

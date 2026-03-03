@@ -8,21 +8,57 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const SEARCH_LIMIT = 20;
 
+function buildFitmentFilter(
+  make: string,
+  model: string,
+  year: number,
+  engineCode?: string | null,
+): Prisma.LaborFitmentWhereInput {
+  return {
+    make: { equals: make, mode: Prisma.QueryMode.insensitive },
+    model: { equals: model, mode: Prisma.QueryMode.insensitive },
+    AND: [
+      {
+        OR: [{ year_from: null }, { year_from: { lte: year } }],
+      },
+      {
+        OR: [{ year_to: null }, { year_to: { gte: year } }],
+      },
+      ...(engineCode
+        ? [
+            {
+              OR: [
+                { engine_code: null },
+                {
+                  engine_code: {
+                    equals: engineCode,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 @Injectable()
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
   async search(query: string, workshopOrderId: string) {
     const trimmedQuery = query.trim();
+    const trimmedWorkshopOrderId = workshopOrderId.trim();
     if (!trimmedQuery) {
       throw new BadRequestException('q is required');
     }
-    if (!workshopOrderId?.trim()) {
+    if (!trimmedWorkshopOrderId) {
       throw new BadRequestException('workshopOrderId is required');
     }
 
     const workshopOrder = await this.prisma.workshopOrder.findUnique({
-      where: { id: workshopOrderId },
+      where: { id: trimmedWorkshopOrderId },
       select: {
         vehicle: {
           select: {
@@ -37,66 +73,21 @@ export class CatalogService {
 
     if (!workshopOrder?.vehicle) {
       throw new NotFoundException(
-        `Workshop order ${workshopOrderId} was not found`,
+        `Workshop order ${trimmedWorkshopOrderId} was not found`,
       );
     }
 
     const { make, model, year, engine_code } = workshopOrder.vehicle;
 
-    const laborFitmentFilter: Prisma.LaborFitmentWhereInput = {
-      make: { equals: make, mode: 'insensitive' as const },
-      model: { equals: model, mode: 'insensitive' as const },
-      AND: [
-        {
-          OR: [{ year_from: null }, { year_from: { lte: year } }],
-        },
-        {
-          OR: [{ year_to: null }, { year_to: { gte: year } }],
-        },
-        ...(engine_code
-          ? [
-              {
-                OR: [
-                  { engine_code: null },
-                  {
-                    engine_code: {
-                      equals: engine_code,
-                      mode: Prisma.QueryMode.insensitive,
-                    },
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    };
-    const partFitmentFilter: Prisma.PartFitmentWhereInput = {
-      make: { equals: make, mode: 'insensitive' as const },
-      model: { equals: model, mode: 'insensitive' as const },
-      AND: [
-        {
-          OR: [{ year_from: null }, { year_from: { lte: year } }],
-        },
-        {
-          OR: [{ year_to: null }, { year_to: { gte: year } }],
-        },
-        ...(engine_code
-          ? [
-              {
-                OR: [
-                  { engine_code: null },
-                  {
-                    engine_code: {
-                      equals: engine_code,
-                      mode: Prisma.QueryMode.insensitive,
-                    },
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    };
+    const laborFitmentFilter: Prisma.LaborFitmentWhereInput =
+      buildFitmentFilter(make, model, year, engine_code);
+    const partFitmentFilter: Prisma.PartFitmentWhereInput =
+      buildFitmentFilter(
+        make,
+        model,
+        year,
+        engine_code,
+      ) as Prisma.PartFitmentWhereInput;
 
     const [laborOperations, masterParts, catalogItems] = await Promise.all([
       this.prisma.laborOperation.findMany({

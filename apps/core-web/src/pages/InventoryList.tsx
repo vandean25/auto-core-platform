@@ -153,6 +153,9 @@ export default function InventoryList() {
                                                 </Button>
                                             }
                                         />
+                                        <p className="mt-3 text-xs text-slate-500">
+                                            Changes in this panel are preview-only and are not persisted.
+                                        </p>
                                     </motion.div>
                                 </AnimatePresence>
                             </motion.div>
