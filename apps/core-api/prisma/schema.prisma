@@ -250,6 +250,7 @@ model Vehicle {
   make         String
   model        String
   year         Int
+  engine_code  String?
   vin          String?   @unique
   plate        String?
   customer_id  String?
@@ -513,4 +514,89 @@ model WorkshopTaskLineItem {
   updatedAt         DateTime             @updatedAt
 
   @@map("workshop_task_line_items")
+}
+
+model LaborOperation {
+  id            String        @id @default(uuid())
+  code          String        @unique
+  description   String
+  standard_aw   Decimal       @db.Decimal(10, 2)
+  hourly_rate   Decimal       @db.Decimal(10, 2)
+  fitments      LaborFitment[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("labor_operations")
+  @@index([description])
+  @@index([code, description])
+}
+
+model LaborFitment {
+  id                 String         @id @default(uuid())
+  labor_operation_id String
+  labor_operation    LaborOperation @relation(fields: [labor_operation_id], references: [id], onDelete: Cascade)
+  make               String
+  model              String
+  year_from          Int?
+  year_to            Int?
+  engine_code        String?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@map("labor_fitments")
+  @@index([labor_operation_id])
+  @@index([make, model, year_from, year_to, engine_code])
+}
+
+model MasterPart {
+  id                   String          @id @default(uuid())
+  supplier_part_number String          @unique
+  oem_number           String?
+  description          String
+  brand                String
+  fitments             PartFitment[]
+  local_inventory      LocalInventory?
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("master_parts")
+  @@index([description])
+  @@index([supplier_part_number, oem_number, description])
+}
+
+model PartFitment {
+  id             String     @id @default(uuid())
+  master_part_id String
+  master_part    MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade)
+  make           String
+  model          String
+  year_from      Int?
+  year_to        Int?
+  engine_code    String?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("part_fitments")
+  @@index([master_part_id])
+  @@index([make, model, year_from, year_to, engine_code])
+}
+
+model LocalInventory {
+  id               String     @id @default(uuid())
+  master_part_id   String     @unique
+  master_part      MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade)
+  quantity_on_hand Int        @default(0)
+  bin_location     String?
+  cost_price       Decimal    @db.Decimal(10, 2)
+  retail_price     Decimal    @db.Decimal(10, 2)
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@map("local_inventories")
+  @@index([quantity_on_hand])
 }

@@ -24,7 +24,7 @@ export class PrismaService
     super({
       adapter,
       log: ['info', 'warn', 'error'],
-    } as any);
+    });
 
     this.pool = pool;
   }

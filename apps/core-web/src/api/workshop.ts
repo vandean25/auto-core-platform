@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type {
+  CatalogSearchResponse,
   CreateWorkshopOrderPayload,
+  LaborOperationSearchResponse,
   RegisterIntakePayload,
   WorkshopLineItemType,
   WorkshopOrder,
@@ -12,6 +14,8 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 
 const WORKSHOP_API = '/api/workshop'
+const LABOR_API = '/api/labor'
+const CATALOG_API = '/api/catalog'
 
 type WorkshopOrderResponse = {
   data: WorkshopOrder[]
@@ -80,6 +84,48 @@ export const useWorkshopSearch = (query: string) => {
       return response.json()
     },
     enabled: query.length >= 2,
+  })
+}
+
+export const useLaborSearch = (
+  query: string,
+  workshopOrderId: string,
+  enabled = true,
+) => {
+  return useQuery<LaborOperationSearchResponse>({
+    queryKey: ['labor', 'search', query, workshopOrderId],
+    queryFn: async () => {
+      if (!query.trim() || !workshopOrderId) {
+        return { data: [], meta: { total: 0, limit: 20 } }
+      }
+      const response = await fetchWithAuth(
+        `${LABOR_API}/search?q=${encodeURIComponent(query)}&workshopOrderId=${encodeURIComponent(workshopOrderId)}`,
+      )
+      if (!response.ok) throw new Error('Failed to search labor operations')
+      return response.json()
+    },
+    enabled: enabled && query.trim().length >= 2 && !!workshopOrderId,
+  })
+}
+
+export const useCatalogSearch = (
+  query: string,
+  workshopOrderId: string,
+  enabled = true,
+) => {
+  return useQuery<CatalogSearchResponse>({
+    queryKey: ['catalog', 'search', query, workshopOrderId],
+    queryFn: async () => {
+      if (!query.trim() || !workshopOrderId) {
+        return { labor: [], parts: [], meta: { laborCount: 0, partCount: 0, limit: 20 } }
+      }
+      const response = await fetchWithAuth(
+        `${CATALOG_API}/search?q=${encodeURIComponent(query)}&workshopOrderId=${encodeURIComponent(workshopOrderId)}`,
+      )
+      if (!response.ok) throw new Error('Failed to search catalog')
+      return response.json()
+    },
+    enabled: enabled && query.trim().length >= 2 && !!workshopOrderId,
   })
 }
 
