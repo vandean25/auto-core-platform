@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { useVehicle, useUpdateVehicle } from '@/api/vehicles'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -114,6 +115,7 @@ export default function VehicleDetail() {
   const updateVehicle = useUpdateVehicle()
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [startServiceOpen, setStartServiceOpen] = useState(false)
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vehicle details...</div>
@@ -209,6 +211,19 @@ export default function VehicleDetail() {
     }
   }
 
+  const getVehicleDescription = () => {
+    const base = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+    return vehicle.plate ? `${base} (${vehicle.plate})` : base
+  }
+
+  const handleCreateServiceOrder = () => {
+    if (!vehicle.customer?.id) {
+      toast.error('Assign a customer to this vehicle before creating a service order.')
+      return
+    }
+    setStartServiceOpen(true)
+  }
+
   return (
     <div className='w-full max-w-7xl mx-auto p-6 space-y-6'>
       <div className='flex items-center justify-between mb-8'>
@@ -225,6 +240,11 @@ export default function VehicleDetail() {
               {vehicle.plate && <Badge variant='outline'>{vehicle.plate}</Badge>}
             </div>
           </div>
+        </div>
+        <div className='flex gap-2'>
+          <Button variant='outline' onClick={handleCreateServiceOrder}>
+            <Wrench className='mr-2 h-4 w-4' /> Service Order
+          </Button>
         </div>
       </div>
 
@@ -469,6 +489,17 @@ export default function VehicleDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {vehicle.customer && (
+        <StartServiceDialog
+          open={startServiceOpen}
+          onOpenChange={setStartServiceOpen}
+          customerId={vehicle.customer.id}
+          vehicleId={vehicle.id}
+          vehicleDescription={getVehicleDescription()}
+          onCreated={(order) => navigate(`/workshop/orders/${order.id}`)}
+        />
+      )}
     </div>
   )
 }
