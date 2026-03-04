@@ -18,6 +18,8 @@ import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
 import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
+import VehicleDetail from './pages/vehicles/VehicleDetail'
+import VehicleList from './pages/vehicles/VehicleList'
 import SalesOrderList from './pages/sales-orders/SalesOrderList'
 import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
 import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
@@ -55,6 +57,8 @@ function AppRoutes() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/customers" element={<CustomerList />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/vehicles" element={<VehicleList />} />
+            <Route path="/vehicles/:id" element={<VehicleDetail />} />
             <Route path="/sales-orders" element={<SalesOrderList />} />
             <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
             <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
@@ -129,6 +133,7 @@ function App() {
 
                 <div className="h-4 w-px bg-border mx-1" />
                 <NavLink to="/customers" className={navLinkClass}>Customers</NavLink>
+                <NavLink to="/vehicles" className={navLinkClass}>Vehicles</NavLink>
                 <NavLink to="/sales-orders" className={navLinkClass}>Sales</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />

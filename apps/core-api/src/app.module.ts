@@ -17,6 +17,7 @@ import { WorkshopModule } from './workshop/workshop.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { LaborModule } from './labor/labor.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { VehicleModule } from './vehicle/vehicle.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CatalogModule } from './catalog/catalog.module';
     InvoicesModule,
     LaborModule,
     CatalogModule,
+    VehicleModule,
   ],
   controllers: [AppController],
   providers: [

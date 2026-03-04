@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopOrderStatus, WorkshopTaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -79,5 +79,46 @@ describe('WorkshopService', () => {
     await expect(
       service.updateTask('wo-x', 'task-x', { status: WorkshopTaskStatus.DONE }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('allows task updates for completed orders even when draft invoice exists', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: {
+        status: WorkshopOrderStatus.COMPLETED,
+        invoice: { id: 'inv-draft-1', invoice_number: null },
+      },
+    });
+    mockPrisma.workshopTask.update.mockResolvedValue({});
+    mockPrisma.workshopTask.findMany.mockResolvedValue([
+      { status: WorkshopTaskStatus.DONE },
+      { status: WorkshopTaskStatus.NOT_STARTED },
+    ]);
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await expect(
+      service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.NOT_STARTED }),
+    ).resolves.toEqual({ id: 'wo-1' });
+
+    expect(mockPrisma.workshopTask.update).toHaveBeenCalled();
+  });
+
+  it('blocks updates when workshop order status is invoiced', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: {
+        status: WorkshopOrderStatus.INVOICED,
+        invoice: { id: 'inv-1', invoice_number: 'RE-2026-0001' },
+      },
+    });
+
+    await expect(
+      service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.DONE }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
   });
 });

@@ -35,8 +35,8 @@ export function useCustomers(queryParams?: DataTableQueryParams) {
     })
 }
 
-export function useCustomer(id: string) {
-    return useQuery<Customer>({
+export function useCustomer<TCustomer = Customer>(id: string) {
+    return useQuery<TCustomer>({
         queryKey: customerKeys.detail(id),
         queryFn: async () => {
             const response = await fetchWithAuth(`/api/customers/${id}`)

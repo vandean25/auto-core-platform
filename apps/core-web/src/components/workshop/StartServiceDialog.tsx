@@ -13,9 +13,17 @@ interface StartServiceDialogProps {
     customerId: string
     vehicleId: string
     vehicleDescription: string
+    onCreated?: (order: { id: string }) => void
 }
 
-export function StartServiceDialog({ open, onOpenChange, customerId, vehicleId, vehicleDescription }: StartServiceDialogProps) {
+export function StartServiceDialog({
+    open,
+    onOpenChange,
+    customerId,
+    vehicleId,
+    vehicleDescription,
+    onCreated,
+}: StartServiceDialogProps) {
     const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateWorkshopOrderPayload>({
         defaultValues: {
             customerId,
@@ -33,10 +41,11 @@ export function StartServiceDialog({ open, onOpenChange, customerId, vehicleId, 
         data.fuelLevel = Number(data.fuelLevel)
 
         mutation.mutate(data, {
-            onSuccess: () => {
+            onSuccess: (order) => {
                 toast.success('Service started')
                 onOpenChange(false)
                 reset()
+                onCreated?.(order)
             },
             onError: () => {
                 toast.error('Failed to start service')

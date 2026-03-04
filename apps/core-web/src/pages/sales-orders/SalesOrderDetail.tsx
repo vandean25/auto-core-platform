@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom'
-import { useSalesOrder, useCreateInvoiceFromOrder } from '@/api/sales-orders'
+import { useSalesOrder, useCreateInvoiceFromOrder, useUpdateSalesOrder } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import {
     Table,
     TableBody,
@@ -30,6 +31,7 @@ export default function SalesOrderDetail() {
     const { id } = useParams<{ id: string }>()
     const { data: order, isLoading } = useSalesOrder(id!)
     const createInvoiceMutation = useCreateInvoiceFromOrder()
+    const updateSalesOrder = useUpdateSalesOrder()
 
     const handleCreateInvoice = async () => {
         try {
@@ -45,6 +47,24 @@ export default function SalesOrderDetail() {
 
     if (isLoading) return <div className="p-8 text-center">Loading order...</div>
     if (!order) return <div className="p-8 text-center">Order not found</div>
+
+    const isLocked = order.status === 'INVOICED'
+
+    const handleSaveNotes = async (nextNotes: string) => {
+        if (isLocked) return
+        if (nextNotes === (order.notes ?? '')) return
+
+        try {
+            await updateSalesOrder.mutateAsync({
+                id: order.id,
+                data: { notes: nextNotes },
+            })
+            toast.success('Order notes saved')
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to save order notes')
+            throw error
+        }
+    }
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
@@ -149,9 +169,16 @@ export default function SalesOrderDetail() {
                             <CardTitle className="text-base font-semibold">Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {order.notes || "No notes."}
-                            </p>
+                            <InlineEdit
+                                mode="textarea"
+                                rows={5}
+                                value={order.notes ?? ''}
+                                onSave={handleSaveNotes}
+                                placeholder="Order notes..."
+                                emptyText="Add notes"
+                                readOnly={isLocked}
+                                ariaLabel="Sales order notes"
+                            />
                         </CardContent>
                     </Card>
                 </div>
