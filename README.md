@@ -1,3 +1,5 @@
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 # Auto Core Platform
 
 A full-stack automotive parts management platform built with NestJS (backend) and React + Vite (frontend).
@@ -521,4 +523,4 @@ Check:
 
 ## License
 
-UNLICENSED - Private repository
+This project is licensed under the GNU AGPLv3 License. This ensures that the software remains free and open source. If you modify this software and provide access to it over a network (like a web application), you must also share your modified source code under the same license.
