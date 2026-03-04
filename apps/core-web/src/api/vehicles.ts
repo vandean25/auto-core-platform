@@ -1,0 +1,98 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Vehicle } from './types'
+import { fetchWithAuth } from './client'
+import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { buildDataTableUrl } from './data-table-query'
+
+type VehicleListResponse = {
+  data: Array<
+    Vehicle & {
+      customer?: {
+        id: string
+        type: 'PRIVATE' | 'COMPANY'
+        first_name: string
+        last_name: string
+        company_name?: string
+      } | null
+    }
+  >
+  meta: {
+    total: number
+    page: number
+    pageSize: number
+    pageCount: number
+  }
+}
+
+export const vehicleKeys = {
+  all: ['vehicles'] as const,
+  list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.all, 'list', queryParams] as const,
+  detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
+}
+
+export function useVehicles(queryParams?: DataTableQueryParams) {
+  return useQuery<VehicleListResponse>({
+    queryKey: vehicleKeys.list(queryParams),
+    queryFn: async () => {
+      const url = buildDataTableUrl('/api/vehicles', queryParams, {
+        searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+      })
+      const response = await fetchWithAuth(url)
+      if (!response.ok) throw new Error('Failed to fetch vehicles')
+      return response.json()
+    },
+  })
+}
+
+export function useVehicle<TVehicle = Vehicle>(id: string) {
+  return useQuery<TVehicle>({
+    queryKey: vehicleKeys.detail(id),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/vehicles/${id}`)
+      if (!response.ok) throw new Error('Failed to fetch vehicle')
+      return response.json()
+    },
+    enabled: !!id,
+  })
+}
+
+export function useUpdateVehicle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string
+      data: {
+        make?: string
+        model?: string
+        year?: number
+        engine_code?: string
+        vin?: string
+        plate?: string
+        customer_id?: string | null
+      }
+    }) => {
+      const response = await fetchWithAuth(`/api/vehicles/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ message: 'Failed to update vehicle' }))
+        throw new Error(payload.message || 'Failed to update vehicle')
+      }
+      return response.json()
+    },
+    onSuccess: (updatedVehicle) => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+      queryClient.invalidateQueries({
+        queryKey: vehicleKeys.detail(updatedVehicle.id),
+      })
+    },
+  })
+}

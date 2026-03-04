@@ -45,9 +45,8 @@ export class WorkshopService {
 
   private assertOrderEditable(
     status: WorkshopOrderStatus,
-    hasInvoice: boolean,
   ) {
-    if (status === WorkshopOrderStatus.INVOICED || hasInvoice) {
+    if (status === WorkshopOrderStatus.INVOICED) {
       throw new BadRequestException('Workshop order is already invoiced');
     }
   }
@@ -283,7 +282,7 @@ export class WorkshopService {
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const existing = await this.findOne(id);
-    this.assertOrderEditable(existing.status, !!existing.invoice);
+    this.assertOrderEditable(existing.status);
 
     const updated = await this.prisma.workshopOrder.update({
       where: { id },
@@ -320,7 +319,7 @@ export class WorkshopService {
       if (!order) {
         throw new NotFoundException(`Workshop order ${orderId} not found`);
       }
-      this.assertOrderEditable(order.status, !!order.invoice);
+      this.assertOrderEditable(order.status);
 
       const task = await tx.workshopTask.create({
         data: {
@@ -387,10 +386,7 @@ export class WorkshopService {
       if (!task) {
         throw new NotFoundException(`Task ${taskId} not found for this order`);
       }
-      this.assertOrderEditable(
-        task.workshop_order.status,
-        !!task.workshop_order.invoice,
-      );
+      this.assertOrderEditable(task.workshop_order.status);
 
       await tx.workshopTask.update({
         where: { id: taskId },
@@ -447,10 +443,7 @@ export class WorkshopService {
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found for this order`);
     }
-    this.assertOrderEditable(
-      task.workshop_order.status,
-      !!task.workshop_order.invoice,
-    );
+    this.assertOrderEditable(task.workshop_order.status);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.workshopTaskLineItem.deleteMany({

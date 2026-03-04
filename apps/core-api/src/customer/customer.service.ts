@@ -82,11 +82,23 @@ export class CustomerService {
         vehicles: true,
         sales_orders: {
           orderBy: { createdAt: 'desc' },
-          take: 5,
+          take: 20,
+        },
+        workshop_orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: {
+            tasks: {
+              include: {
+                line_items: true,
+              },
+            },
+            vehicle: true,
+          },
         },
         invoices: {
           orderBy: { date: 'desc' },
-          take: 5,
+          take: 20,
         },
       },
     });
