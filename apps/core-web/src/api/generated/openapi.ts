@@ -738,6 +738,42 @@ export interface components {
         UpdateVendorDto: Record<string, never>;
         CreateInvoiceDto: Record<string, never>;
         CreateCustomerDto: Record<string, never>;
+        CustomerHistoryMetaDto: {
+            page: number;
+            pageSize: number;
+            totalCount: number;
+            pageCount: number;
+            hasMore: boolean;
+        };
+        CustomerDetailResponseDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            company_name?: Record<string, never> | null;
+            first_name: string;
+            last_name: string;
+            email?: Record<string, never> | null;
+            phone?: Record<string, never> | null;
+            vat_id?: Record<string, never> | null;
+            address_street?: Record<string, never> | null;
+            address_city?: Record<string, never> | null;
+            address_zip?: Record<string, never> | null;
+            address_country?: Record<string, never> | null;
+            vehicles?: {
+                [key: string]: unknown;
+            }[];
+            sales_orders?: {
+                [key: string]: unknown;
+            }[];
+            workshop_orders?: {
+                [key: string]: unknown;
+            }[];
+            invoices?: {
+                [key: string]: unknown;
+            }[];
+            workshop_orders_meta: components["schemas"]["CustomerHistoryMetaDto"];
+            invoices_meta: components["schemas"]["CustomerHistoryMetaDto"];
+        };
         UpdateCustomerDto: Record<string, never>;
         UpdateFinanceSettingsDto: Record<string, never>;
         CreateRevenueGroupDto: Record<string, never>;
@@ -1470,7 +1506,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerDetailResponseDto"];
+                };
             };
         };
     };

@@ -28,15 +28,13 @@ interface TaskRenderGroup {
   lines: InvoiceLineSummary[]
 }
 
-const EPSILON = 0.0001
-
-function approximatelyEqual(left: number, right: number) {
-  return Math.abs(left - right) < EPSILON
-}
-
 function toNumber(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function buildLineSignature(description: string, quantity: unknown, unitPrice: unknown) {
+  return `${description.trim().toLowerCase()}|${toNumber(quantity).toFixed(4)}|${toNumber(unitPrice).toFixed(4)}`
 }
 
 function formatNumber(value: number) {
@@ -49,41 +47,41 @@ function formatDiscountPercent(value: number) {
   return `${value.toFixed(2).replace(/\.?0+$/, '')}%`
 }
 
-function matchesTaskLine(summary: InvoiceLineSummary, task: WorkshopTask, lineIndex: number) {
-  const taskLine = task.lineItems?.[lineIndex]
-  if (!taskLine) return false
-
-  const invoiceDescription = summary.item.description.trim().toLowerCase()
-  const taskDescription = taskLine.description.trim().toLowerCase()
-  if (invoiceDescription !== taskDescription) return false
-
-  const invoiceQuantity = toNumber(summary.item.quantity)
-  const taskQuantity = toNumber(taskLine.qty)
-  if (!approximatelyEqual(invoiceQuantity, taskQuantity)) return false
-
-  const invoiceUnitPrice = toNumber(summary.item.unit_price)
-  const taskUnitPrice = toNumber(taskLine.unitPrice)
-  return approximatelyEqual(invoiceUnitPrice, taskUnitPrice)
-}
-
 function buildTaskGroups(
   tasks: WorkshopTask[],
   lineSummaries: InvoiceLineSummary[],
 ): TaskRenderGroup[] {
-  const remaining = lineSummaries.map((line) => ({ line, used: false }))
+  const remainingBySignature = new Map<string, InvoiceLineSummary[]>()
+  lineSummaries.forEach((line) => {
+    const signature = buildLineSignature(
+      line.item.description,
+      line.item.quantity,
+      line.item.unit_price,
+    )
+    const bucket = remainingBySignature.get(signature) ?? []
+    bucket.push(line)
+    remainingBySignature.set(signature, bucket)
+  })
+
   const groups: TaskRenderGroup[] = []
 
   tasks.forEach((task) => {
     const taskLines = task.lineItems ?? []
     const matched: InvoiceLineSummary[] = []
 
-    taskLines.forEach((_line, lineIndex) => {
-      const match = remaining.find(
-        (candidate) => !candidate.used && matchesTaskLine(candidate.line, task, lineIndex),
-      )
+    taskLines.forEach((line) => {
+      const signature = buildLineSignature(line.description, line.qty, line.unitPrice)
+      const bucket = remainingBySignature.get(signature)
+      if (!bucket || bucket.length === 0) return
+
+      const match = bucket.shift()
       if (!match) return
-      match.used = true
-      matched.push(match.line)
+      if (bucket.length === 0) {
+        remainingBySignature.delete(signature)
+      } else {
+        remainingBySignature.set(signature, bucket)
+      }
+      matched.push(match)
     })
 
     if (matched.length > 0) {
@@ -95,9 +93,10 @@ function buildTaskGroups(
     }
   })
 
-  const leftovers = remaining
-    .filter((entry) => !entry.used)
-    .map((entry) => entry.line)
+  const leftovers: InvoiceLineSummary[] = []
+  remainingBySignature.forEach((bucket) => {
+    leftovers.push(...bucket)
+  })
 
   if (leftovers.length > 0) {
     groups.push({
@@ -124,7 +123,11 @@ export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const workshopOrderId = invoice?.workshop_order_id ?? ''
-  const { data: workshopOrder, isLoading: isWorkshopOrderLoading } = useWorkshopOrder(workshopOrderId)
+  const {
+    data: workshopOrder,
+    isLoading: isWorkshopOrderLoading,
+    error: workshopOrderError,
+  } = useWorkshopOrder(workshopOrderId)
   const isWorkshopInvoice = Boolean(invoice?.workshop_order_id)
 
   const lineSummaries = useMemo<InvoiceLineSummary[]>(() => {
@@ -169,6 +172,7 @@ export default function InvoiceDetailPage() {
   const taskGroups = useMemo<TaskRenderGroup[]>(() => {
     if (!isWorkshopInvoice || !invoice) return []
     if (isWorkshopOrderLoading) return []
+    if (workshopOrderError) return []
 
     const groupsFromTasks =
       workshopOrder?.tasks && workshopOrder.tasks.length > 0
@@ -188,7 +192,7 @@ export default function InvoiceDetailPage() {
           },
         ]
       : []
-  }, [invoice, isWorkshopInvoice, isWorkshopOrderLoading, lineSummaries, workshopOrder])
+  }, [invoice, isWorkshopInvoice, isWorkshopOrderLoading, lineSummaries, workshopOrder, workshopOrderError])
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Loading invoice...</div>
@@ -290,6 +294,15 @@ export default function InvoiceDetailPage() {
                         Loading task groups...
                       </TableCell>
                     </TableRow>
+                  ) : isWorkshopInvoice && workshopOrderError ? (
+                    <>
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-3 text-center text-muted-foreground">
+                          Failed to load workshop task groups. Showing ungrouped line items.
+                        </TableCell>
+                      </TableRow>
+                      {lineSummaries.map((summary) => renderLine(summary))}
+                    </>
                   ) : isWorkshopInvoice ? (
                     taskGroups.map((group) => {
                       const taskSubtotal = group.lines.reduce((sum, line) => sum + line.netAfterDiscount, 0)

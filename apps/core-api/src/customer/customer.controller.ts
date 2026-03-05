@@ -8,10 +8,11 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto';
 import { QueryBuilder } from '../common/utils/query-builder';
 
 @Controller('customers')
@@ -123,11 +124,12 @@ export class CustomerController {
     required: false,
     schema: { type: 'integer', minimum: 1 },
   })
+  @ApiOkResponse({ type: CustomerDetailResponseDto })
   findOne(
     @Param('id') id: string,
     @Query('historyPage') historyPage?: string,
     @Query('historyLimit') historyLimit?: string,
-  ) {
+  ): Promise<CustomerDetailResponseDto> {
     const parsedHistoryPage = historyPage ? parseInt(historyPage, 10) : NaN;
     const parsedHistoryLimit = historyLimit ? parseInt(historyLimit, 10) : NaN;
 

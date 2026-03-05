@@ -962,7 +962,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDetailResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2028,6 +2035,128 @@
       "CreateCustomerDto": {
         "type": "object",
         "properties": {}
+      },
+      "CustomerHistoryMetaDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalCount": {
+            "type": "number"
+          },
+          "pageCount": {
+            "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "pageCount",
+          "hasMore"
+        ]
+      },
+      "CustomerDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "COMPANY"
+            ]
+          },
+          "company_name": {
+            "type": "object",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "object",
+            "nullable": true
+          },
+          "phone": {
+            "type": "object",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "address_street": {
+            "type": "object",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "object",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "object",
+            "nullable": true
+          },
+          "address_country": {
+            "type": "object",
+            "nullable": true
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "sales_orders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "workshop_orders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "workshop_orders_meta": {
+            "$ref": "#/components/schemas/CustomerHistoryMetaDto"
+          },
+          "invoices_meta": {
+            "$ref": "#/components/schemas/CustomerHistoryMetaDto"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "first_name",
+          "last_name",
+          "workshop_orders_meta",
+          "invoices_meta"
+        ]
       },
       "UpdateCustomerDto": {
         "type": "object",
