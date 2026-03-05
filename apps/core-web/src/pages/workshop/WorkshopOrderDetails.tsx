@@ -47,7 +47,6 @@ import {
   useUpdateWorkshopTask,
   useWorkshopOrder,
 } from '@/api/workshop'
-import { useFinanceSettings } from '@/api/useFinance'
 import type {
   DiscountType,
   InvoiceItem,
@@ -57,7 +56,6 @@ import type {
   WorkshopTaskStatus,
 } from '@/api/types'
 
-const DEFAULT_TAX_RATE = 20
 const EMPTY_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
 
 interface DiscountState {
@@ -115,7 +113,6 @@ export function WorkshopOrderDetails() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const { data: order, isLoading } = useWorkshopOrder(id)
-  const { data: financeSettings } = useFinanceSettings()
 
   const updateOrder = useUpdateWorkshopOrder()
   const createTask = useCreateWorkshopTask()
@@ -218,12 +215,6 @@ export function WorkshopOrderDetails() {
     return seed
   }, [checkoutLineRows, fetchedInvoice])
 
-  const effectiveTaxRate = useMemo(() => {
-    const raw = (financeSettings as { tax_rate?: number | string } | undefined)?.tax_rate
-    const parsed = Number(raw)
-    return Number.isFinite(parsed) ? parsed : DEFAULT_TAX_RATE
-  }, [financeSettings])
-
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(() => {
     return checkoutLineRows.map(({ rowKey, taskId, lineItem }) => {
       const baseAmount = lineItem.qty * lineItem.unitPrice
@@ -234,7 +225,11 @@ export function WorkshopOrderDetails() {
         parseDiscountValue(discount.value),
       )
       const lineNet = Math.max(0, baseAmount - discountAmount)
-      const taxAmount = lineNet * (effectiveTaxRate / 100)
+      const invoiceItem = fetchedInvoice
+        ? findInvoiceItemByLineItemId(fetchedInvoice.items, lineItem.id)
+        : undefined
+      const lineTaxRate = Number(invoiceItem?.tax_rate ?? 0)
+      const taxAmount = lineNet * (lineTaxRate / 100)
       return {
         rowKey,
         taskId,
@@ -246,7 +241,7 @@ export function WorkshopOrderDetails() {
         taxAmount,
       }
     })
-  }, [checkoutLineRows, discountSeedFromInvoice, effectiveTaxRate, lineDiscountOverrides])
+  }, [checkoutLineRows, discountSeedFromInvoice, fetchedInvoice, lineDiscountOverrides])
 
   const checkoutLineSummaryByRowKey = useMemo(
     () => new Map(checkoutLineSummaries.map((summary) => [summary.rowKey, summary])),
@@ -1043,7 +1038,7 @@ export function WorkshopOrderDetails() {
                           <span>{formatCurrency(checkoutNetTotal)}</span>
                         </div>
                         <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>VAT ({effectiveTaxRate}%)</span>
+                          <span className='text-muted-foreground'>VAT</span>
                           <span>{formatCurrency(checkoutTaxTotal)}</span>
                         </div>
                         <div className='border-t pt-2 mt-2 flex items-center justify-between text-sm font-semibold'>

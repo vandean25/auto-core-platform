@@ -7,6 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
+const DEFAULT_HISTORY_LIMIT = 20;
+const MAX_HISTORY_LIMIT = 100;
+
 @Injectable()
 export class CustomerService {
   constructor(private prisma: PrismaService) {}
@@ -81,10 +84,11 @@ export class CustomerService {
   ) {
     const historyPage =
       options?.historyPage && options.historyPage > 0 ? options.historyPage : 1;
-    const historyLimit =
+    const requestedHistoryLimit =
       options?.historyLimit && options.historyLimit > 0
         ? options.historyLimit
-        : 20;
+        : DEFAULT_HISTORY_LIMIT;
+    const historyLimit = Math.min(requestedHistoryLimit, MAX_HISTORY_LIMIT);
     const historySkip = (historyPage - 1) * historyLimit;
 
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
@@ -151,7 +155,7 @@ export class CustomerService {
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
-    await this.findOne(id); // Ensure exists
+    await this.ensureCustomerExists(id);
     return this.prisma.customer.update({
       where: { id },
       data: updateCustomerDto,
@@ -159,7 +163,7 @@ export class CustomerService {
   }
 
   async remove(id: string) {
-    await this.findOne(id); // Ensure exists
+    await this.ensureCustomerExists(id);
 
     const [
       salesOrdersCount,
@@ -188,5 +192,15 @@ export class CustomerService {
     return this.prisma.customer.delete({
       where: { id },
     });
+  }
+
+  private async ensureCustomerExists(id: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
   }
 }
