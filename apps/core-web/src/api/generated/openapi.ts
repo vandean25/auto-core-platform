@@ -1454,7 +1454,10 @@ export interface operations {
     };
     CustomerController_findOne: {
         parameters: {
-            query?: never;
+            query?: {
+                historyPage?: number;
+                historyLimit?: number;
+            };
             header?: never;
             path: {
                 id: string;

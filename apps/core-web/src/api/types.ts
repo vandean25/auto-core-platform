@@ -278,6 +278,16 @@ export interface WorkshopTaskLineItem {
     unitPrice: number
 }
 
+export interface NormalizedWorkshopTaskLineItem {
+    id?: string
+    type?: WorkshopLineItemType
+    itemNo?: string
+    description?: string
+    qty: number
+    unitPrice: number
+    quantity: number
+}
+
 export interface WorkshopTask {
     id: string
     title: string
@@ -302,6 +312,18 @@ export interface WorkshopOrder {
     tasks?: WorkshopTask[]
     invoice?: Invoice | null
     createdAt: string
+}
+
+export interface NormalizedWorkshopTask extends Omit<WorkshopTask, 'lineItems'> {
+    lineItems?: NormalizedWorkshopTaskLineItem[]
+}
+
+export interface NormalizedWorkshopOrder extends Omit<WorkshopOrder, 'tasks'> {
+    tasks?: NormalizedWorkshopTask[]
+}
+
+export interface NormalizedCustomer extends Customer {
+    workshop_orders?: NormalizedWorkshopOrder[]
 }
 
 export interface WorkshopSearchResponse {

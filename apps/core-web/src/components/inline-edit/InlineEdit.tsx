@@ -104,8 +104,6 @@ export function InlineEdit({
       await onSave(draftValue)
       closeEditor()
       return true
-    } catch (error) {
-      throw error
     } finally {
       setIsSaving(false)
     }

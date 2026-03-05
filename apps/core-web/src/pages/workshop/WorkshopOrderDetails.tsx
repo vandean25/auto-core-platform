@@ -36,8 +36,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useCreateDraftInvoice, useIssueInvoice } from '@/api/invoices'
+import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from '@/api/invoices'
 import { useInvoice } from '@/api/sales'
+import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
 import {
   useCreateWorkshopTask,
@@ -94,20 +95,20 @@ function buildTaskLineRowKey(taskId: string, lineItemId: string | undefined, ind
   return `${taskId}:${lineItemId ?? `idx-${index}`}`
 }
 
-function parseDiscountValue(value: string) {
-  if (!value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function calculateDiscountAmount(baseAmount: number, discount: DiscountState) {
-  const base = Math.max(0, baseAmount)
-  const parsedValue = parseDiscountValue(discount.value)
-  if (!discount.type || parsedValue === null || parsedValue <= 0) return 0
-  if (discount.type === 'PERCENTAGE') {
-    return Math.min(base, (base * parsedValue) / 100)
-  }
-  return Math.min(base, parsedValue)
+function findInvoiceItemByLineItemId(invoiceItems: InvoiceItem[], lineItemId: string) {
+  return invoiceItems.find((item) => {
+    const candidate = item as InvoiceItem & {
+      workshop_line_item_id?: string
+      source_line_item_id?: string
+      invoice_line_id?: string
+    }
+    return (
+      candidate.workshop_line_item_id === lineItemId ||
+      candidate.source_line_item_id === lineItemId ||
+      candidate.invoice_line_id === lineItemId ||
+      candidate.id === lineItemId
+    )
+  })
 }
 
 export function WorkshopOrderDetails() {
@@ -122,6 +123,7 @@ export function WorkshopOrderDetails() {
   const replaceTaskLineItems = useReplaceWorkshopTaskLineItems()
   const createDraftInvoice = useCreateDraftInvoice()
   const issueInvoice = useIssueInvoice()
+  const updateInvoiceDiscount = useUpdateInvoiceDiscount()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -149,12 +151,6 @@ export function WorkshopOrderDetails() {
     mediaQuery.addEventListener('change', update)
     return () => mediaQuery.removeEventListener('change', update)
   }, [])
-
-  useEffect(() => {
-    if (order?.invoice?.id && checkoutInvoiceIdOverride) {
-      setCheckoutInvoiceIdOverride(null)
-    }
-  }, [checkoutInvoiceIdOverride, order?.invoice?.id])
 
   const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
     ...task,
@@ -208,19 +204,7 @@ export function WorkshopOrderDetails() {
 
     checkoutLineRows.forEach((lineRow) => {
       const lineItemId = lineRow.lineItem.id
-      const invoiceItem = invoice.items.find((item) => {
-        const candidate = item as InvoiceItem & {
-          workshop_line_item_id?: string
-          source_line_item_id?: string
-          invoice_line_id?: string
-        }
-        return (
-          candidate.workshop_line_item_id === lineItemId ||
-          candidate.source_line_item_id === lineItemId ||
-          candidate.invoice_line_id === lineItemId ||
-          candidate.id === lineItemId
-        )
-      })
+      const invoiceItem = findInvoiceItemByLineItemId(invoice.items, lineItemId)
       if (!invoiceItem) return
       seed[lineRow.rowKey] = {
         type: invoiceItem.line_discount_type ?? null,
@@ -244,7 +228,11 @@ export function WorkshopOrderDetails() {
     return checkoutLineRows.map(({ rowKey, taskId, lineItem }) => {
       const baseAmount = lineItem.qty * lineItem.unitPrice
       const discount = lineDiscountOverrides[rowKey] ?? discountSeedFromInvoice[rowKey] ?? EMPTY_DISCOUNT_STATE
-      const discountAmount = calculateDiscountAmount(baseAmount, discount)
+      const discountAmount = calculateDiscountAmount(
+        baseAmount,
+        discount.type,
+        parseDiscountValue(discount.value),
+      )
       const lineNet = Math.max(0, baseAmount - discountAmount)
       const taxAmount = lineNet * (effectiveTaxRate / 100)
       return {
@@ -263,6 +251,10 @@ export function WorkshopOrderDetails() {
   const checkoutLineSummaryByRowKey = useMemo(
     () => new Map(checkoutLineSummaries.map((summary) => [summary.rowKey, summary])),
     [checkoutLineSummaries],
+  )
+  const checkoutLineRowByRowKey = useMemo(
+    () => new Map(checkoutLineRows.map((lineRow) => [lineRow.rowKey, lineRow])),
+    [checkoutLineRows],
   )
 
   const groupedCheckoutTasks = useMemo(() => {
@@ -360,7 +352,8 @@ export function WorkshopOrderDetails() {
     !!activeInvoiceId &&
     invoiceStatus === 'DRAFT' &&
     !isLocked &&
-    !issueInvoice.isPending
+    !issueInvoice.isPending &&
+    !updateInvoiceDiscount.isPending
   const invoiceActionLabel = isCheckoutView
     ? 'Close Checkout'
     : activeInvoiceId
@@ -512,6 +505,29 @@ export function WorkshopOrderDetails() {
   const handleIssueInvoiceInCheckout = async () => {
     if (!activeInvoiceId || !canIssueInvoiceInCheckout) return
     try {
+      if (fetchedInvoice && Object.keys(lineDiscountOverrides).length > 0) {
+        const lineItemUpdatesById: Record<string, { id: string; discountType: DiscountType | null; discountValue: number | null }> = {}
+        Object.entries(lineDiscountOverrides).forEach(([rowKey, discount]) => {
+          const lineRow = checkoutLineRowByRowKey.get(rowKey)
+          if (!lineRow) return
+          const invoiceItem = findInvoiceItemByLineItemId(fetchedInvoice.items, lineRow.lineItem.id)
+          if (!invoiceItem) return
+          lineItemUpdatesById[invoiceItem.id] = {
+            id: invoiceItem.id,
+            discountType: discount.type,
+            discountValue: parseDiscountValue(discount.value),
+          }
+        })
+
+        const lineItems = Object.values(lineItemUpdatesById)
+        if (lineItems.length > 0) {
+          await updateInvoiceDiscount.mutateAsync({
+            invoiceId: activeInvoiceId,
+            payload: { lineItems },
+          })
+        }
+      }
+
       const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
       toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
     } catch (error: any) {
@@ -1027,7 +1043,7 @@ export function WorkshopOrderDetails() {
                           <span>{formatCurrency(checkoutNetTotal)}</span>
                         </div>
                         <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>VAT ({DEFAULT_TAX_RATE}%)</span>
+                          <span className='text-muted-foreground'>VAT ({effectiveTaxRate}%)</span>
                           <span>{formatCurrency(checkoutTaxTotal)}</span>
                         </div>
                         <div className='border-t pt-2 mt-2 flex items-center justify-between text-sm font-semibold'>

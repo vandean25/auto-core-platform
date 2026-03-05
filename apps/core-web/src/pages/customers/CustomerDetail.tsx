@@ -28,6 +28,7 @@ import { formatCurrency } from '@/lib/utils'
 import type {
   Customer,
   InvoiceStatus,
+  NormalizedWorkshopTaskLineItem,
   SalesOrderStatus,
   Vehicle,
   WorkshopOrderStatus,
@@ -41,10 +42,7 @@ type SalesOrderSummary = {
   createdAt: string
 }
 
-type WorkshopLineItemSummary = {
-  quantity?: string | number
-  unitPrice?: string | number
-}
+type WorkshopLineItemSummary = Pick<NormalizedWorkshopTaskLineItem, 'quantity' | 'unitPrice'>
 
 type WorkshopTaskSummary = {
   lineItems?: WorkshopLineItemSummary[]
@@ -102,13 +100,17 @@ function getWorkshopOrderTotal(order: WorkshopOrderSummary) {
 export default function CustomerDetail() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { data: customer, isLoading } = useCustomer<CustomerDetailResponse>(id ?? '')
+  const { data: customer, isLoading, error } = useCustomer<CustomerDetailResponse>(id ?? '')
   const updateCustomer = useUpdateCustomer()
   const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false)
   const [selectedWorkshopVehicle, setSelectedWorkshopVehicle] = useState<Vehicle | null>(null)
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading customer details...</div>
+  }
+
+  if (error) {
+    return <div className='p-8 text-center'>Failed to load customer: {(error as Error).message}</div>
   }
 
   if (!customer) {
@@ -392,6 +394,15 @@ export default function CustomerDetail() {
                           onClick={() =>
                             navigate(order.type === 'Service' ? `/workshop/orders/${order.id}` : `/sales-orders/${order.id}`)
                           }
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open ${order.type} order ${order.number}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(order.type === 'Service' ? `/workshop/orders/${order.id}` : `/sales-orders/${order.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>{order.number}</TableCell>
                           <TableCell>{order.type}</TableCell>
@@ -429,6 +440,15 @@ export default function CustomerDetail() {
                           key={invoice.id}
                           className='cursor-pointer hover:bg-accent/50'
                           onClick={() => navigate(`/sales/invoices/${invoice.id}`)}
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open invoice ${invoice.invoice_number || invoice.id}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(`/sales/invoices/${invoice.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>{invoice.invoice_number || 'Draft'}</TableCell>
                           <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -465,6 +485,15 @@ export default function CustomerDetail() {
                           key={vehicle.id}
                           className='cursor-pointer hover:bg-accent/50'
                           onClick={() => navigate(`/vehicles/${vehicle.id}`)}
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open vehicle ${vehicle.make} ${vehicle.model}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(`/vehicles/${vehicle.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>{vehicle.make} {vehicle.model}</TableCell>
                           <TableCell>{vehicle.year}</TableCell>

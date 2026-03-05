@@ -1,5 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Customer } from './types'
+import type {
+    Customer,
+    NormalizedCustomer,
+    NormalizedWorkshopOrder,
+    NormalizedWorkshopTaskLineItem,
+} from './types'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 
@@ -9,18 +14,40 @@ export const customerKeys = {
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
-function normalizeWorkshopOrders(workshopOrders: any[] | undefined) {
+type RawWorkshopTaskLineItem = Partial<NormalizedWorkshopTaskLineItem> & {
+    quantity?: string | number
+    qty?: string | number
+    unitPrice?: string | number
+    unit_price?: string | number
+}
+
+type RawWorkshopTask = {
+    lineItems?: RawWorkshopTaskLineItem[]
+    line_items?: RawWorkshopTaskLineItem[]
+}
+
+type RawWorkshopOrder = {
+    tasks?: RawWorkshopTask[]
+}
+
+function toNumber(value: unknown) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeWorkshopOrders(workshopOrders: RawWorkshopOrder[] | undefined): NormalizedWorkshopOrder[] {
     return (workshopOrders ?? []).map((order) => ({
         ...order,
-        tasks: (order.tasks ?? []).map((task: any) => ({
+        tasks: (order.tasks ?? []).map((task) => ({
             ...task,
-            lineItems: (task.lineItems ?? task.line_items ?? []).map((line: any) => ({
+            lineItems: (task.lineItems ?? task.line_items ?? []).map((line) => ({
                 ...line,
-                quantity: line.quantity ?? line.qty,
-                unitPrice: line.unitPrice ?? line.unit_price,
+                qty: toNumber(line.qty ?? line.quantity),
+                quantity: toNumber(line.quantity ?? line.qty),
+                unitPrice: toNumber(line.unitPrice ?? line.unit_price),
             })),
         })),
-    }))
+    })) as NormalizedWorkshopOrder[]
 }
 
 export function useCustomers(queryParams?: DataTableQueryParams) {
@@ -49,7 +76,7 @@ export function useCustomers(queryParams?: DataTableQueryParams) {
     })
 }
 
-export function useCustomer<TCustomer = Customer>(id: string) {
+export function useCustomer<TCustomer = NormalizedCustomer>(id: string) {
     return useQuery<TCustomer>({
         queryKey: customerKeys.detail(id),
         queryFn: async () => {
@@ -59,7 +86,7 @@ export function useCustomer<TCustomer = Customer>(id: string) {
             return {
                 ...json,
                 workshop_orders: normalizeWorkshopOrders(json.workshop_orders),
-            }
+            } as TCustomer
         },
         enabled: !!id,
     })
