@@ -43,7 +43,7 @@ export default function VehicleList() {
     }))
   }, [responseData])
 
-  const columns: ColumnDef<VehicleRow>[] = [
+  const columns = useMemo<ColumnDef<VehicleRow>[]>(() => [
     {
       id: 'icon',
       header: ({ column }) => (
@@ -79,7 +79,7 @@ export default function VehicleList() {
       accessorKey: 'customer',
       header: ({ column }) => <DataTableColumnHeader column={column} title='Customer' />,
     },
-  ]
+  ], [])
 
   return (
     <div className='w-full max-w-7xl mx-auto p-6'>
@@ -102,4 +102,3 @@ export default function VehicleList() {
     </div>
   )
 }
-

@@ -2077,7 +2077,30 @@
       },
       "UpdateVehicleDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "object",
+            "nullable": true
+          }
+        }
       }
     }
   }

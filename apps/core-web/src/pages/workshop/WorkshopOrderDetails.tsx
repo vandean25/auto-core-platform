@@ -46,8 +46,10 @@ import {
   useUpdateWorkshopTask,
   useWorkshopOrder,
 } from '@/api/workshop'
+import { useFinanceSettings } from '@/api/useFinance'
 import type {
   DiscountType,
+  InvoiceItem,
   WorkshopLineItemType,
   WorkshopTask,
   WorkshopTaskLineItem,
@@ -99,18 +101,20 @@ function parseDiscountValue(value: string) {
 }
 
 function calculateDiscountAmount(baseAmount: number, discount: DiscountState) {
+  const base = Math.max(0, baseAmount)
   const parsedValue = parseDiscountValue(discount.value)
   if (!discount.type || parsedValue === null || parsedValue <= 0) return 0
   if (discount.type === 'PERCENTAGE') {
-    return Math.min(baseAmount, (baseAmount * parsedValue) / 100)
+    return Math.min(base, (base * parsedValue) / 100)
   }
-  return Math.min(baseAmount, parsedValue)
+  return Math.min(base, parsedValue)
 }
 
 export function WorkshopOrderDetails() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const { data: order, isLoading } = useWorkshopOrder(id)
+  const { data: financeSettings } = useFinanceSettings()
 
   const updateOrder = useUpdateWorkshopOrder()
   const createTask = useCreateWorkshopTask()
@@ -202,8 +206,21 @@ export function WorkshopOrderDetails() {
     const invoice = fetchedInvoice
     if (!invoice) return seed
 
-    checkoutLineRows.forEach((lineRow, index) => {
-      const invoiceItem = invoice.items[index]
+    checkoutLineRows.forEach((lineRow) => {
+      const lineItemId = lineRow.lineItem.id
+      const invoiceItem = invoice.items.find((item) => {
+        const candidate = item as InvoiceItem & {
+          workshop_line_item_id?: string
+          source_line_item_id?: string
+          invoice_line_id?: string
+        }
+        return (
+          candidate.workshop_line_item_id === lineItemId ||
+          candidate.source_line_item_id === lineItemId ||
+          candidate.invoice_line_id === lineItemId ||
+          candidate.id === lineItemId
+        )
+      })
       if (!invoiceItem) return
       seed[lineRow.rowKey] = {
         type: invoiceItem.line_discount_type ?? null,
@@ -217,13 +234,19 @@ export function WorkshopOrderDetails() {
     return seed
   }, [checkoutLineRows, fetchedInvoice])
 
+  const effectiveTaxRate = useMemo(() => {
+    const raw = (financeSettings as { tax_rate?: number | string } | undefined)?.tax_rate
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? parsed : DEFAULT_TAX_RATE
+  }, [financeSettings])
+
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(() => {
     return checkoutLineRows.map(({ rowKey, taskId, lineItem }) => {
       const baseAmount = lineItem.qty * lineItem.unitPrice
       const discount = lineDiscountOverrides[rowKey] ?? discountSeedFromInvoice[rowKey] ?? EMPTY_DISCOUNT_STATE
       const discountAmount = calculateDiscountAmount(baseAmount, discount)
       const lineNet = Math.max(0, baseAmount - discountAmount)
-      const taxAmount = lineNet * (DEFAULT_TAX_RATE / 100)
+      const taxAmount = lineNet * (effectiveTaxRate / 100)
       return {
         rowKey,
         taskId,
@@ -235,7 +258,7 @@ export function WorkshopOrderDetails() {
         taxAmount,
       }
     })
-  }, [checkoutLineRows, discountSeedFromInvoice, lineDiscountOverrides])
+  }, [checkoutLineRows, discountSeedFromInvoice, effectiveTaxRate, lineDiscountOverrides])
 
   const checkoutLineSummaryByRowKey = useMemo(
     () => new Map(checkoutLineSummaries.map((summary) => [summary.rowKey, summary])),
@@ -626,11 +649,15 @@ export function WorkshopOrderDetails() {
           </div>
           <div>
             <div className='text-muted-foreground'>Mileage</div>
-            <div className='font-medium'>{order.odometer.toLocaleString()} km</div>
+            <div className='font-medium'>
+              {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
+            </div>
           </div>
           <div>
             <div className='text-muted-foreground'>Fuel</div>
-            <div className='font-medium'>{order.fuel_level}%</div>
+            <div className='font-medium'>
+              {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
+            </div>
           </div>
         </div>
       </CardContent>

@@ -9,6 +9,20 @@ export const customerKeys = {
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
+function normalizeWorkshopOrders(workshopOrders: any[] | undefined) {
+    return (workshopOrders ?? []).map((order) => ({
+        ...order,
+        tasks: (order.tasks ?? []).map((task: any) => ({
+            ...task,
+            lineItems: (task.lineItems ?? task.line_items ?? []).map((line: any) => ({
+                ...line,
+                quantity: line.quantity ?? line.qty,
+                unitPrice: line.unitPrice ?? line.unit_price,
+            })),
+        })),
+    }))
+}
+
 export function useCustomers(queryParams?: DataTableQueryParams) {
     return useQuery<any>({ // Using any for now to handle data/meta structure or array
         queryKey: customerKeys.list(queryParams),
@@ -41,7 +55,11 @@ export function useCustomer<TCustomer = Customer>(id: string) {
         queryFn: async () => {
             const response = await fetchWithAuth(`/api/customers/${id}`)
             if (!response.ok) throw new Error('Failed to fetch customer')
-            return response.json()
+            const json = await response.json()
+            return {
+                ...json,
+                workshop_orders: normalizeWorkshopOrders(json.workshop_orders),
+            }
         },
         enabled: !!id,
     })
