@@ -113,8 +113,34 @@ export class CustomerController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customerService.findOne(id);
+  @ApiQuery({
+    name: 'historyPage',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiQuery({
+    name: 'historyLimit',
+    required: false,
+    schema: { type: 'integer', minimum: 1 },
+  })
+  findOne(
+    @Param('id') id: string,
+    @Query('historyPage') historyPage?: string,
+    @Query('historyLimit') historyLimit?: string,
+  ) {
+    const parsedHistoryPage = historyPage ? parseInt(historyPage, 10) : NaN;
+    const parsedHistoryLimit = historyLimit ? parseInt(historyLimit, 10) : NaN;
+
+    return this.customerService.findOne(id, {
+      historyPage:
+        Number.isFinite(parsedHistoryPage) && parsedHistoryPage > 0
+          ? parsedHistoryPage
+          : undefined,
+      historyLimit:
+        Number.isFinite(parsedHistoryLimit) && parsedHistoryLimit > 0
+          ? parsedHistoryLimit
+          : undefined,
+    });
   }
 
   @Patch(':id')

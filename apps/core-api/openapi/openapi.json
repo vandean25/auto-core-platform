@@ -940,6 +940,24 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "historyPage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "historyLimit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         ],
         "responses": {

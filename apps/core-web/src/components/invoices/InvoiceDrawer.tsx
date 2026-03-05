@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
 
 interface InvoiceDrawerProps {
@@ -43,24 +44,6 @@ interface DiscountState {
 }
 
 const DEFAULT_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
-
-function parseDiscountValue(value: string) {
-  if (!value) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function calculateDiscountAmount(
-  baseAmount: number,
-  type: DiscountType | null,
-  value: number | null,
-) {
-  if (!type || value === null) return 0
-  if (type === 'PERCENTAGE') {
-    return (baseAmount * value) / 100
-  }
-  return value
-}
 
 function getLineNet(item: InvoiceItem) {
   return Number(item.quantity) * Number(item.unit_price)

@@ -75,8 +75,20 @@ export class CustomerService {
     });
   }
 
-  async findOne(id: string) {
-    const customer = await this.prisma.customer.findUnique({
+  async findOne(
+    id: string,
+    options?: { historyPage?: number; historyLimit?: number },
+  ) {
+    const historyPage =
+      options?.historyPage && options.historyPage > 0 ? options.historyPage : 1;
+    const historyLimit =
+      options?.historyLimit && options.historyLimit > 0
+        ? options.historyLimit
+        : 20;
+    const historySkip = (historyPage - 1) * historyLimit;
+
+    const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
+      this.prisma.customer.findUnique({
       where: { id },
       include: {
         vehicles: true,
@@ -86,7 +98,8 @@ export class CustomerService {
         },
         workshop_orders: {
           orderBy: { createdAt: 'desc' },
-          take: 20,
+          skip: historySkip,
+          take: historyLimit,
           include: {
             tasks: {
               include: {
@@ -103,13 +116,38 @@ export class CustomerService {
         },
         invoices: {
           orderBy: { date: 'desc' },
-          take: 20,
+          skip: historySkip,
+          take: historyLimit,
         },
       },
-    });
+    }),
+      this.prisma.workshopOrder.count({ where: { customer_id: id } }),
+      this.prisma.invoice.count({ where: { customer_id: id } }),
+    ]);
     if (!customer)
       throw new NotFoundException(`Customer with ID ${id} not found`);
-    return customer;
+
+    const workshopOrderPageCount = Math.ceil(workshopOrdersTotal / historyLimit);
+    const invoicesPageCount = Math.ceil(invoicesTotal / historyLimit);
+
+    return {
+      ...customer,
+      workshop_orders_meta: {
+        page: historyPage,
+        pageSize: historyLimit,
+        totalCount: workshopOrdersTotal,
+        pageCount: workshopOrderPageCount,
+        hasMore:
+          historyPage < (workshopOrderPageCount === 0 ? 1 : workshopOrderPageCount),
+      },
+      invoices_meta: {
+        page: historyPage,
+        pageSize: historyLimit,
+        totalCount: invoicesTotal,
+        pageCount: invoicesPageCount,
+        hasMore: historyPage < (invoicesPageCount === 0 ? 1 : invoicesPageCount),
+      },
+    };
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {

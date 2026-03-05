@@ -2,10 +2,11 @@ import { Fragment, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useInvoice } from '@/api/sales'
 import { useWorkshopOrder } from '@/api/workshop'
-import type { DiscountType, InvoiceItem, WorkshopTask } from '@/api/types'
+import type { InvoiceItem, WorkshopTask } from '@/api/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
 
 const formatDate = (value: string) =>
@@ -38,12 +39,6 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function parseDiscountValue(value: unknown) {
-  if (value === null || value === undefined || value === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 function formatNumber(value: number) {
   if (Number.isInteger(value)) return String(value)
   return value.toFixed(2).replace(/\.?0+$/, '')
@@ -52,19 +47,6 @@ function formatNumber(value: number) {
 function formatDiscountPercent(value: number) {
   if (Number.isInteger(value)) return `${value}%`
   return `${value.toFixed(2).replace(/\.?0+$/, '')}%`
-}
-
-function calculateDiscountAmount(
-  baseAmount: number,
-  discountType: DiscountType | null | undefined,
-  discountValue: number | null,
-) {
-  const base = Math.max(0, baseAmount)
-  if (!discountType || discountValue === null || discountValue <= 0) return 0
-  if (discountType === 'PERCENTAGE') {
-    return Math.min(base, (base * discountValue) / 100)
-  }
-  return Math.min(base, discountValue)
 }
 
 function matchesTaskLine(summary: InvoiceLineSummary, task: WorkshopTask, lineIndex: number) {
@@ -206,7 +188,7 @@ export default function InvoiceDetailPage() {
           },
         ]
       : []
-  }, [invoice, isWorkshopInvoice, isWorkshopOrderLoading, lineSummaries, workshopOrder?.tasks])
+  }, [invoice, isWorkshopInvoice, isWorkshopOrderLoading, lineSummaries, workshopOrder])
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Loading invoice...</div>
