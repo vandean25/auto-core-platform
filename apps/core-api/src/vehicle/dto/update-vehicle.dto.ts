@@ -41,7 +41,7 @@ export class UpdateVehicleDto {
   @IsOptional()
   plate?: string;
 
-  @ApiProperty({ required: false, nullable: true })
+  @ApiProperty({ type: String, format: 'uuid', required: false, nullable: true })
   @IsUUID()
   @IsOptional()
   customer_id?: string | null;

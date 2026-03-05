@@ -721,7 +721,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["VehicleController_update"];
         trace?: never;
     };
 }
@@ -754,6 +754,16 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        UpdateVehicleDto: {
+            make?: string;
+            model?: string;
+            year?: number;
+            engine_code?: string;
+            vin?: string;
+            plate?: string;
+            /** Format: uuid */
+            customer_id?: string | null;
         };
     };
     responses: never;
@@ -2152,6 +2162,29 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
