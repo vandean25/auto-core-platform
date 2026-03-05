@@ -36,6 +36,8 @@ model FinanceSettings {
   invoice_prefix          String    @default("RE-2026-")
   next_sales_order_number Int       @default(1001)
   sales_order_prefix      String    @default("SO-2026-")
+  next_workshop_order_number Int    @default(1001)
+  workshop_order_prefix      String @default("WO-2026-")
   
   updatedAt               DateTime  @updatedAt
 
@@ -449,6 +451,7 @@ enum WorkshopOrderStatus {
 
 model WorkshopOrder {
   id           String              @id @default(uuid())
+  order_number String              @unique
   status       WorkshopOrderStatus @default(INTAKE)
 
   customer_id  String

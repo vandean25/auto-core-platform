@@ -59,11 +59,22 @@ export class VendorService {
     });
   }
 
-  async findOne(id: string): Promise<Vendor | null> {
+  async findOne(id: string): Promise<any | null> {
     return this.prisma.vendor.findUnique({
       where: { id },
       include: {
         supportedBrands: true,
+        purchase_orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: {
+            items: true,
+          },
+        },
+        purchase_invoices: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
       },
     });
   }

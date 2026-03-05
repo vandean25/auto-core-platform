@@ -88,6 +88,7 @@ describe('Workshop Invoicing (e2e)', () => {
       .expect(201);
 
     const orderId = orderRes.body.id;
+    expect(orderRes.body.order_number).toMatch(/^WO-\d{4}-\d+$/);
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)

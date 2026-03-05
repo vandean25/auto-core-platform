@@ -299,6 +299,7 @@ export interface WorkshopTask {
 
 export interface WorkshopOrder {
     id: string
+    order_number?: string
     status: WorkshopOrderStatus
     customer_id: string
     customer: Customer

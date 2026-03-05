@@ -9,7 +9,18 @@ describe('WorkshopService', () => {
   let service: WorkshopService;
 
   const mockPrisma = {
+    financeSettings: {
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    customer: {
+      findUnique: jest.fn(),
+    },
+    vehicle: {
+      findUnique: jest.fn(),
+    },
     workshopOrder: {
+      create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -48,6 +59,41 @@ describe('WorkshopService', () => {
     await service.createInvoiceFromOrder('wo-1');
 
     expect(mockInvoices.createDraftInvoice).toHaveBeenCalledWith('wo-1');
+  });
+
+  it('creates workshop order with generated order number', async () => {
+    mockPrisma.customer.findUnique.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findUnique.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.financeSettings.upsert.mockResolvedValue({ id: 1 });
+    mockPrisma.financeSettings.update.mockResolvedValue({
+      workshop_order_prefix: 'WO-2026-',
+      next_workshop_order_number: 1002,
+    });
+    mockPrisma.workshopOrder.create.mockResolvedValue({
+      id: 'wo-1',
+      order_number: 'WO-2026-1001',
+      status: WorkshopOrderStatus.INTAKE,
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      tasks: [],
+    });
+
+    const result = await service.create({
+      customerId: 'c-1',
+      vehicleId: 'v-1',
+      odometer: 10000,
+      fuelLevel: 50,
+      notes: 'Noise check',
+    });
+
+    expect(mockPrisma.workshopOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          order_number: 'WO-2026-1001',
+        }),
+      }),
+    );
+    expect(result.order_number).toBe('WO-2026-1001');
   });
 
   it('derives workshop order status from task updates', async () => {

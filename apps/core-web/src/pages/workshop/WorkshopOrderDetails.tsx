@@ -337,9 +337,12 @@ export function WorkshopOrderDetails() {
     !isLocked &&
     !issueInvoice.isPending &&
     !updateInvoiceDiscount.isPending
+  const isInvoicedWithLinkedInvoice = order.status === 'INVOICED' && !!activeInvoiceId
   const invoiceActionLabel = isCheckoutView
     ? 'Close Checkout'
-    : activeInvoiceId
+    : isInvoicedWithLinkedInvoice
+      ? 'Open Invoice'
+      : activeInvoiceId
       ? 'Open Checkout'
       : 'Generate Invoice'
   const isInvoiceActionDisabled = !isCheckoutView && !canEnterCheckout
@@ -466,6 +469,11 @@ export function WorkshopOrderDetails() {
       return
     }
 
+    if (isInvoicedWithLinkedInvoice) {
+      navigate(`/sales/invoices/${activeInvoiceId}`)
+      return
+    }
+
     if (canEnterCheckout) {
       openCheckoutView()
       return
@@ -523,7 +531,7 @@ export function WorkshopOrderDetails() {
 
   const handlePrint = () => {
     const previousTitle = document.title
-    document.title = `Job Card ${order.id}`
+    document.title = `Job Card ${order.order_number ?? order.id}`
     window.print()
     document.title = previousTitle
   }
@@ -706,7 +714,7 @@ export function WorkshopOrderDetails() {
               <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
                 <div className='space-y-3'>
                   <div className='flex items-center gap-3'>
-                    <h1 className='text-2xl font-semibold tracking-tight'>#{order.id}</h1>
+                    <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
                     <StatusBadge status={order.status} />
                   </div>
 
@@ -715,10 +723,12 @@ export function WorkshopOrderDetails() {
                       <Printer className='h-4 w-4 mr-2' />
                       Print Job Card
                     </Button>
-                    <Button onClick={handleCheckoutAction} disabled={isInvoiceActionDisabled}>
-                      <FileText className='h-4 w-4 mr-2' />
-                      {invoiceActionLabel}
-                    </Button>
+                    {!isInvoiceActionDisabled && (
+                      <Button onClick={handleCheckoutAction}>
+                        <FileText className='h-4 w-4 mr-2' />
+                        {invoiceActionLabel}
+                      </Button>
+                    )}
                   </div>
                 </div>
 

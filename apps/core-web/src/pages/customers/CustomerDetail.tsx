@@ -50,6 +50,7 @@ type WorkshopTaskSummary = {
 
 type WorkshopOrderSummary = {
   id: string
+  order_number?: string
   status: WorkshopOrderStatus
   createdAt: string
   vehicle_id?: string
@@ -133,7 +134,7 @@ export default function CustomerDetail() {
     .map((order) => ({
       id: order.id,
       type: 'Service',
-      number: `#${order.id}`,
+      number: order.order_number ?? `#${order.id}`,
       createdAt: order.createdAt,
       status: order.status,
       total: getWorkshopOrderTotal(order),

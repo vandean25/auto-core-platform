@@ -30,6 +30,35 @@ export class WorkshopService {
     @Inject(InvoicesService) private invoicesService: InvoicesService,
   ) {}
 
+  private async generateOrderNumber() {
+    await this.prisma.financeSettings.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
+        fiscal_year_start_month: 1,
+        lock_date: null,
+        next_invoice_number: 1001,
+        invoice_prefix: 'RE-2026-',
+        next_sales_order_number: 1001,
+        sales_order_prefix: 'SO-2026-',
+        next_workshop_order_number: 1001,
+        workshop_order_prefix: 'WO-2026-',
+      },
+    });
+
+    const settings = await this.prisma.financeSettings.update({
+      where: { id: 1 },
+      data: { next_workshop_order_number: { increment: 1 } },
+      select: {
+        workshop_order_prefix: true,
+        next_workshop_order_number: true,
+      },
+    });
+
+    return `${settings.workshop_order_prefix}${settings.next_workshop_order_number - 1}`;
+  }
+
   private deriveOrderStatus(taskStatuses: WorkshopTaskStatus[]) {
     if (taskStatuses.length === 0) return WorkshopOrderStatus.INTAKE;
     if (taskStatuses.every((status) => status === WorkshopTaskStatus.DONE)) {
@@ -133,8 +162,11 @@ export class WorkshopService {
     if (!vehicle)
       throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
 
+    const orderNumber = await this.generateOrderNumber();
+
     const order = await this.prisma.workshopOrder.create({
       data: {
+        order_number: orderNumber,
         customer_id: dto.customerId,
         vehicle_id: dto.vehicleId,
         odometer: dto.odometer,
@@ -174,6 +206,9 @@ export class WorkshopService {
     const where: Prisma.WorkshopOrderWhereInput = params.search
       ? {
           OR: [
+            {
+              order_number: { contains: params.search, mode: 'insensitive' },
+            },
             { id: { contains: params.search, mode: 'insensitive' } },
             {
               customer: {
@@ -219,7 +254,9 @@ export class WorkshopService {
 
     if (sortField === 'status') {
       orderBy = { status: sortDirection };
-    } else if (sortField === 'orderNo' || sortField === 'id') {
+    } else if (sortField === 'orderNo' || sortField === 'order_number') {
+      orderBy = { order_number: sortDirection };
+    } else if (sortField === 'id') {
       orderBy = { id: sortDirection };
     } else if (sortField === 'customer') {
       orderBy = { customer: { last_name: sortDirection } };
