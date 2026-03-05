@@ -56,6 +56,7 @@ type VehicleWorkshopTask = {
 
 type VehicleWorkshopOrderSummary = {
   id: string
+  order_number?: string
   status: WorkshopOrderStatus
   createdAt: string
   tasks?: VehicleWorkshopTask[]
@@ -145,7 +146,7 @@ export default function VehicleDetail() {
     .map((order) => ({
       id: order.id,
       type: 'Service',
-      number: `#${order.id}`,
+      number: order.order_number ?? `#${order.id}`,
       createdAt: order.createdAt,
       status: order.status,
       total: getWorkshopOrderTotal(order),
@@ -463,7 +464,7 @@ export default function VehicleDetail() {
                           onClick={() => navigate(`/workshop/orders/${order.id}`)}
                           tabIndex={0}
                           role='button'
-                          aria-label={`Open service order ${order.id}`}
+                          aria-label={`Open service order ${order.order_number ?? order.id}`}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
@@ -471,7 +472,7 @@ export default function VehicleDetail() {
                             }
                           }}
                         >
-                          <TableCell className='font-medium'>#{order.id}</TableCell>
+                          <TableCell className='font-medium'>{order.order_number ?? `#${order.id}`}</TableCell>
                           <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(getWorkshopOrderTotal(order))}</TableCell>

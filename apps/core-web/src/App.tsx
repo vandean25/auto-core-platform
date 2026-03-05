@@ -4,6 +4,7 @@ import { Settings, Search, LogOut } from 'lucide-react'
 import InventoryList from './pages/InventoryList'
 import InventoryLedgerPage from './pages/inventory/InventoryLedgerPage'
 import VendorList from './pages/vendors/VendorList'
+import VendorDetail from './pages/vendors/VendorDetail'
 import PurchaseOrderList from './pages/purchase-orders/PurchaseOrderList'
 import PurchaseOrderCreate from './pages/purchase-orders/PurchaseOrderCreate'
 import PurchaseOrderDetail from './pages/purchase-orders/PurchaseOrderDetail'
@@ -63,6 +64,7 @@ function AppRoutes() {
             <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
             <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
             <Route path="/vendors" element={<VendorList />} />
+            <Route path="/vendors/:id" element={<VendorDetail />} />
             <Route path="/purchase-orders" element={<PurchaseOrderList />} />
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
             <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />

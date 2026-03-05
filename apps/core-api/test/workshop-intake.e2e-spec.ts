@@ -55,6 +55,7 @@ describe('Workshop Intake Module (e2e)', () => {
       .expect(201);
 
     expect(res.body.id).toBeDefined();
+    expect(res.body.order_number).toMatch(/^WO-\d{4}-\d+$/);
     expect(res.body.status).toBe('INTAKE');
     expect(res.body.odometer).toBe(50000);
   });

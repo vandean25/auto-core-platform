@@ -38,7 +38,7 @@ export default function WorkshopOrderList() {
     const source = responseData?.data ?? []
     return source.map((order) => ({
       id: order.id,
-      orderNo: order.id,
+      orderNo: order.order_number ?? order.id,
       customer: getCustomerName(order),
       vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
       openedAt: format(new Date(order.createdAt), 'PPP'),

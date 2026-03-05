@@ -38,6 +38,7 @@ function normalizeTask(task: any) {
 function normalizeOrder(order: any): WorkshopOrder {
   return {
     ...order,
+    order_number: order.order_number ?? order.orderNumber ?? order.id,
     reportedIssue: order.reportedIssue ?? order.reported_issue ?? '',
     tasks: (order.tasks ?? []).map(normalizeTask),
   }
@@ -48,7 +49,7 @@ export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
     queryKey: ['workshop', 'orders', queryParams],
     queryFn: async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
-        searchFallbackFilterFields: ['id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+        searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch workshop orders')

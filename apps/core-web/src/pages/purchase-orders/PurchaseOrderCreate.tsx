@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useVendors } from '@/api/vendors'
 import { useInventory } from '@/api/inventory'
 import { useCreatePO } from '@/api/purchase-orders'
@@ -41,6 +41,7 @@ interface InventoryItem {
 
 export default function PurchaseOrderCreate() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [step, setStep] = useState(1)
 
     // Step 1: Brand
@@ -51,7 +52,7 @@ export default function PurchaseOrderCreate() {
     const { data: vendorsResponse } = useVendors()
     const vendors = (Array.isArray(vendorsResponse) ? vendorsResponse : (vendorsResponse as any)?.data || []) as Vendor[]
 
-    const [selectedVendorId, setSelectedVendorId] = useState<string>('')
+    const [selectedVendorId, setSelectedVendorId] = useState<string>(searchParams.get('vendorId') ?? '')
 
     // Step 3: Items
     const [items, setItems] = useState<POItem[]>([])

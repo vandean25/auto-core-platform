@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
+import { useNavigate } from 'react-router-dom'
 import { useDeleteVendor, useVendors } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
 import { VendorDialog } from './VendorDialog'
@@ -12,6 +13,7 @@ import type { Vendor } from '@/api/types'
 import { toast } from 'sonner'
 
 export default function VendorList() {
+    const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
     const { data: responseData, isLoading } = useVendors(queryParams)
     const deleteMutation = useDeleteVendor()
@@ -79,6 +81,7 @@ export default function VendorList() {
                 isLoading={isLoading}
                 searchColumn="name"
                 searchPlaceholder="Search vendors..."
+                onRowClick={(row) => navigate(`/vendors/${row.id}`)}
                 getRowContextActions={(row) => [
                     {
                         label: 'Delete',
