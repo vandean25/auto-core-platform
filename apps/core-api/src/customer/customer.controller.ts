@@ -129,7 +129,7 @@ export class CustomerController {
     @Param('id') id: string,
     @Query('historyPage') historyPage?: string,
     @Query('historyLimit') historyLimit?: string,
-  ): Promise<CustomerDetailResponseDto> {
+  ) {
     const parsedHistoryPage = historyPage ? parseInt(historyPage, 10) : NaN;
     const parsedHistoryLimit = historyLimit ? parseInt(historyLimit, 10) : NaN;
 

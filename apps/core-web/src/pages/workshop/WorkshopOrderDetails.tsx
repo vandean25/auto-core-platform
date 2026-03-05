@@ -94,19 +94,7 @@ function buildTaskLineRowKey(taskId: string, lineItemId: string | undefined, ind
 }
 
 function findInvoiceItemByLineItemId(invoiceItems: InvoiceItem[], lineItemId: string) {
-  return invoiceItems.find((item) => {
-    const candidate = item as InvoiceItem & {
-      workshop_line_item_id?: string
-      source_line_item_id?: string
-      invoice_line_id?: string
-    }
-    return (
-      candidate.workshop_line_item_id === lineItemId ||
-      candidate.source_line_item_id === lineItemId ||
-      candidate.invoice_line_id === lineItemId ||
-      candidate.id === lineItemId
-    )
-  })
+  return invoiceItems.find((item) => item.id === lineItemId)
 }
 
 export function WorkshopOrderDetails() {
@@ -507,10 +495,13 @@ export function WorkshopOrderDetails() {
           if (!lineRow) return
           const invoiceItem = findInvoiceItemByLineItemId(fetchedInvoice.items, lineRow.lineItem.id)
           if (!invoiceItem) return
+          const discountValue = discount.type
+            ? parseDiscountValue(discount.value)
+            : null
           lineItemUpdatesById[invoiceItem.id] = {
             id: invoiceItem.id,
             discountType: discount.type,
-            discountValue: parseDiscountValue(discount.value),
+            discountValue,
           }
         })
 
@@ -570,6 +561,7 @@ export function WorkshopOrderDetails() {
       [rowKey]: {
         ...current,
         type: nextType,
+        value: nextType ? current.value : '',
       },
     }))
   }
@@ -813,29 +805,34 @@ export function WorkshopOrderDetails() {
                       <div className='text-sm text-muted-foreground'>No tasks yet. Add the first task to begin work.</div>
                     )}
                     {tasks.map((task) => (
-                      <button
+                      <div
                         key={task.id}
-                        type='button'
                         data-workshop-task-row='true'
-                        onClick={() => setActiveTaskId(task.id)}
                         className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors'
                       >
                         <div className='flex items-center gap-3 text-left'>
                           <Checkbox
                             checked={task.done}
                             onCheckedChange={(checked) => void handleToggleTask(task.id, checked === true)}
-                            onClick={(e) => e.stopPropagation()}
                             disabled={isLocked}
                           />
                           <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
                             {task.title}
                           </span>
                           <span className='ml-auto flex items-center gap-2'>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              className='h-7 px-2'
+                              onClick={() => setActiveTaskId(task.id)}
+                            >
+                              Open
+                            </Button>
                             <span className='text-sm font-semibold'>{formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}</span>
                             <StatusBadge status={task.status} />
                           </span>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </CardContent>
                 </Card>

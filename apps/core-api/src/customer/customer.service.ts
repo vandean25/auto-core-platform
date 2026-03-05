@@ -98,7 +98,8 @@ export class CustomerService {
         vehicles: true,
         sales_orders: {
           orderBy: { createdAt: 'desc' },
-          take: 20,
+          skip: historySkip,
+          take: historyLimit,
         },
         workshop_orders: {
           orderBy: { createdAt: 'desc' },

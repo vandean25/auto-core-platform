@@ -167,8 +167,12 @@ export default function CustomerDetail() {
         },
       })
       toast.success('Customer updated')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update customer')
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error(error.message)
+      } else {
+        toast.error('Failed to update customer')
+      }
       throw error
     }
   }
@@ -526,6 +530,7 @@ export default function CustomerDetail() {
                 key={vehicle.id}
                 type='button'
                 className='w-full rounded-lg border px-3 py-2 text-left hover:bg-accent'
+                aria-label={`Select vehicle ${vehicle.year} ${vehicle.make} ${vehicle.model}, VIN ${vehicle.vin || 'not available'}, plate ${vehicle.plate || 'not available'}`}
                 onClick={() => {
                   setVehiclePickerOpen(false)
                   setSelectedWorkshopVehicle(vehicle)

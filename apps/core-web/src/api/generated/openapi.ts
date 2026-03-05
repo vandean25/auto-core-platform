@@ -738,6 +738,46 @@ export interface components {
         UpdateVendorDto: Record<string, never>;
         CreateInvoiceDto: Record<string, never>;
         CreateCustomerDto: Record<string, never>;
+        VehicleSummaryDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin?: string | null;
+            plate?: string | null;
+        };
+        SalesOrderSummaryDto: {
+            id: string;
+            order_number: string;
+            /** @enum {string} */
+            status: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            total_amount: string;
+            createdAt: string;
+        };
+        WorkshopTaskLineItemSummaryDto: {
+            quantity: string;
+            unit_price: string;
+        };
+        WorkshopTaskSummaryDto: {
+            line_items?: components["schemas"]["WorkshopTaskLineItemSummaryDto"][];
+        };
+        WorkshopOrderSummaryDto: {
+            id: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            createdAt: string;
+            vehicle_id?: string | null;
+            vehicle?: components["schemas"]["VehicleSummaryDto"];
+            tasks?: components["schemas"]["WorkshopTaskSummaryDto"][];
+        };
+        InvoiceSummaryDto: {
+            id: string;
+            invoice_number?: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
+            date: string;
+            total_gross: string;
+        };
         CustomerHistoryMetaDto: {
             page: number;
             pageSize: number;
@@ -749,28 +789,20 @@ export interface components {
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
-            company_name?: Record<string, never> | null;
+            company_name?: string | null;
             first_name: string;
             last_name: string;
-            email?: Record<string, never> | null;
-            phone?: Record<string, never> | null;
-            vat_id?: Record<string, never> | null;
-            address_street?: Record<string, never> | null;
-            address_city?: Record<string, never> | null;
-            address_zip?: Record<string, never> | null;
-            address_country?: Record<string, never> | null;
-            vehicles?: {
-                [key: string]: unknown;
-            }[];
-            sales_orders?: {
-                [key: string]: unknown;
-            }[];
-            workshop_orders?: {
-                [key: string]: unknown;
-            }[];
-            invoices?: {
-                [key: string]: unknown;
-            }[];
+            email?: string | null;
+            phone?: string | null;
+            vat_id?: string | null;
+            address_street?: string | null;
+            address_city?: string | null;
+            address_zip?: string | null;
+            address_country?: string | null;
+            vehicles?: components["schemas"]["VehicleSummaryDto"][];
+            sales_orders?: components["schemas"]["SalesOrderSummaryDto"][];
+            workshop_orders?: components["schemas"]["WorkshopOrderSummaryDto"][];
+            invoices?: components["schemas"]["InvoiceSummaryDto"][];
             workshop_orders_meta: components["schemas"]["CustomerHistoryMetaDto"];
             invoices_meta: components["schemas"]["CustomerHistoryMetaDto"];
         };
