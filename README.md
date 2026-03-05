@@ -523,4 +523,4 @@ Check:
 
 ## License
 
-This project is licensed under the GNU AGPLv3 License. This ensures that the software remains free and open source. If you modify this software and provide access to it over a network (like a web application), you must also share your modified source code under the same license.
+This project is licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later). This ensures that the software remains free and open source. If you modify this software and provide access to it over a network (like a web application), you must also share your modified source code under the same license.

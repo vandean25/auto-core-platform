@@ -104,8 +104,8 @@ export function InlineEdit({
       await onSave(draftValue)
       closeEditor()
       return true
-    } catch {
-      return false
+    } catch (error) {
+      throw error
     } finally {
       setIsSaving(false)
     }
@@ -116,7 +116,7 @@ export function InlineEdit({
       skipBlurCommitRef.current = false
       return
     }
-    void commitEdit()
+    void commitEdit().catch(() => undefined)
   }
 
   const handleKeyDown = (
@@ -131,7 +131,7 @@ export function InlineEdit({
     if (mode === 'text') {
       if (event.key === 'Enter') {
         event.preventDefault()
-        void commitEdit()
+        void commitEdit().catch(() => undefined)
         return
       }
 
@@ -141,11 +141,11 @@ export function InlineEdit({
           event.shiftKey,
         )
         event.preventDefault()
-        void commitEdit().then((saved) => {
-          if (saved && nextFocusable) {
+        void commitEdit().then(() => {
+          if (nextFocusable) {
             nextFocusable.focus()
           }
-        })
+        }).catch(() => undefined)
       }
       return
     }
@@ -158,7 +158,7 @@ export function InlineEdit({
       !event.shiftKey
     ) {
       event.preventDefault()
-      void commitEdit()
+      void commitEdit().catch(() => undefined)
     }
   }
 

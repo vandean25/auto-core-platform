@@ -111,7 +111,7 @@ function getWorkshopOrderTotal(order: VehicleWorkshopOrderSummary) {
 export default function VehicleDetail() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
-  const { data: vehicle, isLoading } = useVehicle<VehicleDetailResponse>(id)
+  const { data: vehicle, isLoading, isError, error } = useVehicle<VehicleDetailResponse>(id)
   const updateVehicle = useUpdateVehicle()
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -119,6 +119,10 @@ export default function VehicleDetail() {
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vehicle details...</div>
+  }
+
+  if (isError) {
+    return <div className='p-8 text-center'>Failed to load vehicle: {(error as Error)?.message || 'Unknown error'}</div>
   }
 
   if (!vehicle) {
@@ -366,6 +370,15 @@ export default function VehicleDetail() {
                           onClick={() =>
                             navigate(order.type === 'Service' ? `/workshop/orders/${order.id}` : `/sales-orders/${order.id}`)
                           }
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open ${order.type} order ${order.number}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(order.type === 'Service' ? `/workshop/orders/${order.id}` : `/sales-orders/${order.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>{order.number}</TableCell>
                           <TableCell>{order.type}</TableCell>
@@ -403,6 +416,15 @@ export default function VehicleDetail() {
                           key={invoice.id}
                           className='cursor-pointer hover:bg-accent/50'
                           onClick={() => navigate(`/sales/invoices/${invoice.id}`)}
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open invoice ${invoice.invoice_number || invoice.id}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(`/sales/invoices/${invoice.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>{invoice.invoice_number || 'Draft'}</TableCell>
                           <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
@@ -439,6 +461,15 @@ export default function VehicleDetail() {
                           key={order.id}
                           className='cursor-pointer hover:bg-accent/50'
                           onClick={() => navigate(`/workshop/orders/${order.id}`)}
+                          tabIndex={0}
+                          role='button'
+                          aria-label={`Open service order ${order.id}`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              navigate(`/workshop/orders/${order.id}`)
+                            }
+                          }}
                         >
                           <TableCell className='font-medium'>#{order.id}</TableCell>
                           <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>

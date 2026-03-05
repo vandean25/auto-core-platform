@@ -90,7 +90,12 @@ export class CustomerService {
           include: {
             tasks: {
               include: {
-                line_items: true,
+                line_items: {
+                  select: {
+                    quantity: true,
+                    unit_price: true,
+                  },
+                },
               },
             },
             vehicle: true,

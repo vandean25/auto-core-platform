@@ -47,11 +47,18 @@ export class VehicleController {
     const isInvalidPageSize =
       pageSize !== undefined &&
       (!integerPattern.test(pageSize) || parseInt(pageSize, 10) <= 0);
+    const isInvalidSortDirection =
+      sortDirection !== undefined &&
+      sortDirection !== 'asc' &&
+      sortDirection !== 'desc';
 
     if (isInvalidPage || isInvalidPageSize) {
       throw new BadRequestException(
         'page and pageSize must be positive integers',
       );
+    }
+    if (isInvalidSortDirection) {
+      throw new BadRequestException('sortDirection must be "asc" or "desc"');
     }
 
     return this.vehicleService.findAll({
@@ -59,7 +66,7 @@ export class VehicleController {
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
       sortField,
-      sortDirection,
+      sortDirection: sortDirection ? sortDirection : undefined,
     });
   }
 

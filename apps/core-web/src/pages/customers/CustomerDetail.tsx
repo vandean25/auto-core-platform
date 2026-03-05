@@ -43,13 +43,10 @@ type SalesOrderSummary = {
 
 type WorkshopLineItemSummary = {
   quantity?: string | number
-  unit_price?: string | number
-  qty?: string | number
   unitPrice?: string | number
 }
 
 type WorkshopTaskSummary = {
-  line_items?: WorkshopLineItemSummary[]
   lineItems?: WorkshopLineItemSummary[]
 }
 
@@ -93,9 +90,9 @@ function toNumber(value: string | number | null | undefined) {
 
 function getWorkshopOrderTotal(order: WorkshopOrderSummary) {
   return (order.tasks ?? []).reduce((taskSum, task) => {
-    const lineItems = task.line_items ?? task.lineItems ?? []
+    const lineItems = task.lineItems ?? []
     const taskTotal = lineItems.reduce(
-      (lineSum, line) => lineSum + toNumber(line.quantity ?? line.qty) * toNumber(line.unit_price ?? line.unitPrice),
+      (lineSum, line) => lineSum + toNumber(line.quantity) * toNumber(line.unitPrice),
       0,
     )
     return taskSum + taskTotal
@@ -519,7 +516,6 @@ export default function CustomerDetail() {
 
       {selectedWorkshopVehicle && (
         <StartServiceDialog
-          open={!!selectedWorkshopVehicle}
           onOpenChange={(open) => {
             if (!open) {
               setSelectedWorkshopVehicle(null)

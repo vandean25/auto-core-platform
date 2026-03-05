@@ -8,7 +8,7 @@ import type { CreateWorkshopOrderPayload } from '../../api/types'
 import { toast } from 'sonner'
 
 interface StartServiceDialogProps {
-    open: boolean
+    open?: boolean
     onOpenChange: (open: boolean) => void
     customerId: string
     vehicleId: string
@@ -17,7 +17,7 @@ interface StartServiceDialogProps {
 }
 
 export function StartServiceDialog({
-    open,
+    open = true,
     onOpenChange,
     customerId,
     vehicleId,

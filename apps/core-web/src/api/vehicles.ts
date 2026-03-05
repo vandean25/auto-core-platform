@@ -88,11 +88,8 @@ export function useUpdateVehicle() {
       }
       return response.json()
     },
-    onSuccess: (updatedVehicle) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
-      queryClient.invalidateQueries({
-        queryKey: vehicleKeys.detail(updatedVehicle.id),
-      })
     },
   })
 }
