@@ -340,10 +340,12 @@ export default function InvoiceDetailPage() {
                   <span className="text-muted-foreground">Tax</span>
                   <span>{formatCurrency(Number(invoice.total_tax))}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-emerald-700">Total Savings</span>
-                  <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
-                </div>
+                {totalSavings > 0 && (
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-emerald-700">Total Savings</span>
+                    <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t pt-2 font-semibold">
                   <span>Total</span>
                   <span>{formatCurrency(Number(invoice.total_gross))}</span>

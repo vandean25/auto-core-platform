@@ -2036,6 +2036,170 @@
         "type": "object",
         "properties": {}
       },
+      "VehicleSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "SalesOrderSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "CONFIRMED",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "INVOICED"
+            ]
+          },
+          "total_amount": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "status",
+          "total_amount",
+          "createdAt"
+        ]
+      },
+      "WorkshopTaskLineItemSummaryDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "string"
+          },
+          "unit_price": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "quantity",
+          "unit_price"
+        ]
+      },
+      "WorkshopTaskSummaryDto": {
+        "type": "object",
+        "properties": {
+          "line_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopTaskLineItemSummaryDto"
+            }
+          }
+        }
+      },
+      "WorkshopOrderSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "INTAKE",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "INVOICED"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/VehicleSummaryDto"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopTaskSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdAt"
+        ]
+      },
+      "InvoiceSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoice_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "FINALIZED",
+              "ISSUED",
+              "PAID",
+              "CANCELLED"
+            ]
+          },
+          "date": {
+            "type": "string"
+          },
+          "total_gross": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "date",
+          "total_gross"
+        ]
+      },
       "CustomerHistoryMetaDto": {
         "type": "object",
         "properties": {
@@ -2077,7 +2241,7 @@
             ]
           },
           "company_name": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "first_name": {
@@ -2087,59 +2251,59 @@
             "type": "string"
           },
           "email": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "phone": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "vat_id": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "address_street": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "address_city": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "address_zip": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "address_country": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "vehicles": {
+            "maxItems": 100,
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/VehicleSummaryDto"
             }
           },
           "sales_orders": {
+            "maxItems": 100,
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/SalesOrderSummaryDto"
             }
           },
           "workshop_orders": {
+            "maxItems": 100,
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/WorkshopOrderSummaryDto"
             }
           },
           "invoices": {
+            "maxItems": 100,
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/InvoiceSummaryDto"
             }
           },
           "workshop_orders_meta": {
