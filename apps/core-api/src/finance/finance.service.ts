@@ -9,6 +9,7 @@ export class FinanceService {
   constructor(private prisma: PrismaService) {}
 
   async getSettings() {
+    const currentYear = new Date().getFullYear();
     return this.prisma.financeSettings.upsert({
       where: { id: 1 },
       update: {},
@@ -17,7 +18,9 @@ export class FinanceService {
         fiscal_year_start_month: 1,
         lock_date: null,
         next_invoice_number: 1001,
-        invoice_prefix: 'RE-2026-',
+        invoice_prefix: `RE-${currentYear}-`,
+        next_workshop_order_number: 1,
+        workshop_order_prefix: `WO-${currentYear}-`,
       },
     });
   }

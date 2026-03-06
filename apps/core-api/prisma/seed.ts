@@ -115,6 +115,7 @@ async function main() {
     ]);
 
     // Default Finance Settings
+    const currentYear = new Date().getFullYear();
     await prisma.financeSettings.upsert({
         where: { id: 1 },
         update: {},
@@ -123,7 +124,9 @@ async function main() {
             fiscal_year_start_month: 1,
             lock_date: null,
             next_invoice_number: 1001,
-            invoice_prefix: 'RE-2026-',
+            invoice_prefix: `RE-${currentYear}-`,
+            next_workshop_order_number: 1,
+            workshop_order_prefix: `WO-${currentYear}-`,
         },
     });
 
