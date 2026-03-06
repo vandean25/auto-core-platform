@@ -52,7 +52,20 @@ export default function PurchaseOrderCreate() {
     const { data: vendorsResponse } = useVendors()
     const vendors = (Array.isArray(vendorsResponse) ? vendorsResponse : (vendorsResponse as any)?.data || []) as Vendor[]
 
-    const [selectedVendorId, setSelectedVendorId] = useState<string>(searchParams.get('vendorId') ?? '')
+    // Compute valid vendor ID based on params, brand, and available vendors
+    const computeValidVendorId = () => {
+        const vendorIdFromParams = searchParams.get('vendorId') ?? ''
+        if (!vendorIdFromParams) return ''
+
+        const filteredVendors = selectedBrand
+            ? vendors.filter((v: Vendor) => v.supportedBrands.some((b: Brand) => b.id === selectedBrand.id))
+            : vendors
+
+        const vendorExists = filteredVendors.some((v: Vendor) => v.id === vendorIdFromParams)
+        return vendorExists ? vendorIdFromParams : ''
+    }
+
+    const [selectedVendorId, setSelectedVendorId] = useState<string>(computeValidVendorId())
 
     // Step 3: Items
     const [items, setItems] = useState<POItem[]>([])

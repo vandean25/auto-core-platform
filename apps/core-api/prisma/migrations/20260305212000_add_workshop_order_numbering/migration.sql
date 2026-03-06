@@ -1,10 +1,7 @@
 -- AlterTable
 ALTER TABLE "finance_settings"
-ADD COLUMN "next_workshop_order_number" INTEGER NOT NULL DEFAULT 1001,
-ADD COLUMN "workshop_order_prefix" TEXT NOT NULL DEFAULT 'WO-2026-';
-
--- AlterTable
-ALTER TABLE "workshop_orders" ADD COLUMN "order_number" TEXT;
+ADD COLUMN "next_workshop_order_number" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN "workshop_order_prefix" TEXT NOT NULL DEFAULT '';
 
 -- Backfill order numbers for existing rows using year-scoped sequence by createdAt
 WITH numbered AS (

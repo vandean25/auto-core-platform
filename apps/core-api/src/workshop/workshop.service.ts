@@ -31,32 +31,40 @@ export class WorkshopService {
   ) {}
 
   private async generateOrderNumber() {
-    await this.prisma.financeSettings.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        fiscal_year_start_month: 1,
-        lock_date: null,
-        next_invoice_number: 1001,
-        invoice_prefix: 'RE-2026-',
-        next_sales_order_number: 1001,
-        sales_order_prefix: 'SO-2026-',
-        next_workshop_order_number: 1001,
-        workshop_order_prefix: 'WO-2026-',
-      },
+    const currentYear = new Date().getFullYear();
+    const prefix = `WO-${currentYear}-`;
+
+    const settings = await this.prisma.$transaction(async (tx) => {
+      await tx.financeSettings.upsert({
+        where: { id: 1 },
+        update: {},
+        create: {
+          id: 1,
+          fiscal_year_start_month: 1,
+          lock_date: null,
+          next_invoice_number: 1001,
+          invoice_prefix: 'RE-2026-',
+          next_sales_order_number: 1001,
+          sales_order_prefix: 'SO-2026-',
+          next_workshop_order_number: 1,
+          workshop_order_prefix: prefix,
+        },
+      });
+
+      return tx.financeSettings.update({
+        where: { id: 1 },
+        data: { 
+          next_workshop_order_number: { increment: 1 },
+          workshop_order_prefix: prefix,
+        },
+        select: {
+          next_workshop_order_number: true,
+        },
+      });
     });
 
-    const settings = await this.prisma.financeSettings.update({
-      where: { id: 1 },
-      data: { next_workshop_order_number: { increment: 1 } },
-      select: {
-        workshop_order_prefix: true,
-        next_workshop_order_number: true,
-      },
-    });
-
-    return `${settings.workshop_order_prefix}${settings.next_workshop_order_number - 1}`;
+    const paddedSequence = String(settings.next_workshop_order_number - 1).padStart(4, '0');
+    return `${prefix}${paddedSequence}`;
   }
 
   private deriveOrderStatus(taskStatuses: WorkshopTaskStatus[]) {

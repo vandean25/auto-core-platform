@@ -146,7 +146,7 @@ export default function VehicleDetail() {
     .map((order) => ({
       id: order.id,
       type: 'Service',
-      number: order.order_number ?? `#${order.id}`,
+      number: order.order_number ?? `#${order.id.slice(0, 8)}`,
       createdAt: order.createdAt,
       status: order.status,
       total: getWorkshopOrderTotal(order),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Mail, Package, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
@@ -69,11 +69,9 @@ export default function VendorDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
   const updateVendor = useUpdateVendor()
-  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>([])
-
-  useEffect(() => {
-    setSelectedBrandIds((vendor?.supportedBrands ?? []).map((brand) => brand.id))
-  }, [vendor])
+  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>(() => 
+    (vendor?.supportedBrands ?? []).map((brand) => brand.id)
+  )
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vendor details...</div>
