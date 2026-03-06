@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Vendor } from '@prisma/client';
+import { Vendor, Prisma } from '@prisma/client';
 
 @Injectable()
 export class VendorService {
@@ -59,7 +59,15 @@ export class VendorService {
     });
   }
 
-  async findOne(id: string): Promise<any | null> {
+  async findOne(id: string): Promise<Prisma.VendorGetPayload<{
+    include: {
+      supportedBrands: true
+      purchase_orders: {
+        include: { items: true }
+      }
+      purchase_invoices: true
+    }
+  }> | null> {
     return this.prisma.vendor.findUnique({
       where: { id },
       include: {

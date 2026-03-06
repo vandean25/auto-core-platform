@@ -66,12 +66,11 @@ describe('WorkshopService', () => {
     mockPrisma.vehicle.findUnique.mockResolvedValue({ id: 'v-1' });
     mockPrisma.financeSettings.upsert.mockResolvedValue({ id: 1 });
     mockPrisma.financeSettings.update.mockResolvedValue({
-      workshop_order_prefix: 'WO-2026-',
-      next_workshop_order_number: 1002,
+      next_workshop_order_number: 2,
     });
     mockPrisma.workshopOrder.create.mockResolvedValue({
       id: 'wo-1',
-      order_number: 'WO-2026-1001',
+      order_number: 'WO-2026-0001',
       status: WorkshopOrderStatus.INTAKE,
       customer: { id: 'c-1' },
       vehicle: { id: 'v-1' },
@@ -86,14 +85,16 @@ describe('WorkshopService', () => {
       notes: 'Noise check',
     });
 
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.financeSettings.upsert).toHaveBeenCalled();
     expect(mockPrisma.workshopOrder.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          order_number: 'WO-2026-1001',
+          order_number: 'WO-2026-0001',
         }),
       }),
     );
-    expect(result.order_number).toBe('WO-2026-1001');
+    expect(result.order_number).toBe('WO-2026-0001');
   });
 
   it('derives workshop order status from task updates', async () => {

@@ -36,8 +36,8 @@ model FinanceSettings {
   invoice_prefix          String    @default("RE-2026-")
   next_sales_order_number Int       @default(1001)
   sales_order_prefix      String    @default("SO-2026-")
-  next_workshop_order_number Int    @default(1001)
-  workshop_order_prefix      String @default("WO-2026-")
+  next_workshop_order_number Int    @default(1)
+  workshop_order_prefix      String
   
   updatedAt               DateTime  @updatedAt
 

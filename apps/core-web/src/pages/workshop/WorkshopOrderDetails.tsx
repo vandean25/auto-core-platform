@@ -818,13 +818,15 @@ export function WorkshopOrderDetails() {
                       <div
                         key={task.id}
                         data-workshop-task-row='true'
-                        className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors'
+                        onClick={() => setActiveTaskId(task.id)}
+                        className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer'
                       >
                         <div className='flex items-center gap-3 text-left'>
                           <Checkbox
                             checked={task.done}
                             onCheckedChange={(checked) => void handleToggleTask(task.id, checked === true)}
                             disabled={isLocked}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
                             {task.title}
@@ -834,7 +836,10 @@ export function WorkshopOrderDetails() {
                               variant='ghost'
                               size='sm'
                               className='h-7 px-2'
-                              onClick={() => setActiveTaskId(task.id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveTaskId(task.id)
+                              }}
                             >
                               Open
                             </Button>
