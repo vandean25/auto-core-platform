@@ -21,12 +21,13 @@ const STATUS_OPTIONS: { value: PurchaseInvoiceStatus | 'ALL'; label: string }[] 
 export default function PurchaseBillsPage() {
     const navigate = useNavigate()
     const [selectedStatus, setSelectedStatus] = useState<PurchaseInvoiceStatus | 'ALL'>('ALL')
-    const { queryParams, columnFilters, setColumnFilters, sorting, setSorting, pagination, setPagination, globalFilter, setGlobalFilter } = useDataTableQuery({ 
+    const { columnFilters, setColumnFilters, sorting, setSorting, pagination, setPagination, globalFilter, setGlobalFilter } = useDataTableQuery({ 
         defaultPageSize: 10,
     })
 
     const { data: responseData, isLoading } = usePurchaseInvoices({
-        ...queryParams,
+        page: pagination.pageIndex + 1,
+        pageSize: pagination.pageSize,
         status: selectedStatus === 'ALL' ? undefined : selectedStatus,
         sortBy: sorting[0]?.id || 'due_date',
         order: sorting[0]?.desc ? 'desc' : 'asc',
@@ -60,7 +61,9 @@ export default function PurchaseBillsPage() {
                 <DataTableColumnHeader column={column} title="Issue Date" />
             ),
             cell: ({ row }) => {
+                if (!row.original.invoice_date) return <div>-</div>
                 const date = new Date(row.original.invoice_date)
+                if (isNaN(date.getTime())) return <div>-</div>
                 return <div>{date.toLocaleDateString()}</div>
             },
         },
@@ -70,7 +73,9 @@ export default function PurchaseBillsPage() {
                 <DataTableColumnHeader column={column} title="Due Date" />
             ),
             cell: ({ row }) => {
+                if (!row.original.due_date) return <div>-</div>
                 const date = new Date(row.original.due_date)
+                if (isNaN(date.getTime())) return <div>-</div>
                 return <div>{date.toLocaleDateString()}</div>
             },
         },
@@ -83,7 +88,7 @@ export default function PurchaseBillsPage() {
                 const amount = parseFloat(row.original.total_amount)
                 return (
                     <div className="text-right">
-                        {amount.toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
+                        {amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                     </div>
                 )
             },
@@ -118,7 +123,7 @@ export default function PurchaseBillsPage() {
                     className="gap-2"
                 >
                     <Plus className="h-4 w-4" />
-                    + Log New Bill
+                    Log New Bill
                 </Button>
             </div>
 
