@@ -11,6 +11,7 @@ import PurchaseOrderDetail from './pages/purchase-orders/PurchaseOrderDetail'
 import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
 import InvoiceDetailPage from './pages/sales/InvoiceDetailPage'
 import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
+import PurchaseBillsPage from './pages/purchase-bills/PurchaseBillsPage'
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
@@ -68,6 +69,7 @@ function AppRoutes() {
             <Route path="/purchase-orders" element={<PurchaseOrderList />} />
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
             <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+            <Route path="/purchase-bills" element={<PurchaseBillsPage />} />
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
             <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
@@ -144,6 +146,7 @@ function App() {
                 <div className="h-4 w-px bg-border mx-1" />
                 <NavLink to="/vendors" className={navLinkClass}>Vendors</NavLink>
                 <NavLink to="/purchase-orders" className={navLinkClass}>Purchase Orders</NavLink>
+                <NavLink to="/purchase-bills" className={navLinkClass}>Purchase Bills</NavLink>
 
                 <div className="h-4 w-px bg-border mx-1" />
                 <NavLink to="/workshop/orders" className={navLinkClass}>Workshop Orders</NavLink>
