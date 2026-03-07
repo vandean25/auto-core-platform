@@ -196,6 +196,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/purchase-orders/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PurchaseController_addItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/purchase-orders/{id}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["PurchaseController_deleteItem"];
+        options?: never;
+        head?: never;
+        patch: operations["PurchaseController_updateItem"];
+        trace?: never;
+    };
     "/api/purchase-invoices": {
         parameters: {
             query?: never;
@@ -733,6 +765,8 @@ export interface components {
         UpdateLocationDto: Record<string, never>;
         CreatePurchaseOrderDto: Record<string, never>;
         ReceivePurchaseOrderDto: Record<string, never>;
+        AddPurchaseOrderItemsDto: Record<string, never>;
+        UpdatePurchaseOrderItemDto: Record<string, never>;
         CreatePurchaseInvoiceDto: Record<string, never>;
         CreateVendorDto: Record<string, never>;
         UpdateVendorDto: Record<string, never>;
@@ -1172,6 +1206,73 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PurchaseController_addItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPurchaseOrderItemsDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PurchaseController_deleteItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PurchaseController_updateItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePurchaseOrderItemDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

@@ -466,6 +466,109 @@
         ]
       }
     },
+    "/api/purchase-orders/{id}/items": {
+      "post": {
+        "operationId": "PurchaseController_addItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPurchaseOrderItemsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      }
+    },
+    "/api/purchase-orders/{id}/items/{itemId}": {
+      "patch": {
+        "operationId": "PurchaseController_updateItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePurchaseOrderItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      },
+      "delete": {
+        "operationId": "PurchaseController_deleteItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      }
+    },
     "/api/purchase-invoices": {
       "post": {
         "operationId": "PurchaseInvoiceController_create",
@@ -2013,6 +2116,14 @@
         "properties": {}
       },
       "ReceivePurchaseOrderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AddPurchaseOrderItemsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePurchaseOrderItemDto": {
         "type": "object",
         "properties": {}
       },
