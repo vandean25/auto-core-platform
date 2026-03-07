@@ -8,10 +8,14 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { parseLocalDate } from '@/lib/date-utils'
 
 export default function PurchaseBillsPage() {
     const navigate = useNavigate()
-    const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
+    const { queryParams, ...tableState } = useDataTableQuery({ 
+        defaultPageSize: 10,
+        initialSorting: [{ id: 'due_date', desc: false }] 
+    })
 
     const { data: responseData, isLoading } = usePurchaseInvoices(queryParams)
 
@@ -43,9 +47,8 @@ export default function PurchaseBillsPage() {
                 <DataTableColumnHeader column={column} title="Issue Date" />
             ),
             cell: ({ row }) => {
-                if (!row.original.invoice_date) return <div>-</div>
-                const date = new Date(row.original.invoice_date)
-                if (isNaN(date.getTime())) return <div>-</div>
+                const date = parseLocalDate(row.original.invoice_date)
+                if (!date) return <div>-</div>
                 return <div>{date.toLocaleDateString()}</div>
             },
         },
@@ -55,9 +58,8 @@ export default function PurchaseBillsPage() {
                 <DataTableColumnHeader column={column} title="Due Date" />
             ),
             cell: ({ row }) => {
-                if (!row.original.due_date) return <div>-</div>
-                const date = new Date(row.original.due_date)
-                if (isNaN(date.getTime())) return <div>-</div>
+                const date = parseLocalDate(row.original.due_date)
+                if (!date) return <div>-</div>
                 return <div>{date.toLocaleDateString()}</div>
             },
         },

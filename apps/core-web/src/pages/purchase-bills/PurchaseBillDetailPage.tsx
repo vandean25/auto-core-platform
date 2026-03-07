@@ -3,6 +3,7 @@ import { usePurchaseInvoice } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { parseLocalDate } from '@/lib/date-utils'
 
 export default function PurchaseBillDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -51,11 +52,21 @@ export default function PurchaseBillDetailPage() {
                 <div className="grid grid-cols-2 gap-6 pt-6 border-t">
                     <div>
                         <p className="text-sm text-slate-500">Issue Date</p>
-                        <p className="text-base font-medium">{new Date(invoice.invoice_date).toLocaleDateString()}</p>
+                        <p className="text-base font-medium">
+                            {(() => {
+                                const date = parseLocalDate(invoice.invoice_date)
+                                return date ? date.toLocaleDateString() : '-'
+                            })()}
+                        </p>
                     </div>
                     <div>
                         <p className="text-sm text-slate-500">Due Date</p>
-                        <p className="text-base font-medium">{new Date(invoice.due_date).toLocaleDateString()}</p>
+                        <p className="text-base font-medium">
+                            {(() => {
+                                const date = parseLocalDate(invoice.due_date)
+                                return date ? date.toLocaleDateString() : '-'
+                            })()}
+                        </p>
                     </div>
                 </div>
 
