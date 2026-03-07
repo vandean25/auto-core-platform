@@ -4,7 +4,6 @@ import { usePurchaseInvoices } from '@/api/usePurchaseInvoices'
 import type { PurchaseInvoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -98,10 +97,8 @@ export default function PurchaseBillsPage() {
                     <h1 className="text-2xl font-semibold tracking-tight">Purchase Bills</h1>
                     <p className="text-slate-500">Manage incoming vendor invoices and payment tracking</p>
                 </div>
-                <Button asChild>
-                    <Link to="/purchase-bills/new">
-                        <Plus className="mr-2 h-4 w-4" /> Bill
-                    </Link>
+                <Button disabled title="Coming soon">
+                    <Plus className="mr-2 h-4 w-4" /> Bill
                 </Button>
             </div>
 

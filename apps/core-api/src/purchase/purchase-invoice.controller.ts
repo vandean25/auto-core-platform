@@ -29,8 +29,18 @@ export class PurchaseInvoiceController {
     @Query('sortBy') sortBy: string = 'due_date',
     @Query('order') order: 'asc' | 'desc' = 'asc',
   ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : 25;
+    // Validate and normalize pagination parameters
+    let pageNum = page ? parseInt(page, 10) : 1;
+    let pageSizeNum = pageSize ? parseInt(pageSize, 10) : 25;
+
+    // Ensure valid integers, treating NaN and non-positive values as defaults
+    if (!Number.isFinite(pageNum) || pageNum < 1) pageNum = 1;
+    if (!Number.isFinite(pageSizeNum) || pageSizeNum < 1) pageSizeNum = 25;
+
+    // Enforce maximum page size
+    const MAX_PAGE_SIZE = 100;
+    if (pageSizeNum > MAX_PAGE_SIZE) pageSizeNum = MAX_PAGE_SIZE;
+
     return this.service.findAll(vendorId, status, pageNum, pageSizeNum, sortBy, order);
   }
 
