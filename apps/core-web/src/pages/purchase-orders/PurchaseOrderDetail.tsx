@@ -167,14 +167,19 @@ export default function PurchaseOrderDetail() {
     function confirmAddItem() {
         if (!stagedItem || !id || !po) return
         const qty = Number(newQty)
-        const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+        
+        // Validate quantity strictly - don't silently default to 1
+        if (!Number.isFinite(qty) || qty <= 0) {
+            toast.error('Invalid quantity', { description: 'Please enter a positive number' })
+            return
+        }
 
         // Check if item already exists in the PO
         const existingItem = po.items.find((item: any) => item.catalog_item_id === stagedItem.id)
 
         if (existingItem) {
             // Item exists - update quantity by adding the new quantity
-            const newTotalQty = existingItem.quantity + safeQty
+            const newTotalQty = existingItem.quantity + qty
             updateItem.mutate({
                 orderId: id,
                 itemId: existingItem.id,
@@ -195,7 +200,7 @@ export default function PurchaseOrderDetail() {
                 orderId: id,
                 items: [{
                     catalogItemId: stagedItem.id,
-                    quantity: safeQty,
+                    quantity: qty,
                     unitCost: stagedItem.price,
                 }]
             }, {

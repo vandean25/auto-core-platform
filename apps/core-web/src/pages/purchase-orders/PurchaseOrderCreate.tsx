@@ -89,6 +89,7 @@ export default function PurchaseOrderCreate() {
                                     className="h-24 flex flex-col gap-2 p-4"
                                     onClick={() => {
                                         setSelectedBrand(brand)
+                                        setSelectedVendorId('')
                                         setStep(2)
                                     }}
                                 >
