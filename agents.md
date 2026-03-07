@@ -139,6 +139,17 @@ auto-core-platform/
   - Use the established testing patterns (e.g., `test/purchase-receipt.e2e-spec.ts`).
   - Ensure tests cover both happy paths and error cases.
 
+## GitHub Pull Request Workflow
+
+### ⚠️ Critical: Always use `gh` CLI, never use browser or GitHub MCP
+- **Never** use the browser to create PRs - the UI can be slow or require manual interaction
+- **Never** use `github-mcp-server` for PR creation - use it only for read operations (get commits, list issues, etc.)
+- **Always** use `gh pr create` from the command line to create pull requests
+  ```bash
+  gh pr create --title "Your PR title" --body "Your PR description"
+  ```
+- This is faster, more reliable, and avoids UI-related issues or authentication problems
+
 ## Database Schema Highlights
 
 - **Tables**: use snake_case via `@@map()` directive.
