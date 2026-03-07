@@ -27,13 +27,36 @@ export function useUnbilledReceipts(vendorId: string | undefined) {
     })
 }
 
-export function usePurchaseInvoices(params: { vendorId?: string; status?: PurchaseInvoiceStatus } = {}) {
-    return useQuery<PurchaseInvoice[]>({
+export interface PurchaseInvoicesParams {
+    vendorId?: string
+    status?: PurchaseInvoiceStatus
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    order?: 'asc' | 'desc'
+}
+
+export interface PurchaseInvoicesResponse {
+    data: PurchaseInvoice[]
+    meta: {
+        total: number
+        page: number
+        pageSize: number
+        pageCount: number
+    }
+}
+
+export function usePurchaseInvoices(params: PurchaseInvoicesParams = {}) {
+    return useQuery<PurchaseInvoicesResponse>({
         queryKey: purchaseInvoiceKeys.list(params),
         queryFn: async () => {
             const searchParams = new URLSearchParams()
             if (params.vendorId) searchParams.append('vendorId', params.vendorId)
             if (params.status) searchParams.append('status', params.status)
+            if (params.page) searchParams.append('page', params.page.toString())
+            if (params.pageSize) searchParams.append('pageSize', params.pageSize.toString())
+            if (params.sortBy) searchParams.append('sortBy', params.sortBy)
+            if (params.order) searchParams.append('order', params.order)
             
             const response = await fetchWithAuth(`/api/purchase-invoices?${searchParams.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch purchase invoices')
