@@ -99,7 +99,7 @@ export default function PurchaseBillsPage() {
                     <h1 className="text-2xl font-semibold tracking-tight">Purchase Bills</h1>
                     <p className="text-slate-500">Manage incoming vendor invoices and payment tracking</p>
                 </div>
-                <Button disabled title="Coming soon">
+                <Button onClick={() => navigate('/purchase-bills/new')}>
                     <Plus className="mr-2 h-4 w-4" /> Bill
                 </Button>
             </div>
