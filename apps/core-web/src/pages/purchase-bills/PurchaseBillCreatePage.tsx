@@ -107,7 +107,10 @@ export default function PurchaseBillCreatePage() {
 
     const { data: unbilledItems = [], isLoading: isUnbilledLoading } = useUnbilledReceipts(vendorId || undefined)
     const { data: selectedVendor } = useVendor(vendorId || '')
-    const vendorBrandNames = selectedVendor?.supportedBrands?.map((brand) => brand.name) ?? []
+    const vendorBrandNames = React.useMemo(
+        () => selectedVendor?.supportedBrands?.map((brand) => brand.name) ?? [],
+        [selectedVendor?.supportedBrands],
+    )
     const { data: inventoryData = [] } = useInventory({
         search: debouncedSearchQuery || undefined,
         pageSize: 100,
