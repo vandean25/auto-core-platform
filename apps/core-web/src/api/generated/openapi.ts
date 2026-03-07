@@ -1287,6 +1287,10 @@ export interface operations {
             query: {
                 vendorId: string;
                 status: string;
+                page: string;
+                pageSize: string;
+                sortBy: string;
+                order: string;
             };
             header?: never;
             path?: never;

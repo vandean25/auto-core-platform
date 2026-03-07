@@ -158,6 +158,23 @@ export class PurchaseInvoiceService {
     sortBy: string = 'due_date',
     order: 'asc' | 'desc' = 'asc',
   ) {
+    // Whitelist allowed sortBy fields to prevent SQL injection
+    const ALLOWED_SORT_BY = [
+      'vendor_invoice_number',
+      'status',
+      'invoice_date',
+      'due_date',
+      'total_amount',
+      'createdAt',
+    ];
+
+    if (!ALLOWED_SORT_BY.includes(sortBy)) {
+      throw new BadRequestException(`Invalid sortBy field: ${sortBy}. Allowed: ${ALLOWED_SORT_BY.join(', ')}`);
+    }
+
+    // Normalize order to valid values
+    const normalizedOrder = order === 'desc' ? 'desc' : 'asc';
+
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.PurchaseInvoiceWhereInput = {
@@ -171,7 +188,7 @@ export class PurchaseInvoiceService {
         include: {
           vendor: true,
         },
-        orderBy: { [sortBy]: order },
+        orderBy: { [sortBy]: normalizedOrder },
         skip,
         take: pageSize,
       }),

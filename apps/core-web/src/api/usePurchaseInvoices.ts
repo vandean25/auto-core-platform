@@ -9,7 +9,7 @@ import { fetchWithAuth } from './client'
 
 export const purchaseInvoiceKeys = {
     all: ['purchase-invoices'] as const,
-    list: (params: { vendorId?: string; status?: string }) => [...purchaseInvoiceKeys.all, 'list', params] as const,
+    list: (params: PurchaseInvoicesParams = {}) => [...purchaseInvoiceKeys.all, 'list', params] as const,
     detail: (id: string) => [...purchaseInvoiceKeys.all, 'detail', id] as const,
     unbilled: (vendorId?: string) => [...purchaseInvoiceKeys.all, 'unbilled', vendorId] as const,
 }

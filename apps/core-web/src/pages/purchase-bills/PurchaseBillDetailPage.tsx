@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { usePurchaseInvoice } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { StatusBadge } from '@/components/status/StatusBadge'
 
 export default function PurchaseBillDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -41,7 +42,9 @@ export default function PurchaseBillDetailPage() {
                         <div className="text-3xl font-bold">
                             {parseFloat(invoice.total_amount).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
                         </div>
-                        <p className="text-sm text-slate-500 mt-1">{invoice.status}</p>
+                        <div className="mt-1">
+                            <StatusBadge status={invoice.status} />
+                        </div>
                     </div>
                 </div>
 
