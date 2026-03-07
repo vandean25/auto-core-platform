@@ -76,6 +76,61 @@ export function useReceiveGoods() {
     })
 }
 
+export function useAddPOItems() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ orderId, items }: { orderId: string; items: { catalogItemId: string; quantity: number; unitCost: number }[] }) => {
+            const res = await fetchWithAuth(`${PO_API}/${orderId}/items`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(items),
+            })
+            if (!res.ok) throw new Error('Failed to add items to PO')
+            return res.json()
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+        },
+    })
+}
+
+export function useUpdatePOItem() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ orderId, itemId, updates }: { orderId: string; itemId: string; updates: { quantity?: number; unitCost?: number } }) => {
+            const res = await fetchWithAuth(`${PO_API}/${orderId}/items/${itemId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            })
+            if (!res.ok) throw new Error('Failed to update PO item')
+            return res.json()
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+        },
+    })
+}
+
+export function useDeletePOItem() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ orderId, itemId }: { orderId: string; itemId: string }) => {
+            const res = await fetchWithAuth(`${PO_API}/${orderId}/items/${itemId}`, {
+                method: 'DELETE',
+            })
+            if (!res.ok) throw new Error('Failed to delete PO item')
+            return res.json()
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
+            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+        },
+    })
+}
+
 export function useDeletePurchaseOrder() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -94,3 +149,4 @@ export function useDeletePurchaseOrder() {
         },
     })
 }
+
