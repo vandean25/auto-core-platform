@@ -60,7 +60,21 @@ export function usePurchaseInvoices(params: PurchaseInvoicesParams = {}) {
             
             const response = await fetchWithAuth(`/api/purchase-invoices?${searchParams.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch purchase invoices')
-            return response.json()
+            const data = await response.json()
+            
+            // Handle both paginated {data, meta} and legacy bare array responses for backward compatibility
+            if (Array.isArray(data)) {
+                return {
+                    data,
+                    meta: {
+                        total: data.length,
+                        page: 1,
+                        pageSize: data.length,
+                        pageCount: 1,
+                    },
+                };
+            }
+            return data;
         },
     })
 }

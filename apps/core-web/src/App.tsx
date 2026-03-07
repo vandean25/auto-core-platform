@@ -12,6 +12,8 @@ import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
 import InvoiceDetailPage from './pages/sales/InvoiceDetailPage'
 import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
 import PurchaseBillsPage from './pages/purchase-bills/PurchaseBillsPage'
+import PurchaseBillDetailPage from './pages/purchase-bills/PurchaseBillDetailPage'
+import PurchaseBillCreatePage from './pages/purchase-bills/PurchaseBillCreatePage'
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
@@ -70,6 +72,8 @@ function AppRoutes() {
             <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
             <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
             <Route path="/purchase-bills" element={<PurchaseBillsPage />} />
+            <Route path="/purchase-bills/new" element={<PurchaseBillCreatePage />} />
+            <Route path="/purchase-bills/:id" element={<PurchaseBillDetailPage />} />
             <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
             <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
