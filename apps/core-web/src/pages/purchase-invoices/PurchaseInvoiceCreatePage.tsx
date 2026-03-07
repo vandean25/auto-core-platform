@@ -67,14 +67,38 @@ export default function PurchaseInvoiceCreatePage() {
     }
 
     const handleImport = (items: { item: UnbilledReceiptItem; quantity: number }[]) => {
-        const newLines = items.map(({ item, quantity }) => ({
-            tempId: crypto.randomUUID(),
-            purchaseOrderItemId: item.purchaseOrderItemId,
-            description: `${item.catalogItemName} (${item.purchaseOrderNumber})`,
-            quantity: quantity,
-            unitPrice: item.lastUnitCost
-        }))
-        setLines(prev => [...prev, ...newLines])
+        setLines(prev => {
+            const existingPoItemIds = new Set(
+                prev
+                    .filter((line) => !!line.purchaseOrderItemId)
+                    .map((line) => line.purchaseOrderItemId as string)
+            )
+
+            const next = [...prev]
+            let skippedDuplicates = 0
+
+            for (const { item, quantity } of items) {
+                if (existingPoItemIds.has(item.purchaseOrderItemId)) {
+                    skippedDuplicates += 1
+                    continue
+                }
+
+                next.push({
+                    tempId: crypto.randomUUID(),
+                    purchaseOrderItemId: item.purchaseOrderItemId,
+                    description: `${item.catalogItemName} (${item.purchaseOrderNumber})`,
+                    quantity: quantity,
+                    unitPrice: item.lastUnitCost
+                })
+                existingPoItemIds.add(item.purchaseOrderItemId)
+            }
+
+            if (skippedDuplicates > 0) {
+                toast.info(`${skippedDuplicates} receipt line(s) already existed and were not added again`)
+            }
+
+            return next
+        })
     }
 
     const addManualLine = () => {

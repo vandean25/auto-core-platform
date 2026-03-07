@@ -53,25 +53,46 @@ export class PurchaseInvoiceService {
 
   async create(createDto: CreatePurchaseInvoiceDto) {
     const { items, ...data } = createDto;
+    const poItemTotals = new Map<string, number>();
 
-    // Validate quantities for PO items
     for (const line of items) {
-      if (line.purchaseOrderItemId) {
-        const poItem = await this.prisma.purchaseOrderItem.findUnique({
-          where: { id: line.purchaseOrderItemId },
-        });
+      if (!line.purchaseOrderItemId) continue;
+      const currentTotal = poItemTotals.get(line.purchaseOrderItemId) ?? 0;
+      poItemTotals.set(line.purchaseOrderItemId, currentTotal + line.quantity);
+    }
 
+    if (poItemTotals.size > 0) {
+      const poItemIds = Array.from(poItemTotals.keys());
+      const poItems = await this.prisma.purchaseOrderItem.findMany({
+        where: { id: { in: poItemIds } },
+        include: {
+          purchase_order: {
+            select: {
+              vendor_id: true,
+            },
+          },
+        },
+      });
+
+      const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
+
+      for (const [poItemId, requestedQuantity] of poItemTotals) {
+        const poItem = poItemsById.get(poItemId);
         if (!poItem) {
-          throw new NotFoundException(
-            `PO Item ${line.purchaseOrderItemId} not found`,
+          throw new NotFoundException(`PO Item ${poItemId} not found`);
+        }
+
+        if (poItem.purchase_order.vendor_id !== data.vendorId) {
+          throw new BadRequestException(
+            `PO Item ${poItemId} does not belong to vendor ${data.vendorId}`,
           );
         }
 
         const pending =
           poItem.quantity_received - Number(poItem.quantity_invoiced);
-        if (line.quantity > pending) {
+        if (requestedQuantity > pending) {
           throw new BadRequestException(
-            `Cannot invoice ${line.quantity} for item ${line.description}. Only ${pending} pending.`,
+            `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
           );
         }
       }
@@ -109,17 +130,15 @@ export class PurchaseInvoiceService {
       });
 
       // Update quantity_invoiced on PO items
-      for (const line of items) {
-        if (line.purchaseOrderItemId) {
-          await tx.purchaseOrderItem.update({
-            where: { id: line.purchaseOrderItemId },
-            data: {
-              quantity_invoiced: {
-                increment: line.quantity,
-              },
+      for (const [poItemId, quantity] of poItemTotals) {
+        await tx.purchaseOrderItem.update({
+          where: { id: poItemId },
+          data: {
+            quantity_invoiced: {
+              increment: quantity,
             },
-          });
-        }
+          },
+        });
       }
 
       return invoice;

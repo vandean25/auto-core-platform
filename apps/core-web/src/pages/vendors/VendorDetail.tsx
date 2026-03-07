@@ -155,8 +155,8 @@ export default function VendorDetail() {
             </Link>
           </Button>
           <Button variant='outline' asChild>
-            <Link to={`/purchase-invoices/new?vendorId=${vendor.id}`}>
-              <ReceiptText className='mr-2 h-4 w-4' /> Purchase Invoice
+            <Link to={`/purchase-bills/new?vendorId=${vendor.id}`}>
+              <ReceiptText className='mr-2 h-4 w-4' /> Purchase Bill
             </Link>
           </Button>
         </div>
