@@ -150,17 +150,45 @@ export class PurchaseInvoiceService {
     });
   }
 
-  async findAll(vendorId?: string, status?: PurchaseInvoiceStatus) {
-    return this.prisma.purchaseInvoice.findMany({
-      where: {
-        vendor_id: vendorId,
-        status: status,
+  async findAll(
+    vendorId?: string,
+    status?: PurchaseInvoiceStatus,
+    page: number = 1,
+    pageSize: number = 25,
+    sortBy: string = 'due_date',
+    order: 'asc' | 'desc' = 'asc',
+  ) {
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.PurchaseInvoiceWhereInput = {
+      ...(vendorId && { vendor_id: vendorId }),
+      ...(status && { status }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.purchaseInvoice.findMany({
+        where,
+        include: {
+          vendor: true,
+        },
+        orderBy: { [sortBy]: order },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.purchaseInvoice.count({ where }),
+    ]);
+
+    const pageCount = Math.ceil(total / pageSize);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        pageSize,
+        pageCount,
       },
-      include: {
-        vendor: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async findOne(id: string) {
