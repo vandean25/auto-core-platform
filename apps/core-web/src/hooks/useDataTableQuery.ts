@@ -9,6 +9,7 @@ import type {
 interface UseDataTableQueryOptions {
   defaultPageSize?: number
   debounceMs?: number
+  initialSorting?: SortingState
 }
 
 export interface FilterParam {
@@ -32,7 +33,7 @@ export interface DataTableQueryParams {
 
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { defaultPageSize = 25, debounceMs = 500 } = options
+  const { defaultPageSize = 25, debounceMs = 500, initialSorting = [] } = options
 
   // Initial State from URL
   const initialParams = React.useMemo(() => {
@@ -75,7 +76,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   })
 
   const [sorting, setSorting] = React.useState<SortingState>(() => {
-    if (!initialParams?.sorting) return []
+    if (!initialParams?.sorting) return initialSorting
     return initialParams.sorting.map((s: SortParam) => ({
       id: s.field,
       desc: s.direction === "desc",

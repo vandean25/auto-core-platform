@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import { parseLocalDate } from '@/lib/date-utils'
 import type {
   Brand,
   PurchaseInvoiceStatus,
@@ -239,7 +240,7 @@ export default function VendorDetail() {
                           }}
                         >
                           <TableCell className='font-medium'>{order.order_number}</TableCell>
-                          <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{parseLocalDate(order.createdAt)?.toLocaleDateString() || '-'}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(getPurchaseOrderTotal(order))}</TableCell>
                         </TableRow>
@@ -273,7 +274,7 @@ export default function VendorDetail() {
                           <TableCell className='font-medium'>
                             {invoice.invoice_number || invoice.vendor_invoice_number || 'Draft'}
                           </TableCell>
-                          <TableCell>{new Date(invoice.invoice_date).toLocaleDateString()}</TableCell>
+                          <TableCell>{parseLocalDate(invoice.invoice_date)?.toLocaleDateString() || '-'}</TableCell>
                           <TableCell><StatusBadge status={invoice.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(toNumber(invoice.total_amount))}</TableCell>
                         </TableRow>
