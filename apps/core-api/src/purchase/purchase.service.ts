@@ -32,6 +32,24 @@ export class PurchaseService {
       .padStart(4, '0')}`;
   }
 
+  private recomputePurchaseOrderStatus(items: Array<{ quantity: number; quantity_received: number }>): PurchaseOrderStatus {
+    if (items.length === 0) {
+      return PurchaseOrderStatus.DRAFT;
+    }
+
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalReceived = items.reduce((sum, item) => sum + item.quantity_received, 0);
+    const totalRemaining = totalQuantity - totalReceived;
+
+    if (totalRemaining === 0) {
+      return PurchaseOrderStatus.COMPLETED;
+    } else if (totalReceived > 0) {
+      return PurchaseOrderStatus.PARTIAL;
+    } else {
+      return PurchaseOrderStatus.DRAFT;
+    }
+  }
+
   async createPurchaseOrder(
     vendorId: string,
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
@@ -228,6 +246,183 @@ export class PurchaseService {
     }
   }
 
+  async addItemsToPurchaseOrder(
+    orderId: string,
+    items: { catalogItemId: string; quantity: number; unitCost: number }[],
+  ) {
+    const po = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { vendor: { include: { supportedBrands: true } }, items: true },
+    });
+    if (!po) throw new NotFoundException('Purchase Order not found');
+
+    const itemIds = items.map((i) => i.catalogItemId);
+    const catalogItems = await this.prisma.catalogItem.findMany({
+      where: { id: { in: itemIds } },
+      include: { brand: true },
+    });
+
+    for (const item of items) {
+      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      if (!catalogItem)
+        throw new BadRequestException(
+          `Catalog Item ${item.catalogItemId} not found`,
+        );
+
+      if (
+        catalogItem.brand &&
+        !po.vendor.supportedBrands.some((b) => b.id === catalogItem.brand_id)
+      ) {
+        const supportedNames = po.vendor.supportedBrands
+          .map((b) => b.name)
+          .join(', ');
+        throw new BadRequestException(
+          `Vendor ${po.vendor.name} does not support brand ${catalogItem.brand.name}. Supported: ${supportedNames}`,
+        );
+      }
+
+      // Check if item already exists in PO
+      const existingItem = po.items.find(
+        (i) => i.catalog_item_id === item.catalogItemId,
+      );
+      if (existingItem) {
+        throw new BadRequestException(
+          `Item ${catalogItem.name} is already in this purchase order`,
+        );
+      }
+    }
+
+    // Add items to PO
+    const createdItems = await Promise.all(
+      items.map((i) =>
+        this.prisma.purchaseOrderItem.create({
+          data: {
+            purchase_order_id: orderId,
+            catalog_item_id: i.catalogItemId,
+            quantity: i.quantity,
+            unit_cost: i.unitCost,
+            quantity_received: 0,
+          },
+        }),
+      ),
+    );
+
+    // Recompute status and update order
+    const updatedPO = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!updatedPO) throw new NotFoundException('Purchase Order not found');
+
+    const newStatus = this.recomputePurchaseOrderStatus(updatedPO.items);
+    
+    return this.prisma.purchaseOrder.update({
+      where: { id: orderId },
+      data: { status: newStatus },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
+  async updatePurchaseOrderItem(
+    orderId: string,
+    itemId: string,
+    updates: { quantity?: number; unitCost?: number },
+  ) {
+    const po = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!po) throw new NotFoundException('Purchase Order not found');
+
+    const poItem = po.items.find((i) => i.id === itemId);
+    if (!poItem)
+      throw new BadRequestException('Item not found in this purchase order');
+
+    // Validate that new quantity is not less than already received
+    if (updates.quantity !== undefined && updates.quantity < poItem.quantity_received) {
+      throw new BadRequestException(
+        `Cannot reduce quantity below ${poItem.quantity_received} already received`,
+      );
+    }
+
+    // Map camelCase to snake_case for Prisma
+    const prismaUpdates: Record<string, any> = {};
+    if (updates.quantity !== undefined) prismaUpdates.quantity = updates.quantity;
+    if (updates.unitCost !== undefined) prismaUpdates.unit_cost = updates.unitCost;
+
+    await this.prisma.purchaseOrderItem.update({
+      where: { id: itemId },
+      data: prismaUpdates,
+    });
+
+    // Recompute status and return updated PO
+    const updatedPO = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!updatedPO) throw new NotFoundException('Purchase Order not found');
+
+    const newStatus = this.recomputePurchaseOrderStatus(updatedPO.items);
+
+    return this.prisma.purchaseOrder.update({
+      where: { id: orderId },
+      data: { status: newStatus },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
+  async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
+    const po = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!po) throw new NotFoundException('Purchase Order not found');
+
+    const poItem = po.items.find((i) => i.id === itemId);
+    if (!poItem)
+      throw new BadRequestException('Item not found in this purchase order');
+
+    if (poItem.quantity_received > 0) {
+      throw new BadRequestException(
+        'Cannot delete an item that has already been received',
+      );
+    }
+
+    await this.prisma.purchaseOrderItem.delete({
+      where: { id: itemId },
+    });
+
+    // Recompute status and return updated PO
+    const updatedPO = await this.prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!updatedPO) throw new NotFoundException('Purchase Order not found');
+
+    const newStatus = this.recomputePurchaseOrderStatus(updatedPO.items);
+
+    return this.prisma.purchaseOrder.update({
+      where: { id: orderId },
+      data: { status: newStatus },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
   async findAll(
     params: Prisma.PurchaseOrderFindManyArgs,
   ): Promise<PaginatedPurchaseOrderResult>;
@@ -279,7 +474,7 @@ export class PurchaseService {
     return this.prisma.purchaseOrder.findUnique({
       where: { id },
       include: {
-        vendor: true,
+        vendor: { include: { supportedBrands: true } },
         items: {
           include: { catalog_item: true },
         },

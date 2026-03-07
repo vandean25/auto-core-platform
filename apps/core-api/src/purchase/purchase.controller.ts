@@ -8,6 +8,7 @@ import {
   BadRequestException,
   Query,
   HttpCode,
+  Patch,
 } from '@nestjs/common';
 import { ApiQuery } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
@@ -153,5 +154,30 @@ export class PurchaseController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.purchaseService.remove(id);
+  }
+
+  @Post(':id/items')
+  async addItems(
+    @Param('id') orderId: string,
+    @Body() dto: CreatePurchaseOrderDto['items'],
+  ) {
+    return this.purchaseService.addItemsToPurchaseOrder(orderId, dto);
+  }
+
+  @Patch(':id/items/:itemId')
+  async updateItem(
+    @Param('id') orderId: string,
+    @Param('itemId') itemId: string,
+    @Body() updates: { quantity?: number; unitCost?: number },
+  ) {
+    return this.purchaseService.updatePurchaseOrderItem(orderId, itemId, updates);
+  }
+
+  @Delete(':id/items/:itemId')
+  async deleteItem(
+    @Param('id') orderId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.purchaseService.deleteItemFromPurchaseOrder(orderId, itemId);
   }
 }
