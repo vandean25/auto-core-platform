@@ -15,6 +15,8 @@ import { PurchaseService } from './purchase.service';
 import { QueryBuilder } from '../common/utils/query-builder';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
+import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
+import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
 import type { Prisma } from '@prisma/client';
 
 @Controller('purchase-orders')
@@ -159,18 +161,18 @@ export class PurchaseController {
   @Post(':id/items')
   async addItems(
     @Param('id') orderId: string,
-    @Body() dto: CreatePurchaseOrderDto['items'],
+    @Body() dto: AddPurchaseOrderItemsDto,
   ) {
-    return this.purchaseService.addItemsToPurchaseOrder(orderId, dto);
+    return this.purchaseService.addItemsToPurchaseOrder(orderId, dto.items);
   }
 
   @Patch(':id/items/:itemId')
   async updateItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,
-    @Body() updates: { quantity?: number; unitCost?: number },
+    @Body() dto: UpdatePurchaseOrderItemDto,
   ) {
-    return this.purchaseService.updatePurchaseOrderItem(orderId, itemId, updates);
+    return this.purchaseService.updatePurchaseOrderItem(orderId, itemId, dto);
   }
 
   @Delete(':id/items/:itemId')
