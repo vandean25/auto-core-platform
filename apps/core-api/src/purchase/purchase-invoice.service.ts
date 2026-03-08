@@ -61,44 +61,44 @@ export class PurchaseInvoiceService {
       poItemTotals.set(line.purchaseOrderItemId, currentTotal + line.quantity);
     }
 
-    if (poItemTotals.size > 0) {
-      const poItemIds = Array.from(poItemTotals.keys());
-      const poItems = await this.prisma.purchaseOrderItem.findMany({
-        where: { id: { in: poItemIds } },
-        include: {
-          purchase_order: {
-            select: {
-              vendor_id: true,
+    return this.prisma.$transaction(async (tx) => {
+      if (poItemTotals.size > 0) {
+        const poItemIds = Array.from(poItemTotals.keys());
+        const poItems = await tx.purchaseOrderItem.findMany({
+          where: { id: { in: poItemIds } },
+          include: {
+            purchase_order: {
+              select: {
+                vendor_id: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
+        const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
 
-      for (const [poItemId, requestedQuantity] of poItemTotals) {
-        const poItem = poItemsById.get(poItemId);
-        if (!poItem) {
-          throw new NotFoundException(`PO Item ${poItemId} not found`);
-        }
+        for (const [poItemId, requestedQuantity] of poItemTotals) {
+          const poItem = poItemsById.get(poItemId);
+          if (!poItem) {
+            throw new NotFoundException(`PO Item ${poItemId} not found`);
+          }
 
-        if (poItem.purchase_order.vendor_id !== data.vendorId) {
-          throw new BadRequestException(
-            `PO Item ${poItemId} does not belong to vendor ${data.vendorId}`,
-          );
-        }
+          if (poItem.purchase_order.vendor_id !== data.vendorId) {
+            throw new BadRequestException(
+              `PO Item ${poItemId} does not belong to vendor ${data.vendorId}`,
+            );
+          }
 
-        const pending =
-          poItem.quantity_received - Number(poItem.quantity_invoiced);
-        if (requestedQuantity > pending) {
-          throw new BadRequestException(
-            `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
-          );
+          const pending =
+            poItem.quantity_received - Number(poItem.quantity_invoiced);
+          if (requestedQuantity > pending) {
+            throw new BadRequestException(
+              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
+            );
+          }
         }
       }
-    }
 
-    return this.prisma.$transaction(async (tx) => {
       let totalAmount = 0;
       const linesData = items.map((line) => {
         const lineTotal = line.quantity * line.unitPrice;
