@@ -111,7 +111,7 @@ export default function PurchaseBillCreatePage() {
         () => selectedVendor?.supportedBrands?.map((brand) => brand.name) ?? [],
         [selectedVendor?.supportedBrands],
     )
-    const { data: inventoryData = [] } = useInventory({
+    const { data: inventoryResponse } = useInventory({
         search: debouncedSearchQuery || undefined,
         pageSize: 100,
     })
@@ -150,11 +150,11 @@ export default function PurchaseBillCreatePage() {
         )
     }, [receiptSummaries, receiptFilter])
 
-    const filteredInventory = React.useMemo(() => {
+    const filteredInventory = React.useMemo<InventoryItem[]>(() => {
         if (!debouncedSearchQuery) return []
         if (vendorBrandNames.length === 0) return []
-        return (inventoryData ?? []).filter((item) => vendorBrandNames.includes(item.brand))
-    }, [debouncedSearchQuery, inventoryData, vendorBrandNames])
+        return (inventoryResponse?.data ?? []).filter((item) => vendorBrandNames.includes(item.brand))
+    }, [debouncedSearchQuery, inventoryResponse?.data, vendorBrandNames])
 
     React.useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -187,14 +187,19 @@ export default function PurchaseBillCreatePage() {
     }, [])
 
     React.useEffect(() => {
-        if (!vendorId) {
-            setSelectedReceiptIds([])
-            return
-        }
+        setSelectedReceiptIds((previous) => {
+            if (!vendorId) {
+                return previous.length === 0 ? previous : []
+            }
 
-        setSelectedReceiptIds((previous) =>
-            previous.filter((receiptId) => receiptSummaries.some((receipt) => receipt.id === receiptId)),
-        )
+            const allowedReceiptIds = new Set(receiptSummaries.map((receipt) => receipt.id))
+            const next = previous.filter((receiptId) => allowedReceiptIds.has(receiptId))
+            const unchanged =
+                next.length === previous.length &&
+                next.every((receiptId, index) => receiptId === previous[index])
+
+            return unchanged ? previous : next
+        })
     }, [vendorId, receiptSummaries])
 
     React.useEffect(() => {
