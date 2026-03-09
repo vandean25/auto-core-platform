@@ -16,7 +16,7 @@ export class VendorService {
     accountNumber: string;
     brandIds?: number[];
   }): Promise<Vendor> {
-    return this.prisma.vendor.create({
+    const vendor = await this.prisma.vendor.create({
       data: {
         name: data.name,
         email: data.email,
@@ -31,6 +31,8 @@ export class VendorService {
         supportedBrands: true,
       },
     });
+
+    return vendor;
   }
 
   async findAll(params?: any): Promise<any> {
@@ -96,7 +98,7 @@ export class VendorService {
       brandIds?: number[];
     },
   ): Promise<Vendor> {
-    return this.prisma.vendor.update({
+    const vendor = await this.prisma.vendor.update({
       where: { id },
       data: {
         name: data.name,
@@ -112,6 +114,8 @@ export class VendorService {
         supportedBrands: true,
       },
     });
+
+    return vendor;
   }
 
   async remove(id: string): Promise<Vendor> {
@@ -133,8 +137,10 @@ export class VendorService {
       );
     }
 
-    return this.prisma.vendor.delete({
+    const deletedVendor = await this.prisma.vendor.delete({
       where: { id },
     });
+
+    return deletedVendor;
   }
 }

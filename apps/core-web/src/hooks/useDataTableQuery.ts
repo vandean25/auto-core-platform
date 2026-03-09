@@ -31,40 +31,66 @@ export interface DataTableQueryParams {
   filters: FilterParam[]
 }
 
+interface ParsedUrlTableState {
+  page: number
+  pageSize: number
+  search: string
+  filters: FilterParam[]
+  sorting: SortParam[]
+}
+
+function parseUrlTableState(searchParams: URLSearchParams, defaultPageSize: number): ParsedUrlTableState {
+  const page = Number(searchParams.get("page") ?? 1)
+  const pageSize = Number(searchParams.get("pageSize") ?? defaultPageSize)
+  const search = searchParams.get("search") ?? ""
+  const sortField = searchParams.get("sortField")
+  const sortDirection = searchParams.get("sortDirection")
+
+  const filters: FilterParam[] = []
+  for (const [key, value] of searchParams.entries()) {
+    if (key.startsWith("filter_")) {
+      filters.push({
+        field: key.replace("filter_", ""),
+        value,
+      })
+    }
+  }
+
+  const sorting: SortParam[] = sortField
+    ? [{ field: sortField, direction: sortDirection === "desc" ? "desc" : "asc" }]
+    : []
+
+  return {
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : defaultPageSize,
+    search,
+    filters,
+    sorting,
+  }
+}
+
+function areColumnFiltersEqual(left: ColumnFiltersState, right: ColumnFiltersState): boolean {
+  if (left.length !== right.length) return false
+  return left.every((filter, index) => filter.id === right[index]?.id && String(filter.value) === String(right[index]?.value))
+}
+
+function areSortingEqual(left: SortingState, right: SortingState): boolean {
+  if (left.length !== right.length) return false
+  return left.every((sort, index) => sort.id === right[index]?.id && sort.desc === right[index]?.desc)
+}
+
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const { defaultPageSize = 25, debounceMs = 500, initialSorting = [] } = options
+  const searchParamsKey = searchParams.toString()
+  const initialSortingKey = JSON.stringify(initialSorting)
+  const stableInitialSorting = React.useMemo<SortingState>(() => initialSorting, [initialSortingKey])
 
   // Initial State from URL
-  const initialParams = React.useMemo(() => {
-    const page = Number(searchParams.get("page") ?? 1)
-    const pageSize = Number(searchParams.get("pageSize") ?? defaultPageSize)
-    const search = searchParams.get("search") ?? ""
-    const sortField = searchParams.get("sortField")
-    const sortDirection = searchParams.get("sortDirection")
-
-    const filters: FilterParam[] = []
-    for (const [key, value] of searchParams.entries()) {
-      if (key.startsWith("filter_")) {
-        filters.push({
-          field: key.replace("filter_", ""),
-          value,
-        })
-      }
-    }
-
-    const sorting: SortParam[] = sortField
-      ? [{ field: sortField, direction: sortDirection === "desc" ? "desc" : "asc" }]
-      : []
-
-    return {
-      page: Number.isFinite(page) && page > 0 ? page : 1,
-      pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : defaultPageSize,
-      search,
-      filters,
-      sorting,
-    }
-  }, [searchParams, defaultPageSize])
+  const initialParams = React.useMemo(
+    () => parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize),
+    [searchParamsKey, defaultPageSize],
+  )
 
   // Table State
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(() => {
@@ -76,7 +102,7 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   })
 
   const [sorting, setSorting] = React.useState<SortingState>(() => {
-    if (!initialParams?.sorting) return initialSorting
+    if (!initialParams?.sorting) return stableInitialSorting
     return initialParams.sorting.map((s: SortParam) => ({
       id: s.field,
       desc: s.direction === "desc",
@@ -89,6 +115,33 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   }))
 
   const [globalFilter, setGlobalFilter] = React.useState<string>(() => initialParams?.search || "")
+
+  // Keep table state in sync when URL query changes from navigation (for saved views/history).
+  React.useEffect(() => {
+    const next = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize)
+    const nextColumnFilters: ColumnFiltersState = next.filters.map((filter) => ({
+      id: filter.field,
+      value: filter.value,
+    }))
+    const nextSorting: SortingState = next.sorting.map((sort) => ({
+      id: sort.field,
+      desc: sort.direction === "desc",
+    }))
+    const fallbackSorting = nextSorting.length === 0 ? stableInitialSorting : nextSorting
+
+    setColumnFilters((previous) => (areColumnFiltersEqual(previous, nextColumnFilters) ? previous : nextColumnFilters))
+    setSorting((previous) => (areSortingEqual(previous, fallbackSorting) ? previous : fallbackSorting))
+    setPagination((previous) => {
+      if (previous.pageIndex === next.page - 1 && previous.pageSize === next.pageSize) {
+        return previous
+      }
+      return {
+        pageIndex: next.page - 1,
+        pageSize: next.pageSize,
+      }
+    })
+    setGlobalFilter((previous) => (previous === next.search ? previous : next.search))
+  }, [searchParamsKey, defaultPageSize, stableInitialSorting, setColumnFilters, setSorting, setPagination, setGlobalFilter])
 
   // Debounce URL Updates
   React.useEffect(() => {

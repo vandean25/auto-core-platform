@@ -11,6 +11,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useWorkshopOrders } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
+import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 
 interface WorkshopOrderRow {
   id: string
@@ -88,9 +89,10 @@ export default function WorkshopOrderList() {
       <DataTable
         columns={columns}
         data={rows}
+        saveViewTitle='Workshop Orders'
+        dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchColumn='orderNo'
         searchPlaceholder='Search workshop orders...'
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
         {...tableState}

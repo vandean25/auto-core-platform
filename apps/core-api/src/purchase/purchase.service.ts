@@ -97,7 +97,7 @@ export class PurchaseService {
       }
     }
 
-    return this.prisma.purchaseOrder.create({
+    const purchaseOrder = await this.prisma.purchaseOrder.create({
       data: {
         vendor_id: vendorId,
         order_number: this.generateOrderNumber(),
@@ -113,6 +113,8 @@ export class PurchaseService {
       },
       include: { items: true },
     });
+
+    return purchaseOrder;
   }
 
   async receiveItems(
@@ -120,7 +122,7 @@ export class PurchaseService {
     receivedItems: { itemId: string; quantity: number }[],
   ) {
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const updatedPO = await this.prisma.$transaction(async (tx) => {
         const po = await tx.purchaseOrder.findUnique({
           where: { id: orderId },
           include: { items: true },
@@ -243,6 +245,8 @@ export class PurchaseService {
 
         return updatedPO;
       });
+
+      return updatedPO;
     } catch (error) {
       console.error('===== receiveItems ERROR =====');
       console.error('Error type:', error?.constructor?.name);
@@ -310,7 +314,7 @@ export class PurchaseService {
     }
 
     // Add items to PO in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
       // Create all items
       await Promise.all(
         items.map((i) =>
@@ -351,6 +355,8 @@ export class PurchaseService {
         },
       });
     });
+
+    return updatedOrder;
   }
 
   async updatePurchaseOrderItem(
@@ -381,7 +387,7 @@ export class PurchaseService {
     if (updates.unitCost !== undefined) prismaUpdates.unit_cost = updates.unitCost;
 
     // Update in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
       await tx.purchaseOrderItem.update({
         where: { id: itemId },
         data: prismaUpdates,
@@ -411,6 +417,8 @@ export class PurchaseService {
         },
       });
     });
+
+    return updatedOrder;
   }
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
@@ -431,7 +439,7 @@ export class PurchaseService {
     }
 
     // Delete in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
       await tx.purchaseOrderItem.delete({
         where: { id: itemId },
       });
@@ -460,6 +468,8 @@ export class PurchaseService {
         },
       });
     });
+
+    return updatedOrder;
   }
 
   async findAll(
@@ -522,7 +532,7 @@ export class PurchaseService {
   }
 
   async remove(id: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const deletedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.purchaseOrder.findUnique({
         where: { id },
         include: {
@@ -575,5 +585,7 @@ export class PurchaseService {
         where: { id },
       });
     });
+
+    return deletedOrder;
   }
 }

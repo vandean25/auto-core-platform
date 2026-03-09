@@ -10,6 +10,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { SalesOrder } from '@/api/types'
 import { toast } from 'sonner'
+import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
 
 export default function SalesOrderList() {
     const navigate = useNavigate()
@@ -98,6 +99,8 @@ export default function SalesOrderList() {
             <DataTable
                 columns={columns}
                 data={data}
+                saveViewTitle="Sales Orders"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_SALES_ORDERS}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="order_number"

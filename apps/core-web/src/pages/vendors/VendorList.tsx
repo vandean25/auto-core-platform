@@ -11,6 +11,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import type { Vendor } from '@/api/types'
 import { toast } from 'sonner'
+import { DASHBOARD_WIDGET_SOURCE_VENDORS } from '@/features/dashboard-widgets/sources'
 
 export default function VendorList() {
     const navigate = useNavigate()
@@ -77,6 +78,8 @@ export default function VendorList() {
             <DataTable
                 columns={columns}
                 data={data}
+                saveViewTitle="Vendors"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_VENDORS}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="name"
