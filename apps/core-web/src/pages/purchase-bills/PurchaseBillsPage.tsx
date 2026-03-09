@@ -9,6 +9,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { DataTable } from '@/components/data-table/DataTable'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
+import { DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS } from '@/features/dashboard-widgets/sources'
 
 export default function PurchaseBillsPage() {
     const navigate = useNavigate()
@@ -107,6 +108,8 @@ export default function PurchaseBillsPage() {
             <DataTable
                 columns={columns}
                 data={data}
+                saveViewTitle="Purchase Bills"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS}
                 isLoading={isLoading}
                 pageCount={pageCount}
                 onRowClick={handleRowClick}

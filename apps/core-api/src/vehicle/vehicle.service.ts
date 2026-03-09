@@ -169,11 +169,13 @@ export class VehicleService {
     };
 
     try {
-      return await this.prisma.vehicle.update({
+      const updatedVehicle = await this.prisma.vehicle.update({
         where: { id },
         data,
         include: { customer: true },
       });
+
+      return updatedVehicle;
     } catch (error: any) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

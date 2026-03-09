@@ -45,7 +45,7 @@ export class SalesOrderService {
       new Prisma.Decimal(0),
     );
 
-    return this.prisma.salesOrder.create({
+    const createdOrder = await this.prisma.salesOrder.create({
       data: {
         order_number: orderNumber,
         customer_id: createDto.customer_id,
@@ -63,6 +63,8 @@ export class SalesOrderService {
         vehicle: true,
       },
     });
+
+    return createdOrder;
   }
 
   async findAll(params: any) {
@@ -154,7 +156,7 @@ export class SalesOrderService {
       };
     }
 
-    return this.prisma.salesOrder.update({
+    const updatedOrder = await this.prisma.salesOrder.update({
       where: { id },
       data: {
         customer_id: updateDto.customer_id,
@@ -166,6 +168,8 @@ export class SalesOrderService {
       },
       include: { items: true },
     });
+
+    return updatedOrder;
   }
 
   async createInvoiceFromOrder(orderId: string) {
@@ -202,7 +206,7 @@ export class SalesOrderService {
     const totalGross = totalNet.add(totalTax);
 
     // 2. Create Invoice in Transaction
-    return this.prisma.$transaction(async (tx) => {
+    const invoice = await this.prisma.$transaction(async (tx) => {
       try {
         const invoice = await tx.invoice.create({
           data: {
@@ -232,6 +236,8 @@ export class SalesOrderService {
         throw error;
       }
     });
+
+    return invoice;
   }
 
   async remove(id: string) {

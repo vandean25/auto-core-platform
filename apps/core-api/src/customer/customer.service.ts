@@ -15,7 +15,7 @@ export class CustomerService {
   constructor(private prisma: PrismaService) {}
 
   async create(createCustomerDto: CreateCustomerDto) {
-    return this.prisma.customer.create({
+    const customer = await this.prisma.customer.create({
       data: {
         type: createCustomerDto.type,
         company_name: createCustomerDto.company_name,
@@ -46,6 +46,8 @@ export class CustomerService {
         address_country: createCustomerDto.address_country,
       },
     });
+
+    return customer;
   }
 
   async findAll(params: any) {
@@ -157,10 +159,12 @@ export class CustomerService {
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
     await this.ensureCustomerExists(id);
-    return this.prisma.customer.update({
+    const customer = await this.prisma.customer.update({
       where: { id },
       data: updateCustomerDto,
     });
+
+    return customer;
   }
 
   async remove(id: string) {
@@ -190,9 +194,11 @@ export class CustomerService {
       );
     }
 
-    return this.prisma.customer.delete({
+    const deletedCustomer = await this.prisma.customer.delete({
       where: { id },
     });
+
+    return deletedCustomer;
   }
 
   private async ensureCustomerExists(id: string) {

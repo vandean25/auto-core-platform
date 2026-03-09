@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableToolbar } from "./data-table-toolbar"
 
 interface DataTableProps<TData, TValue> {
@@ -26,6 +27,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   pageCount?: number
   isLoading?: boolean
+  saveViewTitle?: string
+  dashboardSource?: DashboardWidgetTableSource
   columnFilters: ColumnFiltersState
   setColumnFilters: OnChangeFn<ColumnFiltersState>
   globalFilter?: string
@@ -51,6 +54,8 @@ export function DataTable<TData, TValue>({
   data,
   pageCount = -1,
   isLoading = false,
+  saveViewTitle,
+  dashboardSource,
   columnFilters,
   setColumnFilters,
   globalFilter,
@@ -133,6 +138,8 @@ export function DataTable<TData, TValue>({
         table={table} 
         searchColumn={searchColumn} 
         placeholder={searchPlaceholder} 
+        saveViewTitle={saveViewTitle}
+        dashboardSource={dashboardSource}
       />
       <div className="rounded-md border">
         <Table>

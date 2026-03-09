@@ -7,6 +7,8 @@ import {
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
+import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension';
 
 @Injectable()
 export class PrismaService
@@ -15,8 +17,9 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
   private pool: Pool;
+  private readonly extendedClient: any;
 
-  constructor() {
+  constructor(dashboardRealtime: DashboardRealtimeService) {
     const connectionString = process.env.DATABASE_URL;
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
@@ -27,6 +30,27 @@ export class PrismaService
     });
 
     this.pool = pool;
+    this.extendedClient = this.$extends(
+      createDashboardRealtimeExtension(dashboardRealtime),
+    );
+
+    return new Proxy(this, {
+      get: (target, property, receiver) => {
+        const clientValue = Reflect.get(
+          this.extendedClient as object,
+          property,
+          this.extendedClient,
+        );
+
+        if (clientValue !== undefined) {
+          return typeof clientValue === 'function'
+            ? clientValue.bind(this.extendedClient)
+            : clientValue;
+        }
+
+        return Reflect.get(target, property, receiver);
+      },
+    });
   }
 
   async onModuleInit() {
@@ -37,14 +61,14 @@ export class PrismaService
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await this.extendedClient.$disconnect();
     await this.pool.end();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {
     for (let i = 0; i < retries; i++) {
       try {
-        await this.$connect();
+        await this.extendedClient.$connect();
         this.logger.log('Successfully connected to the database via Adapter.');
         return;
       } catch (error) {

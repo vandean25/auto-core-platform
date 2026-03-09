@@ -6,6 +6,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useVehicles } from '@/api/vehicles'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 
 type VehicleRow = {
   id: string
@@ -93,6 +94,8 @@ export default function VehicleList() {
       <DataTable
         columns={columns}
         data={rows}
+        saveViewTitle='Vehicles'
+        dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder='Search vehicles...'

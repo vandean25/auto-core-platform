@@ -352,7 +352,7 @@ export class WorkshopService {
   }
 
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const createdTask = await this.prisma.$transaction(async (tx) => {
       const order = await tx.workshopOrder.findUnique({
         where: { id: orderId },
         include: {
@@ -405,6 +405,8 @@ export class WorkshopService {
         lineItems: [],
       };
     });
+
+    return createdTask;
   }
 
   async updateTask(

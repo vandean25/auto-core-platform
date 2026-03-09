@@ -220,7 +220,7 @@ export class InventoryService {
       }
     }
 
-    return this.prisma.catalogItem.create({
+    const catalogItem = await this.prisma.catalogItem.create({
       data: {
         sku: data.sku,
         name: data.name,
@@ -231,5 +231,7 @@ export class InventoryService {
         revenue_group_id: data.revenue_group_id,
       },
     });
+
+    return catalogItem;
   }
 }

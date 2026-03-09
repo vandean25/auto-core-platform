@@ -10,6 +10,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { PurchaseOrder } from '@/api/types'
 import { toast } from 'sonner'
+import { DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS } from '@/features/dashboard-widgets/sources'
 
 export default function PurchaseOrderList() {
     const navigate = useNavigate()
@@ -86,6 +87,8 @@ export default function PurchaseOrderList() {
             <DataTable
                 columns={columns}
                 data={data}
+                saveViewTitle="Purchase Orders"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="order_number"

@@ -61,7 +61,7 @@ export class PurchaseInvoiceService {
       poItemTotals.set(line.purchaseOrderItemId, currentTotal + line.quantity);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const invoice = await this.prisma.$transaction(async (tx) => {
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
@@ -143,6 +143,8 @@ export class PurchaseInvoiceService {
 
       return invoice;
     });
+
+    return invoice;
   }
 
   async post(id: string) {
@@ -163,10 +165,12 @@ export class PurchaseInvoiceService {
     // Here we would create Ledger Entries (GL)
     // For now, just update status
 
-    return this.prisma.purchaseInvoice.update({
+    const postedInvoice = await this.prisma.purchaseInvoice.update({
       where: { id },
       data: { status: PurchaseInvoiceStatus.POSTED },
     });
+
+    return postedInvoice;
   }
 
   async findAll(

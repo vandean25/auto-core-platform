@@ -3,18 +3,25 @@ import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddToDashboardButton } from "@/features/dashboard-widgets/AddToDashboardButton"
+import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewButton"
+import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableViewOptions } from "./data-table-view-options"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
   searchColumn?: string
   placeholder?: string
+  saveViewTitle?: string
+  dashboardSource?: DashboardWidgetTableSource
 }
 
 export function DataTableToolbar<TData>({
   table,
   searchColumn,
   placeholder = "Filter...",
+  saveViewTitle,
+  dashboardSource,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0 || !!table.getState().globalFilter
 
@@ -55,7 +62,11 @@ export function DataTableToolbar<TData>({
           </Button>
         )}
       </div>
-      <DataTableViewOptions table={table} />
+      <div className="flex items-center gap-2">
+        {saveViewTitle ? <SaveCurrentViewButton title={saveViewTitle} /> : null}
+        {dashboardSource ? <AddToDashboardButton source={dashboardSource} /> : null}
+        <DataTableViewOptions table={table} />
+      </div>
     </div>
   )
 }

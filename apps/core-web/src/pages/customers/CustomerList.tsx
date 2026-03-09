@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
+import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
 
 export default function CustomerList() {
     const navigate = useNavigate()
@@ -132,6 +133,8 @@ export default function CustomerList() {
             <DataTable
                 columns={columns}
                 data={customers}
+                saveViewTitle="Customers"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_CUSTOMERS}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchPlaceholder="Search customers..."

@@ -13,6 +13,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { InventoryItemInfoCard } from '@/components/inventory/InventoryItemInfoCard'
+import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
 
 export default function InventoryList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
@@ -77,6 +78,8 @@ export default function InventoryList() {
             <DataTable
                 columns={columns}
                 data={data}
+                saveViewTitle="Inventory"
+                dashboardSource={DASHBOARD_WIDGET_SOURCE_INVENTORY}
                 pageCount={pageCount}
                 isLoading={isLoading}
                 searchColumn="name"

@@ -1,6 +1,15 @@
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
-import { Settings, Search, LogOut } from 'lucide-react'
+import * as React from 'react'
+import { Toaster } from '@/components/ui/sonner'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/auth/AuthProvider'
+import { AppSidebar } from '@/components/navigation/AppSidebar'
+import { GlobalSearch } from '@/components/GlobalSearch'
+import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
+import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
+import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import LoginPage from '@/pages/LoginPage'
 import InventoryList from './pages/InventoryList'
 import InventoryLedgerPage from './pages/inventory/InventoryLedgerPage'
 import VendorList from './pages/vendors/VendorList'
@@ -19,7 +28,6 @@ import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
 import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
 import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
-import { GlobalSearch } from './components/GlobalSearch'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
 import VehicleDetail from './pages/vehicles/VehicleDetail'
@@ -27,20 +35,8 @@ import VehicleList from './pages/vehicles/VehicleList'
 import SalesOrderList from './pages/sales-orders/SalesOrderList'
 import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
 import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
-import { Toaster } from '@/components/ui/sonner'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import * as React from 'react'
-import LoginPage from '@/pages/LoginPage'
-import { useAuth } from '@/auth/AuthProvider'
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  cn(
-    'text-sm font-medium transition-colors px-3 py-1.5 rounded-md',
-    isActive
-      ? 'bg-primary/10 text-primary'
-      : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-  )
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
 function AppRoutes() {
   const location = useLocation()
@@ -88,26 +84,49 @@ function AppRoutes() {
   )
 }
 
-function AppMain() {
+type AppMainProps = {
+  sidebarCollapsed: boolean
+}
+
+function AppMain({ sidebarCollapsed }: AppMainProps) {
   const location = useLocation()
   const isWorkshopOrderDetails = /^\/workshop\/orders\/[^/]+$/.test(location.pathname)
 
   return (
-    <main className={isWorkshopOrderDetails ? "w-full py-8 px-0" : "container mx-auto py-8 px-4"}>
-      <AppRoutes />
+    <main
+      id="main-content"
+      className={cn('min-h-screen transition-[padding-left] duration-200', sidebarCollapsed ? 'pl-20' : 'pl-72')}
+      tabIndex={-1}
+    >
+      <div className={isWorkshopOrderDetails ? 'w-full py-8 px-0' : 'w-full py-8 px-4'}>
+        <AppRoutes />
+      </div>
       <Toaster />
     </main>
   )
 }
 
-function App() {
+type AppShellProps = {
+  userEmail: string | null
+  onSignOut: () => void
+}
+
+function AppShell({ userEmail, onSignOut }: AppShellProps) {
+  const effectiveUserKey = userEmail ?? 'anonymous'
   const [searchOpen, setSearchOpen] = React.useState(false)
-  const { user, loading, signOutUser } = useAuth()
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true'
+  })
 
   React.useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed))
+  }, [sidebarCollapsed])
+
+  React.useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault()
         setSearchOpen((open) => !open)
       }
     }
@@ -115,6 +134,38 @@ function App() {
     document.addEventListener('keydown', down)
     return () => document.removeEventListener('keydown', down)
   }, [])
+
+  return (
+    <SavedViewsProvider userKey={effectiveUserKey}>
+      <DashboardWidgetsProvider userKey={effectiveUserKey}>
+        <RealtimeDashboardSyncProvider>
+          <div className="min-h-screen bg-slate-100">
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
+            >
+              Skip to main content
+            </a>
+
+            <AppSidebar
+              userEmail={userEmail}
+              collapsed={sidebarCollapsed}
+              onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
+              onOpenSearch={() => setSearchOpen(true)}
+              onSignOut={onSignOut}
+            />
+
+            <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+            <AppMain sidebarCollapsed={sidebarCollapsed} />
+          </div>
+        </RealtimeDashboardSyncProvider>
+      </DashboardWidgetsProvider>
+    </SavedViewsProvider>
+  )
+}
+
+function App() {
+  const { user, loading, signOutUser } = useAuth()
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading...</div>
@@ -126,78 +177,7 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50/30">
-        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <NavLink to="/dashboard" className="font-bold text-lg tracking-tight text-primary whitespace-nowrap">
-                Auto Core
-              </NavLink>
-
-              <div className="h-5 w-px bg-border" />
-
-              <nav className="flex items-center gap-1">
-                <NavLink to="/dashboard" className={navLinkClass} end>Dashboard</NavLink>
-
-                <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/customers" className={navLinkClass}>Customers</NavLink>
-                <NavLink to="/vehicles" className={navLinkClass}>Vehicles</NavLink>
-                <NavLink to="/sales-orders" className={navLinkClass}>Sales</NavLink>
-
-                <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/inventory" className={navLinkClass}>Inventory</NavLink>
-
-                <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/vendors" className={navLinkClass}>Vendors</NavLink>
-                <NavLink to="/purchase-orders" className={navLinkClass}>Purchase Orders</NavLink>
-                <NavLink to="/purchase-bills" className={navLinkClass}>Purchase Bills</NavLink>
-
-                <div className="h-4 w-px bg-border mx-1" />
-                <NavLink to="/workshop/orders" className={navLinkClass}>Workshop Orders</NavLink>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground border border-input rounded-md px-3 py-1.5 hover:bg-accent transition-colors"
-              >
-                <Search className="h-4 w-4" />
-                <span className="hidden sm:inline">Search</span>
-                <kbd className="hidden sm:inline pointer-events-none select-none rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                  {navigator.userAgent.includes('Mac') ? '⌘K' : 'Ctrl+K'}
-                </kbd>
-              </button>
-
-              <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  cn(
-                    'p-2 rounded-md transition-colors',
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                  )
-                }
-                title="Settings"
-              >
-                <Settings className="h-5 w-5" />
-              </NavLink>
-
-              <span className="hidden md:inline text-xs text-muted-foreground">{user.email}</span>
-
-              <Button variant="outline" size="sm" onClick={() => void signOutUser()}>
-                <LogOut className="h-4 w-4" />
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-
-        <AppMain />
-      </div>
+      <AppShell userEmail={user.email ?? null} onSignOut={() => void signOutUser()} />
     </Router>
   )
 }

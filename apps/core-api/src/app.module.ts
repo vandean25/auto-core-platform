@@ -18,6 +18,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { LaborModule } from './labor/labor.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { VehicleModule } from './vehicle/vehicle.module';
+import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { VehicleModule } from './vehicle/vehicle.module';
     LaborModule,
     CatalogModule,
     VehicleModule,
+    DashboardRealtimeModule,
   ],
   controllers: [AppController],
   providers: [
