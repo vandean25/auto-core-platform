@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { PrismaService } from './prisma.service';
 
 describe('PrismaService', () => {
@@ -6,7 +7,15 @@ describe('PrismaService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PrismaService],
+      providers: [
+        PrismaService,
+        {
+          provide: DashboardRealtimeService,
+          useValue: {
+            emitEntityUpdated: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<PrismaService>(PrismaService);
