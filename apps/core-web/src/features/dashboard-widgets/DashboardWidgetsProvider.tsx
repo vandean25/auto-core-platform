@@ -67,6 +67,9 @@ export function DashboardWidgetsProvider({ userKey, children }: DashboardWidgets
     setHydratedStorageKey(storageKey)
   }, [storageKey])
 
+  // hydratedStorageKey is set after loading widgets (in the first React.useEffect via setHydratedStorageKey)
+  // to prevent writing to localStorage during initial hydration/when storageKey changes.
+  // The effect should only persist widgets when hydratedStorageKey === storageKey.
   React.useEffect(() => {
     if (hydratedStorageKey !== storageKey) return
     window.localStorage.setItem(storageKey, JSON.stringify(widgets))

@@ -84,13 +84,11 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
   const { defaultPageSize = 25, debounceMs = 500, initialSorting = [] } = options
   const searchParamsKey = searchParams.toString()
   const initialSortingKey = JSON.stringify(initialSorting)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableInitialSorting = React.useMemo<SortingState>(() => initialSorting, [initialSortingKey])
 
   // Initial State from URL
-  const initialParams = React.useMemo(
-    () => parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize),
-    [searchParamsKey, defaultPageSize],
-  )
+  const initialParams = parseUrlTableState(new URLSearchParams(searchParamsKey), defaultPageSize)
 
   // Table State
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(() => {

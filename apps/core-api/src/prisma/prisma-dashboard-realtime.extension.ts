@@ -55,10 +55,11 @@ export function createDashboardRealtimeExtension(
         async create({ model, args, query }) {
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          if (type) {
+          const action = operationToAction('create');
+          if (type && action) {
             dashboardRealtime.emitEntityUpdated({
               type,
-              action: 'CREATED',
+              action,
               entityId: extractEntityId(result),
             });
           }
@@ -67,10 +68,11 @@ export function createDashboardRealtimeExtension(
         async update({ model, args, query }) {
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          if (type) {
+          const action = operationToAction('update');
+          if (type && action) {
             dashboardRealtime.emitEntityUpdated({
               type,
-              action: 'UPDATED',
+              action,
               entityId: extractEntityId(result),
             });
           }
@@ -79,10 +81,11 @@ export function createDashboardRealtimeExtension(
         async delete({ model, args, query }) {
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          if (type) {
+          const action = operationToAction('delete');
+          if (type && action) {
             dashboardRealtime.emitEntityUpdated({
               type,
-              action: 'DELETED',
+              action,
               entityId: extractEntityId(result),
             });
           }
@@ -91,10 +94,11 @@ export function createDashboardRealtimeExtension(
         async updateMany({ model, args, query }) {
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          if (type) {
+          const action = operationToAction('updateMany');
+          if (type && action) {
             dashboardRealtime.emitEntityUpdated({
               type,
-              action: 'UPDATED',
+              action,
             });
           }
           return result;
@@ -102,19 +106,28 @@ export function createDashboardRealtimeExtension(
         async deleteMany({ model, args, query }) {
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          if (type) {
+          const action = operationToAction('deleteMany');
+          if (type && action) {
             dashboardRealtime.emitEntityUpdated({
               type,
-              action: 'DELETED',
+              action,
             });
           }
           return result;
         },
         async upsert({ model, args, query }) {
+          // Distinguish between create and update by performing an existence pre-check
+          const ctx = Prisma.getExtensionContext(this);
+          const existing = await (ctx as any).findFirst({
+            where: args.where,
+            select: { id: true },
+          });
+
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          const action = operationToAction('upsert');
-          if (type && action) {
+          const action: DashboardEntityAction = existing ? 'UPDATED' : 'CREATED';
+
+          if (type) {
             dashboardRealtime.emitEntityUpdated({
               type,
               action,

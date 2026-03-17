@@ -1,10 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DashboardWidgetsProvider, useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider, useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
 afterEach(() => {
-  cleanup()
   window.localStorage.clear()
 })
 

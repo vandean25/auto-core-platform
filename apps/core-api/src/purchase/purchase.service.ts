@@ -86,11 +86,6 @@ export class PurchaseService {
         const supportedNames = vendor.supportedBrands
           .map((b) => b.name)
           .join(', ');
-        console.warn(
-          `WARNING: Buying ${catalogItem.brand.name} part from ${vendor.name} (Supports: ${supportedNames})`,
-        );
-        // Note: keeping this as an exception per previous logic, but requirement said "soft warning".
-        // The original code threw BadRequestException, so I will stick to it for now.
         throw new BadRequestException(
           `Vendor ${vendor.name} does not support brand ${catalogItem.brand.name}. Supported: ${supportedNames}`,
         );
@@ -128,6 +123,39 @@ export class PurchaseService {
           include: { items: true },
         });
         if (!po) throw new NotFoundException('Purchase Order not found');
+
+        let warehouse = await tx.storageLocation.findFirst({
+          where: { type: 'warehouse' },
+        });
+        if (!warehouse) {
+          warehouse = await tx.storageLocation.create({
+            data: {
+              name: 'Default Warehouse',
+              code: 'WH-001',
+              type: 'warehouse',
+            },
+          });
+        }
+
+        // Ensure General Bin exists for this warehouse
+        let generalBin = await tx.storageLocation.findFirst({
+          where: {
+            parent_id: warehouse.id,
+            type: 'bin',
+            name: 'General Bin',
+          },
+        });
+
+        if (!generalBin) {
+          generalBin = await tx.storageLocation.create({
+            data: {
+              name: 'General Bin',
+              code: `${warehouse.code}-GEN`,
+              type: 'bin',
+              parent_id: warehouse.id,
+            },
+          });
+        }
 
         for (const received of receivedItems) {
           if (!received.itemId) {
@@ -170,39 +198,6 @@ export class PurchaseService {
             where: { id: poItem.id },
             data: { quantity_received: { increment: received.quantity } },
           });
-
-          let warehouse = await tx.storageLocation.findFirst({
-            where: { type: 'warehouse' },
-          });
-          if (!warehouse) {
-            warehouse = await tx.storageLocation.create({
-              data: {
-                name: 'Default Warehouse',
-                code: 'WH-001',
-                type: 'warehouse',
-              },
-            });
-          }
-
-          // Ensure General Bin exists for this warehouse
-          let generalBin = await tx.storageLocation.findFirst({
-            where: {
-              parent_id: warehouse.id,
-              type: 'bin',
-              name: 'General Bin',
-            },
-          });
-
-          if (!generalBin) {
-            generalBin = await tx.storageLocation.create({
-              data: {
-                name: 'General Bin',
-                code: `${warehouse.code}-GEN`,
-                type: 'bin',
-                parent_id: warehouse.id,
-              },
-            });
-          }
 
           // Record the inventory transaction using the ledger service
           await this.ledgerService.recordTransaction(
@@ -564,12 +559,12 @@ export class PurchaseService {
       }
 
       const hasInvoicedItems = order.items.some((item) => {
-        const invoicedQty =
-          typeof (item.quantity_invoiced as any)?.gt === 'function'
-            ? (item.quantity_invoiced as any).gt(0)
-            : Number(item.quantity_invoiced) > 0;
+        const numericQty =
+          typeof (item.quantity_invoiced as any)?.toNumber === 'function'
+            ? (item.quantity_invoiced as any).toNumber()
+            : Number(item.quantity_invoiced || 0);
 
-        return invoicedQty || item.purchase_invoice_lines.length > 0;
+        return numericQty > 0 || item.purchase_invoice_lines.length > 0;
       });
       if (hasInvoicedItems) {
         throw new BadRequestException(

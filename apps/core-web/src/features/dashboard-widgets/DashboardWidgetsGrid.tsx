@@ -20,6 +20,7 @@ function useWidgetRows(widget: DashboardWidget) {
   return useQuery({
     queryKey: ['dashboard-widget-data', widget.sourceKey, widget.id, widget.href],
     queryFn: () => fetchRowsForWidgetHref(widget.href),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
 
@@ -71,14 +72,17 @@ function DashboardWidgetCard({
   const metricFieldType = source.fields.find((field) => field.key === widget.metricField)?.type
   const formattedMetricValue = useMemo(() => {
     if (metricValue == null) return '-'
+    const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US'
+    const currency = (widget as any).metricCurrency || 'EUR'
+
     if (widget.metricCalculation === 'sum' && metricFieldType === 'currency') {
-      return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(metricValue)
+      return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(metricValue)
     }
     if (widget.metricCalculation === 'sum') {
-      return new Intl.NumberFormat('en-US').format(metricValue)
+      return new Intl.NumberFormat(locale).format(metricValue)
     }
     return `${metricValue}`
-  }, [metricValue, widget.metricCalculation, metricFieldType])
+  }, [metricValue, widget.metricCalculation, metricFieldType, widget])
 
   return (
     <Card className="h-full">
