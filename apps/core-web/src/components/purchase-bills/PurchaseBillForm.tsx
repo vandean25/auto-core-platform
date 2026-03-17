@@ -4,7 +4,13 @@ import { ArrowLeft, CircleDollarSign, Loader2, Package, ReceiptText, Trash2, Clo
 import { toast } from 'sonner'
 import { useInventory } from '@/api/inventory'
 import type { InventoryItem, PurchaseInvoice } from '@/api/types'
-import { useCreatePurchaseInvoice, useUpdatePurchaseInvoice, useUnbilledReceipts, usePostPurchaseInvoice } from '@/api/usePurchaseInvoices'
+import { 
+    useCreatePurchaseInvoice, 
+    useUpdatePurchaseInvoice, 
+    useUnbilledReceipts, 
+    usePostPurchaseInvoice, 
+    useDeletePurchaseInvoiceLine 
+} from '@/api/usePurchaseInvoices'
 import { useVendor } from '@/api/vendors'
 import { VendorCombobox } from '@/components/purchase-invoices/VendorCombobox'
 import { Button } from '@/components/ui/button'
@@ -242,43 +248,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
 
     React.useEffect(() => {
         if (!vendorId) return
-
-        const selectedSet = new Set(selectedReceiptIds)
-        const selectedItems = unbilledItems.filter((item) => selectedSet.has(item.purchaseOrderId))
-
-        setLines((previousLines) => {
-            const nextLines = previousLines.filter((line) => {
-                if (line.source === 'manual') return true
-                return Boolean(line.receiptId && selectedSet.has(line.receiptId))
-            })
-
-            const existingReceiptLineIds = new Set(
-                nextLines
-                    .filter((line) => line.source === 'receipt' && line.purchaseOrderItemId)
-                    .map((line) => line.purchaseOrderItemId as string),
-            )
-
-            for (const item of selectedItems) {
-                if (existingReceiptLineIds.has(item.purchaseOrderItemId)) continue
-                nextLines.push({
-                    tempId: crypto.randomUUID(),
-                    source: 'receipt',
-                    receiptId: item.purchaseOrderId,
-                    receiptNumber: item.purchaseOrderNumber,
-                    catalogItemId: item.catalogItemId,
-                    purchaseOrderItemId: item.purchaseOrderItemId,
-                    description: item.catalogItemName,
-                    quantity: item.quantityPending,
-                    unitCost: item.lastUnitCost,
-                    taxRate: DEFAULT_TAX_RATE,
-                    maxQuantity: item.quantityPending,
-                })
-                existingReceiptLineIds.add(item.purchaseOrderItemId)
-            }
-
-            return nextLines
-        })
-    }, [selectedReceiptIds, unbilledItems, vendorId])
+        // Auto-sync removed to prevent re-importing deleted lines
+    }, [vendorId, unbilledItems])
 
     const totals = React.useMemo(() => {
         const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitCost, 0)
@@ -501,10 +472,29 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         })
     }
 
-    const removeLine = (lineId: string) => {
+    const removeLine = async (lineId: string) => {
+        if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
+
+        const lineToDelete = lines.find(l => l.tempId === lineId)
+        
+        // If it's an existing line (has a real ID, not a UUID)
+        if (lineToDelete && isEdit && !lineId.includes('-')) {
+            try {
+                await deleteLineMutation.mutateAsync({ id: initialData!.id, lineId })
+                toast.success('Line removed')
+            } catch (err) {
+                toast.error('Failed to remove line')
+                return
+            }
+        }
+
         setLines((previous) => {
             const next = previous.filter((line) => line.tempId !== lineId)
-            triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
+            // If we are in edit mode, the delete mutation already handled the backend.
+            // If it was a new unsaved line, we should trigger a save.
+            if (!isEdit || lineId.includes('-')) {
+                triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
+            }
             return next
         })
     }
@@ -575,7 +565,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
     }
 
-    const isPending = createMutation.isPending || updateMutation.isPending || postMutation.isPending
+    const isPending = createMutation.isPending || updateMutation.isPending || postMutation.isPending || deleteLineMutation.isPending
 
     return (
         <div className="space-y-6">
