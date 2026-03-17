@@ -69,11 +69,17 @@ export default function VendorDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
   const updateVendor = useUpdateVendor()
-  const [selectedBrandIds, setSelectedBrandIds] = useState<number[] | null>(null)
+  const [draftBrands, setDraftBrands] = useState<{ vendorId: string | null; ids: number[] | null }>({
+    vendorId: null,
+    ids: null,
+  })
   const lastRequestId = useRef(0)
 
-  // Derived value for UI: use user edits if present, otherwise fall back to vendor data
-  const brandIdsForUi = selectedBrandIds ?? vendor?.supportedBrands?.map((b) => b.id) ?? []
+  // Derived value for UI: use user edits if they match the current vendor, otherwise fall back to vendor data
+  const isCorrectVendor = draftBrands.vendorId === vendor?.id
+  const brandIdsForUi = (isCorrectVendor && draftBrands.ids !== null)
+    ? draftBrands.ids 
+    : vendor?.supportedBrands?.map((b) => b.id) ?? []
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vendor details...</div>
@@ -116,11 +122,12 @@ export default function VendorDetail() {
   }
 
   const handleBrandChange = async (brandIds: number[]) => {
+    if (!vendor) return
     const requestId = ++lastRequestId.current
     const previousBrandIds = brandIdsForUi
     
-    // Optimistic update
-    setSelectedBrandIds(brandIds)
+    // Optimistic update with vendorId keying
+    setDraftBrands({ vendorId: vendor.id, ids: brandIds })
     
     try {
       await updateVendor.mutateAsync({
@@ -134,9 +141,9 @@ export default function VendorDetail() {
         toast.success('Supported brands updated')
       }
     } catch (updateError: unknown) {
-      // Only rollback if this was the latest request to avoid clobbering newer edits
+      // Only rollback if this was the latest request and matches the current vendor
       if (requestId === lastRequestId.current) {
-        setSelectedBrandIds(previousBrandIds)
+        setDraftBrands({ vendorId: vendor.id, ids: previousBrandIds })
         if (updateError instanceof Error) {
           toast.error(updateError.message)
         } else {
@@ -317,6 +324,7 @@ export default function VendorDetail() {
                     value={brandIdsForUi} 
                     onChange={handleBrandChange} 
                     isUpdating={updateVendor.isPending}
+                    ariaLabel={`Manage supported brands for ${vendor.name}`}
                   />
                   <p className='text-xs text-slate-500 mt-3'>
                     Changes are saved automatically. Selected brands will be available for parts procurement from this vendor.

@@ -90,6 +90,7 @@ export function VendorDialog({ open, onOpenChange }: VendorDialogProps) {
                         <BrandMultiSelect 
                             value={selectedBrandIds} 
                             onChange={setSelectedBrandIds} 
+                            ariaLabel="Select supported brands for new vendor"
                         />
                     </div>
                     <DialogFooter>
