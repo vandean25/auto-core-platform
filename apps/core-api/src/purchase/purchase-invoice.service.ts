@@ -157,6 +157,139 @@ export class PurchaseInvoiceService {
     return invoice;
   }
 
+  async update(id: string, updateDto: CreatePurchaseInvoiceDto) {
+    const { items, ...data } = updateDto;
+    const poItemTotals = new Map<string, number>();
+
+    for (const line of items) {
+      if (!line.purchaseOrderItemId) continue;
+      const currentTotal = poItemTotals.get(line.purchaseOrderItemId) ?? 0;
+      poItemTotals.set(line.purchaseOrderItemId, currentTotal + line.quantity);
+    }
+
+    const updatedInvoice = await this.prisma.$transaction(async (tx) => {
+      const existingInvoice = await tx.purchaseInvoice.findUnique({
+        where: { id },
+        include: { lines: true },
+      });
+
+      if (!existingInvoice) throw new NotFoundException('Invoice not found');
+      if (existingInvoice.status !== PurchaseInvoiceStatus.DRAFT) {
+        throw new BadRequestException('Only DRAFT invoices can be updated');
+      }
+
+      // 1. Rollback old quantity_invoiced
+      for (const line of existingInvoice.lines) {
+        if (line.purchase_order_item_id) {
+          await tx.purchaseOrderItem.update({
+            where: { id: line.purchase_order_item_id },
+            data: {
+              quantity_invoiced: {
+                decrement: line.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      // 2. Validate new quantities (similar to create)
+      if (poItemTotals.size > 0) {
+        const poItemIds = Array.from(poItemTotals.keys());
+        const poItems = await tx.purchaseOrderItem.findMany({
+          where: { id: { in: poItemIds } },
+          include: {
+            purchase_order: {
+              select: {
+                vendor_id: true,
+              },
+            },
+          },
+        });
+
+        const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
+
+        for (const [poItemId, requestedQuantity] of poItemTotals) {
+          const poItem = poItemsById.get(poItemId);
+          if (!poItem) {
+            throw new NotFoundException(`PO Item ${poItemId} not found`);
+          }
+
+          if (poItem.purchase_order.vendor_id !== data.vendorId) {
+            throw new BadRequestException(
+              `PO Item ${poItemId} does not belong to vendor ${data.vendorId}`,
+            );
+          }
+
+          const pending =
+            poItem.quantity_received - Number(poItem.quantity_invoiced);
+          if (requestedQuantity > pending) {
+            throw new BadRequestException(
+              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
+            );
+          }
+        }
+      }
+
+      // 3. Clear existing lines
+      await tx.purchaseInvoiceLine.deleteMany({
+        where: { purchase_invoice_id: id },
+      });
+
+      // 4. Update invoice header and create new lines
+      let totalAmount = 0;
+      const linesData = items.map((line) => {
+        const lineTotal = line.quantity * line.unitPrice;
+        totalAmount += lineTotal;
+        return {
+          purchase_order_item_id: line.purchaseOrderItemId,
+          description: line.description,
+          quantity: line.quantity,
+          unit_price: line.unitPrice,
+          line_total: lineTotal,
+        };
+      });
+
+      const updated = await tx.purchaseInvoice.update({
+        where: { id },
+        data: {
+          vendor_id: data.vendorId,
+          vendor_invoice_number: data.vendorInvoiceNumber,
+          invoice_date: new Date(data.invoiceDate),
+          due_date: new Date(data.dueDate),
+          total_amount: totalAmount,
+          lines: {
+            create: linesData,
+          },
+        },
+        include: {
+          lines: true,
+        },
+      });
+
+      // 5. Apply new quantity_invoiced
+      for (const [poItemId, quantity] of poItemTotals) {
+        await tx.purchaseOrderItem.update({
+          where: { id: poItemId },
+          data: {
+            quantity_invoiced: {
+              increment: quantity,
+            },
+          },
+        });
+      }
+
+      return updated;
+    });
+
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'UPDATED',
+      entityId: id,
+    });
+
+    return updatedInvoice;
+  }
+
   async post(id: string) {
     const invoice = await this.prisma.purchaseInvoice.findUnique({
       where: { id },

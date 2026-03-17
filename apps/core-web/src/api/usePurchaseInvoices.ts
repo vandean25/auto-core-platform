@@ -109,6 +109,25 @@ export function useCreatePurchaseInvoice() {
     })
 }
 
+export function useUpdatePurchaseInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ id, payload }: { id: string, payload: CreatePurchaseInvoiceDto }) => {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            if (!response.ok) throw new Error('Failed to update purchase invoice')
+            return response.json() as Promise<PurchaseInvoice>
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.all })
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.detail(data.id) })
+        },
+    })
+}
+
 export function usePostPurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({

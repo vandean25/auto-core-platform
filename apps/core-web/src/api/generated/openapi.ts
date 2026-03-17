@@ -257,7 +257,7 @@ export interface paths {
         delete: operations["PurchaseInvoiceController_remove"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["PurchaseInvoiceController_update"];
         trace?: never;
     };
     "/api/purchase-invoices/{id}/post": {
@@ -1372,6 +1372,29 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PurchaseInvoiceController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePurchaseInvoiceDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

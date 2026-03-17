@@ -50,6 +50,11 @@ export class PurchaseInvoiceController {
     return this.service.findOne(id);
   }
 
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateDto: CreatePurchaseInvoiceDto) {
+    return this.service.update(id, updateDto);
+  }
+
   @Patch(':id/post')
   post(@Param('id') id: string) {
     return this.service.post(id);
