@@ -22,9 +22,15 @@ interface BrandMultiSelectProps {
   value: number[]
   onChange: (brandIds: number[]) => void
   isUpdating?: boolean
+  ariaLabel?: string
 }
 
-export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSelectProps) {
+export function BrandMultiSelect({ 
+  value, 
+  onChange, 
+  isUpdating,
+  ariaLabel = "Select brands"
+}: BrandMultiSelectProps) {
   const [open, setOpen] = React.useState(false)
   const { data: brands, isLoading } = useBrands()
 
@@ -64,6 +70,7 @@ export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSele
           <div
             role="combobox"
             aria-expanded={open}
+            aria-label={ariaLabel}
             tabIndex={0}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
