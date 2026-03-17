@@ -123,15 +123,6 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     })
     
     const [receiptFilter, setReceiptFilter] = React.useState('')
-    const [selectedReceiptIds, setSelectedReceiptIds] = React.useState<string[]>(() => {
-        if (!initialData?.lines) return []
-        const ids = new Set<string>()
-        initialData.lines.forEach(line => {
-            const poId = (line as any).purchase_order_item?.purchase_order?.id
-            if (poId) ids.add(poId)
-        })
-        return Array.from(ids)
-    })
     const [lines, setLines] = React.useState<BillLine[]>(() => {
         if (initialData?.lines) {
             return initialData.lines.map(line => ({
@@ -148,6 +139,14 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
         return []
     })
+
+    const selectedReceiptIds = React.useMemo(() => {
+        const ids = new Set<string>()
+        lines.forEach(l => {
+            if (l.receiptId) ids.add(l.receiptId)
+        })
+        return Array.from(ids)
+    }, [lines])
     
     const [searchQuery, setSearchQuery] = React.useState('')
     const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('')
@@ -327,7 +326,6 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
 
         setVendorId(nextVendorId)
-        setSelectedReceiptIds([])
         setLines([])
         setSearchQuery('')
         setDebouncedSearchQuery('')
@@ -338,47 +336,39 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     }
 
     const toggleReceiptSelection = (receiptId: string, checked: boolean) => {
-        setSelectedReceiptIds((previous) => {
-            const next = checked
-                ? (previous.includes(receiptId) ? previous : [...previous, receiptId])
-                : previous.filter((id) => id !== receiptId)
+        if (checked) {
+            // Add lines from this receipt
+            const newLinesFromReceipt = unbilledItems
+                .filter(item => item.purchaseOrderId === receiptId)
+                .map(item => ({
+                    tempId: crypto.randomUUID(),
+                    source: 'receipt' as const,
+                    receiptId: item.purchaseOrderId,
+                    receiptNumber: item.purchaseOrderNumber,
+                    catalogItemId: item.catalogItemId,
+                    purchaseOrderItemId: item.purchaseOrderItemId,
+                    description: item.catalogItemName,
+                    quantity: item.quantityPending,
+                    unitCost: item.lastUnitCost,
+                    taxRate: DEFAULT_TAX_RATE,
+                    maxQuantity: item.quantityPending,
+                }))
             
-            if (checked) {
-                // Add lines from this receipt
-                const newLinesFromReceipt = unbilledItems
-                    .filter(item => item.purchaseOrderId === receiptId)
-                    .map(item => ({
-                        tempId: crypto.randomUUID(),
-                        source: 'receipt' as const,
-                        receiptId: item.purchaseOrderId,
-                        receiptNumber: item.purchaseOrderNumber,
-                        catalogItemId: item.catalogItemId,
-                        purchaseOrderItemId: item.purchaseOrderItemId,
-                        description: item.catalogItemName,
-                        quantity: item.quantityPending,
-                        unitCost: item.lastUnitCost,
-                        taxRate: DEFAULT_TAX_RATE,
-                        maxQuantity: item.quantityPending,
-                    }))
-                
-                setLines(prev => {
-                    const existingIds = new Set(prev.map(l => l.purchaseOrderItemId).filter(Boolean))
-                    const filteredNewLines = newLinesFromReceipt.filter(l => !existingIds.has(l.purchaseOrderItemId))
-                    const nextLines = [...prev, ...filteredNewLines]
-                    triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
-                    return nextLines
-                })
-            } else {
-                // Remove lines from this receipt
-                setLines(prev => {
-                    const nextLines = prev.filter(l => l.receiptId !== receiptId)
-                    triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
-                    return nextLines
-                })
-            }
-
-            return next
-        })
+            setLines(prev => {
+                const existingIds = new Set(prev.map(l => l.purchaseOrderItemId).filter(Boolean))
+                const filteredNewLines = newLinesFromReceipt.filter(l => !existingIds.has(l.purchaseOrderItemId))
+                const nextLines = [...prev, ...filteredNewLines]
+                triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
+                return nextLines
+            })
+        } else {
+            // Remove lines from this receipt
+            setLines(prev => {
+                const nextLines = prev.filter(l => l.receiptId !== receiptId)
+                triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
+                return nextLines
+            })
+        }
     }
 
     const stagePart = (item: InventoryItem) => {
