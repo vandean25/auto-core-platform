@@ -21,6 +21,7 @@ export function isEntityUpdatedPayload(value: unknown): value is EntityUpdatedPa
   const candidate = value as Partial<EntityUpdatedPayload>
   if (typeof candidate.type !== 'string') return false
   if (!Object.hasOwn(entityToDashboardSourceKeys, candidate.type)) return false
+  if (typeof candidate.timestamp !== 'string') return false
 
   return candidate.action === 'CREATED' || candidate.action === 'UPDATED' || candidate.action === 'DELETED'
 }

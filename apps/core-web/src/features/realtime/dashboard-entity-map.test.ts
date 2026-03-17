@@ -31,5 +31,17 @@ describe('dashboard realtime entity mapping', () => {
         action: 'INVALID',
       }),
     ).toBe(false)
+
+    expect(
+      isEntityUpdatedPayload({
+        type: 'PURCHASE_INVOICE',
+        action: 'UPDATED',
+        entityId: 'abc',
+        // missing timestamp
+      }),
+    ).toBe(false)
+
+    expect(isEntityUpdatedPayload(null)).toBe(false)
+    expect(isEntityUpdatedPayload(undefined)).toBe(false)
   })
 })

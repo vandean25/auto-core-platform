@@ -89,6 +89,11 @@ export function SavedViewsProvider({ userKey, children }: SavedViewsProviderProp
   const storageKey = React.useMemo(() => getStorageKey(userKey), [userKey])
   const [savedViews, setSavedViews] = React.useState<SavedView[]>(() => loadSavedViews(storageKey))
   const [hydratedStorageKey, setHydratedStorageKey] = React.useState(storageKey)
+  const savedViewsRef = React.useRef<SavedView[]>(savedViews)
+
+  React.useEffect(() => {
+    savedViewsRef.current = savedViews
+  }, [savedViews])
 
   React.useEffect(() => {
     setSavedViews(loadSavedViews(storageKey))
@@ -109,7 +114,7 @@ export function SavedViewsProvider({ userKey, children }: SavedViewsProviderProp
         return { created: false, reason: 'invalid' }
       }
 
-      const duplicate = savedViews.some(
+      const duplicate = savedViewsRef.current.some(
         (view) => view.href === normalizedHref && view.name.toLowerCase() === normalizedName.toLowerCase(),
       )
       if (duplicate) {
@@ -125,7 +130,7 @@ export function SavedViewsProvider({ userKey, children }: SavedViewsProviderProp
       setSavedViews((previous) => [next, ...previous].slice(0, MAX_SAVED_VIEWS))
       return { created: true }
     },
-    [savedViews],
+    [],
   )
 
   const removeSavedView = React.useCallback((id: string) => {

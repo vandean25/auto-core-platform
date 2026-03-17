@@ -99,12 +99,22 @@ export const dashboardWidgetSourcesByKey: Record<string, DashboardWidgetTableSou
   {} as Record<string, DashboardWidgetTableSource>,
 )
 
-export const DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS = dashboardWidgetSourcesByKey['workshop-orders']
-export const DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS = dashboardWidgetSourcesByKey['purchase-bills']
-export const DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS = dashboardWidgetSourcesByKey['purchase-orders']
-export const DASHBOARD_WIDGET_SOURCE_SALES_ORDERS = dashboardWidgetSourcesByKey['sales-orders']
-export const DASHBOARD_WIDGET_SOURCE_INVENTORY = dashboardWidgetSourcesByKey['inventory']
-export const DASHBOARD_WIDGET_SOURCE_CUSTOMERS = dashboardWidgetSourcesByKey['customers']
-export const DASHBOARD_WIDGET_SOURCE_VENDORS = dashboardWidgetSourcesByKey['vendors']
-export const DASHBOARD_WIDGET_SOURCE_VEHICLES = dashboardWidgetSourcesByKey['vehicles']
+export function getDashboardWidgetSource<K extends keyof typeof dashboardWidgetSourcesByKey | string>(
+  key: K,
+): DashboardWidgetTableSource {
+  const source = dashboardWidgetSourcesByKey[key]
+  if (!source) {
+    throw new Error(`Dashboard widget source with key "${key}" not found.`)
+  }
+  return source
+}
+
+export const DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS = getDashboardWidgetSource('workshop-orders')
+export const DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS = getDashboardWidgetSource('purchase-bills')
+export const DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS = getDashboardWidgetSource('purchase-orders')
+export const DASHBOARD_WIDGET_SOURCE_SALES_ORDERS = getDashboardWidgetSource('sales-orders')
+export const DASHBOARD_WIDGET_SOURCE_INVENTORY = getDashboardWidgetSource('inventory')
+export const DASHBOARD_WIDGET_SOURCE_CUSTOMERS = getDashboardWidgetSource('customers')
+export const DASHBOARD_WIDGET_SOURCE_VENDORS = getDashboardWidgetSource('vendors')
+export const DASHBOARD_WIDGET_SOURCE_VEHICLES = getDashboardWidgetSource('vehicles')
 

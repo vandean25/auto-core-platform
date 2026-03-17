@@ -15,28 +15,12 @@ export class CustomerService {
   constructor(private prisma: PrismaService) {}
 
   async create(createCustomerDto: CreateCustomerDto) {
-    const customer = await this.prisma.customer.create({
+    const customer = await this.prisma.client.customer.create({
       data: {
         type: createCustomerDto.type,
         company_name: createCustomerDto.company_name,
-        // Map first/last name to single name field for backward compatibility or use both
-        // The schema uses 'name' but we are switching to first/last in DTO.
-        // We should update the schema to split names or concatenate here.
-        // Looking at the schema update in previous step:
-        // model Customer { ... first_name String, last_name String, name String ... }
-        // Wait, did I keep 'name'?
-        // The prompt said: first_name String, last_name String.
-        // Let me check if 'name' was removed or kept.
-        // I replaced the model. The new model has `first_name` and `last_name` but NOT `name`.
-        // However, I need to double check the previous schema file reading.
-        // Ah, the new model I pasted has `first_name` and `last_name` and removed `name`.
-        // But the original `Customer` model had `name`.
-        // If I removed `name`, I need to make sure I'm consistent.
-        // Let's assume I replaced it correctly.
-
         first_name: createCustomerDto.first_name,
         last_name: createCustomerDto.last_name,
-        // We might want to compute a display name or just rely on first/last
         email: createCustomerDto.email,
         phone: createCustomerDto.phone,
         vat_id: createCustomerDto.vat_id,
@@ -50,22 +34,34 @@ export class CustomerService {
     return customer;
   }
 
-  async findAll(params: any) {
+  async findAll(
+    params?:
+      | string
+      | {
+          where?: any;
+          orderBy?: any;
+          skip?: number;
+          take?: number;
+          select?: any;
+          include?: any;
+        },
+  ) {
     // If params is just a Prisma query object from QueryBuilder
     if (
       params &&
+      typeof params === 'object' &&
       (params.where || params.orderBy || params.skip !== undefined)
     ) {
       const [data, total] = await Promise.all([
-        this.prisma.customer.findMany(params),
+        (this.prisma.client as any).customer.findMany(params),
         this.prisma.customer.count({ where: params.where }),
       ]);
       return { data, total };
     }
 
     // Fallback for legacy calls (if any)
-    const search = params as string;
-    return this.prisma.customer.findMany({
+    const search = typeof params === 'string' ? params : undefined;
+    return (this.prisma.client as any).customer.findMany({
       where: search
         ? {
             OR: [

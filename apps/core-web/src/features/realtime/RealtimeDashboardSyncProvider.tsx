@@ -6,10 +6,11 @@ import { API_BASE_URL } from '@/api/client'
 import { getDashboardSourceKeysForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
 
-function resolveRealtimeBaseUrl(): string {
+function resolveRealtimeBaseUrl(): string | undefined {
   if (API_BASE_URL) return API_BASE_URL
-  if (typeof window !== 'undefined') return window.location.origin
-  return ''
+  if (typeof window !== 'undefined' && window.location.origin) return window.location.origin
+  console.warn('Unable to resolve realtime base URL: neither API_BASE_URL nor window.location.origin are available.')
+  return undefined
 }
 
 type RealtimeDashboardSyncProviderProps = {
@@ -21,6 +22,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
 
   React.useEffect(() => {
     const baseUrl = resolveRealtimeBaseUrl()
+    if (!baseUrl) return
+
     const socket: Socket = io(`${baseUrl}/dashboard-realtime`, {
       path: '/api/socket.io',
       transports: ['websocket', 'polling'],

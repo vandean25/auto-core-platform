@@ -132,12 +132,26 @@ export async function fetchRowsForWidgetHref(href: string): Promise<unknown[]> {
   }
 
   const apiUrl = source.buildApiUrl(queryForDashboard)
-  const response = await fetchWithAuth(apiUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch widget data for ${source.key}`)
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetchWithAuth(apiUrl, { signal: controller.signal })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch widget data for ${source.key}`)
+    }
+    const payload = (await response.json()) as unknown
+    const rows = extractRows(payload)
+    return applyClientFiltersAndSort(rows, queryParams)
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.warn(`Fetch for widget ${source.key} timed out after 10s`)
+      return []
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-  const payload = (await response.json()) as unknown
-  const rows = extractRows(payload)
-  return applyClientFiltersAndSort(rows, queryParams)
 }
 

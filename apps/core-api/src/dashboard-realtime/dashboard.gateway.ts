@@ -14,6 +14,14 @@ function resolveCorsOrigins(): string[] | boolean {
     .filter(Boolean);
 
   if (!configuredOrigins || configuredOrigins.length === 0) {
+    const message =
+      'No FRONTEND_URL configured for CORS. Falling back to permissive (allow-all) mode.';
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `CRITICAL: ${message} This is prohibited in production.`,
+      );
+    }
+    console.warn(`WARNING: ${message}`);
     return true;
   }
 

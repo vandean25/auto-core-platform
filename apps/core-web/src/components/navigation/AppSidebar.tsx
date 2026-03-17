@@ -309,7 +309,7 @@ export function AppSidebar({
             )}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4 shrink-0" /> : <ChevronsLeft className="h-4 w-4 shrink-0" />}
-            {!collapsed ? <span>{collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}</span> : null}
+            {!collapsed ? <span>Collapse Sidebar</span> : null}
           </button>
 
           {!collapsed && userEmail ? (

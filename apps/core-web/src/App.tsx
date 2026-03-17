@@ -107,12 +107,22 @@ function AppMain({ sidebarCollapsed }: AppMainProps) {
 }
 
 type AppShellProps = {
+  userId?: string
   userEmail: string | null
   onSignOut: () => void
 }
 
-function AppShell({ userEmail, onSignOut }: AppShellProps) {
-  const effectiveUserKey = userEmail ?? 'anonymous'
+function AppShell({ userId, userEmail, onSignOut }: AppShellProps) {
+  const [deviceId] = React.useState(() => {
+    if (typeof window === 'undefined') return 'server'
+    const stored = window.localStorage.getItem('deviceId')
+    if (stored) return stored
+    const newId = crypto.randomUUID()
+    window.localStorage.setItem('deviceId', newId)
+    return newId
+  })
+
+  const effectiveUserKey = userId ?? userEmail ?? `anon-${deviceId}`
   const [searchOpen, setSearchOpen] = React.useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false

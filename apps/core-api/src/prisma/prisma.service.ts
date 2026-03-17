@@ -17,7 +17,7 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
   private pool: Pool;
-  private readonly extendedClient: any;
+  public readonly client: any;
 
   constructor(dashboardRealtime: DashboardRealtimeService) {
     const connectionString = process.env.DATABASE_URL;
@@ -30,27 +30,9 @@ export class PrismaService
     });
 
     this.pool = pool;
-    this.extendedClient = this.$extends(
+    this.client = this.$extends(
       createDashboardRealtimeExtension(dashboardRealtime),
-    );
-
-    return new Proxy(this, {
-      get: (target, property, receiver) => {
-        const clientValue = Reflect.get(
-          this.extendedClient as object,
-          property,
-          this.extendedClient,
-        );
-
-        if (clientValue !== undefined) {
-          return typeof clientValue === 'function'
-            ? clientValue.bind(this.extendedClient)
-            : clientValue;
-        }
-
-        return Reflect.get(target, property, receiver);
-      },
-    });
+    ) as any;
   }
 
   async onModuleInit() {
@@ -61,14 +43,14 @@ export class PrismaService
   }
 
   async onModuleDestroy() {
-    await this.extendedClient.$disconnect();
+    await this.client.$disconnect();
     await this.pool.end();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {
     for (let i = 0; i < retries; i++) {
       try {
-        await this.extendedClient.$connect();
+        await this.client.$connect();
         this.logger.log('Successfully connected to the database via Adapter.');
         return;
       } catch (error) {
