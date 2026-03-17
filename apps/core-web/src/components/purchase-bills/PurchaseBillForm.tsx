@@ -169,6 +169,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const createMutation = useCreatePurchaseInvoice()
     const updateMutation = useUpdatePurchaseInvoice()
     const postMutation = usePostPurchaseInvoice()
+    const deleteLineMutation = useDeletePurchaseInvoiceLine()
 
     const receiptSummaries = React.useMemo<ReceiptSummary[]>(() => {
         const grouped = new Map<string, ReceiptSummary>()
@@ -371,10 +372,39 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 ? (previous.includes(receiptId) ? previous : [...previous, receiptId])
                 : previous.filter((id) => id !== receiptId)
             
-            // Auto-save logic for selection change
-            setTimeout(() => {
-                triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, lines, true)
-            }, 0)
+            if (checked) {
+                // Add lines from this receipt
+                const newLinesFromReceipt = unbilledItems
+                    .filter(item => item.purchaseOrderId === receiptId)
+                    .map(item => ({
+                        tempId: crypto.randomUUID(),
+                        source: 'receipt' as const,
+                        receiptId: item.purchaseOrderId,
+                        receiptNumber: item.purchaseOrderNumber,
+                        catalogItemId: item.catalogItemId,
+                        purchaseOrderItemId: item.purchaseOrderItemId,
+                        description: item.catalogItemName,
+                        quantity: item.quantityPending,
+                        unitCost: item.lastUnitCost,
+                        taxRate: DEFAULT_TAX_RATE,
+                        maxQuantity: item.quantityPending,
+                    }))
+                
+                setLines(prev => {
+                    const existingIds = new Set(prev.map(l => l.purchaseOrderItemId).filter(Boolean))
+                    const filteredNewLines = newLinesFromReceipt.filter(l => !existingIds.has(l.purchaseOrderItemId))
+                    const nextLines = [...prev, ...filteredNewLines]
+                    triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
+                    return nextLines
+                })
+            } else {
+                // Remove lines from this receipt
+                setLines(prev => {
+                    const nextLines = prev.filter(l => l.receiptId !== receiptId)
+                    triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, nextLines, true)
+                    return nextLines
+                })
+            }
 
             return next
         })

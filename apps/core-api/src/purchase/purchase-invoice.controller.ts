@@ -69,4 +69,12 @@ export class PurchaseInvoiceController {
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
+
+  @Delete(':id/lines/:lineId')
+  removeLine(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+  ) {
+    return this.service.removeLine(id, lineId);
+  }
 }

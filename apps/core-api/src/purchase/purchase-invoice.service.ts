@@ -396,6 +396,67 @@ export class PurchaseInvoiceService {
     return { success: true };
   }
 
+  async removeLine(invoiceId: string, lineId: string) {
+    return await this.prisma.$transaction(async (tx) => {
+      const line = await tx.purchaseInvoiceLine.findUnique({
+        where: { id: lineId },
+      });
+
+      if (!line || line.purchase_invoice_id !== invoiceId) {
+        throw new NotFoundException('Line not found');
+      }
+
+      const invoice = await tx.purchaseInvoice.findUnique({
+        where: { id: invoiceId },
+      });
+
+      if (!invoice) throw new NotFoundException('Invoice not found');
+      if (invoice.status !== PurchaseInvoiceStatus.DRAFT) {
+        throw new BadRequestException('Can only delete lines from DRAFT invoices');
+      }
+
+      // 1. Unlink PO Item if applicable
+      if (line.purchase_order_item_id) {
+        await tx.purchaseOrderItem.update({
+          where: { id: line.purchase_order_item_id },
+          data: {
+            quantity_invoiced: {
+              decrement: line.quantity,
+            },
+          },
+        });
+      }
+
+      // 2. Delete the line
+      await tx.purchaseInvoiceLine.delete({
+        where: { id: lineId },
+      });
+
+      // 3. Recalculate invoice total
+      const remainingLines = await tx.purchaseInvoiceLine.findMany({
+        where: { purchase_invoice_id: invoiceId },
+      });
+
+      const newTotal = remainingLines.reduce(
+        (sum, l) => sum + Number(l.line_total),
+        0,
+      );
+
+      await tx.purchaseInvoice.update({
+        where: { id: invoiceId },
+        data: { total_amount: newTotal },
+      });
+
+      this.realtimeService.emitEntityUpdated({
+        type: 'PURCHASE_INVOICE',
+        action: 'UPDATED',
+        entityId: invoiceId,
+      });
+
+      return { success: true };
+    });
+  }
+
   async findAll(
     vendorId?: string,
     status?: PurchaseInvoiceStatus,
