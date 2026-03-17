@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Mail, Package, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,7 +20,6 @@ import {
 import { formatCurrency } from '@/lib/utils'
 import { parseLocalDate } from '@/lib/date-utils'
 import type {
-  Brand,
   PurchaseInvoiceStatus,
   PurchaseOrderStatus,
   Vendor,
@@ -70,9 +69,14 @@ export default function VendorDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
   const updateVendor = useUpdateVendor()
-  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>(() => 
-    (vendor?.supportedBrands ?? []).map((brand) => brand.id)
-  )
+  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>([])
+
+  // Sync state when vendor data is loaded
+  useEffect(() => {
+    if (vendor?.supportedBrands) {
+      setSelectedBrandIds(vendor.supportedBrands.map((b) => b.id))
+    }
+  }, [vendor])
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vendor details...</div>
@@ -114,12 +118,13 @@ export default function VendorDetail() {
     }
   }
 
-  const handleSaveBrands = async () => {
+  const handleBrandChange = async (brandIds: number[]) => {
+    setSelectedBrandIds(brandIds)
     try {
       await updateVendor.mutateAsync({
         id: vendor.id,
         data: {
-          brandIds: selectedBrandIds,
+          brandIds: brandIds,
         },
       })
       toast.success('Supported brands updated')
@@ -295,22 +300,18 @@ export default function VendorDetail() {
                 <CardHeader className='pb-3'>
                   <CardTitle className='text-base font-semibold flex items-center gap-2'>
                     <Tags className='h-4 w-4' />
-                    Brand Mapping
+                    Supported Brands
                   </CardTitle>
                 </CardHeader>
-                <CardContent className='space-y-4'>
-                  <BrandMultiSelect value={selectedBrandIds} onChange={setSelectedBrandIds} />
-                  <div className='flex justify-end'>
-                    <Button
-                      onClick={() => void handleSaveBrands()}
-                      disabled={updateVendor.isPending}
-                    >
-                      Save Brands
-                    </Button>
-                  </div>
-                  <div className='text-xs text-muted-foreground'>
-                    Current: {(vendor.supportedBrands ?? []).map((brand: Brand) => brand.name).join(', ') || 'No brands selected'}
-                  </div>
+                <CardContent>
+                  <BrandMultiSelect 
+                    value={selectedBrandIds} 
+                    onChange={handleBrandChange} 
+                    isUpdating={updateVendor.isPending}
+                  />
+                  <p className='text-xs text-slate-500 mt-3'>
+                    Changes are saved automatically. Selected brands will be available for parts procurement from this vendor.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
