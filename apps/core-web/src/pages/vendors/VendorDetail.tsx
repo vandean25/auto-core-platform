@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Mail, Package, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
@@ -69,14 +69,11 @@ export default function VendorDetail() {
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
   const updateVendor = useUpdateVendor()
-  const [selectedBrandIds, setSelectedBrandIds] = useState<number[]>([])
+  const [selectedBrandIds, setSelectedBrandIds] = useState<number[] | null>(null)
+  const lastRequestId = useRef(0)
 
-  // Sync state when vendor data is loaded
-  useEffect(() => {
-    if (vendor?.supportedBrands) {
-      setSelectedBrandIds(vendor.supportedBrands.map((b) => b.id))
-    }
-  }, [vendor])
+  // Derived value for UI: use user edits if present, otherwise fall back to vendor data
+  const brandIdsForUi = selectedBrandIds ?? vendor?.supportedBrands?.map((b) => b.id) ?? []
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vendor details...</div>
@@ -119,7 +116,12 @@ export default function VendorDetail() {
   }
 
   const handleBrandChange = async (brandIds: number[]) => {
+    const requestId = ++lastRequestId.current
+    const previousBrandIds = brandIdsForUi
+    
+    // Optimistic update
     setSelectedBrandIds(brandIds)
+    
     try {
       await updateVendor.mutateAsync({
         id: vendor.id,
@@ -127,12 +129,19 @@ export default function VendorDetail() {
           brandIds: brandIds,
         },
       })
-      toast.success('Supported brands updated')
+      
+      if (requestId === lastRequestId.current) {
+        toast.success('Supported brands updated')
+      }
     } catch (updateError: unknown) {
-      if (updateError instanceof Error) {
-        toast.error(updateError.message)
-      } else {
-        toast.error('Failed to update brands')
+      // Only rollback if this was the latest request to avoid clobbering newer edits
+      if (requestId === lastRequestId.current) {
+        setSelectedBrandIds(previousBrandIds)
+        if (updateError instanceof Error) {
+          toast.error(updateError.message)
+        } else {
+          toast.error('Failed to update brands')
+        }
       }
     }
   }
@@ -305,7 +314,7 @@ export default function VendorDetail() {
                 </CardHeader>
                 <CardContent>
                   <BrandMultiSelect 
-                    value={selectedBrandIds} 
+                    value={brandIdsForUi} 
                     onChange={handleBrandChange} 
                     isUpdating={updateVendor.isPending}
                   />
