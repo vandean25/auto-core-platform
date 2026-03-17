@@ -117,12 +117,22 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     })
     
     const [receiptFilter, setReceiptFilter] = React.useState('')
-    const [selectedReceiptIds, setSelectedReceiptIds] = React.useState<string[]>([])
+    const [selectedReceiptIds, setSelectedReceiptIds] = React.useState<string[]>(() => {
+        if (!initialData?.lines) return []
+        const ids = new Set<string>()
+        initialData.lines.forEach(line => {
+            const poId = (line as any).purchase_order_item?.purchase_order?.id
+            if (poId) ids.add(poId)
+        })
+        return Array.from(ids)
+    })
     const [lines, setLines] = React.useState<BillLine[]>(() => {
         if (initialData?.lines) {
             return initialData.lines.map(line => ({
                 tempId: line.id,
                 source: line.purchase_order_item_id ? 'receipt' : 'manual',
+                receiptId: (line as any).purchase_order_item?.purchase_order?.id,
+                receiptNumber: (line as any).purchase_order_item?.purchase_order?.order_number,
                 purchaseOrderItemId: line.purchase_order_item_id,
                 description: line.description,
                 quantity: parseFloat(line.quantity),
@@ -145,7 +155,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const qtyInputRef = React.useRef<HTMLInputElement | null>(null)
     const autoSaveTimeoutRef = React.useRef<any>(null)
 
-    const { data: unbilledItems = [], isLoading: isUnbilledLoading } = useUnbilledReceipts(vendorId || undefined)
+    const { data: unbilledItems = [], isLoading: isUnbilledLoading } = useUnbilledReceipts(vendorId || undefined, initialData?.id)
     const { data: selectedVendor } = useVendor(vendorId || '')
     const vendorBrandNames = React.useMemo(
         () => selectedVendor?.supportedBrands?.map((brand) => brand.name) ?? [],

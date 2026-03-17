@@ -15,7 +15,7 @@ export class PurchaseInvoiceService {
     private readonly realtimeService: DashboardRealtimeService,
   ) {}
 
-  async getUnbilledReceipts(vendorId: string) {
+  async getUnbilledReceipts(vendorId: string, invoiceId?: string) {
     const poItems = await this.prisma.purchaseOrderItem.findMany({
       where: {
         purchase_order: {
@@ -28,6 +28,11 @@ export class PurchaseInvoiceService {
       include: {
         purchase_order: true,
         catalog_item: true,
+        purchase_invoice_lines: {
+          where: {
+            purchase_invoice_id: invoiceId,
+          },
+        },
       },
     });
 
@@ -39,7 +44,8 @@ export class PurchaseInvoiceService {
       .filter((item) => {
         const received = item.quantity_received;
         const invoiced = Number(item.quantity_invoiced);
-        return received > invoiced;
+        const onCurrentInvoice = item.purchase_invoice_lines.length > 0;
+        return received > invoiced || onCurrentInvoice;
       })
       .map((item) => ({
         purchaseOrderItemId: item.id,
@@ -451,7 +457,18 @@ export class PurchaseInvoiceService {
   async findOne(id: string) {
     const invoice = await this.prisma.purchaseInvoice.findUnique({
       where: { id },
-      include: { vendor: true, lines: true },
+      include: {
+        vendor: true,
+        lines: {
+          include: {
+            purchase_order_item: {
+              include: {
+                purchase_order: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;

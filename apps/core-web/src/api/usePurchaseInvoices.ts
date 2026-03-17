@@ -11,15 +11,20 @@ export const purchaseInvoiceKeys = {
     all: ['purchase-invoices'] as const,
     list: (params: PurchaseInvoicesParams = {}) => [...purchaseInvoiceKeys.all, 'list', params] as const,
     detail: (id: string) => [...purchaseInvoiceKeys.all, 'detail', id] as const,
-    unbilled: (vendorId?: string) => [...purchaseInvoiceKeys.all, 'unbilled', vendorId] as const,
+    unbilled: (vendorId?: string, invoiceId?: string) => [...purchaseInvoiceKeys.all, 'unbilled', vendorId, invoiceId] as const,
 }
 
-export function useUnbilledReceipts(vendorId: string | undefined) {
+export function useUnbilledReceipts(vendorId: string | undefined, invoiceId?: string) {
     return useQuery<UnbilledReceiptItem[]>({
-        queryKey: purchaseInvoiceKeys.unbilled(vendorId),
+        queryKey: purchaseInvoiceKeys.unbilled(vendorId, invoiceId),
         queryFn: async () => {
             if (!vendorId) return []
-            const response = await fetchWithAuth(`/api/vendors/${vendorId}/unbilled-receipts`)
+            const searchParams = new URLSearchParams()
+            if (invoiceId) searchParams.append('invoiceId', invoiceId)
+            const queryString = searchParams.toString()
+            const url = `/api/vendors/${vendorId}/unbilled-receipts${queryString ? `?${queryString}` : ''}`
+            
+            const response = await fetchWithAuth(url)
             if (!response.ok) throw new Error('Failed to fetch unbilled receipts')
             return response.json()
         },
