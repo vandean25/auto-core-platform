@@ -46,6 +46,17 @@ export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSele
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isUpdating) return
+    
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      setOpen(true)
+    } else if (e.key === "Escape") {
+      setOpen(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <Popover open={open} onOpenChange={setOpen}>
@@ -53,11 +64,13 @@ export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSele
           <div
             role="combobox"
             aria-expanded={open}
+            tabIndex={0}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
               isUpdating && "opacity-70 pointer-events-none"
             )}
-            onClick={() => setOpen(true)}
+            onClick={() => !isUpdating && setOpen(true)}
+            onKeyDown={handleKeyDown}
           >
             <div className="flex flex-wrap gap-1.5 flex-1">
               {isLoading ? (
@@ -75,7 +88,8 @@ export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSele
                     {brand.name}
                     <button
                       type="button"
-                      className="ml-1 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-slate-300 p-0.5"
+                      disabled={isUpdating}
+                      className="ml-1 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-slate-300 p-0.5 disabled:cursor-not-allowed"
                       onClick={(e) => handleRemove(e, brand.id)}
                     >
                       <X className="h-3 w-3" />
@@ -105,8 +119,11 @@ export function BrandMultiSelect({ value, onChange, isUpdating }: BrandMultiSele
                     <CommandItem
                       key={brand.id}
                       value={brand.name}
-                      onSelect={() => toggleBrand(brand.id)}
-                      className="cursor-pointer"
+                      onSelect={() => !isUpdating && toggleBrand(brand.id)}
+                      className={cn(
+                        "cursor-pointer",
+                        isUpdating && "opacity-50 pointer-events-none"
+                      )}
                     >
                       <div className="mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary opacity-50 [&_svg]:invisible">
                         <Check className={cn("h-4 w-4")} />
