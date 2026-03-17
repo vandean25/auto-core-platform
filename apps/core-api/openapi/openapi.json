@@ -775,6 +775,37 @@
         ]
       }
     },
+    "/api/purchase-invoices/{id}/lines/{lineId}": {
+      "delete": {
+        "operationId": "PurchaseInvoiceController_removeLine",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PurchaseInvoice"
+        ]
+      }
+    },
     "/api/vendors/{vendorId}/unbilled-receipts": {
       "get": {
         "operationId": "VendorUnbilledController_getUnbilledReceipts",
@@ -783,6 +814,14 @@
             "name": "vendorId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invoiceId",
+            "required": true,
+            "in": "query",
             "schema": {
               "type": "string"
             }

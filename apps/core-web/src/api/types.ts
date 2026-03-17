@@ -223,6 +223,14 @@ export interface PurchaseInvoiceLine {
     id: string
     purchase_invoice_id: string
     purchase_order_item_id?: string
+    purchase_order_item?: {
+        id: string
+        purchase_order_id: string
+        purchase_order: {
+            id: string
+            order_number: string
+        }
+    }
     description: string
     quantity: string
     unit_price: string

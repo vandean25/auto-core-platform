@@ -249,11 +249,6 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
     }, [])
 
-    React.useEffect(() => {
-        if (!vendorId) return
-        // Auto-sync removed to prevent re-importing deleted lines
-    }, [vendorId, unbilledItems])
-
     const totals = React.useMemo(() => {
         const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitCost, 0)
         const taxTotal = lines.reduce(

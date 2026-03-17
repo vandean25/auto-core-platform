@@ -455,14 +455,16 @@ export class PurchaseInvoiceService {
         data: { total_amount: newTotal },
       });
 
-      this.realtimeService.emitEntityUpdated({
-        type: 'PURCHASE_INVOICE',
-        action: 'UPDATED',
-        entityId: invoiceId,
-      });
-
       return { success: true };
     });
+
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'UPDATED',
+      entityId: invoiceId,
+    });
+
+    return { success: true };
   }
 
   async findAll(

@@ -292,6 +292,22 @@ export interface paths {
         patch: operations["PurchaseInvoiceController_pay"];
         trace?: never;
     };
+    "/api/purchase-invoices/{id}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["PurchaseInvoiceController_removeLine"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vendors/{vendorId}/unbilled-receipts": {
         parameters: {
             query?: never;
@@ -1442,9 +1458,31 @@ export interface operations {
             };
         };
     };
-    VendorUnbilledController_getUnbilledReceipts: {
+    PurchaseInvoiceController_removeLine: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                id: string;
+                lineId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VendorUnbilledController_getUnbilledReceipts: {
+        parameters: {
+            query: {
+                invoiceId: string;
+            };
             header?: never;
             path: {
                 vendorId: string;
