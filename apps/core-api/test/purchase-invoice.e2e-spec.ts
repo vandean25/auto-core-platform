@@ -206,4 +206,119 @@ describe('PurchaseInvoice (e2e)', () => {
       .set('x-api-key', 'test-api-key')
       .expect(400);
   });
+
+  it('Pay Invoice', async () => {
+    // Create and Post an invoice first
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-PAY-TEST',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Pay Test Item',
+          quantity: 1,
+          unitPrice: 10,
+        },
+      ],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
+      .send(createDto)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}/pay`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    expect(response.body.status).toBe('PAID');
+  });
+
+  it('Delete Draft Invoice and Restore PO Item Quantities', async () => {
+    // 1. Check current quantity_invoiced
+    const poItemBefore = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    const qtyBefore = Number(poItemBefore?.quantity_invoiced);
+
+    // 2. Create a Draft invoice (increments quantity_invoiced)
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-DELETE-TEST',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Delete Test Item',
+          quantity: 2,
+          unitPrice: 10,
+        },
+      ],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
+      .send(createDto)
+      .expect(201);
+
+    const poItemAfterCreate = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    expect(Number(poItemAfterCreate?.quantity_invoiced)).toBe(qtyBefore + 2);
+
+    // 3. Delete the Draft invoice (decrements quantity_invoiced)
+    await request(app.getHttpServer())
+      .delete(`/purchase-invoices/${draft.body.id}`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    const poItemAfterDelete = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    expect(Number(poItemAfterDelete?.quantity_invoiced)).toBe(qtyBefore);
+  });
+
+  it('Prevent Deleting Posted Invoice', async () => {
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-DELETE-POSTED-TEST',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Delete Posted Item',
+          quantity: 1,
+          unitPrice: 10,
+        },
+      ],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
+      .send(createDto)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}/post`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .delete(`/purchase-invoices/${draft.body.id}`)
+      .set('x-api-key', 'test-api-key')
+      .expect(400);
+  });
 });

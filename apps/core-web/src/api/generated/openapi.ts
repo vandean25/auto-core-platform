@@ -254,7 +254,7 @@ export interface paths {
         get: operations["PurchaseInvoiceController_findOne"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["PurchaseInvoiceController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -274,6 +274,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["PurchaseInvoiceController_post"];
+        trace?: never;
+    };
+    "/api/purchase-invoices/{id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["PurchaseInvoiceController_pay"];
         trace?: never;
     };
     "/api/vendors/{vendorId}/unbilled-receipts": {
@@ -1346,7 +1362,45 @@ export interface operations {
             };
         };
     };
+    PurchaseInvoiceController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     PurchaseInvoiceController_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PurchaseInvoiceController_pay: {
         parameters: {
             query?: never;
             header?: never;

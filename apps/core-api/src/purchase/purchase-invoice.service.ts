@@ -6,10 +6,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 
 @Injectable()
 export class PurchaseInvoiceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly realtimeService: DashboardRealtimeService,
+  ) {}
 
   async getUnbilledReceipts(vendorId: string) {
     const poItems = await this.prisma.purchaseOrderItem.findMany({
@@ -144,6 +148,12 @@ export class PurchaseInvoiceService {
       return invoice;
     });
 
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'CREATED',
+      entityId: invoice.id,
+    });
+
     return invoice;
   }
 
@@ -170,7 +180,81 @@ export class PurchaseInvoiceService {
       data: { status: PurchaseInvoiceStatus.POSTED },
     });
 
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'UPDATED',
+      entityId: id,
+    });
+
     return postedInvoice;
+  }
+
+  async pay(id: string) {
+    const invoice = await this.prisma.purchaseInvoice.findUnique({
+      where: { id },
+    });
+
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.status !== PurchaseInvoiceStatus.POSTED) {
+      throw new BadRequestException('Only POSTED invoices can be marked as PAID');
+    }
+
+    const paidInvoice = await this.prisma.purchaseInvoice.update({
+      where: { id },
+      data: { status: PurchaseInvoiceStatus.PAID },
+    });
+
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'UPDATED',
+      entityId: id,
+    });
+
+    return paidInvoice;
+  }
+
+  async remove(id: string) {
+    const invoice = await this.prisma.purchaseInvoice.findUnique({
+      where: { id },
+    });
+
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.status !== PurchaseInvoiceStatus.DRAFT) {
+      throw new BadRequestException('Only DRAFT invoices can be deleted');
+    }
+
+    // When deleting an invoice, we MUST decrement quantity_invoiced on PO items
+    // to avoid ghost allocations.
+    await this.prisma.$transaction(async (tx) => {
+      const lines = await tx.purchaseInvoiceLine.findMany({
+        where: { purchase_invoice_id: id },
+      });
+
+      for (const line of lines) {
+        if (line.purchase_order_item_id) {
+          await tx.purchaseOrderItem.update({
+            where: { id: line.purchase_order_item_id },
+            data: {
+              quantity_invoiced: {
+                decrement: line.quantity,
+              },
+            },
+          });
+        }
+      }
+
+      await tx.purchaseInvoice.delete({
+        where: { id },
+      });
+    });
+
+    this.realtimeService.emitEntityUpdated({
+      type: 'PURCHASE_INVOICE',
+      action: 'DELETED',
+      entityId: id,
+    });
+
+    return { success: true };
   }
 
   async findAll(

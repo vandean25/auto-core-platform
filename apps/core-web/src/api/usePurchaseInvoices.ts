@@ -125,3 +125,36 @@ export function usePostPurchaseInvoice() {
         },
     })
 }
+
+export function usePayPurchaseInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}/pay`, {
+                method: 'PATCH',
+            })
+            if (!response.ok) throw new Error('Failed to mark as paid')
+            return response.json() as Promise<PurchaseInvoice>
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.all })
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.detail(data.id) })
+        },
+    })
+}
+
+export function useDeletePurchaseInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) throw new Error('Failed to delete purchase invoice')
+            return response.json()
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.all })
+        },
+    })
+}

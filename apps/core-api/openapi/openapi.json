@@ -675,11 +675,55 @@
         "tags": [
           "PurchaseInvoice"
         ]
+      },
+      "delete": {
+        "operationId": "PurchaseInvoiceController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PurchaseInvoice"
+        ]
       }
     },
     "/api/purchase-invoices/{id}/post": {
       "patch": {
         "operationId": "PurchaseInvoiceController_post",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PurchaseInvoice"
+        ]
+      }
+    },
+    "/api/purchase-invoices/{id}/pay": {
+      "patch": {
+        "operationId": "PurchaseInvoiceController_pay",
         "parameters": [
           {
             "name": "id",

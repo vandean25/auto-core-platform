@@ -6,9 +6,10 @@ import { PurchaseInvoiceController } from './purchase-invoice.controller';
 import { VendorUnbilledController } from './vendor-unbilled.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module';
 
 @Module({
-  imports: [InventoryModule, PrismaModule],
+  imports: [InventoryModule, PrismaModule, DashboardRealtimeModule],
   controllers: [
     PurchaseController,
     PurchaseInvoiceController,
