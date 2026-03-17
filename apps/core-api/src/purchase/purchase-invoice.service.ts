@@ -198,7 +198,7 @@ export class PurchaseInvoiceService {
         }
       }
 
-      // 2. Validate new quantities (similar to create)
+      // 2. Validate new quantities AFTER rollback to prevent race conditions
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
@@ -268,7 +268,15 @@ export class PurchaseInvoiceService {
           },
         },
         include: {
-          lines: true,
+          lines: {
+            include: {
+              purchase_order_item: {
+                include: {
+                  purchase_order: true,
+                },
+              },
+            },
+          },
         },
       });
 

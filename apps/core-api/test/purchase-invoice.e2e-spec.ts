@@ -321,4 +321,106 @@ describe('PurchaseInvoice (e2e)', () => {
       .set('x-api-key', 'test-api-key')
       .expect(400);
   });
+
+  it('Update Invoice (PATCH :id)', async () => {
+    // 1. Create a Draft
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-UPDATE-TEST',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Original Item',
+          quantity: 1,
+          unitPrice: 10,
+        },
+      ],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
+      .send(createDto)
+      .expect(201);
+
+    // 2. Update it
+    const updateDto = {
+      ...createDto,
+      vendorInvoiceNumber: 'INV-UPDATE-TEST-MODIFIED',
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Updated Item',
+          quantity: 2, // Increment quantity
+          unitPrice: 15,
+        },
+      ],
+    };
+
+    const response = await request(app.getHttpServer())
+      .patch(`/purchase-invoices/${draft.body.id}`)
+      .set('x-api-key', 'test-api-key')
+      .send(updateDto)
+      .expect(200);
+
+    expect(response.body.vendor_invoice_number).toBe('INV-UPDATE-TEST-MODIFIED');
+    expect(response.body.lines).toHaveLength(1);
+    expect(response.body.lines[0].description).toBe('Updated Item');
+    expect(Number(response.body.lines[0].quantity)).toBe(2);
+
+    // 3. Verify PO item quantity_invoiced was updated correctly (1 -> 2)
+    const poItem = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    // Assuming starting from qtyBefore, it should be qtyBefore + 2 (since it was 1, then replaced by 2)
+    // The service handles: rollback 1, validate 2, apply 2.
+  });
+
+  it('Delete Invoice Line (DELETE :id/lines/:lineId)', async () => {
+    // 1. Create a Draft with 2 lines
+    const createDto = {
+      vendorId: vendorId,
+      vendorInvoiceNumber: 'INV-LINE-DELETE-TEST',
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date().toISOString(),
+      items: [
+        {
+          purchaseOrderItemId: purchaseOrderItemId,
+          description: 'Line 1',
+          quantity: 1,
+          unitPrice: 10,
+        },
+        {
+          description: 'Manual Line',
+          quantity: 1,
+          unitPrice: 5,
+        },
+      ],
+    };
+
+    const draft = await request(app.getHttpServer())
+      .post('/purchase-invoices')
+      .set('x-api-key', 'test-api-key')
+      .send(createDto)
+      .expect(201);
+
+    const lineToDelete = draft.body.lines.find((l: any) => l.purchase_order_item_id === purchaseOrderItemId);
+
+    // 2. Delete one line
+    await request(app.getHttpServer())
+      .delete(`/purchase-invoices/${draft.body.id}/lines/${lineToDelete.id}`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    // 3. Verify remaining state
+    const updated = await request(app.getHttpServer())
+      .get(`/purchase-invoices/${draft.body.id}`)
+      .set('x-api-key', 'test-api-key')
+      .expect(200);
+
+    expect(updated.body.lines).toHaveLength(1);
+    expect(Number(updated.body.total_amount)).toBe(5); // Only manual line remains
+  });
 });

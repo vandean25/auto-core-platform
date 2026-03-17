@@ -128,8 +128,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             return initialData.lines.map(line => ({
                 tempId: line.id,
                 source: line.purchase_order_item_id ? 'receipt' : 'manual',
-                receiptId: (line as any).purchase_order_item?.purchase_order?.id,
-                receiptNumber: (line as any).purchase_order_item?.purchase_order?.order_number,
+                receiptId: line.purchase_order_item?.purchase_order?.id,
+                receiptNumber: line.purchase_order_item?.purchase_order?.order_number,
                 purchaseOrderItemId: line.purchase_order_item_id,
                 description: line.description,
                 quantity: parseFloat(line.quantity),
@@ -139,6 +139,10 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
         return []
     })
+
+    const persistedLineIds = React.useMemo(() => {
+        return new Set(initialData?.lines?.map(l => l.id) ?? [])
+    }, [initialData])
 
     const selectedReceiptIds = React.useMemo(() => {
         const ids = new Set<string>()
@@ -158,7 +162,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const quickEntryRef = React.useRef<HTMLDivElement | null>(null)
     const itemInputRef = React.useRef<HTMLInputElement | null>(null)
     const qtyInputRef = React.useRef<HTMLInputElement | null>(null)
-    const autoSaveTimeoutRef = React.useRef<any>(null)
+    const autoSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const { data: unbilledItems = [], isLoading: isUnbilledLoading } = useUnbilledReceipts(vendorId || undefined, initialData?.id)
     const { data: selectedVendor } = useVendor(vendorId || '')
@@ -465,10 +469,9 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const removeLine = async (lineId: string) => {
         if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
 
-        const lineToDelete = lines.find(l => l.tempId === lineId)
+        const isPersisted = persistedLineIds.has(lineId)
         
-        // If it's an existing line (has a real ID, not a UUID)
-        if (lineToDelete && isEdit && !lineId.includes('-')) {
+        if (isPersisted && isEdit) {
             try {
                 await deleteLineMutation.mutateAsync({ id: initialData!.id, lineId })
                 toast.success('Line removed')
@@ -480,9 +483,9 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
 
         setLines((previous) => {
             const next = previous.filter((line) => line.tempId !== lineId)
-            // If we are in edit mode, the delete mutation already handled the backend.
-            // If it was a new unsaved line, we should trigger a save.
-            if (!isEdit || lineId.includes('-')) {
+            // If it was a new unsaved line (not in persisted set), we should trigger a save
+            // to ensure the backend is aware of the removal if an auto-save was pending.
+            if (!isPersisted) {
                 triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
             }
             return next
