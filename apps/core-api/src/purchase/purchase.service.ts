@@ -8,6 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
+
 
 export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
   include: { vendor: true; items: true };
@@ -157,6 +159,15 @@ export class PurchaseService {
           });
         }
 
+        // PRE-FETCH & MAP PATTERN
+        const poItemIds = po.items.map(item => item.id);
+        const currentItems = await tx.purchaseOrderItem.findMany({
+          where: { id: { in: poItemIds } }
+        });
+        const currentItemsMap = new Map(currentItems.map(item => [item.id, item]));
+
+        const validatedReceivedItems = [];
+
         for (const received of receivedItems) {
           if (!received.itemId) {
             throw new BadRequestException(
@@ -177,9 +188,7 @@ export class PurchaseService {
             );
           }
 
-          const currentItem = await tx.purchaseOrderItem.findUnique({
-            where: { id: poItem.id },
-          });
+          const currentItem = currentItemsMap.get(poItem.id);
           if (!currentItem)
             throw new BadRequestException(
               `Item ${received.itemId} not found in DB`,
@@ -194,13 +203,21 @@ export class PurchaseService {
             );
           }
 
+          validatedReceivedItems.push({
+             poItem,
+             received
+          });
+        }
+
+        // BATCH WRITES
+        await chunkedPromiseAll(validatedReceivedItems, async ({ poItem, received }) => {
           await tx.purchaseOrderItem.update({
             where: { id: poItem.id },
             data: { quantity_received: { increment: received.quantity } },
           });
 
           // Record the inventory transaction using the ledger service
-          await this.ledgerService.recordTransaction(
+          await this.ledgerService.recordTransactions([
             {
               itemId: received.itemId,
               locationId: generalBin.id,
@@ -208,10 +225,10 @@ export class PurchaseService {
               type: TransactionType.PURCHASE_RECEIPT,
               referenceId: po.order_number,
               costBasis: poItem.unit_cost,
-            },
+            }],
             tx,
           );
-        }
+        });
 
         const updatedPO = await tx.purchaseOrder.findUnique({
           where: { id: orderId },
