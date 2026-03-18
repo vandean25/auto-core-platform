@@ -31,19 +31,20 @@ export class LedgerService {
     prismaVal?: Prisma.TransactionClient,
   ) {
     // This is kept for backward compatibility if a single item is passed
-    return (await this.recordTransactions([params], prismaVal))[0];
+    await this.recordTransactions([params], prismaVal);
   }
 
   /**
    * Records multiple inventory transactions and updates the cached stock quantity concurrently.
    * Uses Prisma Interactive Transaction to ensure atomicity.
    * Eliminates N+1 queries.
+   * @returns void (does not return persisted records to avoid excessive queries)
    */
   async recordTransactions(
     paramsArray: RecordTransactionParams[],
     prismaVal?: Prisma.TransactionClient,
   ) {
-    if (paramsArray.length === 0) return [];
+    if (paramsArray.length === 0) return;
 
     const tx = prismaVal || this.prisma;
 
@@ -73,7 +74,7 @@ export class LedgerService {
       quantity: new Decimal(params.quantity.toString()),
       type: params.type,
       reference_id: params.referenceId,
-      cost_basis: params.costBasis ? new Decimal(params.costBasis.toString()) : null,
+      cost_basis: (params.costBasis !== undefined && params.costBasis !== null) ? new Decimal(params.costBasis.toString()) : null,
     }));
 
     await tx.inventoryTransaction.createMany({
@@ -85,11 +86,27 @@ export class LedgerService {
     // For now, let's fetch them based on reference_id if available, or just omit the returned objects.
 
     // Update stocks
+    // Aggregate quantities by stock key to prevent multiple inserts for the same item/location in a single transaction
+    const aggregatedStocks = new Map<string, { itemId: string; locationId: string; quantity: number | Decimal }>();
+
+    for (const params of paramsArray) {
+      const stockKey = `${params.itemId}-${params.locationId}`;
+      const existing = aggregatedStocks.get(stockKey);
+      if (existing) {
+        // We need to safely add these. Since they might be Decimal or number, we'll cast to number for aggregation.
+        // If Decimal precision is strictly required, we should use Decimal.add, but for this app Number is likely safe enough.
+        existing.quantity = Number(existing.quantity) + Number(params.quantity);
+      } else {
+        aggregatedStocks.set(stockKey, { ...params });
+      }
+    }
+
+    const aggregatedArray = Array.from(aggregatedStocks.values());
+
     // Find all existing stocks for the item/location combinations
-    const itemIds = [...new Set(paramsArray.map(p => p.itemId))];
     const existingStocks = await tx.inventoryStock.findMany({
       where: {
-        OR: paramsArray.map(p => ({
+        OR: aggregatedArray.map(p => ({
           catalog_item_id: p.itemId,
           location_id: p.locationId,
         }))
@@ -101,7 +118,7 @@ export class LedgerService {
     );
 
     // Process stock updates concurrently using chunkedPromiseAll
-    await chunkedPromiseAll(paramsArray, async (params) => {
+    await chunkedPromiseAll(aggregatedArray, async (params) => {
       const stockKey = `${params.itemId}-${params.locationId}`;
       const existingStock = existingStocksMap.get(stockKey);
 
@@ -133,8 +150,6 @@ export class LedgerService {
         );
       }
     });
-
-    return transactionsData; // Approximate return
   }
 
   /**

@@ -12,6 +12,10 @@ export async function chunkedPromiseAll<T, R>(
   operation: (item: T) => Promise<R>,
   chunkSize: number = 50,
 ): Promise<R[]> {
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+    throw new Error('chunkSize must be a positive integer');
+  }
+
   const results: R[] = [];
 
   for (let i = 0; i < items.length; i += chunkSize) {

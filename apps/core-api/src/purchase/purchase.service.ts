@@ -166,7 +166,8 @@ export class PurchaseService {
         });
         const currentItemsMap = new Map(currentItems.map(item => [item.id, item]));
 
-        const validatedReceivedItems = [];
+        // Aggregate received items by poItem.id to prevent duplicate itemIds from exceeding the limit
+        const aggregatedReceived = new Map<string, { quantity: number; received: any; poItem: any }>();
 
         for (const received of receivedItems) {
           if (!received.itemId) {
@@ -179,7 +180,6 @@ export class PurchaseService {
             (i) => i.catalog_item_id === received.itemId,
           );
           if (!poItem) {
-            // Log available catalog_item_ids for debugging
             const availableIds = po.items
               .map((i) => i.catalog_item_id)
               .join(', ');
@@ -188,6 +188,21 @@ export class PurchaseService {
             );
           }
 
+          const existing = aggregatedReceived.get(poItem.id);
+          if (existing) {
+            existing.quantity += received.quantity;
+          } else {
+            aggregatedReceived.set(poItem.id, {
+              quantity: received.quantity,
+              received,
+              poItem,
+            });
+          }
+        }
+
+        const validatedAggregatedItems = Array.from(aggregatedReceived.values());
+
+        for (const { poItem, quantity, received } of validatedAggregatedItems) {
           const currentItem = currentItemsMap.get(poItem.id);
           if (!currentItem)
             throw new BadRequestException(
@@ -195,39 +210,31 @@ export class PurchaseService {
             );
 
           if (
-            currentItem.quantity_received + received.quantity >
+            currentItem.quantity_received + quantity >
             currentItem.quantity
           ) {
             throw new BadRequestException(
               `Cannot receive more than ordered for item ${received.itemId}`,
             );
           }
-
-          validatedReceivedItems.push({
-             poItem,
-             received
-          });
         }
 
-        // BATCH WRITES
-        await chunkedPromiseAll(validatedReceivedItems, async ({ poItem, received }) => {
+        // BATCH WRITES (using aggregated quantities)
+        await chunkedPromiseAll(validatedAggregatedItems, async ({ poItem, quantity, received }) => {
           await tx.purchaseOrderItem.update({
             where: { id: poItem.id },
-            data: { quantity_received: { increment: received.quantity } },
+            data: { quantity_received: { increment: quantity } },
           });
 
           // Record the inventory transaction using the ledger service
-          await this.ledgerService.recordTransactions([
-            {
-              itemId: received.itemId,
-              locationId: generalBin.id,
-              quantity: received.quantity,
-              type: TransactionType.PURCHASE_RECEIPT,
-              referenceId: po.order_number,
-              costBasis: poItem.unit_cost,
-            }],
-            tx,
-          );
+          await this.ledgerService.recordTransactions([{
+            itemId: received.itemId,
+            locationId: generalBin.id,
+            quantity: quantity,
+            type: TransactionType.PURCHASE_RECEIPT,
+            referenceId: po.order_number,
+            costBasis: poItem.unit_cost,
+          }], tx);
         });
 
         const updatedPO = await tx.purchaseOrder.findUnique({
