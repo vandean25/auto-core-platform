@@ -480,13 +480,13 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     }
 
     const removeLine = async (lineId: string) => {
-        const isPersisted = persistedLineIds.has(lineId)
-        
-        // Only clear timeout for unsaved lines to preserve pending edits on other lines
-        if (!isPersisted && autoSaveTimeoutRef.current) {
+        // Always clear pending auto-save to prevent stale snapshots from re-saving deleted lines
+        if (autoSaveTimeoutRef.current) {
             clearTimeout(autoSaveTimeoutRef.current)
         }
 
+        const isPersisted = persistedLineIds.has(lineId)
+        
         if (isPersisted && isEdit) {
             try {
                 await deleteLineMutation.mutateAsync({ id: initialData!.id, lineId })
@@ -499,10 +499,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
 
         setLines((previous) => {
             const next = previous.filter((line) => line.tempId !== lineId)
-            // Trigger save for unsaved removals to keep backend in sync
-            if (!isPersisted) {
-                triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
-            }
+            // Always trigger an immediate save to sync the full lines snapshot
+            triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
             return next
         })
     }
