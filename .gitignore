@@ -44,3 +44,6 @@ tools/graph-db/data/
 
 # playwright test artifacts
 .playwright-cli/
+
+# Stitch downloads
+stitch-downloads/

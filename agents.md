@@ -80,6 +80,7 @@ auto-core-platform/
 - **Tailwind v4**: All styling is defined in `@theme` blocks in `src/index.css`, NOT in `tailwind.config.js`. Utility classes are preferred.
 - **shadcn/ui**: Components are located in `src/components/ui/`. Import from `@/components/ui/<component-name>`. Use the `cn()` utility from `@/lib/utils` for conditional classes. Use shadcn/ui primitives when possible.
 - **Data Fetching**: Use **TanStack Query** for all API calls. Hooks go in `src/api/` (e.g., `useInventory`, `useInventoryHistory`). API types go in `src/api/types.ts`.
+- **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g., `purchaseInvoiceKeys`, `workshopOrderKeys`) in their respective hook or service files. Legacy inline arrays (like in `workshop.ts`) should be refactored to factories when those files are next touched.
 - **Components**: Page components in `src/pages/`, Reusable components in `src/components/`.
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop).
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
@@ -113,10 +114,24 @@ auto-core-platform/
 - **Row interaction**: Clicking a table row must open that entity's detail card/page. Avoid separate row-level edit/detail icon buttons in list rows.
 - **Row context action**: Right-clicking a row should expose a contextual `Delete` action (when the entity supports deletion).
 
+### Form Handling & UX (Auto-Saving)
+We use a **Context-Based Approach**, allowing both patterns strictly based on the UI complexity:
+- **Rule for Complex Documents**: For multi-field document creation/editing (e.g., Purchase Bills, Sales Orders, Invoices), strictly enforce **Debounced Form-Level Auto-Save (750ms)**. Ensure there is a persistent visual "Saving/Saved/Error" indicator near the form actions.
+- **Rule for Isolated Fields**: For single, isolated text edits (e.g., updating a "Note" field, renaming a task, or quick inline status changes), the **Field-Level Save-on-Blur** utilizing the shared `InlineEdit` component is the approved pattern.
+
+### UI Styling & Standards
+- **Status Badges**: Always use the shared `@/components/status/StatusBadge` component for rendering entity statuses. Never construct raw status badges with hardcoded Tailwind colors inline. If a new status is introduced, you must update the `statusClassMap` inside `StatusBadge.tsx` to ensure consistent color mapping across the entire application.
+
+### Real-Time Sync
+- **Backend Emission**: The backend uses Prisma `$extends` (`createDashboardRealtimeExtension`) to automatically emit WebSocket events upon entity mutations (`CREATED`, `UPDATED`, `DELETED`). The `DashboardRealtimeService` orchestrates these, and `DashboardGateway` broadcasts them via Socket.IO.
+- **Frontend Sync**: The frontend `RealtimeDashboardSyncProvider` connects to the WebSocket endpoint and automatically invalidates the appropriate TanStack Query caches based on `entity_updated` events. Mapping between backend entity types and frontend cache keys is maintained in `src/features/realtime/dashboard-entity-map.ts`.
+
 ### Backend Patterns
 - **Services**: Business logic stays in services; controllers handle HTTP routing. Services go in feature modules (e.g., `src/inventory/inventory.service.ts`).
+- **Transactions & Concurrency**: Services must use `prisma.$transaction` for atomic operations involving multiple tables (e.g., PO and Inventory Ledger updates). To prevent race conditions during updates, use atomic checks and row locking via `updateMany` (e.g., `where: { id, status: DRAFT }`) inside the transaction to ensure the entity state hasn't changed before performing nested mutations.
+- **Error Handling**: Use standard NestJS HTTP exceptions (`BadRequestException`, `NotFoundException`, etc.) with clear, descriptive error messages.
 - **Prisma**: Use `PrismaService` for all DB operations. Schema uses `snake_case` via `@@map()`. Always run `npx prisma generate` after schema changes. Seed data is in `prisma/seed.ts`. Use `npx prisma migrate dev` for development migrations.
-- **Validation**: Global `ValidationPipe` is enabled in `main.ts`.
+- **Validation**: Global `ValidationPipe` is enabled in `main.ts` with `whitelist: true` and `transform: true`. Use `class-validator` and `class-transformer` extensively in validation DTOs.
 
 ### API Conventions
 - **Prefix**: All endpoints are prefixed with `/api`.
@@ -213,6 +228,7 @@ npm run build              # Production build
 - Source of truth: `docs/deletion-policy.md`
 - Apply policy before adding any new delete endpoint or UI delete action.
 - Backend must enforce all deletion rules; frontend should only mirror policy for UX, never replace backend validation.
+- **Maintenance**: The AI MUST automatically propose updates to `docs/deletion-policy.md` whenever a new database entity is created or when business rules regarding the lifecycle of an existing entity are altered.
 
 ## MCP Servers & Skills
 This project uses the following MCP servers:
@@ -223,7 +239,7 @@ This project uses the following MCP servers:
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
 
 ### Local Project Skills
-- **Stitch Fetch Skill**: `skills/stitch-fetch/SKILL.md`
+- **Stitch Fetch Skill**: `.agents/skills/stitch-fetch/SKILL.md`
   - Use it to fetch Stitch screen metadata and download image/code assets via hosted URLs using `curl -L`.
 
 ## Google Secret Manager (Shared Dev Secrets)
