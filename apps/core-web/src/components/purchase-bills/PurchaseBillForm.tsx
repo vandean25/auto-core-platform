@@ -158,6 +158,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const [stagedItem, setStagedItem] = React.useState<StagedBillItem | null>(null)
     const [showSuggestions, setShowSuggestions] = React.useState(false)
     const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'error'>('saved')
+    const [isPosting, setIsPosting] = React.useState(false)
+    const [isCreating, setIsCreating] = React.useState(false)
 
     const quickEntryRef = React.useRef<HTMLDivElement | null>(null)
     const itemInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -522,6 +524,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     }
 
     const handleCreateDraft = async () => {
+        if (isCreating) return
         if (!validateForm()) return
 
         const payload = {
@@ -539,19 +542,24 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
 
         try {
+            setIsCreating(true)
             const result = await createMutation.mutateAsync(payload)
             toast.success('Bill created')
             onSuccess(result)
         } catch (error: any) {
             toast.error('Failed to create bill', { description: error.message })
+        } finally {
+            setIsCreating(false)
         }
     }
 
     const handlePost = async () => {
         if (!isEdit || !initialData) return
+        if (isPosting) return
         if (!validateForm()) return
 
         try {
+            setIsPosting(true)
             if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
             if (abortControllerRef.current) abortControllerRef.current.abort()
             
@@ -575,10 +583,12 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             onSuccess(posted)
         } catch (err: any) {
             toast.error('Failed to post bill', { description: err.message })
+        } finally {
+            setIsPosting(false)
         }
     }
 
-    const isPending = createMutation.isPending || updateMutation.isPending || postMutation.isPending || deleteLineMutation.isPending
+    const isPending = createMutation.isPending || updateMutation.isPending || postMutation.isPending || deleteLineMutation.isPending || isPosting || isCreating
 
     return (
         <div className="space-y-6">
@@ -654,6 +664,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="default" className="bg-blue-600 hover:bg-blue-700" disabled={isPending}>
+                                            {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                                             Post Bill
                                         </Button>
                                     </AlertDialogTrigger>
@@ -666,18 +677,21 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handlePost}>Post Bill</AlertDialogAction>
+                                            <AlertDialogAction onClick={handlePost} disabled={isPosting}>
+                                                {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                                                Post Bill
+                                            </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </div>
                         ) : (
                             <div className="flex gap-2">
-                                <Button variant="outline" onClick={onCancel}>
+                                <Button variant="outline" onClick={onCancel} disabled={isCreating}>
                                     Cancel
                                 </Button>
-                                <Button variant="secondary" onClick={handleCreateDraft} disabled={isPending}>
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Button variant="secondary" onClick={handleCreateDraft} disabled={isCreating}>
+                                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Loader2 className="mr-2 h-4 w-4 hidden" />}
                                     Create Draft
                                 </Button>
                             </div>

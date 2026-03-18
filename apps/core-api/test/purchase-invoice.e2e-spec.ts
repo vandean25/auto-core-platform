@@ -134,8 +134,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('/vendors/:id/unbilled-receipts (GET) - Check Remaining', async () => {
-    // This test depends on the previous one's state, which is fine for this specific check,
-    // but let's make it robust by ensuring it has the expected state.
+    // Make this test deterministic by setting the state it expects
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 5 },
+    });
+
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
       .set('x-api-key', 'test-api-key')
@@ -466,6 +470,7 @@ describe('PurchaseInvoice (e2e)', () => {
       .expect(201);
 
     const lineToDelete = draft.body.lines.find((l: any) => l.purchase_order_item_id === purchaseOrderItemId);
+    expect(lineToDelete).toBeDefined();
 
     // 2. Delete one line
     await request(app.getHttpServer())

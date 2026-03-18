@@ -7,6 +7,8 @@ import {
   ValidateNested,
   IsNumber,
   IsOptional,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -29,6 +31,8 @@ export class CreatePurchaseInvoiceLineDto {
 
   @IsNumber()
   @IsOptional()
+  @Min(0)
+  @Max(100)
   taxRate: number;
 }
 
