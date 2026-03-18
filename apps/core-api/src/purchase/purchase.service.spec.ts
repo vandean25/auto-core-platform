@@ -187,6 +187,7 @@ describe('PurchaseService', () => {
         data: { quantity_received: { increment: 5 } },
       });
 
+      expect(mockLedgerService.recordTransactions).toHaveBeenCalledTimes(1);
       expect(mockLedgerService.recordTransactions).toHaveBeenCalledWith([
         expect.objectContaining({
           itemId: 'item1',
