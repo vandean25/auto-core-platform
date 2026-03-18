@@ -28,6 +28,9 @@ describe('PurchaseService', () => {
       findUnique: jest
         .fn()
         .mockResolvedValue({ id: 'poi1', quantity: 10, quantity_received: 0 }),
+      findMany: jest.fn().mockResolvedValue([
+        { id: 'poi1', quantity: 10, quantity_received: 0, catalog_item_id: 'item1', unit_cost: 50 },
+      ]),
       deleteMany: jest.fn(),
     },
     catalogItem: {
@@ -40,6 +43,7 @@ describe('PurchaseService', () => {
 
   const mockLedgerService = {
     recordTransaction: jest.fn(),
+    recordTransactions: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -183,13 +187,13 @@ describe('PurchaseService', () => {
         data: { quantity_received: { increment: 5 } },
       });
 
-      expect(mockLedgerService.recordTransaction).toHaveBeenCalledWith(
+      expect(mockLedgerService.recordTransactions).toHaveBeenCalledWith([
         expect.objectContaining({
           itemId: 'item1',
           quantity: 5,
           type: TransactionType.PURCHASE_RECEIPT,
           costBasis: 50,
-        }),
+        })],
         expect.anything(),
       );
     });
