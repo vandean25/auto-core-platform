@@ -265,3 +265,7 @@ Use Google Secret Manager (GSM) as the source of truth for local dev credentials
   - `npm --prefix apps/core-web run secrets:pull`
 
 Never commit real secret values or generated local `.env` files.
+
+## Database Performance
+🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
+🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.

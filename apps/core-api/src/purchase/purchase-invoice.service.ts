@@ -7,6 +7,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
+
 
 @Injectable()
 export class PurchaseInvoiceService {
@@ -145,9 +147,10 @@ export class PurchaseInvoiceService {
         },
       });
 
-      // Update quantity_invoiced on PO items
-      for (const [poItemId, quantity] of poItemTotals) {
-        await tx.purchaseOrderItem.update({
+      // Update quantity_invoiced on PO items (Optimized)
+      const poItemsToUpdate = Array.from(poItemTotals.entries());
+      await chunkedPromiseAll(poItemsToUpdate, async ([poItemId, quantity]) => {
+        return tx.purchaseOrderItem.update({
           where: { id: poItemId },
           data: {
             quantity_invoiced: {
@@ -155,7 +158,7 @@ export class PurchaseInvoiceService {
             },
           },
         });
-      }
+      });
 
       return invoice;
     });
@@ -197,19 +200,18 @@ export class PurchaseInvoiceService {
 
       if (!existingInvoice) throw new NotFoundException('Invoice not found');
 
-      // 1. Rollback old quantity_invoiced
-      for (const line of existingInvoice.lines) {
-        if (line.purchase_order_item_id) {
-          await tx.purchaseOrderItem.update({
-            where: { id: line.purchase_order_item_id },
-            data: {
-              quantity_invoiced: {
-                decrement: line.quantity,
-              },
+      // 1. Rollback old quantity_invoiced (Optimized)
+      const linesToRollback = existingInvoice.lines.filter(l => l.purchase_order_item_id);
+      await chunkedPromiseAll(linesToRollback, async (line) => {
+        return tx.purchaseOrderItem.update({
+          where: { id: line.purchase_order_item_id as string },
+          data: {
+            quantity_invoiced: {
+              decrement: line.quantity,
             },
-          });
-        }
-      }
+          },
+        });
+      });
 
       // 2. Validate new quantities AFTER rollback to prevent race conditions
       if (poItemTotals.size > 0) {
@@ -297,9 +299,10 @@ export class PurchaseInvoiceService {
         },
       });
 
-      // 5. Apply new quantity_invoiced
-      for (const [poItemId, quantity] of poItemTotals) {
-        await tx.purchaseOrderItem.update({
+      // 5. Apply new quantity_invoiced (Optimized)
+      const newPoItemsToUpdate = Array.from(poItemTotals.entries());
+      await chunkedPromiseAll(newPoItemsToUpdate, async ([poItemId, quantity]) => {
+        return tx.purchaseOrderItem.update({
           where: { id: poItemId },
           data: {
             quantity_invoiced: {
@@ -307,7 +310,7 @@ export class PurchaseInvoiceService {
             },
           },
         });
-      }
+      });
 
       return updated;
     });
@@ -403,19 +406,17 @@ export class PurchaseInvoiceService {
       });
 
       if (!invoice) throw new NotFoundException('Invoice not found');
-
-      for (const line of invoice.lines) {
-        if (line.purchase_order_item_id) {
-          await tx.purchaseOrderItem.update({
-            where: { id: line.purchase_order_item_id },
-            data: {
-              quantity_invoiced: {
-                decrement: line.quantity,
-              },
+      const linesToDecrement = invoice.lines.filter(l => l.purchase_order_item_id);
+      await chunkedPromiseAll(linesToDecrement, async (line) => {
+        return tx.purchaseOrderItem.update({
+          where: { id: line.purchase_order_item_id as string },
+          data: {
+            quantity_invoiced: {
+              decrement: line.quantity,
             },
-          });
-        }
-      }
+          },
+        });
+      });
 
       // Atomic delete check
       const result = await tx.purchaseInvoice.deleteMany({
