@@ -1480,8 +1480,8 @@ export interface operations {
     };
     VendorUnbilledController_getUnbilledReceipts: {
         parameters: {
-            query: {
-                invoiceId: string;
+            query?: {
+                invoiceId?: string;
             };
             header?: never;
             path: {

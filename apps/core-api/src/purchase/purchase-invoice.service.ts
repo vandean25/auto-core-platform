@@ -28,11 +28,13 @@ export class PurchaseInvoiceService {
       include: {
         purchase_order: true,
         catalog_item: true,
-        purchase_invoice_lines: {
-          where: {
-            purchase_invoice_id: invoiceId,
+        ...(invoiceId && {
+          purchase_invoice_lines: {
+            where: {
+              purchase_invoice_id: invoiceId,
+            },
           },
-        },
+        }),
       },
     });
 
@@ -44,7 +46,7 @@ export class PurchaseInvoiceService {
       .filter((item) => {
         const received = item.quantity_received;
         const invoiced = Number(item.quantity_invoiced);
-        const onCurrentInvoice = item.purchase_invoice_lines.length > 0;
+        const onCurrentInvoice = invoiceId ? (item as any).purchase_invoice_lines?.length > 0 : false;
         return received > invoiced || onCurrentInvoice;
       })
       .map((item) => ({
@@ -111,13 +113,17 @@ export class PurchaseInvoiceService {
 
       let totalAmount = 0;
       const linesData = items.map((line) => {
-        const lineTotal = line.quantity * line.unitPrice;
+        const lineNet = line.quantity * line.unitPrice;
+        const taxRate = line.taxRate ?? 20;
+        const lineTax = lineNet * (taxRate / 100);
+        const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,
           unit_price: line.unitPrice,
+          tax_rate: taxRate,
           line_total: lineTotal,
         };
       });
@@ -174,15 +180,22 @@ export class PurchaseInvoiceService {
     }
 
     const updatedInvoice = await this.prisma.$transaction(async (tx) => {
+      // Atomic check and lock attempt via updateMany (which returns count)
+      const updateCount = await tx.purchaseInvoice.updateMany({
+        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        data: { updatedAt: new Date() }, // Just to "touch" the row and ensure it's DRAFT
+      });
+
+      if (updateCount.count === 0) {
+        throw new BadRequestException('Invoice not found or no longer in DRAFT status');
+      }
+
       const existingInvoice = await tx.purchaseInvoice.findUnique({
         where: { id },
         include: { lines: true },
       });
 
       if (!existingInvoice) throw new NotFoundException('Invoice not found');
-      if (existingInvoice.status !== PurchaseInvoiceStatus.DRAFT) {
-        throw new BadRequestException('Only DRAFT invoices can be updated');
-      }
 
       // 1. Rollback old quantity_invoiced
       for (const line of existingInvoice.lines) {
@@ -244,13 +257,17 @@ export class PurchaseInvoiceService {
       // 4. Update invoice header and create new lines
       let totalAmount = 0;
       const linesData = items.map((line) => {
-        const lineTotal = line.quantity * line.unitPrice;
+        const lineNet = line.quantity * line.unitPrice;
+        const taxRate = line.taxRate ?? 20;
+        const lineTax = lineNet * (taxRate / 100);
+        const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,
           unit_price: line.unitPrice,
+          tax_rate: taxRate,
           line_total: lineTotal,
         };
       });
@@ -319,37 +336,34 @@ export class PurchaseInvoiceService {
       throw new BadRequestException('Cannot post an invoice without lines');
     }
 
-    // Here we would create Ledger Entries (GL)
-    // For now, just update status
-
-    const postedInvoice = await this.prisma.purchaseInvoice.update({
-      where: { id },
+    // Atomic update with status check
+    const result = await this.prisma.purchaseInvoice.updateMany({
+      where: { id, status: PurchaseInvoiceStatus.DRAFT },
       data: { status: PurchaseInvoiceStatus.POSTED },
     });
 
+    if (result.count === 0) {
+      throw new BadRequestException('Failed to post: Invoice is no longer in DRAFT status');
+    }
+
     this.realtimeService.emitEntityUpdated({
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
     });
 
-    return postedInvoice;
+    return this.findOne(id);
   }
 
   async pay(id: string) {
-    const invoice = await this.prisma.purchaseInvoice.findUnique({
-      where: { id },
-    });
-
-    if (!invoice) throw new NotFoundException('Invoice not found');
-    if (invoice.status !== PurchaseInvoiceStatus.POSTED) {
-      throw new BadRequestException('Only POSTED invoices can be marked as PAID');
-    }
-
-    const paidInvoice = await this.prisma.purchaseInvoice.update({
-      where: { id },
+    const result = await this.prisma.purchaseInvoice.updateMany({
+      where: { id, status: PurchaseInvoiceStatus.POSTED },
       data: { status: PurchaseInvoiceStatus.PAID },
     });
+
+    if (result.count === 0) {
+      throw new BadRequestException('Failed to pay: Invoice not found or not in POSTED status');
+    }
 
     this.realtimeService.emitEntityUpdated({
       type: 'PURCHASE_INVOICE',
@@ -357,27 +371,25 @@ export class PurchaseInvoiceService {
       entityId: id,
     });
 
-    return paidInvoice;
+    return this.findOne(id);
   }
 
   async remove(id: string) {
-    const invoice = await this.prisma.purchaseInvoice.findUnique({
-      where: { id },
-    });
-
-    if (!invoice) throw new NotFoundException('Invoice not found');
-    if (invoice.status !== PurchaseInvoiceStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT invoices can be deleted');
-    }
-
     // When deleting an invoice, we MUST decrement quantity_invoiced on PO items
     // to avoid ghost allocations.
     await this.prisma.$transaction(async (tx) => {
-      const lines = await tx.purchaseInvoiceLine.findMany({
-        where: { purchase_invoice_id: id },
+      // Find lines first
+      const invoice = await tx.purchaseInvoice.findUnique({
+        where: { id },
+        include: { lines: true },
       });
 
-      for (const line of lines) {
+      if (!invoice) throw new NotFoundException('Invoice not found');
+      if (invoice.status !== PurchaseInvoiceStatus.DRAFT) {
+        throw new BadRequestException('Only DRAFT invoices can be deleted');
+      }
+
+      for (const line of invoice.lines) {
         if (line.purchase_order_item_id) {
           await tx.purchaseOrderItem.update({
             where: { id: line.purchase_order_item_id },
@@ -390,9 +402,14 @@ export class PurchaseInvoiceService {
         }
       }
 
-      await tx.purchaseInvoice.delete({
-        where: { id },
+      // Atomic delete check
+      const result = await tx.purchaseInvoice.deleteMany({
+        where: { id, status: PurchaseInvoiceStatus.DRAFT },
       });
+
+      if (result.count === 0) {
+        throw new BadRequestException('Failed to delete: Invoice is no longer in DRAFT status');
+      }
     });
 
     this.realtimeService.emitEntityUpdated({
@@ -405,7 +422,7 @@ export class PurchaseInvoiceService {
   }
 
   async removeLine(invoiceId: string, lineId: string) {
-    return await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const line = await tx.purchaseInvoiceLine.findUnique({
         where: { id: lineId },
       });
@@ -464,7 +481,7 @@ export class PurchaseInvoiceService {
       entityId: invoiceId,
     });
 
-    return { success: true };
+    return result;
   }
 
   async findAll(

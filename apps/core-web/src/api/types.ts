@@ -202,6 +202,7 @@ export interface PurchaseInvoiceLineDto {
     description: string
     quantity: number
     unitPrice: number
+    taxRate?: number
 }
 
 export type PurchaseInvoiceStatus = 'DRAFT' | 'POSTED' | 'PAID'
@@ -234,6 +235,7 @@ export interface PurchaseInvoiceLine {
     description: string
     quantity: string
     unit_price: string
+    tax_rate: string
     line_total: string
 }
 

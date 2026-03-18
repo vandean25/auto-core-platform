@@ -79,6 +79,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('/vendors/:id/unbilled-receipts (GET)', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
       .set('x-api-key', 'test-api-key')
@@ -90,6 +96,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('/purchase-invoices (POST) - Create Draft', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     const createDto = {
       vendorId: vendorId,
       vendorInvoiceNumber: 'INV-001',
@@ -122,6 +134,8 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('/vendors/:id/unbilled-receipts (GET) - Check Remaining', async () => {
+    // This test depends on the previous one's state, which is fine for this specific check,
+    // but let's make it robust by ensuring it has the expected state.
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
       .set('x-api-key', 'test-api-key')
@@ -131,6 +145,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('/purchase-invoices (POST) - Prevent Over-Invoicing', async () => {
+    // Ensure we start with 5 already invoiced
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 5 },
+    });
+
     const createDto = {
       vendorId: vendorId,
       vendorInvoiceNumber: 'INV-002',
@@ -154,6 +174,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Post Invoice', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     // Create another draft first
     const createDto = {
       vendorId: vendorId,
@@ -185,8 +211,6 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Prevent Posting Empty Invoice', async () => {
-    // Create an invoice without lines (if possible via API, though DTO usually prevents this)
-    // Actually, CreatePurchaseInvoiceDto has items array, but let's assume we bypass or it's empty
     const createDto = {
       vendorId: vendorId,
       vendorInvoiceNumber: 'INV-EMPTY',
@@ -208,6 +232,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Pay Invoice', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     // Create and Post an invoice first
     const createDto = {
       vendorId: vendorId,
@@ -244,6 +274,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Delete Draft Invoice and Restore PO Item Quantities', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     // 1. Check current quantity_invoiced
     const poItemBefore = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
@@ -290,6 +326,12 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Prevent Deleting Posted Invoice', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     const createDto = {
       vendorId: vendorId,
       vendorInvoiceNumber: 'INV-DELETE-POSTED-TEST',
@@ -323,6 +365,18 @@ describe('PurchaseInvoice (e2e)', () => {
   });
 
   it('Update Invoice (PATCH :id)', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
+    // Capture initial state
+    const poItemInitial = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    const initialQty = Number(poItemInitial?.quantity_invoiced);
+
     // 1. Create a Draft
     const createDto = {
       vendorId: vendorId,
@@ -370,15 +424,20 @@ describe('PurchaseInvoice (e2e)', () => {
     expect(response.body.lines[0].description).toBe('Updated Item');
     expect(Number(response.body.lines[0].quantity)).toBe(2);
 
-    // 3. Verify PO item quantity_invoiced was updated correctly (1 -> 2)
-    const poItem = await prisma.purchaseOrderItem.findUnique({
+    // 3. Verify PO item quantity_invoiced was updated correctly (0 -> 1 -> 2)
+    const poItemFinal = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
-    // Assuming starting from qtyBefore, it should be qtyBefore + 2 (since it was 1, then replaced by 2)
-    // The service handles: rollback 1, validate 2, apply 2.
+    expect(Number(poItemFinal?.quantity_invoiced)).toBe(initialQty + 2);
   });
 
   it('Delete Invoice Line (DELETE :id/lines/:lineId)', async () => {
+    // Reset for isolation
+    await prisma.purchaseOrderItem.update({
+      where: { id: purchaseOrderItemId },
+      data: { quantity_invoiced: 0 },
+    });
+
     // 1. Create a Draft with 2 lines
     const createDto = {
       vendorId: vendorId,
@@ -422,5 +481,11 @@ describe('PurchaseInvoice (e2e)', () => {
 
     expect(updated.body.lines).toHaveLength(1);
     expect(Number(updated.body.total_amount)).toBe(5); // Only manual line remains
+
+    // 4. Verify PO item quantity_invoiced was restored
+    const poItem = await prisma.purchaseOrderItem.findUnique({
+      where: { id: purchaseOrderItemId },
+    });
+    expect(Number(poItem?.quantity_invoiced)).toBe(0);
   });
 });

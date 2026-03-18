@@ -26,6 +26,10 @@ export class CreatePurchaseInvoiceLineDto {
   @IsNumber()
   @IsNotEmpty()
   unitPrice: number;
+
+  @IsNumber()
+  @IsOptional()
+  taxRate: number;
 }
 
 export class CreatePurchaseInvoiceDto {

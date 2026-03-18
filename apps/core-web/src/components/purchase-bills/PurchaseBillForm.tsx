@@ -134,7 +134,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 description: line.description,
                 quantity: parseFloat(line.quantity),
                 unitCost: parseFloat(line.unit_price),
-                taxRate: DEFAULT_TAX_RATE,
+                taxRate: parseFloat(line.tax_rate),
             }))
         }
         return []
@@ -163,6 +163,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     const itemInputRef = React.useRef<HTMLInputElement | null>(null)
     const qtyInputRef = React.useRef<HTMLInputElement | null>(null)
     const autoSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+    const abortControllerRef = React.useRef<AbortController | null>(null)
 
     const { data: unbilledItems = [], isLoading: isUnbilledLoading } = useUnbilledReceipts(vendorId || undefined, initialData?.id)
     const { data: selectedVendor } = useVendor(vendorId || '')
@@ -271,7 +272,14 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     ) => {
         if (!isEdit || !initialData) return
 
-        if (!currentVendorId || !currentVendorInvoiceNumber.trim() || currentLines.length === 0) return
+        // Relaxed guard: allow empty lines for draft saves
+        if (!currentVendorId || !currentVendorInvoiceNumber.trim()) return
+
+        // Cancel in-flight save
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
 
         setSaveStatus('saving')
         const payload = {
@@ -284,15 +292,17 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 description: line.description.trim(),
                 quantity: line.quantity,
                 unitPrice: line.unitCost,
+                taxRate: line.taxRate,
             })),
         }
 
         try {
             await updateMutation.mutateAsync({ id: initialData.id, payload })
             setSaveStatus('saved')
-        } catch (error) {
+        } catch (error: any) {
+            if (error.name === 'AbortError') return
             setSaveStatus('error')
-            toast.error('Auto-save failed', { description: 'Please check your connection' })
+            toast.error('Auto-save failed', { description: error.message || 'Please check your connection' })
         }
     }, [isEdit, initialData, updateMutation])
 
@@ -462,10 +472,13 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     }
 
     const removeLine = async (lineId: string) => {
-        if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
-
         const isPersisted = persistedLineIds.has(lineId)
         
+        // Only clear timeout for unsaved lines to preserve pending edits on other lines
+        if (!isPersisted && autoSaveTimeoutRef.current) {
+            clearTimeout(autoSaveTimeoutRef.current)
+        }
+
         if (isPersisted && isEdit) {
             try {
                 await deleteLineMutation.mutateAsync({ id: initialData!.id, lineId })
@@ -478,8 +491,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
 
         setLines((previous) => {
             const next = previous.filter((line) => line.tempId !== lineId)
-            // If it was a new unsaved line (not in persisted set), we should trigger a save
-            // to ensure the backend is aware of the removal if an auto-save was pending.
+            // Trigger save for unsaved removals to keep backend in sync
             if (!isPersisted) {
                 triggerAutoSave(vendorId, vendorInvoiceNumber, invoiceDate, dueDate, next, true)
             }
@@ -487,21 +499,24 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         })
     }
 
-    const handleCreateDraft = async () => {
+    const validateForm = () => {
         if (!vendorId) {
             toast.error('Vendor is required')
-            return
+            return false
         }
-
         if (!vendorInvoiceNumber.trim()) {
             toast.error('Vendor invoice number is required')
-            return
+            return false
         }
-
         if (lines.length === 0) {
             toast.error('Add at least one bill line')
-            return
+            return false
         }
+        return true
+    }
+
+    const handleCreateDraft = async () => {
+        if (!validateForm()) return
 
         const payload = {
             vendorId,
@@ -513,6 +528,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 description: line.description.trim(),
                 quantity: line.quantity,
                 unitPrice: line.unitCost,
+                taxRate: line.taxRate,
             })),
         }
 
@@ -520,16 +536,18 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             const result = await createMutation.mutateAsync(payload)
             toast.success('Bill created')
             onSuccess(result)
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to create bill')
+        } catch (error: any) {
+            toast.error('Failed to create bill', { description: error.message })
         }
     }
 
     const handlePost = async () => {
         if (!isEdit || !initialData) return
+        if (!validateForm()) return
+
         try {
-            // First clear any pending auto-saves and perform one final manual save
             if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
+            if (abortControllerRef.current) abortControllerRef.current.abort()
             
             const payload = {
                 vendorId,
@@ -541,6 +559,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                     description: line.description.trim(),
                     quantity: line.quantity,
                     unitPrice: line.unitCost,
+                    taxRate: line.taxRate,
                 })),
             }
             
@@ -548,8 +567,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             const posted = await postMutation.mutateAsync(initialData.id)
             toast.success('Bill posted successfully')
             onSuccess(posted)
-        } catch (err) {
-            // Error already handled
+        } catch (err: any) {
+            toast.error('Failed to post bill', { description: err.message })
         }
     }
 

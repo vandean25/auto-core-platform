@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePurchaseInvoice, usePayPurchaseInvoice } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
 import { toast } from 'sonner'
@@ -30,6 +30,7 @@ export default function PurchaseBillDetailPage() {
     }
 
     const handleMarkAsPaid = async () => {
+        if (payMutation.isPending) return
         try {
             await payMutation.mutateAsync(invoice.id)
             toast.success('Bill marked as paid')
@@ -63,8 +64,9 @@ export default function PurchaseBillDetailPage() {
                         variant="default" 
                         className="bg-green-600 hover:bg-green-700"
                         onClick={handleMarkAsPaid}
+                        disabled={payMutation.isPending}
                     >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        {payMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                         Mark as Paid
                     </Button>
                 )}

@@ -820,7 +820,7 @@
           },
           {
             "name": "invoiceId",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"

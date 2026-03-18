@@ -429,6 +429,7 @@ model PurchaseInvoiceLine {
   description             String
   quantity                Decimal            @db.Decimal(10, 2)
   unit_price              Decimal            @db.Decimal(10, 2)
+  tax_rate                Decimal            @default(20) @db.Decimal(5, 2)
   line_total              Decimal            @db.Decimal(10, 2)
 
   createdAt               DateTime           @default(now())
