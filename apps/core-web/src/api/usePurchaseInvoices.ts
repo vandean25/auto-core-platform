@@ -117,11 +117,12 @@ export function useCreatePurchaseInvoice() {
 export function useUpdatePurchaseInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ id, payload }: { id: string, payload: CreatePurchaseInvoiceDto }) => {
+        mutationFn: async ({ id, payload, signal }: { id: string, payload: CreatePurchaseInvoiceDto, signal?: AbortSignal }) => {
             const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
+                signal,
             })
             if (!response.ok) throw new Error('Failed to update purchase invoice')
             return response.json() as Promise<PurchaseInvoice>

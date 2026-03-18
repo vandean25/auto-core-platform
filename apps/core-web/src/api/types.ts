@@ -235,7 +235,7 @@ export interface PurchaseInvoiceLine {
     description: string
     quantity: string
     unit_price: string
-    tax_rate: string
+    tax_rate: number
     line_total: string
 }
 

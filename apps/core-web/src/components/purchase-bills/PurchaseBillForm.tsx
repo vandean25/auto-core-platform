@@ -134,7 +134,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 description: line.description,
                 quantity: parseFloat(line.quantity),
                 unitCost: parseFloat(line.unit_price),
-                taxRate: parseFloat(line.tax_rate),
+                taxRate: line.tax_rate,
             }))
         }
         return []
@@ -279,7 +279,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         if (abortControllerRef.current) {
             abortControllerRef.current.abort()
         }
-        abortControllerRef.current = new AbortController()
+        const controller = new AbortController()
+        abortControllerRef.current = controller
 
         setSaveStatus('saving')
         const payload = {
@@ -297,7 +298,12 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         }
 
         try {
-            await updateMutation.mutateAsync({ id: initialData.id, payload })
+            await updateMutation.mutateAsync({ 
+                id: initialData.id, 
+                payload, 
+                signal: controller.signal 
+            })
+            if (controller.signal.aborted) return
             setSaveStatus('saved')
         } catch (error: any) {
             if (error.name === 'AbortError') return
