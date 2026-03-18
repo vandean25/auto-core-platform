@@ -1,17 +1,20 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { usePurchaseInvoice } from '@/api/usePurchaseInvoices'
+import { usePurchaseInvoice, usePayPurchaseInvoice } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
+import { toast } from 'sonner'
+import { PurchaseBillForm } from '@/components/purchase-bills/PurchaseBillForm'
 
 export default function PurchaseBillDetailPage() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
     const { data: invoice, isLoading, error } = usePurchaseInvoice(id || '')
+    const payMutation = usePayPurchaseInvoice()
 
     if (isLoading) {
-        return <div className="p-6">Loading...</div>
+        return <div className="p-6 text-center text-slate-500">Loading bill details...</div>
     }
 
     if (error || !invoice) {
@@ -21,17 +24,53 @@ export default function PurchaseBillDetailPage() {
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Bills
                 </Button>
-                <div className="mt-4 text-red-600">Failed to load bill</div>
+                <div className="mt-4 text-red-600">Failed to load bill. It might have been deleted.</div>
+            </div>
+        )
+    }
+
+    const handleMarkAsPaid = async () => {
+        if (payMutation.isPending) return
+        try {
+            await payMutation.mutateAsync(invoice.id)
+            toast.success('Bill marked as paid')
+        } catch (err) {
+            toast.error('Failed to mark as paid')
+        }
+    }
+
+    if (invoice.status === 'DRAFT') {
+        return (
+            <div className="w-full max-w-7xl mx-auto p-6">
+                <PurchaseBillForm 
+                    initialData={invoice} 
+                    onSuccess={() => {}} 
+                    onCancel={() => navigate('/purchase-bills')} 
+                />
             </div>
         )
     }
 
     return (
         <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
-            <Button variant="outline" onClick={() => navigate('/purchase-bills')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Bills
-            </Button>
+            <div className="flex items-center justify-between">
+                <Button variant="outline" onClick={() => navigate('/purchase-bills')}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Bills
+                </Button>
+
+                {invoice.status === 'POSTED' && (
+                    <Button 
+                        variant="default" 
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={handleMarkAsPaid}
+                        disabled={payMutation.isPending}
+                    >
+                        {payMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                        Mark as Paid
+                    </Button>
+                )}
+            </div>
 
             <div className="bg-white rounded-lg border p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -43,7 +82,7 @@ export default function PurchaseBillDetailPage() {
                         <div className="text-3xl font-bold">
                             {parseFloat(invoice.total_amount).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
                         </div>
-                        <div className="mt-1">
+                        <div className="mt-1 flex justify-end">
                             <StatusBadge status={invoice.status} />
                         </div>
                     </div>

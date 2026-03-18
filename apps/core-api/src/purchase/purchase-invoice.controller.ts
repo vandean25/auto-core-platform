@@ -6,6 +6,7 @@ import {
   Param,
   Query,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import { PurchaseInvoiceService } from './purchase-invoice.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
@@ -49,8 +50,31 @@ export class PurchaseInvoiceController {
     return this.service.findOne(id);
   }
 
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateDto: CreatePurchaseInvoiceDto) {
+    return this.service.update(id, updateDto);
+  }
+
   @Patch(':id/post')
   post(@Param('id') id: string) {
     return this.service.post(id);
+  }
+
+  @Patch(':id/pay')
+  pay(@Param('id') id: string) {
+    return this.service.pay(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
+  }
+
+  @Delete(':id/lines/:lineId')
+  removeLine(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+  ) {
+    return this.service.removeLine(id, lineId);
   }
 }
