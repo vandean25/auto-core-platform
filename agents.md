@@ -104,6 +104,10 @@ auto-core-platform/
 - **Typography/Colors**: Use `text-2xl font-semibold tracking-tight` for main page headers, and `text-slate-500` for subtitles instead of `text-muted-foreground`.
 - **Lists / Tables**: Prefer using the shared `DataTable` component abstraction (`@/components/data-table/DataTable`) over constructing raw tables in `src/pages/` components for listing data.
 
+### UX/UI Standards
+- **DO**: Place all page-level action buttons (`Create`, `Save`, `Print`, `Delete`, `Export`) aligned to the top-right corner of the page header.
+- **DON'T**: Do not place page-level action buttons on the left side under the page title. The top-left is strictly reserved for context (`breadcrumbs`, `titles`, `badges`).
+
 ### List Page UI Standard (Required for New Lists)
 - **Header**: Use the standard title/subtitle block with `text-2xl font-semibold tracking-tight` and `text-slate-500`.
 - **Top-right create action**: Use a plus icon with entity-only label format: `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.

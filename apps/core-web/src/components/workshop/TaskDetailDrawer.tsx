@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
-import { CircleDollarSign, Clock3, Package, X } from 'lucide-react'
+import { CircleDollarSign, Clock3, Package, Trash2, X } from 'lucide-react'
 import { useCatalogSearch } from '@/api/workshop'
 import type { CatalogPartSearchItem, LaborOperationSearchItem } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
@@ -66,6 +66,9 @@ interface TaskDetailDrawerProps {
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void
   onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
   onTaskMechanicNotesChange: (taskId: string, notes: string) => void
+  onTaskDelete?: (taskId: string) => void
+  canDeleteTask?: boolean
+  isDeletingTask?: boolean
   readOnly?: boolean
   variant?: 'drawer' | 'docked'
 }
@@ -90,6 +93,9 @@ export function TaskDetailDrawer({
   onTaskStatusChange,
   onTaskLineItemsChange,
   onTaskMechanicNotesChange,
+  onTaskDelete,
+  canDeleteTask = false,
+  isDeletingTask = false,
   readOnly = false,
   variant = 'drawer',
 }: TaskDetailDrawerProps) {
@@ -305,28 +311,43 @@ export function TaskDetailDrawer({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-3 min-w-0">
             <h2 className="text-lg font-semibold tracking-tight">{taskTitle}</h2>
-            <div className="w-[220px]">
-              <Select
-                value={status}
-                disabled={readOnly}
-                onValueChange={(v) => {
-                  if (!task) return
-                  const nextStatus = v as TaskStatus
-                  if (nextStatus !== task.status) {
-                    onTaskStatusChange(task.id, nextStatus)
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="WAITING_PARTS">Waiting Parts</SelectItem>
-                  <SelectItem value="DONE">Done</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-2">
+              <div className="w-[220px]">
+                <Select
+                  value={status}
+                  disabled={readOnly}
+                  onValueChange={(v) => {
+                    if (!task) return
+                    const nextStatus = v as TaskStatus
+                    if (nextStatus !== task.status) {
+                      onTaskStatusChange(task.id, nextStatus)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOT_STARTED">Not Started</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="WAITING_PARTS">Waiting Parts</SelectItem>
+                    <SelectItem value="DONE">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {task && onTaskDelete && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 px-2 text-destructive hover:text-destructive"
+                  onClick={() => onTaskDelete(task.id)}
+                  disabled={!canDeleteTask || isDeletingTask}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Delete task</span>
+                </Button>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Task details, labor lines, parts, and mechanic notes.

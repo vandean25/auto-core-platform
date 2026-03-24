@@ -1921,6 +1921,35 @@
         "tags": [
           "Workshop"
         ]
+      },
+      "delete": {
+        "operationId": "WorkshopController_deleteTask",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
       }
     },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {

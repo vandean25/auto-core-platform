@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -101,6 +102,14 @@ export class WorkshopController {
     @Body() dto: UpdateWorkshopTaskDto,
   ) {
     return this.workshopService.updateTask(orderId, taskId, dto);
+  }
+
+  @Delete('orders/:orderId/tasks/:taskId')
+  deleteTask(
+    @Param('orderId') orderId: string,
+    @Param('taskId') taskId: string,
+  ) {
+    return this.workshopService.deleteTask(orderId, taskId);
   }
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
