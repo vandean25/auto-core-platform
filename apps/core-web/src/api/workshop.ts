@@ -17,6 +17,13 @@ const WORKSHOP_API = '/api/workshop'
 const LABOR_API = '/api/labor'
 const CATALOG_API = '/api/catalog'
 
+export const workshopKeys = {
+  all: ['workshop'] as const,
+  orders: () => [...workshopKeys.all, 'orders'] as const,
+  order: (id: string) => [...workshopKeys.all, 'order', id] as const,
+  search: (query: string) => [...workshopKeys.all, 'search', query] as const,
+}
+
 type WorkshopOrderResponse = {
   data: WorkshopOrder[]
   meta: {
@@ -46,7 +53,7 @@ function normalizeOrder(order: any): WorkshopOrder {
 
 export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
   return useQuery<WorkshopOrderResponse>({
-    queryKey: ['workshop', 'orders', queryParams],
+    queryKey: [...workshopKeys.orders(), queryParams],
     queryFn: async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
         searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
@@ -64,7 +71,7 @@ export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
 
 export function useWorkshopOrder(id: string) {
   return useQuery<WorkshopOrder>({
-    queryKey: ['workshop', 'order', id],
+    queryKey: workshopKeys.order(id),
     queryFn: async () => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}`)
       if (!response.ok) throw new Error('Failed to fetch workshop order')
@@ -77,7 +84,7 @@ export function useWorkshopOrder(id: string) {
 
 export const useWorkshopSearch = (query: string) => {
   return useQuery<WorkshopSearchResponse>({
-    queryKey: ['workshop', 'search', query],
+    queryKey: workshopKeys.search(query),
     queryFn: async () => {
       if (!query || query.length < 2) return { data: { vehicles: [], customers: [] }, meta: { total: 0, page: 1, limit: 0, totalPages: 0 } }
       const response = await fetchWithAuth(`${WORKSHOP_API}/search?q=${encodeURIComponent(query)}`)
@@ -148,7 +155,7 @@ export const useCreateWorkshopOrder = () => {
       return normalizeOrder(json)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })
 }
@@ -175,8 +182,8 @@ export const useUpdateWorkshopOrder = () => {
       return normalizeOrder(json)
     },
     onSuccess: (order) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-      queryClient.setQueryData(['workshop', 'order', order.id], order)
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.setQueryData(workshopKeys.order(order.id), order)
     },
   })
 }
@@ -194,8 +201,8 @@ export const useCreateWorkshopTask = () => {
       return response.json()
     },
     onSuccess: (_task, { orderId }) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'order', orderId] })
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })
 }
@@ -226,8 +233,33 @@ export const useUpdateWorkshopTask = () => {
       return normalizeOrder(json)
     },
     onSuccess: (order) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-      queryClient.setQueryData(['workshop', 'order', order.id], order)
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.setQueryData(workshopKeys.order(order.id), order)
+    },
+  })
+}
+
+export const useDeleteWorkshopTask = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ orderId, taskId }: { orderId: string; taskId: string }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/tasks/${taskId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Failed to delete task' }))
+        throw new Error(error.message || 'Failed to delete task')
+      }
+      const json = await response.json()
+      return normalizeOrder(json)
+    },
+    onSuccess: (order) => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.setQueryData(workshopKeys.order(order.id), order)
+    },
+    onSettled: (_order, _error, { orderId }) => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })
 }
@@ -260,8 +292,8 @@ export const useReplaceWorkshopTaskLineItems = () => {
       return normalizeOrder(json)
     },
     onSuccess: (order) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-      queryClient.setQueryData(['workshop', 'order', order.id], order)
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.setQueryData(workshopKeys.order(order.id), order)
     },
   })
 }
@@ -280,8 +312,8 @@ export const useCreateInvoiceFromWorkshopOrder = () => {
       return response.json()
     },
     onSuccess: (_invoice, orderId) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'order', orderId] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
     },
   })
 }
@@ -299,7 +331,7 @@ export const useRegisterIntake = () => {
       return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workshop'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.all })
     },
   })
 }

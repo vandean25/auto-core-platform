@@ -638,7 +638,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["WorkshopController_deleteTask"];
         options?: never;
         head?: never;
         patch: operations["WorkshopController_updateTask"];
@@ -2253,6 +2253,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    WorkshopController_deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workshop task deleted successfully. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Task cannot be deleted because the order is invoiced or already has a linked invoice. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                        code?: string;
+                        /** @example 400 */
+                        statusCode?: number;
+                    };
+                };
+            };
+            /** @description Workshop task or order was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                        code?: string;
+                        /** @example 404 */
+                        statusCode?: number;
+                    };
+                };
             };
         };
     };

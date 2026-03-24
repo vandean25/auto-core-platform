@@ -28,6 +28,7 @@ describe('WorkshopService', () => {
     workshopTask: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      delete: jest.fn(),
       update: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -167,5 +168,57 @@ describe('WorkshopService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+  });
+
+  it('deletes a task and recalculates workshop order status', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: {
+        status: WorkshopOrderStatus.IN_PROGRESS,
+        invoice: null,
+      },
+    });
+    mockPrisma.workshopTask.delete.mockResolvedValue({});
+    mockPrisma.workshopTask.findMany.mockResolvedValue([]);
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await expect(service.deleteTask('wo-1', 't-1')).resolves.toEqual({
+      id: 'wo-1',
+    });
+
+    expect(mockPrisma.workshopTask.delete).toHaveBeenCalledWith({
+      where: { id: 't-1' },
+    });
+    expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
+      data: { status: WorkshopOrderStatus.INTAKE },
+    });
+  });
+
+  it('throws not found when deleting a missing task', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue(null);
+
+    await expect(service.deleteTask('wo-x', 'task-x')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('blocks task deletion when a linked draft invoice exists', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: {
+        status: WorkshopOrderStatus.COMPLETED,
+        invoice: { id: 'inv-draft-1', invoice_number: null },
+      },
+    });
+
+    await expect(service.deleteTask('wo-1', 't-1')).rejects.toThrow(
+      BadRequestException,
+    );
+
+    expect(mockPrisma.workshopTask.delete).not.toHaveBeenCalled();
   });
 });

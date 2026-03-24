@@ -6,13 +6,27 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
+  Clock,
   Clock3,
   FileText,
+  Key,
+  MapPin,
   Package,
   Phone,
   Plus,
   Printer,
+  User,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
+import { ActionGroup } from '@/components/ui/action-group'
 import {
   Select,
   SelectContent,
@@ -42,6 +57,7 @@ import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
 import {
   useCreateWorkshopTask,
+  useDeleteWorkshopTask,
   useReplaceWorkshopTaskLineItems,
   useUpdateWorkshopOrder,
   useUpdateWorkshopTask,
@@ -104,6 +120,7 @@ export function WorkshopOrderDetails() {
 
   const updateOrder = useUpdateWorkshopOrder()
   const createTask = useCreateWorkshopTask()
+  const deleteTask = useDeleteWorkshopTask()
   const updateTask = useUpdateWorkshopTask()
   const replaceTaskLineItems = useReplaceWorkshopTaskLineItems()
   const createDraftInvoice = useCreateDraftInvoice()
@@ -118,6 +135,7 @@ export function WorkshopOrderDetails() {
   const [lineDiscountOverrides, setLineDiscountOverrides] = useState<Record<string, DiscountState>>({})
   const [checkoutInvoiceIdOverride, setCheckoutInvoiceIdOverride] = useState<string | null>(null)
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
+  const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
   const lineItemSaveSeq = useRef<Record<string, number>>({})
   const [isDockedLayout, setIsDockedLayout] = useState(
     typeof window !== 'undefined'
@@ -324,6 +342,8 @@ export function WorkshopOrderDetails() {
   const customerPhone = order.customer.phone ?? ''
   const canEnterCheckout = order.status === 'COMPLETED' || !!activeInvoiceId
   const isLocked = order.status === 'INVOICED'
+  const hasLinkedInvoice = !!activeInvoiceId
+  const canDeleteTasks = !isLocked && !hasLinkedInvoice
   const invoiceStatus = fetchedInvoice?.status ?? null
   const canCreateDraftInCheckout =
     isCheckoutView &&
@@ -455,6 +475,27 @@ export function WorkshopOrderDetails() {
 
   const handleToggleTask = async (taskId: string, checked: boolean) => {
     await handleTaskStatusChange(taskId, checked ? 'DONE' : 'IN_PROGRESS')
+  }
+
+  const handleDeleteTask = async () => {
+    if (!taskPendingDelete || !canDeleteTasks) return
+
+    try {
+      await deleteTask.mutateAsync({ orderId: order.id, taskId: taskPendingDelete.id })
+      if (activeTaskId === taskPendingDelete.id) {
+        setActiveTaskId(null)
+      }
+      setTaskLineItemOverrides((previous) => {
+        const next = { ...previous }
+        delete next[taskPendingDelete.id]
+        return next
+      })
+      delete lineItemSaveSeq.current[taskPendingDelete.id]
+      setTaskPendingDelete(null)
+      toast.success('Task deleted')
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to delete task')
+    }
   }
 
   const openCheckoutView = () => {
@@ -616,6 +657,46 @@ export function WorkshopOrderDetails() {
     </Card>
   )
 
+  const orderInfoCard = (
+    <Card>
+      <CardHeader className='pb-3'>
+        <CardTitle className='text-base font-semibold'>Order Info</CardTitle>
+      </CardHeader>
+      <CardContent className='space-y-4 text-sm'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+          <div>
+            <div className='text-muted-foreground mb-1'>Assigned Tech</div>
+            <div className='font-medium flex items-center'>
+              <User className='w-4 h-4 mr-1.5 text-slate-500' />
+              John Doe
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground mb-1'>Bay / Location</div>
+            <div className='font-medium flex items-center'>
+              <MapPin className='w-4 h-4 mr-1.5 text-slate-500' />
+              Bay 4
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground mb-1'>Promised Time</div>
+            <div className='font-medium flex items-center'>
+              <Clock className='w-4 h-4 mr-1.5 text-slate-500' />
+              04/17/2026, 17:00
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground mb-1'>Key Tag</div>
+            <div className='font-medium flex items-center'>
+              <Key className='w-4 h-4 mr-1.5 text-slate-500' />
+              #42
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   const customerInfoCard = (
     <Card>
       <CardHeader className='pb-3'>
@@ -716,23 +797,11 @@ export function WorkshopOrderDetails() {
                   <div className='flex items-center gap-3'>
                     <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
                     <StatusBadge status={order.status} />
-                  </div>
-
-                  <div className='flex flex-wrap gap-2'>
-                    <Button variant='outline' onClick={handlePrint}>
-                      <Printer className='h-4 w-4 mr-2' />
-                      Print Job Card
-                    </Button>
-                    {!isInvoiceActionDisabled && (
-                      <Button onClick={handleCheckoutAction}>
-                        <FileText className='h-4 w-4 mr-2' />
-                        {invoiceActionLabel}
-                      </Button>
-                    )}
+                    <Badge variant='secondary' className='bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300'>Waiter</Badge>
                   </div>
                 </div>
 
-                <div className='w-full lg:w-auto lg:pl-4'>
+                <div className='flex w-full flex-col gap-3 lg:w-auto lg:items-end'>
                   <div className='grid grid-cols-1 sm:grid-cols-3 gap-2 lg:min-w-[460px]'>
                     <div className='rounded-xl border bg-muted/40 px-3 py-2'>
                       <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
@@ -756,6 +825,31 @@ export function WorkshopOrderDetails() {
                       <div className='mt-1 text-sm font-semibold text-primary'>{formatCurrency(orderGrandTotal)}</div>
                     </div>
                   </div>
+
+                  <div className='flex justify-end mt-1'>
+                    {!isInvoiceActionDisabled ? (
+                      <ActionGroup
+                        primaryAction={
+                          <Button onClick={handleCheckoutAction}>
+                            <FileText className='h-4 w-4 mr-2' />
+                            {invoiceActionLabel}
+                          </Button>
+                        }
+                        secondaryActions={[
+                          {
+                            label: 'Print Job Card',
+                            icon: <Printer className='h-4 w-4' />,
+                            onClick: handlePrint,
+                          },
+                        ]}
+                      />
+                    ) : (
+                      <Button variant='outline' onClick={handlePrint}>
+                        <Printer className='h-4 w-4 mr-2' />
+                        Print Job Card
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -768,6 +862,7 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
               >
+                {orderInfoCard}
                 {customerInfoCard}
                 {vehicleInfoCard}
               </motion.div>
@@ -1085,6 +1180,14 @@ export function WorkshopOrderDetails() {
                 onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
                 onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
                 onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+                onTaskDelete={(taskId) => {
+                  const task = tasks.find((existingTask) => existingTask.id === taskId)
+                  if (task) {
+                    setTaskPendingDelete(task)
+                  }
+                }}
+                canDeleteTask={canDeleteTasks}
+                isDeletingTask={deleteTask.isPending}
                 readOnly={isLocked}
               />
             </motion.div>
@@ -1104,9 +1207,50 @@ export function WorkshopOrderDetails() {
           onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
           onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
           onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+          onTaskDelete={(taskId) => {
+            const task = tasks.find((existingTask) => existingTask.id === taskId)
+            if (task) {
+              setTaskPendingDelete(task)
+            }
+          }}
+          canDeleteTask={canDeleteTasks}
+          isDeletingTask={deleteTask.isPending}
           readOnly={isLocked}
         />
       )}
+
+      <AlertDialog
+        open={taskPendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTaskPendingDelete(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {taskPendingDelete
+                ? `Delete "${taskPendingDelete.title}" from this workshop order? This also removes its parts and labor lines.`
+                : 'Delete this task from the workshop order?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTask.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDeleteTask()
+              }}
+              disabled={!canDeleteTasks || deleteTask.isPending}
+            >
+              {deleteTask.isPending ? 'Deleting...' : 'Delete Task'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

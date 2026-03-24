@@ -32,6 +32,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | PurchaseInvoice | No | Financial document; use status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
 | WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |
+| WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED` and no linked invoice exists yet on the order. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
 
 ## UI Contract

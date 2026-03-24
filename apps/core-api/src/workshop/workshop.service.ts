@@ -467,6 +467,58 @@ export class WorkshopService {
     return this.findOne(orderId);
   }
 
+  async deleteTask(orderId: string, taskId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const task = await tx.workshopTask.findFirst({
+        where: {
+          id: taskId,
+          workshop_order_id: orderId,
+        },
+        include: {
+          workshop_order: {
+            select: {
+              status: true,
+              invoice: { select: { id: true, invoice_number: true } },
+            },
+          },
+        },
+      });
+
+      if (!task) {
+        throw new NotFoundException(`Task ${taskId} not found for this order`);
+      }
+      this.assertOrderEditable(task.workshop_order.status);
+
+      if (task.workshop_order.invoice) {
+        throw new BadRequestException(
+          'Workshop order already has an invoice; tasks cannot be deleted',
+        );
+      }
+
+      await tx.workshopTask.delete({
+        where: { id: taskId },
+      });
+
+      const tasks = await tx.workshopTask.findMany({
+        where: { workshop_order_id: orderId },
+        select: { status: true },
+      });
+
+      const nextOrderStatus = this.deriveOrderStatus(
+        tasks.map((existingTask) => existingTask.status),
+      );
+      await tx.workshopOrder.updateMany({
+        where: {
+          id: orderId,
+          status: { not: WorkshopOrderStatus.INVOICED },
+        },
+        data: { status: nextOrderStatus },
+      });
+    });
+
+    return this.findOne(orderId);
+  }
+
   async replaceTaskLineItems(
     orderId: string,
     taskId: string,
