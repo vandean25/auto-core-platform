@@ -1944,7 +1944,51 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Workshop task deleted successfully."
+          },
+          "400": {
+            "description": "Task cannot be deleted because the order is invoiced or already has a linked invoice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "example": 400
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workshop task or order was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "example": 404
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [

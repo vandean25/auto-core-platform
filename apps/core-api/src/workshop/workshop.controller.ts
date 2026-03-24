@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { WorkshopService } from './workshop.service';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
@@ -105,6 +105,35 @@ export class WorkshopController {
   }
 
   @Delete('orders/:orderId/tasks/:taskId')
+  @ApiResponse({
+    status: 200,
+    description: 'Workshop task deleted successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Task cannot be deleted because the order is invoiced or already has a linked invoice.',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        code: { type: 'string' },
+        statusCode: { type: 'number', example: 400 },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Workshop task or order was not found.',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        code: { type: 'string' },
+        statusCode: { type: 'number', example: 404 },
+      },
+    },
+  })
   deleteTask(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,

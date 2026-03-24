@@ -257,6 +257,10 @@ export const useDeleteWorkshopTask = () => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       queryClient.setQueryData(workshopKeys.order(order.id), order)
     },
+    onSettled: (_order, _error, { orderId }) => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+    },
   })
 }
 

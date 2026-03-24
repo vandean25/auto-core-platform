@@ -638,7 +638,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["WorkshopController_deleteTask"];
         options?: never;
         head?: never;
         patch: operations["WorkshopController_updateTask"];
@@ -2249,6 +2249,26 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

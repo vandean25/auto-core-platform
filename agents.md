@@ -145,10 +145,12 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 ### API Contract Source of Truth
 - **OpenAPI is authoritative**: Backend contract is generated to `apps/core-api/openapi/openapi.json`.
 - **Frontend types are generated**: Use `apps/core-web/src/api/generated/openapi.ts` from OpenAPI instead of manually duplicating DTO contracts.
+- **Mandatory whenever backend API shape changes**: If you add or change any controller route, request/response DTO, Swagger decorator metadata, or anything else that can affect OpenAPI output, you must regenerate and commit both contract artifacts before finishing the task.
 - **Required update flow when backend DTO/controller contract changes**:
   1. `npm --prefix apps/core-api run openapi:generate`
   2. `npm --prefix apps/core-web run api:types:generate`
   3. Commit both generated files.
+- **PR check reminder**: Forgetting to commit either regenerated file will fail the PR build on contract drift, even if local builds/tests pass.
 - **CI enforcement**: PR workflow regenerates OpenAPI + frontend generated types and fails on drift.
 
 ### Testing Standards
