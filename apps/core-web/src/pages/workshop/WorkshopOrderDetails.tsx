@@ -1,22 +1,7 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import {
-  ChevronDown,
-  ChevronRight,
-  CircleDollarSign,
-  Clock,
-  Clock3,
-  FileText,
-  Key,
-  MapPin,
-  Package,
-  Phone,
-  Plus,
-  Printer,
-  User,
-} from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,32 +14,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import { InlineEdit } from '@/components/inline-edit/InlineEdit'
-import { Input } from '@/components/ui/input'
 import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
-import { StatusBadge } from '@/components/status/StatusBadge'
-import { Badge } from '@/components/ui/badge'
-import { ActionGroup } from '@/components/ui/action-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from '@/api/invoices'
 import { useInvoice } from '@/api/sales'
-import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
-import { formatCurrency } from '@/lib/utils'
+import { parseDiscountValue } from '@/lib/discount'
 import {
   useCreateWorkshopTask,
   useDeleteWorkshopTask,
@@ -65,53 +28,21 @@ import {
 } from '@/api/workshop'
 import type {
   DiscountType,
-  InvoiceItem,
   WorkshopLineItemType,
   WorkshopTask,
   WorkshopTaskLineItem,
   WorkshopTaskStatus,
 } from '@/api/types'
+import {
+  useWorkshopCalculations,
+  findInvoiceItemByLineItemId,
+} from './hooks/useWorkshopCalculations'
+import type { DiscountState } from './hooks/useWorkshopCalculations'
+import { OrderTopBar, CustomerVehicleInfo } from './components/OrderHeader'
+import { TaskList } from './components/TaskList'
+import { CheckoutSummary } from './components/CheckoutSummary'
 
 const EMPTY_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
-
-interface DiscountState {
-  type: DiscountType | null
-  value: string
-}
-
-interface CheckoutLineSummary {
-  rowKey: string
-  taskId: string
-  lineItem: WorkshopTaskLineItem
-  discount: DiscountState
-  baseAmount: number
-  discountAmount: number
-  lineNet: number
-  taxAmount: number
-}
-
-function normalizePhone(phone: string) {
-  return phone.replace(/[^\d+]/g, '')
-}
-
-function getCustomerName(order: any) {
-  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
-    return order.customer.company_name
-  }
-  return `${order.customer.first_name} ${order.customer.last_name}`.trim()
-}
-
-function getVehicleLabel(order: any) {
-  return `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`
-}
-
-function buildTaskLineRowKey(taskId: string, lineItemId: string | undefined, index: number) {
-  return `${taskId}:${lineItemId ?? `idx-${index}`}`
-}
-
-function findInvoiceItemByLineItemId(invoiceItems: InvoiceItem[], lineItemId: string) {
-  return invoiceItems.find((item) => item.id === lineItemId)
-}
 
 export function WorkshopOrderDetails() {
   const navigate = useNavigate()
@@ -155,168 +86,34 @@ export function WorkshopOrderDetails() {
     return () => mediaQuery.removeEventListener('change', update)
   }, [])
 
-  const tasks = useMemo<WorkshopTask[]>(() => (order?.tasks ?? []).map((task) => ({
-    ...task,
-    lineItems: taskLineItemOverrides[task.id] ?? task.lineItems ?? [],
-    mechanicNotes: task.mechanicNotes ?? '',
-  })), [order, taskLineItemOverrides])
+  // ── All calculation logic delegated to the hook ─────────────────────────
+  const {
+    tasks,
+    rawTaskTotals,
+    checkoutLineRows,
+    checkoutLineRowByRowKey,
+    groupedCheckoutTasks,
+    discountSeedFromInvoice,
+    checkoutSubtotal,
+    checkoutDiscountTotal,
+    checkoutNetTotal,
+    checkoutTaxTotal,
+    checkoutGrossTotal,
+    orderPartsTotal,
+    orderLaborTotal,
+    orderGrandTotal,
+  } = useWorkshopCalculations({
+    orderTasks: order?.tasks,
+    taskLineItemOverrides,
+    lineDiscountOverrides,
+    fetchedInvoice: fetchedInvoice ?? null,
+    isCheckoutView,
+  })
 
   const activeTask = useMemo(() => {
     if (!activeTaskId) return null
     return tasks.find((task) => task.id === activeTaskId) ?? null
   }, [activeTaskId, tasks])
-
-  const rawTaskTotals = useMemo(() => {
-    return new Map(
-      tasks.map((task) => {
-        const lineItems = task.lineItems ?? []
-        const parts = lineItems
-          .filter((lineItem) => lineItem.type === 'PART')
-          .reduce((sum, lineItem) => sum + lineItem.qty * lineItem.unitPrice, 0)
-        const labor = lineItems
-          .filter((lineItem) => lineItem.type === 'LABOR')
-          .reduce((sum, lineItem) => sum + lineItem.qty * lineItem.unitPrice, 0)
-        return [task.id, { parts, labor, total: parts + labor }]
-      }),
-    )
-  }, [tasks])
-
-  const baseOrderPartsTotal = useMemo(
-    () => Array.from(rawTaskTotals.values()).reduce((sum, totals) => sum + totals.parts, 0),
-    [rawTaskTotals],
-  )
-  const baseOrderLaborTotal = useMemo(
-    () => Array.from(rawTaskTotals.values()).reduce((sum, totals) => sum + totals.labor, 0),
-    [rawTaskTotals],
-  )
-
-  const checkoutLineRows = useMemo(() => {
-    return tasks.flatMap((task) =>
-      (task.lineItems ?? []).map((lineItem, index) => ({
-        rowKey: buildTaskLineRowKey(task.id, lineItem.id, index),
-        taskId: task.id,
-        lineItem,
-      })),
-    )
-  }, [tasks])
-
-  const discountSeedFromInvoice = useMemo(() => {
-    const seed: Record<string, DiscountState> = {}
-    const invoice = fetchedInvoice
-    if (!invoice) return seed
-
-    checkoutLineRows.forEach((lineRow) => {
-      const lineItemId = lineRow.lineItem.id
-      const invoiceItem = findInvoiceItemByLineItemId(invoice.items, lineItemId)
-      if (!invoiceItem) return
-      seed[lineRow.rowKey] = {
-        type: invoiceItem.line_discount_type ?? null,
-        value:
-          invoiceItem.line_discount_value !== null && invoiceItem.line_discount_value !== undefined
-            ? String(invoiceItem.line_discount_value)
-            : '',
-      }
-    })
-
-    return seed
-  }, [checkoutLineRows, fetchedInvoice])
-
-  const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(() => {
-    return checkoutLineRows.map(({ rowKey, taskId, lineItem }) => {
-      const baseAmount = lineItem.qty * lineItem.unitPrice
-      const discount = lineDiscountOverrides[rowKey] ?? discountSeedFromInvoice[rowKey] ?? EMPTY_DISCOUNT_STATE
-      const discountAmount = calculateDiscountAmount(
-        baseAmount,
-        discount.type,
-        parseDiscountValue(discount.value),
-      )
-      const lineNet = Math.max(0, baseAmount - discountAmount)
-      const invoiceItem = fetchedInvoice
-        ? findInvoiceItemByLineItemId(fetchedInvoice.items, lineItem.id)
-        : undefined
-      const lineTaxRate = Number(invoiceItem?.tax_rate ?? 0)
-      const taxAmount = lineNet * (lineTaxRate / 100)
-      return {
-        rowKey,
-        taskId,
-        lineItem,
-        discount,
-        baseAmount,
-        discountAmount,
-        lineNet,
-        taxAmount,
-      }
-    })
-  }, [checkoutLineRows, discountSeedFromInvoice, fetchedInvoice, lineDiscountOverrides])
-
-  const checkoutLineSummaryByRowKey = useMemo(
-    () => new Map(checkoutLineSummaries.map((summary) => [summary.rowKey, summary])),
-    [checkoutLineSummaries],
-  )
-  const checkoutLineRowByRowKey = useMemo(
-    () => new Map(checkoutLineRows.map((lineRow) => [lineRow.rowKey, lineRow])),
-    [checkoutLineRows],
-  )
-
-  const groupedCheckoutTasks = useMemo(() => {
-    return tasks.map((task) => {
-      const lines = (task.lineItems ?? [])
-        .map((lineItem, index) => {
-          const rowKey = buildTaskLineRowKey(task.id, lineItem.id, index)
-          return checkoutLineSummaryByRowKey.get(rowKey) ?? null
-        })
-        .filter((line): line is CheckoutLineSummary => line !== null)
-
-      const subtotal = lines.reduce((sum, line) => sum + line.baseAmount, 0)
-      const discountTotal = lines.reduce((sum, line) => sum + line.discountAmount, 0)
-      const netTotal = lines.reduce((sum, line) => sum + line.lineNet, 0)
-
-      return {
-        task,
-        lines,
-        subtotal,
-        discountTotal,
-        netTotal,
-      }
-    })
-  }, [checkoutLineSummaryByRowKey, tasks])
-
-  const checkoutPartsTotal = useMemo(
-    () =>
-      checkoutLineSummaries
-        .filter((line) => line.lineItem.type === 'PART')
-        .reduce((sum, line) => sum + line.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutLaborTotal = useMemo(
-    () =>
-      checkoutLineSummaries
-        .filter((line) => line.lineItem.type === 'LABOR')
-        .reduce((sum, line) => sum + line.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-
-  const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderPartsTotal
-  const orderLaborTotal = isCheckoutView ? checkoutLaborTotal : baseOrderLaborTotal
-  const orderGrandTotal = orderPartsTotal + orderLaborTotal
-
-  const checkoutSubtotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, line) => sum + line.baseAmount, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutDiscountTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, line) => sum + line.discountAmount, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutNetTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, line) => sum + line.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutTaxTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, line) => sum + line.taxAmount, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutGrossTotal = checkoutNetTotal + checkoutTaxTotal
 
   if (isLoading) {
     return <div className='p-8 text-center text-sm text-muted-foreground'>Loading workshop order...</div>
@@ -338,8 +135,6 @@ export function WorkshopOrderDetails() {
     )
   }
 
-  const customerName = getCustomerName(order)
-  const customerPhone = order.customer.phone ?? ''
   const canEnterCheckout = order.status === 'COMPLETED' || !!activeInvoiceId
   const isLocked = order.status === 'INVOICED'
   const hasLinkedInvoice = !!activeInvoiceId
@@ -366,6 +161,8 @@ export function WorkshopOrderDetails() {
       ? 'Open Checkout'
       : 'Generate Invoice'
   const isInvoiceActionDisabled = !isCheckoutView && !canEnterCheckout
+
+  // ── Handlers ────────────────────────────────────────────────────────────
 
   const handleSaveNotes = async (nextNotes: string) => {
     if (isLocked) return
@@ -634,147 +431,12 @@ export function WorkshopOrderDetails() {
     }
     : null
 
-  const reportedIssueCard = (
-    <Card>
-      <CardHeader className='pb-3'>
-        <div className='flex items-center justify-between'>
-          <CardTitle className='text-base font-semibold'>Reported Issue</CardTitle>
-          {order.status !== 'COMPLETED' && <Badge variant='destructive'>High Priority</Badge>}
-        </div>
-      </CardHeader>
-      <CardContent className='text-sm leading-relaxed'>
-        <InlineEdit
-          mode='textarea'
-          rows={4}
-          placeholder='Customer reported issue...'
-          value={order.reportedIssue || order.reported_issue || ''}
-          readOnly={isLocked}
-          onSave={handleSaveReportedIssue}
-          emptyText='Add reported issue'
-          ariaLabel='Workshop order reported issue'
-        />
-      </CardContent>
-    </Card>
-  )
+  const handleReopenTask = (taskId: string) => {
+    setIsCheckoutView(false)
+    setActiveTaskId(taskId)
+  }
 
-  const orderInfoCard = (
-    <Card>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>Order Info</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-4 text-sm'>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-          <div>
-            <div className='text-muted-foreground mb-1'>Assigned Tech</div>
-            <div className='font-medium flex items-center'>
-              <User className='w-4 h-4 mr-1.5 text-slate-500' />
-              John Doe
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>Bay / Location</div>
-            <div className='font-medium flex items-center'>
-              <MapPin className='w-4 h-4 mr-1.5 text-slate-500' />
-              Bay 4
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>Promised Time</div>
-            <div className='font-medium flex items-center'>
-              <Clock className='w-4 h-4 mr-1.5 text-slate-500' />
-              04/17/2026, 17:00
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>Key Tag</div>
-            <div className='font-medium flex items-center'>
-              <Key className='w-4 h-4 mr-1.5 text-slate-500' />
-              #42
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-
-  const customerInfoCard = (
-    <Card>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>Customer Info</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-3 text-sm'>
-        <div>
-          <div className='font-medium'>{customerName}</div>
-          <div className='text-muted-foreground'>{order.customer.email}</div>
-        </div>
-        <div>
-          <div className='text-muted-foreground'>Phone</div>
-          <div className='font-medium'>{customerPhone || 'N/A'}</div>
-        </div>
-        {customerPhone && (
-          <Button variant='outline' size='sm' className='h-8' asChild>
-            <a href={`tel:${normalizePhone(customerPhone)}`}>
-              <Phone className='h-3.5 w-3.5 mr-1.5' />
-              Call Customer
-            </a>
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  )
-
-  const vehicleInfoCard = (
-    <Card>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>Vehicle Info</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-3 text-sm'>
-        <div className='font-medium'>{getVehicleLabel(order)}</div>
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-          <div>
-            <div className='text-muted-foreground'>VIN</div>
-            <div className='font-medium'>{order.vehicle.vin || 'N/A'}</div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>Plate</div>
-            <div className='font-medium'>{order.vehicle.plate || 'N/A'}</div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>Mileage</div>
-            <div className='font-medium'>
-              {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>Fuel</div>
-            <div className='font-medium'>
-              {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-
-  const internalNotesCard = (
-    <Card>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>Internal Notes</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <InlineEdit
-          mode='textarea'
-          rows={5}
-          placeholder='Notes visible to service advisors and mechanics...'
-          value={order.notes || ''}
-          readOnly={isLocked}
-          onSave={handleSaveNotes}
-          emptyText='Add internal notes'
-          ariaLabel='Workshop internal notes'
-        />
-      </CardContent>
-    </Card>
-  )
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -790,70 +452,16 @@ export function WorkshopOrderDetails() {
             isDockedLayout && activeTask && !isCheckoutView ? '2xl:-translate-x-3' : '2xl:translate-x-0'
           }`}
         >
-          <Card className='mb-8'>
-            <CardContent className='p-4 sm:p-5'>
-              <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
-                <div className='space-y-3'>
-                  <div className='flex items-center gap-3'>
-                    <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
-                    <StatusBadge status={order.status} />
-                    <Badge variant='secondary' className='bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300'>Waiter</Badge>
-                  </div>
-                </div>
-
-                <div className='flex w-full flex-col gap-3 lg:w-auto lg:items-end'>
-                  <div className='grid grid-cols-1 sm:grid-cols-3 gap-2 lg:min-w-[460px]'>
-                    <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                      <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                        <Package className='h-3.5 w-3.5' />
-                        <span>Total Parts</span>
-                      </div>
-                      <div className='mt-1 text-sm font-medium'>{formatCurrency(orderPartsTotal)}</div>
-                    </div>
-                    <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                      <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                        <Clock3 className='h-3.5 w-3.5' />
-                        <span>Total Labor</span>
-                      </div>
-                      <div className='mt-1 text-sm font-medium'>{formatCurrency(orderLaborTotal)}</div>
-                    </div>
-                    <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
-                      <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
-                        <CircleDollarSign className='h-3.5 w-3.5' />
-                        <span>Grand Total</span>
-                      </div>
-                      <div className='mt-1 text-sm font-semibold text-primary'>{formatCurrency(orderGrandTotal)}</div>
-                    </div>
-                  </div>
-
-                  <div className='flex justify-end mt-1'>
-                    {!isInvoiceActionDisabled ? (
-                      <ActionGroup
-                        primaryAction={
-                          <Button onClick={handleCheckoutAction}>
-                            <FileText className='h-4 w-4 mr-2' />
-                            {invoiceActionLabel}
-                          </Button>
-                        }
-                        secondaryActions={[
-                          {
-                            label: 'Print Job Card',
-                            icon: <Printer className='h-4 w-4' />,
-                            onClick: handlePrint,
-                          },
-                        ]}
-                      />
-                    ) : (
-                      <Button variant='outline' onClick={handlePrint}>
-                        <Printer className='h-4 w-4 mr-2' />
-                        Print Job Card
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <OrderTopBar
+            order={order}
+            orderPartsTotal={orderPartsTotal}
+            orderLaborTotal={orderLaborTotal}
+            orderGrandTotal={orderGrandTotal}
+            invoiceActionLabel={invoiceActionLabel}
+            isInvoiceActionDisabled={isInvoiceActionDisabled}
+            onCheckoutAction={() => void handleCheckoutAction()}
+            onPrint={handlePrint}
+          />
 
           {!isCheckoutView && (
             <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
@@ -862,9 +470,7 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
               >
-                {orderInfoCard}
-                {customerInfoCard}
-                {vehicleInfoCard}
+                <CustomerVehicleInfo order={order} />
               </motion.div>
 
               <motion.div
@@ -872,82 +478,19 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
               >
-                {reportedIssueCard}
-
-                <Card>
-                  <CardHeader className='pb-3'>
-                    <div className='flex items-center justify-between gap-3'>
-                      <CardTitle className='text-base font-semibold'>Repair Tasks</CardTitle>
-                      <div className='flex items-center gap-2 w-full max-w-md'>
-                        <Input
-                          value={newTaskTitle}
-                          onChange={(e) => setNewTaskTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              void handleAddTask()
-                            }
-                          }}
-                          placeholder='New task title...'
-                          className='h-8'
-                          disabled={isLocked}
-                        />
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='h-8'
-                          onClick={() => void handleAddTask()}
-                          disabled={isLocked}
-                        >
-                          <Plus className='h-3.5 w-3.5 mr-1' />
-                          Task
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className='space-y-2'>
-                    {tasks.length === 0 && (
-                      <div className='text-sm text-muted-foreground'>No tasks yet. Add the first task to begin work.</div>
-                    )}
-                    {tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        data-workshop-task-row='true'
-                        onClick={() => setActiveTaskId(task.id)}
-                        className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer'
-                      >
-                        <div className='flex items-center gap-3 text-left'>
-                          <Checkbox
-                            checked={task.done}
-                            onCheckedChange={(checked) => void handleToggleTask(task.id, checked === true)}
-                            disabled={isLocked}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-                            {task.title}
-                          </span>
-                          <span className='ml-auto flex items-center gap-2'>
-                            <Button
-                              variant='ghost'
-                              size='sm'
-                              className='h-7 px-2'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setActiveTaskId(task.id)
-                              }}
-                            >
-                              Open
-                            </Button>
-                            <span className='text-sm font-semibold'>{formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}</span>
-                            <StatusBadge status={task.status} />
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                {internalNotesCard}
+                <TaskList
+                  order={order}
+                  tasks={tasks}
+                  rawTaskTotals={rawTaskTotals}
+                  isLocked={isLocked}
+                  newTaskTitle={newTaskTitle}
+                  onNewTaskTitleChange={setNewTaskTitle}
+                  onAddTask={() => void handleAddTask()}
+                  onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
+                  onOpenTask={setActiveTaskId}
+                  onSaveReportedIssue={(value) => void handleSaveReportedIssue(value)}
+                  onSaveNotes={(value) => void handleSaveNotes(value)}
+                />
               </motion.div>
             </div>
           )}
@@ -959,8 +502,7 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
               >
-                {customerInfoCard}
-                {vehicleInfoCard}
+                <CustomerVehicleInfo order={order} />
               </motion.div>
 
               <motion.div
@@ -968,194 +510,32 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
               >
-                <Card className='border-primary/20'>
-                  <CardHeader className='pb-3'>
-                    <div className='flex items-center justify-between gap-3'>
-                      <div>
-                        <CardTitle className='text-base font-semibold'>Draft Invoice</CardTitle>
-                        <p className='text-xs text-muted-foreground mt-1'>
-                          Grouped by task. Use task-level discount (%) to cascade to every nested line.
-                        </p>
-                      </div>
-                      <div className='flex items-center gap-2'>
-                        {activeInvoiceId && (
-                          <span className='text-xs text-muted-foreground'>
-                            Invoice: {fetchedInvoice?.invoice_number || activeInvoiceId}
-                          </span>
-                        )}
-                        {canCreateDraftInCheckout && (
-                          <Button size='sm' onClick={() => void handleCreateDraftInCheckout()}>
-                            {createDraftInvoice.isPending ? 'Creating Draft...' : 'Create Draft Invoice'}
-                          </Button>
-                        )}
-                        {canIssueInvoiceInCheckout && (
-                          <Button size='sm' onClick={() => void handleIssueInvoiceInCheckout()}>
-                            {issueInvoice.isPending ? 'Issuing...' : 'Issue Invoice'}
-                          </Button>
-                        )}
-                        {activeInvoiceId && isInvoiceLoading && (
-                          <span className='text-xs text-muted-foreground'>Loading invoice...</span>
-                        )}
-                        <Button variant='outline' size='sm' onClick={() => setIsCheckoutView(false)}>
-                          Return to Tasks
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className='space-y-4'>
-                    <div className='rounded-xl border overflow-hidden'>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead className='text-right w-[90px]'>Qty</TableHead>
-                            <TableHead className='text-right w-[140px]'>Unit Price</TableHead>
-                            <TableHead className='text-right w-[260px]'>Discount</TableHead>
-                            <TableHead className='text-right w-[160px]'>Net</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {groupedCheckoutTasks.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={5} className='text-center text-sm text-muted-foreground py-6'>
-                                No billable lines found in tasks.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {groupedCheckoutTasks.map(({ task, lines, discountTotal, netTotal }) => {
-                            const taskDiscountPercent = taskDiscountOverrides[task.id] ?? ''
-                            const isExpanded = expandedTaskGroups[task.id] === true
-                            return (
-                              <Fragment key={task.id}>
-                                <TableRow className='bg-muted/40'>
-                                  <TableCell colSpan={2}>
-                                    <div className='flex items-center justify-between gap-2'>
-                                      <button
-                                        type='button'
-                                        className='flex items-center gap-2 text-left'
-                                        onClick={() => handleToggleGroup(task.id)}
-                                      >
-                                        {isExpanded ? (
-                                          <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                                        ) : (
-                                          <ChevronRight className='h-4 w-4 text-muted-foreground' />
-                                        )}
-                                        <span className='font-semibold'>{task.title}</span>
-                                      </button>
-                                      {!isLocked && (
-                                        <Button
-                                          variant='ghost'
-                                          size='sm'
-                                          className='h-7 px-2'
-                                          onClick={() => {
-                                            setIsCheckoutView(false)
-                                            setActiveTaskId(task.id)
-                                          }}
-                                        >
-                                          Reopen Task
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className='text-right font-semibold'>
-                                    {formatCurrency(netTotal)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className='flex justify-end'>
-                                      <div className='flex items-center gap-2'>
-                                        <span className='text-[11px] text-muted-foreground whitespace-nowrap'>Discount Whole Task (%)</span>
-                                        <Input
-                                          value={taskDiscountPercent}
-                                          onChange={(e) => handleTaskDiscountValueChange(task.id, e.target.value)}
-                                          className='h-8 w-[110px] text-right'
-                                          inputMode='decimal'
-                                          placeholder='0'
-                                          disabled={isLocked || lines.length === 0}
-                                        />
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className='text-right text-sm font-medium text-muted-foreground'>
-                                    -{formatCurrency(discountTotal)}
-                                  </TableCell>
-                                </TableRow>
-
-                                {isExpanded && lines.map((line) => (
-                                  <TableRow key={line.rowKey}>
-                                    <TableCell>
-                                      <div className='text-sm font-medium'>{line.lineItem.description}</div>
-                                      <div className='text-xs text-muted-foreground'>
-                                        {line.lineItem.type} • {line.lineItem.itemNo || 'N/A'}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className='text-right'>{line.lineItem.qty}</TableCell>
-                                    <TableCell className='text-right'>
-                                      {formatCurrency(line.lineItem.unitPrice)}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className='flex justify-end gap-2'>
-                                        <Select
-                                          value={line.discount.type ?? 'NONE'}
-                                          onValueChange={(value) => handleLineDiscountTypeChange(line.rowKey, value)}
-                                          disabled={isLocked}
-                                        >
-                                          <SelectTrigger className='h-8 w-[110px] text-xs'>
-                                            <SelectValue placeholder='No discount' />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value='NONE'>None</SelectItem>
-                                            <SelectItem value='PERCENTAGE'>%</SelectItem>
-                                            <SelectItem value='FLAT_AMOUNT'>EUR</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      <Input
-                                        value={line.discount.value}
-                                        onChange={(e) => handleLineDiscountValueChange(line.rowKey, e.target.value)}
-                                        className='h-8 w-[110px] text-right'
-                                        inputMode='decimal'
-                                        placeholder='0'
-                                        disabled={isLocked}
-                                      />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className='text-right font-medium'>
-                                    {formatCurrency(line.lineNet)}
-                                  </TableCell>
-                                </TableRow>
-                                ))}
-                              </Fragment>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    <div className='flex justify-end'>
-                      <div className='w-full max-w-md rounded-xl border bg-muted/20 p-4 space-y-2'>
-                        <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>Subtotal</span>
-                          <span>{formatCurrency(checkoutSubtotal)}</span>
-                        </div>
-                        <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>Total Discounts</span>
-                          <span>-{formatCurrency(checkoutDiscountTotal)}</span>
-                        </div>
-                        <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>Net</span>
-                          <span>{formatCurrency(checkoutNetTotal)}</span>
-                        </div>
-                        <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>VAT</span>
-                          <span>{formatCurrency(checkoutTaxTotal)}</span>
-                        </div>
-                        <div className='border-t pt-2 mt-2 flex items-center justify-between text-sm font-semibold'>
-                          <span>Total</span>
-                          <span>{formatCurrency(checkoutGrossTotal)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <CheckoutSummary
+                  activeInvoiceId={activeInvoiceId}
+                  fetchedInvoice={fetchedInvoice}
+                  isInvoiceLoading={isInvoiceLoading}
+                  isLocked={isLocked}
+                  canCreateDraftInCheckout={canCreateDraftInCheckout}
+                  canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
+                  createDraftPending={createDraftInvoice.isPending}
+                  issuePending={issueInvoice.isPending}
+                  groupedCheckoutTasks={groupedCheckoutTasks}
+                  expandedTaskGroups={expandedTaskGroups}
+                  taskDiscountOverrides={taskDiscountOverrides}
+                  checkoutSubtotal={checkoutSubtotal}
+                  checkoutDiscountTotal={checkoutDiscountTotal}
+                  checkoutNetTotal={checkoutNetTotal}
+                  checkoutTaxTotal={checkoutTaxTotal}
+                  checkoutGrossTotal={checkoutGrossTotal}
+                  onToggleGroup={handleToggleGroup}
+                  onTaskDiscountValueChange={handleTaskDiscountValueChange}
+                  onLineDiscountTypeChange={handleLineDiscountTypeChange}
+                  onLineDiscountValueChange={handleLineDiscountValueChange}
+                  onCreateDraftInvoice={() => void handleCreateDraftInCheckout()}
+                  onIssueInvoice={() => void handleIssueInvoiceInCheckout()}
+                  onReturnToTasks={() => setIsCheckoutView(false)}
+                  onReopenTask={handleReopenTask}
+                />
               </motion.div>
             </div>
           )}

@@ -2,9 +2,16 @@
 trigger: always_on
 ---
 
-# AI Assistant Instructions & Context: Auto Core Platform
+## Agentic Execution Framework (Superpowers)
+You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/superpowers/skills/` directory.
 
-This document provides a comprehensive overview of the Auto Core Platform project, including its architecture, technology stack, development conventions, critical instructions, and operational procedures.
+### Mandatory Workflows:
+1. **Planning:** Before writing code or modifying architecture, read `.agents/superpowers/skills/writing-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
+2. **Test-Driven Development (TDD):** When writing code, you MUST follow the Red-Green-Refactor cycle defined in `.agents/superpowers/skills/test-driven-development/SKILL.md`.
+3. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/superpowers/skills/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
+4. **Brainstorming:** If a user request is vague or open-ended, read `.agents/superpowers/skills/brainstorming/SKILL.md` first.
+
+Do not bypass these rules under any circumstances.
 
 ## Project Overview
 

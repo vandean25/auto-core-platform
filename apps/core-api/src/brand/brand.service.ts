@@ -1,54 +1,81 @@
 import {
   Injectable,
-  NotFoundException,
-  ConflictException,
   BadRequestException,
+  ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
+import { Brand } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
+import { PrismaRepository, PaginatedResult } from '../common/repositories/prisma-repository';
+import {
+  ConflictError,
+  NotFoundError,
+} from '../common/errors/application-errors';
 
 @Injectable()
 export class BrandService {
-  constructor(private prisma: PrismaService) {}
+  private readonly brandRepository: PrismaRepository<Brand>;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.brandRepository = new PrismaRepository<Brand>(prisma.brand);
+  }
 
   async findAll(filters?: {
     isVehicleMake?: boolean;
     isPartManufacturer?: boolean;
-  }) {
-    return this.prisma.brand.findMany({
-      where: {
-        ...(filters?.isVehicleMake !== undefined && {
-          isVehicleMake: filters.isVehicleMake,
-        }),
-        ...(filters?.isPartManufacturer !== undefined && {
-          isPartManufacturer: filters.isPartManufacturer,
-        }),
-      },
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResult<Brand>> {
+    const where = {
+      ...(filters?.isVehicleMake !== undefined && {
+        isVehicleMake: filters.isVehicleMake,
+      }),
+      ...(filters?.isPartManufacturer !== undefined && {
+        isPartManufacturer: filters.isPartManufacturer,
+      }),
+    };
+
+    // When page/limit are explicitly provided, return standard paginated result
+    if (filters?.page !== undefined || filters?.limit !== undefined) {
+      return this.brandRepository.findManyPaginated({
+        where,
+        orderBy: { name: 'asc' },
+        page: filters.page,
+        limit: filters.limit,
+      });
+    }
+
+    // Non-paginated: fetch all via repository, wrap in standard shape
+    const brands = await this.brandRepository.findMany({
+      where,
       orderBy: { name: 'asc' },
     });
+
+    return {
+      data: brands,
+      meta: { total: brands.length, page: 1, limit: brands.length, totalPages: 1 },
+    };
   }
 
-  async findOne(id: number) {
-    const brand = await this.prisma.brand.findUnique({
-      where: { id },
-    });
-    if (!brand) {
-      throw new NotFoundException(`Brand with ID ${id} not found`);
+  async findOne(brandId: number): Promise<Brand> {
+    try {
+      return await this.brandRepository.findById(brandId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw new NotFoundException(`Brand with ID ${brandId} not found`);
+      }
+      throw error;
     }
-    return brand;
   }
 
-  async create(createBrandDto: CreateBrandDto) {
-    if (!createBrandDto.isVehicleMake && !createBrandDto.isPartManufacturer) {
-      throw new BadRequestException('Brand must be at least one type');
-    }
+  async create(createBrandDto: CreateBrandDto): Promise<Brand> {
+    this.validateBrandTypes(createBrandDto.isVehicleMake, createBrandDto.isPartManufacturer);
 
     try {
-      return await this.prisma.brand.create({
-        data: createBrandDto,
-      });
+      return await this.brandRepository.create(createBrandDto as unknown as Record<string, unknown>);
     } catch (error) {
-      if (error.code === 'P2002') {
+      if (error instanceof ConflictError) {
         throw new ConflictException(
           `Brand with name "${createBrandDto.name}" already exists`,
         );
@@ -57,73 +84,82 @@ export class BrandService {
     }
   }
 
-  async update(id: number, updateBrandDto: UpdateBrandDto) {
-    // If updating flags, ensure at least one is true (if provided)
-    if (
-      updateBrandDto.isVehicleMake !== undefined ||
-      updateBrandDto.isPartManufacturer !== undefined
-    ) {
-      const currentBrand = await this.findOne(id);
-      const nextIsVehicleMake =
-        updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
-      const nextIsPartManufacturer =
-        updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
-
-      if (!nextIsVehicleMake && !nextIsPartManufacturer) {
-        throw new BadRequestException('Brand must be at least one type');
-      }
-    }
+  async update(brandId: number, updateBrandDto: UpdateBrandDto): Promise<Brand> {
+    await this.validateUpdateFlags(brandId, updateBrandDto);
 
     try {
-      return await this.prisma.brand.update({
-        where: { id },
-        data: updateBrandDto,
-      });
+      return await this.brandRepository.update(brandId, updateBrandDto as unknown as Record<string, unknown>);
     } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`Brand with ID ${id} not found`);
+      if (error instanceof NotFoundError) {
+        throw new NotFoundException(`Brand with ID ${brandId} not found`);
       }
-      if (error.code === 'P2002') {
+      if (error instanceof ConflictError) {
         throw new ConflictException(`Brand with name already exists`);
       }
       throw error;
     }
   }
 
-  async remove(id: number) {
-    // Check usage in CatalogItems
-    const catalogUsage = await this.prisma.catalogItem.count({
-      where: { brand_id: id },
+  async remove(brandId: number): Promise<Brand> {
+    await this.ensureNoDependencies(brandId);
+
+    try {
+      return await this.brandRepository.delete(brandId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw new NotFoundException(`Brand with ID ${brandId} not found`);
+      }
+      throw error;
+    }
+  }
+
+  private validateBrandTypes(isVehicleMake?: boolean, isPartManufacturer?: boolean): void {
+    if (!isVehicleMake && !isPartManufacturer) {
+      throw new BadRequestException('Brand must be at least one type');
+    }
+  }
+
+  private async validateUpdateFlags(brandId: number, updateBrandDto: UpdateBrandDto): Promise<void> {
+    const isUpdatingFlags = updateBrandDto.isVehicleMake !== undefined || 
+                           updateBrandDto.isPartManufacturer !== undefined;
+    
+    if (!isUpdatingFlags) return;
+
+    const currentBrand = await this.findOne(brandId);
+    const nextIsVehicleMake = updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
+    const nextIsPartManufacturer = updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
+
+    this.validateBrandTypes(nextIsVehicleMake, nextIsPartManufacturer);
+  }
+
+  /**
+   * Cross-entity dependency check. Uses raw PrismaService intentionally —
+   * the repository pattern covers single-entity CRUD against one delegate;
+   * cross-entity queries remain in the service layer.
+   */
+  private async ensureNoDependencies(brandId: number): Promise<void> {
+    const catalogItemsCount = await this.prisma.catalogItem.count({
+      where: { brand_id: brandId },
     });
-    if (catalogUsage > 0) {
+    
+    if (catalogItemsCount > 0) {
       throw new ConflictException(
-        `Cannot delete brand with ${catalogUsage} catalog items linked`,
+        `Cannot delete brand with ${catalogItemsCount} catalog items linked`,
       );
     }
 
-    // Check usage in Vendors
-    const vendorUsage = await this.prisma.vendor.count({
+    const vendorsCount = await this.prisma.vendor.count({
       where: {
         supportedBrands: {
-          some: { id },
+          some: { id: brandId },
         },
       },
     });
-    if (vendorUsage > 0) {
+    
+    if (vendorsCount > 0) {
       throw new ConflictException(
-        `Cannot delete brand with ${vendorUsage} vendors linked`,
+        `Cannot delete brand with ${vendorsCount} vendors linked`,
       );
-    }
-
-    try {
-      return await this.prisma.brand.delete({
-        where: { id },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`Brand with ID ${id} not found`);
-      }
-      throw error;
     }
   }
 }
