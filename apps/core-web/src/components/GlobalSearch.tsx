@@ -101,9 +101,13 @@ const currencyFormatter = new Intl.NumberFormat('de-DE', {
   currency: 'EUR',
 })
 
+const truncate = (text: string, max = 50) =>
+  text.length > max ? `${text.slice(0, max).trimEnd()}…` : text
+
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const [search, setSearch] = React.useState('')
   const query = search.trim()
+  const truncatedQuery = truncate(query)
   const { data: searchResults, isFetching, error } = useGlobalSearch(query)
   const navigate = useNavigate()
 
@@ -140,7 +144,9 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
       <CommandList className="max-h-[420px] overflow-y-auto overflow-x-hidden px-1 pb-2">
         <CommandEmpty>
-          {hasSearch ? `No inventory or commands match “${query}”.` : 'Start typing to search inventory and commands.'}
+          {hasSearch
+            ? `No inventory or commands match “${truncatedQuery}”.`
+            : 'Start typing to search inventory and commands.'}
         </CommandEmpty>
 
         {quickActions.map((section, sectionIndex) => (
@@ -201,7 +207,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 ))
               ) : (
                 <div className="px-2 py-6 text-sm text-slate-500">
-                  No inventory items match “{query}”.
+                  No inventory items match “{truncatedQuery}”.
                 </div>
               )}
             </CommandGroup>

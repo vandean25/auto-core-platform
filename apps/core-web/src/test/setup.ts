@@ -27,15 +27,7 @@ vi.mock('framer-motion', async (importOriginal) => {
       {
         get: (_target, key: string) => {
           return ({ children, ...props }: any) => {
-            const {
-              initial,
-              animate,
-              exit,
-              transition,
-              variants,
-              ...rest
-            } = props
-            return React.createElement(key, rest, children)
+            return React.createElement(key, props, children)
           }
         },
       }

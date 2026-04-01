@@ -152,8 +152,8 @@ export class InventoryService {
     }
 
     // Pagination precedence: take > pageSize > limit > default(10)
-    const pageSize = params.take || params.pageSize || params.limit || 10;
-    const pageCount = Math.ceil(total / pageSize);
+    const resolvedPageSize = params.take || params.pageSize || params.limit || 10;
+    const pageCount = Math.ceil(total / resolvedPageSize);
 
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {
@@ -193,8 +193,8 @@ export class InventoryService {
       data: transformedItems,
       meta: {
         total,
-        page: params.page || params.skip / (params.take || pageSize) + 1, // Estimate page for legacy or QB
-        pageSize,
+        page: params.page || params.skip / (params.take || resolvedPageSize) + 1, // Estimate page for legacy or QB
+        pageSize: resolvedPageSize,
         pageCount,
       },
     };

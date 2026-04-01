@@ -7,7 +7,8 @@ type InventoryApiResponse = {
     meta: {
         total: number
         page: number
-        limit: number
+        limit?: number
+        pageSize?: number
         pageCount?: number
         totalPages?: number
         last_page?: number
@@ -23,13 +24,14 @@ export const inventoryKeys = {
 
 function normalizeInventoryResponse(payload: InventoryApiResponse): InventoryResponse {
     const pageCount = payload.meta.pageCount ?? payload.meta.totalPages ?? payload.meta.last_page ?? 1
+    const limit = payload.meta.pageSize ?? payload.meta.limit ?? 10
 
     return {
         data: payload.data,
         meta: {
             total: payload.meta.total,
             page: payload.meta.page,
-            limit: payload.meta.limit,
+            limit,
             pageCount,
         },
     }
