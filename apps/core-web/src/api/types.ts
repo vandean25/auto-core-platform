@@ -27,7 +27,7 @@ export interface InventoryResponse {
         total: number
         page: number
         limit: number
-        totalPages: number
+        pageCount: number
     }
 }
 

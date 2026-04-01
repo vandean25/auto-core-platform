@@ -2,11 +2,37 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { InventoryItem, InventoryResponse, InventoryTransaction } from './types'
 import { fetchWithAuth } from './client'
 
+type InventoryApiResponse = {
+    data: InventoryItem[]
+    meta: {
+        total: number
+        page: number
+        limit: number
+        pageCount?: number
+        totalPages?: number
+        last_page?: number
+    }
+}
+
 export const inventoryKeys = {
     all: ['inventory'] as const,
     list: (params: { page?: number; pageSize?: number; search?: string; brand?: string }) => [...inventoryKeys.all, 'list', params] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
+}
+
+function normalizeInventoryResponse(payload: InventoryApiResponse): InventoryResponse {
+    const pageCount = payload.meta.pageCount ?? payload.meta.totalPages ?? payload.meta.last_page ?? 1
+
+    return {
+        data: payload.data,
+        meta: {
+            total: payload.meta.total,
+            page: payload.meta.page,
+            limit: payload.meta.limit,
+            pageCount,
+        },
+    }
 }
 
 export function useInventory(params: { page?: number; pageSize?: number; search?: string; brand?: string } = {}) {
@@ -23,7 +49,8 @@ export function useInventory(params: { page?: number; pageSize?: number; search?
             if (!response.ok) {
                 throw new Error('Network response was not ok')
             }
-            return response.json()
+            const payload = (await response.json()) as InventoryApiResponse
+            return normalizeInventoryResponse(payload)
         },
     })
 }
@@ -54,7 +81,7 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
             if (!response.ok) {
                 throw new Error('Failed to fetch inventory item')
             }
-            const payload = (await response.json()) as InventoryResponse
+            const payload = normalizeInventoryResponse((await response.json()) as InventoryApiResponse)
             const match = payload.data.find((item) => (itemId ? item.id === itemId : item.sku === sku))
             if (itemId) {
                 return match ?? null

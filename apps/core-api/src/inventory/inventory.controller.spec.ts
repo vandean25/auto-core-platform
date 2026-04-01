@@ -36,7 +36,7 @@ describe('InventoryController', () => {
     it('should call inventoryService.findAll with parsed params', async () => {
       const mockResult = {
         data: [],
-        meta: { total: 0, page: 1, last_page: 0 },
+        meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
       };
       mockInventoryService.findAll.mockResolvedValue(mockResult);
 

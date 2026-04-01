@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as workshopApi from '@/api/workshop'
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
-import * as inventoryApi from '@/api/inventory'
 import { toast } from 'sonner'
 
 vi.mock('@/api/workshop')

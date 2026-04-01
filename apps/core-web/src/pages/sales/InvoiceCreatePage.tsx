@@ -284,9 +284,15 @@ export default function InvoiceCreatePage() {
       </div>
 
       {/* Part Search Dialog */}
-      <CommandDialog open={partSearchOpen} onOpenChange={setPartSearchOpen}>
+      <CommandDialog
+        open={partSearchOpen}
+        onOpenChange={setPartSearchOpen}
+        title="Search Inventory"
+        description="Find parts and add them to the invoice."
+      >
         <CommandInput
-          placeholder="Search inventory..."
+          aria-label="Search inventory"
+          placeholder="Search inventory…"
           value={inventorySearch}
           onValueChange={setInventorySearch}
         />

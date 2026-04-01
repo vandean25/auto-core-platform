@@ -46,7 +46,7 @@ export function AddItemDialog() {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Item
+                    <Plus className="mr-2 h-4 w-4" /> + Item
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
@@ -83,7 +83,7 @@ export function AddItemDialog() {
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={createMutation.isPending}>
-                            {createMutation.isPending ? "Creating..." : "Create Item"}
+                            {createMutation.isPending ? "Creating…" : "+ Item"}
                         </Button>
                     </DialogFooter>
                 </form>

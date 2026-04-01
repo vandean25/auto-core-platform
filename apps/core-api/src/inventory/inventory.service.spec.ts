@@ -168,7 +168,8 @@ describe('InventoryService', () => {
         meta: {
           total: 2,
           page: 1,
-          last_page: 1,
+          pageSize: 10,
+          pageCount: 1,
         },
       });
       expect(prisma.catalogItem.findMany).toHaveBeenCalledWith(
@@ -228,7 +229,7 @@ describe('InventoryService', () => {
       expect(result.data).toEqual([]);
       expect(result.meta.page).toBe(5);
       expect(result.meta.total).toBe(10);
-      expect(result.meta.last_page).toBe(1);
+      expect(result.meta.pageCount).toBe(1);
     });
   });
 });

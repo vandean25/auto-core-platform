@@ -27,8 +27,8 @@ export default function InventoryList() {
     const { data: brandOptions = [] } = useBrands({ isPartManufacturer: true })
     const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
 
-    const data = (responseData as any)?.data || []
-    const pageCount = (responseData as any)?.meta?.pageCount || 1
+    const data = responseData?.data ?? []
+    const pageCount = responseData?.meta.pageCount ?? 1
 
     const columns: ColumnDef<InventoryItem>[] = [
         {

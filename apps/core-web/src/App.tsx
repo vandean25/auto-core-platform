@@ -178,7 +178,7 @@ function App() {
   const { user, loading, signOutUser } = useAuth()
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
   }
 
   if (!user) {
