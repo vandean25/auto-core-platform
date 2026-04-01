@@ -191,7 +191,7 @@ export function AppSidebar({
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    {!collapsed ? <span className="truncate">{module.label}</span> : null}
+                    <span className={collapsed ? 'sr-only' : 'truncate'}>{module.label}</span>
                   </NavLink>
                 )
               })}
@@ -230,9 +230,14 @@ export function AppSidebar({
                         )}
                       >
                         <Star className={cn('h-4 w-4 shrink-0', isActive ? 'text-emerald-300' : 'text-slate-400')} />
-                        {!collapsed ? (
-                          <span className={cn('truncate text-sm', isActive ? 'text-emerald-200' : 'text-slate-300')}>{view.name}</span>
-                        ) : null}
+                        <span
+                          className={cn(
+                            collapsed ? 'sr-only' : 'truncate text-sm',
+                            isActive ? 'text-emerald-200' : 'text-slate-300',
+                          )}
+                        >
+                          {view.name}
+                        </span>
                       </button>
 
                       {!collapsed ? (
@@ -258,14 +263,15 @@ export function AppSidebar({
             type="button"
             onClick={onOpenSearch}
             title="Search"
+            aria-label="Open search"
             className={cn(
               moduleLinkBaseClass,
               collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
               'text-slate-300 hover:bg-slate-900 hover:text-white',
             )}
           >
-            <Search className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span>Search</span> : null}
+            <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span className={collapsed ? 'sr-only' : ''}>Search</span>
           </button>
 
           <NavLink
@@ -281,8 +287,8 @@ export function AppSidebar({
               )
             }
           >
-            <Settings className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span>Settings</span> : null}
+            <Settings aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span className={collapsed ? 'sr-only' : ''}>Settings</span>
           </NavLink>
 
           <Button
@@ -293,23 +299,29 @@ export function AppSidebar({
               collapsed ? 'h-10 w-full justify-center px-0' : 'h-10 w-full justify-start gap-3 px-3',
             )}
             title="Sign out"
+            aria-label="Sign out"
           >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span>Sign out</span> : null}
+            <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span className={collapsed ? 'sr-only' : ''}>Sign out</span>
           </Button>
 
           <button
             type="button"
             onClick={onToggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={cn(
               moduleLinkBaseClass,
               collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
               'text-slate-300 hover:bg-slate-900 hover:text-white',
             )}
           >
-            {collapsed ? <ChevronsRight className="h-4 w-4 shrink-0" /> : <ChevronsLeft className="h-4 w-4 shrink-0" />}
-            {!collapsed ? <span>Collapse Sidebar</span> : null}
+            {collapsed ? (
+              <ChevronsRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronsLeft aria-hidden="true" className="h-4 w-4 shrink-0" />
+            )}
+            <span className={collapsed ? 'sr-only' : ''}>{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
           </button>
 
           {!collapsed && userEmail ? (
