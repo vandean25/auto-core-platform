@@ -41,7 +41,7 @@ export class InvoicesController {
   async getPdf(@Param('id') id: string, @Res() res: Response) {
     const pdf = await this.invoicePdfService.getPdf(id);
 
-    res.setHeader('Content-Type', pdf.contentType);
+    res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${pdf.filename}"`);
     if (pdf.contentLength !== null) {
       res.setHeader('Content-Length', pdf.contentLength.toString());

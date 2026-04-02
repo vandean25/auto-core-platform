@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
 
@@ -18,7 +18,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS runner
+FROM mcr.microsoft.com/playwright:v1.51.0-jammy AS runner
 
 WORKDIR /usr/src/app
 
@@ -39,8 +39,9 @@ COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 # Copy Prisma schema (optional but useful)
 COPY --from=builder /usr/src/app/prisma ./prisma
 
-# Use non-root user for security
-USER node
+# Playwright browser installation
+# Note: we only install chromium to keep image size reasonable
+RUN npx playwright install chromium
 
 # Expose port
 EXPOSE 3000
