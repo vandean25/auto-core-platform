@@ -17,7 +17,7 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
   private pool: Pool;
-  public readonly client: any;
+  public readonly client: PrismaClient;
 
   constructor(dashboardRealtime: DashboardRealtimeService) {
     const connectionString = process.env.DATABASE_URL;
@@ -32,10 +32,20 @@ export class PrismaService
     this.pool = pool;
     this.client = this.$extends(
       createDashboardRealtimeExtension(dashboardRealtime),
-    ) as any;
+    ) as PrismaClient;
   }
 
   async onModuleInit() {
+    if (
+      process.env.SKIP_PRISMA_CONNECT === 'true' ||
+      process.env.SKIP_PRISMA_CONNECT === '1'
+    ) {
+      this.logger.warn(
+        'Skipping Prisma database connection (SKIP_PRISMA_CONNECT set).',
+      );
+      return;
+    }
+
     // Retry logic is less relevant for the *constructor* adapter setup,
     // but we can still try-catch the first query or keep the logic if connect() is called.
     // With adapter, $connect is implicit usually, but explicit call verifies connection.

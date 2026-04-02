@@ -1,10 +1,15 @@
-import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
+import { InvoicePdfService } from './invoice-pdf.service';
 
 @Controller('invoices')
 export class InvoicesController {
-  constructor(private readonly invoicesService: InvoicesService) {}
+  constructor(
+    private readonly invoicesService: InvoicesService,
+    private readonly invoicePdfService: InvoicePdfService,
+  ) {}
 
   @Post('drafts')
   createDraft(@Body() dto: CreateDraftInvoiceDto) {
@@ -14,5 +19,23 @@ export class InvoicesController {
   @Patch(':id/issue')
   issue(@Param('id') id: string) {
     return this.invoicesService.issueInvoice(id);
+  }
+
+  @Post(':id/pdf')
+  generatePdf(@Param('id') id: string) {
+    return this.invoicePdfService.generate(id);
+  }
+
+  @Get(':id/pdf')
+  async getPdf(@Param('id') id: string, @Res() res: Response) {
+    const pdf = await this.invoicePdfService.getPdf(id);
+
+    res.setHeader('Content-Type', pdf.contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${pdf.filename}"`);
+    if (pdf.contentLength !== null) {
+      res.setHeader('Content-Length', pdf.contentLength.toString());
+    }
+
+    pdf.stream.pipe(res);
   }
 }
