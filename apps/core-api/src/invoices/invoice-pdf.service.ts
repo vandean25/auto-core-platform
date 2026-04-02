@@ -114,6 +114,7 @@ export class InvoicePdfService {
       select: {
         id: true,
         invoice_number: true,
+        pdf_storage_bucket: true,
         pdf_storage_key: true,
       },
     });
@@ -127,6 +128,7 @@ export class InvoicePdfService {
     }
 
     const pdf = await this.storage.getPdfStream({
+      bucket: invoice.pdf_storage_bucket ?? undefined,
       key: invoice.pdf_storage_key,
     });
     const filename = `invoice-${invoice.invoice_number ?? invoice.id}.pdf`;
@@ -142,8 +144,8 @@ export class InvoicePdfService {
     invoiceId: string,
     existingSnapshot: unknown,
   ): Promise<InvoiceSnapshot> {
-    if (existingSnapshot && typeof existingSnapshot === 'object') {
-      return existingSnapshot as InvoiceSnapshot;
+    if (this.isInvoiceSnapshot(existingSnapshot)) {
+      return existingSnapshot;
     }
 
     const fullInvoice = await this.prisma.invoice.findUnique({
@@ -165,6 +167,21 @@ export class InvoicePdfService {
       data: { snapshot },
     });
     return snapshot;
+  }
+
+  private isInvoiceSnapshot(value: unknown): value is InvoiceSnapshot {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const v = value as Partial<InvoiceSnapshot>;
+    if (typeof v.id !== 'string') return false;
+    if (typeof v.date !== 'string') return false;
+    if (typeof v.due_date !== 'string') return false;
+    if (!v.customer || typeof v.customer !== 'object') return false;
+    if (!Array.isArray(v.items)) return false;
+
+    return true;
   }
 
   private async safeStoreGenerationError(invoiceId: string, message: string) {

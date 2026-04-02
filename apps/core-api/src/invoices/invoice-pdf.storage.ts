@@ -45,14 +45,14 @@ export class InvoicePdfStorage {
     }
   }
 
-  async getPdfStream(params: { key: string }): Promise<{
+  async getPdfStream(params: { bucket?: string; key: string }): Promise<{
     bucket: string;
     key: string;
     stream: Readable;
     contentType: string | null;
     contentLength: number | null;
   }> {
-    const bucket = this.getBucket();
+    const bucket = params.bucket ?? this.getBucket();
     const client = this.getClient();
 
     try {
