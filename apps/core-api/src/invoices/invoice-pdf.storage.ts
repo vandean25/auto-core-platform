@@ -35,9 +35,10 @@ export class InvoicePdfStorage {
       );
       return { bucket, key: params.key, etag: result.ETag ?? null };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to upload invoice PDF to S3 (bucket=${bucket}, key=${params.key})`,
-        error,
+        `Failed to upload invoice PDF to S3 (bucket=${bucket}, key=${params.key}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
         'Failed to upload invoice PDF to storage',
@@ -81,9 +82,10 @@ export class InvoicePdfStorage {
         throw new NotFoundException('Invoice PDF not found in storage');
       }
 
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to fetch invoice PDF from S3 (bucket=${bucket}, key=${params.key})`,
-        error,
+        `Failed to fetch invoice PDF from S3 (bucket=${bucket}, key=${params.key}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
         'Failed to fetch invoice PDF from storage',

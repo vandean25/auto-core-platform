@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InvoiceStatus } from '@prisma/client';
+import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
@@ -94,8 +95,8 @@ export class InvoicePdfService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Invoice PDF generation failed (invoiceId=${invoiceId})`,
-        error,
+        `Invoice PDF generation failed (invoiceId=${invoiceId}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
       );
       await this.safeStoreGenerationError(invoiceId, message);
       throw error;
@@ -106,7 +107,7 @@ export class InvoicePdfService {
     filename: string;
     contentType: string;
     contentLength: number | null;
-    stream: NodeJS.ReadableStream;
+    stream: Readable;
   }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -174,11 +175,67 @@ export class InvoicePdfService {
     }
 
     const v = value as Partial<InvoiceSnapshot>;
-    if (typeof v.id !== 'string') return false;
-    if (typeof v.date !== 'string') return false;
-    if (typeof v.due_date !== 'string') return false;
-    if (!v.customer || typeof v.customer !== 'object') return false;
+
+    const isString = (input: unknown): input is string => typeof input === 'string';
+    const isNullableString = (input: unknown): input is string | null =>
+      input === null || isString(input);
+    const isNullableObject = (input: unknown): input is Record<string, unknown> =>
+      !!input && typeof input === 'object';
+
+    if (!isString(v.id)) return false;
+    if (!isNullableString(v.invoice_number)) return false;
+    if (!isString(v.date)) return false;
+    if (!isString(v.due_date)) return false;
+    if (!isString(v.total_net)) return false;
+    if (!isString(v.total_tax)) return false;
+    if (!isString(v.total_gross)) return false;
+    if (!isNullableString(v.notes)) return false;
+
+    if (!isNullableObject(v.customer)) return false;
+    const customer = v.customer as Record<string, unknown>;
+    if (customer.type !== 'PRIVATE' && customer.type !== 'COMPANY') return false;
+    if (!isNullableString(customer.company_name)) return false;
+    if (!isString(customer.first_name)) return false;
+    if (!isString(customer.last_name)) return false;
+    if (!isNullableString(customer.email)) return false;
+    if (!isNullableString(customer.phone)) return false;
+    if (!isNullableString(customer.vat_id)) return false;
+    if (!isNullableString(customer.address_street)) return false;
+    if (!isNullableString(customer.address_city)) return false;
+    if (!isNullableString(customer.address_zip)) return false;
+    if (!isNullableString(customer.address_country)) return false;
+
+    if (v.vehicle !== null) {
+      if (!isNullableObject(v.vehicle)) return false;
+      const vehicle = v.vehicle as Record<string, unknown>;
+      if (!isString(vehicle.make)) return false;
+      if (!isString(vehicle.model)) return false;
+      if (typeof vehicle.year !== 'number') return false;
+      if (!isNullableString(vehicle.engine_code)) return false;
+      if (!isNullableString(vehicle.vin)) return false;
+      if (!isNullableString(vehicle.plate)) return false;
+    }
+
     if (!Array.isArray(v.items)) return false;
+    if (
+      !v.items.every((item) => {
+        if (!isNullableObject(item)) return false;
+        const i = item as Record<string, unknown>;
+        if (!isString(i.description)) return false;
+        if (!isString(i.quantity)) return false;
+        if (!isString(i.unit_price)) return false;
+        if (!isString(i.tax_rate)) return false;
+        if (!isNullableString(i.line_discount_type)) return false;
+        if (!isNullableString(i.line_discount_value)) return false;
+        if (!isNullableString(i.line_total)) return false;
+        if (!isNullableString(i.revenue_group_name)) return false;
+        return true;
+      })
+    ) {
+      return false;
+    }
+
+    if (!isString(v.snapshot_created_at)) return false;
 
     return true;
   }
@@ -192,9 +249,10 @@ export class InvoicePdfService {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to store invoice PDF generation error (invoiceId=${invoiceId})`,
-        error,
+        `Failed to store invoice PDF generation error (invoiceId=${invoiceId}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Customer, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -34,18 +35,14 @@ export class CustomerService {
     return customer;
   }
 
+  async findAll(): Promise<Customer[]>;
+  async findAll(search?: string): Promise<Customer[]>;
   async findAll(
-    params?:
-      | string
-      | {
-          where?: any;
-          orderBy?: any;
-          skip?: number;
-          take?: number;
-          select?: any;
-          include?: any;
-        },
-  ) {
+    params: Prisma.CustomerFindManyArgs,
+  ): Promise<{ data: Customer[]; total: number }>;
+  async findAll(
+    params?: string | Prisma.CustomerFindManyArgs,
+  ): Promise<Customer[] | { data: Customer[]; total: number }> {
     // If params is just a Prisma query object from QueryBuilder
     if (
       params &&

@@ -73,10 +73,11 @@ export class InvoicePdfRenderer {
     const totalX = startX + 450;
 
     doc.fontSize(10);
-    doc.text('Description', startX, doc.y, { width: 290 });
-    doc.text('Qty', qtyX, doc.y, { width: 50, align: 'right' });
-    doc.text('Unit', unitX, doc.y, { width: 80, align: 'right' });
-    doc.text('Total', totalX, doc.y, { width: 90, align: 'right' });
+    const headerY = doc.y;
+    doc.text('Description', startX, headerY, { width: 290 });
+    doc.text('Qty', qtyX, headerY, { width: 50, align: 'right' });
+    doc.text('Unit', unitX, headerY, { width: 80, align: 'right' });
+    doc.text('Total', totalX, headerY, { width: 90, align: 'right' });
     doc.moveDown(0.5);
 
     snapshot.items.forEach((item) => {
