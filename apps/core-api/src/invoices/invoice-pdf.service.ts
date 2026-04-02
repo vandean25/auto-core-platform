@@ -69,8 +69,7 @@ export class InvoicePdfService {
       invoiceId,
       invoice.snapshot,
     );
-    const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
-    const key = `invoices/${invoiceNumber}.pdf`;
+    const key = `invoices/${invoiceId}.pdf`;
 
     try {
       const pdf = await this.renderer.render(snapshot);
