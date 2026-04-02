@@ -423,7 +423,9 @@ describe('PurchaseInvoice (e2e)', () => {
       .send(updateDto)
       .expect(200);
 
-    expect(response.body.vendor_invoice_number).toBe('INV-UPDATE-TEST-MODIFIED');
+    expect(response.body.vendor_invoice_number).toBe(
+      'INV-UPDATE-TEST-MODIFIED',
+    );
     expect(response.body.lines).toHaveLength(1);
     expect(response.body.lines[0].description).toBe('Updated Item');
     expect(Number(response.body.lines[0].quantity)).toBe(2);
@@ -469,7 +471,9 @@ describe('PurchaseInvoice (e2e)', () => {
       .send(createDto)
       .expect(201);
 
-    const lineToDelete = draft.body.lines.find((l: any) => l.purchase_order_item_id === purchaseOrderItemId);
+    const lineToDelete = draft.body.lines.find(
+      (l: any) => l.purchase_order_item_id === purchaseOrderItemId,
+    );
     expect(lineToDelete).toBeDefined();
 
     // 2. Delete one line

@@ -49,16 +49,18 @@ export class LedgerService {
     const tx = prismaVal || this.prisma;
 
     // PRE-FETCH & MAP Location validation
-    const locationIds = [...new Set(paramsArray.map(p => p.locationId))];
+    const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
     const locations = await tx.storageLocation.findMany({
       where: { id: { in: locationIds } },
     });
-    const locationsMap = new Map(locations.map(loc => [loc.id, loc]));
+    const locationsMap = new Map(locations.map((loc) => [loc.id, loc]));
 
     for (const params of paramsArray) {
       const location = locationsMap.get(params.locationId);
       if (!location) {
-        throw new BadRequestException(`Location ${params.locationId} not found`);
+        throw new BadRequestException(
+          `Location ${params.locationId} not found`,
+        );
       }
       if (location.type !== 'bin') {
         throw new BadRequestException(
@@ -68,17 +70,20 @@ export class LedgerService {
     }
 
     // Create transactions in bulk
-    const transactionsData = paramsArray.map(params => ({
+    const transactionsData = paramsArray.map((params) => ({
       item_id: params.itemId,
       location_id: params.locationId,
       quantity: new Decimal(params.quantity.toString()),
       type: params.type,
       reference_id: params.referenceId,
-      cost_basis: (params.costBasis !== undefined && params.costBasis !== null) ? new Decimal(params.costBasis.toString()) : null,
+      cost_basis:
+        params.costBasis !== undefined && params.costBasis !== null
+          ? new Decimal(params.costBasis.toString())
+          : null,
     }));
 
     await tx.inventoryTransaction.createMany({
-      data: transactionsData
+      data: transactionsData,
     });
 
     // We need to fetch the created transactions to return them if needed, but since it's hard to match
@@ -87,7 +92,10 @@ export class LedgerService {
 
     // Update stocks
     // Aggregate quantities by stock key to prevent multiple inserts for the same item/location in a single transaction
-    const aggregatedStocks = new Map<string, { itemId: string; locationId: string; quantity: number | Decimal }>();
+    const aggregatedStocks = new Map<
+      string,
+      { itemId: string; locationId: string; quantity: number | Decimal }
+    >();
 
     for (const params of paramsArray) {
       const stockKey = `${params.itemId}-${params.locationId}`;
@@ -106,15 +114,18 @@ export class LedgerService {
     // Find all existing stocks for the item/location combinations
     const existingStocks = await tx.inventoryStock.findMany({
       where: {
-        OR: aggregatedArray.map(p => ({
+        OR: aggregatedArray.map((p) => ({
           catalog_item_id: p.itemId,
           location_id: p.locationId,
-        }))
-      }
+        })),
+      },
     });
 
     const existingStocksMap = new Map(
-      existingStocks.map(stock => [`${stock.catalog_item_id}-${stock.location_id}`, stock])
+      existingStocks.map((stock) => [
+        `${stock.catalog_item_id}-${stock.location_id}`,
+        stock,
+      ]),
     );
 
     // Process stock updates concurrently using chunkedPromiseAll

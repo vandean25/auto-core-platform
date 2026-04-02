@@ -9,7 +9,6 @@ import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 
-
 @Injectable()
 export class PurchaseInvoiceService {
   constructor(
@@ -48,7 +47,9 @@ export class PurchaseInvoiceService {
       .filter((item) => {
         const received = item.quantity_received;
         const invoiced = Number(item.quantity_invoiced);
-        const onCurrentInvoice = invoiceId ? (item as any).purchase_invoice_lines?.length > 0 : false;
+        const onCurrentInvoice = invoiceId
+          ? item.purchase_invoice_lines?.length > 0
+          : false;
         return received > invoiced || onCurrentInvoice;
       })
       .map((item) => ({
@@ -89,7 +90,9 @@ export class PurchaseInvoiceService {
           },
         });
 
-        const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
+        const poItemsById = new Map(
+          poItems.map((poItem) => [poItem.id, poItem]),
+        );
 
         for (const [poItemId, requestedQuantity] of poItemTotals) {
           const poItem = poItemsById.get(poItemId);
@@ -190,7 +193,9 @@ export class PurchaseInvoiceService {
       });
 
       if (updateCount.count === 0) {
-        throw new BadRequestException('Invoice not found or no longer in DRAFT status');
+        throw new BadRequestException(
+          'Invoice not found or no longer in DRAFT status',
+        );
       }
 
       const existingInvoice = await tx.purchaseInvoice.findUnique({
@@ -201,7 +206,9 @@ export class PurchaseInvoiceService {
       if (!existingInvoice) throw new NotFoundException('Invoice not found');
 
       // 1. Rollback old quantity_invoiced (Optimized)
-      const linesToRollback = existingInvoice.lines.filter(l => l.purchase_order_item_id);
+      const linesToRollback = existingInvoice.lines.filter(
+        (l) => l.purchase_order_item_id,
+      );
       await chunkedPromiseAll(linesToRollback, async (line) => {
         return tx.purchaseOrderItem.update({
           where: { id: line.purchase_order_item_id as string },
@@ -227,7 +234,9 @@ export class PurchaseInvoiceService {
           },
         });
 
-        const poItemsById = new Map(poItems.map((poItem) => [poItem.id, poItem]));
+        const poItemsById = new Map(
+          poItems.map((poItem) => [poItem.id, poItem]),
+        );
 
         for (const [poItemId, requestedQuantity] of poItemTotals) {
           const poItem = poItemsById.get(poItemId);
@@ -301,16 +310,19 @@ export class PurchaseInvoiceService {
 
       // 5. Apply new quantity_invoiced (Optimized)
       const newPoItemsToUpdate = Array.from(poItemTotals.entries());
-      await chunkedPromiseAll(newPoItemsToUpdate, async ([poItemId, quantity]) => {
-        return tx.purchaseOrderItem.update({
-          where: { id: poItemId },
-          data: {
-            quantity_invoiced: {
-              increment: quantity,
+      await chunkedPromiseAll(
+        newPoItemsToUpdate,
+        async ([poItemId, quantity]) => {
+          return tx.purchaseOrderItem.update({
+            where: { id: poItemId },
+            data: {
+              quantity_invoiced: {
+                increment: quantity,
+              },
             },
-          },
-        });
-      });
+          });
+        },
+      );
 
       return updated;
     });
@@ -352,7 +364,9 @@ export class PurchaseInvoiceService {
       });
 
       if (updateResult.count === 0) {
-        throw new BadRequestException('Failed to post: Invoice is no longer in DRAFT status');
+        throw new BadRequestException(
+          'Failed to post: Invoice is no longer in DRAFT status',
+        );
       }
 
       return { success: true };
@@ -374,7 +388,9 @@ export class PurchaseInvoiceService {
     });
 
     if (result.count === 0) {
-      throw new BadRequestException('Failed to pay: Invoice not found or not in POSTED status');
+      throw new BadRequestException(
+        'Failed to pay: Invoice not found or not in POSTED status',
+      );
     }
 
     this.realtimeService.emitEntityUpdated({
@@ -397,7 +413,9 @@ export class PurchaseInvoiceService {
       });
 
       if (lockResult.count === 0) {
-        throw new BadRequestException('Invoice not found or no longer in DRAFT status');
+        throw new BadRequestException(
+          'Invoice not found or no longer in DRAFT status',
+        );
       }
 
       const invoice = await tx.purchaseInvoice.findUnique({
@@ -406,7 +424,9 @@ export class PurchaseInvoiceService {
       });
 
       if (!invoice) throw new NotFoundException('Invoice not found');
-      const linesToDecrement = invoice.lines.filter(l => l.purchase_order_item_id);
+      const linesToDecrement = invoice.lines.filter(
+        (l) => l.purchase_order_item_id,
+      );
       await chunkedPromiseAll(linesToDecrement, async (line) => {
         return tx.purchaseOrderItem.update({
           where: { id: line.purchase_order_item_id as string },
@@ -424,7 +444,9 @@ export class PurchaseInvoiceService {
       });
 
       if (result.count === 0) {
-        throw new BadRequestException('Failed to delete: Invoice is no longer in DRAFT status');
+        throw new BadRequestException(
+          'Failed to delete: Invoice is no longer in DRAFT status',
+        );
       }
     });
 
@@ -446,7 +468,9 @@ export class PurchaseInvoiceService {
       });
 
       if (lockResult.count === 0) {
-        throw new BadRequestException('Invoice not found or no longer in DRAFT status');
+        throw new BadRequestException(
+          'Invoice not found or no longer in DRAFT status',
+        );
       }
 
       const line = await tx.purchaseInvoiceLine.findUnique({
@@ -494,7 +518,9 @@ export class PurchaseInvoiceService {
       });
 
       if (updateTotalResult.count === 0) {
-        throw new BadRequestException('Failed to update total: Invoice is no longer in DRAFT status');
+        throw new BadRequestException(
+          'Failed to update total: Invoice is no longer in DRAFT status',
+        );
       }
 
       return { success: true };
@@ -528,7 +554,9 @@ export class PurchaseInvoiceService {
     ];
 
     if (!ALLOWED_SORT_BY.includes(sortBy)) {
-      throw new BadRequestException(`Invalid sortBy field: ${sortBy}. Allowed: ${ALLOWED_SORT_BY.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid sortBy field: ${sortBy}. Allowed: ${ALLOWED_SORT_BY.join(', ')}`,
+      );
     }
 
     // Normalize order to valid values

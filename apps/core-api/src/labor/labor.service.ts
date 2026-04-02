@@ -80,7 +80,9 @@ export class LaborService {
               ? {
                   OR: [
                     { engine_code: null },
-                    { engine_code: { equals: engine_code, mode: 'insensitive' } },
+                    {
+                      engine_code: { equals: engine_code, mode: 'insensitive' },
+                    },
                   ],
                 }
               : { engine_code: null },

@@ -30,7 +30,10 @@ export class BadRequestError extends ApplicationError {
 }
 
 export class ValidationError extends ApplicationError {
-  constructor(message: string, public readonly errors: Record<string, string[]>) {
+  constructor(
+    message: string,
+    public readonly errors: Record<string, string[]>,
+  ) {
     super(message);
   }
 }

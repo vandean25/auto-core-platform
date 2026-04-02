@@ -1,0 +1,51 @@
+name: Core Web Sentry Source Maps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/core-web/**'
+      - '.github/workflows/core-web-sentry-sourcemaps.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Fetch Sentry CI secrets from GSM
+        id: gsm
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            SENTRY_AUTH_TOKEN:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_AUTH_TOKEN_SECRET }}
+            SENTRY_ORG:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_ORG_SECRET }}
+            SENTRY_PROJECT:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_PROJECT_SECRET }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/core-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/core-web
+
+      - name: Build core-web and upload source maps
+        env:
+          SENTRY_AUTH_TOKEN: ${{ steps.gsm.outputs.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ steps.gsm.outputs.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ steps.gsm.outputs.SENTRY_PROJECT }}
+        run: npm run build
+        working-directory: apps/core-web

@@ -21,6 +21,16 @@ availableSecrets:
       env: API_KEY
     - versionName: projects/${_BACKEND_PROJECT}/secrets/FIREBASE_API_KEY/versions/latest
       env: FIREBASE_API_KEY
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-core-api-sentry-dsn/versions/latest
+      env: SENTRY_DSN
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-dsn/versions/latest
+      env: VITE_SENTRY_DSN
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-auth-token/versions/latest
+      env: SENTRY_AUTH_TOKEN
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-org/versions/latest
+      env: SENTRY_ORG
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-project/versions/latest
+      env: SENTRY_PROJECT
 
 steps:
   - id: migrate-db
@@ -64,6 +74,8 @@ steps:
   - id: deploy-cloud-run
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
+    secretEnv:
+      - SENTRY_DSN
     args:
       - -lc
       - |
@@ -75,7 +87,7 @@ steps:
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL}" \
-          --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest" \
+          --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
@@ -102,6 +114,10 @@ steps:
     secretEnv:
       - API_KEY
       - FIREBASE_API_KEY
+      - VITE_SENTRY_DSN
+      - SENTRY_AUTH_TOKEN
+      - SENTRY_ORG
+      - SENTRY_PROJECT
     args:
       - -lc
       - |
@@ -118,6 +134,10 @@ steps:
         export VITE_FIREBASE_PROJECT_ID="${_VITE_FIREBASE_PROJECT_ID}"
         export VITE_FIREBASE_APP_ID="${_VITE_FIREBASE_APP_ID}"
         export VITE_ALLOWED_LOGIN_EMAILS="${_VITE_ALLOWED_LOGIN_EMAILS}"
+        export VITE_SENTRY_DSN="$$VITE_SENTRY_DSN"
+        export SENTRY_AUTH_TOKEN="$$SENTRY_AUTH_TOKEN"
+        export SENTRY_ORG="$$SENTRY_ORG"
+        export SENTRY_PROJECT="$$SENTRY_PROJECT"
         npm ci
         npm run build
 

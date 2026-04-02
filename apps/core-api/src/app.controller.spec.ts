@@ -19,4 +19,12 @@ describe('AppController', () => {
       expect(appController.getHello()).toBe('Hello World!');
     });
   });
+
+  describe('debug-sentry', () => {
+    it('should throw the Sentry verification error', () => {
+      expect(() => appController.getSentryError()).toThrow(
+        'My first Sentry error!',
+      );
+    });
+  });
 });

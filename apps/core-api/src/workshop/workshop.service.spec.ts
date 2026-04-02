@@ -147,7 +147,9 @@ describe('WorkshopService', () => {
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await expect(
-      service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.NOT_STARTED }),
+      service.updateTask('wo-1', 't-1', {
+        status: WorkshopTaskStatus.NOT_STARTED,
+      }),
     ).resolves.toEqual({ id: 'wo-1' });
 
     expect(mockPrisma.workshopTask.update).toHaveBeenCalled();

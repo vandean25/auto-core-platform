@@ -63,12 +63,12 @@ export class VendorService {
 
   async findOne(id: string): Promise<Prisma.VendorGetPayload<{
     include: {
-      supportedBrands: true
+      supportedBrands: true;
       purchase_orders: {
-        include: { items: true }
-      }
-      purchase_invoices: true
-    }
+        include: { items: true };
+      };
+      purchase_invoices: true;
+    };
   }> | null> {
     return this.prisma.vendor.findUnique({
       where: { id },

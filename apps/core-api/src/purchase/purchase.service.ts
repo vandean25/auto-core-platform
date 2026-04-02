@@ -10,7 +10,6 @@ import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 
-
 export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
   include: { vendor: true; items: true };
 }>;
@@ -43,7 +42,10 @@ export class PurchaseService {
     }
 
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalReceived = items.reduce((sum, item) => sum + item.quantity_received, 0);
+    const totalReceived = items.reduce(
+      (sum, item) => sum + item.quantity_received,
+      0,
+    );
     const totalRemaining = totalQuantity - totalReceived;
 
     if (totalRemaining === 0) {
@@ -160,14 +162,19 @@ export class PurchaseService {
         }
 
         // PRE-FETCH & MAP PATTERN
-        const poItemIds = po.items.map(item => item.id);
+        const poItemIds = po.items.map((item) => item.id);
         const currentItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } }
+          where: { id: { in: poItemIds } },
         });
-        const currentItemsMap = new Map(currentItems.map(item => [item.id, item]));
+        const currentItemsMap = new Map(
+          currentItems.map((item) => [item.id, item]),
+        );
 
         // Aggregate received items by poItem.id to prevent duplicate itemIds from exceeding the limit
-        const aggregatedReceived = new Map<string, { quantity: number; received: any; poItem: any }>();
+        const aggregatedReceived = new Map<
+          string,
+          { quantity: number; received: any; poItem: any }
+        >();
 
         for (const received of receivedItems) {
           if (!received.itemId) {
@@ -200,7 +207,9 @@ export class PurchaseService {
           }
         }
 
-        const validatedAggregatedItems = Array.from(aggregatedReceived.values());
+        const validatedAggregatedItems = Array.from(
+          aggregatedReceived.values(),
+        );
 
         for (const { poItem, quantity, received } of validatedAggregatedItems) {
           const currentItem = currentItemsMap.get(poItem.id);
@@ -209,10 +218,7 @@ export class PurchaseService {
               `Item ${received.itemId} not found in DB`,
             );
 
-          if (
-            currentItem.quantity_received + quantity >
-            currentItem.quantity
-          ) {
+          if (currentItem.quantity_received + quantity > currentItem.quantity) {
             throw new BadRequestException(
               `Cannot receive more than ordered for item ${received.itemId}`,
             );
@@ -220,22 +226,30 @@ export class PurchaseService {
         }
 
         // BATCH WRITES (using aggregated quantities)
-        await chunkedPromiseAll(validatedAggregatedItems, async ({ poItem, quantity, received }) => {
-          await tx.purchaseOrderItem.update({
-            where: { id: poItem.id },
-            data: { quantity_received: { increment: quantity } },
-          });
+        await chunkedPromiseAll(
+          validatedAggregatedItems,
+          async ({ poItem, quantity, received }) => {
+            await tx.purchaseOrderItem.update({
+              where: { id: poItem.id },
+              data: { quantity_received: { increment: quantity } },
+            });
 
-          // Record the inventory transaction using the ledger service
-          await this.ledgerService.recordTransactions([{
-            itemId: received.itemId,
-            locationId: generalBin.id,
-            quantity: quantity,
-            type: TransactionType.PURCHASE_RECEIPT,
-            referenceId: po.order_number,
-            costBasis: poItem.unit_cost,
-          }], tx);
-        });
+            // Record the inventory transaction using the ledger service
+            await this.ledgerService.recordTransactions(
+              [
+                {
+                  itemId: received.itemId,
+                  locationId: generalBin.id,
+                  quantity: quantity,
+                  type: TransactionType.PURCHASE_RECEIPT,
+                  referenceId: po.order_number,
+                  costBasis: poItem.unit_cost,
+                },
+              ],
+              tx,
+            );
+          },
+        );
 
         const updatedPO = await tx.purchaseOrder.findUnique({
           where: { id: orderId },
@@ -394,7 +408,10 @@ export class PurchaseService {
       throw new BadRequestException('Item not found in this purchase order');
 
     // Validate that new quantity is not less than already received
-    if (updates.quantity !== undefined && updates.quantity < poItem.quantity_received) {
+    if (
+      updates.quantity !== undefined &&
+      updates.quantity < poItem.quantity_received
+    ) {
       throw new BadRequestException(
         `Cannot reduce quantity below ${poItem.quantity_received} already received`,
       );
@@ -402,8 +419,10 @@ export class PurchaseService {
 
     // Map camelCase to snake_case for Prisma
     const prismaUpdates: Record<string, any> = {};
-    if (updates.quantity !== undefined) prismaUpdates.quantity = updates.quantity;
-    if (updates.unitCost !== undefined) prismaUpdates.unit_cost = updates.unitCost;
+    if (updates.quantity !== undefined)
+      prismaUpdates.quantity = updates.quantity;
+    if (updates.unitCost !== undefined)
+      prismaUpdates.unit_cost = updates.unitCost;
 
     // Update in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
@@ -584,8 +603,8 @@ export class PurchaseService {
 
       const hasInvoicedItems = order.items.some((item) => {
         const numericQty =
-          typeof (item.quantity_invoiced as any)?.toNumber === 'function'
-            ? (item.quantity_invoiced as any).toNumber()
+          typeof item.quantity_invoiced?.toNumber === 'function'
+            ? item.quantity_invoiced.toNumber()
             : Number(item.quantity_invoiced || 0);
 
         return numericQty > 0 || item.purchase_invoice_lines.length > 0;

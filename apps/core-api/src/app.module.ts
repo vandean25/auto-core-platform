@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { InventoryModule } from './inventory/inventory.module';
@@ -22,6 +23,7 @@ import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     PrismaModule,
     InventoryModule,
     PurchaseModule,
@@ -41,6 +43,10 @@ import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: ApiKeyGuard,

@@ -7,7 +7,10 @@ import {
 import { Brand } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
-import { PrismaRepository, PaginatedResult } from '../common/repositories/prisma-repository';
+import {
+  PrismaRepository,
+  PaginatedResult,
+} from '../common/repositories/prisma-repository';
 import {
   ConflictError,
   NotFoundError,
@@ -54,7 +57,12 @@ export class BrandService {
 
     return {
       data: brands,
-      meta: { total: brands.length, page: 1, limit: brands.length, totalPages: 1 },
+      meta: {
+        total: brands.length,
+        page: 1,
+        limit: brands.length,
+        totalPages: 1,
+      },
     };
   }
 
@@ -70,10 +78,15 @@ export class BrandService {
   }
 
   async create(createBrandDto: CreateBrandDto): Promise<Brand> {
-    this.validateBrandTypes(createBrandDto.isVehicleMake, createBrandDto.isPartManufacturer);
+    this.validateBrandTypes(
+      createBrandDto.isVehicleMake,
+      createBrandDto.isPartManufacturer,
+    );
 
     try {
-      return await this.brandRepository.create(createBrandDto as unknown as Record<string, unknown>);
+      return await this.brandRepository.create(
+        createBrandDto as unknown as Record<string, unknown>,
+      );
     } catch (error) {
       if (error instanceof ConflictError) {
         throw new ConflictException(
@@ -84,11 +97,17 @@ export class BrandService {
     }
   }
 
-  async update(brandId: number, updateBrandDto: UpdateBrandDto): Promise<Brand> {
+  async update(
+    brandId: number,
+    updateBrandDto: UpdateBrandDto,
+  ): Promise<Brand> {
     await this.validateUpdateFlags(brandId, updateBrandDto);
 
     try {
-      return await this.brandRepository.update(brandId, updateBrandDto as unknown as Record<string, unknown>);
+      return await this.brandRepository.update(
+        brandId,
+        updateBrandDto as unknown as Record<string, unknown>,
+      );
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw new NotFoundException(`Brand with ID ${brandId} not found`);
@@ -113,21 +132,30 @@ export class BrandService {
     }
   }
 
-  private validateBrandTypes(isVehicleMake?: boolean, isPartManufacturer?: boolean): void {
+  private validateBrandTypes(
+    isVehicleMake?: boolean,
+    isPartManufacturer?: boolean,
+  ): void {
     if (!isVehicleMake && !isPartManufacturer) {
       throw new BadRequestException('Brand must be at least one type');
     }
   }
 
-  private async validateUpdateFlags(brandId: number, updateBrandDto: UpdateBrandDto): Promise<void> {
-    const isUpdatingFlags = updateBrandDto.isVehicleMake !== undefined || 
-                           updateBrandDto.isPartManufacturer !== undefined;
-    
+  private async validateUpdateFlags(
+    brandId: number,
+    updateBrandDto: UpdateBrandDto,
+  ): Promise<void> {
+    const isUpdatingFlags =
+      updateBrandDto.isVehicleMake !== undefined ||
+      updateBrandDto.isPartManufacturer !== undefined;
+
     if (!isUpdatingFlags) return;
 
     const currentBrand = await this.findOne(brandId);
-    const nextIsVehicleMake = updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
-    const nextIsPartManufacturer = updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
+    const nextIsVehicleMake =
+      updateBrandDto.isVehicleMake ?? currentBrand.isVehicleMake;
+    const nextIsPartManufacturer =
+      updateBrandDto.isPartManufacturer ?? currentBrand.isPartManufacturer;
 
     this.validateBrandTypes(nextIsVehicleMake, nextIsPartManufacturer);
   }
@@ -141,7 +169,7 @@ export class BrandService {
     const catalogItemsCount = await this.prisma.catalogItem.count({
       where: { brand_id: brandId },
     });
-    
+
     if (catalogItemsCount > 0) {
       throw new ConflictException(
         `Cannot delete brand with ${catalogItemsCount} catalog items linked`,
@@ -155,7 +183,7 @@ export class BrandService {
         },
       },
     });
-    
+
     if (vendorsCount > 0) {
       throw new ConflictException(
         `Cannot delete brand with ${vendorsCount} vendors linked`,
