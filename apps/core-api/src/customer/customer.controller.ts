@@ -97,7 +97,7 @@ export class CustomerController {
         whitelist,
         searchFields,
       );
-      const result = (await this.customerService.findAll(prismaQuery)) as any;
+      const result = await this.customerService.findAll(prismaQuery);
 
       return {
         data: result.data,

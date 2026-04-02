@@ -157,7 +157,11 @@ describe('BrandService', () => {
 
   describe('create', () => {
     it('creates a brand successfully', async () => {
-      const dto = { name: 'Toyota', isVehicleMake: true, isPartManufacturer: false };
+      const dto = {
+        name: 'Toyota',
+        isVehicleMake: true,
+        isPartManufacturer: false,
+      };
       const mockBrand = { id: 1, ...dto };
       mockRepository.create.mockResolvedValue(mockBrand);
 
@@ -167,20 +171,32 @@ describe('BrandService', () => {
     });
 
     it('throws BadRequestException if neither type is true', async () => {
-      const dto = { name: 'Toyota', isVehicleMake: false, isPartManufacturer: false };
+      const dto = {
+        name: 'Toyota',
+        isVehicleMake: false,
+        isPartManufacturer: false,
+      };
 
-      await expect(service.create(dto as any)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
       // Repository should NOT be called if validation fails
       expect(mockRepository.create).not.toHaveBeenCalled();
     });
 
     it('maps ConflictError to ConflictException on duplicate name', async () => {
-      const dto = { name: 'Toyota', isVehicleMake: true, isPartManufacturer: false };
+      const dto = {
+        name: 'Toyota',
+        isVehicleMake: true,
+        isPartManufacturer: false,
+      };
       mockRepository.create.mockRejectedValue(
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
 
-      await expect(service.create(dto as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -201,7 +217,11 @@ describe('BrandService', () => {
 
     it('updates logoUrl only without triggering flag validation', async () => {
       const dto = { logoUrl: 'https://example.com/logo.png' };
-      const mockBrand = { id: 1, name: 'Toyota', logoUrl: 'https://example.com/logo.png' };
+      const mockBrand = {
+        id: 1,
+        name: 'Toyota',
+        logoUrl: 'https://example.com/logo.png',
+      };
       mockRepository.update.mockResolvedValue(mockBrand);
 
       const result = await service.update(1, dto);
@@ -217,9 +237,9 @@ describe('BrandService', () => {
         isPartManufacturer: false,
       });
 
-      await expect(
-        service.update(1, { isVehicleMake: false }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.update(1, { isVehicleMake: false })).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('allows update when at least one flag remains true', async () => {
@@ -244,7 +264,9 @@ describe('BrandService', () => {
         new NotFoundError('Record with ID 999 not found'),
       );
 
-      await expect(service.update(999, { name: 'New' })).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, { name: 'New' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('maps ConflictError to ConflictException', async () => {
@@ -252,7 +274,9 @@ describe('BrandService', () => {
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
 
-      await expect(service.update(1, { name: 'Existing' })).rejects.toThrow(ConflictException);
+      await expect(service.update(1, { name: 'Existing' })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

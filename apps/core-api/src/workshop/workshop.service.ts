@@ -53,7 +53,7 @@ export class WorkshopService {
 
       return tx.financeSettings.update({
         where: { id: 1 },
-        data: { 
+        data: {
           next_workshop_order_number: { increment: 1 },
           workshop_order_prefix: prefix,
         },
@@ -63,7 +63,9 @@ export class WorkshopService {
       });
     });
 
-    const paddedSequence = String(settings.next_workshop_order_number - 1).padStart(4, '0');
+    const paddedSequence = String(
+      settings.next_workshop_order_number - 1,
+    ).padStart(4, '0');
     return `${prefix}${paddedSequence}`;
   }
 
@@ -80,9 +82,7 @@ export class WorkshopService {
     return WorkshopOrderStatus.IN_PROGRESS;
   }
 
-  private assertOrderEditable(
-    status: WorkshopOrderStatus,
-  ) {
+  private assertOrderEditable(status: WorkshopOrderStatus) {
     if (status === WorkshopOrderStatus.INVOICED) {
       throw new BadRequestException('Workshop order is already invoiced');
     }

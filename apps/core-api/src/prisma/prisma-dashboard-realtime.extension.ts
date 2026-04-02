@@ -118,14 +118,16 @@ export function createDashboardRealtimeExtension(
         async upsert({ model, args, query }) {
           // Distinguish between create and update by performing an existence pre-check
           const ctx = Prisma.getExtensionContext(this);
-          const existing = await (ctx as any).findFirst({
+          const existing = await ctx.findFirst({
             where: args.where,
             select: { id: true },
           });
 
           const result = await query(args);
           const type = modelNameToEntityType(model);
-          const action: DashboardEntityAction = existing ? 'UPDATED' : 'CREATED';
+          const action: DashboardEntityAction = existing
+            ? 'UPDATED'
+            : 'CREATED';
 
           if (type) {
             dashboardRealtime.emitEntityUpdated({

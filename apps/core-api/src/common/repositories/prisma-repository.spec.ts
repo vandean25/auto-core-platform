@@ -98,32 +98,47 @@ describe('PrismaRepository', () => {
         limit: 10,
         totalPages: 10,
       });
-      expect(mockModel.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        skip: 10,
-        take: 10,
-      }));
+      expect(mockModel.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 10,
+        }),
+      );
     });
 
     it('clamps limit to max 100', async () => {
       mockModel.findMany.mockResolvedValue([]);
       mockModel.count.mockResolvedValue(500);
 
-      const result = await repository.findManyPaginated({ page: 1, limit: 999 });
+      const result = await repository.findManyPaginated({
+        page: 1,
+        limit: 999,
+      });
 
       expect(result.meta.limit).toBe(100);
-      expect(mockModel.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        take: 100,
-      }));
+      expect(mockModel.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 100,
+        }),
+      );
     });
 
     it('throws BadRequestError for page < 1', async () => {
-      await expect(repository.findManyPaginated({ page: 0 })).rejects.toThrow(BadRequestError);
-      await expect(repository.findManyPaginated({ page: -5 })).rejects.toThrow(BadRequestError);
+      await expect(repository.findManyPaginated({ page: 0 })).rejects.toThrow(
+        BadRequestError,
+      );
+      await expect(repository.findManyPaginated({ page: -5 })).rejects.toThrow(
+        BadRequestError,
+      );
     });
 
     it('throws BadRequestError for limit < 1', async () => {
-      await expect(repository.findManyPaginated({ limit: 0 })).rejects.toThrow(BadRequestError);
-      await expect(repository.findManyPaginated({ limit: -1 })).rejects.toThrow(BadRequestError);
+      await expect(repository.findManyPaginated({ limit: 0 })).rejects.toThrow(
+        BadRequestError,
+      );
+      await expect(repository.findManyPaginated({ limit: -1 })).rejects.toThrow(
+        BadRequestError,
+      );
     });
   });
 

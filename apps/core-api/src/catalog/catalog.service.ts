@@ -81,13 +81,12 @@ export class CatalogService {
 
     const laborFitmentFilter: Prisma.LaborFitmentWhereInput =
       buildFitmentFilter(make, model, year, engine_code);
-    const partFitmentFilter: Prisma.PartFitmentWhereInput =
-      buildFitmentFilter(
-        make,
-        model,
-        year,
-        engine_code,
-      ) as Prisma.PartFitmentWhereInput;
+    const partFitmentFilter: Prisma.PartFitmentWhereInput = buildFitmentFilter(
+      make,
+      model,
+      year,
+      engine_code,
+    ) as Prisma.PartFitmentWhereInput;
 
     const [laborOperations, masterParts, catalogItems] = await Promise.all([
       this.prisma.laborOperation.findMany({

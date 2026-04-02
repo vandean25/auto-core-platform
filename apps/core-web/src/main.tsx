@@ -1,5 +1,7 @@
+import './instrument'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { reactErrorHandler } from '@sentry/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
@@ -14,7 +16,11 @@ const queryClient = new QueryClient({
   },
 })
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')!, {
+  onUncaughtError: reactErrorHandler(),
+  onCaughtError: reactErrorHandler(),
+  onRecoverableError: reactErrorHandler(),
+}).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

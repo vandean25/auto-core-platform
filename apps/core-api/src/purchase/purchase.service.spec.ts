@@ -26,7 +26,13 @@ describe('PurchaseService', () => {
     purchaseOrderItem: {
       update: jest.fn(),
       findMany: jest.fn().mockResolvedValue([
-        { id: 'poi1', quantity: 10, quantity_received: 0, catalog_item_id: 'item1', unit_cost: 50 },
+        {
+          id: 'poi1',
+          quantity: 10,
+          quantity_received: 0,
+          catalog_item_id: 'item1',
+          unit_cost: 50,
+        },
       ]),
       deleteMany: jest.fn(),
     },
@@ -185,14 +191,16 @@ describe('PurchaseService', () => {
       });
 
       expect(mockLedgerService.recordTransactions).toHaveBeenCalledTimes(1);
-      expect(mockLedgerService.recordTransactions).toHaveBeenCalledWith([
-        expect.objectContaining({
-          itemId: 'item1',
-          locationId: 'loc1',
-          quantity: 5,
-          type: TransactionType.PURCHASE_RECEIPT,
-          costBasis: 50,
-        })],
+      expect(mockLedgerService.recordTransactions).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            itemId: 'item1',
+            locationId: 'loc1',
+            quantity: 5,
+            type: TransactionType.PURCHASE_RECEIPT,
+            costBasis: 50,
+          }),
+        ],
         expect.anything(),
       );
     });

@@ -76,15 +76,10 @@ export class PrismaRepository<T> {
     return records as T[];
   }
 
-  async findManyPaginated(params: FindManyPaginatedParams = {}): Promise<PaginatedResult<T>> {
-    const {
-      where,
-      orderBy,
-      page = 1,
-      limit = 25,
-      include,
-      select,
-    } = params;
+  async findManyPaginated(
+    params: FindManyPaginatedParams = {},
+  ): Promise<PaginatedResult<T>> {
+    const { where, orderBy, page = 1, limit = 25, include, select } = params;
 
     if (page < 1 || limit < 1) {
       throw new BadRequestError(
@@ -121,7 +116,10 @@ export class PrismaRepository<T> {
     };
   }
 
-  async findById(id: number | string, include?: Record<string, unknown>): Promise<T> {
+  async findById(
+    id: number | string,
+    include?: Record<string, unknown>,
+  ): Promise<T> {
     const record = await this.model.findUnique({
       where: { id },
       include,
@@ -136,9 +134,12 @@ export class PrismaRepository<T> {
 
   // ── Write ─────────────────────────────────────────────────────────────
 
-  async create(data: Record<string, unknown>, include?: Record<string, unknown>): Promise<T> {
+  async create(
+    data: Record<string, unknown>,
+    include?: Record<string, unknown>,
+  ): Promise<T> {
     try {
-      return await this.model.create({ data, include }) as T;
+      return (await this.model.create({ data, include })) as T;
     } catch (error) {
       throw this.mapPrismaError(error);
     }
@@ -150,7 +151,7 @@ export class PrismaRepository<T> {
     include?: Record<string, unknown>,
   ): Promise<T> {
     try {
-      return await this.model.update({ where: { id }, data, include }) as T;
+      return (await this.model.update({ where: { id }, data, include })) as T;
     } catch (error) {
       throw this.mapPrismaError(error, id);
     }
@@ -158,7 +159,7 @@ export class PrismaRepository<T> {
 
   async delete(id: number | string): Promise<T> {
     try {
-      return await this.model.delete({ where: { id } }) as T;
+      return (await this.model.delete({ where: { id } })) as T;
     } catch (error) {
       throw this.mapPrismaError(error, id);
     }
@@ -189,14 +190,16 @@ export class PrismaRepository<T> {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       switch (error.code) {
         case 'P2002': {
-          const target = (error.meta?.target as string[])?.join(', ') ?? 'unknown field';
+          const target =
+            (error.meta?.target as string[])?.join(', ') ?? 'unknown field';
           return new ConflictError(
             `Unique constraint violated on: ${target}`,
             target,
           );
         }
         case 'P2003': {
-          const field = (error.meta?.field_name as string) ?? 'unknown relation';
+          const field =
+            (error.meta?.field_name as string) ?? 'unknown relation';
           return new ConflictError(
             `Foreign key constraint failed on: ${field}`,
             field,

@@ -53,7 +53,7 @@ export class CustomerService {
       (params.where || params.orderBy || params.skip !== undefined)
     ) {
       const [data, total] = await Promise.all([
-        (this.prisma.client as any).customer.findMany(params),
+        this.prisma.client.customer.findMany(params),
         this.prisma.customer.count({ where: params.where }),
       ]);
       return { data, total };
@@ -61,7 +61,7 @@ export class CustomerService {
 
     // Fallback for legacy calls (if any)
     const search = typeof params === 'string' ? params : undefined;
-    return (this.prisma.client as any).customer.findMany({
+    return this.prisma.client.customer.findMany({
       where: search
         ? {
             OR: [
@@ -91,46 +91,48 @@ export class CustomerService {
 
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
       this.prisma.customer.findUnique({
-      where: { id },
-      include: {
-        vehicles: true,
-        sales_orders: {
-          orderBy: { createdAt: 'desc' },
-          skip: historySkip,
-          take: historyLimit,
-        },
-        workshop_orders: {
-          orderBy: { createdAt: 'desc' },
-          skip: historySkip,
-          take: historyLimit,
-          include: {
-            tasks: {
-              include: {
-                line_items: {
-                  select: {
-                    quantity: true,
-                    unit_price: true,
+        where: { id },
+        include: {
+          vehicles: true,
+          sales_orders: {
+            orderBy: { createdAt: 'desc' },
+            skip: historySkip,
+            take: historyLimit,
+          },
+          workshop_orders: {
+            orderBy: { createdAt: 'desc' },
+            skip: historySkip,
+            take: historyLimit,
+            include: {
+              tasks: {
+                include: {
+                  line_items: {
+                    select: {
+                      quantity: true,
+                      unit_price: true,
+                    },
                   },
                 },
               },
+              vehicle: true,
             },
-            vehicle: true,
+          },
+          invoices: {
+            orderBy: { date: 'desc' },
+            skip: historySkip,
+            take: historyLimit,
           },
         },
-        invoices: {
-          orderBy: { date: 'desc' },
-          skip: historySkip,
-          take: historyLimit,
-        },
-      },
-    }),
+      }),
       this.prisma.workshopOrder.count({ where: { customer_id: id } }),
       this.prisma.invoice.count({ where: { customer_id: id } }),
     ]);
     if (!customer)
       throw new NotFoundException(`Customer with ID ${id} not found`);
 
-    const workshopOrderPageCount = Math.ceil(workshopOrdersTotal / historyLimit);
+    const workshopOrderPageCount = Math.ceil(
+      workshopOrdersTotal / historyLimit,
+    );
     const invoicesPageCount = Math.ceil(invoicesTotal / historyLimit);
 
     return {
@@ -141,14 +143,16 @@ export class CustomerService {
         totalCount: workshopOrdersTotal,
         pageCount: workshopOrderPageCount,
         hasMore:
-          historyPage < (workshopOrderPageCount === 0 ? 1 : workshopOrderPageCount),
+          historyPage <
+          (workshopOrderPageCount === 0 ? 1 : workshopOrderPageCount),
       },
       invoices_meta: {
         page: historyPage,
         pageSize: historyLimit,
         totalCount: invoicesTotal,
         pageCount: invoicesPageCount,
-        hasMore: historyPage < (invoicesPageCount === 0 ? 1 : invoicesPageCount),
+        hasMore:
+          historyPage < (invoicesPageCount === 0 ? 1 : invoicesPageCount),
       },
     };
   }

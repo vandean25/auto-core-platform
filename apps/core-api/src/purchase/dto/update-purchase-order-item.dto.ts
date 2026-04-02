@@ -1,8 +1,4 @@
-import {
-  IsOptional,
-  IsInt,
-  IsNumber,
-} from 'class-validator';
+import { IsOptional, IsInt, IsNumber } from 'class-validator';
 
 export class UpdatePurchaseOrderItemDto {
   @IsOptional()

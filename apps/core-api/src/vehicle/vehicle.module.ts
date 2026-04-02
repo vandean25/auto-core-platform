@@ -9,4 +9,3 @@ import { VehicleService } from './vehicle.service';
   providers: [VehicleService],
 })
 export class VehicleModule {}
-

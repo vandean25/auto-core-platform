@@ -42,7 +42,14 @@ export class PurchaseInvoiceController {
     const MAX_PAGE_SIZE = 100;
     if (pageSizeNum > MAX_PAGE_SIZE) pageSizeNum = MAX_PAGE_SIZE;
 
-    return this.service.findAll(vendorId, status, pageNum, pageSizeNum, sortBy, order);
+    return this.service.findAll(
+      vendorId,
+      status,
+      pageNum,
+      pageSizeNum,
+      sortBy,
+      order,
+    );
   }
 
   @Get(':id')
@@ -71,10 +78,7 @@ export class PurchaseInvoiceController {
   }
 
   @Delete(':id/lines/:lineId')
-  removeLine(
-    @Param('id') id: string,
-    @Param('lineId') lineId: string,
-  ) {
+  removeLine(@Param('id') id: string, @Param('lineId') lineId: string) {
     return this.service.removeLine(id, lineId);
   }
 }

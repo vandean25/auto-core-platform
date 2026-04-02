@@ -21,7 +21,9 @@ export async function chunkedPromiseAll<T, R>(
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     // Execute the current chunk concurrently
-    const chunkResults = await Promise.all(chunk.map((item) => operation(item)));
+    const chunkResults = await Promise.all(
+      chunk.map((item) => operation(item)),
+    );
     results.push(...chunkResults);
   }
 

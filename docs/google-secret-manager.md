@@ -49,3 +49,22 @@ Dry-run:
 3. Store only mapping templates in git.
 4. Use separate secrets for `dev`, `staging`, and `prod`.
 5. Give AI agents separate low-privilege service identities.
+
+## 6. Sentry Source Map CI Secrets
+
+To upload frontend source maps to Sentry during CI builds, keep these values in GSM:
+
+- `SENTRY_AUTH_TOKEN`
+- `SENTRY_ORG`
+- `SENTRY_PROJECT`
+
+The GitHub Actions workflow `.github/workflows/core-web-sentry-sourcemaps.yml` fetches those secrets from GSM using workload identity and injects them into the `core-web` build step.
+
+Required GitHub repository secrets for GSM access:
+
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
+- `GCP_PROJECT_ID`
+- `GSM_SENTRY_AUTH_TOKEN_SECRET`
+- `GSM_SENTRY_ORG_SECRET`
+- `GSM_SENTRY_PROJECT_SECRET`

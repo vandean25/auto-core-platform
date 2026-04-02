@@ -15,6 +15,20 @@
         ]
       }
     },
+    "/api/debug-sentry": {
+      "get": {
+        "operationId": "AppController_getSentryError",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
     "/api/inventory/availability/{sku}": {
       "get": {
         "operationId": "InventoryController_checkAvailability",
