@@ -74,8 +74,6 @@ steps:
   - id: deploy-cloud-run
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
-    secretEnv:
-      - SENTRY_DSN
     args:
       - -lc
       - |
@@ -86,7 +84,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL}" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME}" \
           --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest" \
           --cpu 1 \
           --memory 512Mi \
@@ -138,6 +136,8 @@ steps:
         export SENTRY_AUTH_TOKEN="$$SENTRY_AUTH_TOKEN"
         export SENTRY_ORG="$$SENTRY_ORG"
         export SENTRY_PROJECT="$$SENTRY_PROJECT"
+        export SENTRY_RELEASE="${TAG_NAME}"
+        export VITE_APP_VERSION="${TAG_NAME}"
         npm ci
         npm run build
 

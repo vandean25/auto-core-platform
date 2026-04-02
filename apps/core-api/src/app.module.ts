@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
+import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { InventoryModule } from './inventory/inventory.module';
@@ -23,7 +23,6 @@ import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime
 
 @Module({
   imports: [
-    SentryModule.forRoot(),
     PrismaModule,
     InventoryModule,
     PurchaseModule,

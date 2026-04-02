@@ -4,18 +4,26 @@ import { defineConfig } from 'vitest/config'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 
+const hasSentryUploadCredentials = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+)
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    sentryVitePlugin({
-      org: process.env.SENTRY_ORG ?? 'YOUR_ORG',
-      project: process.env.SENTRY_PROJECT ?? 'core-web',
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-    }),
+    ...(hasSentryUploadCredentials
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG!,
+            project: process.env.SENTRY_PROJECT!,
+            authToken: process.env.SENTRY_AUTH_TOKEN!,
+          }),
+        ]
+      : []),
   ],
   build: {
-    sourcemap: true,
+    sourcemap: 'hidden',
   },
   resolve: {
     alias: {

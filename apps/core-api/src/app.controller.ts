@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -12,6 +12,10 @@ export class AppController {
 
   @Get('/debug-sentry')
   getSentryError(): never {
+    if (process.env.ENABLE_SENTRY_DEBUG_ROUTE !== 'true') {
+      throw new NotFoundException();
+    }
+
     throw new Error('My first Sentry error!');
   }
 }

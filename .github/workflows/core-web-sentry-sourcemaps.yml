@@ -47,5 +47,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ steps.gsm.outputs.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ steps.gsm.outputs.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ steps.gsm.outputs.SENTRY_PROJECT }}
+          SENTRY_RELEASE: ${{ github.sha }}
+          VITE_APP_VERSION: ${{ github.sha }}
         run: npm run build
         working-directory: apps/core-web

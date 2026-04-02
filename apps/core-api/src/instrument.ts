@@ -2,15 +2,24 @@ import 'dotenv/config';
 import * as Sentry from '@sentry/node';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
-Sentry.init({
-  dsn:
-    process.env.SENTRY_DSN ??
-    'https://fa07a2a51c6508054dc8917eca1da5ce@o4511150371700736.ingest.de.sentry.io/4511150441758800',
-  sendDefaultPii: true,
-  tracesSampleRate: 1.0,
-  integrations: [
-    Sentry.prismaIntegration({
-      prismaInstrumentation: new PrismaInstrumentation(),
-    }),
-  ],
-});
+const dsn = process.env.SENTRY_DSN;
+
+if (dsn) {
+  const tracesSampleRate = Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1);
+  const sendDefaultPii = process.env.SENTRY_SEND_DEFAULT_PII === 'true';
+
+  Sentry.init({
+    dsn,
+    environment: process.env.NODE_ENV ?? 'development',
+    release: process.env.SENTRY_RELEASE,
+    sendDefaultPii,
+    tracesSampleRate: Number.isFinite(tracesSampleRate)
+      ? tracesSampleRate
+      : 0.1,
+    integrations: [
+      Sentry.prismaIntegration({
+        prismaInstrumentation: new PrismaInstrumentation(),
+      }),
+    ],
+  });
+}
