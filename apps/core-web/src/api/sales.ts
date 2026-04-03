@@ -46,37 +46,6 @@ export function useFinalizeInvoice() {
     })
 }
 
-export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
-    // 1. Ensure generation
-    const genRes = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`, {
-        method: 'POST'
-    })
-    if (!genRes.ok) {
-        const payload = await genRes.json().catch(() => ({}))
-        const error = new Error(payload?.message || 'Failed to generate invoice PDF') as Error & {
-            status?: number
-        }
-        error.status = genRes.status
-        throw error
-    }
-
-    // 2. Fetch the file
-    const response = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`, {
-        headers: {
-            'Accept': 'application/pdf'
-        }
-    })
-    if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        const error = new Error(payload?.message || 'Failed to download invoice PDF') as Error & {
-            status?: number
-        }
-        error.status = response.status
-        throw error
-    }
-    return response.blob()
-}
-
 export function useInvoice(id: string) {
     return useQuery<Invoice>({
         queryKey: ['invoices', id],

@@ -97,31 +97,41 @@ export class InvoicePdfService {
 
         try {
           return await retry(
-            async () => {
-              const pdf = await this.renderer.render(snapshot);
-              const upload = await this.storage.uploadPdf({
-                key,
-                body: pdf,
-                contentType: 'application/pdf',
-              });
+            async (bail) => {
+              try {
+                const pdf = await this.renderer.render(snapshot);
+                const upload = await this.storage.uploadPdf({
+                  key,
+                  body: pdf,
+                  contentType: 'application/pdf',
+                });
 
-              const generatedAt = new Date();
-              await this.prisma.invoice.update({
-                where: { id: invoiceId },
-                data: {
-                  pdf_storage_bucket: upload.bucket,
-                  pdf_storage_key: upload.key,
-                  pdf_generated_at: generatedAt,
-                  pdf_generation_error: null,
-                },
-              });
+                const generatedAt = new Date();
+                await this.prisma.invoice.update({
+                  where: { id: invoiceId },
+                  data: {
+                    pdf_storage_bucket: upload.bucket,
+                    pdf_storage_key: upload.key,
+                    pdf_generated_at: generatedAt,
+                    pdf_generation_error: null,
+                  },
+                });
 
-              return {
-                invoiceId,
-                bucket: upload.bucket,
-                key: upload.key,
-                generatedAt,
-              };
+                return {
+                  invoiceId,
+                  bucket: upload.bucket,
+                  key: upload.key,
+                  generatedAt,
+                };
+              } catch (error) {
+                // Don't retry if the error is a 4xx client error
+                const status = (error as any)?.status;
+                if (status && status >= 400 && status < 500) {
+                  bail(error instanceof Error ? error : new Error(String(error)));
+                  return;
+                }
+                throw error;
+              }
             },
             {
               retries: 3,
