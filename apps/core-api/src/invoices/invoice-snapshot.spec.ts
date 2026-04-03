@@ -1,6 +1,5 @@
-import { Decimal } from '@prisma/client/runtime/library';
 import { buildInvoiceSnapshot } from './invoice-snapshot';
-import { CustomerType } from '@prisma/client';
+import { CustomerType, Prisma } from '@prisma/client';
 
 describe('Invoice Snapshot Integrity', () => {
   const baseInvoice = {
@@ -36,20 +35,20 @@ describe('Invoice Snapshot Integrity', () => {
   it('should verify mathematical accuracy: total_net + total_tax === total_gross', () => {
     const invoice = {
       ...baseInvoice,
-      total_net: new Decimal('100.00'),
-      total_tax: new Decimal('20.00'),
-      total_gross: new Decimal('120.00'),
+      total_net: new Prisma.Decimal('100.00'),
+      total_tax: new Prisma.Decimal('20.00'),
+      total_gross: new Prisma.Decimal('120.00'),
       items: [
         {
           id: 'item-1',
           invoice_id: 'inv-123',
           description: 'Service',
-          quantity: new Decimal('1.00'),
-          unit_price: new Decimal('100.00'),
-          tax_rate: new Decimal('20.00'),
+          quantity: new Prisma.Decimal('1.00'),
+          unit_price: new Prisma.Decimal('100.00'),
+          tax_rate: new Prisma.Decimal('20.00'),
           line_discount_type: null,
           line_discount_value: null,
-          line_total: new Decimal('120.00'),
+          line_total: new Prisma.Decimal('120.00'),
           revenue_group_name: null,
         },
       ],
@@ -71,20 +70,20 @@ describe('Invoice Snapshot Integrity', () => {
   it('should verify correct rounding of Decimal values', () => {
     const invoice = {
       ...baseInvoice,
-      total_net: new Decimal('100.1234'),
-      total_tax: new Decimal('20.1234'),
-      total_gross: new Decimal('120.2468'),
+      total_net: new Prisma.Decimal('100.1234'),
+      total_tax: new Prisma.Decimal('20.1234'),
+      total_gross: new Prisma.Decimal('120.2468'),
       items: [
         {
           id: 'item-1',
           invoice_id: 'inv-123',
           description: 'Service',
-          quantity: new Decimal('1.00'),
-          unit_price: new Decimal('100.1234'),
-          tax_rate: new Decimal('20.1234'),
+          quantity: new Prisma.Decimal('1.00'),
+          unit_price: new Prisma.Decimal('100.1234'),
+          tax_rate: new Prisma.Decimal('20.1234'),
           line_discount_type: null,
           line_discount_value: null,
-          line_total: new Decimal('120.2468'),
+          line_total: new Prisma.Decimal('120.2468'),
           revenue_group_name: null,
         },
       ],
@@ -102,20 +101,20 @@ describe('Invoice Snapshot Integrity', () => {
   it('should verify handling of zero-tax and discounted items', () => {
     const invoice = {
       ...baseInvoice,
-      total_net: new Decimal('90.00'),
-      total_tax: new Decimal('0.00'),
-      total_gross: new Decimal('90.00'),
+      total_net: new Prisma.Decimal('90.00'),
+      total_tax: new Prisma.Decimal('0.00'),
+      total_gross: new Prisma.Decimal('90.00'),
       items: [
         {
           id: 'item-1',
           invoice_id: 'inv-123',
           description: 'Discounted Service',
-          quantity: new Decimal('1.00'),
-          unit_price: new Decimal('100.00'),
-          tax_rate: new Decimal('0.00'),
+          quantity: new Prisma.Decimal('1.00'),
+          unit_price: new Prisma.Decimal('100.00'),
+          tax_rate: new Prisma.Decimal('0.00'),
           line_discount_type: 'PERCENTAGE',
-          line_discount_value: new Decimal('10.00'),
-          line_total: new Decimal('90.00'),
+          line_discount_value: new Prisma.Decimal('10.00'),
+          line_total: new Prisma.Decimal('90.00'),
           revenue_group_name: null,
         },
       ],
