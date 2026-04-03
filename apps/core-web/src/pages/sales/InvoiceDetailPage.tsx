@@ -1,9 +1,11 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { DownloadCloud } from 'lucide-react'
+import { DownloadCloud, Loader2, AlertCircle } from 'lucide-react'
 import { useInvoice, downloadInvoicePdf } from '@/api/sales'
 import { useWorkshopOrder } from '@/api/workshop'
+import { useQueryClient } from '@tanstack/react-query'
+import { fetchWithAuth } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import type { InvoiceItem, WorkshopTask } from '@/api/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -124,8 +126,11 @@ function formatLineDiscount(summary: InvoiceLineSummary) {
 
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
+  const queryClient = useQueryClient()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isPreparing, setIsPreparing] = useState(false)
+  const [attemptedGeneration, setAttemptedGeneration] = useState<Record<string, boolean>>({})
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
     data: workshopOrder,
@@ -133,6 +138,51 @@ export default function InvoiceDetailPage() {
     error: workshopOrderError,
   } = useWorkshopOrder(workshopOrderId)
   const isWorkshopInvoice = Boolean(invoice?.workshop_order_id)
+
+  useEffect(() => {
+    if (!invoice) return
+
+    const canAutoGenerate = invoice.status === 'ISSUED' || invoice.status === 'PAID'
+    const needsGeneration = invoice.pdf_generated_at === null && !invoice.pdf_generation_error
+
+    if (canAutoGenerate && needsGeneration && !isPreparing && !attemptedGeneration[invoice.id]) {
+      setIsPreparing(true)
+      setAttemptedGeneration((prev) => ({ ...prev, [invoice.id]: true }))
+      fetchWithAuth(`/api/invoices/${invoice.id}/pdf`, { method: 'POST' })
+        .then(async (res) => {
+          if (!res.ok) {
+            console.error('Auto-generation failed', await res.text())
+          }
+        })
+        .catch((err) => {
+          console.error('Auto-generation error', err)
+        })
+        .finally(() => {
+          setIsPreparing(false)
+          void queryClient.invalidateQueries({ queryKey: ['invoices', invoice.id] })
+        })
+    }
+  }, [invoice, isPreparing, queryClient, attemptedGeneration])
+
+  const handleRetryGeneration = async () => {
+    if (!invoice) return
+    setIsPreparing(true)
+    const toastId = toast.loading('Retrying PDF generation...')
+    try {
+      const res = await fetchWithAuth(`/api/invoices/${invoice.id}/pdf`, { method: 'POST' })
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}))
+        throw new Error(payload?.message || 'Failed to generate PDF')
+      }
+      toast.success('PDF generated successfully', { id: toastId })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to generate PDF'
+      toast.error(message, { id: toastId })
+    } finally {
+      setIsPreparing(false)
+      void queryClient.invalidateQueries({ queryKey: ['invoices', invoice.id] })
+    }
+  }
 
   const lineSummaries = useMemo<InvoiceLineSummary[]>(() => {
     if (!invoice) return []
@@ -273,6 +323,21 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+      {invoice.pdf_generation_error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start justify-between shadow-sm">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium text-red-800">PDF Generation Failed</h3>
+              <p className="mt-1 text-sm text-red-700">{invoice.pdf_generation_error}</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRetryGeneration} disabled={isPreparing} className="border-red-200 text-red-700 hover:bg-red-100 hover:text-red-800">
+            Retry
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -280,16 +345,24 @@ export default function InvoiceDetailPage() {
           </h1>
           <StatusBadge status={invoice.status} />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleDownloadPdf}
-          disabled={isDownloading || !canDownload}
-          title={!canDownload ? 'PDF can only be downloaded for issued or paid invoices' : undefined}
-        >
-          <DownloadCloud className="w-4 h-4 mr-2" />
-          {isDownloading ? 'Downloading...' : 'Download PDF'}
-        </Button>
+        <div className="flex items-center gap-3">
+          {isPreparing && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Preparing PDF...
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={isDownloading || isPreparing || !canDownload}
+            title={!canDownload ? 'PDF can only be downloaded for issued or paid invoices' : undefined}
+          >
+            <DownloadCloud className="w-4 h-4 mr-2" />
+            {isDownloading ? 'Downloading...' : 'Download PDF'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
