@@ -30,8 +30,8 @@ export class InvoicePdfService {
   }> {
     return Sentry.startSpan(
       { name: 'Generate Invoice PDF', op: 'pdf.generate' },
-      async () => {
-        Sentry.setTag('invoiceId', invoiceId);
+      async (span) => {
+        span.setAttribute('invoiceId', invoiceId);
         const invoice = await this.prisma.invoice.findUnique({
           where: { id: invoiceId },
           select: {
@@ -51,9 +51,9 @@ export class InvoicePdfService {
           throw new NotFoundException('Invoice not found');
         }
 
-        Sentry.setTag('customerId', invoice.customer_id);
+        span.setAttribute('customerId', invoice.customer_id);
         if (invoice.workshop_order_id) {
-          Sentry.setTag('workshopOrderId', invoice.workshop_order_id);
+          span.setAttribute('workshopOrderId', invoice.workshop_order_id);
         }
 
         if (
@@ -61,6 +61,11 @@ export class InvoicePdfService {
           invoice.pdf_storage_bucket &&
           invoice.pdf_generated_at
         ) {
+          Sentry.addBreadcrumb({
+            message: 'Invoice PDF cache hit',
+            category: 'pdf',
+            data: { bucket: invoice.pdf_storage_bucket, key: invoice.pdf_storage_key },
+          });
           return {
             invoiceId: invoice.id,
             bucket: invoice.pdf_storage_bucket,
@@ -110,7 +115,15 @@ export class InvoicePdfService {
             `Invoice PDF generation failed (invoiceId=${invoiceId}): ${message}`,
             error instanceof Error ? error.stack : undefined,
           );
-          Sentry.captureException(error);
+          
+          Sentry.captureException(error, {
+            tags: {
+              invoiceId,
+              customerId: invoice.customer_id,
+              workshopOrderId: invoice.workshop_order_id ?? undefined,
+            }
+          });
+
           await this.safeStoreGenerationError(invoiceId, message);
           throw error;
         }

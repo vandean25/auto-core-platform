@@ -24,8 +24,11 @@ export class InvoicePdfStorage {
   }): Promise<{ bucket: string; key: string; etag: string | null }> {
     return Sentry.startSpan(
       { name: 'Upload PDF to GCS', op: 'pdf.storage.upload' },
-      async () => {
+      async (span) => {
         const bucketName = this.getBucketName();
+        span.setAttribute('bucket', bucketName);
+        span.setAttribute('key', params.key);
+
         const bucket = this.storage.bucket(bucketName);
         const file = bucket.file(params.key);
 
@@ -38,7 +41,7 @@ export class InvoicePdfStorage {
           return {
             bucket: bucketName,
             key: params.key,
-            etag: null, // GCS doesn't return ETag directly on save in the same way, optional for now
+            etag: null,
           };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -46,7 +49,6 @@ export class InvoicePdfStorage {
             `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
             error instanceof Error ? error.stack : undefined,
           );
-          Sentry.captureException(error);
           throw new InternalServerErrorException(
             'Failed to upload invoice PDF to storage',
           );

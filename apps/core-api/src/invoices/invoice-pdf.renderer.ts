@@ -28,11 +28,11 @@ export class InvoicePdfRenderer {
         );
 
         return Buffer.from(pdf);
-      } catch (error) {
-        Sentry.captureException(error);
-        throw error;
       } finally {
-        await browser.close();
+        await browser.close().catch((err) => {
+          // Log but don't rethrow cleanup errors to avoid masking the original failure
+          console.error('Failed to close browser during PDF render cleanup:', err);
+        });
       }
     });
   }
