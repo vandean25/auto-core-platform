@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, useEffect } from 'react'
+import { Fragment, useMemo, useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DownloadCloud, Loader2, AlertCircle } from 'lucide-react'
@@ -130,7 +130,7 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isPreparing, setIsPreparing] = useState(false)
-  const [attemptedGeneration, setAttemptedGeneration] = useState<Record<string, boolean>>({})
+  const attemptedGeneration = useRef<Set<string>>(new Set())
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
     data: workshopOrder,
@@ -143,11 +143,11 @@ export default function InvoiceDetailPage() {
     if (!invoice) return
 
     const canAutoGenerate = invoice.status === 'ISSUED' || invoice.status === 'PAID'
-    const needsGeneration = invoice.pdf_generated_at === null && !invoice.pdf_generation_error
+    const needsGeneration = !invoice.pdf_generated_at && !invoice.pdf_generation_error
 
-    if (canAutoGenerate && needsGeneration && !isPreparing && !attemptedGeneration[invoice.id]) {
+    if (canAutoGenerate && needsGeneration && !isPreparing && !attemptedGeneration.current.has(invoice.id)) {
       setIsPreparing(true)
-      setAttemptedGeneration((prev) => ({ ...prev, [invoice.id]: true }))
+      attemptedGeneration.current.add(invoice.id)
       fetchWithAuth(`/api/invoices/${invoice.id}/pdf`, { method: 'POST' })
         .then(async (res) => {
           if (!res.ok) {
@@ -162,7 +162,7 @@ export default function InvoiceDetailPage() {
           void queryClient.invalidateQueries({ queryKey: ['invoices', invoice.id] })
         })
     }
-  }, [invoice, isPreparing, queryClient, attemptedGeneration])
+  }, [invoice, isPreparing, queryClient])
 
   const handleRetryGeneration = async () => {
     if (!invoice) return
