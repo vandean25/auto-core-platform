@@ -46,6 +46,14 @@ export function useFinalizeInvoice() {
     })
 }
 
+export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
+    const response = await fetchWithAuth(`/api/sales/invoices/${invoiceId}/pdf`)
+    if (!response.ok) {
+        throw new Error('Failed to download invoice PDF')
+    }
+    return response.blob()
+}
+
 export function useInvoice(id: string) {
     return useQuery<Invoice>({
         queryKey: ['invoices', id],
