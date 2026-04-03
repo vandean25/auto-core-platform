@@ -228,23 +228,32 @@ export default function InvoiceDetailPage() {
 
     setIsDownloading(true)
     const toastId = toast.loading('Generating PDF...')
+    let url: string | null = null
 
     try {
       const blob = await downloadInvoicePdf(invoice.id)
-      const url = window.URL.createObjectURL(blob)
+      url = window.URL.createObjectURL(blob)
+      
+      const fileName = `invoice-${invoice.invoice_number || invoice.id.slice(0, 8)}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase()
+
       const link = document.createElement('a')
       link.href = url
-      link.download = `invoice-${invoice.invoice_number || invoice.id.slice(0, 8)}.pdf`
+      link.download = `${fileName}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
 
       toast.success('PDF downloaded successfully', { id: toastId })
     } catch (err) {
-      toast.error('Failed to download PDF', { id: toastId })
+      const message = err instanceof Error ? err.message : 'Failed to download PDF'
+      toast.error(message, { id: toastId })
       console.error('PDF Download Error:', err)
     } finally {
+      if (url) {
+        window.URL.revokeObjectURL(url)
+      }
       setIsDownloading(false)
     }
   }

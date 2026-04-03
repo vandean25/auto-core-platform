@@ -52,13 +52,27 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
         method: 'POST'
     })
     if (!genRes.ok) {
-        throw new Error('Failed to generate invoice PDF')
+        const payload = await genRes.json().catch(() => ({}))
+        const error = new Error(payload?.message || 'Failed to generate invoice PDF') as Error & {
+            status?: number
+        }
+        error.status = genRes.status
+        throw error
     }
 
     // 2. Fetch the file
-    const response = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`)
+    const response = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`, {
+        headers: {
+            'Accept': 'application/pdf'
+        }
+    })
     if (!response.ok) {
-        throw new Error('Failed to download invoice PDF')
+        const payload = await response.json().catch(() => ({}))
+        const error = new Error(payload?.message || 'Failed to download invoice PDF') as Error & {
+            status?: number
+        }
+        error.status = response.status
+        throw error
     }
     return response.blob()
 }
