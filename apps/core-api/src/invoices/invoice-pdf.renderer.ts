@@ -1,35 +1,48 @@
 import { Injectable } from '@nestjs/common';
-import PDFDocument from 'pdfkit';
+import { chromium } from 'playwright';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
 @Injectable()
 export class InvoicePdfRenderer {
   async render(snapshot: InvoiceSnapshot): Promise<Buffer> {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      const html = this.generateHtml(snapshot);
+      await page.setContent(html);
 
-    const chunks: Buffer[] = [];
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const pdf = await page.pdf({
+        format: 'A4',
+        margin: { top: '50px', right: '50px', bottom: '50px', left: '50px' },
+        printBackground: true,
+      });
 
-    const bufferPromise = new Promise<Buffer>((resolve, reject) => {
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-    });
+      return Buffer.from(pdf);
+    } finally {
+      await browser.close();
+    }
+  }
 
+  private generateHtml(snapshot: InvoiceSnapshot): string {
     const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
+    const itemsHtml = snapshot.items
+      .map(
+        (item) => `
+      <tr>
+        <td>${item.description}</td>
+        <td style="text-align: right">${item.quantity}</td>
+        <td style="text-align: right">${item.unit_price}</td>
+        <td style="text-align: right">${item.line_total ?? ''}</td>
+      </tr>
+    `,
+      )
+      .join('');
 
-    doc.fontSize(20).text('Invoice', { align: 'center' });
-    doc.moveDown(1);
-
-    doc.fontSize(12);
-    doc.text(`Invoice number: ${invoiceNumber}`);
-    doc.text(`Invoice date: ${this.formatDate(snapshot.date)}`);
-    doc.text(`Due date: ${this.formatDate(snapshot.due_date)}`);
-    doc.moveDown(1);
-
-    doc.fontSize(12).text('Bill to:', { underline: true });
-    doc.fontSize(11);
-    doc.text(this.formatCustomerName(snapshot));
-    doc.text(snapshot.customer.address_street ?? '');
+    const customerName =
+      snapshot.customer.type === 'COMPANY'
+        ? snapshot.customer.company_name ??
+          `${snapshot.customer.first_name} ${snapshot.customer.last_name}`
+        : `${snapshot.customer.first_name} ${snapshot.customer.last_name}`;
 
     const cityLine = [
       snapshot.customer.address_zip,
@@ -37,86 +50,101 @@ export class InvoicePdfRenderer {
     ]
       .filter(Boolean)
       .join(' ');
-    if (cityLine) {
-      doc.text(cityLine);
-    }
-    if (snapshot.customer.address_country) {
-      doc.text(snapshot.customer.address_country);
-    }
-    if (snapshot.customer.vat_id) {
-      doc.text(`VAT ID: ${snapshot.customer.vat_id}`);
-    }
-    doc.moveDown(1);
 
-    if (snapshot.vehicle) {
-      doc.fontSize(12).text('Vehicle:', { underline: true });
-      doc
-        .fontSize(11)
-        .text(
-          `${snapshot.vehicle.make} ${snapshot.vehicle.model} (${snapshot.vehicle.year})`,
-        );
-      if (snapshot.vehicle.plate) {
-        doc.text(`Plate: ${snapshot.vehicle.plate}`);
-      }
-      if (snapshot.vehicle.vin) {
-        doc.text(`VIN: ${snapshot.vehicle.vin}`);
-      }
-      doc.moveDown(1);
-    }
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: sans-serif; color: #333; line-height: 1.4; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .section { margin-bottom: 20px; }
+          .section-title { font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { text-align: left; border-bottom: 2px solid #333; padding: 8px; }
+          td { padding: 8px; border-bottom: 1px solid #eee; }
+          .totals { margin-left: auto; width: 250px; }
+          .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
+          .total-row.grand { font-weight: bold; font-size: 1.2em; border-top: 2px solid #333; margin-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Invoice</h1>
+        </div>
 
-    doc.fontSize(12).text('Items', { underline: true });
-    doc.moveDown(0.5);
+        <div style="display: flex; justify-content: space-between;">
+          <div class="section">
+            <div class="section-title">Bill to:</div>
+            <div>${customerName}</div>
+            <div>${snapshot.customer.address_street ?? ''}</div>
+            <div>${cityLine}</div>
+            ${snapshot.customer.address_country ? `<div>${snapshot.customer.address_country}</div>` : ''}
+            ${snapshot.customer.vat_id ? `<div>VAT ID: ${snapshot.customer.vat_id}</div>` : ''}
+          </div>
 
-    const startX = doc.x;
-    const qtyX = startX + 300;
-    const unitX = startX + 360;
-    const totalX = startX + 450;
+          <div class="section" style="text-align: right">
+            <div><strong>Invoice Number:</strong> ${invoiceNumber}</div>
+            <div><strong>Date:</strong> ${this.formatDate(snapshot.date)}</div>
+            <div><strong>Due Date:</strong> ${this.formatDate(snapshot.due_date)}</div>
+          </div>
+        </div>
 
-    doc.fontSize(10);
-    const headerY = doc.y;
-    doc.text('Description', startX, headerY, { width: 290 });
-    doc.text('Qty', qtyX, headerY, { width: 50, align: 'right' });
-    doc.text('Unit', unitX, headerY, { width: 80, align: 'right' });
-    doc.text('Total', totalX, headerY, { width: 90, align: 'right' });
-    doc.moveDown(0.5);
+        ${
+          snapshot.vehicle
+            ? `
+          <div class="section">
+            <div class="section-title">Vehicle:</div>
+            <div>${snapshot.vehicle.make} ${snapshot.vehicle.model} (${snapshot.vehicle.year})</div>
+            ${snapshot.vehicle.plate ? `<div>Plate: ${snapshot.vehicle.plate}</div>` : ''}
+            ${snapshot.vehicle.vin ? `<div>VIN: ${snapshot.vehicle.vin}</div>` : ''}
+          </div>
+        `
+            : ''
+        }
 
-    snapshot.items.forEach((item) => {
-      const rowY = doc.y;
-      doc.text(item.description, startX, rowY, { width: 290 });
-      doc.text(item.quantity, qtyX, rowY, { width: 50, align: 'right' });
-      doc.text(this.money(item.unit_price), unitX, rowY, {
-        width: 80,
-        align: 'right',
-      });
-      doc.text(this.money(item.line_total ?? ''), totalX, rowY, {
-        width: 90,
-        align: 'right',
-      });
-      doc.moveDown(0.5);
-    });
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align: right; width: 80px;">Qty</th>
+              <th style="text-align: right; width: 100px;">Unit Price</th>
+              <th style="text-align: right; width: 100px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
 
-    doc.moveDown(1);
-    doc.fontSize(12).text('Totals', { underline: true });
-    doc.fontSize(11);
-    doc.text(`Net: ${this.money(snapshot.total_net)}`, { align: 'right' });
-    doc.text(`Tax: ${this.money(snapshot.total_tax)}`, { align: 'right' });
-    doc.text(`Gross: ${this.money(snapshot.total_gross)}`, { align: 'right' });
+        <div class="totals">
+          <div class="total-row">
+            <span>Net:</span>
+            <span>${snapshot.total_net}</span>
+          </div>
+          <div class="total-row">
+            <span>Tax:</span>
+            <span>${snapshot.total_tax}</span>
+          </div>
+          <div class="total-row grand">
+            <span>Gross:</span>
+            <span>${snapshot.total_gross}</span>
+          </div>
+        </div>
 
-    if (snapshot.notes) {
-      doc.moveDown(1);
-      doc.fontSize(12).text('Notes', { underline: true });
-      doc.fontSize(11).text(snapshot.notes);
-    }
-
-    doc.end();
-    return bufferPromise;
-  }
-
-  private money(value: string) {
-    if (!value) {
-      return '';
-    }
-    return value;
+        ${
+          snapshot.notes
+            ? `
+          <div class="section" style="margin-top: 30px;">
+            <div class="section-title">Notes:</div>
+            <div>${snapshot.notes}</div>
+          </div>
+        `
+            : ''
+        }
+      </body>
+      </html>
+    `;
   }
 
   private formatDate(value: string) {
@@ -125,15 +153,5 @@ export class InvoicePdfRenderer {
       return value;
     }
     return date.toISOString().slice(0, 10);
-  }
-
-  private formatCustomerName(snapshot: InvoiceSnapshot) {
-    if (snapshot.customer.type === 'COMPANY') {
-      return (
-        snapshot.customer.company_name ??
-        `${snapshot.customer.first_name} ${snapshot.customer.last_name}`
-      );
-    }
-    return `${snapshot.customer.first_name} ${snapshot.customer.last_name}`;
   }
 }

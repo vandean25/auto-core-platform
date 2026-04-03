@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { InvoicesService } from './invoices.service';
@@ -38,67 +39,13 @@ export class InvoicesController {
   }
 
   @Get(':id/pdf')
-  async getPdf(@Param('id') id: string, @Res() res: Response) {
+  async getPdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
     const pdf = await this.invoicePdfService.getPdf(id);
 
-    res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${pdf.filename}"`);
-    if (pdf.contentLength !== null) {
-      res.setHeader('Content-Length', pdf.contentLength.toString());
-    }
-
-    const stream = pdf.stream;
-    const req = res.req;
-
-    let didCleanup = false;
-    const cleanup = () => {
-      if (didCleanup) return;
-      didCleanup = true;
-
-      stream.removeListener('error', onStreamError);
-      req?.removeListener('aborted', onReqAborted);
-      res.removeListener('finish', onResFinish);
-      res.removeListener('close', onResClose);
-    };
-
-    const onStreamError = (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Invoice PDF stream failed (invoiceId=${id}): ${message}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-
-      if (!res.headersSent) {
-        res.status(500);
-      }
-      res.end();
-      cleanup();
-    };
-
-    const onReqAborted = () => {
-      stream.destroy();
-      cleanup();
-    };
-
-    const onResFinish = () => {
-      cleanup();
-    };
-
-    const onResClose = () => {
-      if (res.writableEnded) {
-        cleanup();
-        return;
-      }
-
-      stream.destroy();
-      cleanup();
-    };
-
-    stream.on('error', onStreamError);
-    req?.on('aborted', onReqAborted);
-    res.on('finish', onResFinish);
-    res.on('close', onResClose);
-
-    stream.pipe(res);
+    return new StreamableFile(pdf.stream, {
+      type: pdf.contentType || 'application/pdf',
+      disposition: `inline; filename="${pdf.filename}"`,
+      length: pdf.contentLength ?? undefined,
+    });
   }
 }

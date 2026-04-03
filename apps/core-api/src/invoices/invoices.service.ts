@@ -14,7 +14,7 @@ import {
 import type { WorkshopTaskLineItem } from '@prisma/client';
 import { buildInvoiceSnapshot } from './invoice-snapshot';
 
-const DEFAULT_VAT_RATE = new Prisma.Decimal(20);
+const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
 
 @Injectable()
