@@ -1,5 +1,5 @@
 import { buildInvoiceSnapshot } from './invoice-snapshot';
-import { CustomerType, Prisma } from '@prisma/client';
+import { CustomerType, Prisma, InvoiceStatus } from '@prisma/client';
 
 describe('Invoice Snapshot Integrity', () => {
   const baseInvoice = {
@@ -21,15 +21,25 @@ describe('Invoice Snapshot Integrity', () => {
       address_zip: '12345',
       address_country: 'USA',
       company_name: null,
-      created_at: new Date(),
-      updated_at: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
     vehicle: null,
-    created_at: new Date(),
-    updated_at: new Date(),
-    status: 'DRAFT' as any,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    status: InvoiceStatus.DRAFT,
     customer_id: 'cust-1',
     vehicle_id: null,
+    global_discount_type: null,
+    global_discount_value: null,
+    internal_notes: null,
+    snapshot: null,
+    pdf_storage_bucket: null,
+    pdf_storage_key: null,
+    pdf_generated_at: null,
+    pdf_generation_error: null,
+    workshop_order_id: null,
+    sales_order_id: null,
   };
 
   it('should verify mathematical accuracy: total_net + total_tax === total_gross', () => {
@@ -50,6 +60,8 @@ describe('Invoice Snapshot Integrity', () => {
           line_discount_value: null,
           line_total: new Prisma.Decimal('120.00'),
           revenue_group_name: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ],
     };
@@ -60,14 +72,14 @@ describe('Invoice Snapshot Integrity', () => {
     expect(snapshot.total_tax).toBe('20.00');
     expect(snapshot.total_gross).toBe('120.00');
 
-    const net = parseFloat(snapshot.total_net);
-    const tax = parseFloat(snapshot.total_tax);
-    const gross = parseFloat(snapshot.total_gross);
+    const net = new Prisma.Decimal(snapshot.total_net);
+    const tax = new Prisma.Decimal(snapshot.total_tax);
+    const gross = new Prisma.Decimal(snapshot.total_gross);
 
-    expect(net + tax).toBeCloseTo(gross);
+    expect(net.add(tax).equals(gross)).toBe(true);
   });
 
-  it('should verify correct rounding of Decimal values', () => {
+  it('should verify correct string representation of higher precision decimals (rounded to 2 places)', () => {
     const invoice = {
       ...baseInvoice,
       total_net: new Prisma.Decimal('100.1234'),
@@ -85,17 +97,17 @@ describe('Invoice Snapshot Integrity', () => {
           line_discount_value: null,
           line_total: new Prisma.Decimal('120.2468'),
           revenue_group_name: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ],
     };
 
     const snapshot = buildInvoiceSnapshot(invoice);
 
-    expect(snapshot.total_net).toBe('100.1234');
-    expect(snapshot.total_tax).toBe('20.1234');
-    expect(snapshot.total_gross).toBe('120.2468');
-
-    // Ensure it correctly passes string representation of decimal
+    expect(snapshot.total_net).toBe('100.12');
+    expect(snapshot.total_tax).toBe('20.12');
+    expect(snapshot.total_gross).toBe('120.25'); // Rounded correctly
   });
 
   it('should verify handling of zero-tax and discounted items', () => {
@@ -112,10 +124,12 @@ describe('Invoice Snapshot Integrity', () => {
           quantity: new Prisma.Decimal('1.00'),
           unit_price: new Prisma.Decimal('100.00'),
           tax_rate: new Prisma.Decimal('0.00'),
-          line_discount_type: 'PERCENTAGE',
+          line_discount_type: 'PERCENTAGE' as const,
           line_discount_value: new Prisma.Decimal('10.00'),
           line_total: new Prisma.Decimal('90.00'),
           revenue_group_name: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ],
     };
@@ -129,10 +143,10 @@ describe('Invoice Snapshot Integrity', () => {
     expect(snapshot.items[0].line_discount_type).toBe('PERCENTAGE');
     expect(snapshot.items[0].line_discount_value).toBe('10.00');
 
-    const net = parseFloat(snapshot.total_net);
-    const tax = parseFloat(snapshot.total_tax);
-    const gross = parseFloat(snapshot.total_gross);
+    const net = new Prisma.Decimal(snapshot.total_net);
+    const tax = new Prisma.Decimal(snapshot.total_tax);
+    const gross = new Prisma.Decimal(snapshot.total_gross);
 
-    expect(net + tax).toBeCloseTo(gross);
+    expect(net.add(tax).equals(gross)).toBe(true);
   });
 });

@@ -6,7 +6,8 @@ import * as path from 'path';
 async function generatePDFs() {
   const renderer = new InvoicePdfRenderer();
 
-  const outputDir = path.join(__dirname, '../../pdf-verification');
+  // Use process.cwd() to ensure reliable output path relative to project root
+  const outputDir = path.join(process.cwd(), 'pdf-verification');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
@@ -38,11 +39,15 @@ async function generatePDFs() {
     snapshot_created_at: new Date().toISOString(),
   };
 
-  // 1. Multi-page: Invoice with 100+ line items.
+  // 1. Multi-page: Invoice with 150 line items.
+  // Fix: Ensure totals match the generated items (150 items * 10 unit price * 1.2 tax rate = 1800 gross)
   const multiPageSnapshot = {
     ...baseSnapshot,
     id: 'inv-multi-page',
     invoice_number: 'INV-MULTI-PAGE',
+    total_net: '1500.00',
+    total_tax: '300.00',
+    total_gross: '1800.00',
     items: Array.from({ length: 150 }).map((_, i) => ({
       description: `Item ${i + 1}`,
       quantity: '1.00',
@@ -58,7 +63,7 @@ async function generatePDFs() {
   try {
     const multiPagePdf = await renderer.render(multiPageSnapshot);
     fs.writeFileSync(path.join(outputDir, 'multi-page.pdf'), multiPagePdf);
-    console.log('Generated multi-page.pdf');
+    console.log(`Generated multi-page.pdf in ${outputDir}`);
   } catch (err) {
     console.error('Error generating multi-page.pdf', err);
   }
@@ -90,7 +95,7 @@ async function generatePDFs() {
   try {
     const longContentPdf = await renderer.render(longContentSnapshot);
     fs.writeFileSync(path.join(outputDir, 'long-content.pdf'), longContentPdf);
-    console.log('Generated long-content.pdf');
+    console.log(`Generated long-content.pdf in ${outputDir}`);
   } catch (err) {
     console.error('Error generating long-content.pdf', err);
   }
@@ -115,18 +120,27 @@ async function generatePDFs() {
         line_total: '600.00',
         revenue_group_name: null,
       }
-    ]
+    ],
+    total_net: '500.00',
+    total_tax: '100.00',
+    total_gross: '600.00',
   };
 
   try {
     const legalCompliancePdf = await renderer.render(legalComplianceSnapshot);
     fs.writeFileSync(path.join(outputDir, 'legal-compliance.pdf'), legalCompliancePdf);
-    console.log('Generated legal-compliance.pdf');
+    console.log(`Generated legal-compliance.pdf in ${outputDir}`);
   } catch (err) {
     console.error('Error generating legal-compliance.pdf', err);
   }
 }
 
-generatePDFs().then(() => {
-  console.log('Done');
-}).catch(console.error);
+// Add a guard to prevent execution when imported
+if (require.main === module) {
+  generatePDFs().then(() => {
+    console.log('Verification PDF generation complete.');
+  }).catch((err) => {
+    console.error('Unexpected error in verify-pdf-layout script:', err);
+    process.exit(1);
+  });
+}
