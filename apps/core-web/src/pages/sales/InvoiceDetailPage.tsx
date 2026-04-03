@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DownloadCloud, Loader2, AlertCircle } from 'lucide-react'
-import { useInvoice, downloadInvoicePdf } from '@/api/sales'
+import { useInvoice, downloadInvoicePdf, getInvoiceQueryKey } from '@/api/sales'
 import { useWorkshopOrder } from '@/api/workshop'
 import { useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/api/client'
@@ -159,7 +159,7 @@ export default function InvoiceDetailPage() {
         })
         .finally(() => {
           setIsPreparing(false)
-          void queryClient.invalidateQueries({ queryKey: ['invoices', invoice.id] })
+          void queryClient.invalidateQueries({ queryKey: getInvoiceQueryKey(invoice.id) })
         })
     }
   }, [invoice, isPreparing, queryClient])

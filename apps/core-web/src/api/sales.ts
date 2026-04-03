@@ -46,6 +46,8 @@ export function useFinalizeInvoice() {
     })
 }
 
+export const getInvoiceQueryKey = (id: string) => ['invoices', id]
+
 export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
     // 1. Ensure generation
     const genRes = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`, {
@@ -79,7 +81,7 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
 
 export function useInvoice(id: string) {
     return useQuery<Invoice>({
-        queryKey: ['invoices', id],
+        queryKey: getInvoiceQueryKey(id),
         queryFn: async () => {
              const response = await fetchWithAuth(`/api/sales/invoices/${id}`)
              if (!response.ok) {
