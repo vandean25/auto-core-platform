@@ -108,9 +108,11 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = (error as any)?.status;
+                const status = error?.status;
                 if (status && status >= 400 && status < 500) {
-                  bail(error instanceof Error ? error : new Error(String(error)));
+                  bail(
+                    error instanceof Error ? error : new Error(String(error)),
+                  );
                   return;
                 }
                 throw error;
@@ -148,7 +150,12 @@ export class InvoicePdfService {
             },
           });
 
-          return { invoiceId, bucket: upload.bucket, key: upload.key, generatedAt };
+          return {
+            invoiceId,
+            bucket: upload.bucket,
+            key: upload.key,
+            generatedAt,
+          };
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -171,14 +178,17 @@ export class InvoicePdfService {
           try {
             await this.cloudTasks.enqueuePdfGeneration(invoiceId, 0);
           } catch (enqueueError) {
-            const enqueueMessage = enqueueError instanceof Error ? enqueueError.message : String(enqueueError);
+            const enqueueMessage =
+              enqueueError instanceof Error
+                ? enqueueError.message
+                : String(enqueueError);
             this.logger.error(
               `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${enqueueMessage}`,
               enqueueError instanceof Error ? enqueueError.stack : undefined,
             );
             Sentry.captureException(enqueueError, {
               level: 'fatal',
-              tags: { invoiceId, operation: 'enqueue_cloud_task' }
+              tags: { invoiceId, operation: 'enqueue_cloud_task' },
             });
           }
 

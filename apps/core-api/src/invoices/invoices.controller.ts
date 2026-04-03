@@ -39,7 +39,10 @@ export class InvoicesController {
   }
 
   @Get(':id/pdf')
-  async getPdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+  async getPdf(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const pdf = await this.invoicePdfService.getPdf(id);
 
     return new StreamableFile(pdf.stream, {
