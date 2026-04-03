@@ -1,7 +1,10 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useInvoice } from '@/api/sales'
+import { toast } from 'sonner'
+import { DownloadCloud } from 'lucide-react'
+import { useInvoice, downloadInvoicePdf } from '@/api/sales'
 import { useWorkshopOrder } from '@/api/workshop'
+import { Button } from '@/components/ui/button'
 import type { InvoiceItem, WorkshopTask } from '@/api/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -122,6 +125,7 @@ function formatLineDiscount(summary: InvoiceLineSummary) {
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
+  const [isDownloading, setIsDownloading] = useState(false)
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
     data: workshopOrder,
@@ -219,6 +223,41 @@ export default function InvoiceDetailPage() {
       ? invoice.customer.company_name
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
+  const handleDownloadPdf = async () => {
+    if (!invoice) return
+
+    setIsDownloading(true)
+    const toastId = toast.loading('Generating PDF...')
+    let url: string | null = null
+
+    try {
+      const blob = await downloadInvoicePdf(invoice.id)
+      url = window.URL.createObjectURL(blob)
+      
+      const fileName = `invoice-${invoice.invoice_number || invoice.id.slice(0, 8)}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase()
+
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success('PDF downloaded successfully', { id: toastId })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to download PDF'
+      toast.error(message, { id: toastId })
+      console.error('PDF Download Error:', err)
+    } finally {
+      if (url) {
+        window.URL.revokeObjectURL(url)
+      }
+      setIsDownloading(false)
+    }
+  }
+
   const renderLine = (summary: InvoiceLineSummary) => (
     <TableRow key={summary.item.id}>
       <TableCell>{summary.item.description}</TableCell>
@@ -230,6 +269,8 @@ export default function InvoiceDetailPage() {
     </TableRow>
   )
 
+  const canDownload = invoice.status === 'ISSUED' || invoice.status === 'PAID'
+
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between mb-8">
@@ -239,6 +280,16 @@ export default function InvoiceDetailPage() {
           </h1>
           <StatusBadge status={invoice.status} />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadPdf}
+          disabled={isDownloading || !canDownload}
+          title={!canDownload ? 'PDF can only be downloaded for issued or paid invoices' : undefined}
+        >
+          <DownloadCloud className="w-4 h-4 mr-2" />
+          {isDownloading ? 'Downloading...' : 'Download PDF'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
