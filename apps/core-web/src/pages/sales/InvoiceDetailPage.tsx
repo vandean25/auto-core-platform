@@ -260,6 +260,8 @@ export default function InvoiceDetailPage() {
     </TableRow>
   )
 
+  const canDownload = invoice.status === 'ISSUED' || invoice.status === 'PAID'
+
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between mb-8">
@@ -273,7 +275,8 @@ export default function InvoiceDetailPage() {
           variant="outline"
           size="sm"
           onClick={handleDownloadPdf}
-          disabled={isDownloading}
+          disabled={isDownloading || !canDownload}
+          title={!canDownload ? 'PDF can only be downloaded for issued or paid invoices' : undefined}
         >
           <DownloadCloud className="w-4 h-4 mr-2" />
           {isDownloading ? 'Downloading...' : 'Download PDF'}

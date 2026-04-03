@@ -47,7 +47,16 @@ export function useFinalizeInvoice() {
 }
 
 export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
-    const response = await fetchWithAuth(`/api/sales/invoices/${invoiceId}/pdf`)
+    // 1. Ensure generation
+    const genRes = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`, {
+        method: 'POST'
+    })
+    if (!genRes.ok) {
+        throw new Error('Failed to generate invoice PDF')
+    }
+
+    // 2. Fetch the file
+    const response = await fetchWithAuth(`/api/invoices/${invoiceId}/pdf`)
     if (!response.ok) {
         throw new Error('Failed to download invoice PDF')
     }
