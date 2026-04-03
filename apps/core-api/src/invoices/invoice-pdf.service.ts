@@ -95,34 +95,17 @@ export class InvoicePdfService {
         );
         const key = `invoices/${invoiceId}.pdf`;
 
+        let upload: { bucket: string; key: string };
         try {
-          return await retry(
+          upload = await retry(
             async (bail) => {
               try {
                 const pdf = await this.renderer.render(snapshot);
-                const upload = await this.storage.uploadPdf({
+                return await this.storage.uploadPdf({
                   key,
                   body: pdf,
                   contentType: 'application/pdf',
                 });
-
-                const generatedAt = new Date();
-                await this.prisma.invoice.update({
-                  where: { id: invoiceId },
-                  data: {
-                    pdf_storage_bucket: upload.bucket,
-                    pdf_storage_key: upload.key,
-                    pdf_generated_at: generatedAt,
-                    pdf_generation_error: null,
-                  },
-                });
-
-                return {
-                  invoiceId,
-                  bucket: upload.bucket,
-                  key: upload.key,
-                  generatedAt,
-                };
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
                 const status = (error as any)?.status;
@@ -134,7 +117,7 @@ export class InvoicePdfService {
               }
             },
             {
-              retries: 3,
+              retries: 2, // 3 attempts total (1 initial + 2 retries)
               minTimeout: 1000,
               maxTimeout: 5000,
               onRetry: (error, attempt) => {
@@ -153,6 +136,19 @@ export class InvoicePdfService {
               },
             },
           );
+
+          const generatedAt = new Date();
+          await this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+              pdf_storage_bucket: upload.bucket,
+              pdf_storage_key: upload.key,
+              pdf_generated_at: generatedAt,
+              pdf_generation_error: null,
+            },
+          });
+
+          return { invoiceId, bucket: upload.bucket, key: upload.key, generatedAt };
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -172,13 +168,19 @@ export class InvoicePdfService {
           await this.safeStoreGenerationError(invoiceId, message);
 
           // Enqueue for offline retry via Cloud Tasks
-          await this.cloudTasks
-            .enqueuePdfGeneration(invoiceId, 0)
-            .catch((err) => {
-              this.logger.error(
-                `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${err}`,
-              );
+          try {
+            await this.cloudTasks.enqueuePdfGeneration(invoiceId, 0);
+          } catch (enqueueError) {
+            const enqueueMessage = enqueueError instanceof Error ? enqueueError.message : String(enqueueError);
+            this.logger.error(
+              `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${enqueueMessage}`,
+              enqueueError instanceof Error ? enqueueError.stack : undefined,
+            );
+            Sentry.captureException(enqueueError, {
+              level: 'fatal',
+              tags: { invoiceId, operation: 'enqueue_cloud_task' }
             });
+          }
 
           throw error;
         }

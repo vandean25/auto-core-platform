@@ -1,26 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class CloudTasksService {
-  private readonly logger = new Logger(CloudTasksService.name);
+  /**
+   * Enqueues a task to generate an invoice PDF asynchronously.
+   *
+   * @param invoiceId The ID of the invoice to generate.
+   * @param delaySeconds Optional delay before the task is executed.
+   */
+  async enqueuePdfGeneration(invoiceId: string, delaySeconds = 0) {
+    // This is a placeholder for the Google Cloud Tasks implementation.
+    // In a real implementation, this would use @google-cloud/tasks to create a task
+    // that targets a specific worker endpoint (e.g., /api/invoices/:id/generate-worker).
 
-  // Foundation for future Cloud Tasks integration.
-  // In a real implementation, we would use @google-cloud/tasks to enqueue
-  // jobs to a specific queue.
+    // Simulate task creation delay
+    if (delaySeconds > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async enqueuePdfGeneration(
-    invoiceId: string,
-    retryCount: number = 0,
-  ): Promise<void> {
-    this.logger.log(
-      `Enqueuing PDF generation for invoice ${invoiceId} (retry: ${retryCount})`,
+    console.log(
+      `[CloudTasksService] Placeholder: Enqueued PDF generation for invoice ${invoiceId} with ${delaySeconds}s delay`,
     );
 
-    // Placeholder for actual Google Cloud Tasks logic
-    // const client = new CloudTasksClient();
-    // const parent = client.queuePath(project, location, queue);
-    // const task = { ... };
-    // await client.createTask({ parent, task });
+    return { taskId: `mock-task-${Date.now()}` };
   }
 }
