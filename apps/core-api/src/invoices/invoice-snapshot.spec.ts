@@ -1,5 +1,5 @@
 import { buildInvoiceSnapshot } from './invoice-snapshot';
-import { CustomerType, Prisma, InvoiceStatus } from '@prisma/client';
+import { CustomerType, Prisma, InvoiceStatus, DiscountType } from '@prisma/client';
 
 describe('Invoice Snapshot Integrity', () => {
   const baseInvoice = {
@@ -124,7 +124,7 @@ describe('Invoice Snapshot Integrity', () => {
           quantity: new Prisma.Decimal('1.00'),
           unit_price: new Prisma.Decimal('100.00'),
           tax_rate: new Prisma.Decimal('0.00'),
-          line_discount_type: 'PERCENTAGE' as const,
+          line_discount_type: DiscountType.PERCENTAGE,
           line_discount_value: new Prisma.Decimal('10.00'),
           line_total: new Prisma.Decimal('90.00'),
           revenue_group_name: null,
