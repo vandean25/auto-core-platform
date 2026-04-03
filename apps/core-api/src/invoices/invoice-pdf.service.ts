@@ -7,10 +7,12 @@ import {
 import { InvoiceStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
+import retry from 'async-retry';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
+import { CloudTasksService } from '../common';
 
 @Injectable()
 export class InvoicePdfService {
@@ -20,6 +22,7 @@ export class InvoicePdfService {
     private prisma: PrismaService,
     private renderer: InvoicePdfRenderer,
     private storage: InvoicePdfStorage,
+    private cloudTasks: CloudTasksService,
   ) {}
 
   async generate(invoiceId: string): Promise<{
@@ -64,7 +67,10 @@ export class InvoicePdfService {
           Sentry.addBreadcrumb({
             message: 'Invoice PDF cache hit',
             category: 'pdf',
-            data: { bucket: invoice.pdf_storage_bucket, key: invoice.pdf_storage_key },
+            data: {
+              bucket: invoice.pdf_storage_bucket,
+              key: invoice.pdf_storage_key,
+            },
           });
           return {
             invoiceId: invoice.id,
@@ -90,41 +96,80 @@ export class InvoicePdfService {
         const key = `invoices/${invoiceId}.pdf`;
 
         try {
-          const pdf = await this.renderer.render(snapshot);
-          const upload = await this.storage.uploadPdf({
-            key,
-            body: pdf,
-            contentType: 'application/pdf',
-          });
+          return await retry(
+            async () => {
+              const pdf = await this.renderer.render(snapshot);
+              const upload = await this.storage.uploadPdf({
+                key,
+                body: pdf,
+                contentType: 'application/pdf',
+              });
 
-          const generatedAt = new Date();
-          await this.prisma.invoice.update({
-            where: { id: invoiceId },
-            data: {
-              pdf_storage_bucket: upload.bucket,
-              pdf_storage_key: upload.key,
-              pdf_generated_at: generatedAt,
-              pdf_generation_error: null,
+              const generatedAt = new Date();
+              await this.prisma.invoice.update({
+                where: { id: invoiceId },
+                data: {
+                  pdf_storage_bucket: upload.bucket,
+                  pdf_storage_key: upload.key,
+                  pdf_generated_at: generatedAt,
+                  pdf_generation_error: null,
+                },
+              });
+
+              return {
+                invoiceId,
+                bucket: upload.bucket,
+                key: upload.key,
+                generatedAt,
+              };
             },
-          });
+            {
+              retries: 3,
+              minTimeout: 1000,
+              maxTimeout: 5000,
+              onRetry: (error, attempt) => {
+                const message =
+                  error instanceof Error ? error.message : String(error);
+                this.logger.warn(
+                  `Invoice PDF generation attempt ${attempt} failed: ${message}`,
+                );
 
-          return { invoiceId, bucket: upload.bucket, key: upload.key, generatedAt };
+                Sentry.addBreadcrumb({
+                  message: `Invoice PDF generation retry ${attempt}`,
+                  category: 'pdf.retry',
+                  level: 'warning',
+                  data: { invoiceId, attempt, error: message },
+                });
+              },
+            },
+          );
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Invoice PDF generation failed (invoiceId=${invoiceId}): ${message}`,
+            `Invoice PDF generation exhausted all retries (invoiceId=${invoiceId}): ${message}`,
             error instanceof Error ? error.stack : undefined,
           );
-          
+
           Sentry.captureException(error, {
             tags: {
               invoiceId,
               customerId: invoice.customer_id,
               workshopOrderId: invoice.workshop_order_id ?? undefined,
-            }
+            },
           });
 
           await this.safeStoreGenerationError(invoiceId, message);
+
+          // Enqueue for offline retry via Cloud Tasks
+          await this.cloudTasks
+            .enqueuePdfGeneration(invoiceId, 0)
+            .catch((err) => {
+              this.logger.error(
+                `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${err}`,
+              );
+            });
+
           throw error;
         }
       },
@@ -204,11 +249,13 @@ export class InvoicePdfService {
 
     const v = value as Partial<InvoiceSnapshot>;
 
-    const isString = (input: unknown): input is string => typeof input === 'string';
+    const isString = (input: unknown): input is string =>
+      typeof input === 'string';
     const isNullableString = (input: unknown): input is string | null =>
       input === null || isString(input);
-    const isNullableObject = (input: unknown): input is Record<string, unknown> =>
-      !!input && typeof input === 'object';
+    const isNullableObject = (
+      input: unknown,
+    ): input is Record<string, unknown> => !!input && typeof input === 'object';
 
     if (!isString(v.id)) return false;
     if (!isNullableString(v.invoice_number)) return false;
@@ -221,7 +268,8 @@ export class InvoicePdfService {
 
     if (!isNullableObject(v.customer)) return false;
     const customer = v.customer as Record<string, unknown>;
-    if (customer.type !== 'PRIVATE' && customer.type !== 'COMPANY') return false;
+    if (customer.type !== 'PRIVATE' && customer.type !== 'COMPANY')
+      return false;
     if (!isNullableString(customer.company_name)) return false;
     if (!isString(customer.first_name)) return false;
     if (!isString(customer.last_name)) return false;
