@@ -7,7 +7,7 @@ async function generatePDFs() {
   const renderer = new InvoicePdfRenderer();
 
   // Use process.cwd() to ensure reliable output path relative to project root
-  const outputDir = path.join(process.cwd(), 'pdf-verification');
+  const outputDir = path.resolve(process.cwd(), 'pdf-verification');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
@@ -39,8 +39,13 @@ async function generatePDFs() {
     snapshot_created_at: new Date().toISOString(),
   };
 
+  async function renderToFile(name: string, snapshot: any) {
+    const pdf = await renderer.render(snapshot);
+    fs.writeFileSync(path.join(outputDir, name), pdf);
+    console.log(`Generated ${name} in ${outputDir}`);
+  }
+
   // 1. Multi-page: Invoice with 150 line items.
-  // Fix: Ensure totals match the generated items (150 items * 10 unit price * 1.2 tax rate = 1800 gross)
   const multiPageSnapshot = {
     ...baseSnapshot,
     id: 'inv-multi-page',
@@ -59,14 +64,6 @@ async function generatePDFs() {
       revenue_group_name: null,
     })),
   };
-
-  try {
-    const multiPagePdf = await renderer.render(multiPageSnapshot);
-    fs.writeFileSync(path.join(outputDir, 'multi-page.pdf'), multiPagePdf);
-    console.log(`Generated multi-page.pdf in ${outputDir}`);
-  } catch (err) {
-    console.error('Error generating multi-page.pdf', err);
-  }
 
   // 2. Long Content: Extremely long descriptions and customer address strings.
   const longContentSnapshot = {
@@ -91,14 +88,6 @@ async function generatePDFs() {
       }
     ]
   };
-
-  try {
-    const longContentPdf = await renderer.render(longContentSnapshot);
-    fs.writeFileSync(path.join(outputDir, 'long-content.pdf'), longContentPdf);
-    console.log(`Generated long-content.pdf in ${outputDir}`);
-  } catch (err) {
-    console.error('Error generating long-content.pdf', err);
-  }
 
   // 3. Legal Compliance: Explicitly verify visibility of Company VAT ID and Sequence Numbering.
   const legalComplianceSnapshot = {
@@ -126,13 +115,9 @@ async function generatePDFs() {
     total_gross: '600.00',
   };
 
-  try {
-    const legalCompliancePdf = await renderer.render(legalComplianceSnapshot);
-    fs.writeFileSync(path.join(outputDir, 'legal-compliance.pdf'), legalCompliancePdf);
-    console.log(`Generated legal-compliance.pdf in ${outputDir}`);
-  } catch (err) {
-    console.error('Error generating legal-compliance.pdf', err);
-  }
+  await renderToFile('multi-page.pdf', multiPageSnapshot);
+  await renderToFile('long-content.pdf', longContentSnapshot);
+  await renderToFile('legal-compliance.pdf', legalComplianceSnapshot);
 }
 
 // Add a guard to prevent execution when imported
