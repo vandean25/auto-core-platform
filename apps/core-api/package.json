@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -26,6 +29,7 @@
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.15.2",
     "@nestjs/common": "^11.1.16",
     "@nestjs/core": "^11.1.16",
     "@nestjs/mapped-types": "^2.1.0",
@@ -44,6 +48,7 @@
     "class-validator": "^0.14.3",
     "dotenv": "^17.2.4",
     "pg": "^8.17.2",
+    "playwright": "^1.51.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",

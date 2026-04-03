@@ -9,12 +9,16 @@ import { AppModule } from '../src/app.module';
  * to `apps/core-api/openapi/openapi.json` for CI contract checks.
  */
 async function generateOpenApiSpec() {
+  process.env.SKIP_PRISMA_CONNECT = 'true';
+
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
     .setTitle('Auto Core Platform API')
-    .setDescription('Generated OpenAPI spec for contract checks and client types.')
+    .setDescription(
+      'Generated OpenAPI spec for contract checks and client types.',
+    )
     .setVersion('1.0.0')
     .build();
 

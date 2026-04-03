@@ -12,8 +12,9 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
+import { buildInvoiceSnapshot } from './invoice-snapshot';
 
-const DEFAULT_VAT_RATE = new Prisma.Decimal(20);
+const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
 
 @Injectable()
@@ -114,7 +115,12 @@ export class InvoicesService {
     return this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({
         where: { id: invoiceId },
-        include: { workshop_order: true },
+        include: {
+          items: { orderBy: { createdAt: 'asc' } },
+          customer: true,
+          vehicle: true,
+          workshop_order: true,
+        },
       });
 
       if (!invoice) {
@@ -131,21 +137,29 @@ export class InvoicesService {
 
       const updateResult = await tx.invoice.updateMany({
         where: { id: invoiceId, status: InvoiceStatus.DRAFT },
-        data: { status: InvoiceStatus.ISSUED },
+        data: {
+          status: InvoiceStatus.ISSUED,
+        },
       });
 
       if (updateResult.count === 0) {
         throw new BadRequestException('Only DRAFT invoices can be issued');
       }
 
-      let invoiceNumber = invoice.invoice_number;
-      if (!invoiceNumber) {
-        invoiceNumber = await this.generateInvoiceNumber(tx);
-        await tx.invoice.update({
-          where: { id: invoiceId },
-          data: { invoice_number: invoiceNumber },
-        });
-      }
+      const invoiceNumber =
+        invoice.invoice_number ?? (await this.generateInvoiceNumber(tx));
+      const snapshot = buildInvoiceSnapshot({
+        ...invoice,
+        invoice_number: invoiceNumber,
+      });
+
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          invoice_number: invoiceNumber,
+          snapshot,
+        },
+      });
 
       await tx.workshopOrder.update({
         where: { id: invoice.workshop_order_id },
@@ -155,7 +169,7 @@ export class InvoicesService {
       const updated = await tx.invoice.findUnique({
         where: { id: invoiceId },
         include: {
-          items: true,
+          items: { orderBy: { createdAt: 'asc' } },
           customer: true,
           vehicle: true,
           workshop_order: true,

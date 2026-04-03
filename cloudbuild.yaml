@@ -31,6 +31,8 @@ availableSecrets:
       env: SENTRY_ORG
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-project/versions/latest
       env: SENTRY_PROJECT
+    - versionName: projects/${_BACKEND_PROJECT}/secrets/INVOICE_PDF_BUCKET/versions/latest
+      env: INVOICE_PDF_BUCKET
 
 steps:
   - id: migrate-db
@@ -85,7 +87,7 @@ steps:
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME}" \
-          --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest" \
+          --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \

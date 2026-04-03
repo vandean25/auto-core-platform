@@ -355,6 +355,13 @@ model Invoice {
   
   notes          String?
   internal_notes String?
+
+  snapshot       Json?
+
+  pdf_storage_bucket   String?
+  pdf_storage_key      String?
+  pdf_generated_at     DateTime?
+  pdf_generation_error String?
   
   items          InvoiceItem[]
   
