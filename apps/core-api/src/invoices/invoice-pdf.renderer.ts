@@ -1,26 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { chromium } from 'playwright';
+import * as Sentry from '@sentry/node';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
 @Injectable()
 export class InvoicePdfRenderer {
   async render(snapshot: InvoiceSnapshot): Promise<Buffer> {
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage();
-      const html = this.generateHtml(snapshot);
-      await page.setContent(html);
+    return Sentry.startSpan({ name: 'Render PDF', op: 'pdf.render' }, async () => {
+      const browser = await Sentry.startSpan(
+        { name: 'Launch Browser', op: 'pdf.browser.launch' },
+        () => chromium.launch(),
+      );
 
-      const pdf = await page.pdf({
-        format: 'A4',
-        margin: { top: '50px', right: '50px', bottom: '50px', left: '50px' },
-        printBackground: true,
-      });
+      try {
+        const page = await browser.newPage();
+        const html = this.generateHtml(snapshot);
+        await page.setContent(html);
 
-      return Buffer.from(pdf);
-    } finally {
-      await browser.close();
-    }
+        const pdf = await Sentry.startSpan(
+          { name: 'Render Page to PDF', op: 'pdf.browser.render' },
+          () =>
+            page.pdf({
+              format: 'A4',
+              margin: { top: '50px', right: '50px', bottom: '50px', left: '50px' },
+              printBackground: true,
+            }),
+        );
+
+        return Buffer.from(pdf);
+      } catch (error) {
+        Sentry.captureException(error);
+        throw error;
+      } finally {
+        await browser.close();
+      }
+    });
   }
 
   private generateHtml(snapshot: InvoiceSnapshot): string {

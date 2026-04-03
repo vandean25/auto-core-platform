@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
+import * as Sentry from '@sentry/node';
 
 @Injectable()
 export class InvoicePdfStorage {
@@ -21,31 +22,37 @@ export class InvoicePdfStorage {
     body: Buffer;
     contentType: string;
   }): Promise<{ bucket: string; key: string; etag: string | null }> {
-    const bucketName = this.getBucketName();
-    const bucket = this.storage.bucket(bucketName);
-    const file = bucket.file(params.key);
+    return Sentry.startSpan(
+      { name: 'Upload PDF to GCS', op: 'pdf.storage.upload' },
+      async () => {
+        const bucketName = this.getBucketName();
+        const bucket = this.storage.bucket(bucketName);
+        const file = bucket.file(params.key);
 
-    try {
-      await file.save(params.body, {
-        contentType: params.contentType,
-        resumable: false,
-      });
+        try {
+          await file.save(params.body, {
+            contentType: params.contentType,
+            resumable: false,
+          });
 
-      return {
-        bucket: bucketName,
-        key: params.key,
-        etag: null, // GCS doesn't return ETag directly on save in the same way, optional for now
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new InternalServerErrorException(
-        'Failed to upload invoice PDF to storage',
-      );
-    }
+          return {
+            bucket: bucketName,
+            key: params.key,
+            etag: null, // GCS doesn't return ETag directly on save in the same way, optional for now
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          Sentry.captureException(error);
+          throw new InternalServerErrorException(
+            'Failed to upload invoice PDF to storage',
+          );
+        }
+      },
+    );
   }
 
   async getPdfStream(params: { bucket?: string; key: string }): Promise<{
