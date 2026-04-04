@@ -10,6 +10,7 @@ import * as Sentry from '@sentry/node';
 export class CloudTasksService {
   private readonly logger = new Logger(CloudTasksService.name);
   private readonly client: CloudTasksClient;
+  private readonly projectIdFromCredentials?: string;
 
   constructor() {
     const credentials = process.env.GCP_CREDENTIALS;
@@ -26,6 +27,9 @@ export class CloudTasksService {
             ? parsed.private_key
             : undefined;
 
+        this.projectIdFromCredentials =
+          typeof parsed.project_id === 'string' ? parsed.project_id : undefined;
+
         if (!clientEmail || !privateKey) {
           throw new Error(
             'GCP_CREDENTIALS does not include client_email/private_key fields',
@@ -33,6 +37,7 @@ export class CloudTasksService {
         }
 
         this.client = new CloudTasksClient({
+          projectId: this.projectIdFromCredentials,
           credentials: {
             client_email: clientEmail,
             private_key: privateKey,
@@ -43,9 +48,11 @@ export class CloudTasksService {
         );
         return;
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
         this.logger.error(
-          'Failed to parse GCP_CREDENTIALS for Cloud Tasks client; falling back to default credentials',
-          error,
+          `Failed to parse GCP_CREDENTIALS for Cloud Tasks client; falling back to default credentials: ${message}`,
+          stack,
         );
       }
     }
@@ -102,6 +109,7 @@ export class CloudTasksService {
 
         const projectId =
           process.env.GOOGLE_CLOUD_PROJECT ??
+          this.projectIdFromCredentials ??
           (await this.client.getProjectId());
 
         const parent = this.client.queuePath(projectId, location, queue);

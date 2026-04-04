@@ -7,10 +7,8 @@ import {
   Param,
   Patch,
   Post,
-  Req,
   StreamableFile,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
@@ -36,19 +34,15 @@ export class InvoicesController {
   }
 
   @Post(':id/pdf')
-  generatePdf(@Param('id') id: string, @Req() req: Request) {
-    const forwardedProtoHeader = req.headers['x-forwarded-proto'];
-    const forwardedProto = Array.isArray(forwardedProtoHeader)
-      ? forwardedProtoHeader[0]
-      : forwardedProtoHeader;
-    const protocol = forwardedProto || req.protocol;
-    const host = req.get('host');
+  generatePdf(@Param('id') id: string) {
+    const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
 
-    if (!host) {
-      this.logger.warn('Missing host header while enqueuing PDF generation');
+    if (!targetBaseUrl) {
+      this.logger.warn(
+        'CLOUD_TASKS_TARGET_BASE_URL is not configured; falling back to inline PDF generation',
+      );
     }
 
-    const targetBaseUrl = host ? `${protocol}://${host}` : '';
     return this.invoicePdfService.requestGeneration(id, { targetBaseUrl });
   }
 
