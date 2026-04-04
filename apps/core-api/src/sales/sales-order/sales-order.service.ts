@@ -199,6 +199,7 @@ export class SalesOrderService {
         quantity: item.quantity,
         unit_price: item.unit_price,
         tax_rate: item.tax_rate,
+        line_total: net,
         revenue_group_name: 'Sales', // Default for now
       };
     });
@@ -223,6 +224,11 @@ export class SalesOrderService {
               create: invoiceItemsData,
             },
           },
+        });
+
+        await tx.salesOrder.update({
+          where: { id: order.id },
+          data: { status: SalesOrderStatus.INVOICED },
         });
 
         return invoice;
