@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -121,7 +122,14 @@ export class InvoicePdfService {
         return { mode: 'generated', ...generated };
       }
 
-      throw error;
+      await this.safeStoreGenerationError(
+        invoiceId,
+        'Failed to enqueue background PDF generation task. Please try again.',
+      );
+
+      throw new InternalServerErrorException(
+        'Failed to enqueue invoice PDF generation task',
+      );
     }
   }
 

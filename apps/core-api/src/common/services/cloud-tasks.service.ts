@@ -127,10 +127,11 @@ export class CloudTasksService {
 
         let url: string;
         try {
-          url = new URL(
-            `/api/invoices/${invoiceId}/pdf/worker`,
-            params.targetBaseUrl,
-          ).toString();
+          const baseUrl = params.targetBaseUrl.endsWith('/')
+            ? params.targetBaseUrl
+            : `${params.targetBaseUrl}/`;
+
+          url = new URL(`invoices/${invoiceId}/pdf/worker`, baseUrl).toString();
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
