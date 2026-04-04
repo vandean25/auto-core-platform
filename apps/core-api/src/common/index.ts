@@ -15,3 +15,5 @@ export {
   BadRequestError,
   ValidationError,
 } from './errors/application-errors';
+
+export { CloudTasksService } from './services/cloud-tasks.service';

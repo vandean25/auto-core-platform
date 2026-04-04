@@ -1,5 +1,10 @@
 import { buildInvoiceSnapshot } from './invoice-snapshot';
-import { CustomerType, Prisma, InvoiceStatus, DiscountType } from '@prisma/client';
+import {
+  CustomerType,
+  Prisma,
+  InvoiceStatus,
+  DiscountType,
+} from '@prisma/client';
 
 describe('Invoice Snapshot Integrity', () => {
   const baseInvoice = {

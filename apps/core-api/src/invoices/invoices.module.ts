@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
+import { CloudTasksService } from '../common';
 
 @Module({
   imports: [PrismaModule],
@@ -14,6 +15,7 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer';
     InvoicePdfService,
     InvoicePdfStorage,
     InvoicePdfRenderer,
+    CloudTasksService,
   ],
   exports: [InvoicesService],
 })

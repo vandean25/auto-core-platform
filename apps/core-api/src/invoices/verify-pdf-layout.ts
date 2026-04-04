@@ -72,12 +72,15 @@ async function generatePDFs() {
     invoice_number: 'INV-LONG-CONTENT',
     customer: {
       ...baseSnapshot.customer,
-      company_name: 'Very Long Company Name That Might Span Multiple Lines And Cause Layout Issues If Not Handled Properly Limited Liability Company',
-      address_street: '12345 Extremely Long Street Name Boulevard Avenue, Suite 987654321, Floor 99, Building Z, Complex Alpha Beta Gamma',
+      company_name:
+        'Very Long Company Name That Might Span Multiple Lines And Cause Layout Issues If Not Handled Properly Limited Liability Company',
+      address_street:
+        '12345 Extremely Long Street Name Boulevard Avenue, Suite 987654321, Floor 99, Building Z, Complex Alpha Beta Gamma',
     },
     items: [
       {
-        description: 'This is an extremely long item description that goes on and on to test how the PDF renderer handles wrapping text in the table cells. It should not break the table layout or overflow into other columns.',
+        description:
+          'This is an extremely long item description that goes on and on to test how the PDF renderer handles wrapping text in the table cells. It should not break the table layout or overflow into other columns.',
         quantity: '1.00',
         unit_price: '1000.00',
         tax_rate: '20.00',
@@ -85,8 +88,8 @@ async function generatePDFs() {
         line_discount_value: null,
         line_total: '1200.00',
         revenue_group_name: null,
-      }
-    ]
+      },
+    ],
   };
 
   // 3. Legal Compliance: Explicitly verify visibility of Company VAT ID and Sequence Numbering.
@@ -108,7 +111,7 @@ async function generatePDFs() {
         line_discount_value: null,
         line_total: '600.00',
         revenue_group_name: null,
-      }
+      },
     ],
     total_net: '500.00',
     total_tax: '100.00',
@@ -122,10 +125,12 @@ async function generatePDFs() {
 
 // Add a guard to prevent execution when imported
 if (require.main === module) {
-  generatePDFs().then(() => {
-    console.log('Verification PDF generation complete.');
-  }).catch((err) => {
-    console.error('Unexpected error in verify-pdf-layout script:', err);
-    process.exit(1);
-  });
+  generatePDFs()
+    .then(() => {
+      console.log('Verification PDF generation complete.');
+    })
+    .catch((err) => {
+      console.error('Unexpected error in verify-pdf-layout script:', err);
+      process.exit(1);
+    });
 }
