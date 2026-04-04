@@ -17,7 +17,7 @@ export class InvoicePdfRenderer {
 
         try {
           const page = await browser.newPage();
-          const html = this.generateHtml(snapshot);
+          const html = this.generateHtml(snapshot, invoiceNumber);
           await page.setContent(html);
 
           const pdf = await Sentry.startSpan(
@@ -52,17 +52,19 @@ export class InvoicePdfRenderer {
     );
   }
 
-  private generateHtml(snapshot: InvoiceSnapshot): string {
-    const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
+  private generateHtml(
+    snapshot: InvoiceSnapshot,
+    invoiceNumber: string,
+  ): string {
     const safeInvoiceNumber = this.escapeHtml(invoiceNumber);
     const itemsHtml = snapshot.items
       .map(
         (item) => `
       <tr>
-        <td>${item.description}</td>
-        <td style="text-align: right">${item.quantity}</td>
-        <td style="text-align: right">${item.unit_price}</td>
-        <td style="text-align: right">${item.line_total ?? ''}</td>
+        <td>${this.escapeHtml(item.description)}</td>
+        <td style="text-align: right">${this.escapeHtml(item.quantity)}</td>
+        <td style="text-align: right">${this.escapeHtml(item.unit_price)}</td>
+        <td style="text-align: right">${this.escapeHtml(item.line_total ?? '')}</td>
       </tr>
     `,
       )
@@ -88,6 +90,7 @@ export class InvoicePdfRenderer {
         <style>
           * { box-sizing: border-box; }
           body {
+            margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             font-size: 12px;
             color: #111827;
@@ -143,17 +146,17 @@ export class InvoicePdfRenderer {
         <div style="display: flex; justify-content: space-between;">
           <div class="section">
             <div class="section-title">Bill to:</div>
-            <div>${customerName}</div>
-            <div>${snapshot.customer.address_street ?? ''}</div>
-            <div>${cityLine}</div>
-            ${snapshot.customer.address_country ? `<div>${snapshot.customer.address_country}</div>` : ''}
-            ${snapshot.customer.vat_id ? `<div>VAT ID: ${snapshot.customer.vat_id}</div>` : ''}
+            <div>${this.escapeHtml(customerName)}</div>
+            <div>${this.escapeHtml(snapshot.customer.address_street ?? '')}</div>
+            <div>${this.escapeHtml(cityLine)}</div>
+            ${snapshot.customer.address_country ? `<div>${this.escapeHtml(snapshot.customer.address_country)}</div>` : ''}
+            ${snapshot.customer.vat_id ? `<div>VAT ID: ${this.escapeHtml(snapshot.customer.vat_id)}</div>` : ''}
           </div>
 
           <div class="section" style="text-align: right">
             <div><strong>Invoice Number:</strong> ${safeInvoiceNumber}</div>
-            <div><strong>Date:</strong> ${this.formatDate(snapshot.date)}</div>
-            <div><strong>Due Date:</strong> ${this.formatDate(snapshot.due_date)}</div>
+            <div><strong>Date:</strong> ${this.escapeHtml(this.formatDate(snapshot.date))}</div>
+            <div><strong>Due Date:</strong> ${this.escapeHtml(this.formatDate(snapshot.due_date))}</div>
           </div>
         </div>
 
@@ -162,9 +165,9 @@ export class InvoicePdfRenderer {
             ? `
           <div class="section">
             <div class="section-title">Vehicle:</div>
-            <div>${snapshot.vehicle.make} ${snapshot.vehicle.model} (${snapshot.vehicle.year})</div>
-            ${snapshot.vehicle.plate ? `<div>Plate: ${snapshot.vehicle.plate}</div>` : ''}
-            ${snapshot.vehicle.vin ? `<div>VIN: ${snapshot.vehicle.vin}</div>` : ''}
+            <div>${this.escapeHtml(snapshot.vehicle.make)} ${this.escapeHtml(snapshot.vehicle.model)} (${this.escapeHtml(snapshot.vehicle.year)})</div>
+            ${snapshot.vehicle.plate ? `<div>Plate: ${this.escapeHtml(snapshot.vehicle.plate)}</div>` : ''}
+            ${snapshot.vehicle.vin ? `<div>VIN: ${this.escapeHtml(snapshot.vehicle.vin)}</div>` : ''}
           </div>
         `
             : ''
@@ -187,15 +190,15 @@ export class InvoicePdfRenderer {
         <div class="totals">
           <div class="total-row">
             <span>Net:</span>
-            <span>${snapshot.total_net}</span>
+            <span>${this.escapeHtml(snapshot.total_net)}</span>
           </div>
           <div class="total-row">
             <span>Tax:</span>
-            <span>${snapshot.total_tax}</span>
+            <span>${this.escapeHtml(snapshot.total_tax)}</span>
           </div>
           <div class="total-row grand">
             <span>Gross:</span>
-            <span>${snapshot.total_gross}</span>
+            <span>${this.escapeHtml(snapshot.total_gross)}</span>
           </div>
         </div>
 
@@ -204,7 +207,7 @@ export class InvoicePdfRenderer {
             ? `
           <div class="section notes" style="margin-top: 26px;">
             <div class="section-title">Notes</div>
-            <div>${snapshot.notes}</div>
+            <div>${this.escapeHtml(snapshot.notes)}</div>
           </div>
         `
             : ''
@@ -232,8 +235,12 @@ export class InvoicePdfRenderer {
     `;
   }
 
-  private escapeHtml(value: string): string {
-    return value
+  private escapeHtml(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    const str = String(value);
+    return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
