@@ -1,11 +1,9 @@
-import { Plus } from 'lucide-react'
+import { Plus, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import type { WorkshopTask } from '@/api/types'
@@ -16,12 +14,11 @@ export interface TaskListProps {
   rawTaskTotals: Map<string, TaskTotals>
   isLocked: boolean
   newTaskTitle: string
+  activeTaskId: string | null
   onNewTaskTitleChange: (value: string) => void
   onAddTask: () => void
   onToggleTask: (taskId: string, checked: boolean) => void
   onOpenTask: (taskId: string) => void
-  onSaveReportedIssue: (value: string) => void
-  onSaveNotes: (value: string) => void
 }
 
 export function TaskList({
@@ -30,126 +27,110 @@ export function TaskList({
   rawTaskTotals,
   isLocked,
   newTaskTitle,
+  activeTaskId,
   onNewTaskTitleChange,
   onAddTask,
   onToggleTask,
   onOpenTask,
-  onSaveReportedIssue,
-  onSaveNotes,
 }: TaskListProps) {
   return (
-    <>
-      <Card>
-        <CardHeader className='pb-3'>
-          <div className='flex items-center justify-between'>
-            <CardTitle className='text-base font-semibold'>Reported Issue</CardTitle>
-            {order.status !== 'COMPLETED' && <Badge variant='destructive'>High Priority</Badge>}
-          </div>
-        </CardHeader>
-        <CardContent className='text-sm leading-relaxed'>
-          <InlineEdit
-            mode='textarea'
-            rows={4}
-            placeholder='Customer reported issue...'
-            value={order.reportedIssue || order.reported_issue || ''}
-            readOnly={isLocked}
-            onSave={onSaveReportedIssue}
-            emptyText='Add reported issue'
-            ariaLabel='Workshop order reported issue'
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className='pb-3'>
-          <div className='flex items-center justify-between gap-3'>
-            <CardTitle className='text-base font-semibold'>Repair Tasks</CardTitle>
-            <div className='flex items-center gap-2 w-full max-w-md'>
-              <Input
-                value={newTaskTitle}
-                onChange={(e) => onNewTaskTitleChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    onAddTask()
-                  }
-                }}
-                placeholder='New task title...'
-                className='h-8'
-                disabled={isLocked}
-              />
-              <Button
-                variant='outline'
-                size='sm'
-                className='h-8'
-                onClick={onAddTask}
-                disabled={isLocked}
-              >
-                <Plus className='h-3.5 w-3.5 mr-1' />
-                Task
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className='space-y-2'>
-          {tasks.length === 0 && (
-            <div className='text-sm text-muted-foreground'>No tasks yet. Add the first task to begin work.</div>
-          )}
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              data-workshop-task-row='true'
-              onClick={() => onOpenTask(task.id)}
-              className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer'
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <CardTitle className="text-base font-semibold">Repair Tasks</CardTitle>
+          <div className="flex items-center gap-2 flex-1 max-w-md min-w-[200px]">
+            <Input
+              value={newTaskTitle}
+              onChange={(e) => onNewTaskTitleChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onAddTask()
+                }
+              }}
+              placeholder="Add new task..."
+              className="h-9"
+              disabled={isLocked}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={onAddTask}
+              disabled={isLocked || !newTaskTitle.trim()}
             >
-              <div className='flex items-center gap-3 text-left'>
-                <Checkbox
-                  checked={task.done}
-                  onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
-                  disabled={isLocked}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-                  {task.title}
-                </span>
-                <span className='ml-auto flex items-center gap-2'>
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    className='h-7 px-2'
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onOpenTask(task.id)
-                    }}
-                  >
-                    Open
-                  </Button>
-                  <span className='text-sm font-semibold'>{formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}</span>
-                  <StatusBadge status={task.status} />
-                </span>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {tasks.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <div className="text-sm">No tasks yet</div>
+            <div className="text-xs mt-1">Add your first task to begin work on this order</div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tasks.map((task) => {
+              const isActive = activeTaskId === task.id
+              const taskTotal = rawTaskTotals.get(task.id)?.total ?? 0
+              const hasLineItems = (rawTaskTotals.get(task.id)?.laborTotal ?? 0) + (rawTaskTotals.get(task.id)?.partsTotal ?? 0) > 0
 
-      <Card>
-        <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-semibold'>Internal Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <InlineEdit
-            mode='textarea'
-            rows={5}
-            placeholder='Notes visible to service advisors and mechanics...'
-            value={order.notes || ''}
-            readOnly={isLocked}
-            onSave={onSaveNotes}
-            emptyText='Add internal notes'
-            ariaLabel='Workshop internal notes'
-          />
-        </CardContent>
-      </Card>
-    </>
+              return (
+                <div
+                  key={task.id}
+                  data-workshop-task-row="true"
+                  onClick={() => onOpenTask(task.id)}
+                  className={`
+                    w-full border rounded-xl px-4 py-3 cursor-pointer
+                    transition-all duration-200
+                    ${isActive 
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
+                      : 'hover:bg-accent hover:border-accent-foreground/20'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Checkbox */}
+                    <Checkbox
+                      checked={task.done}
+                      onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
+                      disabled={isLocked}
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0"
+                    />
+
+                    {/* Task info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium truncate ${task.done ? 'line-through text-muted-foreground' : ''}`}>
+                          {task.title}
+                        </span>
+                      </div>
+                      {hasLineItems && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {task.lineItems?.length ?? 0} line items
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right side: price, status, arrow */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-semibold tabular-nums">
+                        {formatCurrency(taskTotal)}
+                      </span>
+                      <StatusBadge status={task.status} />
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isActive ? 'rotate-90' : ''}`} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

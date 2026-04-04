@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TaskDetailPanel } from '@/components/workshop/TaskDetailPanel'
 import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from '@/api/invoices'
 import { useInvoice } from '@/api/sales'
 import { parseDiscountValue } from '@/lib/discount'
@@ -38,7 +39,7 @@ import {
   findInvoiceItemByLineItemId,
 } from './hooks/useWorkshopCalculations'
 import type { DiscountState } from './hooks/useWorkshopCalculations'
-import { OrderTopBar, CustomerVehicleInfo } from './components/OrderHeader'
+import { OrderHeader } from './components/OrderHeader'
 import { TaskList } from './components/TaskList'
 import { CheckoutSummary } from './components/CheckoutSummary'
 
@@ -67,24 +68,11 @@ export function WorkshopOrderDetails() {
   const [checkoutInvoiceIdOverride, setCheckoutInvoiceIdOverride] = useState<string | null>(null)
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
+  const [activeTab, setActiveTab] = useState('tasks')
   const lineItemSaveSeq = useRef<Record<string, number>>({})
-  const [isDockedLayout, setIsDockedLayout] = useState(
-    typeof window !== 'undefined'
-      ? window.matchMedia('(min-width: 1536px)').matches
-      : false,
-  )
 
   const activeInvoiceId = order?.invoice?.id ?? checkoutInvoiceIdOverride
   const { data: fetchedInvoice, isLoading: isInvoiceLoading } = useInvoice(activeInvoiceId ?? '')
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mediaQuery = window.matchMedia('(min-width: 1536px)')
-    const update = () => setIsDockedLayout(mediaQuery.matches)
-    update()
-    mediaQuery.addEventListener('change', update)
-    return () => mediaQuery.removeEventListener('change', update)
-  }, [])
 
   // ── All calculation logic delegated to the hook ─────────────────────────
   const {
@@ -116,18 +104,25 @@ export function WorkshopOrderDetails() {
   }, [activeTaskId, tasks])
 
   if (isLoading) {
-    return <div className='p-8 text-center text-sm text-muted-foreground'>Loading workshop order...</div>
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading workshop order...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!order) {
     return (
-      <div className='w-full max-w-7xl mx-auto p-6'>
+      <div className="w-full max-w-4xl mx-auto p-6">
         <Card>
           <CardHeader>
-            <CardTitle className='text-base font-semibold'>Workshop order not found</CardTitle>
+            <CardTitle className="text-base font-semibold">Workshop order not found</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='text-sm text-muted-foreground mb-4'>The selected workshop order does not exist.</p>
+            <p className="text-sm text-muted-foreground mb-4">The selected workshop order does not exist.</p>
             <Button onClick={() => navigate('/workshop/orders')}>Back to Workshop Orders</Button>
           </CardContent>
         </Card>
@@ -434,49 +429,63 @@ export function WorkshopOrderDetails() {
   const handleReopenTask = (taskId: string) => {
     setIsCheckoutView(false)
     setActiveTaskId(taskId)
+    setActiveTab('tasks')
+  }
+
+  const handleCloseTaskPanel = () => {
+    setActiveTaskId(null)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className={`w-full space-y-6 transition-[max-width,padding,margin] duration-250 ${
-        isDockedLayout && activeTaskForPanel && !isCheckoutView
-          ? 'max-w-[1800px] px-4 2xl:px-6 py-6 mx-auto'
-          : 'max-w-7xl px-6 py-6 mx-auto'
-      }`}
-    >
-      <div className='2xl:flex 2xl:items-start 2xl:justify-start 2xl:gap-4'>
-        <motion.div
-          className={`w-full min-w-0 space-y-6 2xl:min-w-[960px] 2xl:flex-1 transition-transform duration-250 ${
-            isDockedLayout && activeTask && !isCheckoutView ? '2xl:-translate-x-3' : '2xl:translate-x-0'
-          }`}
-        >
-          <OrderTopBar
-            order={order}
-            orderPartsTotal={orderPartsTotal}
-            orderLaborTotal={orderLaborTotal}
-            orderGrandTotal={orderGrandTotal}
-            invoiceActionLabel={invoiceActionLabel}
-            isInvoiceActionDisabled={isInvoiceActionDisabled}
-            onCheckoutAction={() => void handleCheckoutAction()}
-            onPrint={handlePrint}
-          />
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Header Section */}
+      <OrderHeader
+        order={order}
+        orderPartsTotal={orderPartsTotal}
+        orderLaborTotal={orderLaborTotal}
+        orderGrandTotal={orderGrandTotal}
+        invoiceActionLabel={invoiceActionLabel}
+        isInvoiceActionDisabled={isInvoiceActionDisabled}
+        onCheckoutAction={() => void handleCheckoutAction()}
+        onPrint={handlePrint}
+      />
 
-          {!isCheckoutView && (
-            <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
+      {/* Main Content with Tabs */}
+      {!isCheckoutView ? (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="order-info" className="text-sm">
+              Order Info
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="text-sm">
+              Repair Tasks
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="text-sm">
+              Notes
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-6">
+            <TabsContent value="order-info" className="mt-0 space-y-6">
               <motion.div
-                className='space-y-6 lg:col-span-1'
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                <CustomerVehicleInfo order={order} />
+                <OrderInfoCard order={order} />
+                <CustomerInfoCard order={order} />
+                <VehicleInfoCard order={order} />
               </motion.div>
+            </TabsContent>
 
+            <TabsContent value="tasks" className="mt-0 space-y-6">
               <motion.div
-                className='space-y-6 lg:col-span-2'
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <TaskList
                   order={order}
@@ -484,121 +493,104 @@ export function WorkshopOrderDetails() {
                   rawTaskTotals={rawTaskTotals}
                   isLocked={isLocked}
                   newTaskTitle={newTaskTitle}
+                  activeTaskId={activeTaskId}
                   onNewTaskTitleChange={setNewTaskTitle}
                   onAddTask={() => void handleAddTask()}
                   onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
                   onOpenTask={setActiveTaskId}
-                  onSaveReportedIssue={(value) => void handleSaveReportedIssue(value)}
-                  onSaveNotes={(value) => void handleSaveNotes(value)}
                 />
-              </motion.div>
-            </div>
-          )}
 
-          {isCheckoutView && (
-            <div className='grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start'>
-              <motion.div
-                className='space-y-6 xl:sticky xl:top-24'
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-              >
-                <CustomerVehicleInfo order={order} />
+                {/* Horizontal Task Detail Panel */}
+                <AnimatePresence mode="wait">
+                  {activeTaskForPanel && (
+                    <motion.div
+                      key={activeTaskForPanel.id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="mt-6 overflow-hidden"
+                    >
+                      <TaskDetailPanel
+                        workshopOrderId={order.id}
+                        task={activeTaskForPanel}
+                        onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
+                        onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
+                        onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+                        onTaskDelete={(taskId) => {
+                          const task = tasks.find((existingTask) => existingTask.id === taskId)
+                          if (task) {
+                            setTaskPendingDelete(task)
+                          }
+                        }}
+                        canDeleteTask={canDeleteTasks}
+                        isDeletingTask={deleteTask.isPending}
+                        readOnly={isLocked}
+                        onClose={handleCloseTaskPanel}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
+            </TabsContent>
 
+            <TabsContent value="notes" className="mt-0 space-y-6">
               <motion.div
-                className='space-y-6'
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
               >
-                <CheckoutSummary
-                  activeInvoiceId={activeInvoiceId}
-                  fetchedInvoice={fetchedInvoice}
-                  isInvoiceLoading={isInvoiceLoading}
+                <ReportedIssueCard
+                  order={order}
                   isLocked={isLocked}
-                  canCreateDraftInCheckout={canCreateDraftInCheckout}
-                  canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
-                  createDraftPending={createDraftInvoice.isPending}
-                  issuePending={issueInvoice.isPending}
-                  groupedCheckoutTasks={groupedCheckoutTasks}
-                  expandedTaskGroups={expandedTaskGroups}
-                  taskDiscountOverrides={taskDiscountOverrides}
-                  checkoutSubtotal={checkoutSubtotal}
-                  checkoutDiscountTotal={checkoutDiscountTotal}
-                  checkoutNetTotal={checkoutNetTotal}
-                  checkoutTaxTotal={checkoutTaxTotal}
-                  checkoutGrossTotal={checkoutGrossTotal}
-                  onToggleGroup={handleToggleGroup}
-                  onTaskDiscountValueChange={handleTaskDiscountValueChange}
-                  onLineDiscountTypeChange={handleLineDiscountTypeChange}
-                  onLineDiscountValueChange={handleLineDiscountValueChange}
-                  onCreateDraftInvoice={() => void handleCreateDraftInCheckout()}
-                  onIssueInvoice={() => void handleIssueInvoiceInCheckout()}
-                  onReturnToTasks={() => setIsCheckoutView(false)}
-                  onReopenTask={handleReopenTask}
+                  onSave={handleSaveReportedIssue}
+                />
+                <InternalNotesCard
+                  order={order}
+                  isLocked={isLocked}
+                  onSave={handleSaveNotes}
                 />
               </motion.div>
-            </div>
-          )}
+            </TabsContent>
+          </div>
+        </Tabs>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          <CheckoutSummary
+            activeInvoiceId={activeInvoiceId}
+            fetchedInvoice={fetchedInvoice}
+            isInvoiceLoading={isInvoiceLoading}
+            isLocked={isLocked}
+            canCreateDraftInCheckout={canCreateDraftInCheckout}
+            canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
+            createDraftPending={createDraftInvoice.isPending}
+            issuePending={issueInvoice.isPending}
+            groupedCheckoutTasks={groupedCheckoutTasks}
+            expandedTaskGroups={expandedTaskGroups}
+            taskDiscountOverrides={taskDiscountOverrides}
+            checkoutSubtotal={checkoutSubtotal}
+            checkoutDiscountTotal={checkoutDiscountTotal}
+            checkoutNetTotal={checkoutNetTotal}
+            checkoutTaxTotal={checkoutTaxTotal}
+            checkoutGrossTotal={checkoutGrossTotal}
+            onToggleGroup={handleToggleGroup}
+            onTaskDiscountValueChange={handleTaskDiscountValueChange}
+            onLineDiscountTypeChange={handleLineDiscountTypeChange}
+            onLineDiscountValueChange={handleLineDiscountValueChange}
+            onCreateDraftInvoice={() => void handleCreateDraftInCheckout()}
+            onIssueInvoice={() => void handleIssueInvoiceInCheckout()}
+            onReturnToTasks={() => setIsCheckoutView(false)}
+            onReopenTask={handleReopenTask}
+          />
         </motion.div>
-
-        <AnimatePresence>
-          {!isCheckoutView && isDockedLayout && activeTaskForPanel && (
-            <motion.div
-              className='w-[1000px] min-w-[1000px] max-w-[1000px] shrink-0 sticky top-20'
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-              exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: 'easeIn' } }}
-            >
-              <TaskDetailDrawer
-                variant='docked'
-                workshopOrderId={order.id}
-                open={!!activeTaskForPanel}
-                onOpenChange={(open) => {
-                  if (!open) setActiveTaskId(null)
-                }}
-                task={activeTaskForPanel}
-                onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-                onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-                onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-                onTaskDelete={(taskId) => {
-                  const task = tasks.find((existingTask) => existingTask.id === taskId)
-                  if (task) {
-                    setTaskPendingDelete(task)
-                  }
-                }}
-                canDeleteTask={canDeleteTasks}
-                isDeletingTask={deleteTask.isPending}
-                readOnly={isLocked}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {!isCheckoutView && !isDockedLayout && (
-        <TaskDetailDrawer
-          variant='drawer'
-          workshopOrderId={order.id}
-          open={!!activeTaskForPanel}
-          onOpenChange={(open) => {
-            if (!open) setActiveTaskId(null)
-          }}
-          task={activeTaskForPanel}
-          onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-          onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-          onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-          onTaskDelete={(taskId) => {
-            const task = tasks.find((existingTask) => existingTask.id === taskId)
-            if (task) {
-              setTaskPendingDelete(task)
-            }
-          }}
-          canDeleteTask={canDeleteTasks}
-          isDeletingTask={deleteTask.isPending}
-          readOnly={isLocked}
-        />
       )}
 
+      {/* Delete Task Dialog */}
       <AlertDialog
         open={taskPendingDelete !== null}
         onOpenChange={(open) => {
@@ -619,7 +611,7 @@ export function WorkshopOrderDetails() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTask.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(event) => {
                 event.preventDefault()
                 void handleDeleteTask()
@@ -632,6 +624,182 @@ export function WorkshopOrderDetails() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+// ── Info Card Components ──────────────────────────────────────────────────
+
+import { Phone, Clock, Key, MapPin, User } from 'lucide-react'
+import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { Badge } from '@/components/ui/badge'
+
+function getCustomerName(order: any) {
+  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
+    return order.customer.company_name
+  }
+  return `${order.customer.first_name} ${order.customer.last_name}`.trim()
+}
+
+function getVehicleLabel(order: any) {
+  return `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`
+}
+
+function normalizePhone(phone: string) {
+  return phone.replace(/[^\d+]/g, '')
+}
+
+function OrderInfoCard({ order }: { order: any }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Order Info</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-muted-foreground mb-1">Assigned Tech</div>
+            <div className="font-medium flex items-center">
+              <User className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              John Doe
+            </div>
+          </div>
+          <div>
+            <div className="text-muted-foreground mb-1">Bay / Location</div>
+            <div className="font-medium flex items-center">
+              <MapPin className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              Bay 4
+            </div>
+          </div>
+          <div>
+            <div className="text-muted-foreground mb-1">Promised Time</div>
+            <div className="font-medium flex items-center">
+              <Clock className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              04/17/2026, 17:00
+            </div>
+          </div>
+          <div>
+            <div className="text-muted-foreground mb-1">Key Tag</div>
+            <div className="font-medium flex items-center">
+              <Key className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              #42
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CustomerInfoCard({ order }: { order: any }) {
+  const customerName = getCustomerName(order)
+  const customerPhone = order.customer.phone ?? ''
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Customer</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div>
+          <div className="font-medium">{customerName}</div>
+          <div className="text-muted-foreground">{order.customer.email}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Phone</div>
+          <div className="font-medium">{customerPhone || 'N/A'}</div>
+        </div>
+        {customerPhone && (
+          <Button variant="outline" size="sm" className="h-8" asChild>
+            <a href={`tel:${normalizePhone(customerPhone)}`}>
+              <Phone className="h-3.5 w-3.5 mr-1.5" />
+              Call Customer
+            </a>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function VehicleInfoCard({ order }: { order: any }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Vehicle</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="font-medium">{getVehicleLabel(order)}</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-muted-foreground">VIN</div>
+            <div className="font-medium font-mono text-xs">{order.vehicle.vin || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Plate</div>
+            <div className="font-medium">{order.vehicle.plate || 'N/A'}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Mileage</div>
+            <div className="font-medium">
+              {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
+            </div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Fuel</div>
+            <div className="font-medium">
+              {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ReportedIssueCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold">Reported Issue</CardTitle>
+          {order.status !== 'COMPLETED' && <Badge variant="destructive">High Priority</Badge>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <InlineEdit
+          mode="textarea"
+          rows={6}
+          placeholder="Customer reported issue..."
+          value={order.reportedIssue || order.reported_issue || ''}
+          readOnly={isLocked}
+          onSave={onSave}
+          emptyText="Add reported issue"
+          ariaLabel="Workshop order reported issue"
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+function InternalNotesCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Internal Notes</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <InlineEdit
+          mode="textarea"
+          rows={6}
+          placeholder="Notes visible to service advisors and mechanics..."
+          value={order.notes || ''}
+          readOnly={isLocked}
+          onSave={onSave}
+          emptyText="Add internal notes"
+          ariaLabel="Workshop internal notes"
+        />
+      </CardContent>
+    </Card>
   )
 }
 
