@@ -134,7 +134,7 @@ export class InvoicePdfRenderer {
           .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
           .total-row.grand { font-weight: 800; font-size: 13px; border-top: 1px solid #d1d5db; margin-top: 8px; padding-top: 10px; }
 
-          .notes { break-inside: avoid; }
+          .notes { break-inside: avoid; white-space: pre-wrap; }
         </style>
       </head>
       <body>
