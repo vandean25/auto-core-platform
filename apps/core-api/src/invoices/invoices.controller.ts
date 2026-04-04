@@ -7,9 +7,11 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
   StreamableFile,
 } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -47,6 +49,7 @@ export class InvoicesController {
   }
 
   @ApiExcludeEndpoint()
+  @UseGuards(CloudTasksWorkerGuard)
   @Post(':id/pdf/worker')
   @HttpCode(204)
   async generatePdfWorker(@Param('id') id: string) {

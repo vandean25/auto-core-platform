@@ -66,7 +66,8 @@ export class CloudTasksService {
     const configured =
       Boolean(process.env.CLOUD_TASKS_LOCATION) &&
       Boolean(process.env.CLOUD_TASKS_QUEUE) &&
-      Boolean(process.env.API_KEY);
+      Boolean(process.env.API_KEY) &&
+      Boolean(process.env.CLOUD_TASKS_WORKER_SECRET);
     if (!configured) {
       return false;
     }
@@ -99,6 +100,13 @@ export class CloudTasksService {
         if (!apiKey) {
           throw new InternalServerErrorException(
             'API_KEY environment variable is not configured',
+          );
+        }
+
+        const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+        if (!workerSecret) {
+          throw new InternalServerErrorException(
+            'CLOUD_TASKS_WORKER_SECRET environment variable is not configured',
           );
         }
 
@@ -150,6 +158,7 @@ export class CloudTasksService {
               headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
+                'x-cloud-tasks-secret': workerSecret,
               },
               body: Buffer.from('{}'),
             },
