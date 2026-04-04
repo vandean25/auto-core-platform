@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -11,7 +12,9 @@ export class CloudTasksWorkerGuard implements CanActivate {
   canActivate(context: ExecutionContext) {
     const secret = process.env.CLOUD_TASKS_WORKER_SECRET;
     if (!secret) {
-      throw new UnauthorizedException('Unauthorized');
+      throw new InternalServerErrorException(
+        'Cloud Tasks worker secret is not configured',
+      );
     }
 
     const request = context.switchToHttp().getRequest<Request>();

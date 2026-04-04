@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
   Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -11,6 +13,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import * as Sentry from '@sentry/node';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
@@ -53,16 +56,36 @@ export class InvoicesController {
   @Post(':id/pdf/worker')
   @HttpCode(204)
   async generatePdfWorker(@Param('id') id: string) {
-    await this.invoicePdfService.generateNow(id);
+    try {
+      await this.invoicePdfService.generateNow(id);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Dropping non-retryable invoice PDF worker error (invoiceId=${id}): ${message}`,
+        );
+        Sentry.captureException(error, {
+          level: 'warning',
+          tags: { invoiceId: id, operation: 'pdf.worker' },
+        });
+        return;
+      }
+
+      throw error;
+    }
   }
 
   @Get(':id/pdf')
   async getPdf(@Param('id') id: string) {
     const pdf = await this.invoicePdfService.getPdf(id);
+    const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');
 
     return new StreamableFile(pdf.stream, {
       type: pdf.contentType || 'application/pdf',
-      disposition: `inline; filename="${pdf.filename}"`,
+      disposition: `inline; filename="${safeFilename}"`,
       length: pdf.contentLength ?? undefined,
     });
   }
