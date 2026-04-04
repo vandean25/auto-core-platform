@@ -54,6 +54,7 @@ export class InvoicePdfRenderer {
 
   private generateHtml(snapshot: InvoiceSnapshot): string {
     const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
+    const safeInvoiceNumber = this.escapeHtml(invoiceNumber);
     const itemsHtml = snapshot.items
       .map(
         (item) => `
@@ -136,7 +137,7 @@ export class InvoicePdfRenderer {
       <body>
         <div class="header">
           <h1>Invoice</h1>
-          <div class="muted">${invoiceNumber}</div>
+          <div class="muted">${safeInvoiceNumber}</div>
         </div>
 
         <div style="display: flex; justify-content: space-between;">
@@ -150,7 +151,7 @@ export class InvoicePdfRenderer {
           </div>
 
           <div class="section" style="text-align: right">
-            <div><strong>Invoice Number:</strong> ${invoiceNumber}</div>
+            <div><strong>Invoice Number:</strong> ${safeInvoiceNumber}</div>
             <div><strong>Date:</strong> ${this.formatDate(snapshot.date)}</div>
             <div><strong>Due Date:</strong> ${this.formatDate(snapshot.due_date)}</div>
           </div>
@@ -214,6 +215,7 @@ export class InvoicePdfRenderer {
   }
 
   private buildFooterTemplate(invoiceNumber: string): string {
+    const safeInvoiceNumber = this.escapeHtml(invoiceNumber);
     return `
       <div style="
         width: 100%;
@@ -224,10 +226,19 @@ export class InvoicePdfRenderer {
         justify-content: space-between;
         align-items: center;
       ">
-        <span>Invoice ${invoiceNumber}</span>
+        <span>Invoice ${safeInvoiceNumber}</span>
         <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
     `;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private formatDate(value: string) {
