@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -108,7 +109,7 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = error?.status;
+                const status = (error as any)?.status;
                 if (status && status >= 400 && status < 500) {
                   bail(
                     error instanceof Error ? error : new Error(String(error)),

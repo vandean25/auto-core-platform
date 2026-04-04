@@ -63,7 +63,12 @@ type InvoiceForSnapshot = Invoice & {
 
 type DecimalLike = Prisma.Decimal | number | string;
 
-const decimalToString = (value: DecimalLike): string => value.toString();
+const decimalToString = (value: DecimalLike): string => {
+  if (value instanceof Prisma.Decimal) {
+    return value.toFixed(2);
+  }
+  return new Prisma.Decimal(value).toFixed(2);
+};
 
 const optionalDecimalToString = (
   value: DecimalLike | null | undefined,

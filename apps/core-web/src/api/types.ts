@@ -174,6 +174,8 @@ export interface Invoice {
     global_discount_value?: number | string | null
     notes?: string
     internal_notes?: string
+    pdf_generated_at?: string | null
+    pdf_generation_error?: string | null
     items: InvoiceItem[]
 }
 
