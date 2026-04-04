@@ -15,6 +15,15 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
 import { CloudTasksService } from '../common';
 
+export type InvoicePdfRequestGenerationResponse = {
+  mode: 'cached' | 'enqueued' | 'generated';
+  invoiceId: string;
+  bucket: string | null;
+  key: string | null;
+  generatedAt: Date | null;
+  taskId?: string;
+};
+
 @Injectable()
 export class InvoicePdfService {
   private readonly logger = new Logger(InvoicePdfService.name);
@@ -26,7 +35,118 @@ export class InvoicePdfService {
     private cloudTasks: CloudTasksService,
   ) {}
 
-  async generate(invoiceId: string): Promise<{
+  async requestGeneration(
+    invoiceId: string,
+    params: { targetBaseUrl: string },
+  ): Promise<InvoicePdfRequestGenerationResponse> {
+    const invoice = await this.prisma.client.invoice.findUnique({
+      where: { id: invoiceId },
+      select: {
+        id: true,
+        status: true,
+        pdf_storage_bucket: true,
+        pdf_storage_key: true,
+        pdf_generated_at: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if (
+      invoice.pdf_storage_key &&
+      invoice.pdf_storage_bucket &&
+      invoice.pdf_generated_at
+    ) {
+      return {
+        mode: 'cached',
+        invoiceId: invoice.id,
+        bucket: invoice.pdf_storage_bucket,
+        key: invoice.pdf_storage_key,
+        generatedAt: invoice.pdf_generated_at,
+      };
+    }
+
+    if (
+      invoice.status !== InvoiceStatus.ISSUED &&
+      invoice.status !== InvoiceStatus.PAID
+    ) {
+      throw new BadRequestException(
+        'Invoice PDF can only be generated for ISSUED/PAID invoices',
+      );
+    }
+
+    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
+    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+
+    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
+      // If explicitly enabled but misconfigured, fail closed to prevent resource exhaustion
+      if (cloudTasksEnabled) {
+        throw new InternalServerErrorException(
+          'Cloud Tasks is enabled but not correctly configured (missing queue, location, or base URL)',
+        );
+      }
+
+      // Fallback to inline generation for local/dev or when disabled
+      const generated = await this.generateNow(invoiceId);
+      return { mode: 'generated', ...generated };
+    }
+
+    try {
+      await this.prisma.client.invoice.update({
+        where: { id: invoiceId },
+        data: { pdf_generation_error: null },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to clear invoice PDF generation error before enqueue (invoiceId=${invoiceId}): ${message}`,
+      );
+    }
+
+    try {
+      const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
+        invoiceId,
+        targetBaseUrl: params.targetBaseUrl,
+      });
+      return {
+        mode: 'enqueued',
+        invoiceId,
+        bucket: null,
+        key: null,
+        generatedAt: null,
+        taskId,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to enqueue invoice PDF generation task (invoiceId=${invoiceId}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      Sentry.captureException(error, {
+        tags: { invoiceId, operation: 'cloudtasks.enqueuePdfGeneration' },
+      });
+
+      // In production, we must fail closed. In dev, we can fall back to inline.
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.warn(`Falling back to inline generation for invoice ${invoiceId} (non-production)`);
+        const generated = await this.generateNow(invoiceId);
+        return { mode: 'generated', ...generated };
+      }
+
+      await this.safeStoreGenerationError(
+        invoiceId,
+        'Failed to enqueue background PDF generation task. Please try again.',
+      );
+
+      throw new InternalServerErrorException(
+        'Failed to enqueue invoice PDF generation task',
+      );
+    }
+  }
+
+  async generateNow(invoiceId: string): Promise<{
     invoiceId: string;
     bucket: string;
     key: string;
@@ -36,7 +156,7 @@ export class InvoicePdfService {
       { name: 'Generate Invoice PDF', op: 'pdf.generate' },
       async (span) => {
         span.setAttribute('invoiceId', invoiceId);
-        const invoice = await this.prisma.invoice.findUnique({
+        const invoice = await this.prisma.client.invoice.findUnique({
           where: { id: invoiceId },
           select: {
             id: true,
@@ -109,9 +229,15 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = (error as any)?.status;
+                const maybeStatus = (
+                  error as { status?: unknown } | null | undefined
+                )?.status;
+                const status =
+                  typeof maybeStatus === 'number' ? maybeStatus : undefined;
                 if (status && status >= 400 && status < 500) {
-                  bail(error instanceof Error ? error : new Error(String(error)));
+                  bail(
+                    error instanceof Error ? error : new Error(String(error)),
+                  );
                 }
                 throw error;
               }
@@ -138,7 +264,7 @@ export class InvoicePdfService {
           );
 
           const generatedAt = new Date();
-          await this.prisma.invoice.update({
+          await this.prisma.client.invoice.update({
             where: { id: invoiceId },
             data: {
               pdf_storage_bucket: upload.bucket,
@@ -171,25 +297,6 @@ export class InvoicePdfService {
           });
 
           await this.safeStoreGenerationError(invoiceId, message);
-
-          // Enqueue for offline retry via Cloud Tasks
-          try {
-            await this.cloudTasks.enqueuePdfGeneration(invoiceId, 0);
-          } catch (enqueueError) {
-            const enqueueMessage =
-              enqueueError instanceof Error
-                ? enqueueError.message
-                : String(enqueueError);
-            this.logger.error(
-              `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${enqueueMessage}`,
-              enqueueError instanceof Error ? enqueueError.stack : undefined,
-            );
-            Sentry.captureException(enqueueError, {
-              level: 'fatal',
-              tags: { invoiceId, operation: 'enqueue_cloud_task' },
-            });
-          }
-
           throw error;
         }
       },
@@ -202,7 +309,7 @@ export class InvoicePdfService {
     contentLength: number | null;
     stream: Readable;
   }> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const invoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       select: {
         id: true,
@@ -241,7 +348,7 @@ export class InvoicePdfService {
       return existingSnapshot;
     }
 
-    const fullInvoice = await this.prisma.invoice.findUnique({
+    const fullInvoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         items: { orderBy: { createdAt: 'asc' } },
@@ -255,7 +362,7 @@ export class InvoicePdfService {
     }
 
     const snapshot = buildInvoiceSnapshot(fullInvoice);
-    await this.prisma.invoice.update({
+    await this.prisma.client.invoice.update({
       where: { id: invoiceId },
       data: { snapshot },
     });
@@ -338,7 +445,7 @@ export class InvoicePdfService {
 
   private async safeStoreGenerationError(invoiceId: string, message: string) {
     try {
-      await this.prisma.invoice.update({
+      await this.prisma.client.invoice.update({
         where: { id: invoiceId },
         data: {
           pdf_generation_error: message.slice(0, 2000),

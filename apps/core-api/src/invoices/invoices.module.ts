@@ -6,6 +6,7 @@ import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { CloudTasksService } from '../common';
+import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 
 @Module({
   imports: [PrismaModule],
@@ -16,6 +17,7 @@ import { CloudTasksService } from '../common';
     InvoicePdfStorage,
     InvoicePdfRenderer,
     CloudTasksService,
+    CloudTasksWorkerGuard,
   ],
   exports: [InvoicesService],
 })
