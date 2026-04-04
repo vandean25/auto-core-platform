@@ -96,7 +96,7 @@ export class InvoicePdfService {
         );
         const key = `invoices/${invoiceId}.pdf`;
 
-        let upload: { bucket: string; key: string };
+        let upload: { bucket: string; key: string; etag: string | null };
         try {
           upload = await retry(
             async (bail) => {
@@ -109,12 +109,9 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = error?.status;
+                const status = (error as any)?.status;
                 if (status && status >= 400 && status < 500) {
-                  bail(
-                    error instanceof Error ? error : new Error(String(error)),
-                  );
-                  return;
+                  bail(error instanceof Error ? error : new Error(String(error)));
                 }
                 throw error;
               }
