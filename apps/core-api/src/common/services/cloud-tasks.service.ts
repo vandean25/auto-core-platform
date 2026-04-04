@@ -27,7 +27,7 @@ export class CloudTasksService {
             ? parsed.private_key
             : undefined;
 
-        this.projectIdFromCredentials =
+        const projectId =
           typeof parsed.project_id === 'string' ? parsed.project_id : undefined;
 
         if (!clientEmail || !privateKey) {
@@ -36,8 +36,10 @@ export class CloudTasksService {
           );
         }
 
+        this.projectIdFromCredentials = projectId;
+
         this.client = new CloudTasksClient({
-          projectId: this.projectIdFromCredentials,
+          projectId,
           credentials: {
             client_email: clientEmail,
             private_key: privateKey,
