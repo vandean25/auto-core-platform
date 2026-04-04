@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthProvider'
@@ -188,6 +189,7 @@ function App() {
   return (
     <Router>
       <AppShell userEmail={user.email ?? null} onSignOut={() => void signOutUser()} />
+      <Analytics />
     </Router>
   )
 }
