@@ -144,9 +144,18 @@ export class CloudTasksService {
           },
         });
 
-        const taskId = task.name ?? '';
+        const taskId = task.name;
+        if (!taskId) {
+          this.logger.error(
+            `Cloud Tasks createTask() returned a task without a name for invoice ${invoiceId}`,
+          );
+          throw new InternalServerErrorException(
+            'Cloud Tasks returned a malformed task without a name',
+          );
+        }
+
         this.logger.log(
-          `Enqueued Cloud Task for invoice ${invoiceId} (${taskId || 'unknown task id'})`,
+          `Enqueued Cloud Task for invoice ${invoiceId} (${taskId})`,
         );
 
         return { taskId };
