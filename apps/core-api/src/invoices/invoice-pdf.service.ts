@@ -14,6 +14,15 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
 import { CloudTasksService } from '../common';
 
+export type InvoicePdfRequestGenerationResponse = {
+  mode: 'cached' | 'enqueued' | 'generated';
+  invoiceId: string;
+  bucket: string | null;
+  key: string | null;
+  generatedAt: Date | null;
+  taskId?: string;
+};
+
 @Injectable()
 export class InvoicePdfService {
   private readonly logger = new Logger(InvoicePdfService.name);
@@ -28,23 +37,7 @@ export class InvoicePdfService {
   async requestGeneration(
     invoiceId: string,
     params: { targetBaseUrl: string },
-  ): Promise<
-    | {
-        mode: 'cached';
-        invoiceId: string;
-        bucket: string;
-        key: string;
-        generatedAt: Date;
-      }
-    | { mode: 'enqueued'; invoiceId: string; taskId: string }
-    | {
-        mode: 'generated';
-        invoiceId: string;
-        bucket: string;
-        key: string;
-        generatedAt: Date;
-      }
-  > {
+  ): Promise<InvoicePdfRequestGenerationResponse> {
     const invoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       select: {
@@ -105,7 +98,14 @@ export class InvoicePdfService {
         invoiceId,
         targetBaseUrl: params.targetBaseUrl,
       });
-      return { mode: 'enqueued', invoiceId, taskId };
+      return {
+        mode: 'enqueued',
+        invoiceId,
+        bucket: null,
+        key: null,
+        generatedAt: null,
+        taskId,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
