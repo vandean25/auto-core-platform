@@ -63,7 +63,8 @@ export class CloudTasksService {
   isEnabled(): boolean {
     const configured =
       Boolean(process.env.CLOUD_TASKS_LOCATION) &&
-      Boolean(process.env.CLOUD_TASKS_QUEUE);
+      Boolean(process.env.CLOUD_TASKS_QUEUE) &&
+      Boolean(process.env.API_KEY);
     if (!configured) {
       return false;
     }
@@ -114,8 +115,19 @@ export class CloudTasksService {
 
         const parent = this.client.queuePath(projectId, location, queue);
 
-        const trimmedBase = params.targetBaseUrl.replace(/\/$/, '');
-        const url = `${trimmedBase}/api/invoices/${invoiceId}/pdf/worker`;
+        let url: string;
+        try {
+          url = new URL(
+            `/api/invoices/${invoiceId}/pdf/worker`,
+            params.targetBaseUrl,
+          ).toString();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          throw new InternalServerErrorException(
+            `Invalid Cloud Tasks target base URL: ${message}`,
+          );
+        }
 
         span.setAttribute('queue', queue);
         span.setAttribute('location', location);
