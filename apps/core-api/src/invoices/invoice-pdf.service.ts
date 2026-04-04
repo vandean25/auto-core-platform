@@ -26,7 +26,103 @@ export class InvoicePdfService {
     private cloudTasks: CloudTasksService,
   ) {}
 
-  async generate(invoiceId: string): Promise<{
+  async requestGeneration(
+    invoiceId: string,
+    params: { targetBaseUrl: string },
+  ): Promise<
+    | {
+        mode: 'cached';
+        invoiceId: string;
+        bucket: string;
+        key: string;
+        generatedAt: Date;
+      }
+    | { mode: 'enqueued'; invoiceId: string; taskId: string }
+    | {
+        mode: 'generated';
+        invoiceId: string;
+        bucket: string;
+        key: string;
+        generatedAt: Date;
+      }
+  > {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: {
+        id: true,
+        status: true,
+        pdf_storage_bucket: true,
+        pdf_storage_key: true,
+        pdf_generated_at: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if (invoice.pdf_storage_key && invoice.pdf_storage_bucket && invoice.pdf_generated_at) {
+      return {
+        mode: 'cached',
+        invoiceId: invoice.id,
+        bucket: invoice.pdf_storage_bucket,
+        key: invoice.pdf_storage_key,
+        generatedAt: invoice.pdf_generated_at,
+      };
+    }
+
+    if (
+      invoice.status !== InvoiceStatus.ISSUED &&
+      invoice.status !== InvoiceStatus.PAID
+    ) {
+      throw new BadRequestException(
+        'Invoice PDF can only be generated for ISSUED/PAID invoices',
+      );
+    }
+
+    if (!this.cloudTasks.isEnabled() || !params.targetBaseUrl) {
+      const generated = await this.generateNow(invoiceId);
+      return { mode: 'generated', ...generated };
+    }
+
+    try {
+      await this.prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { pdf_generation_error: null },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to clear invoice PDF generation error before enqueue (invoiceId=${invoiceId}): ${message}`,
+      );
+    }
+
+    try {
+      const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
+        invoiceId,
+        targetBaseUrl: params.targetBaseUrl,
+      });
+      return { mode: 'enqueued', invoiceId, taskId };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to enqueue invoice PDF generation task (invoiceId=${invoiceId}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      Sentry.captureException(error, {
+        tags: { invoiceId, operation: 'cloudtasks.enqueuePdfGeneration' },
+      });
+
+      if (process.env.NODE_ENV !== 'production') {
+        const generated = await this.generateNow(invoiceId);
+        return { mode: 'generated', ...generated };
+      }
+
+      throw error;
+    }
+  }
+
+  async generateNow(invoiceId: string): Promise<{
     invoiceId: string;
     bucket: string;
     key: string;
@@ -171,25 +267,6 @@ export class InvoicePdfService {
           });
 
           await this.safeStoreGenerationError(invoiceId, message);
-
-          // Enqueue for offline retry via Cloud Tasks
-          try {
-            await this.cloudTasks.enqueuePdfGeneration(invoiceId, 0);
-          } catch (enqueueError) {
-            const enqueueMessage =
-              enqueueError instanceof Error
-                ? enqueueError.message
-                : String(enqueueError);
-            this.logger.error(
-              `Failed to enqueue Cloud Task for invoice ${invoiceId}: ${enqueueMessage}`,
-              enqueueError instanceof Error ? enqueueError.stack : undefined,
-            );
-            Sentry.captureException(enqueueError, {
-              level: 'fatal',
-              tags: { invoiceId, operation: 'enqueue_cloud_task' },
-            });
-          }
-
           throw error;
         }
       },

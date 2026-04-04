@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.15.2",
+    "@google-cloud/tasks": "^6.2.1",
     "@nestjs/common": "^11.1.16",
     "@nestjs/core": "^11.1.16",
     "@nestjs/mapped-types": "^2.1.0",

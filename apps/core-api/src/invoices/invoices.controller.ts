@@ -2,14 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Logger,
   Param,
   Patch,
   Post,
+  Req,
   Res,
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import type { Request } from 'express';
+import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -34,8 +38,27 @@ export class InvoicesController {
   }
 
   @Post(':id/pdf')
-  generatePdf(@Param('id') id: string) {
-    return this.invoicePdfService.generate(id);
+  generatePdf(@Param('id') id: string, @Req() req: Request) {
+    const forwardedProtoHeader = req.headers['x-forwarded-proto'];
+    const forwardedProto = Array.isArray(forwardedProtoHeader)
+      ? forwardedProtoHeader[0]
+      : forwardedProtoHeader;
+    const protocol = forwardedProto || req.protocol;
+    const host = req.get('host');
+
+    if (!host) {
+      this.logger.warn('Missing host header while enqueuing PDF generation');
+    }
+
+    const targetBaseUrl = host ? `${protocol}://${host}` : '';
+    return this.invoicePdfService.requestGeneration(id, { targetBaseUrl });
+  }
+
+  @ApiExcludeEndpoint()
+  @Post(':id/pdf/worker')
+  @HttpCode(204)
+  async generatePdfWorker(@Param('id') id: string) {
+    await this.invoicePdfService.generateNow(id);
   }
 
   @Get(':id/pdf')
