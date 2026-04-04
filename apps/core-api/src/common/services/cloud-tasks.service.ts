@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { CloudTasksClient } from '@google-cloud/tasks';
 import * as Sentry from '@sentry/node';
 
@@ -12,10 +16,26 @@ export class CloudTasksService {
     if (credentials) {
       try {
         const parsed = JSON.parse(credentials) as Record<string, unknown>;
+
+        const clientEmail =
+          typeof parsed.client_email === 'string'
+            ? parsed.client_email
+            : undefined;
+        const privateKey =
+          typeof parsed.private_key === 'string'
+            ? parsed.private_key
+            : undefined;
+
+        if (!clientEmail || !privateKey) {
+          throw new Error(
+            'GCP_CREDENTIALS does not include client_email/private_key fields',
+          );
+        }
+
         this.client = new CloudTasksClient({
           credentials: {
-            client_email: String(parsed.client_email ?? ''),
-            private_key: String(parsed.private_key ?? ''),
+            client_email: clientEmail,
+            private_key: privateKey,
           },
         });
         this.logger.log(
@@ -81,7 +101,8 @@ export class CloudTasksService {
         }
 
         const projectId =
-          process.env.GOOGLE_CLOUD_PROJECT ?? (await this.client.getProjectId());
+          process.env.GOOGLE_CLOUD_PROJECT ??
+          (await this.client.getProjectId());
 
         const parent = this.client.queuePath(projectId, location, queue);
 

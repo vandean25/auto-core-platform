@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -46,7 +45,7 @@ export class InvoicePdfService {
         generatedAt: Date;
       }
   > {
-    const invoice = await this.prisma.invoice.findUnique({
+    const invoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       select: {
         id: true,
@@ -61,7 +60,11 @@ export class InvoicePdfService {
       throw new NotFoundException('Invoice not found');
     }
 
-    if (invoice.pdf_storage_key && invoice.pdf_storage_bucket && invoice.pdf_generated_at) {
+    if (
+      invoice.pdf_storage_key &&
+      invoice.pdf_storage_bucket &&
+      invoice.pdf_generated_at
+    ) {
       return {
         mode: 'cached',
         invoiceId: invoice.id,
@@ -86,7 +89,7 @@ export class InvoicePdfService {
     }
 
     try {
-      await this.prisma.invoice.update({
+      await this.prisma.client.invoice.update({
         where: { id: invoiceId },
         data: { pdf_generation_error: null },
       });
@@ -132,7 +135,7 @@ export class InvoicePdfService {
       { name: 'Generate Invoice PDF', op: 'pdf.generate' },
       async (span) => {
         span.setAttribute('invoiceId', invoiceId);
-        const invoice = await this.prisma.invoice.findUnique({
+        const invoice = await this.prisma.client.invoice.findUnique({
           where: { id: invoiceId },
           select: {
             id: true,
@@ -205,9 +208,15 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = (error as any)?.status;
+                const maybeStatus = (
+                  error as { status?: unknown } | null | undefined
+                )?.status;
+                const status =
+                  typeof maybeStatus === 'number' ? maybeStatus : undefined;
                 if (status && status >= 400 && status < 500) {
-                  bail(error instanceof Error ? error : new Error(String(error)));
+                  bail(
+                    error instanceof Error ? error : new Error(String(error)),
+                  );
                 }
                 throw error;
               }
@@ -234,7 +243,7 @@ export class InvoicePdfService {
           );
 
           const generatedAt = new Date();
-          await this.prisma.invoice.update({
+          await this.prisma.client.invoice.update({
             where: { id: invoiceId },
             data: {
               pdf_storage_bucket: upload.bucket,
@@ -279,7 +288,7 @@ export class InvoicePdfService {
     contentLength: number | null;
     stream: Readable;
   }> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const invoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       select: {
         id: true,
@@ -318,7 +327,7 @@ export class InvoicePdfService {
       return existingSnapshot;
     }
 
-    const fullInvoice = await this.prisma.invoice.findUnique({
+    const fullInvoice = await this.prisma.client.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         items: { orderBy: { createdAt: 'asc' } },
@@ -332,7 +341,7 @@ export class InvoicePdfService {
     }
 
     const snapshot = buildInvoiceSnapshot(fullInvoice);
-    await this.prisma.invoice.update({
+    await this.prisma.client.invoice.update({
       where: { id: invoiceId },
       data: { snapshot },
     });
@@ -415,7 +424,7 @@ export class InvoicePdfService {
 
   private async safeStoreGenerationError(invoiceId: string, message: string) {
     try {
-      await this.prisma.invoice.update({
+      await this.prisma.client.invoice.update({
         where: { id: invoiceId },
         data: {
           pdf_generation_error: message.slice(0, 2000),

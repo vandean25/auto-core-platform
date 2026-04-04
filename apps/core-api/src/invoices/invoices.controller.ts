@@ -8,10 +8,8 @@ import {
   Patch,
   Post,
   Req,
-  Res,
   StreamableFile,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import type { Request } from 'express';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { InvoicesService } from './invoices.service';
@@ -62,10 +60,7 @@ export class InvoicesController {
   }
 
   @Get(':id/pdf')
-  async getPdf(
-    @Param('id') id: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async getPdf(@Param('id') id: string) {
     const pdf = await this.invoicePdfService.getPdf(id);
 
     return new StreamableFile(pdf.stream, {
