@@ -12,9 +12,7 @@ export class CloudTasksWorkerGuard implements CanActivate {
   canActivate(context: ExecutionContext) {
     const secret = process.env.CLOUD_TASKS_WORKER_SECRET;
     if (!secret) {
-      throw new InternalServerErrorException(
-        'Cloud Tasks worker secret is not configured',
-      );
+      throw new InternalServerErrorException();
     }
 
     const request = context.switchToHttp().getRequest<Request>();

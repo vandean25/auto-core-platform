@@ -1,11 +1,10 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
+  HttpException,
   HttpCode,
   Logger,
-  NotFoundException,
   Param,
   Patch,
   Post,
@@ -59,10 +58,7 @@ export class InvoicesController {
     try {
       await this.invoicePdfService.generateNow(id);
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof HttpException && error.getStatus() < 500) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
           `Dropping non-retryable invoice PDF worker error (invoiceId=${id}): ${message}`,
