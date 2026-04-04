@@ -47,3 +47,5 @@ tools/graph-db/data/
 
 # Stitch downloads
 stitch-downloads/
+.vercel
+.env*.local

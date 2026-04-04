@@ -14,7 +14,20 @@ export class InvoicePdfStorage {
   private readonly storage: Storage;
 
   constructor() {
-    this.storage = new Storage();
+    const credentials = process.env.GCP_CREDENTIALS;
+    if (credentials) {
+      try {
+        this.storage = new Storage({
+          credentials: JSON.parse(credentials),
+        });
+        this.logger.log('Storage client initialized with GCP_CREDENTIALS from env');
+      } catch (err) {
+        this.logger.error('Failed to parse GCP_CREDENTIALS from environment', err);
+        this.storage = new Storage();
+      }
+    } else {
+      this.storage = new Storage();
+    }
   }
 
   async uploadPdf(params: {
