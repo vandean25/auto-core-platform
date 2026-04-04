@@ -180,7 +180,7 @@ export default function InvoiceDetailPage() {
       toast.error(message, { id: toastId })
     } finally {
       setIsPreparing(false)
-      void queryClient.invalidateQueries({ queryKey: ['invoices', invoice.id] })
+      void queryClient.invalidateQueries({ queryKey: getInvoiceQueryKey(invoice.id) })
     }
   }
 
