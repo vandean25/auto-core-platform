@@ -77,7 +77,18 @@ export class InvoicePdfService {
       );
     }
 
-    if (!this.cloudTasks.isEnabled() || !params.targetBaseUrl) {
+    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
+    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+
+    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
+      // If explicitly enabled but misconfigured, fail closed to prevent resource exhaustion
+      if (cloudTasksEnabled) {
+        throw new InternalServerErrorException(
+          'Cloud Tasks is enabled but not correctly configured (missing queue, location, or base URL)',
+        );
+      }
+
+      // Fallback to inline generation for local/dev or when disabled
       const generated = await this.generateNow(invoiceId);
       return { mode: 'generated', ...generated };
     }
@@ -117,7 +128,9 @@ export class InvoicePdfService {
         tags: { invoiceId, operation: 'cloudtasks.enqueuePdfGeneration' },
       });
 
+      // In production, we must fail closed. In dev, we can fall back to inline.
       if (process.env.NODE_ENV !== 'production') {
+        this.logger.warn(`Falling back to inline generation for invoice ${invoiceId} (non-production)`);
         const generated = await this.generateNow(invoiceId);
         return { mode: 'generated', ...generated };
       }

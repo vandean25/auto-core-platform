@@ -10,7 +10,7 @@ import * as Sentry from '@sentry/node';
 export class CloudTasksService {
   private readonly logger = new Logger(CloudTasksService.name);
   private readonly client: CloudTasksClient;
-  private readonly projectIdFromCredentials?: string;
+  private cachedProjectId?: string;
 
   constructor() {
     const credentials = process.env.GCP_CREDENTIALS;
@@ -36,7 +36,7 @@ export class CloudTasksService {
           );
         }
 
-        this.projectIdFromCredentials = projectId;
+        this.cachedProjectId = projectId;
 
         this.client = new CloudTasksClient({
           projectId,
@@ -60,6 +60,14 @@ export class CloudTasksService {
     }
 
     this.client = new CloudTasksClient();
+  }
+
+  private async getProjectId(): Promise<string> {
+    if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
+    if (this.cachedProjectId) return this.cachedProjectId;
+
+    this.cachedProjectId = String(await this.client.getProjectId());
+    return this.cachedProjectId;
   }
 
   isEnabled(): boolean {
@@ -97,32 +105,17 @@ export class CloudTasksService {
         }
 
         const apiKey = process.env.API_KEY;
-        if (!apiKey) {
-          throw new InternalServerErrorException(
-            'API_KEY environment variable is not configured',
-          );
-        }
-
         const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
-        if (!workerSecret) {
-          throw new InternalServerErrorException(
-            'CLOUD_TASKS_WORKER_SECRET environment variable is not configured',
-          );
-        }
-
         const location = process.env.CLOUD_TASKS_LOCATION;
         const queue = process.env.CLOUD_TASKS_QUEUE;
-        if (!location || !queue) {
+
+        if (!apiKey || !workerSecret || !location || !queue) {
           throw new InternalServerErrorException(
-            'Cloud Tasks is missing CLOUD_TASKS_LOCATION or CLOUD_TASKS_QUEUE',
+            'Cloud Tasks is missing required configuration environment variables',
           );
         }
 
-        const projectId =
-          process.env.GOOGLE_CLOUD_PROJECT ??
-          this.projectIdFromCredentials ??
-          (await this.client.getProjectId());
-
+        const projectId = await this.getProjectId();
         const parent = this.client.queuePath(projectId, location, queue);
 
         let url: string;
@@ -150,9 +143,13 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
+        // Use deterministic task name for idempotency (GCP handles de-duplication for ~1 hour)
+        const taskName = `projects/${projectId}/locations/${location}/queues/${queue}/tasks/inv-pdf-${invoiceId}`;
+
         const [task] = await this.client.createTask({
           parent,
           task: {
+            name: taskName,
             httpRequest: {
               httpMethod: 'POST',
               url,
@@ -166,10 +163,17 @@ export class CloudTasksService {
             scheduleTime,
             dispatchDeadline: { seconds: 600 },
           },
+        }).catch(err => {
+          // If already exists, return successfully (idempotency)
+          if (err.code === 6 || (err.message && err.message.includes('already exists'))) {
+            this.logger.log(`Cloud Task for invoice ${invoiceId} already exists, skipping creation.`);
+            return [{ name: taskName }];
+          }
+          throw err;
         });
 
-        const taskId = task.name;
-        if (!taskId) {
+        const fullTaskName = task.name;
+        if (!fullTaskName) {
           this.logger.error(
             `Cloud Tasks createTask() returned a task without a name for invoice ${invoiceId}`,
           );
@@ -177,6 +181,9 @@ export class CloudTasksService {
             'Cloud Tasks returned a malformed task without a name',
           );
         }
+
+        // Extract base ID to avoid leaking full resource path to clients
+        const taskId = fullTaskName.split('/').pop() || fullTaskName;
 
         this.logger.log(
           `Enqueued Cloud Task for invoice ${invoiceId} (${taskId})`,
