@@ -44,7 +44,8 @@ export class InvoicePdfStorage {
             etag: null,
           };
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
             error instanceof Error ? error.stack : undefined,

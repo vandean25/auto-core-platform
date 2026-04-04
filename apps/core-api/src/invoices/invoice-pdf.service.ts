@@ -109,7 +109,7 @@ export class InvoicePdfService {
                 });
               } catch (error) {
                 // Don't retry if the error is a 4xx client error
-                const status = (error as any)?.status;
+                const status = error?.status;
                 if (status && status >= 400 && status < 500) {
                   bail(
                     error instanceof Error ? error : new Error(String(error)),
