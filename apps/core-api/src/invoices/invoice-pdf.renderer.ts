@@ -223,6 +223,7 @@ export class InvoicePdfRenderer {
       <div style="
         width: 100%;
         padding: 0 50px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         font-size: 9px;
         color: #6b7280;
         display: flex;
