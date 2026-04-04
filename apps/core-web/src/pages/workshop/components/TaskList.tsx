@@ -22,7 +22,7 @@ export interface TaskListProps {
 }
 
 export function TaskList({
-  order,
+  order: _order,
   tasks,
   rawTaskTotals,
   isLocked,
@@ -76,7 +76,7 @@ export function TaskList({
             {tasks.map((task) => {
               const isActive = activeTaskId === task.id
               const taskTotal = rawTaskTotals.get(task.id)?.total ?? 0
-              const hasLineItems = (rawTaskTotals.get(task.id)?.laborTotal ?? 0) + (rawTaskTotals.get(task.id)?.partsTotal ?? 0) > 0
+              const hasLineItems = (rawTaskTotals.get(task.id)?.labor ?? 0) + (rawTaskTotals.get(task.id)?.parts ?? 0) > 0
 
               return (
                 <div

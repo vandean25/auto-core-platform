@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -648,7 +648,7 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
 }
 
-function OrderInfoCard({ order }: { order: any }) {
+function OrderInfoCard({ order: _order }: { order: any }) {
   return (
     <Card>
       <CardHeader className="pb-3">

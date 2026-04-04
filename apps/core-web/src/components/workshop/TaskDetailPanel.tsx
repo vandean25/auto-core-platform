@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
-import { CircleDollarSign, Clock3, Package, Trash2, X, ChevronDown } from 'lucide-react'
+import { CircleDollarSign, Clock3, Package, Trash2, X } from 'lucide-react'
 import { useCatalogSearch } from '@/api/workshop'
 import type { CatalogPartSearchItem, LaborOperationSearchItem } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
