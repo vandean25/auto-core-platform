@@ -9,6 +9,7 @@ export class InvoicePdfRenderer {
     return Sentry.startSpan(
       { name: 'Render PDF', op: 'pdf.render' },
       async () => {
+        const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
         const browser = await Sentry.startSpan(
           { name: 'Launch Browser', op: 'pdf.browser.launch' },
           () => chromium.launch(),
@@ -27,9 +28,12 @@ export class InvoicePdfRenderer {
                 margin: {
                   top: '50px',
                   right: '50px',
-                  bottom: '50px',
+                  bottom: '70px',
                   left: '50px',
                 },
+                displayHeaderFooter: true,
+                headerTemplate: '<div></div>',
+                footerTemplate: this.buildFooterTemplate(invoiceNumber),
                 printBackground: true,
               }),
           );
@@ -81,21 +85,58 @@ export class InvoicePdfRenderer {
       <html>
       <head>
         <style>
-          body { font-family: sans-serif; color: #333; line-height: 1.4; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .section { margin-bottom: 20px; }
-          .section-title { font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th { text-align: left; border-bottom: 2px solid #333; padding: 8px; }
-          td { padding: 8px; border-bottom: 1px solid #eee; }
-          .totals { margin-left: auto; width: 250px; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 12px;
+            color: #111827;
+            line-height: 1.45;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          h1 { font-size: 22px; margin: 0; letter-spacing: 0.2px; }
+
+          .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
+          .header .muted { color: #6b7280; font-size: 12px; }
+
+          .section { margin-bottom: 18px; }
+          .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+          }
+
+          table { width: 100%; border-collapse: collapse; margin: 18px 0; table-layout: fixed; }
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; }
+          th {
+            text-align: left;
+            border-bottom: 1px solid #d1d5db;
+            padding: 10px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #374151;
+            background: #f9fafb;
+          }
+          td { padding: 10px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; word-break: break-word; }
+
+          .totals { margin-left: auto; width: 260px; break-inside: avoid; }
           .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
-          .total-row.grand { font-weight: bold; font-size: 1.2em; border-top: 2px solid #333; margin-top: 8px; }
+          .total-row.grand { font-weight: 800; font-size: 13px; border-top: 1px solid #d1d5db; margin-top: 8px; padding-top: 10px; }
+
+          .notes { break-inside: avoid; }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>Invoice</h1>
+          <div class="muted">${invoiceNumber}</div>
         </div>
 
         <div style="display: flex; justify-content: space-between;">
@@ -160,8 +201,8 @@ export class InvoicePdfRenderer {
         ${
           snapshot.notes
             ? `
-          <div class="section" style="margin-top: 30px;">
-            <div class="section-title">Notes:</div>
+          <div class="section notes" style="margin-top: 26px;">
+            <div class="section-title">Notes</div>
             <div>${snapshot.notes}</div>
           </div>
         `
@@ -169,6 +210,23 @@ export class InvoicePdfRenderer {
         }
       </body>
       </html>
+    `;
+  }
+
+  private buildFooterTemplate(invoiceNumber: string): string {
+    return `
+      <div style="
+        width: 100%;
+        padding: 0 50px;
+        font-size: 9px;
+        color: #6b7280;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <span>Invoice ${invoiceNumber}</span>
+        <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+      </div>
     `;
   }
 
