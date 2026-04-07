@@ -1,3 +1,5 @@
+export { CommonModule } from './common.module';
+
 // common barrel — single import path for shared utilities
 export {
   PrismaRepository,
@@ -17,3 +19,4 @@ export {
 } from './errors/application-errors';
 
 export { CloudTasksService } from './services/cloud-tasks.service';
+export { PlaywrightBrowserService } from './services/playwright-browser.service';

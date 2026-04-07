@@ -130,7 +130,9 @@ export class InvoicePdfService {
 
       // In production, we must fail closed. In dev, we can fall back to inline.
       if (process.env.NODE_ENV !== 'production') {
-        this.logger.warn(`Falling back to inline generation for invoice ${invoiceId} (non-production)`);
+        this.logger.warn(
+          `Falling back to inline generation for invoice ${invoiceId} (non-production)`,
+        );
         const generated = await this.generateNow(invoiceId);
         return { mode: 'generated', ...generated };
       }

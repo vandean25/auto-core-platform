@@ -20,9 +20,14 @@ export class InvoicePdfStorage {
         this.storage = new Storage({
           credentials: JSON.parse(credentials),
         });
-        this.logger.log('Storage client initialized with GCP_CREDENTIALS from env');
+        this.logger.log(
+          'Storage client initialized with GCP_CREDENTIALS from env',
+        );
       } catch (err) {
-        this.logger.error('Failed to parse GCP_CREDENTIALS from environment', err);
+        this.logger.error(
+          'Failed to parse GCP_CREDENTIALS from environment',
+          err,
+        );
         this.storage = new Storage();
       }
     } else {

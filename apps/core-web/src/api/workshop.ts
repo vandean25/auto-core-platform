@@ -335,3 +335,39 @@ export const useRegisterIntake = () => {
     },
   })
 }
+
+export function useGenerateWorkshopPdf() {
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/orders/${orderId}/pdf`,
+        { method: 'POST' },
+      )
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({
+          message: 'Failed to generate PDF',
+        }))
+        throw new Error(payload.message || 'Failed to generate PDF')
+      }
+      return response.json() as Promise<{
+        message?: string
+        enqueued?: boolean
+        success?: boolean
+        cached?: boolean
+      }>
+    },
+  })
+}
+
+export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
+  const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/pdf`, {
+    headers: {
+      Accept: 'application/pdf',
+    },
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    throw new Error(payload.message || 'Failed to download workshop PDF')
+  }
+  return response.blob()
+}

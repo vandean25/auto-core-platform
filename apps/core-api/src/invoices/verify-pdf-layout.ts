@@ -1,10 +1,12 @@
+import { PlaywrightBrowserService } from '../common';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { CustomerType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 
 async function generatePDFs() {
-  const renderer = new InvoicePdfRenderer();
+  const browserService = new PlaywrightBrowserService();
+  const renderer = new InvoicePdfRenderer(browserService);
 
   // Use process.cwd() to ensure reliable output path relative to project root
   const outputDir = path.resolve(process.cwd(), 'pdf-verification');
@@ -121,6 +123,7 @@ async function generatePDFs() {
   await renderToFile('multi-page.pdf', multiPageSnapshot);
   await renderToFile('long-content.pdf', longContentSnapshot);
   await renderToFile('legal-compliance.pdf', legalComplianceSnapshot);
+  await browserService.onModuleDestroy();
 }
 
 // Add a guard to prevent execution when imported

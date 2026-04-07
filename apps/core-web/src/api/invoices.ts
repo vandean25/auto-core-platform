@@ -101,3 +101,38 @@ export function useIssueInvoice() {
     },
   })
 }
+
+export function useGenerateInvoicePdf() {
+  return useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await fetchWithAuth(
+        `${INVOICES_API}/${invoiceId}/pdf`,
+        { method: 'POST' },
+      )
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({
+          message: 'Failed to generate PDF',
+        }))
+        throw new Error(payload.message || 'Failed to generate PDF')
+      }
+      return response.json() as Promise<{
+        mode: 'cached' | 'enqueued' | 'generated'
+        invoiceId: string
+        taskId?: string
+      }>
+    },
+  })
+}
+
+export async function downloadInvoicePdf(invoiceId: string): Promise<Blob> {
+  const response = await fetchWithAuth(`${INVOICES_API}/${invoiceId}/pdf`, {
+    headers: {
+      Accept: 'application/pdf',
+    },
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    throw new Error(payload.message || 'Failed to download invoice PDF')
+  }
+  return response.blob()
+}

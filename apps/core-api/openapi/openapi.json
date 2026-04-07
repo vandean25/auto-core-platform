@@ -2097,6 +2097,65 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/pdf": {
+      "post": {
+        "operationId": "WorkshopController_generatePdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Workshop PDF generation status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopPdfGenerationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "get": {
+        "operationId": "WorkshopController_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workshop PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/invoices/drafts": {
       "post": {
         "operationId": "InvoicesController_createDraft",
@@ -2761,6 +2820,24 @@
       "ReplaceWorkshopTaskLineItemsDto": {
         "type": "object",
         "properties": {}
+      },
+      "WorkshopPdfGenerationResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "enqueued": {
+            "type": "boolean"
+          },
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "enqueued"
+        ]
       },
       "CreateDraftInvoiceDto": {
         "type": "object",

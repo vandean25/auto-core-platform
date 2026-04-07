@@ -25,6 +25,8 @@ import {
   useUpdateWorkshopOrder,
   useUpdateWorkshopTask,
   useWorkshopOrder,
+  useGenerateWorkshopPdf,
+  downloadWorkshopPdf,
 } from '@/api/workshop'
 import type {
   DiscountType,
@@ -57,6 +59,7 @@ export function WorkshopOrderDetails() {
   const createDraftInvoice = useCreateDraftInvoice()
   const issueInvoice = useIssueInvoice()
   const updateInvoiceDiscount = useUpdateInvoiceDiscount()
+  const generateWorkshopPdf = useGenerateWorkshopPdf()
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -367,11 +370,44 @@ export function WorkshopOrderDetails() {
     }
   }
 
-  const handlePrint = () => {
-    const previousTitle = document.title
-    document.title = `Job Card ${order.order_number ?? order.id}`
-    window.print()
-    document.title = previousTitle
+  const handlePrint = async () => {
+    const toastId = toast.loading('Generating Job Card PDF...')
+    let url: string | null = null
+    try {
+      const res = await generateWorkshopPdf.mutateAsync(order.id)
+      if (res.enqueued) {
+        toast.success(
+          'Job Card PDF generation has been queued in the background. It will be available shortly.',
+          { id: toastId },
+        )
+        return
+      }
+
+      const blob = await downloadWorkshopPdf(order.id)
+      url = window.URL.createObjectURL(blob)
+
+      const fileName = `job-card-${order.order_number || order.id}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase()
+
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success('Job Card PDF downloaded successfully', { id: toastId })
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate PDF', { id: toastId })
+    } finally {
+      if (url) {
+        const urlToRevoke = url
+        window.setTimeout(() => {
+          window.URL.revokeObjectURL(urlToRevoke)
+        }, 0)
+      }
+    }
   }
 
   const handleToggleGroup = (taskId: string) => {

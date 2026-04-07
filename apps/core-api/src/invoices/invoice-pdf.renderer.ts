@@ -1,50 +1,59 @@
-import { Injectable } from '@nestjs/common';
-import { chromium } from 'playwright';
+import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
+import { PlaywrightBrowserService } from '../common';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
 @Injectable()
 export class InvoicePdfRenderer {
+  private readonly logger = new Logger(InvoicePdfRenderer.name);
+
+  constructor(
+    private readonly browserService: PlaywrightBrowserService,
+  ) {}
+
   async render(snapshot: InvoiceSnapshot): Promise<Buffer> {
     return Sentry.startSpan(
       { name: 'Render PDF', op: 'pdf.render' },
       async () => {
         const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
-        const browser = await Sentry.startSpan(
-          { name: 'Launch Browser', op: 'pdf.browser.launch' },
-          () => chromium.launch(),
-        );
+        const browser = await this.browserService.getBrowser();
+        const page = await browser.newPage();
 
         try {
-          const page = await browser.newPage();
           const html = this.generateHtml(snapshot, invoiceNumber);
-          await page.setContent(html);
+          await page.setContent(html, { timeout: 10_000 });
 
           const pdf = await Sentry.startSpan(
             { name: 'Render Page to PDF', op: 'pdf.browser.render' },
             () =>
-              page.pdf({
-                format: 'A4',
-                margin: {
-                  top: '50px',
-                  right: '50px',
-                  bottom: '70px',
-                  left: '50px',
-                },
-                displayHeaderFooter: true,
-                headerTemplate: '<div></div>',
-                footerTemplate: this.buildFooterTemplate(invoiceNumber),
-                printBackground: true,
-              }),
+              this.browserService.withTimeout(
+                page.pdf({
+                  format: 'A4',
+                  margin: {
+                    top: '50px',
+                    right: '50px',
+                    bottom: '70px',
+                    left: '50px',
+                  },
+                  displayHeaderFooter: true,
+                  headerTemplate: '<div></div>',
+                  footerTemplate: this.buildFooterTemplate(invoiceNumber),
+                  printBackground: true,
+                }),
+                15_000,
+                'Invoice PDF render timed out after 15 seconds',
+              ),
           );
 
           return Buffer.from(pdf);
         } finally {
-          await browser.close().catch((err) => {
-            // Log but don't rethrow cleanup errors to avoid masking the original failure
-            console.error(
-              'Failed to close browser during PDF render cleanup:',
-              err,
+          await page.close().catch((error) => {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            const stack = error instanceof Error ? error.stack : undefined;
+            this.logger.error(
+              `Failed to close page during PDF render cleanup: ${message}`,
+              stack,
             );
           });
         }
@@ -134,7 +143,7 @@ export class InvoicePdfRenderer {
           .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
           .total-row.grand { font-weight: 800; font-size: 13px; border-top: 1px solid #d1d5db; margin-top: 8px; padding-top: 10px; }
 
-          .notes { break-inside: avoid; white-space: pre-wrap; }
+          .notes-container { break-inside: avoid; white-space: pre-wrap; margin-top: 26px; }
         </style>
       </head>
       <body>
@@ -146,9 +155,9 @@ export class InvoicePdfRenderer {
         <div style="display: flex; justify-content: space-between;">
           <div class="section">
             <div class="section-title">Bill to:</div>
-            <div>${this.escapeHtml(customerName)}</div>
-            <div>${this.escapeHtml(snapshot.customer.address_street ?? '')}</div>
-            <div>${this.escapeHtml(cityLine)}</div>
+            <div style="font-weight: 600;">${this.escapeHtml(customerName)}</div>
+            ${snapshot.customer.address_street ? `<div>${this.escapeHtml(snapshot.customer.address_street)}</div>` : ''}
+            ${cityLine ? `<div>${this.escapeHtml(cityLine)}</div>` : ''}
             ${snapshot.customer.address_country ? `<div>${this.escapeHtml(snapshot.customer.address_country)}</div>` : ''}
             ${snapshot.customer.vat_id ? `<div>VAT ID: ${this.escapeHtml(snapshot.customer.vat_id)}</div>` : ''}
           </div>
@@ -165,9 +174,9 @@ export class InvoicePdfRenderer {
             ? `
           <div class="section">
             <div class="section-title">Vehicle:</div>
-            <div>${this.escapeHtml(snapshot.vehicle.make)} ${this.escapeHtml(snapshot.vehicle.model)} (${this.escapeHtml(snapshot.vehicle.year)})</div>
-            ${snapshot.vehicle.plate ? `<div>Plate: ${this.escapeHtml(snapshot.vehicle.plate)}</div>` : ''}
-            ${snapshot.vehicle.vin ? `<div>VIN: ${this.escapeHtml(snapshot.vehicle.vin)}</div>` : ''}
+            <div style="font-weight: 600;">${this.escapeHtml(snapshot.vehicle.make)} ${this.escapeHtml(snapshot.vehicle.model)} (${this.escapeHtml(snapshot.vehicle.year)})</div>
+            ${snapshot.vehicle.plate ? `<div>Plate: <strong>${this.escapeHtml(snapshot.vehicle.plate)}</strong></div>` : ''}
+            ${snapshot.vehicle.vin ? `<div>VIN: <span style="font-family: monospace;">${this.escapeHtml(snapshot.vehicle.vin)}</span></div>` : ''}
           </div>
         `
             : ''
@@ -205,7 +214,7 @@ export class InvoicePdfRenderer {
         ${
           snapshot.notes
             ? `
-          <div class="section notes" style="margin-top: 26px;">
+          <div class="section notes-container">
             <div class="section-title">Notes</div>
             <div>${this.escapeHtml(snapshot.notes)}</div>
           </div>
@@ -249,10 +258,10 @@ export class InvoicePdfRenderer {
       .replace(/'/g, '&#39;');
   }
 
-  private formatDate(value: string) {
-    const date = new Date(value);
+  private formatDate(value: string | Date) {
+    const date = typeof value === 'string' ? new Date(value) : value;
     if (Number.isNaN(date.getTime())) {
-      return value;
+      return String(value);
     }
     return date.toISOString().slice(0, 10);
   }

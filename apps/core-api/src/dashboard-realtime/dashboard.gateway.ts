@@ -41,6 +41,12 @@ export class DashboardGateway {
   server!: Server;
 
   emitEntityUpdated(payload: DashboardEntityUpdatedPayload): void {
+    if (!this.server) {
+      this.logger.debug(
+        `Skipped emitting ${DASHBOARD_ENTITY_UPDATED_EVENT}: ${payload.type}/${payload.action} (No server connected)`.trim(),
+      );
+      return;
+    }
     this.server.emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
       `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
