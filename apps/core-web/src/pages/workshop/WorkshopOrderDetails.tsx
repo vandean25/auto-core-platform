@@ -68,6 +68,15 @@ export function WorkshopOrderDetails() {
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
   const lineItemSaveSeq = useRef<Record<string, number>>({})
+  
+  // Collapsible state for sidebar sections
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    orderInfo: false,
+    customer: true,
+    vehicle: true,
+    reportedIssue: false,
+    internalNotes: true,
+  })
 
   const activeInvoiceId = order?.invoice?.id ?? checkoutInvoiceIdOverride
   const { data: fetchedInvoice, isLoading: isInvoiceLoading } = useInvoice(activeInvoiceId ?? '')
@@ -155,7 +164,14 @@ export function WorkshopOrderDetails() {
       : 'Generate Invoice'
   const isInvoiceActionDisabled = !isCheckoutView && !canEnterCheckout
 
+  // Determine current workflow step
+  const workflowStep = isLocked ? 'invoiced' : isCheckoutView ? 'checkout' : 'editing'
+
   // ── Handlers ────────────────────────────────────────────────────────────
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }))
+  }
 
   const handleSaveNotes = async (nextNotes: string) => {
     if (isLocked) return
@@ -436,7 +452,7 @@ export function WorkshopOrderDetails() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full px-4 sm:px-6 py-6 space-y-5">
       {/* Header Section */}
       <OrderHeader
         order={order}
@@ -449,6 +465,9 @@ export function WorkshopOrderDetails() {
         onPrint={handlePrint}
       />
 
+      {/* Workflow Step Indicator */}
+      <WorkflowStepIndicator currentStep={workflowStep} />
+
       {/* Main Content */}
       {!isCheckoutView ? (
         <motion.div
@@ -456,31 +475,46 @@ export function WorkshopOrderDetails() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >
-          {/* Widescreen 3-Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Order Info + Customer + Vehicle (stacked on mobile, sidebar on desktop) */}
-            <div className="lg:col-span-3 space-y-4 order-2 lg:order-1">
-              <div className="lg:sticky lg:top-6 space-y-4">
-                <OrderInfoCard order={order} />
-                <CustomerInfoCard order={order} />
-                <VehicleInfoCard order={order} />
+          {/* Widescreen 3-Column Layout with visual hierarchy */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 2xl:gap-6">
+            {/* Left Column: Order Info sidebar - collapsible sections */}
+            <div className="lg:col-span-3 xl:col-span-2 space-y-3 order-2 lg:order-1">
+              <div className="lg:sticky lg:top-6 space-y-3">
+                <CollapsibleOrderInfo 
+                  order={order} 
+                  collapsed={collapsedSections.orderInfo}
+                  onToggle={() => toggleSection('orderInfo')}
+                />
+                <CollapsibleCustomerInfo 
+                  order={order} 
+                  collapsed={collapsedSections.customer}
+                  onToggle={() => toggleSection('customer')}
+                />
+                <CollapsibleVehicleInfo 
+                  order={order} 
+                  collapsed={collapsedSections.vehicle}
+                  onToggle={() => toggleSection('vehicle')}
+                />
               </div>
             </div>
 
-            {/* Center Column: Tasks + Task Detail Panel */}
-            <div className="lg:col-span-6 space-y-4 order-1 lg:order-2">
-              <TaskList
-                order={order}
-                tasks={tasks}
-                rawTaskTotals={rawTaskTotals}
-                isLocked={isLocked}
-                newTaskTitle={newTaskTitle}
-                activeTaskId={activeTaskId}
-                onNewTaskTitleChange={setNewTaskTitle}
-                onAddTask={() => void handleAddTask()}
-                onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
-                onOpenTask={setActiveTaskId}
-              />
+            {/* Center Column: Tasks + Task Detail Panel - DOMINANT AREA */}
+            <div className="lg:col-span-6 xl:col-span-8 space-y-4 order-1 lg:order-2">
+              {/* Elevated card styling for primary work area */}
+              <div className="bg-card rounded-xl border-2 border-primary/10 shadow-lg overflow-hidden">
+                <TaskList
+                  order={order}
+                  tasks={tasks}
+                  rawTaskTotals={rawTaskTotals}
+                  isLocked={isLocked}
+                  newTaskTitle={newTaskTitle}
+                  activeTaskId={activeTaskId}
+                  onNewTaskTitleChange={setNewTaskTitle}
+                  onAddTask={() => void handleAddTask()}
+                  onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
+                  onOpenTask={setActiveTaskId}
+                />
+              </div>
 
               {/* Horizontal Task Detail Panel */}
               <AnimatePresence mode="wait">
@@ -493,40 +527,46 @@ export function WorkshopOrderDetails() {
                     transition={{ duration: 0.25, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
-                    <TaskDetailPanel
-                      workshopOrderId={order.id}
-                      task={activeTaskForPanel}
-                      onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-                      onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-                      onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-                      onTaskDelete={(taskId) => {
-                        const task = tasks.find((existingTask) => existingTask.id === taskId)
-                        if (task) {
-                          setTaskPendingDelete(task)
-                        }
-                      }}
-                      canDeleteTask={canDeleteTasks}
-                      isDeletingTask={deleteTask.isPending}
-                      readOnly={isLocked}
-                      onClose={handleCloseTaskPanel}
-                    />
+                    <div className="bg-card rounded-xl border-2 border-primary/20 shadow-xl overflow-hidden">
+                      <TaskDetailPanel
+                        workshopOrderId={order.id}
+                        task={activeTaskForPanel}
+                        onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
+                        onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
+                        onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+                        onTaskDelete={(taskId) => {
+                          const task = tasks.find((existingTask) => existingTask.id === taskId)
+                          if (task) {
+                            setTaskPendingDelete(task)
+                          }
+                        }}
+                        canDeleteTask={canDeleteTasks}
+                        isDeletingTask={deleteTask.isPending}
+                        readOnly={isLocked}
+                        onClose={handleCloseTaskPanel}
+                      />
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Right Column: Notes + Reported Issue */}
-            <div className="lg:col-span-3 space-y-4 order-3">
-              <div className="lg:sticky lg:top-6 space-y-4">
-                <ReportedIssueCard
+            {/* Right Column: Notes sidebar - collapsible sections */}
+            <div className="lg:col-span-3 xl:col-span-2 space-y-3 order-3">
+              <div className="lg:sticky lg:top-6 space-y-3">
+                <CollapsibleReportedIssue
                   order={order}
                   isLocked={isLocked}
                   onSave={handleSaveReportedIssue}
+                  collapsed={collapsedSections.reportedIssue}
+                  onToggle={() => toggleSection('reportedIssue')}
                 />
-                <InternalNotesCard
+                <CollapsibleInternalNotes
                   order={order}
                   isLocked={isLocked}
                   onSave={handleSaveNotes}
+                  collapsed={collapsedSections.internalNotes}
+                  onToggle={() => toggleSection('internalNotes')}
                 />
               </div>
             </div>
@@ -604,12 +644,58 @@ export function WorkshopOrderDetails() {
   )
 }
 
-// ── Info Card Components ──────────────────────────────────────────────────
+// ── Workflow Step Indicator ───────────────────────────────────────────────
 
-import { Phone, Clock, Key, MapPin, User, FileText, AlertTriangle } from 'lucide-react'
+import { Wrench, Receipt, CheckCircle2, ChevronRight, ChevronDown } from 'lucide-react'
+
+function WorkflowStepIndicator({ currentStep }: { currentStep: 'editing' | 'checkout' | 'invoiced' }) {
+  const steps = [
+    { id: 'editing', label: 'Task Editing', icon: Wrench },
+    { id: 'checkout', label: 'Checkout', icon: Receipt },
+    { id: 'invoiced', label: 'Invoiced', icon: CheckCircle2 },
+  ]
+
+  const currentIndex = steps.findIndex((s) => s.id === currentStep)
+
+  return (
+    <div className="flex items-center justify-center gap-2 py-2">
+      {steps.map((step, index) => {
+        const Icon = step.icon
+        const isActive = step.id === currentStep
+        const isCompleted = index < currentIndex
+
+        return (
+          <div key={step.id} className="flex items-center">
+            <div
+              className={`
+                flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all
+                ${isActive 
+                  ? 'bg-primary text-primary-foreground shadow-md' 
+                  : isCompleted 
+                    ? 'bg-primary/20 text-primary' 
+                    : 'bg-muted text-muted-foreground'
+                }
+              `}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{step.label}</span>
+            </div>
+            {index < steps.length - 1 && (
+              <ChevronRight className={`h-4 w-4 mx-1 ${index < currentIndex ? 'text-primary' : 'text-muted-foreground/50'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Collapsible Info Card Components ──────────────────────────────────────
+
+import { Phone, Clock, Key, MapPin, User, FileText, AlertTriangle, Car } from 'lucide-react'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 function getCustomerName(order: any) {
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
@@ -626,190 +712,230 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
 }
 
-function OrderInfoCard({ order }: { order: any }) {
+function CollapsibleOrderInfo({ order, collapsed, onToggle }: { order: any; collapsed: boolean; onToggle: () => void }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-muted/30">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-semibold">Order Details</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-3 text-sm">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs">Assigned Tech</span>
-            <span className="font-medium flex items-center text-xs">
-              <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              {order.assignedTechnician?.name || 'Unassigned'}
-            </span>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs">Bay / Location</span>
-            <span className="font-medium flex items-center text-xs">
-              <MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              {order.bayLocation || 'Not assigned'}
-            </span>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs">Promised Time</span>
-            <span className="font-medium flex items-center text-xs">
-              <Clock className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              {order.promisedTime
-                ? new Date(order.promisedTime).toLocaleString('en-US', {
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'Not set'}
-            </span>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs">Key Tag</span>
-            <span className="font-medium flex items-center text-xs">
-              <Key className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-              {order.keyTag || 'N/A'}
-            </span>
-          </div>
-        </div>
-      </CardContent>
+    <Card className="overflow-hidden border-muted/50">
+      <Collapsible open={!collapsed} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2.5 px-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <CardTitle className="text-xs font-semibold">Order Details</CardTitle>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${!collapsed ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="py-3 px-3 space-y-2 text-xs">
+            <InfoRow label="Tech" value={order.assignedTechnician?.name || 'Unassigned'} icon={User} />
+            <InfoRow label="Bay" value={order.bayLocation || 'Not set'} icon={MapPin} />
+            <InfoRow 
+              label="Promised" 
+              value={order.promisedTime 
+                ? new Date(order.promisedTime).toLocaleString('en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                : 'Not set'
+              } 
+              icon={Clock} 
+            />
+            <InfoRow label="Key Tag" value={order.keyTag || 'N/A'} icon={Key} />
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   )
 }
 
-function CustomerInfoCard({ order }: { order: any }) {
+function CollapsibleCustomerInfo({ order, collapsed, onToggle }: { order: any; collapsed: boolean; onToggle: () => void }) {
   const customerName = getCustomerName(order)
   const customerPhone = order.customer.phone ?? ''
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-muted/30">
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-semibold">Customer</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-3 text-sm">
-        <div>
-          <div className="font-medium">{customerName}</div>
-          <div className="text-muted-foreground text-xs">{order.customer.email}</div>
-        </div>
-        {customerPhone && (
-          <>
-            <Separator />
+    <Card className="overflow-hidden border-muted/50">
+      <Collapsible open={!collapsed} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2.5 px-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-muted-foreground text-xs">Phone</div>
-                <div className="font-medium text-xs">{customerPhone}</div>
+              <div className="flex items-center gap-2 min-w-0">
+                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <CardTitle className="text-xs font-semibold truncate">{customerName}</CardTitle>
               </div>
-              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                <a href={`tel:${normalizePhone(customerPhone)}`}>
-                  <Phone className="h-3 w-3 mr-1" />
-                  Call
-                </a>
-              </Button>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${!collapsed ? 'rotate-180' : ''}`} />
             </div>
-          </>
-        )}
-      </CardContent>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="py-3 px-3 space-y-2 text-xs">
+            <div className="text-muted-foreground truncate">{order.customer.email}</div>
+            {customerPhone && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium">{customerPhone}</span>
+                <Button variant="outline" size="sm" className="h-6 text-xs px-2" asChild>
+                  <a href={`tel:${normalizePhone(customerPhone)}`}>
+                    <Phone className="h-3 w-3 mr-1" />
+                    Call
+                  </a>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   )
 }
 
-function VehicleInfoCard({ order }: { order: any }) {
+function CollapsibleVehicleInfo({ order, collapsed, onToggle }: { order: any; collapsed: boolean; onToggle: () => void }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-muted/30">
-        <CardTitle className="text-sm font-semibold">{getVehicleLabel(order)}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-2 text-sm">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          <div>
-            <div className="text-muted-foreground text-xs">VIN</div>
-            <div className="font-medium font-mono text-xs truncate" title={order.vehicle.vin}>
-              {order.vehicle.vin || 'N/A'}
+    <Card className="overflow-hidden border-muted/50">
+      <Collapsible open={!collapsed} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2.5 px-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <Car className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <CardTitle className="text-xs font-semibold truncate">{getVehicleLabel(order)}</CardTitle>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${!collapsed ? 'rotate-180' : ''}`} />
             </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Plate</div>
-            <div className="font-medium text-xs">{order.vehicle.plate || 'N/A'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Mileage</div>
-            <div className="font-medium text-xs">
-              {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="py-3 px-3 text-xs">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+              <div>
+                <div className="text-muted-foreground text-[10px] uppercase tracking-wide">VIN</div>
+                <div className="font-mono text-xs truncate" title={order.vehicle.vin}>{order.vehicle.vin || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Plate</div>
+                <div className="font-medium">{order.vehicle.plate || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Mileage</div>
+                <div className="font-medium">{typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Fuel</div>
+                <div className="font-medium">{typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}</div>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs">Fuel</div>
-            <div className="font-medium text-xs">
-              {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
-            </div>
-          </div>
-        </div>
-      </CardContent>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   )
 }
 
-function ReportedIssueCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
+function CollapsibleReportedIssue({ 
+  order, 
+  isLocked, 
+  onSave, 
+  collapsed, 
+  onToggle 
+}: { 
+  order: any; 
+  isLocked: boolean; 
+  onSave: (value: string) => void; 
+  collapsed: boolean; 
+  onToggle: () => void 
+}) {
   const hasIssue = !!(order.reportedIssue || order.reported_issue)
+  const issueText = order.reportedIssue || order.reported_issue || ''
   
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-semibold">Reported Issue</CardTitle>
-          </div>
-          {hasIssue && order.status !== 'COMPLETED' && (
-            <Badge variant="destructive" className="text-xs h-5">Priority</Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        <InlineEdit
-          mode="textarea"
-          rows={4}
-          placeholder="Customer reported issue..."
-          value={order.reportedIssue || order.reported_issue || ''}
-          readOnly={isLocked}
-          onSave={onSave}
-          emptyText="Add reported issue"
-          ariaLabel="Workshop order reported issue"
-        />
-      </CardContent>
+    <Card className={`overflow-hidden ${hasIssue ? 'border-amber-500/50 bg-amber-500/5' : 'border-muted/50'}`}>
+      <Collapsible open={!collapsed} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2.5 px-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`h-3.5 w-3.5 ${hasIssue ? 'text-amber-500' : 'text-muted-foreground'}`} />
+                <CardTitle className="text-xs font-semibold">Reported Issue</CardTitle>
+                {hasIssue && <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-500/50 text-amber-600">Active</Badge>}
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${!collapsed ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="py-3 px-3">
+            <InlineEdit
+              mode="textarea"
+              rows={3}
+              placeholder="Customer reported issue..."
+              value={issueText}
+              readOnly={isLocked}
+              onSave={onSave}
+              emptyText="Add reported issue"
+              ariaLabel="Workshop order reported issue"
+            />
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   )
 }
 
-function InternalNotesCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
+function CollapsibleInternalNotes({ 
+  order, 
+  isLocked, 
+  onSave, 
+  collapsed, 
+  onToggle 
+}: { 
+  order: any; 
+  isLocked: boolean; 
+  onSave: (value: string) => void; 
+  collapsed: boolean; 
+  onToggle: () => void 
+}) {
+  const hasNotes = !!order.notes
+  
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-muted/30">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-semibold">Internal Notes</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        <InlineEdit
-          mode="textarea"
-          rows={4}
-          placeholder="Notes visible to service advisors and mechanics..."
-          value={order.notes || ''}
-          readOnly={isLocked}
-          onSave={onSave}
-          emptyText="Add internal notes"
-          ariaLabel="Workshop internal notes"
-        />
-      </CardContent>
+    <Card className="overflow-hidden border-muted/50">
+      <Collapsible open={!collapsed} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2.5 px-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <CardTitle className="text-xs font-semibold">Internal Notes</CardTitle>
+                {hasNotes && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${!collapsed ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="py-3 px-3">
+            <InlineEdit
+              mode="textarea"
+              rows={3}
+              placeholder="Notes visible to service advisors and mechanics..."
+              value={order.notes || ''}
+              readOnly={isLocked}
+              onSave={onSave}
+              emptyText="Add internal notes"
+              ariaLabel="Workshop internal notes"
+            />
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
+  )
+}
+
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon: any }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium flex items-center gap-1.5">
+        <Icon className="w-3 h-3 text-muted-foreground" />
+        {value}
+      </span>
+    </div>
   )
 }
 
