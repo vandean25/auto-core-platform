@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TaskDetailPanel } from '@/components/workshop/TaskDetailPanel'
 import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from '@/api/invoices'
 import { useInvoice } from '@/api/sales'
@@ -68,7 +67,6 @@ export function WorkshopOrderDetails() {
   const [checkoutInvoiceIdOverride, setCheckoutInvoiceIdOverride] = useState<string | null>(null)
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
-  const [activeTab, setActiveTab] = useState('tasks')
   const lineItemSaveSeq = useRef<Record<string, number>>({})
 
   const activeInvoiceId = order?.invoice?.id ?? checkoutInvoiceIdOverride
@@ -429,7 +427,6 @@ export function WorkshopOrderDetails() {
   const handleReopenTask = (taskId: string) => {
     setIsCheckoutView(false)
     setActiveTaskId(taskId)
-    setActiveTab('tasks')
   }
 
   const handleCloseTaskPanel = () => {
@@ -439,7 +436,7 @@ export function WorkshopOrderDetails() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full px-4 sm:px-6 py-6 space-y-6">
       {/* Header Section */}
       <OrderHeader
         order={order}
@@ -452,95 +449,75 @@ export function WorkshopOrderDetails() {
         onPrint={handlePrint}
       />
 
-      {/* Main Content with Tabs */}
+      {/* Main Content */}
       {!isCheckoutView ? (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="order-info" className="text-sm">
-              Order Info
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="text-sm">
-              Repair Tasks
-            </TabsTrigger>
-            <TabsTrigger value="notes" className="text-sm">
-              Notes
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="mt-6">
-            <TabsContent value="order-info" className="mt-0 space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              >
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {/* Widescreen 3-Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Order Info + Customer + Vehicle (stacked on mobile, sidebar on desktop) */}
+            <div className="lg:col-span-3 space-y-4 order-2 lg:order-1">
+              <div className="lg:sticky lg:top-6 space-y-4">
                 <OrderInfoCard order={order} />
                 <CustomerInfoCard order={order} />
                 <VehicleInfoCard order={order} />
-              </motion.div>
-            </TabsContent>
+              </div>
+            </div>
 
-            <TabsContent value="tasks" className="mt-0 space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-              >
-                <TaskList
-                  order={order}
-                  tasks={tasks}
-                  rawTaskTotals={rawTaskTotals}
-                  isLocked={isLocked}
-                  newTaskTitle={newTaskTitle}
-                  activeTaskId={activeTaskId}
-                  onNewTaskTitleChange={setNewTaskTitle}
-                  onAddTask={() => void handleAddTask()}
-                  onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
-                  onOpenTask={setActiveTaskId}
-                />
+            {/* Center Column: Tasks + Task Detail Panel */}
+            <div className="lg:col-span-6 space-y-4 order-1 lg:order-2">
+              <TaskList
+                order={order}
+                tasks={tasks}
+                rawTaskTotals={rawTaskTotals}
+                isLocked={isLocked}
+                newTaskTitle={newTaskTitle}
+                activeTaskId={activeTaskId}
+                onNewTaskTitleChange={setNewTaskTitle}
+                onAddTask={() => void handleAddTask()}
+                onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
+                onOpenTask={setActiveTaskId}
+              />
 
-                {/* Horizontal Task Detail Panel */}
-                <AnimatePresence mode="wait">
-                  {activeTaskForPanel && (
-                    <motion.div
-                      key={activeTaskForPanel.id}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
-                      className="mt-6 overflow-hidden"
-                    >
-                      <TaskDetailPanel
-                        workshopOrderId={order.id}
-                        task={activeTaskForPanel}
-                        onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-                        onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-                        onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-                        onTaskDelete={(taskId) => {
-                          const task = tasks.find((existingTask) => existingTask.id === taskId)
-                          if (task) {
-                            setTaskPendingDelete(task)
-                          }
-                        }}
-                        canDeleteTask={canDeleteTasks}
-                        isDeletingTask={deleteTask.isPending}
-                        readOnly={isLocked}
-                        onClose={handleCloseTaskPanel}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </TabsContent>
+              {/* Horizontal Task Detail Panel */}
+              <AnimatePresence mode="wait">
+                {activeTaskForPanel && (
+                  <motion.div
+                    key={activeTaskForPanel.id}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <TaskDetailPanel
+                      workshopOrderId={order.id}
+                      task={activeTaskForPanel}
+                      onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
+                      onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
+                      onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+                      onTaskDelete={(taskId) => {
+                        const task = tasks.find((existingTask) => existingTask.id === taskId)
+                        if (task) {
+                          setTaskPendingDelete(task)
+                        }
+                      }}
+                      canDeleteTask={canDeleteTasks}
+                      isDeletingTask={deleteTask.isPending}
+                      readOnly={isLocked}
+                      onClose={handleCloseTaskPanel}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-            <TabsContent value="notes" className="mt-0 space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-              >
+            {/* Right Column: Notes + Reported Issue */}
+            <div className="lg:col-span-3 space-y-4 order-3">
+              <div className="lg:sticky lg:top-6 space-y-4">
                 <ReportedIssueCard
                   order={order}
                   isLocked={isLocked}
@@ -551,10 +528,10 @@ export function WorkshopOrderDetails() {
                   isLocked={isLocked}
                   onSave={handleSaveNotes}
                 />
-              </motion.div>
-            </TabsContent>
+              </div>
+            </div>
           </div>
-        </Tabs>
+        </motion.div>
       ) : (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -629,9 +606,10 @@ export function WorkshopOrderDetails() {
 
 // ── Info Card Components ──────────────────────────────────────────────────
 
-import { Phone, Clock, Key, MapPin, User } from 'lucide-react'
+import { Phone, Clock, Key, MapPin, User, FileText, AlertTriangle } from 'lucide-react'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 
 function getCustomerName(order: any) {
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
@@ -648,41 +626,54 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
 }
 
-function OrderInfoCard({ order: _order }: { order: any }) {
+function OrderInfoCard({ order }: { order: any }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Order Info</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">Order Details</CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-muted-foreground mb-1">Assigned Tech</div>
-            <div className="font-medium flex items-center">
-              <User className="w-4 h-4 mr-1.5 text-muted-foreground" />
-              John Doe
-            </div>
+      <CardContent className="pt-4 space-y-3 text-sm">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs">Assigned Tech</span>
+            <span className="font-medium flex items-center text-xs">
+              <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              {order.assignedTechnician?.name || 'Unassigned'}
+            </span>
           </div>
-          <div>
-            <div className="text-muted-foreground mb-1">Bay / Location</div>
-            <div className="font-medium flex items-center">
-              <MapPin className="w-4 h-4 mr-1.5 text-muted-foreground" />
-              Bay 4
-            </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs">Bay / Location</span>
+            <span className="font-medium flex items-center text-xs">
+              <MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              {order.bayLocation || 'Not assigned'}
+            </span>
           </div>
-          <div>
-            <div className="text-muted-foreground mb-1">Promised Time</div>
-            <div className="font-medium flex items-center">
-              <Clock className="w-4 h-4 mr-1.5 text-muted-foreground" />
-              04/17/2026, 17:00
-            </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs">Promised Time</span>
+            <span className="font-medium flex items-center text-xs">
+              <Clock className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              {order.promisedTime
+                ? new Date(order.promisedTime).toLocaleString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Not set'}
+            </span>
           </div>
-          <div>
-            <div className="text-muted-foreground mb-1">Key Tag</div>
-            <div className="font-medium flex items-center">
-              <Key className="w-4 h-4 mr-1.5 text-muted-foreground" />
-              #42
-            </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs">Key Tag</span>
+            <span className="font-medium flex items-center text-xs">
+              <Key className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              {order.keyTag || 'N/A'}
+            </span>
           </div>
         </div>
       </CardContent>
@@ -695,26 +686,34 @@ function CustomerInfoCard({ order }: { order: any }) {
   const customerPhone = order.customer.phone ?? ''
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Customer</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">Customer</CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="pt-4 space-y-3 text-sm">
         <div>
           <div className="font-medium">{customerName}</div>
-          <div className="text-muted-foreground">{order.customer.email}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Phone</div>
-          <div className="font-medium">{customerPhone || 'N/A'}</div>
+          <div className="text-muted-foreground text-xs">{order.customer.email}</div>
         </div>
         {customerPhone && (
-          <Button variant="outline" size="sm" className="h-8" asChild>
-            <a href={`tel:${normalizePhone(customerPhone)}`}>
-              <Phone className="h-3.5 w-3.5 mr-1.5" />
-              Call Customer
-            </a>
-          </Button>
+          <>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-muted-foreground text-xs">Phone</div>
+                <div className="font-medium text-xs">{customerPhone}</div>
+              </div>
+              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                <a href={`tel:${normalizePhone(customerPhone)}`}>
+                  <Phone className="h-3 w-3 mr-1" />
+                  Call
+                </a>
+              </Button>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -723,30 +722,31 @@ function CustomerInfoCard({ order }: { order: any }) {
 
 function VehicleInfoCard({ order }: { order: any }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Vehicle</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 bg-muted/30">
+        <CardTitle className="text-sm font-semibold">{getVehicleLabel(order)}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="font-medium">{getVehicleLabel(order)}</div>
-        <div className="grid grid-cols-2 gap-3">
+      <CardContent className="pt-4 space-y-2 text-sm">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div>
-            <div className="text-muted-foreground">VIN</div>
-            <div className="font-medium font-mono text-xs">{order.vehicle.vin || 'N/A'}</div>
+            <div className="text-muted-foreground text-xs">VIN</div>
+            <div className="font-medium font-mono text-xs truncate" title={order.vehicle.vin}>
+              {order.vehicle.vin || 'N/A'}
+            </div>
           </div>
           <div>
-            <div className="text-muted-foreground">Plate</div>
-            <div className="font-medium">{order.vehicle.plate || 'N/A'}</div>
+            <div className="text-muted-foreground text-xs">Plate</div>
+            <div className="font-medium text-xs">{order.vehicle.plate || 'N/A'}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">Mileage</div>
-            <div className="font-medium">
+            <div className="text-muted-foreground text-xs">Mileage</div>
+            <div className="font-medium text-xs">
               {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
             </div>
           </div>
           <div>
-            <div className="text-muted-foreground">Fuel</div>
-            <div className="font-medium">
+            <div className="text-muted-foreground text-xs">Fuel</div>
+            <div className="font-medium text-xs">
               {typeof order.fuel_level === 'number' ? `${order.fuel_level}%` : '-'}
             </div>
           </div>
@@ -757,18 +757,25 @@ function VehicleInfoCard({ order }: { order: any }) {
 }
 
 function ReportedIssueCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
+  const hasIssue = !!(order.reportedIssue || order.reported_issue)
+  
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 bg-muted/30">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold">Reported Issue</CardTitle>
-          {order.status !== 'COMPLETED' && <Badge variant="destructive">High Priority</Badge>}
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold">Reported Issue</CardTitle>
+          </div>
+          {hasIssue && order.status !== 'COMPLETED' && (
+            <Badge variant="destructive" className="text-xs h-5">Priority</Badge>
+          )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         <InlineEdit
           mode="textarea"
-          rows={6}
+          rows={4}
           placeholder="Customer reported issue..."
           value={order.reportedIssue || order.reported_issue || ''}
           readOnly={isLocked}
@@ -783,14 +790,17 @@ function ReportedIssueCard({ order, isLocked, onSave }: { order: any; isLocked: 
 
 function InternalNotesCard({ order, isLocked, onSave }: { order: any; isLocked: boolean; onSave: (value: string) => void }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Internal Notes</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">Internal Notes</CardTitle>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         <InlineEdit
           mode="textarea"
-          rows={6}
+          rows={4}
           placeholder="Notes visible to service advisors and mechanics..."
           value={order.notes || ''}
           readOnly={isLocked}
