@@ -9,8 +9,8 @@ import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 
 @Injectable()
-export class InvoicePdfStorage {
-  private readonly logger = new Logger(InvoicePdfStorage.name);
+export class WorkshopPdfStorage {
+  private readonly logger = new Logger(WorkshopPdfStorage.name);
   private readonly storage: Storage;
 
   constructor() {
@@ -41,7 +41,7 @@ export class InvoicePdfStorage {
     contentType: string;
   }): Promise<{ bucket: string; key: string; etag: string | null }> {
     return Sentry.startSpan(
-      { name: 'Upload PDF to GCS', op: 'pdf.storage.upload' },
+      { name: 'Upload Workshop PDF to GCS', op: 'pdf.storage.upload' },
       async (span) => {
         const bucketName = this.getBucketName();
         span.setAttribute('bucket', bucketName);
@@ -65,11 +65,11 @@ export class InvoicePdfStorage {
           const message =
             error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
+            `Failed to upload workshop PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
             error instanceof Error ? error.stack : undefined,
           );
           throw new InternalServerErrorException(
-            'Failed to upload invoice PDF to storage',
+            'Failed to upload workshop PDF to storage',
           );
         }
       },
@@ -90,7 +90,7 @@ export class InvoicePdfStorage {
     try {
       const [exists] = await file.exists();
       if (!exists) {
-        throw new NotFoundException('Invoice PDF not found in storage');
+        throw new NotFoundException('Workshop PDF not found in storage');
       }
 
       const [metadata] = await file.getMetadata();
@@ -109,20 +109,20 @@ export class InvoicePdfStorage {
 
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to fetch invoice PDF from GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
+        `Failed to fetch workshop PDF from GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
-        'Failed to fetch invoice PDF from storage',
+        'Failed to fetch workshop PDF from storage',
       );
     }
   }
 
   private getBucketName(): string {
-    const bucket = process.env.INVOICE_PDF_BUCKET;
+    const bucket = process.env.WORKSHOP_PDF_BUCKET;
     if (!bucket) {
       throw new InternalServerErrorException(
-        'INVOICE_PDF_BUCKET environment variable is not configured',
+        'WORKSHOP_PDF_BUCKET environment variable is not configured',
       );
     }
     return bucket;

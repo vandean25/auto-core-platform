@@ -8,6 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
+import { Printer } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import { useGenerateInvoicePdf, downloadInvoicePdf } from '@/api/invoices'
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -122,6 +126,8 @@ function formatLineDiscount(summary: InvoiceLineSummary) {
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
+  const generatePdf = useGenerateInvoicePdf()
+  
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
     data: workshopOrder,
@@ -219,6 +225,43 @@ export default function InvoiceDetailPage() {
       ? invoice.customer.company_name
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
+  const handlePrint = async () => {
+    const toastId = toast.loading('Generating Invoice PDF...')
+    let url: string | null = null
+    try {
+      const res = await generatePdf.mutateAsync(invoice.id)
+      if (res.mode === 'enqueued') {
+        toast.success(
+          'Invoice PDF generation has been queued in the background. It will be available shortly.',
+          { id: toastId },
+        )
+        return
+      }
+
+      const blob = await downloadInvoicePdf(invoice.id)
+      url = window.URL.createObjectURL(blob)
+
+      const fileName = `invoice-${invoice.invoice_number || invoice.id}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase()
+
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${fileName}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success('Invoice PDF downloaded successfully', { id: toastId })
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate PDF', { id: toastId })
+    } finally {
+      if (url) {
+        window.URL.revokeObjectURL(url)
+      }
+    }
+  }
+
   const renderLine = (summary: InvoiceLineSummary) => (
     <TableRow key={summary.item.id}>
       <TableCell>{summary.item.description}</TableCell>
@@ -238,6 +281,12 @@ export default function InvoiceDetailPage() {
             {invoice.invoice_number ?? `Invoice ${invoice.id.slice(0, 8)}`}
           </h1>
           <StatusBadge status={invoice.status} />
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => void handlePrint()} disabled={generatePdf.isPending}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
         </div>
       </div>
 

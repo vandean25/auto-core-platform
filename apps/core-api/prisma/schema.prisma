@@ -478,6 +478,11 @@ model WorkshopOrder {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  pdf_storage_bucket   String?
+  pdf_storage_key      String?
+  pdf_generated_at     DateTime?
+  pdf_generation_error String?
+
   @@map("workshop_orders")
 }
 

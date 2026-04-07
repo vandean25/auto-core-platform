@@ -63,7 +63,8 @@ export class CloudTasksService {
   }
 
   private async getProjectId(): Promise<string> {
-    if (process.env.GOOGLE_CLOUD_PROJECT) return process.env.GOOGLE_CLOUD_PROJECT;
+    if (process.env.GOOGLE_CLOUD_PROJECT)
+      return process.env.GOOGLE_CLOUD_PROJECT;
     if (this.cachedProjectId) return this.cachedProjectId;
 
     this.cachedProjectId = String(await this.client.getProjectId());
@@ -146,31 +147,38 @@ export class CloudTasksService {
         // Use deterministic task name for idempotency (GCP handles de-duplication for ~1 hour)
         const taskName = `projects/${projectId}/locations/${location}/queues/${queue}/tasks/inv-pdf-${invoiceId}`;
 
-        const [task] = await this.client.createTask({
-          parent,
-          task: {
-            name: taskName,
-            httpRequest: {
-              httpMethod: 'POST',
-              url,
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'x-cloud-tasks-secret': workerSecret,
+        const [task] = await this.client
+          .createTask({
+            parent,
+            task: {
+              name: taskName,
+              httpRequest: {
+                httpMethod: 'POST',
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': apiKey,
+                  'x-cloud-tasks-secret': workerSecret,
+                },
+                body: Buffer.from('{}'),
               },
-              body: Buffer.from('{}'),
+              scheduleTime,
+              dispatchDeadline: { seconds: 600 },
             },
-            scheduleTime,
-            dispatchDeadline: { seconds: 600 },
-          },
-        }).catch(err => {
-          // If already exists, return successfully (idempotency)
-          if (err.code === 6 || (err.message && err.message.includes('already exists'))) {
-            this.logger.log(`Cloud Task for invoice ${invoiceId} already exists, skipping creation.`);
-            return [{ name: taskName }];
-          }
-          throw err;
-        });
+          })
+          .catch((err) => {
+            // If already exists, return successfully (idempotency)
+            if (
+              err.code === 6 ||
+              (err.message && err.message.includes('already exists'))
+            ) {
+              this.logger.log(
+                `Cloud Task for invoice ${invoiceId} already exists, skipping creation.`,
+              );
+              return [{ name: taskName }];
+            }
+            throw err;
+          });
 
         const fullTaskName = task.name;
         if (!fullTaskName) {
@@ -187,6 +195,116 @@ export class CloudTasksService {
 
         this.logger.log(
           `Enqueued Cloud Task for invoice ${invoiceId} (${taskId})`,
+        );
+
+        return { taskId };
+      },
+    );
+  }
+
+  async enqueueWorkshopPdfGeneration(params: {
+    workshopOrderId: string;
+    targetBaseUrl: string;
+    delaySeconds?: number;
+  }): Promise<{ taskId: string }> {
+    return Sentry.startSpan(
+      { name: 'Enqueue Workshop PDF task', op: 'cloudtasks.enqueue' },
+      async (span) => {
+        const { workshopOrderId } = params;
+        span.setAttribute('workshopOrderId', workshopOrderId);
+
+        if (!this.isEnabled()) {
+          throw new InternalServerErrorException(
+            'Cloud Tasks is not enabled or not configured',
+          );
+        }
+
+        const apiKey = process.env.API_KEY;
+        const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+        const location = process.env.CLOUD_TASKS_LOCATION;
+        const queue = process.env.CLOUD_TASKS_QUEUE;
+
+        if (!apiKey || !workerSecret || !location || !queue) {
+          throw new InternalServerErrorException(
+            'Cloud Tasks is missing required config variables',
+          );
+        }
+
+        const projectId = await this.getProjectId();
+        const parent = this.client.queuePath(projectId, location, queue);
+
+        let url: string;
+        try {
+          const baseUrl = params.targetBaseUrl.endsWith('/')
+            ? params.targetBaseUrl
+            : `${params.targetBaseUrl}/`;
+
+          url = new URL(
+            `workshop/orders/${workshopOrderId}/pdf/worker`,
+            baseUrl,
+          ).toString();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          throw new InternalServerErrorException(
+            `Invalid Cloud Tasks target base URL: ${message}`,
+          );
+        }
+
+        span.setAttribute('queue', queue);
+        span.setAttribute('location', location);
+        span.setAttribute('targetUrl', url);
+
+        const delaySeconds = Math.max(0, Math.floor(params.delaySeconds ?? 0));
+        const scheduleTime =
+          delaySeconds > 0
+            ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
+            : undefined;
+
+        const taskName = `projects/${projectId}/locations/${location}/queues/${queue}/tasks/wo-pdf-${workshopOrderId}`;
+
+        const [task] = await this.client
+          .createTask({
+            parent,
+            task: {
+              name: taskName,
+              httpRequest: {
+                httpMethod: 'POST',
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': apiKey,
+                  'x-cloud-tasks-secret': workerSecret,
+                },
+                body: Buffer.from('{}'),
+              },
+              scheduleTime,
+              dispatchDeadline: { seconds: 600 },
+            },
+          })
+          .catch((err) => {
+            if (
+              err.code === 6 ||
+              (err.message && err.message.includes('already exists'))
+            ) {
+              this.logger.log(
+                `Cloud Task for workshop order ${workshopOrderId} already exists, skipping creation.`,
+              );
+              return [{ name: taskName }];
+            }
+            throw err;
+          });
+
+        const fullTaskName = task.name;
+        if (!fullTaskName) {
+          throw new InternalServerErrorException(
+            'Cloud Tasks returned a task without a name',
+          );
+        }
+
+        const taskId = fullTaskName.split('/').pop() || fullTaskName;
+        this.logger.log(
+          `Enqueued Cloud Task for workshop order ${workshopOrderId} (${taskId})`,
         );
 
         return { taskId };

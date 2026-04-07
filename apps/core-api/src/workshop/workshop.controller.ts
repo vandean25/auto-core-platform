@@ -5,22 +5,31 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiQuery, ApiResponse } from '@nestjs/swagger';
-import { WorkshopService } from './workshop.service';
+import type { Response } from 'express';
+import { pipeline } from 'node:stream/promises';
+import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
-import { RegisterIntakeDto } from './dto/register-intake.dto';
-import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
-import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
+import { RegisterIntakeDto } from './dto/register-intake.dto';
 import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
-
+import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
+import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
+import { WorkshopPdfService } from './workshop-pdf.service';
+import { WorkshopService } from './workshop.service';
 @Controller('workshop')
 export class WorkshopController {
-  constructor(private readonly workshopService: WorkshopService) {}
+  constructor(
+    private readonly workshopService: WorkshopService,
+    private readonly pdfService: WorkshopPdfService,
+  ) {}
 
   @Post('register')
   register(@Body() dto: RegisterIntakeDto) {
@@ -158,5 +167,52 @@ export class WorkshopController {
   @Get('search')
   search(@Query('q') q: string) {
     return this.workshopService.search(q);
+  }
+
+  @Post('orders/:id/pdf')
+  async generatePdf(@Param('id', ParseUUIDPipe) id: string) {
+    const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
+
+    const result = await this.pdfService.requestGeneration(id, {
+      targetBaseUrl,
+    });
+
+    if (result.mode === 'enqueued') {
+      return {
+        message: 'PDF generation enqueued',
+        enqueued: true,
+        taskId: result.taskId,
+      };
+    }
+
+    return {
+      message: 'PDF is ready',
+      enqueued: false,
+    };
+  }
+
+  @Post('orders/:id/pdf/worker')
+  @UseGuards(CloudTasksWorkerGuard)
+  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
+    await this.pdfService.generateNow(id);
+    return { success: true };
+  }
+
+  @Get('orders/:id/pdf')
+  async getPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { stream, filename, contentType, contentLength } =
+      await this.pdfService.getPdf(id);
+
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${safeFilename}"`,
+    });
+
+    if (contentLength) {
+      res.set('Content-Length', contentLength.toString());
+    }
+
+    await pipeline(stream, res);
   }
 }
