@@ -257,7 +257,10 @@ export default function InvoiceDetailPage() {
       toast.error(e.message || 'Failed to generate PDF', { id: toastId })
     } finally {
       if (url) {
-        window.URL.revokeObjectURL(url)
+        const urlToRevoke = url
+        window.setTimeout(() => {
+          window.URL.revokeObjectURL(urlToRevoke)
+        }, 0)
       }
     }
   }

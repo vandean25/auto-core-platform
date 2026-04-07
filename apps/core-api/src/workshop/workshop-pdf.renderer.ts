@@ -1,54 +1,22 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import type { Browser } from 'playwright';
-import { chromium } from 'playwright';
+import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
+import { PlaywrightBrowserService } from '../common';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types';
 
 @Injectable()
-export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
-  private browser: Browser | null = null;
-  private browserInitPromise: Promise<Browser> | null = null;
+export class WorkshopPdfRenderer {
+  private readonly logger = new Logger(WorkshopPdfRenderer.name);
 
-  async onModuleInit() {
-    await this.getBrowser();
-  }
-
-  async onModuleDestroy() {
-    if (this.browser) {
-      await this.browser.close().catch((err) => {
-        console.error('Failed to close browser during shutdown:', err);
-      });
-      this.browser = null;
-    }
-    this.browserInitPromise = null;
-  }
-
-  private async getBrowser(): Promise<Browser> {
-    if (!this.browser) {
-      if (!this.browserInitPromise) {
-        this.browserInitPromise = chromium
-          .launch()
-          .then((browser) => {
-            this.browser = browser;
-            return browser;
-          })
-          .catch((error) => {
-            this.browserInitPromise = null;
-            throw error;
-          });
-      }
-
-      this.browser = await this.browserInitPromise;
-    }
-    return this.browser;
-  }
+  constructor(
+    private readonly browserService: PlaywrightBrowserService,
+  ) {}
 
   async render(order: WorkshopOrderForPdf): Promise<Buffer> {
     return Sentry.startSpan(
       { name: 'Render Workshop PDF', op: 'pdf.render' },
       async () => {
         const orderNumber = order.order_number ?? order.id;
-        const browser = await this.getBrowser();
+        const browser = await this.browserService.getBrowser();
         const page = await browser.newPage();
 
         try {
@@ -58,7 +26,7 @@ export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
           const pdf = await Sentry.startSpan(
             { name: 'Render Page to PDF', op: 'pdf.browser.render' },
             () =>
-              this.withTimeout(
+              this.browserService.withTimeout(
                 page.pdf({
                   format: 'A4',
                   margin: {
@@ -79,10 +47,13 @@ export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
 
           return Buffer.from(pdf);
         } finally {
-          await page.close().catch((err) => {
-            console.error(
-              'Failed to close page during PDF render cleanup:',
-              err,
+          await page.close().catch((error) => {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            const stack = error instanceof Error ? error.stack : undefined;
+            this.logger.error(
+              `Failed to close page during PDF render cleanup: ${message}`,
+              stack,
             );
           });
         }
@@ -96,11 +67,18 @@ export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
   ): string {
     const safeOrderNumber = this.escapeHtml(orderNumber);
 
+    const personName = [
+      order.customer?.first_name,
+      order.customer?.last_name,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
     const customerName =
       order.customer?.type === 'COMPANY'
-        ? (order.customer.company_name ??
-          `${order.customer.first_name} ${order.customer.last_name}`)
-        : `${order.customer?.first_name} ${order.customer?.last_name}`;
+        ? (order.customer.company_name ?? personName)
+        : personName;
+    const safeCustomerName = customerName.trim() || '—';
 
     const cityLine = [order.customer?.address_zip, order.customer?.address_city]
       .filter(Boolean)
@@ -234,7 +212,7 @@ export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
         <div class="info-grid">
           <div class="section">
             <div class="section-title">Customer</div>
-            <div style="font-weight: 600;">${this.escapeHtml(customerName)}</div>
+            <div style="font-weight: 600;">${this.escapeHtml(safeCustomerName)}</div>
             ${cityLine ? `<div>${this.escapeHtml(cityLine)}</div>` : ''}
             ${order.customer?.phone ? `<div>Phone: ${this.escapeHtml(order.customer.phone)}</div>` : ''}
             ${order.customer?.email ? `<div>Email: ${this.escapeHtml(order.customer.email)}</div>` : ''}
@@ -311,27 +289,6 @@ export class WorkshopPdfRenderer implements OnModuleInit, OnModuleDestroy {
         <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>
     `;
-  }
-
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number,
-    message: string,
-  ): Promise<T> {
-    let timeoutHandle: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(() => {
-        reject(new Error(message));
-      }, timeoutMs);
-    });
-
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-    }
   }
 
   private escapeHtml(value: unknown): string {

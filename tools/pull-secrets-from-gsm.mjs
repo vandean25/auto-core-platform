@@ -58,7 +58,6 @@ function runGcloud(secretName, projectId, version = 'latest') {
     return execFileSync('gcloud.cmd', args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true,
     })
   }
   return execFileSync('gcloud', args, {

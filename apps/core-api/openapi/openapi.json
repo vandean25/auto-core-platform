@@ -2112,7 +2112,14 @@
         ],
         "responses": {
           "201": {
-            "description": ""
+            "description": "Workshop PDF generation status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopPdfGenerationResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2133,30 +2140,15 @@
         ],
         "responses": {
           "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
-    "/api/workshop/orders/{id}/pdf/worker": {
-      "post": {
-        "operationId": "WorkshopController_generatePdfWorker",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+            "description": "Workshop PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
             }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
           }
         },
         "tags": [
@@ -2828,6 +2820,24 @@
       "ReplaceWorkshopTaskLineItemsDto": {
         "type": "object",
         "properties": {}
+      },
+      "WorkshopPdfGenerationResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "enqueued": {
+            "type": "boolean"
+          },
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "enqueued"
+        ]
       },
       "CreateDraftInvoiceDto": {
         "type": "object",

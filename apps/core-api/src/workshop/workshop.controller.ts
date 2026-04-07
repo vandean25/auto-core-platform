@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -12,7 +13,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+  ApiProduces,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
@@ -22,8 +30,10 @@ import { RegisterIntakeDto } from './dto/register-intake.dto';
 import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
 import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
 import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
+import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
+
 @Controller('workshop')
 export class WorkshopController {
   constructor(
@@ -170,6 +180,10 @@ export class WorkshopController {
   }
 
   @Post('orders/:id/pdf')
+  @ApiCreatedResponse({
+    description: 'Workshop PDF generation status.',
+    type: WorkshopPdfGenerationResponseDto,
+  })
   async generatePdf(@Param('id', ParseUUIDPipe) id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
 
@@ -191,14 +205,23 @@ export class WorkshopController {
     };
   }
 
+  @ApiExcludeEndpoint()
   @Post('orders/:id/pdf/worker')
   @UseGuards(CloudTasksWorkerGuard)
+  @HttpCode(204)
   async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
     await this.pdfService.generateNow(id);
-    return { success: true };
   }
 
   @Get('orders/:id/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({
+    description: 'Workshop PDF',
+    schema: {
+      type: 'string',
+      format: 'binary',
+    },
+  })
   async getPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const { stream, filename, contentType, contentLength } =
       await this.pdfService.getPdf(id);
@@ -209,7 +232,7 @@ export class WorkshopController {
       'Content-Disposition': `inline; filename="${safeFilename}"`,
     });
 
-    if (contentLength) {
+    if (contentLength != null) {
       res.set('Content-Length', contentLength.toString());
     }
 

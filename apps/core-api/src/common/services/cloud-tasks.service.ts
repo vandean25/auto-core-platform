@@ -144,14 +144,10 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
-        // Use deterministic task name for idempotency (GCP handles de-duplication for ~1 hour)
-        const taskName = `projects/${projectId}/locations/${location}/queues/${queue}/tasks/inv-pdf-${invoiceId}`;
-
         const [task] = await this.client
           .createTask({
             parent,
             task: {
-              name: taskName,
               httpRequest: {
                 httpMethod: 'POST',
                 url,
@@ -165,19 +161,6 @@ export class CloudTasksService {
               scheduleTime,
               dispatchDeadline: { seconds: 600 },
             },
-          })
-          .catch((err) => {
-            // If already exists, return successfully (idempotency)
-            if (
-              err.code === 6 ||
-              (err.message && err.message.includes('already exists'))
-            ) {
-              this.logger.log(
-                `Cloud Task for invoice ${invoiceId} already exists, skipping creation.`,
-              );
-              return [{ name: taskName }];
-            }
-            throw err;
           });
 
         const fullTaskName = task.name;
@@ -261,13 +244,10 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
-        const taskName = `projects/${projectId}/locations/${location}/queues/${queue}/tasks/wo-pdf-${workshopOrderId}`;
-
         const [task] = await this.client
           .createTask({
             parent,
             task: {
-              name: taskName,
               httpRequest: {
                 httpMethod: 'POST',
                 url,
@@ -281,18 +261,6 @@ export class CloudTasksService {
               scheduleTime,
               dispatchDeadline: { seconds: 600 },
             },
-          })
-          .catch((err) => {
-            if (
-              err.code === 6 ||
-              (err.message && err.message.includes('already exists'))
-            ) {
-              this.logger.log(
-                `Cloud Task for workshop order ${workshopOrderId} already exists, skipping creation.`,
-              );
-              return [{ name: taskName }];
-            }
-            throw err;
           });
 
         const fullTaskName = task.name;

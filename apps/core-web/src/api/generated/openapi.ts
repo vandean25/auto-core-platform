@@ -724,22 +724,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workshop/orders/{id}/pdf/worker": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["WorkshopController_generatePdfWorker"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/invoices/drafts": {
         parameters: {
             query?: never;
@@ -949,6 +933,11 @@ export interface components {
         CreateWorkshopTaskDto: Record<string, never>;
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
+        WorkshopPdfGenerationResponseDto: {
+            message: string;
+            enqueued: boolean;
+            taskId?: string;
+        };
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
@@ -2483,11 +2472,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Workshop PDF */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/pdf": string;
+                };
             };
         };
     };
@@ -2502,30 +2494,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Workshop PDF generation status. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-        };
-    };
-    WorkshopController_generatePdfWorker: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
-                content?: never;
             };
         };
     };
