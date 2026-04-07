@@ -2152,14 +2152,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "X-CloudTasks-TaskName",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {

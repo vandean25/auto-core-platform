@@ -2513,9 +2513,7 @@ export interface operations {
     WorkshopController_generatePdfWorker: {
         parameters: {
             query?: never;
-            header: {
-                "X-CloudTasks-TaskName": string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
