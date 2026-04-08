@@ -14,11 +14,11 @@ import { Storage } from '@google-cloud/storage';
 
 export const LIFECYCLE_RULES = [
   {
-    action: { type: 'SetStorageClass', storageClass: 'COLDLINE' },
+    action: { type: 'SetStorageClass' as const, storageClass: 'COLDLINE' },
     condition: { age: 90 },
   },
   {
-    action: { type: 'Delete' },
+    action: { type: 'Delete' as const },
     condition: { age: 2555 },
   },
 ];
