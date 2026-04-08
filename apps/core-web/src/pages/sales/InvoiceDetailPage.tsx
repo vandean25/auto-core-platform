@@ -295,7 +295,7 @@ export default function InvoiceDetailPage() {
             ) : (
               <Printer className="w-4 h-4 mr-2" />
             )}
-            {generatePdf.isPending || isDownloading ? 'Generating...' : 'Print'}
+            {generatePdf.isPending ? 'Generating...' : isDownloading ? 'Downloading...' : 'Print'}
           </Button>
         </div>
       </div>
