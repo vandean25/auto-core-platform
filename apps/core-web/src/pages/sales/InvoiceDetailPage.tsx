@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useInvoice } from '@/api/sales'
 import { useWorkshopOrder } from '@/api/workshop'
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { formatCurrency } from '@/lib/utils'
-import { Printer } from 'lucide-react'
+import { Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useGenerateInvoicePdf, downloadInvoicePdf } from '@/api/invoices'
@@ -127,6 +127,7 @@ export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const generatePdf = useGenerateInvoicePdf()
+  const [isDownloading, setIsDownloading] = useState(false)
   
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
@@ -226,7 +227,7 @@ export default function InvoiceDetailPage() {
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
   const handlePrint = async () => {
-    const toastId = toast.loading('Generating Invoice PDF...')
+    const toastId = toast.loading('Generating PDF, this may take a few seconds…')
     let url: string | null = null
     try {
       const res = await generatePdf.mutateAsync(invoice.id)
@@ -238,6 +239,7 @@ export default function InvoiceDetailPage() {
         return
       }
 
+      setIsDownloading(true)
       const blob = await downloadInvoicePdf(invoice.id)
       url = window.URL.createObjectURL(blob)
 
@@ -256,6 +258,7 @@ export default function InvoiceDetailPage() {
     } catch (e: any) {
       toast.error(e.message || 'Failed to generate PDF', { id: toastId })
     } finally {
+      setIsDownloading(false)
       if (url) {
         const urlToRevoke = url
         window.setTimeout(() => {
@@ -286,9 +289,13 @@ export default function InvoiceDetailPage() {
           <StatusBadge status={invoice.status} />
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => void handlePrint()} disabled={generatePdf.isPending}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print
+          <Button onClick={() => void handlePrint()} disabled={generatePdf.isPending || isDownloading}>
+            {generatePdf.isPending || isDownloading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Printer className="w-4 h-4 mr-2" />
+            )}
+            {generatePdf.isPending || isDownloading ? 'Generating…' : 'Print'}
           </Button>
         </div>
       </div>
