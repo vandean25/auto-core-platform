@@ -37,8 +37,10 @@ export async function applyGcsLifecycle(): Promise<void> {
   if (credentials) {
     try {
       storage = new Storage({ credentials: JSON.parse(credentials) });
-    } catch {
-      console.error('Error: Failed to parse GCP_CREDENTIALS JSON.');
+    } catch (err) {
+      console.error(
+        `Error: Failed to parse GCP_CREDENTIALS JSON: ${err instanceof Error ? err.message : String(err)}`,
+      );
       process.exit(1);
     }
   } else {

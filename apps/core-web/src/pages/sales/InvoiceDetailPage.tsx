@@ -227,7 +227,7 @@ export default function InvoiceDetailPage() {
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
   const handlePrint = async () => {
-    const toastId = toast.loading('Generating PDF, this may take a few seconds…')
+    const toastId = toast.loading('Generating PDF, this may take a few seconds...')
     let url: string | null = null
     try {
       const res = await generatePdf.mutateAsync(invoice.id)
@@ -295,7 +295,7 @@ export default function InvoiceDetailPage() {
             ) : (
               <Printer className="w-4 h-4 mr-2" />
             )}
-            {generatePdf.isPending || isDownloading ? 'Generating…' : 'Print'}
+            {generatePdf.isPending || isDownloading ? 'Generating...' : 'Print'}
           </Button>
         </div>
       </div>
