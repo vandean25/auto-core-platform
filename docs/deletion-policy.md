@@ -34,6 +34,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED` and no linked invoice exists yet on the order. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
+| LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 
 ## UI Contract
 
