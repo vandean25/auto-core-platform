@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsInt,
   IsNumber,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -26,9 +27,9 @@ export class CreateLaborCategoryDto {
   @Min(0)
   sort_order?: number;
 
-  @ApiPropertyOptional({ description: 'Parent category ID (max depth: 1 level)' })
+  @ApiPropertyOptional({ description: 'Parent category ID (max depth: 1 level)', format: 'uuid' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   parent_id?: string;
 
   @ApiPropertyOptional({ description: 'Default hourly rate for operations in this category' })

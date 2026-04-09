@@ -2958,7 +2958,8 @@
           },
           "parent_id": {
             "type": "string",
-            "description": "Parent category ID (max depth: 1 level)"
+            "description": "Parent category ID (max depth: 1 level)",
+            "format": "uuid"
           },
           "default_hourly_rate": {
             "type": "number",
@@ -2990,7 +2991,8 @@
           },
           "parent_id": {
             "type": "string",
-            "description": "Parent category ID (max depth: 1 level)"
+            "description": "Parent category ID (max depth: 1 level)",
+            "format": "uuid"
           },
           "default_hourly_rate": {
             "type": "number",

@@ -981,7 +981,10 @@ export interface components {
             description?: string;
             /** @description Sort order for display purposes */
             sort_order?: number;
-            /** @description Parent category ID (max depth: 1 level) */
+            /**
+             * Format: uuid
+             * @description Parent category ID (max depth: 1 level)
+             */
             parent_id?: string;
             /** @description Default hourly rate for operations in this category */
             default_hourly_rate?: number;
@@ -995,7 +998,10 @@ export interface components {
             description?: string;
             /** @description Sort order for display purposes */
             sort_order?: number;
-            /** @description Parent category ID (max depth: 1 level) */
+            /**
+             * Format: uuid
+             * @description Parent category ID (max depth: 1 level)
+             */
             parent_id?: string;
             /** @description Default hourly rate for operations in this category */
             default_hourly_rate?: number;
