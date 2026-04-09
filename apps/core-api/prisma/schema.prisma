@@ -539,7 +539,7 @@ model LaborCategory {
   description         String?
   sort_order          Int               @default(0)
   parent_id           String?
-  parent              LaborCategory?    @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  parent              LaborCategory?    @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Restrict)
   children            LaborCategory[]   @relation("CategoryHierarchy")
   is_active           Boolean           @default(true)
   default_hourly_rate Decimal?          @db.Decimal(10, 2)
@@ -560,7 +560,7 @@ model LaborOperation {
   standard_aw   Decimal        @db.Decimal(10, 2)
   hourly_rate   Decimal        @db.Decimal(10, 2)
   category_id   String?
-  category      LaborCategory? @relation(fields: [category_id], references: [id])
+  category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict)
   fitments      LaborFitment[]
 
   createdAt     DateTime       @default(now())
