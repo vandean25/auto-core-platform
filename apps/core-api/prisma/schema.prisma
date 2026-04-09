@@ -572,7 +572,7 @@ model LaborOperation {
   @@index([description])
   @@index([code, description])
   @@index([category_id])
-  @@index([is_active])
+  @@index([is_active, description], name: "labor_operations_is_active_description_idx")
 }
 
 model LaborFitment {
