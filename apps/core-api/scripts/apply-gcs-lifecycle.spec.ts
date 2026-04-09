@@ -30,15 +30,14 @@ describe('applyGcsLifecycle', () => {
     mockExit.mockRestore();
   });
 
-  it('exits with code 1 when INVOICE_PDF_BUCKET is not set', async () => {
+  it('throws error when INVOICE_PDF_BUCKET is not set', async () => {
     delete process.env.INVOICE_PDF_BUCKET;
     delete process.env.GCP_CREDENTIALS;
 
     await expect(applyGcsLifecycle()).rejects.toThrow(
-      'process.exit called with code 1',
+      'INVOICE_PDF_BUCKET environment variable is not set.',
     );
 
-    expect(mockExit).toHaveBeenCalledWith(1);
     expect(mockSetMetadata).not.toHaveBeenCalled();
   });
 
@@ -92,14 +91,12 @@ describe('applyGcsLifecycle', () => {
     expect(Storage).toHaveBeenCalledWith({ credentials: creds });
   });
 
-  it('exits with code 1 when GCP_CREDENTIALS is invalid JSON', async () => {
+  it('throws error when GCP_CREDENTIALS is invalid JSON', async () => {
     process.env.INVOICE_PDF_BUCKET = 'test-bucket';
     process.env.GCP_CREDENTIALS = 'not-valid-json';
 
     await expect(applyGcsLifecycle()).rejects.toThrow(
-      'process.exit called with code 1',
+      'Failed to parse GCP_CREDENTIALS JSON',
     );
-
-    expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

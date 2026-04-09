@@ -26,10 +26,7 @@ export const LIFECYCLE_RULES = [
 export async function applyGcsLifecycle(): Promise<void> {
   const bucketName = process.env.INVOICE_PDF_BUCKET;
   if (!bucketName) {
-    console.error(
-      'Error: INVOICE_PDF_BUCKET environment variable is not set.',
-    );
-    process.exit(1);
+    throw new Error('INVOICE_PDF_BUCKET environment variable is not set.');
   }
 
   let storage: Storage;
@@ -38,10 +35,9 @@ export async function applyGcsLifecycle(): Promise<void> {
     try {
       storage = new Storage({ credentials: JSON.parse(credentials) });
     } catch (err) {
-      console.error(
-        `Error: Failed to parse GCP_CREDENTIALS JSON: ${err instanceof Error ? err.message : String(err)}`,
+      throw new Error(
+        `Failed to parse GCP_CREDENTIALS JSON: ${err instanceof Error ? err.message : String(err)}`,
       );
-      process.exit(1);
     }
   } else {
     storage = new Storage();
@@ -63,8 +59,10 @@ export async function applyGcsLifecycle(): Promise<void> {
 
 // Only execute when run directly (not when imported in tests)
 if (require.main === module) {
-  applyGcsLifecycle().catch((err: unknown) => {
-    console.error('Unexpected error:', err);
-    process.exit(1);
-  });
+  applyGcsLifecycle()
+    .then(() => process.exit(0))
+    .catch((err: unknown) => {
+      console.error(err instanceof Error ? err.message : 'Unexpected error: ' + String(err));
+      process.exit(1);
+    });
 }

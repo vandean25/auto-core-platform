@@ -227,7 +227,7 @@ export default function InvoiceDetailPage() {
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
   const handlePrint = async () => {
-    const toastId = toast.loading('Generating PDF, this may take a few seconds...')
+    const toastId = toast.loading('Preparing PDF, this may take a few seconds...')
     let url: string | null = null
     try {
       const res = await generatePdf.mutateAsync(invoice.id)
@@ -239,6 +239,7 @@ export default function InvoiceDetailPage() {
         return
       }
 
+      toast.loading('Downloading PDF...', { id: toastId })
       setIsDownloading(true)
       const blob = await downloadInvoicePdf(invoice.id)
       url = window.URL.createObjectURL(blob)
@@ -255,8 +256,9 @@ export default function InvoiceDetailPage() {
       document.body.removeChild(link)
 
       toast.success('Invoice PDF downloaded successfully', { id: toastId })
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to generate PDF', { id: toastId })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to generate PDF'
+      toast.error(message, { id: toastId })
     } finally {
       setIsDownloading(false)
       if (url) {
