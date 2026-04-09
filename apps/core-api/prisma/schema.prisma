@@ -559,8 +559,10 @@ model LaborOperation {
   description   String
   standard_aw   Decimal        @db.Decimal(10, 2)
   hourly_rate   Decimal        @db.Decimal(10, 2)
+  internal_cost Decimal?       @db.Decimal(10, 2)
   category_id   String?
   category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  is_active     Boolean        @default(true)
   fitments      LaborFitment[]
 
   createdAt     DateTime       @default(now())
@@ -570,6 +572,7 @@ model LaborOperation {
   @@index([description])
   @@index([code, description])
   @@index([category_id])
+  @@index([is_active])
 }
 
 model LaborFitment {
