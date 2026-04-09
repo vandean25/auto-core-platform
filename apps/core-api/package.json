@@ -23,6 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
+    "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {
@@ -90,15 +91,20 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/scripts"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "{src,scripts}/**/*.(t|j)s",
+      "!**/*.spec.(t|j)s"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
     "testEnvironment": "node"
   }
 }
