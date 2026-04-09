@@ -979,40 +979,28 @@ export interface components {
             name: string;
             /** @description Description of the category */
             description?: string;
-            /**
-             * @description Sort order for display purposes
-             * @default 0
-             */
-            sort_order: number;
+            /** @description Sort order for display purposes */
+            sort_order?: number;
             /** @description Parent category ID (max depth: 1 level) */
             parent_id?: string;
             /** @description Default hourly rate for operations in this category */
             default_hourly_rate?: number;
-            /**
-             * @description Whether the category is active
-             * @default true
-             */
-            is_active: boolean;
+            /** @description Whether the category is active */
+            is_active?: boolean;
         };
         UpdateLaborCategoryDto: {
             /** @description Unique name for the labor category */
             name?: string;
             /** @description Description of the category */
             description?: string;
-            /**
-             * @description Sort order for display purposes
-             * @default 0
-             */
-            sort_order: number;
+            /** @description Sort order for display purposes */
+            sort_order?: number;
             /** @description Parent category ID (max depth: 1 level) */
             parent_id?: string;
             /** @description Default hourly rate for operations in this category */
             default_hourly_rate?: number;
-            /**
-             * @description Whether the category is active
-             * @default true
-             */
-            is_active: boolean;
+            /** @description Whether the category is active */
+            is_active?: boolean;
         };
         UpdateVehicleDto: {
             make?: string;

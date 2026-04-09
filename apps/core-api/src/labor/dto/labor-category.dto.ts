@@ -20,7 +20,7 @@ export class CreateLaborCategoryDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Sort order for display purposes', default: 0 })
+  @ApiPropertyOptional({ description: 'Sort order for display purposes' })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -37,7 +37,7 @@ export class CreateLaborCategoryDto {
   @Min(0)
   default_hourly_rate?: number;
 
-  @ApiPropertyOptional({ description: 'Whether the category is active', default: true })
+  @ApiPropertyOptional({ description: 'Whether the category is active' })
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;

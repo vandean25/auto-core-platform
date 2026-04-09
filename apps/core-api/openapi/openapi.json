@@ -2954,8 +2954,7 @@
           },
           "sort_order": {
             "type": "number",
-            "description": "Sort order for display purposes",
-            "default": 0
+            "description": "Sort order for display purposes"
           },
           "parent_id": {
             "type": "string",
@@ -2967,8 +2966,7 @@
           },
           "is_active": {
             "type": "boolean",
-            "description": "Whether the category is active",
-            "default": true
+            "description": "Whether the category is active"
           }
         },
         "required": [
@@ -2988,8 +2986,7 @@
           },
           "sort_order": {
             "type": "number",
-            "description": "Sort order for display purposes",
-            "default": 0
+            "description": "Sort order for display purposes"
           },
           "parent_id": {
             "type": "string",
@@ -3001,8 +2998,7 @@
           },
           "is_active": {
             "type": "boolean",
-            "description": "Whether the category is active",
-            "default": true
+            "description": "Whether the category is active"
           }
         }
       },
