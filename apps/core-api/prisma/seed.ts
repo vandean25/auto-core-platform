@@ -8,28 +8,60 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter } as any);
 
+async function tableExists(tableName: string): Promise<boolean> {
+    const result = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+        `SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE  table_schema = 'public'
+            AND    table_name   = '${tableName}'
+        );`
+    );
+    return result[0]?.exists || false;
+}
+
 async function cleanDb() {
     console.log('Cleaning database...');
+    
+    const tables = [
+        'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
+        'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
+        'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
+        'labor_operations', 'labor_categories'
+    ];
+
+    const existingTables = new Set<string>();
+    for (const table of tables) {
+        if (await tableExists(table)) {
+            existingTables.add(table);
+        }
+    }
+
     // Delete in order to satisfy foreign key constraints
-    await prisma.purchaseInvoiceLine.deleteMany();
-    await prisma.purchaseInvoice.deleteMany();
-    await prisma.purchaseOrderItem.deleteMany();
-    await prisma.purchaseOrder.deleteMany();
-    await prisma.vendor.deleteMany();
-    await prisma.inventoryTransaction.deleteMany();
-    await prisma.inventoryStock.deleteMany();
-    await prisma.invoiceItem.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.catalogItem.deleteMany();
-    await prisma.storageLocation.deleteMany();
-    await prisma.revenueGroup.deleteMany();
-    await prisma.financeSettings.deleteMany();
-    await prisma.brand.deleteMany();
+    if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
+    if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
+    if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
+    if (existingTables.has('purchase_orders')) await prisma.purchaseOrder.deleteMany();
+    if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
+    if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
+    if (existingTables.has('inventory_stocks')) await prisma.inventoryStock.deleteMany();
+    if (existingTables.has('invoice_items')) await prisma.invoiceItem.deleteMany();
+    if (existingTables.has('invoices')) await prisma.invoice.deleteMany();
+    if (existingTables.has('catalog_items')) await prisma.catalogItem.deleteMany();
+    if (existingTables.has('storage_locations')) await prisma.storageLocation.deleteMany();
+    if (existingTables.has('revenue_groups')) await prisma.revenueGroup.deleteMany();
+    if (existingTables.has('finance_settings')) await prisma.financeSettings.deleteMany();
+    if (existingTables.has('brands')) await prisma.brand.deleteMany();
+
     // Labor: operations reference categories (Restrict), fitments cascade from operations
-    await prisma.laborOperation.deleteMany();
-    // Delete sub-categories before top-level categories (self-referencing Restrict)
-    await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
-    await prisma.laborCategory.deleteMany();
+    if (existingTables.has('labor_operations')) {
+        await prisma.laborOperation.deleteMany();
+    }
+    
+    if (existingTables.has('labor_categories')) {
+        // Delete sub-categories before top-level categories (self-referencing Restrict)
+        await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
+        await prisma.laborCategory.deleteMany();
+    }
 }
 
 /**
@@ -305,39 +337,29 @@ async function main() {
     console.log('Seeding Labor Categories and Operations...');
 
     // Create the 6 top-level labor categories
-    const [catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral] =
-        await Promise.all([
+    const categoriesToSeed = [
+        { name: 'Engine', description: 'Engine and internal combustion system operations', sort_order: 1 },
+        { name: 'Brakes', description: 'Brake system inspection and replacement operations', sort_order: 2 },
+        { name: 'Electrical', description: 'Electrical system diagnostics and repairs', sort_order: 3 },
+        { name: 'Suspension', description: 'Suspension, steering, and chassis operations', sort_order: 4 },
+        { name: 'Transmission', description: 'Gearbox, clutch, and drivetrain operations', sort_order: 5 },
+        { name: 'General Service', description: 'Routine vehicle servicing and inspection operations', sort_order: 6 },
+    ];
+
+    const categoryRecords = await Promise.all(
+        categoriesToSeed.map(cat =>
             prisma.laborCategory.upsert({
-                where: { name: 'Engine' },
-                update: {},
-                create: { name: 'Engine', description: 'Engine and internal combustion system operations', sort_order: 1 },
-            }),
-            prisma.laborCategory.upsert({
-                where: { name: 'Brakes' },
-                update: {},
-                create: { name: 'Brakes', description: 'Brake system inspection and replacement operations', sort_order: 2 },
-            }),
-            prisma.laborCategory.upsert({
-                where: { name: 'Electrical' },
-                update: {},
-                create: { name: 'Electrical', description: 'Electrical system diagnostics and repairs', sort_order: 3 },
-            }),
-            prisma.laborCategory.upsert({
-                where: { name: 'Suspension' },
-                update: {},
-                create: { name: 'Suspension', description: 'Suspension, steering, and chassis operations', sort_order: 4 },
-            }),
-            prisma.laborCategory.upsert({
-                where: { name: 'Transmission' },
-                update: {},
-                create: { name: 'Transmission', description: 'Gearbox, clutch, and drivetrain operations', sort_order: 5 },
-            }),
-            prisma.laborCategory.upsert({
-                where: { name: 'General Service' },
-                update: {},
-                create: { name: 'General Service', description: 'Routine vehicle servicing and inspection operations', sort_order: 6 },
-            }),
-        ]);
+                where: { name: cat.name },
+                update: {
+                    description: cat.description,
+                    sort_order: cat.sort_order,
+                },
+                create: cat,
+            })
+        )
+    );
+
+    const [catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral] = categoryRecords;
 
     // Map code prefix → category ID for automatic categorization
     const categoryByPrefix: Record<string, string> = {
@@ -396,7 +418,12 @@ async function main() {
         laborOperationDefs.map(op =>
             prisma.laborOperation.upsert({
                 where: { code: op.code },
-                update: { category_id: resolveCategoryId(op.code) },
+                update: {
+                    description: op.description,
+                    standard_aw: op.standard_aw,
+                    hourly_rate: op.hourly_rate,
+                    category_id: resolveCategoryId(op.code),
+                },
                 create: {
                     code: op.code,
                     description: op.description,
@@ -408,13 +435,31 @@ async function main() {
         )
     );
 
+    console.log('Categorizing all existing LaborOperation records...');
+    const allOperations = await prisma.laborOperation.findMany({
+        where: { category_id: null }
+    });
+
+    let categorizedCount = 0;
+    for (const op of allOperations) {
+        const catId = resolveCategoryId(op.code);
+        if (catId) {
+            await prisma.laborOperation.update({
+                where: { id: op.id },
+                data: { category_id: catId }
+            });
+            categorizedCount++;
+        }
+    }
+
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
     console.log('✓ Brands (Dual/Pure) created and linked to items');
-    console.log(`✓ ${[catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral].length} labor categories created (Engine, Brakes, Electrical, Suspension, Transmission, General Service)`);
-    console.log(`✓ ${laborOperationDefs.length} labor operations seeded and categorized`);
+    console.log(`✓ ${categoryRecords.length} labor categories created/updated`);
+    console.log(`✓ ${laborOperationDefs.length} labor operations seeded/updated`);
+    console.log(`✓ ${categorizedCount} existing labor operations categorized by prefix`);
 }
 
 main()
