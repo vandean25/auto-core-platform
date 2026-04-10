@@ -192,8 +192,9 @@ describe('PrismaRepository', () => {
       });
       mockModel.create.mockRejectedValue(error);
 
-      await expect(repository.create({})).rejects.toThrow(ConflictError);
-      await expect(repository.create({})).rejects.toThrow(/name/);
+      await expect(repository.create({})).rejects.toThrow(
+        new ConflictError('Unique constraint violated on: name', 'name'),
+      );
     });
 
     it('throws ConflictError on P2003 foreign key violation', async () => {
@@ -204,8 +205,9 @@ describe('PrismaRepository', () => {
       });
       mockModel.create.mockRejectedValue(error);
 
-      await expect(repository.create({})).rejects.toThrow(ConflictError);
-      await expect(repository.create({})).rejects.toThrow(/brand_id/);
+      await expect(repository.create({})).rejects.toThrow(
+        new ConflictError('Foreign key constraint failed on: brand_id', 'brand_id'),
+      );
     });
 
     it('throws ConflictError on P2014 required relation violation', async () => {
@@ -219,9 +221,8 @@ describe('PrismaRepository', () => {
       );
       mockModel.create.mockRejectedValue(error);
 
-      await expect(repository.create({})).rejects.toThrow(ConflictError);
       await expect(repository.create({})).rejects.toThrow(
-        /VehicleToSalesOrder/,
+        new ConflictError('Required relation violation on: VehicleToSalesOrder', 'VehicleToSalesOrder'),
       );
     });
   });
@@ -245,20 +246,21 @@ describe('PrismaRepository', () => {
       });
       mockModel.update.mockRejectedValue(error);
 
-      await expect(repository.update(1, {})).rejects.toThrow(NotFoundError);
+      await expect(repository.update(1, {})).rejects.toThrow(
+        new NotFoundError('Record with ID 1 not found'),
+      );
     });
 
     it('throws NotFoundError on P2016 query interpretation error', async () => {
       const error = new Prisma.PrismaClientKnownRequestError('Query error', {
         code: 'P2016',
         clientVersion: 'test',
-        meta: { details: 'Record not found in nested query' },
+        meta: { details: 'Internal details' },
       });
       mockModel.update.mockRejectedValue(error);
 
-      await expect(repository.update(1, {})).rejects.toThrow(NotFoundError);
       await expect(repository.update(1, {})).rejects.toThrow(
-        /Record not found in nested query/,
+        new NotFoundError('Record not found in nested query'),
       );
     });
   });
@@ -281,7 +283,9 @@ describe('PrismaRepository', () => {
       });
       mockModel.delete.mockRejectedValue(error);
 
-      await expect(repository.delete(1)).rejects.toThrow(NotFoundError);
+      await expect(repository.delete(1)).rejects.toThrow(
+        new NotFoundError('Record with ID 1 not found'),
+      );
     });
   });
 

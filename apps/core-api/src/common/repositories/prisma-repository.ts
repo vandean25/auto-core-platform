@@ -214,10 +214,7 @@ export class PrismaRepository<T> {
           );
         }
         case 'P2016': {
-          const details =
-            (error.meta?.details as string) ??
-            'Record not found in nested query';
-          return new NotFoundError(details);
+          return new NotFoundError('Record not found in nested query');
         }
         case 'P2025':
           return new NotFoundError(
