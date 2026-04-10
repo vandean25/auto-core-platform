@@ -92,12 +92,10 @@ describe('QueryBuilder', () => {
     });
 
     it('builds global search for flat and nested fields', () => {
-      const where = QueryBuilder.buildWhere(
-        [],
-        [],
-        'abc',
-        ['invoiceNumber', 'customer.name'],
-      );
+      const where = QueryBuilder.buildWhere([], [], 'abc', [
+        'invoiceNumber',
+        'customer.name',
+      ]);
 
       expect(where).toEqual({
         OR: [

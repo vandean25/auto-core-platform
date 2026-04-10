@@ -7,9 +7,7 @@ import type { InvoiceSnapshot } from './invoice-snapshot';
 export class InvoicePdfRenderer {
   private readonly logger = new Logger(InvoicePdfRenderer.name);
 
-  constructor(
-    private readonly browserService: PlaywrightBrowserService,
-  ) {}
+  constructor(private readonly browserService: PlaywrightBrowserService) {}
 
   async render(snapshot: InvoiceSnapshot): Promise<Buffer> {
     return Sentry.startSpan(

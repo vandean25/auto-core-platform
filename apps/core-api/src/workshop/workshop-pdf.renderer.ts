@@ -7,9 +7,7 @@ import type { WorkshopOrderForPdf } from './workshop-pdf.types';
 export class WorkshopPdfRenderer {
   private readonly logger = new Logger(WorkshopPdfRenderer.name);
 
-  constructor(
-    private readonly browserService: PlaywrightBrowserService,
-  ) {}
+  constructor(private readonly browserService: PlaywrightBrowserService) {}
 
   async render(order: WorkshopOrderForPdf): Promise<Buffer> {
     return Sentry.startSpan(
@@ -67,10 +65,7 @@ export class WorkshopPdfRenderer {
   ): string {
     const safeOrderNumber = this.escapeHtml(orderNumber);
 
-    const personName = [
-      order.customer?.first_name,
-      order.customer?.last_name,
-    ]
+    const personName = [order.customer?.first_name, order.customer?.last_name]
       .filter(Boolean)
       .join(' ')
       .trim();

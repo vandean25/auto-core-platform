@@ -1,4 +1,8 @@
-import { INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Readable } from 'node:stream';
@@ -30,7 +34,9 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
   });
 

@@ -144,24 +144,23 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
-        const [task] = await this.client
-          .createTask({
-            parent,
-            task: {
-              httpRequest: {
-                httpMethod: 'POST',
-                url,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-api-key': apiKey,
-                  'x-cloud-tasks-secret': workerSecret,
-                },
-                body: Buffer.from('{}'),
+        const [task] = await this.client.createTask({
+          parent,
+          task: {
+            httpRequest: {
+              httpMethod: 'POST',
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'x-cloud-tasks-secret': workerSecret,
               },
-              scheduleTime,
-              dispatchDeadline: { seconds: 600 },
+              body: Buffer.from('{}'),
             },
-          });
+            scheduleTime,
+            dispatchDeadline: { seconds: 600 },
+          },
+        });
 
         const fullTaskName = task.name;
         if (!fullTaskName) {
@@ -244,24 +243,23 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
-        const [task] = await this.client
-          .createTask({
-            parent,
-            task: {
-              httpRequest: {
-                httpMethod: 'POST',
-                url,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-api-key': apiKey,
-                  'x-cloud-tasks-secret': workerSecret,
-                },
-                body: Buffer.from('{}'),
+        const [task] = await this.client.createTask({
+          parent,
+          task: {
+            httpRequest: {
+              httpMethod: 'POST',
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'x-cloud-tasks-secret': workerSecret,
               },
-              scheduleTime,
-              dispatchDeadline: { seconds: 600 },
+              body: Buffer.from('{}'),
             },
-          });
+            scheduleTime,
+            dispatchDeadline: { seconds: 600 },
+          },
+        });
 
         const fullTaskName = task.name;
         if (!fullTaskName) {

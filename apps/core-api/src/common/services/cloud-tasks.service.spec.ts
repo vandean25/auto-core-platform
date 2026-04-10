@@ -20,14 +20,18 @@ describe('CloudTasksService', () => {
   function createService() {
     const service = new CloudTasksService();
     const createTask = jest.fn();
-    const queuePath = jest.fn().mockReturnValue('projects/test/queues/pdf-queue');
+    const queuePath = jest
+      .fn()
+      .mockReturnValue('projects/test/queues/pdf-queue');
 
-    (service as unknown as {
-      client: {
-        createTask: jest.Mock;
-        queuePath: jest.Mock;
-      };
-    }).client = {
+    (
+      service as unknown as {
+        client: {
+          createTask: jest.Mock;
+          queuePath: jest.Mock;
+        };
+      }
+    ).client = {
       createTask,
       queuePath,
     };
