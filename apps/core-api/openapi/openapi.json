@@ -2274,7 +2274,97 @@
           }
         },
         "tags": [
-          "Labor"
+          "labor"
+        ]
+      }
+    },
+    "/api/labor/categories": {
+      "get": {
+        "operationId": "LaborController_getCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      },
+      "post": {
+        "operationId": "LaborController_createCategory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLaborCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      }
+    },
+    "/api/labor/categories/{id}": {
+      "patch": {
+        "operationId": "LaborController_updateCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLaborCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      },
+      "delete": {
+        "operationId": "LaborController_removeCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "labor"
         ]
       }
     },
@@ -2850,6 +2940,69 @@
         "required": [
           "workshopOrderId"
         ]
+      },
+      "CreateLaborCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the labor category"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the category"
+          },
+          "sort_order": {
+            "type": "number",
+            "description": "Sort order for display purposes"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent category ID (max depth: 1 level)",
+            "format": "uuid"
+          },
+          "default_hourly_rate": {
+            "type": "number",
+            "description": "Default hourly rate for operations in this category"
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the category is active"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateLaborCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the labor category"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the category"
+          },
+          "sort_order": {
+            "type": "number",
+            "description": "Sort order for display purposes"
+          },
+          "parent_id": {
+            "type": "string",
+            "description": "Parent category ID (max depth: 1 level)",
+            "format": "uuid"
+          },
+          "default_hourly_rate": {
+            "type": "number",
+            "description": "Default hourly rate for operations in this category"
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the category is active"
+          }
+        }
       },
       "UpdateVehicleDto": {
         "type": "object",

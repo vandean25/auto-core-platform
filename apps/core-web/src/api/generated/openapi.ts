@@ -788,6 +788,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labor/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LaborController_getCategories"];
+        put?: never;
+        post: operations["LaborController_createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labor/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["LaborController_removeCategory"];
+        options?: never;
+        head?: never;
+        patch: operations["LaborController_updateCategory"];
+        trace?: never;
+    };
     "/api/catalog/search": {
         parameters: {
             query?: never;
@@ -941,6 +973,40 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        CreateLaborCategoryDto: {
+            /** @description Unique name for the labor category */
+            name: string;
+            /** @description Description of the category */
+            description?: string;
+            /** @description Sort order for display purposes */
+            sort_order?: number;
+            /**
+             * Format: uuid
+             * @description Parent category ID (max depth: 1 level)
+             */
+            parent_id?: string;
+            /** @description Default hourly rate for operations in this category */
+            default_hourly_rate?: number;
+            /** @description Whether the category is active */
+            is_active?: boolean;
+        };
+        UpdateLaborCategoryDto: {
+            /** @description Unique name for the labor category */
+            name?: string;
+            /** @description Description of the category */
+            description?: string;
+            /** @description Sort order for display purposes */
+            sort_order?: number;
+            /**
+             * Format: uuid
+             * @description Parent category ID (max depth: 1 level)
+             */
+            parent_id?: string;
+            /** @description Default hourly rate for operations in this category */
+            default_hourly_rate?: number;
+            /** @description Whether the category is active */
+            is_active?: boolean;
         };
         UpdateVehicleDto: {
             make?: string;
@@ -2594,6 +2660,86 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LaborController_getCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LaborController_createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLaborCategoryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LaborController_removeCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LaborController_updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLaborCategoryDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
