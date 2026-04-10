@@ -183,8 +183,8 @@ export class PrismaRepository<T> {
    * - P2003  Foreign key constraint failed   → ConflictError
    * - P2025  Record not found                → NotFoundError
    *
-   * TODO: Evaluate P2014 (required relation) and P2016 (query interpretation)
-   * when rolling out to services that use nested writes.
+   * - P2014  Required relation violation    → ConflictError
+   * - P2016  Query interpretation error     → NotFoundError
    */
   private mapPrismaError(error: unknown, id?: number | string): Error {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -204,6 +204,17 @@ export class PrismaRepository<T> {
             `Foreign key constraint failed on: ${field}`,
             field,
           );
+        }
+        case 'P2014': {
+          const relation =
+            (error.meta?.relation_name as string) ?? 'unknown relation';
+          return new ConflictError(
+            `Required relation violation on: ${relation}`,
+            relation,
+          );
+        }
+        case 'P2016': {
+          return new NotFoundError('Record not found in nested query');
         }
         case 'P2025':
           return new NotFoundError(

@@ -9,10 +9,6 @@ import { PlaywrightBrowserService } from './services/playwright-browser.service'
     CloudTasksWorkerGuard,
     PlaywrightBrowserService,
   ],
-  exports: [
-    CloudTasksService,
-    CloudTasksWorkerGuard,
-    PlaywrightBrowserService,
-  ],
+  exports: [CloudTasksService, CloudTasksWorkerGuard, PlaywrightBrowserService],
 })
 export class CommonModule {}
