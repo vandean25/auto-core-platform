@@ -61,7 +61,7 @@ export class CreateLaborOperationDto {
   @Min(0.01)
   hourlyRate: number;
 
-  @ApiPropertyOptional({ description: 'Internal cost' })
+  @ApiPropertyOptional({ description: 'Internal cost per operation (overrides category default for cost tracking)' })
   @IsOptional()
   @IsNumber()
   @Min(0)

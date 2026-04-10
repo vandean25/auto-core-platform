@@ -3182,7 +3182,7 @@
           },
           "internalCost": {
             "type": "number",
-            "description": "Internal cost"
+            "description": "Internal cost per operation (overrides category default for cost tracking)"
           },
           "categoryId": {
             "type": "string",
@@ -3227,7 +3227,7 @@
           },
           "internalCost": {
             "type": "number",
-            "description": "Internal cost"
+            "description": "Internal cost per operation (overrides category default for cost tracking)"
           },
           "categoryId": {
             "type": "string",

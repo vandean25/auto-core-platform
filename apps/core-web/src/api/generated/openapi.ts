@@ -1027,7 +1027,7 @@ export interface components {
             standardAw: number;
             /** @description Hourly rate (> 0) */
             hourlyRate: number;
-            /** @description Internal cost */
+            /** @description Internal cost per operation (overrides category default for cost tracking) */
             internalCost?: number;
             /**
              * Format: uuid
@@ -1046,7 +1046,7 @@ export interface components {
             standardAw?: number;
             /** @description Hourly rate (> 0) */
             hourlyRate?: number;
-            /** @description Internal cost */
+            /** @description Internal cost per operation (overrides category default for cost tracking) */
             internalCost?: number;
             /**
              * Format: uuid

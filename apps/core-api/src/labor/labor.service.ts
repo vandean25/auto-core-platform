@@ -133,7 +133,7 @@ export class LaborService {
 
   // ── CRUD ──────────────────────────────────────────────────────────────
 
-  private mapOperation(
+  private mapLaborOperation(
     operation: Prisma.LaborOperationGetPayload<{
       include: { category: { select: { id: true; name: true } }; fitments: true };
     }>,
@@ -222,7 +222,7 @@ export class LaborService {
     ]);
 
     return {
-      data: data.map((op) => this.mapOperation(op)),
+      data: data.map((op) => this.mapLaborOperation(op)),
       meta: {
         total,
         page: safePage,
@@ -245,7 +245,7 @@ export class LaborService {
       throw new NotFoundException(`Labor operation with ID "${id}" not found`);
     }
 
-    return this.mapOperation(operation);
+    return this.mapLaborOperation(operation);
   }
 
   async create(dto: CreateLaborOperationDto) {
@@ -302,7 +302,7 @@ export class LaborService {
         },
       });
 
-      return this.mapOperation(created);
+      return this.mapLaborOperation(created);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -384,7 +384,7 @@ export class LaborService {
         },
       });
 
-      return this.mapOperation(updated);
+      return this.mapLaborOperation(updated);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
