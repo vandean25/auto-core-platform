@@ -15,6 +15,11 @@ import {
   CreateLaborCategoryDto,
   UpdateLaborCategoryDto,
 } from './dto/labor-category.dto';
+import {
+  CreateLaborOperationDto,
+  ListLaborOperationsQueryDto,
+  UpdateLaborOperationDto,
+} from './dto/labor-operation.dto';
 
 @ApiTags('labor')
 @Controller('labor')
@@ -36,6 +41,36 @@ export class LaborController {
     @Query('workshopOrderId') workshopOrderId: string,
   ) {
     return this.laborService.search(query, workshopOrderId);
+  }
+
+  // ── Labor Operations ──────────────────────────────────────────────────
+
+  @Get('operations')
+  listOperations(@Query() query: ListLaborOperationsQueryDto) {
+    return this.laborService.findAll(query);
+  }
+
+  @Get('operations/:id')
+  getOperation(@Param('id') id: string) {
+    return this.laborService.findOne(id);
+  }
+
+  @Post('operations')
+  createOperation(@Body() dto: CreateLaborOperationDto) {
+    return this.laborService.create(dto);
+  }
+
+  @Patch('operations/:id')
+  updateOperation(
+    @Param('id') id: string,
+    @Body() dto: UpdateLaborOperationDto,
+  ) {
+    return this.laborService.update(id, dto);
+  }
+
+  @Delete('operations/:id')
+  removeOperation(@Param('id') id: string) {
+    return this.laborService.softDelete(id);
   }
 
   // ── Labor Categories ──────────────────────────────────────────────────
