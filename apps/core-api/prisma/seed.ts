@@ -8,23 +8,60 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter } as any);
 
+async function tableExists(tableName: string): Promise<boolean> {
+    const result = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+        `SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE  table_schema = 'public'
+            AND    table_name   = '${tableName}'
+        );`
+    );
+    return result[0]?.exists || false;
+}
+
 async function cleanDb() {
     console.log('Cleaning database...');
+    
+    const tables = [
+        'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
+        'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
+        'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
+        'labor_operations', 'labor_categories'
+    ];
+
+    const existingTables = new Set<string>();
+    for (const table of tables) {
+        if (await tableExists(table)) {
+            existingTables.add(table);
+        }
+    }
+
     // Delete in order to satisfy foreign key constraints
-    await prisma.purchaseInvoiceLine.deleteMany();
-    await prisma.purchaseInvoice.deleteMany();
-    await prisma.purchaseOrderItem.deleteMany();
-    await prisma.purchaseOrder.deleteMany();
-    await prisma.vendor.deleteMany();
-    await prisma.inventoryTransaction.deleteMany();
-    await prisma.inventoryStock.deleteMany();
-    await prisma.invoiceItem.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.catalogItem.deleteMany();
-    await prisma.storageLocation.deleteMany();
-    await prisma.revenueGroup.deleteMany();
-    await prisma.financeSettings.deleteMany();
-    await prisma.brand.deleteMany();
+    if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
+    if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
+    if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
+    if (existingTables.has('purchase_orders')) await prisma.purchaseOrder.deleteMany();
+    if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
+    if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
+    if (existingTables.has('inventory_stocks')) await prisma.inventoryStock.deleteMany();
+    if (existingTables.has('invoice_items')) await prisma.invoiceItem.deleteMany();
+    if (existingTables.has('invoices')) await prisma.invoice.deleteMany();
+    if (existingTables.has('catalog_items')) await prisma.catalogItem.deleteMany();
+    if (existingTables.has('storage_locations')) await prisma.storageLocation.deleteMany();
+    if (existingTables.has('revenue_groups')) await prisma.revenueGroup.deleteMany();
+    if (existingTables.has('finance_settings')) await prisma.financeSettings.deleteMany();
+    if (existingTables.has('brands')) await prisma.brand.deleteMany();
+
+    // Labor: operations reference categories (Restrict), fitments cascade from operations
+    if (existingTables.has('labor_operations')) {
+        await prisma.laborOperation.deleteMany();
+    }
+    
+    if (existingTables.has('labor_categories')) {
+        // Delete sub-categories before top-level categories (self-referencing Restrict)
+        await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
+        await prisma.laborCategory.deleteMany();
+    }
 }
 
 /**
@@ -297,11 +334,132 @@ async function main() {
         }
     }
 
+    console.log('Seeding Labor Categories and Operations...');
+
+    // Create the 6 top-level labor categories
+    const categoriesToSeed = [
+        { name: 'Engine', description: 'Engine and internal combustion system operations', sort_order: 1 },
+        { name: 'Brakes', description: 'Brake system inspection and replacement operations', sort_order: 2 },
+        { name: 'Electrical', description: 'Electrical system diagnostics and repairs', sort_order: 3 },
+        { name: 'Suspension', description: 'Suspension, steering, and chassis operations', sort_order: 4 },
+        { name: 'Transmission', description: 'Gearbox, clutch, and drivetrain operations', sort_order: 5 },
+        { name: 'General Service', description: 'Routine vehicle servicing and inspection operations', sort_order: 6 },
+    ];
+
+    const categoryRecords = await Promise.all(
+        categoriesToSeed.map(cat =>
+            prisma.laborCategory.upsert({
+                where: { name: cat.name },
+                update: {
+                    description: cat.description,
+                    sort_order: cat.sort_order,
+                },
+                create: cat,
+            })
+        )
+    );
+
+    const [catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral] = categoryRecords;
+
+    // Map code prefix → category ID for automatic categorization
+    const categoryByPrefix: Record<string, string> = {
+        'ENG':   catEngine.id,
+        'BRK':   catBrakes.id,
+        'ELEC':  catElectrical.id,
+        'SUS':   catSuspension.id,
+        'TRANS': catTransmission.id,
+        'GEN':   catGeneral.id,
+    };
+
+    /** Resolve category_id from an operation code prefix, or null if no match. */
+    function resolveCategoryId(code: string): string | null {
+        for (const prefix of Object.keys(categoryByPrefix)) {
+            if (code.startsWith(prefix + '-')) {
+                return categoryByPrefix[prefix];
+            }
+        }
+        return null;
+    }
+
+    const laborOperationDefs = [
+        // Engine
+        { code: 'ENG-001', description: 'Engine Oil & Filter Change',            standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ENG-002', description: 'Timing Belt Replacement',                standard_aw: 4.0, hourly_rate: 95.00 },
+        { code: 'ENG-003', description: 'Engine Diagnostic Scan',                 standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ENG-004', description: 'Valve Cover Gasket Replacement',         standard_aw: 2.0, hourly_rate: 95.00 },
+        // Brakes
+        { code: 'BRK-001', description: 'Front Brake Pad Replacement',            standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'BRK-002', description: 'Rear Brake Pad Replacement',             standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'BRK-003', description: 'Brake Disc Replacement (Front Axle)',    standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'BRK-004', description: 'Brake Fluid Flush',                      standard_aw: 0.5, hourly_rate: 95.00 },
+        // Electrical
+        { code: 'ELEC-001', description: 'Battery Replacement & Registration',    standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ELEC-002', description: 'Alternator Replacement',                standard_aw: 2.5, hourly_rate: 95.00 },
+        { code: 'ELEC-003', description: 'Starter Motor Replacement',             standard_aw: 2.0, hourly_rate: 95.00 },
+        { code: 'ELEC-004', description: 'Electrical System Diagnostics',         standard_aw: 1.0, hourly_rate: 95.00 },
+        // Suspension
+        { code: 'SUS-001', description: 'Front Shock Absorber Replacement (per side)', standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'SUS-002', description: 'Rear Shock Absorber Replacement (per side)',  standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'SUS-003', description: 'Four-Wheel Alignment',                   standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'SUS-004', description: 'Front Control Arm Replacement',          standard_aw: 2.0, hourly_rate: 95.00 },
+        // Transmission
+        { code: 'TRANS-001', description: 'Manual Gearbox Oil Change',            standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'TRANS-002', description: 'Clutch Kit Replacement',               standard_aw: 5.0, hourly_rate: 95.00 },
+        { code: 'TRANS-003', description: 'Transmission Fault Diagnosis',         standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'TRANS-004', description: 'Automatic Transmission Fluid Service', standard_aw: 1.0, hourly_rate: 95.00 },
+        // General Service
+        { code: 'GEN-001', description: 'Annual Service – Minor (Oil, Filter, Check)', standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'GEN-002', description: 'Annual Service – Major (Full Inspection)',     standard_aw: 2.5, hourly_rate: 95.00 },
+        { code: 'GEN-003', description: 'Pre-MOT / TÜV Inspection',              standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'GEN-004', description: 'Cabin & Engine Air Filter Replacement',  standard_aw: 0.5, hourly_rate: 95.00 },
+    ];
+
+    await Promise.all(
+        laborOperationDefs.map(op =>
+            prisma.laborOperation.upsert({
+                where: { code: op.code },
+                update: {
+                    description: op.description,
+                    standard_aw: op.standard_aw,
+                    hourly_rate: op.hourly_rate,
+                    category_id: resolveCategoryId(op.code),
+                },
+                create: {
+                    code: op.code,
+                    description: op.description,
+                    standard_aw: op.standard_aw,
+                    hourly_rate: op.hourly_rate,
+                    category_id: resolveCategoryId(op.code),
+                },
+            })
+        )
+    );
+
+    console.log('Categorizing all existing LaborOperation records...');
+    const allOperations = await prisma.laborOperation.findMany({
+        where: { category_id: null }
+    });
+
+    let categorizedCount = 0;
+    for (const op of allOperations) {
+        const catId = resolveCategoryId(op.code);
+        if (catId) {
+            await prisma.laborOperation.update({
+                where: { id: op.id },
+                data: { category_id: catId }
+            });
+            categorizedCount++;
+        }
+    }
+
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
     console.log('✓ Brands (Dual/Pure) created and linked to items');
+    console.log(`✓ ${categoryRecords.length} labor categories created/updated`);
+    console.log(`✓ ${laborOperationDefs.length} labor operations seeded/updated`);
+    console.log(`✓ ${categorizedCount} existing labor operations categorized by prefix`);
 }
 
 main()
