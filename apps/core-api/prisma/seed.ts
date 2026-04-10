@@ -25,6 +25,11 @@ async function cleanDb() {
     await prisma.revenueGroup.deleteMany();
     await prisma.financeSettings.deleteMany();
     await prisma.brand.deleteMany();
+    // Labor: operations reference categories (Restrict), fitments cascade from operations
+    await prisma.laborOperation.deleteMany();
+    // Delete sub-categories before top-level categories (self-referencing Restrict)
+    await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
+    await prisma.laborCategory.deleteMany();
 }
 
 /**
@@ -297,11 +302,119 @@ async function main() {
         }
     }
 
+    console.log('Seeding Labor Categories and Operations...');
+
+    // Create the 6 top-level labor categories
+    const [catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral] =
+        await Promise.all([
+            prisma.laborCategory.upsert({
+                where: { name: 'Engine' },
+                update: {},
+                create: { name: 'Engine', description: 'Engine and internal combustion system operations', sort_order: 1 },
+            }),
+            prisma.laborCategory.upsert({
+                where: { name: 'Brakes' },
+                update: {},
+                create: { name: 'Brakes', description: 'Brake system inspection and replacement operations', sort_order: 2 },
+            }),
+            prisma.laborCategory.upsert({
+                where: { name: 'Electrical' },
+                update: {},
+                create: { name: 'Electrical', description: 'Electrical system diagnostics and repairs', sort_order: 3 },
+            }),
+            prisma.laborCategory.upsert({
+                where: { name: 'Suspension' },
+                update: {},
+                create: { name: 'Suspension', description: 'Suspension, steering, and chassis operations', sort_order: 4 },
+            }),
+            prisma.laborCategory.upsert({
+                where: { name: 'Transmission' },
+                update: {},
+                create: { name: 'Transmission', description: 'Gearbox, clutch, and drivetrain operations', sort_order: 5 },
+            }),
+            prisma.laborCategory.upsert({
+                where: { name: 'General Service' },
+                update: {},
+                create: { name: 'General Service', description: 'Routine vehicle servicing and inspection operations', sort_order: 6 },
+            }),
+        ]);
+
+    // Map code prefix → category ID for automatic categorization
+    const categoryByPrefix: Record<string, string> = {
+        'ENG':   catEngine.id,
+        'BRK':   catBrakes.id,
+        'ELEC':  catElectrical.id,
+        'SUS':   catSuspension.id,
+        'TRANS': catTransmission.id,
+        'GEN':   catGeneral.id,
+    };
+
+    /** Resolve category_id from an operation code prefix, or null if no match. */
+    function resolveCategoryId(code: string): string | null {
+        for (const prefix of Object.keys(categoryByPrefix)) {
+            if (code.startsWith(prefix + '-')) {
+                return categoryByPrefix[prefix];
+            }
+        }
+        return null;
+    }
+
+    const laborOperationDefs = [
+        // Engine
+        { code: 'ENG-001', description: 'Engine Oil & Filter Change',            standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ENG-002', description: 'Timing Belt Replacement',                standard_aw: 4.0, hourly_rate: 95.00 },
+        { code: 'ENG-003', description: 'Engine Diagnostic Scan',                 standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ENG-004', description: 'Valve Cover Gasket Replacement',         standard_aw: 2.0, hourly_rate: 95.00 },
+        // Brakes
+        { code: 'BRK-001', description: 'Front Brake Pad Replacement',            standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'BRK-002', description: 'Rear Brake Pad Replacement',             standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'BRK-003', description: 'Brake Disc Replacement (Front Axle)',    standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'BRK-004', description: 'Brake Fluid Flush',                      standard_aw: 0.5, hourly_rate: 95.00 },
+        // Electrical
+        { code: 'ELEC-001', description: 'Battery Replacement & Registration',    standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'ELEC-002', description: 'Alternator Replacement',                standard_aw: 2.5, hourly_rate: 95.00 },
+        { code: 'ELEC-003', description: 'Starter Motor Replacement',             standard_aw: 2.0, hourly_rate: 95.00 },
+        { code: 'ELEC-004', description: 'Electrical System Diagnostics',         standard_aw: 1.0, hourly_rate: 95.00 },
+        // Suspension
+        { code: 'SUS-001', description: 'Front Shock Absorber Replacement (per side)', standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'SUS-002', description: 'Rear Shock Absorber Replacement (per side)',  standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'SUS-003', description: 'Four-Wheel Alignment',                   standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'SUS-004', description: 'Front Control Arm Replacement',          standard_aw: 2.0, hourly_rate: 95.00 },
+        // Transmission
+        { code: 'TRANS-001', description: 'Manual Gearbox Oil Change',            standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'TRANS-002', description: 'Clutch Kit Replacement',               standard_aw: 5.0, hourly_rate: 95.00 },
+        { code: 'TRANS-003', description: 'Transmission Fault Diagnosis',         standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'TRANS-004', description: 'Automatic Transmission Fluid Service', standard_aw: 1.0, hourly_rate: 95.00 },
+        // General Service
+        { code: 'GEN-001', description: 'Annual Service – Minor (Oil, Filter, Check)', standard_aw: 1.0, hourly_rate: 95.00 },
+        { code: 'GEN-002', description: 'Annual Service – Major (Full Inspection)',     standard_aw: 2.5, hourly_rate: 95.00 },
+        { code: 'GEN-003', description: 'Pre-MOT / TÜV Inspection',              standard_aw: 1.5, hourly_rate: 95.00 },
+        { code: 'GEN-004', description: 'Cabin & Engine Air Filter Replacement',  standard_aw: 0.5, hourly_rate: 95.00 },
+    ];
+
+    await Promise.all(
+        laborOperationDefs.map(op =>
+            prisma.laborOperation.upsert({
+                where: { code: op.code },
+                update: { category_id: resolveCategoryId(op.code) },
+                create: {
+                    code: op.code,
+                    description: op.description,
+                    standard_aw: op.standard_aw,
+                    hourly_rate: op.hourly_rate,
+                    category_id: resolveCategoryId(op.code),
+                },
+            })
+        )
+    );
+
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
     console.log('✓ Revenue groups and default finance settings created');
     console.log('✓ Brands (Dual/Pure) created and linked to items');
+    console.log(`✓ ${[catEngine, catBrakes, catElectrical, catSuspension, catTransmission, catGeneral].length} labor categories created (Engine, Brakes, Electrical, Suspension, Transmission, General Service)`);
+    console.log(`✓ ${laborOperationDefs.length} labor operations seeded and categorized`);
 }
 
 main()
