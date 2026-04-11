@@ -788,6 +788,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/labor/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LaborController_listOperations"];
+        put?: never;
+        post: operations["LaborController_createOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/labor/operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LaborController_getOperation"];
+        put?: never;
+        post?: never;
+        delete: operations["LaborController_removeOperation"];
+        options?: never;
+        head?: never;
+        patch: operations["LaborController_updateOperation"];
+        trace?: never;
+    };
     "/api/labor/categories": {
         parameters: {
             query?: never;
@@ -973,6 +1005,103 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        LaborOperationCategoryDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        LaborOperationFitmentResponseDto: {
+            /** Format: uuid */
+            id: string;
+            make: string;
+            model: string;
+            yearFrom?: Record<string, never> | null;
+            yearTo?: Record<string, never> | null;
+            engineCode?: Record<string, never> | null;
+        };
+        LaborOperationResponseDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            internalCost?: Record<string, never> | null;
+            /** Format: uuid */
+            categoryId?: Record<string, never> | null;
+            category?: components["schemas"]["LaborOperationCategoryDto"] | null;
+            isActive: boolean;
+            fitments: components["schemas"]["LaborOperationFitmentResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaginatedLaborOperationsMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        PaginatedLaborOperationsResponseDto: {
+            data: components["schemas"]["LaborOperationResponseDto"][];
+            meta: components["schemas"]["PaginatedLaborOperationsMetaDto"];
+        };
+        LaborOperationFitmentDto: {
+            /** @description Vehicle make */
+            make: string;
+            /** @description Vehicle model */
+            model: string;
+            /** @description Year from (inclusive) */
+            yearFrom?: number;
+            /** @description Year to (inclusive) */
+            yearTo?: number;
+            /** @description Engine code */
+            engineCode?: string;
+        };
+        CreateLaborOperationDto: {
+            /** @description Unique operation code */
+            code: string;
+            /** @description Operation description */
+            description: string;
+            /** @description Standard allocated work hours (>= 0) */
+            standardAw: number;
+            /** @description Hourly rate (> 0) */
+            hourlyRate: number;
+            /** @description Internal cost per operation (overrides category default for cost tracking) */
+            internalCost?: number;
+            /**
+             * Format: uuid
+             * @description Category ID
+             */
+            categoryId?: string;
+            /** @description Fitments for this operation */
+            fitments?: components["schemas"]["LaborOperationFitmentDto"][];
+        };
+        UpdateLaborOperationDto: {
+            /** @description Unique operation code */
+            code?: string;
+            /** @description Operation description */
+            description?: string;
+            /** @description Standard allocated work hours (>= 0) */
+            standardAw?: number;
+            /** @description Hourly rate (> 0) */
+            hourlyRate?: number;
+            /** @description Internal cost per operation (overrides category default for cost tracking) */
+            internalCost?: number;
+            /**
+             * Format: uuid
+             * @description Category ID
+             */
+            categoryId?: string;
+            /** @description Fitments for this operation */
+            fitments?: components["schemas"]["LaborOperationFitmentDto"][];
+        };
+        SoftDeleteResponseDto: {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
         };
         CreateLaborCategoryDto: {
             /** @description Unique name for the labor category */
@@ -2666,6 +2795,130 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    LaborController_listOperations: {
+        parameters: {
+            query?: {
+                /** @description Search term matching code or description */
+                search?: string;
+                /** @description Filter by category ID */
+                categoryId?: string;
+                /** @description Filter by active status */
+                isActive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
+                /** @description Sort field */
+                sortField?: "code" | "description" | "standardAw" | "hourlyRate" | "createdAt";
+                /** @description Sort direction */
+                sortDirection?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLaborOperationsResponseDto"];
+                };
+            };
+        };
+    };
+    LaborController_createOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLaborOperationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
+            };
+        };
+    };
+    LaborController_getOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
+            };
+        };
+    };
+    LaborController_removeOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoftDeleteResponseDto"];
+                };
+            };
+        };
+    };
+    LaborController_updateOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLaborOperationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
             };
         };
     };

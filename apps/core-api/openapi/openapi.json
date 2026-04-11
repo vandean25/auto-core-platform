@@ -2278,6 +2278,231 @@
         ]
       }
     },
+    "/api/labor/operations": {
+      "get": {
+        "operationId": "LaborController_listOperations",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search term matching code or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category ID",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "Filter by active status",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based)",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code",
+                "description",
+                "standardAw",
+                "hourlyRate",
+                "createdAt"
+              ]
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedLaborOperationsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      },
+      "post": {
+        "operationId": "LaborController_createOperation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLaborOperationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      }
+    },
+    "/api/labor/operations/{id}": {
+      "get": {
+        "operationId": "LaborController_getOperation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      },
+      "patch": {
+        "operationId": "LaborController_updateOperation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLaborOperationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      },
+      "delete": {
+        "operationId": "LaborController_removeOperation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoftDeleteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "labor"
+        ]
+      }
+    },
     "/api/labor/categories": {
       "get": {
         "operationId": "LaborController_getCategories",
@@ -2939,6 +3164,290 @@
         },
         "required": [
           "workshopOrderId"
+        ]
+      },
+      "LaborOperationCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "LaborOperationFitmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "yearFrom": {
+            "type": "object",
+            "nullable": true
+          },
+          "yearTo": {
+            "type": "object",
+            "nullable": true
+          },
+          "engineCode": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model"
+        ]
+      },
+      "LaborOperationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "internalCost": {
+            "type": "object",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "category": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LaborOperationCategoryDto"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fitments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationFitmentResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "isActive",
+          "fitments",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedLaborOperationsMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "PaginatedLaborOperationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedLaborOperationsMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "LaborOperationFitmentDto": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": "string",
+            "description": "Vehicle make"
+          },
+          "model": {
+            "type": "string",
+            "description": "Vehicle model"
+          },
+          "yearFrom": {
+            "type": "number",
+            "description": "Year from (inclusive)"
+          },
+          "yearTo": {
+            "type": "number",
+            "description": "Year to (inclusive)"
+          },
+          "engineCode": {
+            "type": "string",
+            "description": "Engine code"
+          }
+        },
+        "required": [
+          "make",
+          "model"
+        ]
+      },
+      "CreateLaborOperationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Unique operation code"
+          },
+          "description": {
+            "type": "string",
+            "description": "Operation description"
+          },
+          "standardAw": {
+            "type": "number",
+            "description": "Standard allocated work hours (>= 0)",
+            "minimum": 0
+          },
+          "hourlyRate": {
+            "type": "number",
+            "description": "Hourly rate (> 0)",
+            "minimum": 0.01
+          },
+          "internalCost": {
+            "type": "number",
+            "description": "Internal cost per operation (overrides category default for cost tracking)"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "Category ID",
+            "format": "uuid"
+          },
+          "fitments": {
+            "description": "Fitments for this operation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationFitmentDto"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate"
+        ]
+      },
+      "UpdateLaborOperationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Unique operation code"
+          },
+          "description": {
+            "type": "string",
+            "description": "Operation description"
+          },
+          "standardAw": {
+            "type": "number",
+            "description": "Standard allocated work hours (>= 0)",
+            "minimum": 0
+          },
+          "hourlyRate": {
+            "type": "number",
+            "description": "Hourly rate (> 0)",
+            "minimum": 0.01
+          },
+          "internalCost": {
+            "type": "number",
+            "description": "Internal cost per operation (overrides category default for cost tracking)"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "Category ID",
+            "format": "uuid"
+          },
+          "fitments": {
+            "description": "Fitments for this operation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationFitmentDto"
+            }
+          }
+        }
+      },
+      "SoftDeleteResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "isActive"
         ]
       },
       "CreateLaborCategoryDto": {
