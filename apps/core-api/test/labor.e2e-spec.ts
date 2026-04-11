@@ -4,11 +4,19 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
+type CategoryNode = { id: string; name: string; children: CategoryNode[] };
+type OperationListItem = { id: string; isActive: boolean; categoryId?: string };
+type SearchResultItem = { id: string };
+
+const PREFIX = 'e2e-labor-';
+
 describe('Labor Module (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let originalApiKey: string | undefined;
 
   beforeAll(async () => {
+    originalApiKey = process.env.API_KEY;
     process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -21,17 +29,23 @@ describe('Labor Module (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    // Clean up labor data before running tests
-    await prisma.laborFitment.deleteMany();
-    await prisma.laborOperation.deleteMany();
-    await prisma.laborCategory.deleteMany();
+    // Clean up only records created by this suite (scoped by PREFIX)
+    await prisma.laborFitment.deleteMany({
+      where: { labor_operation: { code: { startsWith: PREFIX } } },
+    });
+    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
+    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
   });
 
   afterAll(async () => {
-    await prisma.laborFitment.deleteMany();
-    await prisma.laborOperation.deleteMany();
-    await prisma.laborCategory.deleteMany();
+    await prisma.laborFitment.deleteMany({
+      where: { labor_operation: { code: { startsWith: PREFIX } } },
+    });
+    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
+    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
     await app.close();
+    if (originalApiKey === undefined) delete process.env.API_KEY;
+    else process.env.API_KEY = originalApiKey;
   });
 
   // ── LaborCategory ──────────────────────────────────────────────────────
@@ -45,11 +59,11 @@ describe('Labor Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Engine Repair', description: 'Engine-related repairs' })
+        .send({ name: `${PREFIX}Engine Repair`, description: 'Engine-related repairs' })
         .expect(201);
 
       expect(res.body).toMatchObject({
-        name: 'Engine Repair',
+        name: `${PREFIX}Engine Repair`,
         description: 'Engine-related repairs',
         parent_id: null,
         is_active: true,
@@ -63,14 +77,14 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
         .send({
-          name: 'Cylinder Head',
+          name: `${PREFIX}Cylinder Head`,
           description: 'Cylinder head work',
           parent_id: topLevelCategoryId,
         })
         .expect(201);
 
       expect(res.body).toMatchObject({
-        name: 'Cylinder Head',
+        name: `${PREFIX}Cylinder Head`,
         parent_id: topLevelCategoryId,
         is_active: true,
       });
@@ -83,7 +97,7 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
         .send({
-          name: 'Too Deep Category',
+          name: `${PREFIX}Too Deep Category`,
           parent_id: subCategoryId,
         })
         .expect(400);
@@ -95,7 +109,7 @@ describe('Labor Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Engine Repair' })
+        .send({ name: `${PREFIX}Engine Repair` })
         .expect(409);
 
       expect(res.body.message).toContain('already exists');
@@ -105,10 +119,10 @@ describe('Labor Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/labor/categories/${topLevelCategoryId}`)
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Engine Repair Updated' })
+        .send({ name: `${PREFIX}Engine Repair Updated` })
         .expect(200);
 
-      expect(res.body).toMatchObject({ name: 'Engine Repair Updated' });
+      expect(res.body).toMatchObject({ name: `${PREFIX}Engine Repair Updated` });
     });
 
     it('should list categories as tree structure → 200', async () => {
@@ -121,13 +135,14 @@ describe('Labor Module (e2e)', () => {
       expect(res.body).toHaveProperty('meta');
       expect(Array.isArray(res.body.data)).toBe(true);
 
-      const parent = res.body.data.find(
-        (c: any) => c.id === topLevelCategoryId,
+      const parent = (res.body.data as CategoryNode[]).find(
+        (c) => c.id === topLevelCategoryId,
       );
       expect(parent).toBeDefined();
-      expect(Array.isArray(parent.children)).toBe(true);
-      expect(parent.children.length).toBeGreaterThan(0);
-      expect(parent.children[0].id).toBe(subCategoryId);
+      expect(Array.isArray(parent!.children)).toBe(true);
+      expect(parent!.children.length).toBeGreaterThan(0);
+      const child = parent!.children.find((c) => c.id === subCategoryId);
+      expect(child).toBeDefined();
     });
 
     it('should reject deletion of a category that has children → 409', async () => {
@@ -145,7 +160,7 @@ describe('Labor Module (e2e)', () => {
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Category With Operations' })
+        .send({ name: `${PREFIX}Category With Ops` })
         .expect(201);
       const catId = catRes.body.id;
 
@@ -153,7 +168,7 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/operations')
         .set('x-api-key', 'test-api-key')
         .send({
-          code: 'OP-GUARD-001',
+          code: `${PREFIX}OP-GUARD-001`,
           description: 'Guard test operation',
           standardAw: 1.0,
           hourlyRate: 75.0,
@@ -173,7 +188,7 @@ describe('Labor Module (e2e)', () => {
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Empty Category To Delete' })
+        .send({ name: `${PREFIX}Empty Category` })
         .expect(201);
       categoryForDeletionId = catRes.body.id;
 
@@ -197,7 +212,7 @@ describe('Labor Module (e2e)', () => {
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: 'Transmission' })
+        .send({ name: `${PREFIX}Transmission` })
         .expect(201);
       categoryId = catRes.body.id;
     });
@@ -207,7 +222,7 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/operations')
         .set('x-api-key', 'test-api-key')
         .send({
-          code: 'TR-001',
+          code: `${PREFIX}TR-001`,
           description: 'Transmission overhaul',
           standardAw: 4.5,
           hourlyRate: 85.0,
@@ -226,7 +241,7 @@ describe('Labor Module (e2e)', () => {
         .expect(201);
 
       expect(res.body).toMatchObject({
-        code: 'TR-001',
+        code: `${PREFIX}TR-001`,
         description: 'Transmission overhaul',
         standardAw: 4.5,
         hourlyRate: 85.0,
@@ -250,10 +265,11 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/operations')
         .set('x-api-key', 'test-api-key')
         .send({
-          code: 'TR-001',
+          code: `${PREFIX}TR-001`,
           description: 'Duplicate code attempt',
           standardAw: 1.0,
           hourlyRate: 50.0,
+          categoryId,
         })
         .expect(409);
 
@@ -315,9 +331,11 @@ describe('Labor Module (e2e)', () => {
 
       expect(res.body).toHaveProperty('data');
       expect(res.body).toHaveProperty('meta');
-      const found = res.body.data.find((op: any) => op.id === operationId);
+      const found = (res.body.data as OperationListItem[]).find(
+        (op) => op.id === operationId,
+      );
       expect(found).toBeDefined();
-      expect(found.isActive).toBe(false);
+      expect(found!.isActive).toBe(false);
     });
 
     it('should list operations filtered by isActive=true → excludes soft-deleted', async () => {
@@ -326,7 +344,9 @@ describe('Labor Module (e2e)', () => {
         .set('x-api-key', 'test-api-key')
         .expect(200);
 
-      const found = res.body.data.find((op: any) => op.id === operationId);
+      const found = (res.body.data as OperationListItem[]).find(
+        (op) => op.id === operationId,
+      );
       expect(found).toBeUndefined();
     });
 
@@ -336,7 +356,7 @@ describe('Labor Module (e2e)', () => {
         .post('/api/labor/operations')
         .set('x-api-key', 'test-api-key')
         .send({
-          code: 'TR-CAT-001',
+          code: `${PREFIX}TR-CAT-001`,
           description: 'Category filter test',
           standardAw: 2.0,
           hourlyRate: 75.0,
@@ -350,7 +370,7 @@ describe('Labor Module (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThan(0);
-      res.body.data.forEach((op: any) => {
+      (res.body.data as OperationListItem[]).forEach((op) => {
         expect(op.categoryId).toBe(categoryId);
       });
 
@@ -359,96 +379,102 @@ describe('Labor Module (e2e)', () => {
     });
 
     it('search endpoint should exclude inactive operations', async () => {
-      // Create a vehicle, customer, and workshop order for the search endpoint
-      const vehicle = await prisma.vehicle.create({
-        data: {
-          vin: `LABOR-TEST-${Date.now()}`,
-          make: 'Toyota',
-          model: 'Corolla',
-          year: 2020,
-        },
-      });
+      const ts = Date.now();
+      let vehicleId: string | undefined;
+      let customerId: string | undefined;
+      let workshopOrderId: string | undefined;
+      const opIds: string[] = [];
 
-      const customer = await prisma.customer.create({
-        data: {
-          first_name: 'Labor',
-          last_name: 'Tester',
-          email: `labor-${Date.now()}@test.com`,
-        },
-      });
+      try {
+        const vehicle = await prisma.vehicle.create({
+          data: {
+            vin: `e2e-labor-SRCH-${ts}`,
+            make: 'Toyota',
+            model: 'Corolla',
+            year: 2020,
+          },
+        });
+        vehicleId = vehicle.id;
 
-      const workshopOrder = await prisma.workshopOrder.create({
-        data: {
-          customer_id: customer.id,
-          vehicle_id: vehicle.id,
-          order_number: `WO-LABOR-${Date.now()}`,
-          status: 'INTAKE',
-          odometer: 0,
-          fuel_level: 50,
-        },
-      });
+        const customer = await prisma.customer.create({
+          data: {
+            first_name: 'Labor',
+            last_name: 'Tester',
+            email: `e2e-labor-${ts}@test.com`,
+          },
+        });
+        customerId = customer.id;
 
-      // Create an active operation matching the search term
-      const activeOp = await prisma.laborOperation.create({
-        data: {
-          code: `SRCH-ACTIVE-${Date.now()}`,
-          description: 'SearchTerm Active Op',
-          standard_aw: 1.0,
-          hourly_rate: 60.0,
-          is_active: true,
-          fitments: {
-            create: {
-              make: 'Toyota',
-              model: 'Corolla',
-              year_from: 2018,
-              year_to: 2023,
+        const workshopOrder = await prisma.workshopOrder.create({
+          data: {
+            customer_id: customerId,
+            vehicle_id: vehicleId,
+            order_number: `WO-e2e-labor-${ts}`,
+            status: 'INTAKE',
+            odometer: 0,
+            fuel_level: 50,
+          },
+        });
+        workshopOrderId = workshopOrder.id;
+
+        const activeOp = await prisma.laborOperation.create({
+          data: {
+            code: `e2e-labor-SRCH-ACT-${ts}`,
+            description: 'SearchTerm Active Op',
+            standard_aw: 1.0,
+            hourly_rate: 60.0,
+            is_active: true,
+            fitments: {
+              create: {
+                make: 'Toyota',
+                model: 'Corolla',
+                year_from: 2018,
+                year_to: 2023,
+              },
             },
           },
-        },
-      });
+        });
+        opIds.push(activeOp.id);
 
-      // Create an inactive operation with the same description
-      const inactiveOp = await prisma.laborOperation.create({
-        data: {
-          code: `SRCH-INACTIVE-${Date.now()}`,
-          description: 'SearchTerm Inactive Op',
-          standard_aw: 1.0,
-          hourly_rate: 60.0,
-          is_active: false,
-          fitments: {
-            create: {
-              make: 'Toyota',
-              model: 'Corolla',
-              year_from: 2018,
-              year_to: 2023,
+        const inactiveOp = await prisma.laborOperation.create({
+          data: {
+            code: `e2e-labor-SRCH-INACT-${ts}`,
+            description: 'SearchTerm Inactive Op',
+            standard_aw: 1.0,
+            hourly_rate: 60.0,
+            is_active: false,
+            fitments: {
+              create: {
+                make: 'Toyota',
+                model: 'Corolla',
+                year_from: 2018,
+                year_to: 2023,
+              },
             },
           },
-        },
-      });
+        });
+        opIds.push(inactiveOp.id);
 
-      const res = await request(app.getHttpServer())
-        .get(
-          `/api/labor/search?q=SearchTerm&workshopOrderId=${workshopOrder.id}`,
-        )
-        .set('x-api-key', 'test-api-key')
-        .expect(200);
+        const res = await request(app.getHttpServer())
+          .get(`/api/labor/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`)
+          .set('x-api-key', 'test-api-key')
+          .expect(200);
 
-      const ids = res.body.data.map((op: any) => op.id);
-      expect(ids).toContain(activeOp.id);
-      expect(ids).not.toContain(inactiveOp.id);
-
-      // Cleanup
-      await prisma.laborFitment.deleteMany({
-        where: {
-          labor_operation_id: { in: [activeOp.id, inactiveOp.id] },
-        },
-      });
-      await prisma.laborOperation.deleteMany({
-        where: { id: { in: [activeOp.id, inactiveOp.id] } },
-      });
-      await prisma.workshopOrder.delete({ where: { id: workshopOrder.id } });
-      await prisma.vehicle.delete({ where: { id: vehicle.id } });
-      await prisma.customer.delete({ where: { id: customer.id } });
+        const ids = (res.body.data as SearchResultItem[]).map((op) => op.id);
+        expect(ids).toContain(activeOp.id);
+        expect(ids).not.toContain(inactiveOp.id);
+      } finally {
+        if (opIds.length > 0) {
+          await prisma.laborFitment.deleteMany({
+            where: { labor_operation_id: { in: opIds } },
+          });
+          await prisma.laborOperation.deleteMany({ where: { id: { in: opIds } } });
+        }
+        if (workshopOrderId)
+          await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
+        if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
+        if (customerId) await prisma.customer.delete({ where: { id: customerId } });
+      }
     });
   });
 });
