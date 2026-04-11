@@ -2327,6 +2327,7 @@
             "description": "Items per page",
             "schema": {
               "minimum": 1,
+              "maximum": 100,
               "type": "number"
             }
           },
@@ -2362,7 +2363,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedLaborOperationsResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2384,7 +2392,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2407,7 +2422,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2438,7 +2460,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2459,7 +2488,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoftDeleteResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3130,6 +3166,161 @@
           "workshopOrderId"
         ]
       },
+      "LaborOperationCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "LaborOperationFitmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "yearFrom": {
+            "type": "object",
+            "nullable": true
+          },
+          "yearTo": {
+            "type": "object",
+            "nullable": true
+          },
+          "engineCode": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model"
+        ]
+      },
+      "LaborOperationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "internalCost": {
+            "type": "object",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "category": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LaborOperationCategoryDto"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fitments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationFitmentResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "isActive",
+          "fitments",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedLaborOperationsMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "PaginatedLaborOperationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedLaborOperationsMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "LaborOperationFitmentDto": {
         "type": "object",
         "properties": {
@@ -3242,6 +3433,22 @@
             }
           }
         }
+      },
+      "SoftDeleteResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "isActive"
+        ]
       },
       "CreateLaborCategoryDto": {
         "type": "object",

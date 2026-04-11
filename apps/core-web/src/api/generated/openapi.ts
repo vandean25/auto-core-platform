@@ -1006,6 +1006,48 @@ export interface components {
             /** @example workshop-order-id */
             workshopOrderId: string;
         };
+        LaborOperationCategoryDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        LaborOperationFitmentResponseDto: {
+            /** Format: uuid */
+            id: string;
+            make: string;
+            model: string;
+            yearFrom?: Record<string, never> | null;
+            yearTo?: Record<string, never> | null;
+            engineCode?: Record<string, never> | null;
+        };
+        LaborOperationResponseDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            internalCost?: Record<string, never> | null;
+            /** Format: uuid */
+            categoryId?: Record<string, never> | null;
+            category?: components["schemas"]["LaborOperationCategoryDto"] | null;
+            isActive: boolean;
+            fitments: components["schemas"]["LaborOperationFitmentResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaginatedLaborOperationsMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        PaginatedLaborOperationsResponseDto: {
+            data: components["schemas"]["LaborOperationResponseDto"][];
+            meta: components["schemas"]["PaginatedLaborOperationsMetaDto"];
+        };
         LaborOperationFitmentDto: {
             /** @description Vehicle make */
             make: string;
@@ -1055,6 +1097,11 @@ export interface components {
             categoryId?: string;
             /** @description Fitments for this operation */
             fitments?: components["schemas"]["LaborOperationFitmentDto"][];
+        };
+        SoftDeleteResponseDto: {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
         };
         CreateLaborCategoryDto: {
             /** @description Unique name for the labor category */
@@ -2779,7 +2826,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedLaborOperationsResponseDto"];
+                };
             };
         };
     };
@@ -2800,7 +2849,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
             };
         };
     };
@@ -2819,7 +2870,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
             };
         };
     };
@@ -2838,7 +2891,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SoftDeleteResponseDto"];
+                };
             };
         };
     };
@@ -2861,7 +2916,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborOperationResponseDto"];
+                };
             };
         };
     };

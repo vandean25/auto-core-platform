@@ -8,7 +8,12 @@ import {
   Param,
   Query,
 } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { LaborService } from './labor.service';
 import { LaborCategoryService } from './labor-category.service';
 import {
@@ -17,7 +22,10 @@ import {
 } from './dto/labor-category.dto';
 import {
   CreateLaborOperationDto,
+  LaborOperationResponseDto,
   ListLaborOperationsQueryDto,
+  PaginatedLaborOperationsResponseDto,
+  SoftDeleteResponseDto,
   UpdateLaborOperationDto,
 } from './dto/labor-operation.dto';
 
@@ -46,21 +54,25 @@ export class LaborController {
   // ── Labor Operations ──────────────────────────────────────────────────
 
   @Get('operations')
+  @ApiOkResponse({ type: PaginatedLaborOperationsResponseDto })
   listOperations(@Query() query: ListLaborOperationsQueryDto) {
     return this.laborService.findAll(query);
   }
 
   @Get('operations/:id')
+  @ApiOkResponse({ type: LaborOperationResponseDto })
   getOperation(@Param('id') id: string) {
     return this.laborService.findOne(id);
   }
 
   @Post('operations')
+  @ApiCreatedResponse({ type: LaborOperationResponseDto })
   createOperation(@Body() dto: CreateLaborOperationDto) {
     return this.laborService.create(dto);
   }
 
   @Patch('operations/:id')
+  @ApiOkResponse({ type: LaborOperationResponseDto })
   updateOperation(
     @Param('id') id: string,
     @Body() dto: UpdateLaborOperationDto,
@@ -69,6 +81,7 @@ export class LaborController {
   }
 
   @Delete('operations/:id')
+  @ApiOkResponse({ type: SoftDeleteResponseDto })
   removeOperation(@Param('id') id: string) {
     return this.laborService.softDelete(id);
   }

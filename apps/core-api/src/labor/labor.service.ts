@@ -166,7 +166,7 @@ export class LaborService {
     const {
       search,
       categoryId,
-      isActive,
+      isActive = true,
       page = 1,
       limit = 25,
       sortField = 'code',
@@ -199,8 +199,9 @@ export class LaborService {
     };
 
     const dbSortField = SORT_FIELD_MAP[sortField] ?? 'code';
+    const safeSortDirection = sortDirection === 'desc' ? 'desc' : 'asc';
     const orderBy: Prisma.LaborOperationOrderByWithRelationInput = {
-      [dbSortField]: sortDirection ?? 'asc',
+      [dbSortField]: safeSortDirection,
     };
 
     const safePage = Math.max(1, page);
@@ -227,7 +228,7 @@ export class LaborService {
         total,
         page: safePage,
         limit: safeLimit,
-        totalPages: Math.ceil(total / safeLimit),
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
       },
     };
   }
@@ -323,6 +324,13 @@ export class LaborService {
 
     if (!operation) {
       throw new NotFoundException(`Labor operation with ID "${id}" not found`);
+    }
+
+    const nullableFields = ['code', 'description', 'standardAw', 'hourlyRate'] as const;
+    for (const field of nullableFields) {
+      if (dto[field] === null) {
+        throw new BadRequestException(`Field "${field}" cannot be null`);
+      }
     }
 
     if (dto.code !== undefined && dto.code !== operation.code) {

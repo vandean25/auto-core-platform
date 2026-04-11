@@ -6,11 +6,17 @@ import {
   IsNumber,
   IsUUID,
   Min,
+  Max,
   IsArray,
   ValidateNested,
   IsInt,
+  IsIn,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+} from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 
 export class LaborOperationFitmentDto {
@@ -42,11 +48,13 @@ export class LaborOperationFitmentDto {
 
 export class CreateLaborOperationDto {
   @ApiProperty({ description: 'Unique operation code' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   code: string;
 
   @ApiProperty({ description: 'Operation description' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   description: string;
@@ -108,16 +116,21 @@ export class ListLaborOperationsQueryDto {
 
   @ApiPropertyOptional({ description: 'Page number (1-based)', minimum: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === '' ? undefined : Number(value),
+  )
   @IsInt()
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1 })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === '' ? undefined : Number(value),
+  )
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number;
 
   @ApiPropertyOptional({
@@ -125,11 +138,109 @@ export class ListLaborOperationsQueryDto {
     enum: ['code', 'description', 'standardAw', 'hourlyRate', 'createdAt'],
   })
   @IsOptional()
-  @IsString()
-  sortField?: string;
+  @IsIn(['code', 'description', 'standardAw', 'hourlyRate', 'createdAt'])
+  sortField?: 'code' | 'description' | 'standardAw' | 'hourlyRate' | 'createdAt';
 
   @ApiPropertyOptional({ description: 'Sort direction', enum: ['asc', 'desc'] })
   @IsOptional()
-  @IsString()
+  @IsIn(['asc', 'desc'])
   sortDirection?: 'asc' | 'desc';
+}
+
+// ── Response DTOs ─────────────────────────────────────────────────────────
+
+export class LaborOperationCategoryDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  name: string;
+}
+
+export class LaborOperationFitmentResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  make: string;
+
+  @ApiProperty()
+  model: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  yearFrom: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  yearTo: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  engineCode: string | null;
+}
+
+export class LaborOperationResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty()
+  standardAw: number;
+
+  @ApiProperty()
+  hourlyRate: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  internalCost: number | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  categoryId: string | null;
+
+  @ApiPropertyOptional({ type: () => LaborOperationCategoryDto, nullable: true })
+  category: LaborOperationCategoryDto | null;
+
+  @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty({ type: [LaborOperationFitmentResponseDto] })
+  fitments: LaborOperationFitmentResponseDto[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class PaginatedLaborOperationsMetaDto {
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
+
+  @ApiProperty()
+  totalPages: number;
+}
+
+export class PaginatedLaborOperationsResponseDto {
+  @ApiProperty({ type: [LaborOperationResponseDto] })
+  data: LaborOperationResponseDto[];
+
+  @ApiProperty({ type: () => PaginatedLaborOperationsMetaDto })
+  meta: PaginatedLaborOperationsMetaDto;
+}
+
+export class SoftDeleteResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  isActive: boolean;
 }
