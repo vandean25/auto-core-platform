@@ -11,6 +11,8 @@ import {
   InvoiceStatus,
   SalesOrderStatus,
   TransactionType,
+} from '@prisma/client';
+import type {
   CatalogItem,
   RevenueGroup,
   InventoryStock,
@@ -24,7 +26,7 @@ export class SalesService {
   ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
-    const { items, ...invoiceData } = createInvoiceDto;
+    const { items = [], ...invoiceData } = createInvoiceDto;
 
     // Calculate totals and snapshot revenue groups
     let totalNet = 0;

@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Response } from 'express';
+import type { Response } from 'express';
 import {
   ApplicationError,
   ConflictError,
@@ -15,6 +15,10 @@ import {
   BadRequestError,
   ValidationError,
 } from '../errors/application-errors';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -26,29 +30,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
+    let error: string | undefined;
 
     // Handle standard NestJS HttpExceptions
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const responseBody = exception.getResponse();
-      if (typeof responseBody === 'object' && responseBody !== null) {
-        message = (responseBody as Record<string, unknown>).message as
-          | string
-          | string[] || exception.message;
+
+      if (isRecord(responseBody)) {
+        message = (responseBody.message as string | string[]) || exception.message;
+        error = responseBody.error as string | undefined;
       } else {
         message = exception.message;
       }
 
-      // Mask messages for 500 errors in production-like environments
-      if (status >= 500) {
-        this.logger.error(`HttpException ${status}: ${exception.message}`, exception.stack);
+      // Mask messages for 500 errors in production
+      if (status >= 500 && process.env.NODE_ENV === 'production') {
+        this.logger.error(
+          `HttpException ${status}: ${exception.message}`,
+          exception.stack,
+        );
         message = 'Internal server error';
       }
     }
     // Handle Prisma specific exceptions (as fallback for unhandled database errors)
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       // Sanitize logging: log only code and meta, skip raw message which might contain values
-      this.logger.error(`Prisma error ${exception.code}`, { meta: exception.meta });
+      this.logger.error(
+        `Prisma error ${exception.code} | meta: ${JSON.stringify(exception.meta ?? {})}`,
+      );
       switch (exception.code) {
         case 'P2000':
           status = HttpStatus.BAD_REQUEST;
@@ -86,9 +96,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // General Error handling
     else if (exception instanceof Error) {
-      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
-      // Mask messages for 500 errors in production-like environments
-      // For simplicity here, we always mask for 500s unless they are HttpExceptions or ApplicationErrors
+      this.logger.error(
+        `Unhandled error: ${exception.message}`,
+        exception.stack,
+      );
+      // Mask messages for 500 errors in production
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Internal server error';
     } else {
@@ -98,7 +110,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message,
-      error: HttpStatus[status],
+      error: error || this.getHttpStatusName(status),
     });
+  }
+
+  private getHttpStatusName(status: number): string {
+    // Map common status codes to human-readable strings to match NestJS defaults
+    switch (status) {
+      case 400:
+        return 'Bad Request';
+      case 401:
+        return 'Unauthorized';
+      case 403:
+        return 'Forbidden';
+      case 404:
+        return 'Not Found';
+      case 409:
+        return 'Conflict';
+      case 422:
+        return 'Unprocessable Entity';
+      case 500:
+        return 'Internal Server Error';
+      default:
+        return HttpStatus[status] || 'Error';
+    }
   }
 }

@@ -226,11 +226,6 @@ export class SalesOrderService {
           },
         });
 
-        await tx.salesOrder.update({
-          where: { id: order.id },
-          data: { status: SalesOrderStatus.INVOICED },
-        });
-
         return invoice;
       } catch (error) {
         if (

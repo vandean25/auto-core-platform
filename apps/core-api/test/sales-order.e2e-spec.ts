@@ -26,20 +26,21 @@ describe('Sales Order Workflow (e2e)', () => {
     // Clean up
     try {
       await prisma.$executeRawUnsafe(`
-                TRUNCATE TABLE 
-                    "invoice_items",
-                    "invoices",
-                    "sales_order_items",
-                    "sales_orders",
-                    "customers",
-                    "catalog_items",
-                    "inventory_stocks",
-                    "inventory_transactions",
-                    "purchase_order_items",
-                    "purchase_orders",
-                    "vendors"
-                CASCADE;
-            `);
+        TRUNCATE TABLE 
+          "inventory_transactions",
+          "inventory_stocks",
+          "storage_locations",
+          "invoice_items",
+          "invoices",
+          "invoice_sequences",
+          "sales_order_items",
+          "sales_orders",
+          "customers",
+          "catalog_items",
+          "revenue_groups",
+          "brands"
+        CASCADE;
+      `);
     } catch (error) {
       console.error('Cleanup failed:', error);
       throw error;
@@ -70,6 +71,7 @@ describe('Sales Order Workflow (e2e)', () => {
 
     const location = await prisma.storageLocation.create({
       data: {
+        code: `LOC-SO-${Date.now()}`,
         name: `SO-Location-${Date.now()}`,
         type: 'warehouse',
       },
@@ -152,7 +154,13 @@ describe('Sales Order Workflow (e2e)', () => {
     });
     expect(pendingOrder.status).toBe('DRAFT');
 
-    // 4. Finalize invoice to lock order
+    // 4. Update order to CONFIRMED before finalizing invoice (as required by SalesService validation)
+    await prisma.salesOrder.update({
+      where: { id: orderId },
+      data: { status: 'CONFIRMED' },
+    });
+
+    // 5. Finalize invoice to lock order
     const finalizeRes = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
       .set('x-api-key', 'test-api-key')
