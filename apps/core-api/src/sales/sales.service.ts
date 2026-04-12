@@ -1,3 +1,4 @@
+import { chunkedPromiseAll } from '../common/utils/promise.util';
 import {
   Injectable,
   NotFoundException,
@@ -110,6 +111,8 @@ export class SalesService {
       const invoiceNumber = await this.generateInvoiceNumber(tx);
 
       // 2. Process Inventory Transactions
+      const transactionPromises: (() => Promise<any>)[] = [];
+
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
           // Find stock location (assuming primary location for now)
@@ -144,17 +147,24 @@ export class SalesService {
             );
           }
 
-          // Create Sale Issue Transaction
-          await tx.inventoryTransaction.create({
-            data: {
-              item_id: item.catalog_item_id,
-              location_id: locationId,
-              quantity: new Prisma.Decimal(item.quantity).negated(),
-              type: TransactionType.SALE_ISSUE,
-              reference_id: invoiceNumber,
-            },
-          });
+          // Queue Sale Issue Transaction promise creation
+          transactionPromises.push(() =>
+            tx.inventoryTransaction.create({
+              data: {
+                item_id: item.catalog_item_id as string,
+                location_id: locationId,
+                quantity: new Prisma.Decimal(item.quantity).negated(),
+                type: TransactionType.SALE_ISSUE,
+                reference_id: invoiceNumber,
+              },
+            }),
+          );
         }
+      }
+
+      // Execute queued transactions using chunkedPromiseAll
+      if (transactionPromises.length > 0) {
+        await chunkedPromiseAll(transactionPromises, (fn) => fn());
       }
 
       // 3. Update Invoice Status and return updated invoice
