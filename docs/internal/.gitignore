@@ -1,3 +1,7 @@
 # Linear CLI temporary description files
 .linear-drafts/*
 !.linear-drafts/.gitkeep
+
+# Obsidian user-specific workspace state (causes noisy diffs & merge conflicts)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json

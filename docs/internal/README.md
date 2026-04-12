@@ -15,7 +15,10 @@ docs/internal/
 │   ├── Workshop/
 │   ├── Inventory/
 │   ├── Finance/
-│   └── Brand/
+│   ├── Brand/
+│   ├── Vehicle/
+│   ├── Labor/
+│   └── Dashboard/
 ├── 03-Component-Specs/    ← Shared UI & backend component docs
 ├── 04-Database/           ← Schema docs, migration notes, ERDs
 ├── 05-Runbooks/           ← Operational playbooks & checklists
@@ -30,7 +33,7 @@ docs/internal/
 | **New features** | Draft a Feature Spec using the template *before* implementation begins. |
 | **Architecture changes** | Record the decision in `01-ADR/` using the ADR template. |
 | **Naming** | Use `YYYY-MM-DD-kebab-case-title.md` for ADRs. Feature specs use the feature name. |
-| **Tags** | Prefix with module: `#sales`, `#purchase`, `#workshop`, `#inventory`, `#finance`, `#brand`. |
+| **Tags** | Prefix with module: `sales`, `purchase`, `workshop`, `inventory`, `finance`, `brand`. |
 | **Links** | Prefer `[[wiki-links]]` for cross-references inside the vault. |
 
 ## Quick-Start

@@ -7,6 +7,7 @@ linear-project: ""
 linear-milestone: ""
 tags:
   - feature-spec
+  - "{{module}}"
 ---
 
 # {{title}}

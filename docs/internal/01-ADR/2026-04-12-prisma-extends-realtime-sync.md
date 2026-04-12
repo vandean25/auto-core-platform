@@ -229,7 +229,7 @@ sequenceDiagram
 ## References
 
 - [Prisma Client Extensions docs](https://www.prisma.io/docs/orm/prisma-client/client-extensions)
-- [[../03-Component-Specs/RealtimeDashboardSyncProvider|RealtimeDashboardSyncProvider Component Spec]]
+- `RealtimeDashboardSyncProvider` implementation: `apps/core-web/src/features/realtime/RealtimeDashboardSyncProvider.tsx`
 - Source files:
   - `apps/core-api/src/prisma/prisma-dashboard-realtime.extension.ts`
   - `apps/core-api/src/dashboard-realtime/dashboard-realtime.service.ts`

@@ -28,8 +28,8 @@ We needed a way to shift governance left, directly into the IDE and the PR flow,
 We instituted **Automated Architectural Governance** by scaffolding a custom GitHub Copilot Extension (a stateless NestJS agent) inside the monorepo.
 
 1. **The Vault as Ground Truth:** This Obsidian vault (`docs/internal`) serves as the single source of truth for all architectural invariants (ADRs) and component behaviors.
-2. **Agent Rules (`AGENTS.md`):** We developed a centralized ruleset instructing the AI on the explicit frontend and backend logic.
-3. **Automated Enforcement:** The Copilot Agent analyzes proposed PRs against the Vault and `AGENTS.md`. If a developer attempts an N+1 query loop or mutates `InventoryStock` instead of posting to the ledger, the agent rejects it.
+2. **Agent Rules (`agents.md`):** We developed a centralized ruleset instructing the AI on the explicit frontend and backend logic.
+3. **Automated Enforcement:** The Copilot Agent analyzes proposed PRs against the Vault and `agents.md`. If a developer attempts an N+1 query loop or mutates `InventoryStock` instead of posting to the ledger, the agent rejects it.
 
 ## Consequences
 
@@ -45,7 +45,7 @@ We instituted **Automated Architectural Governance** by scaffolding a custom Git
 ## References
 
 - `docs/internal/README.md`
-- `AGENTS.md` (Repository Root)
+- `agents.md` (Repository Root)
 
 ---
 
