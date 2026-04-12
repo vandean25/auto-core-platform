@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -30,15 +31,25 @@ export class SalesService {
     const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
       [];
 
+    // 1. Extract unique IDs and pre-fetch
+    const uniqueCatalogItemIds = [...new Set(items.map(i => i.catalogItemId).filter(id => id !== undefined && id !== null))];
+
+    // 2. Fetch all required catalog items in one query
+    const catalogItems = await this.prisma.catalogItem.findMany({
+      where: { id: { in: uniqueCatalogItemIds as string[] } },
+      include: { revenue_group: true },
+    });
+
+    // 3. Build a Map for O(1) lookups
+    const catalogItemMap = new Map(catalogItems.map(item => [item.id, item]));
+
+    // 4. Iterate over original items to preserve order
     for (const item of items) {
       let taxRate = item.taxRate;
       let revenueGroupName: string | null = null;
 
       if (item.catalogItemId) {
-        const catalogItem = await this.prisma.catalogItem.findUnique({
-          where: { id: item.catalogItemId },
-          include: { revenue_group: true },
-        });
+        const catalogItem = catalogItemMap.get(item.catalogItemId);
 
         if (catalogItem?.revenue_group) {
           revenueGroupName = catalogItem.revenue_group.name;
@@ -110,26 +121,53 @@ export class SalesService {
       const invoiceNumber = await this.generateInvoiceNumber(tx);
 
       // 2. Process Inventory Transactions
+
+      // 2a. Aggregate quantities by catalog_item_id to handle duplicates properly
+      const itemQuantities = new Map<string, { quantity: number, description: string }>();
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          // Find stock location (assuming primary location for now)
-          const stock = await tx.inventoryStock.findFirst({
-            where: { catalog_item_id: item.catalog_item_id },
-          });
+          const existing = itemQuantities.get(item.catalog_item_id);
+          if (existing) {
+            existing.quantity += Number(item.quantity);
+          } else {
+            itemQuantities.set(item.catalog_item_id, {
+              quantity: Number(item.quantity),
+              description: item.description || 'Unknown Item'
+            });
+          }
+        }
+      }
+
+      // 2b. Extract unique IDs and pre-fetch inventory stock
+      const uniqueCatalogItemIdsForStock = Array.from(itemQuantities.keys());
+
+      if (uniqueCatalogItemIdsForStock.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: { catalog_item_id: { in: uniqueCatalogItemIdsForStock } },
+        });
+
+        // 2c. Build a Map for O(1) lookups. Assuming one primary location per item for now as per original logic.
+        const stockMap = new Map(stocks.map(stock => [stock.catalog_item_id, stock]));
+
+        // 2d. Prepare write payloads and execute concurrently
+        const aggregatedItems = Array.from(itemQuantities.entries());
+
+        await chunkedPromiseAll(aggregatedItems, async ([catalogItemId, data]) => {
+          const stock = stockMap.get(catalogItemId);
 
           if (!stock) {
             throw new BadRequestException(
-              `No stock record found for item ${item.description}`,
+              `No stock record found for item ${data.description}`,
             );
           }
 
           const locationId = stock.location_id;
-          const quantityToDeduct = Number(item.quantity);
+          const quantityToDeduct = data.quantity;
 
           // Atomic Update with Check (Optimistic Locking via WHERE clause)
           const updateResult = await tx.inventoryStock.updateMany({
             where: {
-              catalog_item_id: item.catalog_item_id,
+              catalog_item_id: catalogItemId,
               location_id: locationId,
               quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
             },
@@ -140,21 +178,21 @@ export class SalesService {
 
           if (updateResult.count === 0) {
             throw new BadRequestException(
-              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+              `Insufficient stock for item ${data.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
             );
           }
 
           // Create Sale Issue Transaction
           await tx.inventoryTransaction.create({
             data: {
-              item_id: item.catalog_item_id,
+              item_id: catalogItemId,
               location_id: locationId,
-              quantity: new Prisma.Decimal(item.quantity).negated(),
+              quantity: new Prisma.Decimal(quantityToDeduct).negated(),
               type: TransactionType.SALE_ISSUE,
               reference_id: invoiceNumber,
             },
           });
-        }
+        });
       }
 
       // 3. Update Invoice Status and return updated invoice
