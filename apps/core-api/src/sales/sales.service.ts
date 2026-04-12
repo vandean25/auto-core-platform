@@ -11,7 +11,9 @@ import {
   InvoiceStatus,
   SalesOrderStatus,
   TransactionType,
+  InventoryStock,
 } from '@prisma/client';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
 
 @Injectable()
 export class SalesService {
@@ -104,18 +106,48 @@ export class SalesService {
     // Validate fiscal period before any changes
     await this.financeService.validateTransactionDate(invoice.date);
 
+    // Pre-fetch & Map: Extract unique catalogItemId and locationId pairs
+    const catalogItemIdsWithQuantities = invoice.items
+      .filter((item) => item.catalog_item_id !== null)
+      .map((item) => ({
+        id: item.catalog_item_id as string,
+        quantity: Number(item.quantity),
+      }));
+
+    const uniqueCatalogItemIds = [
+      ...new Set(catalogItemIdsWithQuantities.map((item) => item.id)),
+    ];
+
+    // Find all required stock records
+    // Assuming primary location for now by finding ANY stock location for the item, just like original
+    const stocks = await this.prisma.inventoryStock.findMany({
+      where: {
+        catalog_item_id: { in: uniqueCatalogItemIds },
+      },
+      // Order to pick first location deterministically if needed, original code used findFirst which is non-deterministic
+      orderBy: { location_id: 'asc' },
+    });
+
+    // We only need the FIRST stock location for each item to match the original logic
+    const stockMap = new Map<string, InventoryStock>();
+    for (const stock of stocks) {
+      if (!stockMap.has(stock.catalog_item_id)) {
+        stockMap.set(stock.catalog_item_id, stock);
+      }
+    }
+
     // Execute everything in a single transaction
     return this.prisma.$transaction(async (tx) => {
       // 1. Generate Invoice Number (Atomic)
       const invoiceNumber = await this.generateInvoiceNumber(tx);
 
-      // 2. Process Inventory Transactions
+      // Arrays to hold promise definitions for concurrent execution
+      const operations: (() => Promise<any>)[] = [];
+
+      // 2. Process Inventory Transactions and prepare chunked operations
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          // Find stock location (assuming primary location for now)
-          const stock = await tx.inventoryStock.findFirst({
-            where: { catalog_item_id: item.catalog_item_id },
-          });
+          const stock = stockMap.get(item.catalog_item_id);
 
           if (!stock) {
             throw new BadRequestException(
@@ -126,36 +158,48 @@ export class SalesService {
           const locationId = stock.location_id;
           const quantityToDeduct = Number(item.quantity);
 
-          // Atomic Update with Check (Optimistic Locking via WHERE clause)
-          const updateResult = await tx.inventoryStock.updateMany({
-            where: {
-              catalog_item_id: item.catalog_item_id,
-              location_id: locationId,
-              quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
-            },
-            data: {
-              quantity_on_hand: { decrement: quantityToDeduct },
-            },
-          });
-
-          if (updateResult.count === 0) {
+          if (Number(stock.quantity_on_hand) < quantityToDeduct) {
             throw new BadRequestException(
               `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
             );
           }
 
+          operations.push(async () => {
+            const updateResult = await tx.inventoryStock.updateMany({
+              where: {
+                catalog_item_id: item.catalog_item_id,
+                location_id: locationId,
+                quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
+              },
+              data: {
+                quantity_on_hand: { decrement: quantityToDeduct },
+              },
+            });
+
+            if (updateResult.count === 0) {
+              throw new BadRequestException(
+                `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct})`,
+              );
+            }
+          });
+
           // Create Sale Issue Transaction
-          await tx.inventoryTransaction.create({
-            data: {
-              item_id: item.catalog_item_id,
-              location_id: locationId,
-              quantity: new Prisma.Decimal(item.quantity).negated(),
-              type: TransactionType.SALE_ISSUE,
-              reference_id: invoiceNumber,
-            },
+          operations.push(async () => {
+            await tx.inventoryTransaction.create({
+              data: {
+                item_id: item.catalog_item_id!,
+                location_id: locationId,
+                quantity: new Prisma.Decimal(item.quantity).negated(),
+                type: TransactionType.SALE_ISSUE,
+                reference_id: invoiceNumber,
+              },
+            });
           });
         }
       }
+
+      // Execute Concurrently in batches
+      await chunkedPromiseAll(operations, 50);
 
       // 3. Update Invoice Status and return updated invoice
       const updatedInvoice = await tx.invoice.update({
