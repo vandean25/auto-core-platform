@@ -35,6 +35,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED` and no linked invoice exists yet on the order. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
+| LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
 
 ## UI Contract
 
