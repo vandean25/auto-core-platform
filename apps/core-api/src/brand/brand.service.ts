@@ -67,14 +67,7 @@ export class BrandService {
   }
 
   async findOne(brandId: number): Promise<Brand> {
-    try {
-      return await this.brandRepository.findById(brandId);
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw new NotFoundException(`Brand with ID ${brandId} not found`);
-      }
-      throw error;
-    }
+    return await this.brandRepository.findById(brandId);
   }
 
   async create(createBrandDto: CreateBrandDto): Promise<Brand> {
@@ -83,18 +76,9 @@ export class BrandService {
       createBrandDto.isPartManufacturer,
     );
 
-    try {
-      return await this.brandRepository.create(
-        createBrandDto as unknown as Record<string, unknown>,
-      );
-    } catch (error) {
-      if (error instanceof ConflictError) {
-        throw new ConflictException(
-          `Brand with name "${createBrandDto.name}" already exists`,
-        );
-      }
-      throw error;
-    }
+    return await this.brandRepository.create(
+      createBrandDto as unknown as Record<string, unknown>,
+    );
   }
 
   async update(
@@ -103,33 +87,16 @@ export class BrandService {
   ): Promise<Brand> {
     await this.validateUpdateFlags(brandId, updateBrandDto);
 
-    try {
-      return await this.brandRepository.update(
-        brandId,
-        updateBrandDto as unknown as Record<string, unknown>,
-      );
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw new NotFoundException(`Brand with ID ${brandId} not found`);
-      }
-      if (error instanceof ConflictError) {
-        throw new ConflictException(`Brand with name already exists`);
-      }
-      throw error;
-    }
+    return await this.brandRepository.update(
+      brandId,
+      updateBrandDto as unknown as Record<string, unknown>,
+    );
   }
 
   async remove(brandId: number): Promise<Brand> {
     await this.ensureNoDependencies(brandId);
 
-    try {
-      return await this.brandRepository.delete(brandId);
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw new NotFoundException(`Brand with ID ${brandId} not found`);
-      }
-      throw error;
-    }
+    return await this.brandRepository.delete(brandId);
   }
 
   private validateBrandTypes(

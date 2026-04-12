@@ -75,39 +75,29 @@ export class InvoicesService {
         );
       });
 
-      try {
-        return await tx.invoice.create({
-          data: {
-            customer_id: order.customer_id,
-            vehicle_id: order.vehicle_id,
-            workshop_order_id: order.id,
-            status: InvoiceStatus.DRAFT,
-            date: new Date(),
-            due_date: this.buildDueDate(),
-            total_net: totalNet,
-            total_tax: totalTax,
-            total_gross: totalGross,
-            notes: order.notes,
-            items: {
-              create: itemsData,
-            },
+      return await tx.invoice.create({
+        data: {
+          customer_id: order.customer_id,
+          vehicle_id: order.vehicle_id,
+          workshop_order_id: order.id,
+          status: InvoiceStatus.DRAFT,
+          date: new Date(),
+          due_date: this.buildDueDate(),
+          total_net: totalNet,
+          total_tax: totalTax,
+          total_gross: totalGross,
+          notes: order.notes,
+          items: {
+            create: itemsData,
           },
-          include: {
-            items: true,
-            customer: true,
-            vehicle: true,
-            workshop_order: true,
-          },
-        });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          throw new BadRequestException('Workshop order is already invoiced');
-        }
-        throw error;
-      }
+        },
+        include: {
+          items: true,
+          customer: true,
+          vehicle: true,
+          workshop_order: true,
+        },
+      });
     });
   }
 

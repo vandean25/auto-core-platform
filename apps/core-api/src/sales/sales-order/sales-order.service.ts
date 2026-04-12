@@ -208,39 +208,29 @@ export class SalesOrderService {
 
     // 2. Create Invoice in Transaction
     const invoice = await this.prisma.$transaction(async (tx) => {
-      try {
-        const invoice = await tx.invoice.create({
-          data: {
-            customer_id: order.customer_id,
-            vehicle_id: order.vehicle_id,
-            sales_order_id: order.id,
-            status: InvoiceStatus.DRAFT,
-            due_date: new Date(new Date().setDate(new Date().getDate() + 14)), // Default 14 days
-            total_net: totalNet,
-            total_tax: totalTax,
-            total_gross: totalGross,
-            notes: order.notes,
-            items: {
-              create: invoiceItemsData,
-            },
+      const invoice = await tx.invoice.create({
+        data: {
+          customer_id: order.customer_id,
+          vehicle_id: order.vehicle_id,
+          sales_order_id: order.id,
+          status: InvoiceStatus.DRAFT,
+          due_date: new Date(new Date().setDate(new Date().getDate() + 14)), // Default 14 days
+          total_net: totalNet,
+          total_tax: totalTax,
+          total_gross: totalGross,
+          notes: order.notes,
+          items: {
+            create: invoiceItemsData,
           },
-        });
+        },
+      });
 
-        await tx.salesOrder.update({
-          where: { id: order.id },
-          data: { status: SalesOrderStatus.INVOICED },
-        });
+      await tx.salesOrder.update({
+        where: { id: order.id },
+        data: { status: SalesOrderStatus.INVOICED },
+      });
 
-        return invoice;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          throw new BadRequestException('Order already has an invoice');
-        }
-        throw error;
-      }
+      return invoice;
     });
 
     return invoice;

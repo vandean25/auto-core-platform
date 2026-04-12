@@ -12,11 +12,7 @@ import {
   IsInt,
   IsIn,
 } from 'class-validator';
-import {
-  ApiProperty,
-  ApiPropertyOptional,
-  PartialType,
-} from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 
 export class LaborOperationFitmentDto {
@@ -59,7 +55,10 @@ export class CreateLaborOperationDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ description: 'Standard allocated work hours (>= 0)', minimum: 0 })
+  @ApiProperty({
+    description: 'Standard allocated work hours (>= 0)',
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   standardAw: number;
@@ -69,7 +68,10 @@ export class CreateLaborOperationDto {
   @Min(0.01)
   hourlyRate: number;
 
-  @ApiPropertyOptional({ description: 'Internal cost per operation (overrides category default for cost tracking)' })
+  @ApiPropertyOptional({
+    description:
+      'Internal cost per operation (overrides category default for cost tracking)',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -91,10 +93,14 @@ export class CreateLaborOperationDto {
   fitments?: LaborOperationFitmentDto[];
 }
 
-export class UpdateLaborOperationDto extends PartialType(CreateLaborOperationDto) {}
+export class UpdateLaborOperationDto extends PartialType(
+  CreateLaborOperationDto,
+) {}
 
 export class ListLaborOperationsQueryDto {
-  @ApiPropertyOptional({ description: 'Search term matching code or description' })
+  @ApiPropertyOptional({
+    description: 'Search term matching code or description',
+  })
   @IsOptional()
   @IsString()
   search?: string;
@@ -117,16 +123,24 @@ export class ListLaborOperationsQueryDto {
   @ApiPropertyOptional({ description: 'Page number (1-based)', minimum: 1 })
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === null || value === '' ? undefined : Number(value),
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
   )
   @IsInt()
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Transform(({ value }) =>
-    value === undefined || value === null || value === '' ? undefined : Number(value),
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
   )
   @IsInt()
   @Min(1)
@@ -139,7 +153,12 @@ export class ListLaborOperationsQueryDto {
   })
   @IsOptional()
   @IsIn(['code', 'description', 'standardAw', 'hourlyRate', 'createdAt'])
-  sortField?: 'code' | 'description' | 'standardAw' | 'hourlyRate' | 'createdAt';
+  sortField?:
+    | 'code'
+    | 'description'
+    | 'standardAw'
+    | 'hourlyRate'
+    | 'createdAt';
 
   @ApiPropertyOptional({ description: 'Sort direction', enum: ['asc', 'desc'] })
   @IsOptional()
@@ -199,7 +218,10 @@ export class LaborOperationResponseDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   categoryId: string | null;
 
-  @ApiPropertyOptional({ type: () => LaborOperationCategoryDto, nullable: true })
+  @ApiPropertyOptional({
+    type: () => LaborOperationCategoryDto,
+    nullable: true,
+  })
   category: LaborOperationCategoryDto | null;
 
   @ApiProperty()

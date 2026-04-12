@@ -111,30 +111,21 @@ export class LaborCategoryService {
       }
     }
 
-    try {
-      const created = await this.prisma.laborCategory.create({
-        data: {
-          name: dto.name,
-          description: dto.description,
-          sort_order: dto.sort_order ?? 0,
-          parent_id: dto.parent_id ?? null,
-          default_hourly_rate: dto.default_hourly_rate ?? null,
-          is_active: dto.is_active ?? true,
-        },
-      });
+    const created = await this.prisma.laborCategory.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        sort_order: dto.sort_order ?? 0,
+        parent_id: dto.parent_id ?? null,
+        default_hourly_rate: dto.default_hourly_rate ?? null,
+        is_active: dto.is_active ?? true,
+      },
+    });
 
-      return { ...created, default_hourly_rate: toNumber(created.default_hourly_rate) };
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor category with name "${dto.name}" already exists`,
-        );
-      }
-      throw error;
-    }
+    return {
+      ...created,
+      default_hourly_rate: toNumber(created.default_hourly_rate),
+    };
   }
 
   async update(id: string, dto: UpdateLaborCategoryDto) {
@@ -193,33 +184,24 @@ export class LaborCategoryService {
       }
     }
 
-    try {
-      const updated = await this.prisma.laborCategory.update({
-        where: { id },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.description !== undefined && { description: dto.description }),
-          ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
-          ...(dto.parent_id !== undefined && { parent_id: dto.parent_id }),
-          ...(dto.default_hourly_rate !== undefined && {
-            default_hourly_rate: dto.default_hourly_rate,
-          }),
-          ...(dto.is_active !== undefined && { is_active: dto.is_active }),
-        },
-      });
+    const updated = await this.prisma.laborCategory.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
+        ...(dto.parent_id !== undefined && { parent_id: dto.parent_id }),
+        ...(dto.default_hourly_rate !== undefined && {
+          default_hourly_rate: dto.default_hourly_rate,
+        }),
+        ...(dto.is_active !== undefined && { is_active: dto.is_active }),
+      },
+    });
 
-      return { ...updated, default_hourly_rate: toNumber(updated.default_hourly_rate) };
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor category with name "${dto.name}" already exists`,
-        );
-      }
-      throw error;
-    }
+    return {
+      ...updated,
+      default_hourly_rate: toNumber(updated.default_hourly_rate),
+    };
   }
 
   async remove(id: string) {
@@ -255,6 +237,9 @@ export class LaborCategoryService {
       where: { id },
     });
 
-    return { ...deleted, default_hourly_rate: toNumber(deleted.default_hourly_rate) };
+    return {
+      ...deleted,
+      default_hourly_rate: toNumber(deleted.default_hourly_rate),
+    };
   }
 }

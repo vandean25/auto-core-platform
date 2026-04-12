@@ -27,12 +27,17 @@ export class CreateLaborCategoryDto {
   @Min(0)
   sort_order?: number;
 
-  @ApiPropertyOptional({ description: 'Parent category ID (max depth: 1 level)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Parent category ID (max depth: 1 level)',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   parent_id?: string;
 
-  @ApiPropertyOptional({ description: 'Default hourly rate for operations in this category' })
+  @ApiPropertyOptional({
+    description: 'Default hourly rate for operations in this category',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -44,4 +49,6 @@ export class CreateLaborCategoryDto {
   is_active?: boolean;
 }
 
-export class UpdateLaborCategoryDto extends PartialType(CreateLaborCategoryDto) {}
+export class UpdateLaborCategoryDto extends PartialType(
+  CreateLaborCategoryDto,
+) {}
