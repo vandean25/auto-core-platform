@@ -24,7 +24,8 @@ describe('SalesController (e2e)', () => {
     // Setup Test Data
     const customer = await prisma.customer.create({
       data: {
-        name: 'Test Customer',
+        first_name: 'Test',
+        last_name: 'Customer',
         email: `test-${Date.now()}@example.com`,
       },
     });
@@ -43,6 +44,7 @@ describe('SalesController (e2e)', () => {
     // Create Stock
     const location = await prisma.storageLocation.create({
       data: {
+        code: `LOC-${Date.now()}`,
         name: 'Test Location',
         type: 'warehouse',
       },

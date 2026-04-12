@@ -18,5 +18,7 @@ export {
   ValidationError,
 } from './errors/application-errors';
 
+export { GlobalExceptionFilter } from './filters/global-exception.filter';
+
 export { CloudTasksService } from './services/cloud-tasks.service';
 export { PlaywrightBrowserService } from './services/playwright-browser.service';

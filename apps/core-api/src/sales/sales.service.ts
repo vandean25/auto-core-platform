@@ -30,15 +30,31 @@ export class SalesService {
     const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
       [];
 
+    // 1. Extract unique IDs and pre-fetch catalog items
+    const uniqueCatalogItemIds = [
+      ...new Set(
+        items
+          .map((i) => i.catalogItemId)
+          .filter((id): id is string => typeof id === 'string'),
+      ),
+    ];
+
+    const catalogItemMap = new Map<string, any>();
+    if (uniqueCatalogItemIds.length > 0) {
+      const catalogItems = await this.prisma.catalogItem.findMany({
+        where: { id: { in: uniqueCatalogItemIds } },
+        include: { revenue_group: true },
+      });
+      catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
+    }
+
+    // 2. Iterate over original items to preserve order
     for (const item of items) {
       let taxRate = item.taxRate;
       let revenueGroupName: string | null = null;
 
       if (item.catalogItemId) {
-        const catalogItem = await this.prisma.catalogItem.findUnique({
-          where: { id: item.catalogItemId },
-          include: { revenue_group: true },
-        });
+        const catalogItem = catalogItemMap.get(item.catalogItemId);
 
         if (catalogItem?.revenue_group) {
           revenueGroupName = catalogItem.revenue_group.name;
@@ -110,12 +126,28 @@ export class SalesService {
       const invoiceNumber = await this.generateInvoiceNumber(tx);
 
       // 2. Process Inventory Transactions
+
+      // 2a. Pre-fetch required inventory stock inside transaction to avoid stale reads
+      const uniqueCatalogItemIds = [
+        ...new Set(
+          invoice.items
+            .map((item) => item.catalog_item_id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+      ];
+
+      const stockMap = new Map<string, any>();
+      if (uniqueCatalogItemIds.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: { catalog_item_id: { in: uniqueCatalogItemIds } },
+        });
+        stocks.forEach((stock) => stockMap.set(stock.catalog_item_id, stock));
+      }
+
+      // 2b. Iterate sequentially through invoice items to maintain 1:1 mapping in ledger
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          // Find stock location (assuming primary location for now)
-          const stock = await tx.inventoryStock.findFirst({
-            where: { catalog_item_id: item.catalog_item_id },
-          });
+          const stock = stockMap.get(item.catalog_item_id);
 
           if (!stock) {
             throw new BadRequestException(
@@ -139,12 +171,21 @@ export class SalesService {
           });
 
           if (updateResult.count === 0) {
+            // Refetch stock to give accurate error message if concurrency was high
+            const latestStock = await tx.inventoryStock.findUnique({
+              where: {
+                catalog_item_id_location_id: {
+                  catalog_item_id: item.catalog_item_id,
+                  location_id: locationId,
+                },
+              },
+            });
             throw new BadRequestException(
-              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
             );
           }
 
-          // Create Sale Issue Transaction
+          // Create Sale Issue Transaction (Per-item for audit trail granularity)
           await tx.inventoryTransaction.create({
             data: {
               item_id: item.catalog_item_id,
