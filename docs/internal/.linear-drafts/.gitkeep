@@ -1,0 +1,4 @@
+# Linear Drafts
+
+Temporary issue description files for `linear issue create --description-file`.
+These are intermediate artifacts — the source of truth is the Feature Spec + the Linear issue itself.

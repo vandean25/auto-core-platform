@@ -3,6 +3,8 @@ title: "ADR-XXXX: {{title}}"
 date: "{{date}}"
 status: proposed  # proposed | accepted | deprecated | superseded
 deciders: ""
+linear-project: ""
+linear-milestone: ""
 tags:
   - adr
 ---
@@ -44,3 +46,13 @@ tags:
 ## References
 
 - 
+
+---
+
+## Linear Tracking
+
+| Field | Value |
+|-------|-------|
+| Project | <!-- Linear project URL --> |
+| Milestone | <!-- Milestone name --> |
+| Issues | <!-- AUT-XX, AUT-YY --> |

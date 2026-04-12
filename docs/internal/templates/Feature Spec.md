@@ -3,6 +3,8 @@ title: "{{title}}"
 date: "{{date}}"
 module: ""
 status: draft
+linear-project: ""
+linear-milestone: ""
 tags:
   - feature-spec
 ---
@@ -124,3 +126,13 @@ tags:
 ## References
 
 - [[README|Vault Conventions]]
+
+---
+
+## Linear Tracking
+
+| Field | Value |
+|-------|-------|
+| Project | <!-- Linear project URL --> |
+| Milestone | <!-- Milestone name --> |
+| Issues | <!-- AUT-XX, AUT-YY --> |
