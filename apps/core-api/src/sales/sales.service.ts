@@ -12,6 +12,11 @@ import {
   SalesOrderStatus,
   TransactionType,
 } from '@prisma/client';
+import type {
+  CatalogItem,
+  RevenueGroup,
+  InventoryStock,
+} from '@prisma/client';
 
 @Injectable()
 export class SalesService {
@@ -21,7 +26,11 @@ export class SalesService {
   ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
-    const { items, ...invoiceData } = createInvoiceDto;
+    const { items = [], ...invoiceData } = createInvoiceDto;
+
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Invoice must have at least one item');
+    }
 
     // Calculate totals and snapshot revenue groups
     let totalNet = 0;
@@ -30,15 +39,35 @@ export class SalesService {
     const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
       [];
 
+    // 1. Extract unique IDs and pre-fetch catalog items
+    const uniqueCatalogItemIds = [
+      ...new Set(
+        items
+          .map((i) => i.catalogItemId)
+          .filter((id): id is string => typeof id === 'string'),
+      ),
+    ];
+
+    const catalogItemMap = new Map<
+      string,
+      CatalogItem & { revenue_group: RevenueGroup | null }
+    >();
+    if (uniqueCatalogItemIds.length > 0) {
+      const catalogItems = await this.prisma.catalogItem.findMany({
+        where: { id: { in: uniqueCatalogItemIds } },
+        include: { revenue_group: true },
+        orderBy: { id: 'asc' },
+      });
+      catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
+    }
+
+    // 2. Iterate over original items to preserve order
     for (const item of items) {
       let taxRate = item.taxRate;
       let revenueGroupName: string | null = null;
 
       if (item.catalogItemId) {
-        const catalogItem = await this.prisma.catalogItem.findUnique({
-          where: { id: item.catalogItemId },
-          include: { revenue_group: true },
-        });
+        const catalogItem = catalogItemMap.get(item.catalogItemId);
 
         if (catalogItem?.revenue_group) {
           revenueGroupName = catalogItem.revenue_group.name;
@@ -110,12 +139,48 @@ export class SalesService {
       const invoiceNumber = await this.generateInvoiceNumber(tx);
 
       // 2. Process Inventory Transactions
+
+      // 2a. Pre-fetch required inventory stock inside transaction to avoid stale reads
+      const uniqueCatalogItemIds = [
+        ...new Set(
+          invoice.items
+            .map((item) => item.catalog_item_id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+      ];
+
+      const stockMap = new Map<string, InventoryStock[]>();
+      if (uniqueCatalogItemIds.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: { catalog_item_id: { in: uniqueCatalogItemIds } },
+          orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
+        });
+        stocks.forEach((stock) => {
+          const list = stockMap.get(stock.catalog_item_id) || [];
+          list.push(stock);
+          stockMap.set(stock.catalog_item_id, list);
+        });
+      }
+
+      // 2b. Iterate sequentially through invoice items to maintain 1:1 mapping in ledger
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          // Find stock location (assuming primary location for now)
-          const stock = await tx.inventoryStock.findFirst({
-            where: { catalog_item_id: item.catalog_item_id },
-          });
+          const stocks = stockMap.get(item.catalog_item_id) || [];
+          const quantityToDeduct = Number(item.quantity);
+
+          if (
+            !Number.isFinite(quantityToDeduct) ||
+            !Number.isInteger(quantityToDeduct) ||
+            quantityToDeduct <= 0
+          ) {
+            throw new BadRequestException(
+              `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+            );
+          }
+
+          // Find first location with sufficient stock, or fallback to first one available
+          const stock = stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
+            stocks[0];
 
           if (!stock) {
             throw new BadRequestException(
@@ -124,7 +189,6 @@ export class SalesService {
           }
 
           const locationId = stock.location_id;
-          const quantityToDeduct = Number(item.quantity);
 
           // Atomic Update with Check (Optimistic Locking via WHERE clause)
           const updateResult = await tx.inventoryStock.updateMany({
@@ -139,12 +203,24 @@ export class SalesService {
           });
 
           if (updateResult.count === 0) {
+            // Refetch stock to give accurate error message if concurrency was high
+            const latestStock = await tx.inventoryStock.findUnique({
+              where: {
+                catalog_item_id_location_id: {
+                  catalog_item_id: item.catalog_item_id,
+                  location_id: locationId,
+                },
+              },
+            });
             throw new BadRequestException(
-              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+              `Insufficient stock for item ${item.description} at location ${locationId} (Req: ${quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
             );
           }
 
-          // Create Sale Issue Transaction
+          // Update local stock map for subsequent items of the same catalog ID
+          stock.quantity_on_hand -= quantityToDeduct;
+
+          // Create Sale Issue Transaction (Per-item for audit trail granularity)
           await tx.inventoryTransaction.create({
             data: {
               item_id: item.catalog_item_id,
@@ -157,15 +233,29 @@ export class SalesService {
         }
       }
 
-      // 3. Update Invoice Status and return updated invoice
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
+      // 3. Update Invoice Status and return updated invoice (Concurrency Safe)
+      const updateResult = await tx.invoice.updateMany({
+        where: { id, status: InvoiceStatus.DRAFT },
         data: {
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
         },
+      });
+
+      if (updateResult.count === 0) {
+        throw new BadRequestException(
+          'Invoice is no longer in DRAFT status or has been deleted.',
+        );
+      }
+
+      const updatedInvoice = await tx.invoice.findUnique({
+        where: { id },
         include: { items: true, customer: true },
       });
+
+      if (!updatedInvoice) {
+        throw new NotFoundException('Invoice not found after update');
+      }
 
       if (invoice.sales_order_id) {
         const salesOrder = await tx.salesOrder.findUnique({
