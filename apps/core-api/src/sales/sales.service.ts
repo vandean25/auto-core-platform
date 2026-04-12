@@ -167,7 +167,7 @@ export class SalesService {
           operations.push(async () => {
             const updateResult = await tx.inventoryStock.updateMany({
               where: {
-                catalog_item_id: item.catalog_item_id,
+                catalog_item_id: item.catalog_item_id!,
                 location_id: locationId,
                 quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
               },
@@ -199,7 +199,7 @@ export class SalesService {
       }
 
       // Execute Concurrently in batches
-      await chunkedPromiseAll(operations, 50);
+      await chunkedPromiseAll(operations, (op) => op(), 50);
 
       // 3. Update Invoice Status and return updated invoice
       const updatedInvoice = await tx.invoice.update({
