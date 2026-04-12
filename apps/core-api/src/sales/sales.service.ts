@@ -11,6 +11,9 @@ import {
   InvoiceStatus,
   SalesOrderStatus,
   TransactionType,
+  CatalogItem,
+  RevenueGroup,
+  InventoryStock,
 } from '@prisma/client';
 
 @Injectable()
@@ -39,7 +42,10 @@ export class SalesService {
       ),
     ];
 
-    const catalogItemMap = new Map<string, any>();
+    const catalogItemMap = new Map<
+      string,
+      CatalogItem & { revenue_group: RevenueGroup | null }
+    >();
     if (uniqueCatalogItemIds.length > 0) {
       const catalogItems = await this.prisma.catalogItem.findMany({
         where: { id: { in: uniqueCatalogItemIds } },
@@ -136,18 +142,28 @@ export class SalesService {
         ),
       ];
 
-      const stockMap = new Map<string, any>();
+      const stockMap = new Map<string, InventoryStock[]>();
       if (uniqueCatalogItemIds.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: { catalog_item_id: { in: uniqueCatalogItemIds } },
+          orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
         });
-        stocks.forEach((stock) => stockMap.set(stock.catalog_item_id, stock));
+        stocks.forEach((stock) => {
+          const list = stockMap.get(stock.catalog_item_id) || [];
+          list.push(stock);
+          stockMap.set(stock.catalog_item_id, list);
+        });
       }
 
       // 2b. Iterate sequentially through invoice items to maintain 1:1 mapping in ledger
       for (const item of invoice.items) {
         if (item.catalog_item_id) {
-          const stock = stockMap.get(item.catalog_item_id);
+          const stocks = stockMap.get(item.catalog_item_id) || [];
+          const quantityToDeduct = Number(item.quantity);
+
+          // Find first location with sufficient stock, or fallback to first one available
+          const stock = stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
+            stocks[0];
 
           if (!stock) {
             throw new BadRequestException(
@@ -156,7 +172,6 @@ export class SalesService {
           }
 
           const locationId = stock.location_id;
-          const quantityToDeduct = Number(item.quantity);
 
           // Atomic Update with Check (Optimistic Locking via WHERE clause)
           const updateResult = await tx.inventoryStock.updateMany({
@@ -181,9 +196,12 @@ export class SalesService {
               },
             });
             throw new BadRequestException(
-              `Insufficient stock for item ${item.description} (Req: ${quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+              `Insufficient stock for item ${item.description} at location ${locationId} (Req: ${quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
             );
           }
+
+          // Update local stock map for subsequent items of the same catalog ID
+          stock.quantity_on_hand -= quantityToDeduct;
 
           // Create Sale Issue Transaction (Per-item for audit trail granularity)
           await tx.inventoryTransaction.create({

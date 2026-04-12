@@ -32,14 +32,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const responseBody = exception.getResponse();
       if (typeof responseBody === 'object' && responseBody !== null) {
-        message = (responseBody as any).message || exception.message;
+        message = (responseBody as Record<string, unknown>).message as
+          | string
+          | string[] || exception.message;
       } else {
         message = exception.message;
+      }
+
+      // Mask messages for 500 errors in production-like environments
+      if (status >= 500) {
+        this.logger.error(`HttpException ${status}: ${exception.message}`, exception.stack);
+        message = 'Internal server error';
       }
     }
     // Handle Prisma specific exceptions (as fallback for unhandled database errors)
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      this.logger.error(`Prisma error ${exception.code}: ${exception.message}`);
+      // Sanitize logging: log only code and meta, skip raw message which might contain values
+      this.logger.error(`Prisma error ${exception.code}`, { meta: exception.meta });
       switch (exception.code) {
         case 'P2000':
           status = HttpStatus.BAD_REQUEST;
