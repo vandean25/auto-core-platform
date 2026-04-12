@@ -181,7 +181,7 @@ describe('LaborService', () => {
       expect(mockPrisma.laborOperation.create).not.toHaveBeenCalled();
     });
 
-    it('maps Prisma P2002 to ConflictException (concurrent duplicate)', async () => {
+    it('bubbles up Prisma P2002 on create (concurrent duplicate)', async () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
       const p2002 = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint',
@@ -193,7 +193,7 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.create.mockRejectedValue(p2002);
 
       await expect(service.create(createDto)).rejects.toThrow(
-        ConflictException,
+        Prisma.PrismaClientKnownRequestError,
       );
     });
 

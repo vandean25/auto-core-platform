@@ -137,12 +137,12 @@ describe('BrandService', () => {
       expect(mockRepository.findById).toHaveBeenCalledWith(1);
     });
 
-    it('maps NotFoundError to NotFoundException', async () => {
+    it('bubbles up NotFoundError', async () => {
       mockRepository.findById.mockRejectedValue(
         new NotFoundError('Record with ID 999 not found'),
       );
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999)).rejects.toThrow(NotFoundError);
     });
 
     it('rethrows unknown errors without mapping', async () => {
@@ -184,7 +184,7 @@ describe('BrandService', () => {
       expect(mockRepository.create).not.toHaveBeenCalled();
     });
 
-    it('maps ConflictError to ConflictException on duplicate name', async () => {
+    it('bubbles up ConflictError on duplicate name', async () => {
       const dto = {
         name: 'Toyota',
         isVehicleMake: true,
@@ -194,9 +194,7 @@ describe('BrandService', () => {
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
 
-      await expect(service.create(dto as any)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.create(dto as any)).rejects.toThrow(ConflictError);
     });
   });
 
@@ -259,23 +257,23 @@ describe('BrandService', () => {
       expect(result.isPartManufacturer).toBe(true);
     });
 
-    it('maps NotFoundError to NotFoundException', async () => {
+    it('bubbles up NotFoundError', async () => {
       mockRepository.update.mockRejectedValue(
         new NotFoundError('Record with ID 999 not found'),
       );
 
       await expect(service.update(999, { name: 'New' })).rejects.toThrow(
-        NotFoundException,
+        NotFoundError,
       );
     });
 
-    it('maps ConflictError to ConflictException', async () => {
+    it('bubbles up ConflictError', async () => {
       mockRepository.update.mockRejectedValue(
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
 
       await expect(service.update(1, { name: 'Existing' })).rejects.toThrow(
-        ConflictException,
+        ConflictError,
       );
     });
   });
@@ -309,14 +307,14 @@ describe('BrandService', () => {
       expect(mockRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('maps NotFoundError to NotFoundException on delete', async () => {
+    it('bubbles up NotFoundError on delete', async () => {
       mockPrisma.catalogItem.count.mockResolvedValue(0);
       mockPrisma.vendor.count.mockResolvedValue(0);
       mockRepository.delete.mockRejectedValue(
         new NotFoundError('Record with ID 1 not found'),
       );
 
-      await expect(service.remove(1)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(1)).rejects.toThrow(NotFoundError);
     });
   });
 });

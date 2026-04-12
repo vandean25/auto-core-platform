@@ -187,7 +187,7 @@ describe('LaborCategoryService', () => {
       expect(mockPrisma.laborCategory.create).not.toHaveBeenCalled();
     });
 
-    it('maps Prisma P2002 to ConflictException (concurrent duplicate)', async () => {
+    it('bubbles up Prisma P2002 on create (concurrent duplicate)', async () => {
       mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
       const p2002 = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint',
@@ -199,7 +199,7 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.create.mockRejectedValue(p2002);
 
       await expect(service.create({ name: 'Engine' })).rejects.toThrow(
-        ConflictException,
+        Prisma.PrismaClientKnownRequestError,
       );
     });
 
@@ -314,7 +314,7 @@ describe('LaborCategoryService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('maps Prisma P2002 to ConflictException on concurrent duplicate (update)', async () => {
+    it('bubbles up Prisma P2002 on update (concurrent duplicate)', async () => {
       mockPrisma.laborCategory.findUnique
         .mockResolvedValueOnce(existingCategory)
         .mockResolvedValueOnce(null); // name appears unique
@@ -329,7 +329,7 @@ describe('LaborCategoryService', () => {
 
       await expect(
         service.update('cat-1', { name: 'Race Condition' }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
     });
 
     it('throws BadRequestException when setting parent_id to self', async () => {
