@@ -28,6 +28,10 @@ export class SalesService {
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
     const { items = [], ...invoiceData } = createInvoiceDto;
 
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Invoice must have at least one item');
+    }
+
     // Calculate totals and snapshot revenue groups
     let totalNet = 0;
     let totalTax = 0;
@@ -52,6 +56,7 @@ export class SalesService {
       const catalogItems = await this.prisma.catalogItem.findMany({
         where: { id: { in: uniqueCatalogItemIds } },
         include: { revenue_group: true },
+        orderBy: { id: 'asc' },
       });
       catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
     }
@@ -163,6 +168,16 @@ export class SalesService {
           const stocks = stockMap.get(item.catalog_item_id) || [];
           const quantityToDeduct = Number(item.quantity);
 
+          if (
+            !Number.isFinite(quantityToDeduct) ||
+            !Number.isInteger(quantityToDeduct) ||
+            quantityToDeduct <= 0
+          ) {
+            throw new BadRequestException(
+              `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+            );
+          }
+
           // Find first location with sufficient stock, or fallback to first one available
           const stock = stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
             stocks[0];
@@ -218,15 +233,29 @@ export class SalesService {
         }
       }
 
-      // 3. Update Invoice Status and return updated invoice
-      const updatedInvoice = await tx.invoice.update({
-        where: { id },
+      // 3. Update Invoice Status and return updated invoice (Concurrency Safe)
+      const updateResult = await tx.invoice.updateMany({
+        where: { id, status: InvoiceStatus.DRAFT },
         data: {
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
         },
+      });
+
+      if (updateResult.count === 0) {
+        throw new BadRequestException(
+          'Invoice is no longer in DRAFT status or has been deleted.',
+        );
+      }
+
+      const updatedInvoice = await tx.invoice.findUnique({
+        where: { id },
         include: { items: true, customer: true },
       });
+
+      if (!updatedInvoice) {
+        throw new NotFoundException('Invoice not found after update');
+      }
 
       if (invoice.sales_order_id) {
         const salesOrder = await tx.salesOrder.findUnique({
