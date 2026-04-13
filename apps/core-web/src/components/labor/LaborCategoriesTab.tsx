@@ -495,11 +495,19 @@ export function LaborCategoriesTab() {
     reordered.splice(toIdx, 0, draggingCat)
 
     try {
-      await Promise.all(
-        reordered.map((cat, idx) =>
-          updateMutation.mutateAsync({ id: cat.id, data: { sort_order: (idx + 1) * 10 } }),
-        ),
-      )
+      // Process in chunks of 10 to avoid overwhelming the API with concurrent requests
+      const chunkSize = 10
+      for (let i = 0; i < reordered.length; i += chunkSize) {
+        const chunk = reordered.slice(i, i + chunkSize)
+        await Promise.all(
+          chunk.map((cat, relIdx) =>
+            updateMutation.mutateAsync({
+              id: cat.id,
+              data: { sort_order: (i + relIdx + 1) * 10 },
+            }),
+          ),
+        )
+      }
       toast.success("Order updated")
     } catch {
       toast.error("Failed to update order")
@@ -523,7 +531,7 @@ export function LaborCategoriesTab() {
       <div className="md:col-span-2 space-y-4">
         <div>
           <h3 className="text-lg font-medium">Labor Categories</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-500">
             Manage hierarchical labor categories with hourly rates. Right-click a row to delete.
           </p>
         </div>
