@@ -369,6 +369,39 @@ export interface LaborOperationSearchResponse {
     }
 }
 
+export interface LaborCategory {
+    id: string
+    name: string
+    description?: string
+    sort_order: number
+    parent_id?: string
+    is_active: boolean
+    default_hourly_rate?: number
+    children?: LaborCategory[]
+}
+
+export interface LaborFitmentItem {
+    id: string
+    make: string
+    model: string
+    yearFrom?: number
+    yearTo?: number
+    engineCode?: string
+}
+
+export interface LaborOperationDetail {
+    id: string
+    code: string
+    description: string
+    standardAw: number
+    hourlyRate: number
+    internalCost?: number
+    categoryId?: string
+    categoryName?: string
+    isActive: boolean
+    fitments: LaborFitmentItem[]
+}
+
 export interface CatalogPartSearchItem {
     id: string
     supplierPartNumber: string
