@@ -87,7 +87,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
           description: form.description,
           standardAw,
           hourlyRate,
-          ...(form.categoryId ? { categoryId: form.categoryId } : { categoryId: undefined }),
+          ...(form.categoryId ? { categoryId: form.categoryId } : {}),
         }
         await updateMutation.mutateAsync({ id: operation.id, data: payload })
         toast.success('Labor operation updated')
@@ -128,7 +128,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 required
               />
             </div>
-            <div className="space-y-2 col-span-1">
+            <div className="space-y-2">
               <Label htmlFor="lo-description">Description</Label>
               <Input
                 id="lo-description"
