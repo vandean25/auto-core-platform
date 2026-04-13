@@ -1120,6 +1120,46 @@ export interface components {
             id: string;
             isActive: boolean;
         };
+        LaborCategoryChildDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description?: Record<string, never> | null;
+            sort_order?: Record<string, never> | null;
+            /** Format: uuid */
+            parent_id: Record<string, never> | null;
+            default_hourly_rate?: Record<string, never> | null;
+            is_active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LaborCategoryResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description?: Record<string, never> | null;
+            sort_order?: Record<string, never> | null;
+            /** Format: uuid */
+            parent_id?: Record<string, never> | null;
+            default_hourly_rate?: Record<string, never> | null;
+            is_active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            children: components["schemas"]["LaborCategoryChildDto"][];
+        };
+        LaborCategoriesMetaDto: {
+            total: number;
+            topLevelCount: number;
+            childCount: number;
+        };
+        LaborCategoriesResponseDto: {
+            data: components["schemas"]["LaborCategoryResponseDto"][];
+            meta: components["schemas"]["LaborCategoriesMetaDto"];
+        };
         CreateLaborCategoryDto: {
             /** @description Unique name for the labor category */
             name: string;
@@ -2985,7 +3025,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborCategoriesResponseDto"];
+                };
             };
         };
     };

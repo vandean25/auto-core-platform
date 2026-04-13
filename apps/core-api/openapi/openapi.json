@@ -2516,7 +2516,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborCategoriesResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3528,6 +3535,145 @@
         "required": [
           "id",
           "isActive"
+        ]
+      },
+      "LaborCategoryChildDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object",
+            "nullable": true
+          },
+          "sort_order": {
+            "type": "object",
+            "nullable": true
+          },
+          "parent_id": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "default_hourly_rate": {
+            "type": "object",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "parent_id",
+          "is_active",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LaborCategoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object",
+            "nullable": true
+          },
+          "sort_order": {
+            "type": "object",
+            "nullable": true
+          },
+          "parent_id": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "default_hourly_rate": {
+            "type": "object",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborCategoryChildDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_active",
+          "createdAt",
+          "updatedAt",
+          "children"
+        ]
+      },
+      "LaborCategoriesMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "topLevelCount": {
+            "type": "number"
+          },
+          "childCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "topLevelCount",
+          "childCount"
+        ]
+      },
+      "LaborCategoriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborCategoryResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/LaborCategoriesMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "CreateLaborCategoryDto": {

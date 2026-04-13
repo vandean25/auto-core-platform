@@ -18,6 +18,7 @@ import { LaborService } from './labor.service';
 import { LaborCategoryService } from './labor-category.service';
 import {
   CreateLaborCategoryDto,
+  LaborCategoriesResponseDto,
   UpdateLaborCategoryDto,
 } from './dto/labor-category.dto';
 import {
@@ -91,6 +92,7 @@ export class LaborController {
   // ── Labor Categories ──────────────────────────────────────────────────
 
   @Get('categories')
+  @ApiOkResponse({ type: LaborCategoriesResponseDto })
   getCategories() {
     return this.laborCategoryService.findAll();
   }
