@@ -107,6 +107,7 @@ export class LaborService {
           description: true,
           standard_aw: true,
           hourly_rate: true,
+          category: { select: { name: true } },
         },
         orderBy: [{ code: 'asc' }],
         take: SEARCH_LIMIT,
@@ -123,6 +124,7 @@ export class LaborService {
         description: operation.description,
         standardAw: Number(operation.standard_aw),
         hourlyRate: Number(operation.hourly_rate),
+        categoryName: operation.category?.name ?? null,
       })),
       meta: {
         total,
