@@ -26,6 +26,8 @@ const statusClassMap: Record<string, string> = {
   OUT_OF_STOCK: 'border-rose-200 bg-rose-100 text-rose-700',
   IN_STOCK: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   SUPERSEDED: 'border-amber-200 bg-amber-100 text-amber-700',
+  ACTIVE: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  INACTIVE: 'border-slate-200 bg-slate-100 text-slate-500',
 }
 
 export function formatStatusLabel(status: string) {

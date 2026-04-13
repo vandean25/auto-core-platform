@@ -28,6 +28,7 @@ import { RevenueGroupTable } from "@/components/RevenueGroupTable"
 import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
 import { BrandTable } from "@/components/BrandTable"
 import { AddBrandDialog } from "@/components/AddBrandDialog"
+import { LaborOperationsTab } from "@/components/labor/LaborOperationsTab"
 import { cn } from "@/lib/utils"
 import type { Brand } from "@/api/types"
 import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
@@ -255,7 +256,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "revenue-groups", "brands", "locations"] as const
+const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "labor"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -332,11 +333,12 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4 max-w-[700px]">
+                <TabsList className="grid w-full grid-cols-5 max-w-[900px]">
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
                     <TabsTrigger value="brands">Brands</TabsTrigger>
                     <TabsTrigger value="locations">Storage Locations</TabsTrigger>
+                    <TabsTrigger value="labor">Labor</TabsTrigger>
                 </TabsList>
 
                 {/* ── Finance Tab ── */}
@@ -441,6 +443,13 @@ export default function SettingsPage() {
                 {/* ── Storage Locations Tab ── */}
                 <TabsContent value="locations" className="space-y-6">
                     <StorageLocationsTab />
+                </TabsContent>
+
+                {/* ── Labor Tab ── */}
+                <TabsContent value="labor" className="space-y-6">
+                    <div className="p-6 bg-white border rounded-lg shadow-sm">
+                        <LaborOperationsTab />
+                    </div>
                 </TabsContent>
             </Tabs>
 
