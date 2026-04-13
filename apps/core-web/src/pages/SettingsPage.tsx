@@ -28,7 +28,7 @@ import { RevenueGroupTable } from "@/components/RevenueGroupTable"
 import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
 import { BrandTable } from "@/components/BrandTable"
 import { AddBrandDialog } from "@/components/AddBrandDialog"
-import { LaborOperationsTab } from "@/components/labor/LaborOperationsTab"
+import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
 import { cn } from "@/lib/utils"
 import type { Brand } from "@/api/types"
 import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
@@ -447,9 +447,7 @@ export default function SettingsPage() {
 
                 {/* ── Labor Tab ── */}
                 <TabsContent value="labor" className="space-y-6">
-                    <div className="p-6 bg-white border rounded-lg shadow-sm">
-                        <LaborOperationsTab />
-                    </div>
+                    <LaborCategoriesTab />
                 </TabsContent>
             </Tabs>
 
