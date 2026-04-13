@@ -1006,6 +1006,19 @@ export interface components {
             /** @example workshop-order-id */
             workshopOrderId: string;
         };
+        LaborOperationSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            categoryName: Record<string, never> | null;
+        };
+        LaborOperationSearchResponseDto: {
+            data: components["schemas"]["LaborOperationSearchItemDto"][];
+            meta: Record<string, never>;
+        };
         LaborOperationCategoryDto: {
             /** Format: uuid */
             id: string;
@@ -1136,6 +1149,23 @@ export interface components {
             default_hourly_rate?: number;
             /** @description Whether the category is active */
             is_active?: boolean;
+        };
+        CatalogPartSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            supplierPartNumber: string;
+            oemNumber: Record<string, never> | null;
+            description: string;
+            brand: string;
+            quantityOnHand: number;
+            binLocation: Record<string, never> | null;
+            costPrice: Record<string, never> | null;
+            retailPrice: Record<string, never> | null;
+        };
+        CatalogSearchResponseDto: {
+            labor: components["schemas"]["LaborOperationSearchItemDto"][];
+            parts: components["schemas"]["CatalogPartSearchItemDto"][];
+            meta: Record<string, never>;
         };
         UpdateVehicleDto: {
             make?: string;
@@ -2794,7 +2824,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborOperationSearchResponseDto"];
+                };
             };
         };
     };
@@ -3018,7 +3050,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CatalogSearchResponseDto"];
+                };
             };
         };
     };

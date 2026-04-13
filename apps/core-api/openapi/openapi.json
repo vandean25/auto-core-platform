@@ -2270,7 +2270,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationSearchResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2616,11 +2623,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSearchResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
-          "Catalog"
+          "catalog"
         ]
       }
     },
@@ -3166,6 +3180,57 @@
           "workshopOrderId"
         ]
       },
+      "LaborOperationSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "categoryName": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "categoryName"
+        ]
+      },
+      "LaborOperationSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationSearchItemDto"
+            }
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "LaborOperationCategoryDto": {
         "type": "object",
         "properties": {
@@ -3512,6 +3577,79 @@
             "description": "Whether the category is active"
           }
         }
+      },
+      "CatalogPartSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierPartNumber": {
+            "type": "string"
+          },
+          "oemNumber": {
+            "type": "object",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "quantityOnHand": {
+            "type": "number"
+          },
+          "binLocation": {
+            "type": "object",
+            "nullable": true
+          },
+          "costPrice": {
+            "type": "object",
+            "nullable": true
+          },
+          "retailPrice": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "supplierPartNumber",
+          "oemNumber",
+          "description",
+          "brand",
+          "quantityOnHand",
+          "binLocation",
+          "costPrice",
+          "retailPrice"
+        ]
+      },
+      "CatalogSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "labor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationSearchItemDto"
+            }
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogPartSearchItemDto"
+            }
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "labor",
+          "parts",
+          "meta"
+        ]
       },
       "UpdateVehicleDto": {
         "type": "object",

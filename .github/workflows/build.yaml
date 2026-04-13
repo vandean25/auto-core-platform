@@ -48,6 +48,12 @@ jobs:
       - name: Regenerate frontend API types
         run: npm --prefix apps/core-web run api:types:generate
 
+      - name: Verify backend OpenAPI contract is up to date
+        run: npm --prefix apps/core-api run openapi:check
+
+      - name: Verify frontend generated API types are up to date
+        run: npm --prefix apps/core-web run api:types:check
+
       - name: Verify committed contract artifacts are up to date
         run: git diff --exit-code -- apps/core-api/openapi/openapi.json apps/core-web/src/api/generated/openapi.ts
 
