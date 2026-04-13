@@ -9,32 +9,14 @@ export const laborKeys = {
   all: ['labor'] as const,
   categories: () => [...laborKeys.all, 'categories'] as const,
   operations: () => [...laborKeys.all, 'operations'] as const,
+  operationsList: (queryParams?: DataTableQueryParams) => [...laborKeys.operations(), queryParams] as const,
   operation: (id: string) => [...laborKeys.all, 'operation', id] as const,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type LaborCategory = {
-  id: string
-  name: string
-  description?: string | null
-  sort_order?: number | null
-  parent_id?: string | null
-  default_hourly_rate?: number | null
-  is_active?: boolean
-  createdAt: string
-  updatedAt: string
-  children?: LaborCategory[]
-}
-
-export type LaborCategoriesResponse = {
-  data: LaborCategory[]
-  meta: {
-    total: number
-    topLevelCount: number
-    childCount: number
-  }
-}
+export type LaborCategory = components['schemas']['LaborCategoryResponseDto']
+export type LaborCategoriesResponse = components['schemas']['LaborCategoriesResponseDto']
 
 export type CreateLaborCategoryPayload = components['schemas']['CreateLaborCategoryDto']
 export type UpdateLaborCategoryPayload = components['schemas']['UpdateLaborCategoryDto']
@@ -118,7 +100,7 @@ export function useDeleteLaborCategory() {
 
 export function useLaborOperations(queryParams?: DataTableQueryParams) {
   return useQuery<PaginatedLaborOperationsResponse>({
-    queryKey: [...laborKeys.operations(), queryParams],
+    queryKey: laborKeys.operationsList(queryParams),
     queryFn: async () => {
       if (!queryParams) {
         const res = await fetchWithAuth(`${LABOR_API}/operations`)
