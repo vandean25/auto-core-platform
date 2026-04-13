@@ -1013,7 +1013,7 @@ export interface components {
             description: string;
             standardAw: number;
             hourlyRate: number;
-            categoryName: Record<string, never> | null;
+            categoryName: string | null;
         };
         LaborOperationSearchMetaDto: {
             total: number;
@@ -1154,17 +1154,26 @@ export interface components {
             /** @description Whether the category is active */
             is_active?: boolean;
         };
+        CatalogLaborSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            categoryName: string | null;
+        };
         CatalogPartSearchItemDto: {
             /** Format: uuid */
             id: string;
             supplierPartNumber: string;
-            oemNumber: Record<string, never> | null;
+            oemNumber: string | null;
             description: string;
             brand: string;
             quantityOnHand: number;
-            binLocation: Record<string, never> | null;
-            costPrice: Record<string, never> | null;
-            retailPrice: Record<string, never> | null;
+            binLocation: string | null;
+            costPrice: number | null;
+            retailPrice: number | null;
         };
         CatalogSearchMetaDto: {
             laborCount: number;
@@ -1172,7 +1181,7 @@ export interface components {
             limit: number;
         };
         CatalogSearchResponseDto: {
-            labor: components["schemas"]["LaborOperationSearchItemDto"][];
+            labor: components["schemas"]["CatalogLaborSearchItemDto"][];
             parts: components["schemas"]["CatalogPartSearchItemDto"][];
             meta: components["schemas"]["CatalogSearchMetaDto"];
         };

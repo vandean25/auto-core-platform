@@ -3200,7 +3200,7 @@
             "type": "number"
           },
           "categoryName": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },
@@ -3593,6 +3593,39 @@
           }
         }
       },
+      "CatalogLaborSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "categoryName"
+        ]
+      },
       "CatalogPartSearchItemDto": {
         "type": "object",
         "properties": {
@@ -3604,7 +3637,7 @@
             "type": "string"
           },
           "oemNumber": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "description": {
@@ -3617,15 +3650,15 @@
             "type": "number"
           },
           "binLocation": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "costPrice": {
-            "type": "object",
+            "type": "number",
             "nullable": true
           },
           "retailPrice": {
-            "type": "object",
+            "type": "number",
             "nullable": true
           }
         },
@@ -3666,7 +3699,7 @@
           "labor": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LaborOperationSearchItemDto"
+              "$ref": "#/components/schemas/CatalogLaborSearchItemDto"
             }
           },
           "parts": {

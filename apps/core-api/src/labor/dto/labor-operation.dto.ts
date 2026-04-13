@@ -261,7 +261,7 @@ export class LaborOperationSearchItemDto {
   @ApiProperty()
   hourlyRate: number;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   categoryName: string | null;
 }
 

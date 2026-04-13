@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class LaborOperationSearchItemDto {
+export class CatalogLaborSearchItemDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
@@ -16,7 +16,7 @@ export class LaborOperationSearchItemDto {
   @ApiProperty()
   hourlyRate: number;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   categoryName: string | null;
 }
 
@@ -27,7 +27,7 @@ export class CatalogPartSearchItemDto {
   @ApiProperty()
   supplierPartNumber: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   oemNumber: string | null;
 
   @ApiProperty()
@@ -39,13 +39,13 @@ export class CatalogPartSearchItemDto {
   @ApiProperty()
   quantityOnHand: number;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   binLocation: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: Number, nullable: true })
   costPrice: number | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: Number, nullable: true })
   retailPrice: number | null;
 }
 
@@ -61,8 +61,8 @@ export class CatalogSearchMetaDto {
 }
 
 export class CatalogSearchResponseDto {
-  @ApiProperty({ type: [LaborOperationSearchItemDto] })
-  labor: LaborOperationSearchItemDto[];
+  @ApiProperty({ type: [CatalogLaborSearchItemDto] })
+  labor: CatalogLaborSearchItemDto[];
 
   @ApiProperty({ type: [CatalogPartSearchItemDto] })
   parts: CatalogPartSearchItemDto[];
