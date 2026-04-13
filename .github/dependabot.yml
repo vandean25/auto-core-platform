@@ -6,7 +6,8 @@ updates:
       interval: "weekly"
       day: "tuesday"
       time: "09:00"
-    open-pull-requests-limit: 10
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
     groups:
       prisma-stack:
         patterns:
@@ -25,7 +26,8 @@ updates:
       interval: "weekly"
       day: "tuesday"
       time: "09:00"
-    open-pull-requests-limit: 10
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
     groups:
       ui-libraries:
         patterns:
