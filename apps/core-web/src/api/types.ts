@@ -372,11 +372,11 @@ export interface LaborOperationSearchResponse {
 export interface LaborCategory {
     id: string
     name: string
-    description?: string
+    description: string | null
     sort_order: number
-    parent_id?: string
+    parent_id: string | null
     is_active: boolean
-    default_hourly_rate?: number
+    default_hourly_rate: number | null
     children?: LaborCategory[]
 }
 
@@ -384,9 +384,9 @@ export interface LaborFitmentItem {
     id: string
     make: string
     model: string
-    yearFrom?: number
-    yearTo?: number
-    engineCode?: string
+    yearFrom: number | null
+    yearTo: number | null
+    engineCode: string | null
 }
 
 export interface LaborOperationDetail {
@@ -395,11 +395,14 @@ export interface LaborOperationDetail {
     description: string
     standardAw: number
     hourlyRate: number
-    internalCost?: number
-    categoryId?: string
+    internalCost: number | null
+    categoryId: string | null
+    category: { id: string; name: string } | null
     categoryName?: string
     isActive: boolean
     fitments: LaborFitmentItem[]
+    createdAt: string
+    updatedAt: string
 }
 
 export interface CatalogPartSearchItem {
