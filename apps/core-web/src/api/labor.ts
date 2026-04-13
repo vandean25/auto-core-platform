@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 
 const LABOR_API = '/api/labor'
@@ -9,7 +8,7 @@ const LABOR_API = '/api/labor'
 export const laborKeys = {
   all: ['labor'] as const,
   categories: () => [...laborKeys.all, 'categories'] as const,
-  operations: (queryParams?: DataTableQueryParams) => [...laborKeys.all, 'operations', queryParams] as const,
+  operations: () => [...laborKeys.all, 'operations'] as const,
   operation: (id: string) => [...laborKeys.all, 'operation', id] as const,
 }
 
@@ -119,12 +118,27 @@ export function useDeleteLaborCategory() {
 
 export function useLaborOperations(queryParams?: DataTableQueryParams) {
   return useQuery<PaginatedLaborOperationsResponse>({
-    queryKey: laborKeys.operations(queryParams),
+    queryKey: [...laborKeys.operations(), queryParams],
     queryFn: async () => {
-      const url = buildDataTableUrl(`${LABOR_API}/operations`, queryParams, {
-        searchFallbackFilterFields: ['code', 'description'],
-      })
-      const res = await fetchWithAuth(url)
+      if (!queryParams) {
+        const res = await fetchWithAuth(`${LABOR_API}/operations`)
+        if (!res.ok) throw new Error('Failed to fetch labor operations')
+        return res.json()
+      }
+
+      // Build URL manually: backend uses `limit` (not `pageSize`) and ignores unknown params
+      const params = new URLSearchParams()
+      params.append('page', String(queryParams.page))
+      params.append('limit', String(queryParams.pageSize))
+      if (queryParams.search) params.append('search', queryParams.search)
+      if (queryParams.sortField) params.append('sortField', queryParams.sortField)
+      if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
+      const categoryId = queryParams.filters.find((f) => f.field === 'categoryId')?.value
+      if (categoryId) params.append('categoryId', categoryId)
+      const isActive = queryParams.filters.find((f) => f.field === 'isActive')?.value
+      if (isActive !== undefined && isActive !== '') params.append('isActive', isActive)
+
+      const res = await fetchWithAuth(`${LABOR_API}/operations?${params.toString()}`)
       if (!res.ok) throw new Error('Failed to fetch labor operations')
       return res.json()
     },
