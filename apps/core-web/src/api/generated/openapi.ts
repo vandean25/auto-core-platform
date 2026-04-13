@@ -1015,9 +1015,13 @@ export interface components {
             hourlyRate: number;
             categoryName: Record<string, never> | null;
         };
+        LaborOperationSearchMetaDto: {
+            total: number;
+            limit: number;
+        };
         LaborOperationSearchResponseDto: {
             data: components["schemas"]["LaborOperationSearchItemDto"][];
-            meta: Record<string, never>;
+            meta: components["schemas"]["LaborOperationSearchMetaDto"];
         };
         LaborOperationCategoryDto: {
             /** Format: uuid */
@@ -1162,10 +1166,15 @@ export interface components {
             costPrice: Record<string, never> | null;
             retailPrice: Record<string, never> | null;
         };
+        CatalogSearchMetaDto: {
+            laborCount: number;
+            partCount: number;
+            limit: number;
+        };
         CatalogSearchResponseDto: {
             labor: components["schemas"]["LaborOperationSearchItemDto"][];
             parts: components["schemas"]["CatalogPartSearchItemDto"][];
-            meta: Record<string, never>;
+            meta: components["schemas"]["CatalogSearchMetaDto"];
         };
         UpdateVehicleDto: {
             make?: string;

@@ -265,13 +265,18 @@ export class LaborOperationSearchItemDto {
   categoryName: string | null;
 }
 
+export class LaborOperationSearchMetaDto {
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  limit: number;
+}
+
 export class LaborOperationSearchResponseDto {
   @ApiProperty({ type: [LaborOperationSearchItemDto] })
   data: LaborOperationSearchItemDto[];
 
-  @ApiProperty()
-  meta: {
-    total: number;
-    limit: number;
-  };
+  @ApiProperty({ type: () => LaborOperationSearchMetaDto })
+  meta: LaborOperationSearchMetaDto;
 }

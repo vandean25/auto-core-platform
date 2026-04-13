@@ -49,6 +49,17 @@ export class CatalogPartSearchItemDto {
   retailPrice: number | null;
 }
 
+export class CatalogSearchMetaDto {
+  @ApiProperty()
+  laborCount: number;
+
+  @ApiProperty()
+  partCount: number;
+
+  @ApiProperty()
+  limit: number;
+}
+
 export class CatalogSearchResponseDto {
   @ApiProperty({ type: [LaborOperationSearchItemDto] })
   labor: LaborOperationSearchItemDto[];
@@ -56,10 +67,6 @@ export class CatalogSearchResponseDto {
   @ApiProperty({ type: [CatalogPartSearchItemDto] })
   parts: CatalogPartSearchItemDto[];
 
-  @ApiProperty()
-  meta: {
-    laborCount: number;
-    partCount: number;
-    limit: number;
-  };
+  @ApiProperty({ type: () => CatalogSearchMetaDto })
+  meta: CatalogSearchMetaDto;
 }

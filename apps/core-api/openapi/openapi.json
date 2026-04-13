@@ -3213,6 +3213,21 @@
           "categoryName"
         ]
       },
+      "LaborOperationSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "limit"
+        ]
+      },
       "LaborOperationSearchResponseDto": {
         "type": "object",
         "properties": {
@@ -3223,7 +3238,7 @@
             }
           },
           "meta": {
-            "type": "object"
+            "$ref": "#/components/schemas/LaborOperationSearchMetaDto"
           }
         },
         "required": [
@@ -3626,6 +3641,25 @@
           "retailPrice"
         ]
       },
+      "CatalogSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "laborCount": {
+            "type": "number"
+          },
+          "partCount": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "laborCount",
+          "partCount",
+          "limit"
+        ]
+      },
       "CatalogSearchResponseDto": {
         "type": "object",
         "properties": {
@@ -3642,7 +3676,7 @@
             }
           },
           "meta": {
-            "type": "object"
+            "$ref": "#/components/schemas/CatalogSearchMetaDto"
           }
         },
         "required": [
