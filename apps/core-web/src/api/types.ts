@@ -358,6 +358,7 @@ export interface LaborOperationSearchItem {
     description: string
     standardAw: number
     hourlyRate: number
+    categoryName: string | null
 }
 
 export interface LaborOperationSearchResponse {

@@ -244,3 +244,39 @@ export class SoftDeleteResponseDto {
   @ApiProperty()
   isActive: boolean;
 }
+
+export class LaborOperationSearchItemDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty()
+  standardAw: number;
+
+  @ApiProperty()
+  hourlyRate: number;
+
+  @ApiProperty({ type: String, nullable: true })
+  categoryName: string | null;
+}
+
+export class LaborOperationSearchMetaDto {
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  limit: number;
+}
+
+export class LaborOperationSearchResponseDto {
+  @ApiProperty({ type: [LaborOperationSearchItemDto] })
+  data: LaborOperationSearchItemDto[];
+
+  @ApiProperty({ type: () => LaborOperationSearchMetaDto })
+  meta: LaborOperationSearchMetaDto;
+}

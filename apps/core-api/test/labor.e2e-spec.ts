@@ -6,7 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 type CategoryNode = { id: string; name: string; children: CategoryNode[] };
 type OperationListItem = { id: string; isActive: boolean; categoryId?: string };
-type SearchResultItem = { id: string };
+type SearchResultItem = { id: string; categoryName: string | null };
 
 const PREFIX = 'e2e-labor-';
 
@@ -383,6 +383,7 @@ describe('Labor Module (e2e)', () => {
       let vehicleId: string | undefined;
       let customerId: string | undefined;
       let workshopOrderId: string | undefined;
+      let categoryId: string | undefined;
       const opIds: string[] = [];
 
       try {
@@ -417,6 +418,14 @@ describe('Labor Module (e2e)', () => {
         });
         workshopOrderId = workshopOrder.id;
 
+        const category = await prisma.laborCategory.create({
+          data: {
+            name: `${PREFIX}Search Category`,
+            description: 'Category for labor search e2e coverage',
+          },
+        });
+        categoryId = category.id;
+
         const activeOp = await prisma.laborOperation.create({
           data: {
             code: `e2e-labor-SRCH-ACT-${ts}`,
@@ -424,6 +433,7 @@ describe('Labor Module (e2e)', () => {
             standard_aw: 1.0,
             hourly_rate: 60.0,
             is_active: true,
+            category_id: categoryId,
             fitments: {
               create: {
                 make: 'Toyota',
@@ -460,9 +470,14 @@ describe('Labor Module (e2e)', () => {
           .set('x-api-key', 'test-api-key')
           .expect(200);
 
-        const ids = (res.body.data as SearchResultItem[]).map((op) => op.id);
+        const results = res.body.data as SearchResultItem[];
+        const ids = results.map((op) => op.id);
         expect(ids).toContain(activeOp.id);
         expect(ids).not.toContain(inactiveOp.id);
+        expect(results.find((op) => op.id === activeOp.id)?.categoryName).toBe(
+          `${PREFIX}Search Category`,
+        );
+        expect(results.find((op) => op.id === inactiveOp.id)).toBeUndefined();
       } finally {
         if (opIds.length > 0) {
           await prisma.laborFitment.deleteMany({
@@ -470,6 +485,8 @@ describe('Labor Module (e2e)', () => {
           });
           await prisma.laborOperation.deleteMany({ where: { id: { in: opIds } } });
         }
+        if (categoryId)
+          await prisma.laborCategory.delete({ where: { id: categoryId } });
         if (workshopOrderId)
           await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
         if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });

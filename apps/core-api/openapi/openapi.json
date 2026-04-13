@@ -2270,7 +2270,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaborOperationSearchResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2616,11 +2623,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSearchResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
-          "Catalog"
+          "catalog"
         ]
       }
     },
@@ -3166,6 +3180,72 @@
           "workshopOrderId"
         ]
       },
+      "LaborOperationSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "categoryName"
+        ]
+      },
+      "LaborOperationSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "limit"
+        ]
+      },
+      "LaborOperationSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaborOperationSearchItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/LaborOperationSearchMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "LaborOperationCategoryDto": {
         "type": "object",
         "properties": {
@@ -3512,6 +3592,131 @@
             "description": "Whether the category is active"
           }
         }
+      },
+      "CatalogLaborSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number"
+          },
+          "hourlyRate": {
+            "type": "number"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "standardAw",
+          "hourlyRate",
+          "categoryName"
+        ]
+      },
+      "CatalogPartSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierPartNumber": {
+            "type": "string"
+          },
+          "oemNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "quantityOnHand": {
+            "type": "number"
+          },
+          "binLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "costPrice": {
+            "type": "number",
+            "nullable": true
+          },
+          "retailPrice": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "supplierPartNumber",
+          "oemNumber",
+          "description",
+          "brand",
+          "quantityOnHand",
+          "binLocation",
+          "costPrice",
+          "retailPrice"
+        ]
+      },
+      "CatalogSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "laborCount": {
+            "type": "number"
+          },
+          "partCount": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "laborCount",
+          "partCount",
+          "limit"
+        ]
+      },
+      "CatalogSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "labor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogLaborSearchItemDto"
+            }
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogPartSearchItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CatalogSearchMetaDto"
+          }
+        },
+        "required": [
+          "labor",
+          "parts",
+          "meta"
+        ]
       },
       "UpdateVehicleDto": {
         "type": "object",

@@ -27,6 +27,7 @@ import {
   PaginatedLaborOperationsResponseDto,
   SoftDeleteResponseDto,
   UpdateLaborOperationDto,
+  LaborOperationSearchResponseDto,
 } from './dto/labor-operation.dto';
 
 @ApiTags('labor')
@@ -38,6 +39,7 @@ export class LaborController {
   ) {}
 
   @Get('search')
+  @ApiOkResponse({ type: LaborOperationSearchResponseDto })
   @ApiQuery({ name: 'q', required: true, schema: { type: 'string' } })
   @ApiQuery({
     name: 'workshopOrderId',

@@ -115,6 +115,7 @@ export class CatalogService {
           description: true,
           standard_aw: true,
           hourly_rate: true,
+          category: { select: { name: true } },
         },
         orderBy: [{ code: 'asc' }],
         take: SEARCH_LIMIT,
@@ -278,6 +279,7 @@ export class CatalogService {
         description: operation.description,
         standardAw: Number(operation.standard_aw),
         hourlyRate: Number(operation.hourly_rate),
+        categoryName: operation.category?.name ?? null,
       })),
       parts: partResults.slice(0, SEARCH_LIMIT),
       meta: {

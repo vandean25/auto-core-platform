@@ -1006,6 +1006,23 @@ export interface components {
             /** @example workshop-order-id */
             workshopOrderId: string;
         };
+        LaborOperationSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            categoryName: string | null;
+        };
+        LaborOperationSearchMetaDto: {
+            total: number;
+            limit: number;
+        };
+        LaborOperationSearchResponseDto: {
+            data: components["schemas"]["LaborOperationSearchItemDto"][];
+            meta: components["schemas"]["LaborOperationSearchMetaDto"];
+        };
         LaborOperationCategoryDto: {
             /** Format: uuid */
             id: string;
@@ -1136,6 +1153,37 @@ export interface components {
             default_hourly_rate?: number;
             /** @description Whether the category is active */
             is_active?: boolean;
+        };
+        CatalogLaborSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            description: string;
+            standardAw: number;
+            hourlyRate: number;
+            categoryName: string | null;
+        };
+        CatalogPartSearchItemDto: {
+            /** Format: uuid */
+            id: string;
+            supplierPartNumber: string;
+            oemNumber: string | null;
+            description: string;
+            brand: string;
+            quantityOnHand: number;
+            binLocation: string | null;
+            costPrice: number | null;
+            retailPrice: number | null;
+        };
+        CatalogSearchMetaDto: {
+            laborCount: number;
+            partCount: number;
+            limit: number;
+        };
+        CatalogSearchResponseDto: {
+            labor: components["schemas"]["CatalogLaborSearchItemDto"][];
+            parts: components["schemas"]["CatalogPartSearchItemDto"][];
+            meta: components["schemas"]["CatalogSearchMetaDto"];
         };
         UpdateVehicleDto: {
             make?: string;
@@ -2794,7 +2842,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LaborOperationSearchResponseDto"];
+                };
             };
         };
     };
@@ -3018,7 +3068,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CatalogSearchResponseDto"];
+                };
             };
         };
     };
