@@ -66,6 +66,7 @@ function InlineRateEditor({
 }) {
   const [editing, setEditing] = React.useState(false)
   const [input, setInput] = React.useState(value != null ? String(value) : "")
+  const [isSaving, setIsSaving] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -79,12 +80,31 @@ function InlineRateEditor({
     }
   }, [value, editing])
 
-  const handleBlur = async () => {
-    setEditing(false)
-    const parsed = input.trim() === "" ? null : parseFloat(input)
+  const handleSave = async () => {
+    if (isSaving) return
+    const trimmedInput = input.trim()
+    const parsed = trimmedInput === "" ? null : parseFloat(trimmedInput)
+    
+    // Check if input is empty OR if parseFloat resulted in a valid number
+    if (trimmedInput !== "" && isNaN(parsed as number)) {
+        toast.error("Invalid hourly rate format")
+        setEditing(false)
+        setInput(value != null ? String(value) : "")
+        return
+    }
+
     const hasChanged = parsed !== value && !(parsed === null && value === null)
+    
     if (hasChanged) {
-      await onSave(parsed)
+        setIsSaving(true)
+        try {
+            await onSave(parsed)
+        } finally {
+            setIsSaving(false)
+            setEditing(false)
+        }
+    } else {
+        setEditing(false)
     }
   }
 
@@ -95,9 +115,12 @@ function InlineRateEditor({
         className="h-6 w-24 text-xs px-1.5 py-0"
         value={input}
         onChange={e => setInput(e.target.value)}
-        onBlur={() => void handleBlur()}
+        onBlur={() => void handleSave()}
         onKeyDown={e => {
-          if (e.key === "Enter") void handleBlur()
+          if (e.key === "Enter") {
+             e.preventDefault()
+             void handleSave()
+          }
           if (e.key === "Escape") {
             setEditing(false)
             setInput(value != null ? String(value) : "")
@@ -108,6 +131,7 @@ function InlineRateEditor({
         step="0.01"
         min="0"
         placeholder="—"
+        disabled={isSaving}
       />
     )
   }
