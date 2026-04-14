@@ -100,7 +100,7 @@ jobs:
               if (inClass && /^\s*}\s*$/.test(line)) inClass = false
               if (!inClass) continue
 
-              const isProp = /^\s*[A-Za-z_][A-Za-z0-9_]*\??:\s*[^;]+;/.test(line)
+              const isProp = /^\s*[A-Za-z_][A-Za-z0-9_]*[!?]?:\s*[^;]+;/.test(line)
               if (!isProp) continue
 
               let hasDecorator = false
@@ -120,7 +120,7 @@ jobs:
           }
 
           const invoiceDto = fs.readFileSync('apps/core-api/src/sales/dto/create-invoice.dto.ts', 'utf8')
-          if (!/taxRate:\s*number\b/.test(invoiceDto)) {
+          if (!/taxRate!?:\s*number\b/.test(invoiceDto)) {
             throw new Error('Backend DTO contract changed: CreateInvoiceItemDto.taxRate must remain number.')
           }
           const salesOrderDto = fs.readFileSync('apps/core-api/src/sales/sales-order/dto/create-sales-order.dto.ts', 'utf8')
@@ -128,7 +128,7 @@ jobs:
             throw new Error('Backend DTO contract changed: CreateSalesOrderItemDto.tax_rate must remain optional number.')
           }
           const revenueGroupDto = fs.readFileSync('apps/core-api/src/finance/dto/create-revenue-group.dto.ts', 'utf8')
-          if (!/tax_rate:\s*number\b/.test(revenueGroupDto)) {
+          if (!/tax_rate!?:\s*number\b/.test(revenueGroupDto)) {
             throw new Error('Backend DTO contract changed: CreateRevenueGroupDto.tax_rate must remain number.')
           }
 
