@@ -19,6 +19,23 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # Restrict major version bumps for core tooling with large peer dependency trees
+    # These require careful verification of transitive dependencies compatibility
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - "major"
+      - dependency-name: "eslint"
+        update-types:
+          - "major"
+      - dependency-name: "ts-jest"
+        update-types:
+          - "major"
+      - dependency-name: "typescript-eslint"
+        update-types:
+          - "major"
+    # Note: @eslint/js should be kept in sync with eslint version
+    # If eslint needs a major update, verify @eslint/js compatibility first
 
   - package-ecosystem: "npm"
     directory: "/apps/core-web"
