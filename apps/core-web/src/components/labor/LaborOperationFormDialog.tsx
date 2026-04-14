@@ -75,8 +75,12 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     const standardAw = parseFloat(form.standardAw)
     const hourlyRate = parseFloat(form.hourlyRate)
 
-    if (isNaN(standardAw) || isNaN(hourlyRate)) {
-      toast.error('Please enter valid numeric values for Standard AW and Hourly Rate')
+    if (isNaN(standardAw) || standardAw < 0) {
+      toast.error('Standard AW must be a non-negative number')
+      return
+    }
+    if (isNaN(hourlyRate) || hourlyRate <= 0) {
+      toast.error('Hourly Rate must be greater than 0')
       return
     }
 
