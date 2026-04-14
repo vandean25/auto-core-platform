@@ -1164,16 +1164,16 @@ export interface components {
             /** @description Unique name for the labor category */
             name: string;
             /** @description Description of the category */
-            description?: string;
+            description?: string | null;
             /** @description Sort order for display purposes */
             sort_order?: number;
             /**
              * Format: uuid
              * @description Parent category ID (max depth: 1 level)
              */
-            parent_id?: string;
+            parent_id?: string | null;
             /** @description Default hourly rate for operations in this category */
-            default_hourly_rate?: number;
+            default_hourly_rate?: number | null;
             /** @description Whether the category is active */
             is_active?: boolean;
         };
@@ -1181,16 +1181,16 @@ export interface components {
             /** @description Unique name for the labor category */
             name?: string;
             /** @description Description of the category */
-            description?: string;
+            description?: string | null;
             /** @description Sort order for display purposes */
             sort_order?: number;
             /**
              * Format: uuid
              * @description Parent category ID (max depth: 1 level)
              */
-            parent_id?: string;
+            parent_id?: string | null;
             /** @description Default hourly rate for operations in this category */
-            default_hourly_rate?: number;
+            default_hourly_rate?: number | null;
             /** @description Whether the category is active */
             is_active?: boolean;
         };

@@ -98,10 +98,10 @@ export class CreateLaborCategoryDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiPropertyOptional({ description: 'Description of the category' })
+  @ApiPropertyOptional({ description: 'Description of the category', type: String, nullable: true })
   @IsOptional()
   @IsString()
-  description?: string;
+  description?: string | null;
 
   @ApiPropertyOptional({ description: 'Sort order for display purposes' })
   @IsOptional()
@@ -109,16 +109,25 @@ export class CreateLaborCategoryDto {
   @Min(0)
   sort_order?: number;
 
-  @ApiPropertyOptional({ description: 'Parent category ID (max depth: 1 level)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Parent category ID (max depth: 1 level)',
+    format: 'uuid',
+    type: String,
+    nullable: true,
+  })
   @IsOptional()
   @IsUUID()
-  parent_id?: string;
+  parent_id?: string | null;
 
-  @ApiPropertyOptional({ description: 'Default hourly rate for operations in this category' })
+  @ApiPropertyOptional({
+    description: 'Default hourly rate for operations in this category',
+    type: Number,
+    nullable: true,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  default_hourly_rate?: number;
+  default_hourly_rate?: number | null;
 
   @ApiPropertyOptional({ description: 'Whether the category is active' })
   @IsOptional()
