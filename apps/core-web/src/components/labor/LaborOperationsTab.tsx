@@ -57,50 +57,49 @@ export function LaborOperationsTab() {
   )
 
   // ── Columns ────────────────────────────────────────────────────────────────
-  const columns: ColumnDef<LaborOperation>[] = [
-    {
-      accessorKey: 'code',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
-      cell: ({ row }) => (
-        <span className="font-mono text-sm font-medium">{row.original.code}</span>
-      ),
-    },
-    {
-      accessorKey: 'description',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
-    },
-    {
-      accessorKey: 'standardAw',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Standard AW" />,
-      cell: ({ row }) => (
-        <span className="tabular-nums">{row.original.standardAw.toFixed(2)} hrs</span>
-      ),
-    },
-    {
-      accessorKey: 'hourlyRate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hourly Rate" />,
-      cell: ({ row }) => (
-        <span className="tabular-nums">${row.original.hourlyRate.toFixed(2)}</span>
-      ),
-    },
-    {
-      id: 'category',
-      accessorFn: (row) => row.category?.name ?? '',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-      enableSorting: false,
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.original.category?.name ?? '—'}</span>
-      ),
-    },
-    {
-      accessorKey: 'isActive',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Active" />,
-      enableSorting: false,
-      cell: ({ row }) => (
-        <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />
-      ),
-    },
-  ]
+  const columns = React.useMemo<ColumnDef<LaborOperation>[]>(
+    () => [
+      {
+        accessorKey: 'code',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
+        cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.code}</span>,
+      },
+      {
+        accessorKey: 'description',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      },
+      {
+        accessorKey: 'standardAw',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Standard AW" />,
+        cell: ({ row }) => (
+          <span className="tabular-nums">{row.original.standardAw.toFixed(2)} hrs</span>
+        ),
+      },
+      {
+        accessorKey: 'hourlyRate',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Hourly Rate" />,
+        cell: ({ row }) => (
+          <span className="tabular-nums">${row.original.hourlyRate.toFixed(2)}</span>
+        ),
+      },
+      {
+        id: 'category',
+        accessorFn: (row) => row.category?.name ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.category?.name ?? '—'}</span>
+        ),
+      },
+      {
+        accessorKey: 'isActive',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Active" />,
+        enableSorting: false,
+        cell: ({ row }) => <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />,
+      },
+    ],
+    []
+  )
 
   return (
     <div className="space-y-4">
