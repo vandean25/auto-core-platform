@@ -576,7 +576,6 @@ export function LaborCategoriesTab() {
                   <CategoryTreeRow
                     key={cat.id}
                     category={cat}
-                    topLevelCategories={categories}
                     onEdit={handleEditOpen}
                     onContextMenu={handleContextMenu}
                     onActiveToggle={handleActiveToggle}
