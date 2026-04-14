@@ -152,7 +152,7 @@ function InlineRateEditor({
 interface DragProps {
   dragging: string | null
   over: string | null
-  onDragStart: (id: string) => void
+  onDragStart: (e: React.DragEvent, id: string) => void
   onDragOver: (e: React.DragEvent, id: string) => void
   onDrop: (e: React.DragEvent, targetId: string) => Promise<void>
   onDragEnd: () => void
@@ -161,7 +161,6 @@ interface DragProps {
 function CategoryTreeRow({
   category,
   level = 0,
-  topLevelCategories,
   onEdit,
   onContextMenu,
   onActiveToggle,
@@ -170,7 +169,6 @@ function CategoryTreeRow({
 }: {
   category: CategoryRow
   level?: number
-  topLevelCategories: CategoryRow[]
   onEdit: (category: CategoryRow) => void
   onContextMenu: (e: React.MouseEvent, category: CategoryRow) => void
   onActiveToggle: (category: CategoryRow) => Promise<void>
@@ -192,7 +190,7 @@ function CategoryTreeRow({
         )}
         onContextMenu={e => onContextMenu(e, category)}
         draggable
-        onDragStart={() => dragProps.onDragStart(category.id)}
+        onDragStart={e => dragProps.onDragStart(e, category.id)}
         onDragOver={e => dragProps.onDragOver(e, category.id)}
         onDrop={e => void dragProps.onDrop(e, category.id)}
         onDragEnd={dragProps.onDragEnd}
@@ -260,7 +258,6 @@ function CategoryTreeRow({
               key={child.id}
               category={child}
               level={level + 1}
-              topLevelCategories={topLevelCategories}
               onEdit={onEdit}
               onContextMenu={onContextMenu}
               onActiveToggle={onActiveToggle}
@@ -470,7 +467,10 @@ export function LaborCategoriesTab() {
   }
 
   // ── Drag handlers ──
-  const handleDragStart = (id: string) => setDraggingId(id)
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData("text/plain", id)
+    setDraggingId(id)
+  }
   const handleDragEnd = () => {
     setDraggingId(null)
     setDragOverId(null)
