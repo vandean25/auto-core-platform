@@ -117,7 +117,8 @@ export function createDashboardRealtimeExtension(
         },
         async upsert({ model, args, query }) {
           // Distinguish between create and update by performing an existence pre-check
-          const ctx = Prisma.getExtensionContext(this);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ctx = Prisma.getExtensionContext(this) as any;
           const existing = await ctx.findFirst({
             where: args.where,
             select: { id: true },
