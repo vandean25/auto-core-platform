@@ -17,23 +17,23 @@ updates:
         patterns:
           - "@nestjs/*"
         update-types:
-          - "minor"
-          - "patch"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     # Restrict major version bumps for core tooling with large peer dependency trees
     # These require careful verification of transitive dependencies compatibility
     ignore:
       - dependency-name: "typescript"
         update-types:
-          - "major"
+          - "version-update:semver-major"
       - dependency-name: "eslint"
         update-types:
-          - "major"
+          - "version-update:semver-major"
       - dependency-name: "ts-jest"
         update-types:
-          - "major"
+          - "version-update:semver-major"
       - dependency-name: "typescript-eslint"
         update-types:
-          - "major"
+          - "version-update:semver-major"
     # Note: @eslint/js should be kept in sync with eslint version
     # If eslint needs a major update, verify @eslint/js compatibility first
 
@@ -52,5 +52,5 @@ updates:
           - "lucide-react"
           - "clsx"
         update-types:
-          - "minor"
-          - "patch"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
