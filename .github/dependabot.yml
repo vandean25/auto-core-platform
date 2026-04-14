@@ -17,8 +17,8 @@ updates:
         patterns:
           - "@nestjs/*"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - "minor"
+          - "patch"
     # Restrict major version bumps for core tooling with large peer dependency trees
     # These require careful verification of transitive dependencies compatibility
     ignore:
@@ -52,5 +52,5 @@ updates:
           - "lucide-react"
           - "clsx"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - "minor"
+          - "patch"
