@@ -8,6 +8,16 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useLaborOperations, useLaborCategories, useDeleteLaborOperation, flattenLaborCategories } from '@/api/labor'
 import type { LaborOperation } from '@/api/labor'
 import { LaborOperationFormDialog } from './LaborOperationFormDialog'
@@ -22,6 +32,7 @@ export function LaborOperationsTab() {
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editingOperation, setEditingOperation] = React.useState<LaborOperation | null>(null)
+  const [deactivatingId, setDeactivatingId] = React.useState<string | null>(null)
 
   const data = responseData?.data ?? []
   const totalPages = responseData?.meta?.totalPages ?? 1
@@ -39,14 +50,16 @@ export function LaborOperationsTab() {
     })
   }
 
-  // ── Soft delete ────────────────────────────────────────────────────────────
-  const handleDelete = async (id: string) => {
+  // ── Soft delete (Deactivate) ───────────────────────────────────────────────
+  const handleDeactivate = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id)
       toast.success('Labor operation deactivated')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to delete labor operation'
+      const message = error instanceof Error ? error.message : 'Failed to deactivate labor operation'
       toast.error(message)
+    } finally {
+      setDeactivatingId(null)
     }
   }
 
@@ -146,13 +159,38 @@ export function LaborOperationsTab() {
         onRowClick={(row) => setEditingOperation(row)}
         getRowContextActions={(row) => [
           {
-            label: 'Delete',
-            onClick: () => void handleDelete(row.id),
+            label: 'Deactivate',
+            onClick: () => setDeactivatingId(row.id),
             destructive: true,
           },
         ]}
         {...tableState}
       />
+
+      {/* Deactivation Confirmation */}
+      <AlertDialog
+        open={!!deactivatingId}
+        onOpenChange={(open) => !open && setDeactivatingId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will deactivate the labor operation. It will no longer be available for new
+              workshop orders but historical data will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => deactivatingId && void handleDeactivate(deactivatingId)}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create dialog */}
       <LaborOperationFormDialog open={createOpen} onOpenChange={setCreateOpen} />
