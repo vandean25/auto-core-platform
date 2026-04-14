@@ -10,13 +10,13 @@ import {
 export class CreateBrandDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsBoolean()
-  isVehicleMake: boolean;
+  isVehicleMake!: boolean;
 
   @IsBoolean()
-  isPartManufacturer: boolean;
+  isPartManufacturer!: boolean;
 
   @IsOptional()
   @ValidateIf(

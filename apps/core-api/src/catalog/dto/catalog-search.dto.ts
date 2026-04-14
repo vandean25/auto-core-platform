@@ -2,71 +2,71 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CatalogLaborSearchItemDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  code: string;
+  code!: string;
 
   @ApiProperty()
-  description: string;
+  description!: string;
 
   @ApiProperty()
-  standardAw: number;
+  standardAw!: number;
 
   @ApiProperty()
-  hourlyRate: number;
+  hourlyRate!: number;
 
   @ApiProperty({ type: String, nullable: true })
-  categoryName: string | null;
+  categoryName!: string | null;
 }
 
 export class CatalogPartSearchItemDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  supplierPartNumber: string;
+  supplierPartNumber!: string;
 
   @ApiProperty({ type: String, nullable: true })
-  oemNumber: string | null;
+  oemNumber!: string | null;
 
   @ApiProperty()
-  description: string;
+  description!: string;
 
   @ApiProperty()
-  brand: string;
+  brand!: string;
 
   @ApiProperty()
-  quantityOnHand: number;
+  quantityOnHand!: number;
 
   @ApiProperty({ type: String, nullable: true })
-  binLocation: string | null;
+  binLocation!: string | null;
 
   @ApiProperty({ type: Number, nullable: true })
-  costPrice: number | null;
+  costPrice!: number | null;
 
   @ApiProperty({ type: Number, nullable: true })
-  retailPrice: number | null;
+  retailPrice!: number | null;
 }
 
 export class CatalogSearchMetaDto {
   @ApiProperty()
-  laborCount: number;
+  laborCount!: number;
 
   @ApiProperty()
-  partCount: number;
+  partCount!: number;
 
   @ApiProperty()
-  limit: number;
+  limit!: number;
 }
 
 export class CatalogSearchResponseDto {
   @ApiProperty({ type: [CatalogLaborSearchItemDto] })
-  labor: CatalogLaborSearchItemDto[];
+  labor!: CatalogLaborSearchItemDto[];
 
   @ApiProperty({ type: [CatalogPartSearchItemDto] })
-  parts: CatalogPartSearchItemDto[];
+  parts!: CatalogPartSearchItemDto[];
 
   @ApiProperty({ type: () => CatalogSearchMetaDto })
-  meta: CatalogSearchMetaDto;
+  meta!: CatalogSearchMetaDto;
 }

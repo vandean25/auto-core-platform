@@ -10,15 +10,15 @@ import {
 export class CreateVendorDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  accountNumber: string;
+  accountNumber!: string;
 
   @IsArray()
   @IsInt({ each: true })

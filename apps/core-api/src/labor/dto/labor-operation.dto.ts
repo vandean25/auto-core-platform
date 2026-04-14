@@ -23,12 +23,12 @@ export class LaborOperationFitmentDto {
   @ApiProperty({ description: 'Vehicle make' })
   @IsString()
   @IsNotEmpty()
-  make: string;
+  make!: string;
 
   @ApiProperty({ description: 'Vehicle model' })
   @IsString()
   @IsNotEmpty()
-  model: string;
+  model!: string;
 
   @ApiPropertyOptional({ description: 'Year from (inclusive)' })
   @IsOptional()
@@ -51,23 +51,23 @@ export class CreateLaborOperationDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
-  code: string;
+  code!: string;
 
   @ApiProperty({ description: 'Operation description' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @ApiProperty({ description: 'Standard allocated work hours (>= 0)', minimum: 0 })
   @IsNumber()
   @Min(0)
-  standardAw: number;
+  standardAw!: number;
 
   @ApiProperty({ description: 'Hourly rate (> 0)', minimum: 0.01 })
   @IsNumber()
   @Min(0.01)
-  hourlyRate: number;
+  hourlyRate!: number;
 
   @ApiPropertyOptional({ description: 'Internal cost per operation (overrides category default for cost tracking)' })
   @IsOptional()
@@ -151,132 +151,132 @@ export class ListLaborOperationsQueryDto {
 
 export class LaborOperationCategoryDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 }
 
 export class LaborOperationFitmentResponseDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  make: string;
+  make!: string;
 
   @ApiProperty()
-  model: string;
+  model!: string;
 
   @ApiPropertyOptional({ nullable: true })
-  yearFrom: number | null;
+  yearFrom!: number | null;
 
   @ApiPropertyOptional({ nullable: true })
-  yearTo: number | null;
+  yearTo!: number | null;
 
   @ApiPropertyOptional({ nullable: true })
-  engineCode: string | null;
+  engineCode!: string | null;
 }
 
 export class LaborOperationResponseDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  code: string;
+  code!: string;
 
   @ApiProperty()
-  description: string;
+  description!: string;
 
   @ApiProperty()
-  standardAw: number;
+  standardAw!: number;
 
   @ApiProperty()
-  hourlyRate: number;
+  hourlyRate!: number;
 
   @ApiPropertyOptional({ nullable: true })
-  internalCost: number | null;
+  internalCost!: number | null;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
-  categoryId: string | null;
+  categoryId!: string | null;
 
   @ApiPropertyOptional({ type: () => LaborOperationCategoryDto, nullable: true })
-  category: LaborOperationCategoryDto | null;
+  category!: LaborOperationCategoryDto | null;
 
   @ApiProperty()
-  isActive: boolean;
+  isActive!: boolean;
 
   @ApiProperty({ type: [LaborOperationFitmentResponseDto] })
-  fitments: LaborOperationFitmentResponseDto[];
+  fitments!: LaborOperationFitmentResponseDto[];
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class PaginatedLaborOperationsMetaDto {
   @ApiProperty()
-  total: number;
+  total!: number;
 
   @ApiProperty()
-  page: number;
+  page!: number;
 
   @ApiProperty()
-  limit: number;
+  limit!: number;
 
   @ApiProperty()
-  totalPages: number;
+  totalPages!: number;
 }
 
 export class PaginatedLaborOperationsResponseDto {
   @ApiProperty({ type: [LaborOperationResponseDto] })
-  data: LaborOperationResponseDto[];
+  data!: LaborOperationResponseDto[];
 
   @ApiProperty({ type: () => PaginatedLaborOperationsMetaDto })
-  meta: PaginatedLaborOperationsMetaDto;
+  meta!: PaginatedLaborOperationsMetaDto;
 }
 
 export class SoftDeleteResponseDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  isActive: boolean;
+  isActive!: boolean;
 }
 
 export class LaborOperationSearchItemDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  code: string;
+  code!: string;
 
   @ApiProperty()
-  description: string;
+  description!: string;
 
   @ApiProperty()
-  standardAw: number;
+  standardAw!: number;
 
   @ApiProperty()
-  hourlyRate: number;
+  hourlyRate!: number;
 
   @ApiProperty({ type: String, nullable: true })
-  categoryName: string | null;
+  categoryName!: string | null;
 }
 
 export class LaborOperationSearchMetaDto {
   @ApiProperty()
-  total: number;
+  total!: number;
 
   @ApiProperty()
-  limit: number;
+  limit!: number;
 }
 
 export class LaborOperationSearchResponseDto {
   @ApiProperty({ type: [LaborOperationSearchItemDto] })
-  data: LaborOperationSearchItemDto[];
+  data!: LaborOperationSearchItemDto[];
 
   @ApiProperty({ type: () => LaborOperationSearchMetaDto })
-  meta: LaborOperationSearchMetaDto;
+  meta!: LaborOperationSearchMetaDto;
 }

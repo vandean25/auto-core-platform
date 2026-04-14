@@ -9,15 +9,15 @@ import {
 export class CreateRevenueGroupDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsNumber()
   @IsNotEmpty()
-  tax_rate: number;
+  tax_rate!: number;
 
   @IsString()
   @IsNotEmpty()
-  account_number: string;
+  account_number!: string;
 
   @IsOptional()
   @IsBoolean()

@@ -11,22 +11,22 @@ import { Type } from 'class-transformer';
 export class PurchaseOrderItemDto {
   @IsString()
   @IsNotEmpty()
-  catalogItemId: string;
+  catalogItemId!: string;
 
   @IsInt()
-  quantity: number;
+  quantity!: number;
 
   @IsNumber()
-  unitCost: number;
+  unitCost!: number;
 }
 
 export class CreatePurchaseOrderDto {
   @IsString()
   @IsNotEmpty()
-  vendorId: string;
+  vendorId!: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderItemDto)
-  items: PurchaseOrderItemDto[];
+  items!: PurchaseOrderItemDto[];
 }

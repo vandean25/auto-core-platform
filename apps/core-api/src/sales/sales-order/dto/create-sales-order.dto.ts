@@ -15,13 +15,13 @@ export class CreateSalesOrderItemDto {
   catalog_item_id?: string;
 
   @IsString()
-  description: string;
+  description!: string;
 
   @IsNumber()
-  quantity: number;
+  quantity!: number;
 
   @IsNumber()
-  unit_price: number;
+  unit_price!: number;
 
   @IsNumber()
   @IsOptional()
@@ -30,7 +30,7 @@ export class CreateSalesOrderItemDto {
 
 export class CreateSalesOrderDto {
   @IsUUID()
-  customer_id: string;
+  customer_id!: string;
 
   @IsUUID()
   @IsOptional()
@@ -43,5 +43,5 @@ export class CreateSalesOrderDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSalesOrderItemDto)
-  items: CreateSalesOrderItemDto[];
+  items!: CreateSalesOrderItemDto[];
 }

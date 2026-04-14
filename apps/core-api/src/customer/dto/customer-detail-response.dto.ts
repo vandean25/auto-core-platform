@@ -8,36 +8,36 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CustomerHistoryMetaDto {
   @ApiProperty()
-  page: number;
+  page!: number;
 
   @ApiProperty()
-  pageSize: number;
+  pageSize!: number;
 
   @ApiProperty()
-  totalCount: number;
+  totalCount!: number;
 
   @ApiProperty()
-  pageCount: number;
+  pageCount!: number;
 
   @ApiProperty()
-  hasMore: boolean;
+  hasMore!: boolean;
 }
 
 export class CustomerDetailResponseDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty({ enum: CustomerType })
-  type: CustomerType;
+  type!: CustomerType;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   company_name?: string | null;
 
   @ApiProperty()
-  first_name: string;
+  first_name!: string;
 
   @ApiProperty()
-  last_name: string;
+  last_name!: string;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   email?: string | null;
@@ -89,24 +89,24 @@ export class CustomerDetailResponseDto {
   invoices?: InvoiceSummaryDto[];
 
   @ApiProperty({ type: CustomerHistoryMetaDto })
-  workshop_orders_meta: CustomerHistoryMetaDto;
+  workshop_orders_meta!: CustomerHistoryMetaDto;
 
   @ApiProperty({ type: CustomerHistoryMetaDto })
-  invoices_meta: CustomerHistoryMetaDto;
+  invoices_meta!: CustomerHistoryMetaDto;
 }
 
 export class VehicleSummaryDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  make: string;
+  make!: string;
 
   @ApiProperty()
-  model: string;
+  model!: string;
 
   @ApiProperty()
-  year: number;
+  year!: number;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   vin?: string | null;
@@ -117,27 +117,27 @@ export class VehicleSummaryDto {
 
 export class SalesOrderSummaryDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  order_number: string;
+  order_number!: string;
 
   @ApiProperty({ enum: SalesOrderStatus })
-  status: SalesOrderStatus;
+  status!: SalesOrderStatus;
 
   @ApiProperty()
-  total_amount: string;
+  total_amount!: string;
 
   @ApiProperty()
-  createdAt: string;
+  createdAt!: string;
 }
 
 export class WorkshopTaskLineItemSummaryDto {
   @ApiProperty()
-  quantity: string;
+  quantity!: string;
 
   @ApiProperty()
-  unit_price: string;
+  unit_price!: string;
 }
 
 export class WorkshopTaskSummaryDto {
@@ -150,13 +150,13 @@ export class WorkshopTaskSummaryDto {
 
 export class WorkshopOrderSummaryDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty({ enum: WorkshopOrderStatus })
-  status: WorkshopOrderStatus;
+  status!: WorkshopOrderStatus;
 
   @ApiProperty()
-  createdAt: string;
+  createdAt!: string;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   vehicle_id?: string | null;
@@ -173,17 +173,17 @@ export class WorkshopOrderSummaryDto {
 
 export class InvoiceSummaryDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty({ type: String, required: false, nullable: true })
-  invoice_number: string | null;
+  invoice_number!: string | null;
 
   @ApiProperty({ enum: InvoiceStatus })
-  status: InvoiceStatus;
+  status!: InvoiceStatus;
 
   @ApiProperty()
-  date: string;
+  date!: string;
 
   @ApiProperty()
-  total_gross: string;
+  total_gross!: string;
 }

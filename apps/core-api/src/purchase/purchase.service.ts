@@ -283,7 +283,8 @@ export class PurchaseService {
     } catch (error) {
       console.error('===== receiveItems ERROR =====');
       console.error('Error type:', error?.constructor?.name);
-      console.error('Error message:', error?.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error message:', errorMessage);
       console.error('Full error:', error);
       throw error;
     }

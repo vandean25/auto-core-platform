@@ -12,30 +12,30 @@ import { Type } from 'class-transformer';
 
 class WorkshopTaskLineItemDto {
   @IsEnum(WorkshopLineItemType)
-  type: WorkshopLineItemType;
+  type!: WorkshopLineItemType;
 
   @IsString()
   @IsNotEmpty()
-  itemNo: string;
+  itemNo!: string;
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @IsNumber()
   @Min(0.01)
   @Type(() => Number)
-  qty: number;
+  qty!: number;
 
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  unitPrice: number;
+  unitPrice!: number;
 }
 
 export class ReplaceWorkshopTaskLineItemsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkshopTaskLineItemDto)
-  items: WorkshopTaskLineItemDto[];
+  items!: WorkshopTaskLineItemDto[];
 }

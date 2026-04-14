@@ -10,14 +10,14 @@ import { LocationType } from '@prisma/client';
 export class CreateLocationDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsString()
   @IsNotEmpty()
-  code: string;
+  code!: string;
 
   @IsEnum(LocationType)
-  type: LocationType;
+  type!: LocationType;
 
   @IsUUID()
   @IsOptional()
