@@ -394,10 +394,10 @@ export function LaborCategoriesTab() {
           name: editForm.name.trim(),
           ...(editForm.description.trim() ? { description: editForm.description.trim() } : { description: "" }),
           ...(editForm.sort_order ? { sort_order: parseInt(editForm.sort_order, 10) } : {}),
-          ...(editForm.parent_id !== "none" ? { parent_id: editForm.parent_id } : { parent_id: undefined }),
+          ...(editForm.parent_id !== "none" ? { parent_id: editForm.parent_id } : { parent_id: null }),
           ...(editForm.default_hourly_rate
             ? { default_hourly_rate: parseFloat(editForm.default_hourly_rate) }
-            : { default_hourly_rate: undefined }),
+            : { default_hourly_rate: null }),
           is_active: editForm.is_active,
         },
       })
@@ -461,7 +461,7 @@ export function LaborCategoriesTab() {
     try {
       await updateMutation.mutateAsync({
         id,
-        data: { default_hourly_rate: rate ?? undefined },
+        data: { default_hourly_rate: rate ?? null },
       })
       toast.success("Hourly rate updated")
     } catch {
