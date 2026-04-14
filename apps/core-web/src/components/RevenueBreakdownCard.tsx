@@ -44,7 +44,10 @@ export function RevenueBreakdownCard() {
                             ))}
                         </Pie>
                         <Tooltip 
-                            formatter={(value: number | undefined) => [value ? `€${value.toLocaleString()}` : "€0", 'Revenue']}
+                            formatter={(value: any) => [
+                                typeof value === 'number' ? `€${value.toLocaleString()}` : (value ? String(value) : "€0"),
+                                'Revenue'
+                            ]}
                         />
                     </PieChart>
                 </ResponsiveContainer>
