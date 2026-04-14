@@ -10,6 +10,7 @@ import {
   useCreateLaborOperation,
   useUpdateLaborOperation,
   useLaborCategories,
+  flattenLaborCategories,
 } from '@/api/labor'
 import type { LaborOperation, CreateLaborOperationPayload, UpdateLaborOperationPayload } from '@/api/labor'
 
@@ -63,11 +64,10 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const isPending = createMutation.isPending || updateMutation.isPending
 
   // Flatten categories including children for dropdown
-  const categories =
-    categoriesData?.data?.flatMap((cat) => [
-      { id: cat.id, name: cat.name },
-      ...cat.children.map((child) => ({ id: child.id, name: `${cat.name} › ${child.name}` })),
-    ]) ?? []
+  const categories = React.useMemo(
+    () => flattenLaborCategories(categoriesData),
+    [categoriesData]
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

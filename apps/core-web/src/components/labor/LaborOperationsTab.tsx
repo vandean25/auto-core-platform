@@ -8,7 +8,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
-import { useLaborOperations, useLaborCategories, useDeleteLaborOperation } from '@/api/labor'
+import { useLaborOperations, useLaborCategories, useDeleteLaborOperation, flattenLaborCategories } from '@/api/labor'
 import type { LaborOperation } from '@/api/labor'
 import { LaborOperationFormDialog } from './LaborOperationFormDialog'
 
@@ -51,14 +51,10 @@ export function LaborOperationsTab() {
   }
 
   // ── Flat categories for dropdown ───────────────────────────────────────────
-  const categories =
-    categoriesData?.data?.flatMap((cat) => [
-      { id: cat.id, name: cat.name },
-      ...cat.children.map((child) => ({
-        id: child.id,
-        name: `${cat.name} › ${child.name}`,
-      })),
-    ]) ?? []
+  const categories = React.useMemo(
+    () => flattenLaborCategories(categoriesData),
+    [categoriesData]
+  )
 
   // ── Columns ────────────────────────────────────────────────────────────────
   const columns: ColumnDef<LaborOperation>[] = [

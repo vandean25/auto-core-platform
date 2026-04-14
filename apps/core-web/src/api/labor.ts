@@ -28,6 +28,21 @@ export type CreateLaborOperationPayload = components['schemas']['CreateLaborOper
 export type UpdateLaborOperationPayload = components['schemas']['UpdateLaborOperationDto']
 export type SoftDeleteResponse = components['schemas']['SoftDeleteResponseDto']
 
+/**
+ * Flattens hierarchical labor categories into a list for dropdowns.
+ * Includes parent categories and their children with a separator.
+ */
+export function flattenLaborCategories(response?: LaborCategoriesResponse) {
+  if (!response?.data) return []
+  return response.data.flatMap((cat) => [
+    { id: cat.id, name: cat.name },
+    ...cat.children.map((child) => ({
+      id: child.id,
+      name: `${cat.name} › ${child.name}`,
+    })),
+  ])
+}
+
 // ── Categories ────────────────────────────────────────────────────────────────
 
 export function useLaborCategories() {
