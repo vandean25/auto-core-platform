@@ -12,23 +12,23 @@ export class RegisterIntakeDto {
   // Vehicle Details
   @IsString()
   @IsNotEmpty()
-  vin: string;
+  vin!: string;
 
   @IsString()
   @IsNotEmpty()
-  plate: string;
+  plate!: string;
 
   @IsString()
   @IsNotEmpty()
-  make: string;
+  make!: string;
 
   @IsString()
   @IsNotEmpty()
-  model: string;
+  model!: string;
 
   @IsInt()
   @Min(1900)
-  year: number;
+  year!: number;
 
   // Customer Linking
   @IsString()

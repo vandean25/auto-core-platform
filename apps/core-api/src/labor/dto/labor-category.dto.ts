@@ -14,89 +14,89 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class LaborCategoryChildDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ nullable: true })
-  description: string | null;
+  description!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
-  sort_order: number | null;
+  sort_order!: number | null;
 
   @ApiProperty({ format: 'uuid', nullable: true })
-  parent_id: string | null;
+  parent_id!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
-  default_hourly_rate: number | null;
+  default_hourly_rate!: number | null;
 
   @ApiProperty()
-  is_active: boolean;
+  is_active!: boolean;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class LaborCategoryResponseDto {
   @ApiProperty({ format: 'uuid' })
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ nullable: true })
-  description: string | null;
+  description!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
-  sort_order: number | null;
+  sort_order!: number | null;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
-  parent_id: string | null;
+  parent_id!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
-  default_hourly_rate: number | null;
+  default_hourly_rate!: number | null;
 
   @ApiProperty()
-  is_active: boolean;
+  is_active!: boolean;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ApiProperty({ type: [LaborCategoryChildDto] })
-  children: LaborCategoryChildDto[];
+  children!: LaborCategoryChildDto[];
 }
 
 export class LaborCategoriesMetaDto {
   @ApiProperty()
-  total: number;
+  total!: number;
 
   @ApiProperty()
-  topLevelCount: number;
+  topLevelCount!: number;
 
   @ApiProperty()
-  childCount: number;
+  childCount!: number;
 }
 
 export class LaborCategoriesResponseDto {
   @ApiProperty({ type: [LaborCategoryResponseDto] })
-  data: LaborCategoryResponseDto[];
+  data!: LaborCategoryResponseDto[];
 
   @ApiProperty({ type: () => LaborCategoriesMetaDto })
-  meta: LaborCategoriesMetaDto;
+  meta!: LaborCategoriesMetaDto;
 }
 
 export class CreateLaborCategoryDto {
   @ApiProperty({ description: 'Unique name for the labor category' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Description of the category' })
   @IsOptional()

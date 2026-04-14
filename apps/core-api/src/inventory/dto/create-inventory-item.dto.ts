@@ -10,19 +10,19 @@ import {
 export class CreateInventoryItemDto {
   @IsString()
   @IsNotEmpty()
-  sku: string;
+  sku!: string;
 
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsNumber()
   @Min(0)
-  cost_price: number;
+  cost_price!: number;
 
   @IsNumber()
   @Min(0)
-  retail_price: number;
+  retail_price!: number;
 
   @IsString()
   @IsOptional()

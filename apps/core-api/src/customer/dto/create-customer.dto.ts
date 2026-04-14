@@ -11,10 +11,10 @@ export class CreateCustomerDto {
   company_name?: string;
 
   @IsString()
-  first_name: string;
+  first_name!: string;
 
   @IsString()
-  last_name: string;
+  last_name!: string;
 
   @IsEmail()
   @IsOptional()

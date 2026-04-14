@@ -19,42 +19,42 @@ export class CreatePurchaseInvoiceLineDto {
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @IsNumber()
   @IsNotEmpty()
-  quantity: number;
+  quantity!: number;
 
   @IsNumber()
   @IsNotEmpty()
-  unitPrice: number;
+  unitPrice!: number;
 
   @IsNumber()
   @IsOptional()
   @Min(0)
   @Max(100)
-  taxRate: number;
+  taxRate!: number;
 }
 
 export class CreatePurchaseInvoiceDto {
   @IsUUID()
   @IsNotEmpty()
-  vendorId: string;
+  vendorId!: string;
 
   @IsString()
   @IsNotEmpty()
-  vendorInvoiceNumber: string;
+  vendorInvoiceNumber!: string;
 
   @IsDateString()
   @IsNotEmpty()
-  invoiceDate: string;
+  invoiceDate!: string;
 
   @IsDateString()
   @IsNotEmpty()
-  dueDate: string;
+  dueDate!: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseInvoiceLineDto)
-  items: CreatePurchaseInvoiceLineDto[];
+  items!: CreatePurchaseInvoiceLineDto[];
 }

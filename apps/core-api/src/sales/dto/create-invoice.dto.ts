@@ -16,25 +16,25 @@ export class CreateInvoiceItemDto {
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @IsNumber()
   @IsNotEmpty()
-  quantity: number;
+  quantity!: number;
 
   @IsNumber()
   @IsNotEmpty()
-  unitPrice: number;
+  unitPrice!: number;
 
   @IsNumber()
   @IsNotEmpty()
-  taxRate: number;
+  taxRate!: number;
 }
 
 export class CreateInvoiceDto {
   @IsUUID()
   @IsNotEmpty()
-  customerId: string;
+  customerId!: string;
 
   @IsUUID()
   @IsOptional()
@@ -51,5 +51,5 @@ export class CreateInvoiceDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateInvoiceItemDto)
-  items: CreateInvoiceItemDto[];
+  items!: CreateInvoiceItemDto[];
 }

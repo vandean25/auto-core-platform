@@ -5,5 +5,5 @@ export class CreateDraftInvoiceDto {
   @ApiProperty({ example: 'workshop-order-id' })
   @IsUUID()
   @IsNotEmpty()
-  workshopOrderId: string;
+  workshopOrderId!: string;
 }

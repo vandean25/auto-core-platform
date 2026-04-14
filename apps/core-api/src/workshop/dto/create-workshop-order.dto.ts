@@ -11,20 +11,20 @@ import {
 export class CreateWorkshopOrderDto {
   @IsUUID()
   @IsNotEmpty()
-  customerId: string;
+  customerId!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  vehicleId: string;
+  vehicleId!: string;
 
   @IsInt()
   @Min(0)
-  odometer: number;
+  odometer!: number;
 
   @IsInt()
   @Min(0)
   @Max(100)
-  fuelLevel: number;
+  fuelLevel!: number;
 
   @IsString()
   @IsOptional()

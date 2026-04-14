@@ -6,5 +6,5 @@ export class AddPurchaseOrderItemsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderItemDto)
-  items: PurchaseOrderItemDto[];
+  items!: PurchaseOrderItemDto[];
 }
