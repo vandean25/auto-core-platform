@@ -9,6 +9,8 @@ const BrandSchema = z.object({
     isVehicleMake: z.boolean(),
     isPartManufacturer: z.boolean(),
     logoUrl: z.string().optional().nullable(),
+    createdAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
 })
 
 const PaginatedBrandsSchema = z.object({
@@ -43,7 +45,7 @@ export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacture
             
             if (!result.success) {
                 console.error('API structure mismatch for brands:', result.error)
-                // Return an empty array or handle error appropriately in the UI
+                // Return an empty array to prevent UI crash on malformed payloads
                 return []
             }
             

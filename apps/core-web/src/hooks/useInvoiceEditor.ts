@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { generateId } from '@/lib/id'
 import type { InvoiceItem, Customer } from '../api/types'
 
 export interface InvoiceEditorItem extends Omit<InvoiceItem, 'id'> {
@@ -38,7 +39,7 @@ export function useInvoiceEditor() {
         setItems(prev => [
             ...prev,
             {
-                tempId: crypto.randomUUID(),
+                tempId: generateId(),
                 description: '',
                 quantity: 1,
                 unit_price: 0,

@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "eslint .",
     "preview": "vite preview",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-web",
@@ -45,10 +46,12 @@
     "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.59.1",
     "@sentry/vite-plugin": "^5.1.1",
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
@@ -58,6 +61,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.23",
+    "cross-env": "^7.0.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

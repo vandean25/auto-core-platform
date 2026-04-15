@@ -9,6 +9,7 @@ import { GlobalSearch } from '@/components/GlobalSearch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
+import { generateId } from '@/lib/id'
 import LoginPage from '@/pages/LoginPage'
 import InventoryList from './pages/InventoryList'
 import InventoryLedgerPage from './pages/inventory/InventoryLedgerPage'
@@ -117,7 +118,7 @@ function AppShell({ userId, userEmail, onSignOut }: AppShellProps) {
     if (typeof window === 'undefined') return 'server'
     const stored = window.localStorage.getItem('deviceId')
     if (stored) return stored
-    const newId = crypto.randomUUID()
+    const newId = generateId()
     window.localStorage.setItem('deviceId', newId)
     return newId
   })
