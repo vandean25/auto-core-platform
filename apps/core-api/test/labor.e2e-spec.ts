@@ -24,7 +24,9 @@ describe('Labor Module (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -33,16 +35,24 @@ describe('Labor Module (e2e)', () => {
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
     });
-    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
-    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
+    await prisma.laborOperation.deleteMany({
+      where: { code: { startsWith: PREFIX } },
+    });
+    await prisma.laborCategory.deleteMany({
+      where: { name: { startsWith: PREFIX } },
+    });
   });
 
   afterAll(async () => {
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
     });
-    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
-    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
+    await prisma.laborOperation.deleteMany({
+      where: { code: { startsWith: PREFIX } },
+    });
+    await prisma.laborCategory.deleteMany({
+      where: { name: { startsWith: PREFIX } },
+    });
     await app.close();
     if (originalApiKey === undefined) delete process.env.API_KEY;
     else process.env.API_KEY = originalApiKey;
@@ -59,7 +69,10 @@ describe('Labor Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
         .set('x-api-key', 'test-api-key')
-        .send({ name: `${PREFIX}Engine Repair`, description: 'Engine-related repairs' })
+        .send({
+          name: `${PREFIX}Engine Repair`,
+          description: 'Engine-related repairs',
+        })
         .expect(201);
 
       expect(res.body).toMatchObject({
@@ -122,7 +135,9 @@ describe('Labor Module (e2e)', () => {
         .send({ name: `${PREFIX}Engine Repair Updated` })
         .expect(200);
 
-      expect(res.body).toMatchObject({ name: `${PREFIX}Engine Repair Updated` });
+      expect(res.body).toMatchObject({
+        name: `${PREFIX}Engine Repair Updated`,
+      });
     });
 
     it('should list categories as tree structure → 200', async () => {
@@ -466,7 +481,9 @@ describe('Labor Module (e2e)', () => {
         opIds.push(inactiveOp.id);
 
         const res = await request(app.getHttpServer())
-          .get(`/api/labor/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`)
+          .get(
+            `/api/labor/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
+          )
           .set('x-api-key', 'test-api-key')
           .expect(200);
 
@@ -483,14 +500,18 @@ describe('Labor Module (e2e)', () => {
           await prisma.laborFitment.deleteMany({
             where: { labor_operation_id: { in: opIds } },
           });
-          await prisma.laborOperation.deleteMany({ where: { id: { in: opIds } } });
+          await prisma.laborOperation.deleteMany({
+            where: { id: { in: opIds } },
+          });
         }
         if (categoryId)
           await prisma.laborCategory.delete({ where: { id: categoryId } });
         if (workshopOrderId)
           await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
-        if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
-        if (customerId) await prisma.customer.delete({ where: { id: customerId } });
+        if (vehicleId)
+          await prisma.vehicle.delete({ where: { id: vehicleId } });
+        if (customerId)
+          await prisma.customer.delete({ where: { id: customerId } });
       }
     });
   });

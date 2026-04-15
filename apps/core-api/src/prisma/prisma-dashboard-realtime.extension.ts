@@ -118,8 +118,11 @@ export function createDashboardRealtimeExtension(
         async upsert({ model, args, query }) {
           // Distinguish between create and update by performing an existence pre-check
           const ctx = Prisma.getExtensionContext(this);
-          // @ts-expect-error - Prisma extension context findFirst typing pending TS6 compatibility patch
-          const existing = await ctx.findFirst({ where: args.where, select: { id: true } });
+          // Cast to any to bypass TS6 compatibility issues with findFirst in dynamic context
+          const existing = await (ctx as any).findFirst({
+            where: args.where,
+            select: { id: true },
+          });
 
           const result = await query(args);
           const type = modelNameToEntityType(model);

@@ -22,7 +22,9 @@ describe('Catalog Module (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -30,16 +32,24 @@ describe('Catalog Module (e2e)', () => {
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
     });
-    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
-    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
+    await prisma.laborOperation.deleteMany({
+      where: { code: { startsWith: PREFIX } },
+    });
+    await prisma.laborCategory.deleteMany({
+      where: { name: { startsWith: PREFIX } },
+    });
   });
 
   afterAll(async () => {
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
     });
-    await prisma.laborOperation.deleteMany({ where: { code: { startsWith: PREFIX } } });
-    await prisma.laborCategory.deleteMany({ where: { name: { startsWith: PREFIX } } });
+    await prisma.laborOperation.deleteMany({
+      where: { code: { startsWith: PREFIX } },
+    });
+    await prisma.laborCategory.deleteMany({
+      where: { name: { startsWith: PREFIX } },
+    });
     await app.close();
     if (originalApiKey === undefined) delete process.env.API_KEY;
     else process.env.API_KEY = originalApiKey;
@@ -133,28 +143,35 @@ describe('Catalog Module (e2e)', () => {
       opIds.push(uncategorizedOp.id);
 
       const res = await request(app.getHttpServer())
-        .get(`/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`)
+        .get(
+          `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
+        )
         .set('x-api-key', 'test-api-key')
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];
-      expect(results.find((op) => op.id === categorizedOp.id)?.categoryName).toBe(
-        `${PREFIX}Search Category`,
-      );
-      expect(results.find((op) => op.id === uncategorizedOp.id)?.categoryName).toBeNull();
+      expect(
+        results.find((op) => op.id === categorizedOp.id)?.categoryName,
+      ).toBe(`${PREFIX}Search Category`);
+      expect(
+        results.find((op) => op.id === uncategorizedOp.id)?.categoryName,
+      ).toBeNull();
     } finally {
       if (opIds.length > 0) {
         await prisma.laborFitment.deleteMany({
           where: { labor_operation_id: { in: opIds } },
         });
-        await prisma.laborOperation.deleteMany({ where: { id: { in: opIds } } });
+        await prisma.laborOperation.deleteMany({
+          where: { id: { in: opIds } },
+        });
       }
       if (categoryId)
         await prisma.laborCategory.delete({ where: { id: categoryId } });
       if (workshopOrderId)
         await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
       if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
-      if (customerId) await prisma.customer.delete({ where: { id: customerId } });
+      if (customerId)
+        await prisma.customer.delete({ where: { id: customerId } });
     }
   });
 });

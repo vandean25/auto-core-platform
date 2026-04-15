@@ -12,11 +12,7 @@ import {
   SalesOrderStatus,
   TransactionType,
 } from '@prisma/client';
-import type {
-  CatalogItem,
-  RevenueGroup,
-  InventoryStock,
-} from '@prisma/client';
+import type { CatalogItem, RevenueGroup, InventoryStock } from '@prisma/client';
 
 @Injectable()
 export class SalesService {
@@ -179,7 +175,8 @@ export class SalesService {
           }
 
           // Find first location with sufficient stock, or fallback to first one available
-          const stock = stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
+          const stock =
+            stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
             stocks[0];
 
           if (!stock) {
