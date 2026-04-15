@@ -1,6 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import type { Brand } from './types'
 import { fetchWithAuth } from './client'
+
+const BrandSchema = z.object({
+    id: z.number(),
+    name: z.string(),
+    isVehicleMake: z.boolean(),
+    isPartManufacturer: z.boolean(),
+    logoUrl: z.string().optional().nullable(),
+})
+
+const PaginatedBrandsSchema = z.object({
+    data: z.array(BrandSchema),
+    meta: z.object({
+        total: z.number(),
+        page: z.number(),
+        limit: z.number(),
+        totalPages: z.number(),
+    }),
+})
 
 export const brandKeys = {
     all: ['brands'] as const,
@@ -18,7 +37,17 @@ export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacture
             
             const response = await fetchWithAuth(`/api/brands?${params.toString()}`)
             if (!response.ok) throw new Error('Failed to fetch brands')
-            return response.json()
+            
+            const raw = await response.json()
+            const result = PaginatedBrandsSchema.safeParse(raw)
+            
+            if (!result.success) {
+                console.error('API structure mismatch for brands:', result.error)
+                // Return an empty array or handle error appropriately in the UI
+                return []
+            }
+            
+            return result.data.data as unknown as Brand[]
         },
     })
 }

@@ -35,7 +35,8 @@ export function InventoryItemInfoCard({
   brandOptions = [],
 }: InventoryItemInfoCardProps) {
   const isExpanded = variant === 'expanded'
-  const selectedBrandId = item.brand_id ?? brandOptions.find((brand) => brand.name === item.brand)?.id
+  const brandList = Array.isArray(brandOptions) ? brandOptions : []
+  const selectedBrandId = item.brand_id ?? brandList.find((brand) => brand.name === item.brand)?.id
 
   return (
     <Card className={className}>
@@ -63,7 +64,7 @@ export function InventoryItemInfoCard({
                     onChange?.({ brand: '', brand_id: undefined })
                     return
                   }
-                  const selected = brandOptions.find((brand) => String(brand.id) === value)
+                  const selected = brandList.find((brand) => String(brand.id) === value)
                   onChange?.({
                     brand: selected?.name ?? item.brand,
                     brand_id: selected?.id ?? item.brand_id,
@@ -75,7 +76,7 @@ export function InventoryItemInfoCard({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none">No brand</SelectItem>
-                  {brandOptions.map((brand) => (
+                  {brandList.map((brand) => (
                     <SelectItem key={brand.id} value={String(brand.id)}>
                       {brand.name}
                     </SelectItem>
