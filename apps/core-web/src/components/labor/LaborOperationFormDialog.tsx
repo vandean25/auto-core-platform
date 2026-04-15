@@ -74,6 +74,43 @@ const EMPTY_FORM: FormState = {
   fitments: [],
 }
 
+function serializeFormState(formState: FormState) {
+  return JSON.stringify({
+    ...formState,
+    code: formState.code.trim(),
+    description: formState.description.trim(),
+    internalCost: formState.internalCost.trim(),
+    fitments: formState.fitments.map((fitment) => ({
+      make: fitment.make.trim(),
+      model: fitment.model.trim(),
+      yearFrom: fitment.yearFrom.trim(),
+      yearTo: fitment.yearTo.trim(),
+      engineCode: fitment.engineCode.trim(),
+    })),
+  })
+}
+
+function operationToFormState(operation: LaborOperation): FormState {
+  const categoryId = typeof operation.categoryId === 'string' ? operation.categoryId : ''
+
+  return {
+    code: operation.code,
+    description: operation.description,
+    standardAw: String(operation.standardAw),
+    hourlyRate: String(operation.hourlyRate),
+    internalCost: typeof operation.internalCost === 'number' ? String(operation.internalCost) : '',
+    categoryId,
+    isActive: operation.isActive,
+    fitments: (operation.fitments ?? []).map((fitment) => ({
+      make: fitment.make ?? '',
+      model: fitment.model ?? '',
+      yearFrom: fitment.yearFrom != null ? String(fitment.yearFrom) : '',
+      yearTo: fitment.yearTo != null ? String(fitment.yearTo) : '',
+      engineCode: typeof fitment.engineCode === 'string' ? fitment.engineCode : '',
+    })),
+  }
+}
+
 export function LaborOperationFormDialog({ open, onOpenChange, operation }: Props) {
   const createMutation = useCreateLaborOperation()
   const updateMutation = useUpdateLaborOperation()
@@ -87,30 +124,19 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const [dirty, setDirty] = React.useState(false)
   const [isHydrating, setIsHydrating] = React.useState(false)
   const createdOperationIdRef = React.useRef<string | null>(null)
+  const lastSavedSnapshotRef = React.useRef(serializeFormState(EMPTY_FORM))
 
   React.useEffect(() => {
     if (open) {
       setIsHydrating(true)
       if (operation) {
-        setForm({
-          code: operation.code,
-          description: operation.description,
-          standardAw: String(operation.standardAw),
-          hourlyRate: String(operation.hourlyRate),
-          internalCost: typeof operation.internalCost === 'number' ? String(operation.internalCost) : '',
-          categoryId: (operation.categoryId as string | null) ?? '',
-          isActive: operation.isActive,
-          fitments: (operation.fitments ?? []).map((fitment) => ({
-            make: fitment.make ?? '',
-            model: fitment.model ?? '',
-            yearFrom: fitment.yearFrom != null ? String(fitment.yearFrom) : '',
-            yearTo: fitment.yearTo != null ? String(fitment.yearTo) : '',
-            engineCode: typeof fitment.engineCode === 'string' ? fitment.engineCode : '',
-          })),
-        })
+        const nextForm = operationToFormState(operation)
+        setForm(nextForm)
+        lastSavedSnapshotRef.current = serializeFormState(nextForm)
         createdOperationIdRef.current = operation.id
       } else {
         setForm(EMPTY_FORM)
+        lastSavedSnapshotRef.current = serializeFormState(EMPTY_FORM)
         createdOperationIdRef.current = null
       }
       setSaveStatus('saved')
@@ -226,6 +252,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   }, [])
 
   const buildPayload = React.useCallback((currentForm: FormState): CreateLaborOperationPayload => {
+    const internalCostNumber = currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
     const fitments = currentForm.fitments
       .map((fitment) => ({
         make: fitment.make.trim(),
@@ -234,14 +261,21 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         yearTo: fitment.yearTo.trim() === '' ? undefined : Number(fitment.yearTo),
         engineCode: fitment.engineCode.trim() || undefined,
       }))
-      .filter((fitment) => fitment.make || fitment.model || fitment.yearFrom || fitment.yearTo || fitment.engineCode)
+      .filter(
+        (fitment) =>
+          fitment.make ||
+          fitment.model ||
+          fitment.yearFrom !== undefined ||
+          fitment.yearTo !== undefined ||
+          fitment.engineCode
+      )
 
     return {
       code: currentForm.code.trim(),
       description: currentForm.description.trim(),
       standardAw: Number(currentForm.standardAw),
       hourlyRate: Number(currentForm.hourlyRate),
-      ...(currentForm.internalCost.trim() !== '' ? { internalCost: Number(currentForm.internalCost) } : {}),
+      ...(internalCostNumber !== undefined ? { internalCost: internalCostNumber } : {}),
       ...(currentForm.categoryId ? { categoryId: currentForm.categoryId } : {}),
       isActive: currentForm.isActive,
       ...(fitments.length > 0 ? { fitments } : {}),
@@ -273,20 +307,23 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
       }
 
       setErrors({})
+      lastSavedSnapshotRef.current = serializeFormState(form)
       setSaveStatus('saved')
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to save labor operation'
       setSaveStatus('error')
-      if (message.toLowerCase().includes('code') && message.toLowerCase().includes('already exists')) {
-        setErrors((prev) => ({ ...prev, code: message }))
-        return
-      }
       setErrors((prev) => ({ ...prev, code: message }))
     }
   }, [buildPayload, createMutation, form, operation, updateMutation, validateForm])
 
   React.useEffect(() => {
     if (!open || isHydrating || !dirty) {
+      return
+    }
+
+    if (serializeFormState(form) === lastSavedSnapshotRef.current) {
+      setDirty(false)
+      setSaveStatus('saved')
       return
     }
 
@@ -433,9 +470,14 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Fitments</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setField('fitments', [...form.fitments, { ...EMPTY_FITMENT }])}>
-                <Plus className="h-4 w-4 mr-1" />
-                +
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Add fitment"
+                onClick={() => setField('fitments', [...form.fitments, { ...EMPTY_FITMENT }])}
+              >
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
 
@@ -493,7 +535,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label="×"
+                      aria-label="Remove fitment"
                       onClick={() => setField('fitments', form.fitments.filter((_, currentIndex) => currentIndex !== index))}
                     >
                       ×

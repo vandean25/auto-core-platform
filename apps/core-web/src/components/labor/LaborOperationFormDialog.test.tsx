@@ -88,10 +88,10 @@ describe('LaborOperationFormDialog', () => {
   it('adds and removes fitment rows dynamically', () => {
     render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '+' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add fitment' }))
     expect(screen.getAllByLabelText('Make')).toHaveLength(1)
 
-    fireEvent.click(screen.getByRole('button', { name: '×' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove fitment' }))
     expect(screen.queryByLabelText('Make')).not.toBeInTheDocument()
   })
 })
