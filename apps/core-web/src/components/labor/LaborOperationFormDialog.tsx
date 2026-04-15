@@ -367,20 +367,18 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         lastSavedSnapshotRef.current = saveSnapshot
         setDirty(false)
         setSaveStatus('saved')
-      } else {
-        hasQueuedSaveRef.current = true
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to save labor operation'
       if (serializeFormState(formRef.current) === saveSnapshot) {
         setSaveStatus('error')
         setErrors((prev) => ({ ...prev, code: message }))
-      } else {
-        hasQueuedSaveRef.current = true
       }
     } finally {
       isSavingRef.current = false
-      if (hasQueuedSaveRef.current) {
+      const shouldQueueSave =
+        hasQueuedSaveRef.current || serializeFormState(formRef.current) !== saveSnapshot
+      if (shouldQueueSave) {
         hasQueuedSaveRef.current = false
         void performAutoSave(formRef.current)
       }
