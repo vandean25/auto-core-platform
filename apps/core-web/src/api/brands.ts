@@ -9,8 +9,8 @@ const BrandSchema = z.object({
     isVehicleMake: z.boolean(),
     isPartManufacturer: z.boolean(),
     logoUrl: z.string().optional().nullable(),
-    createdAt: z.string().optional(),
-    updatedAt: z.string().optional(),
+    createdAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
 })
 
 const PaginatedBrandsSchema = z.object({
@@ -33,28 +33,23 @@ export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacture
     return useQuery<Brand[]>({
         queryKey: brandKeys.list(filters),
         queryFn: async () => {
-            try {
-                const params = new URLSearchParams()
-                if (filters?.isVehicleMake !== undefined) params.append('isVehicleMake', filters.isVehicleMake.toString())
-                if (filters?.isPartManufacturer !== undefined) params.append('isPartManufacturer', filters.isPartManufacturer.toString())
-                
-                const response = await fetchWithAuth(`/api/brands?${params.toString()}`)
-                if (!response.ok) throw new Error('Failed to fetch brands')
-                
-                const raw = await response.json()
-                const result = PaginatedBrandsSchema.safeParse(raw)
-                
-                if (!result.success) {
-                    console.error('API structure mismatch for brands:', result.error)
-                    // Return an empty array or handle error appropriately in the UI
-                    return []
-                }
-                
-                return result.data.data as unknown as Brand[]
-            } catch (error) {
-                console.error('Error fetching brands:', error)
+            const params = new URLSearchParams()
+            if (filters?.isVehicleMake !== undefined) params.append('isVehicleMake', filters.isVehicleMake.toString())
+            if (filters?.isPartManufacturer !== undefined) params.append('isPartManufacturer', filters.isPartManufacturer.toString())
+            
+            const response = await fetchWithAuth(`/api/brands?${params.toString()}`)
+            if (!response.ok) throw new Error('Failed to fetch brands')
+            
+            const raw = await response.json()
+            const result = PaginatedBrandsSchema.safeParse(raw)
+            
+            if (!result.success) {
+                console.error('API structure mismatch for brands:', result.error)
+                // Return an empty array to prevent UI crash on malformed payloads
                 return []
             }
+            
+            return result.data.data as unknown as Brand[]
         },
     })
 }
