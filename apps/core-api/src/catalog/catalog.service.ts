@@ -91,23 +91,30 @@ export class CatalogService {
     const [laborOperations, masterParts, catalogItems] = await Promise.all([
       this.prisma.laborOperation.findMany({
         where: {
-          OR: [
+          AND: [
             {
-              code: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
+              OR: [
+                {
+                  code: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  description: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+              ],
             },
             {
-              description: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
+              OR: [
+                { fitments: { some: laborFitmentFilter } },
+                { fitments: { none: {} } },
+              ],
             },
           ],
-          fitments: {
-            some: laborFitmentFilter,
-          },
         },
         select: {
           id: true,
@@ -122,35 +129,42 @@ export class CatalogService {
       }),
       this.prisma.masterPart.findMany({
         where: {
-          OR: [
+          AND: [
             {
-              supplier_part_number: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
+              OR: [
+                {
+                  supplier_part_number: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  oem_number: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  description: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  brand: {
+                    contains: trimmedQuery,
+                    mode: 'insensitive',
+                  },
+                },
+              ],
             },
             {
-              oem_number: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
-            },
-            {
-              description: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
-            },
-            {
-              brand: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
+              OR: [
+                { fitments: { some: partFitmentFilter } },
+                { fitments: { none: {} } },
+              ],
             },
           ],
-          fitments: {
-            some: partFitmentFilter,
-          },
         },
         include: {
           local_inventory: true,
