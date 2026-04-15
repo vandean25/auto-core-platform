@@ -256,18 +256,33 @@ describe('WorkshopService', () => {
           actualHours: 1.5,
           internalCostRate: 0,
         },
+        {
+          type: WorkshopLineItemType.PART,
+          itemNo: 'PART-001',
+          description: 'Pad',
+          qty: 1,
+          unitPrice: 90,
+        },
       ],
     });
 
     const createManyArg = mockPrisma.workshopTaskLineItem.createMany.mock
       .calls[0]?.[0];
     const firstLineItem = createManyArg?.data?.[0];
+    const secondLineItem = createManyArg?.data?.[1];
+    expect(createManyArg).toBeDefined();
+    expect(firstLineItem).toBeDefined();
+    expect(secondLineItem).toBeDefined();
     expect(firstLineItem.labor_operation_id).toBe(
       '550e8400-e29b-41d4-a716-446655440000',
     );
     expect(firstLineItem.standard_aw).toEqual(new Prisma.Decimal(0));
     expect(firstLineItem.actual_hours).toEqual(new Prisma.Decimal(1.5));
     expect(firstLineItem.internal_cost_rate).toEqual(new Prisma.Decimal(0));
+    expect(secondLineItem.labor_operation_id).toBeNull();
+    expect(secondLineItem.standard_aw).toBeNull();
+    expect(secondLineItem.actual_hours).toBeNull();
+    expect(secondLineItem.internal_cost_rate).toBeNull();
   });
 
   it('normalizes labor metadata fields in workshop order response', async () => {
@@ -294,6 +309,18 @@ describe('WorkshopService', () => {
               actual_hours: new Prisma.Decimal(1.25),
               internal_cost_rate: new Prisma.Decimal(0),
             },
+            {
+              id: 'li-2',
+              type: WorkshopLineItemType.PART,
+              item_no: 'PART-001',
+              description: 'Pad',
+              quantity: new Prisma.Decimal(1),
+              unit_price: new Prisma.Decimal(90),
+              labor_operation_id: null,
+              standard_aw: null,
+              actual_hours: null,
+              internal_cost_rate: null,
+            },
           ],
         },
       ],
@@ -307,5 +334,11 @@ describe('WorkshopService', () => {
     expect(lineItem.standardAw).toBe(0);
     expect(lineItem.actualHours).toBe(1.25);
     expect(lineItem.internalCostRate).toBe(0);
+
+    const partLineItem = result.tasks[0].lineItems[1];
+    expect(partLineItem.laborOperationId).toBeNull();
+    expect(partLineItem.standardAw).toBeNull();
+    expect(partLineItem.actualHours).toBeNull();
+    expect(partLineItem.internalCostRate).toBeNull();
   });
 });

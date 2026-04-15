@@ -104,12 +104,10 @@ export class WorkshopService {
               qty: Number(line.quantity),
               unitPrice: Number(line.unit_price),
               laborOperationId: line.labor_operation_id,
-              standardAw:
-                line.standard_aw !== null ? Number(line.standard_aw) : null,
-              actualHours:
-                line.actual_hours !== null ? Number(line.actual_hours) : null,
+              standardAw: line.standard_aw != null ? Number(line.standard_aw) : null,
+              actualHours: line.actual_hours != null ? Number(line.actual_hours) : null,
               internalCostRate:
-                line.internal_cost_rate !== null
+                line.internal_cost_rate != null
                   ? Number(line.internal_cost_rate)
                   : null,
             })) ?? [],
@@ -572,15 +570,15 @@ export class WorkshopService {
             unit_price: new Prisma.Decimal(item.unitPrice),
             labor_operation_id: item.laborOperationId ?? null,
             standard_aw:
-              item.standardAw !== undefined
+              item.standardAw != null
                 ? new Prisma.Decimal(item.standardAw)
                 : null,
             actual_hours:
-              item.actualHours !== undefined
+              item.actualHours != null
                 ? new Prisma.Decimal(item.actualHours)
                 : null,
             internal_cost_rate:
-              item.internalCostRate !== undefined
+              item.internalCostRate != null
                 ? new Prisma.Decimal(item.internalCostRate)
                 : null,
           })),
