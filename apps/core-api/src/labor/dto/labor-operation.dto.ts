@@ -80,6 +80,11 @@ export class CreateLaborOperationDto {
   @IsUUID()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Active status', default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
   @ApiPropertyOptional({
     description: 'Fitments for this operation',
     type: [LaborOperationFitmentDto],

@@ -1093,6 +1093,11 @@ export interface components {
              * @description Category ID
              */
             categoryId?: string;
+            /**
+             * @description Active status
+             * @default true
+             */
+            isActive: boolean;
             /** @description Fitments for this operation */
             fitments?: components["schemas"]["LaborOperationFitmentDto"][];
         };
@@ -1112,6 +1117,11 @@ export interface components {
              * @description Category ID
              */
             categoryId?: string;
+            /**
+             * @description Active status
+             * @default true
+             */
+            isActive: boolean;
             /** @description Fitments for this operation */
             fitments?: components["schemas"]["LaborOperationFitmentDto"][];
         };

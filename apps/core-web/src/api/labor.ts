@@ -5,6 +5,13 @@ import type { components } from './generated/openapi'
 
 const LABOR_API = '/api/labor'
 
+async function getApiErrorMessage(res: Response, fallbackMessage: string) {
+  const error = await res
+    .json()
+    .catch(() => ({ message: fallbackMessage })) as { message?: string }
+  return error.message || fallbackMessage
+}
+
 export const laborKeys = {
   all: ['labor'] as const,
   categories: () => [...laborKeys.all, 'categories'] as const,
@@ -163,7 +170,9 @@ export function useCreateLaborOperation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to create labor operation')
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, 'Failed to create labor operation'))
+      }
       return res.json() as Promise<LaborOperation>
     },
     onSuccess: () => {
@@ -181,7 +190,9 @@ export function useUpdateLaborOperation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to update labor operation')
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, 'Failed to update labor operation'))
+      }
       return res.json() as Promise<LaborOperation>
     },
     onSuccess: (operation) => {

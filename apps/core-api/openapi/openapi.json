@@ -3467,6 +3467,11 @@
             "description": "Category ID",
             "format": "uuid"
           },
+          "isActive": {
+            "type": "boolean",
+            "description": "Active status",
+            "default": true
+          },
           "fitments": {
             "description": "Fitments for this operation",
             "type": "array",
@@ -3511,6 +3516,11 @@
             "type": "string",
             "description": "Category ID",
             "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Active status",
+            "default": true
           },
           "fitments": {
             "description": "Fitments for this operation",
