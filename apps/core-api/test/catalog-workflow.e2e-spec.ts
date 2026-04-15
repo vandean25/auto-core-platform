@@ -10,8 +10,17 @@ const PREFIX = 'workflow-catalog-';
 describe('Catalog Workflow Search (e2e)', () => {
     let app: INestApplication;
     let prisma: PrismaService;
+    let originalApiKey: string | undefined;
+
+    // Track created IDs for deterministic cleanup
+    let createdBrandIds: string[] = [];
+    let createdLaborOpIds: string[] = [];
+    let createdWorkshopOrderId: string | undefined;
+    let createdCustomerId: string | undefined;
+    let createdVehicleId: string | undefined;
 
     beforeAll(async () => {
+        originalApiKey = process.env.API_KEY;
         process.env.API_KEY = 'test-api-key';
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [AppModule],
@@ -26,15 +35,37 @@ describe('Catalog Workflow Search (e2e)', () => {
     });
 
     afterAll(async () => {
-        await app.close();
+        // Deterministic cleanup of all test data
+        try {
+            if (createdWorkshopOrderId) {
+                await prisma.workshopOrder.deleteMany({ where: { id: createdWorkshopOrderId } });
+            }
+            if (createdVehicleId) {
+                await prisma.vehicle.deleteMany({ where: { id: createdVehicleId } });
+            }
+            if (createdCustomerId) {
+                await prisma.customer.deleteMany({ where: { id: createdCustomerId } });
+            }
+            if (createdLaborOpIds.length > 0) {
+                await prisma.laborOperation.deleteMany({ where: { id: { in: createdLaborOpIds } } });
+            }
+            if (createdBrandIds.length > 0) {
+                await prisma.brand.deleteMany({ where: { id: { in: createdBrandIds } } });
+            }
+        } finally {
+            // Restore original API_KEY regardless of cleanup errors
+            if (originalApiKey === undefined) {
+                delete process.env.API_KEY;
+            } else {
+                process.env.API_KEY = originalApiKey;
+            }
+            await app.close();
+        }
     });
 
     it('should complete full business workflow and correctly filter labor by fitment', async () => {
         const ts = Date.now();
         const apiKey = 'test-api-key';
-
-        // Cleanup any leftovers from aborted runs using a safe manual query or findFirst then delete
-        // For simplicity in this test, we skip complex cleanup and just use unique prefixes
 
         // 1. Setup Master Data (Brands)
         const skodaBrand = await prisma.brand.upsert({
@@ -42,12 +73,14 @@ describe('Catalog Workflow Search (e2e)', () => {
             create: { name: 'Skoda', isVehicleMake: true, isPartManufacturer: false },
             update: {}
         });
+        createdBrandIds.push(skodaBrand.id);
 
         const bmwBrand = await prisma.brand.upsert({
             where: { name: 'BMW' },
             create: { name: 'BMW', isVehicleMake: true, isPartManufacturer: true },
             update: {}
         });
+        createdBrandIds.push(bmwBrand.id);
 
         // 2. Setup Test Labor Operations
         const universalCode = `${PREFIX}UNIVERSAL-${ts}`;
@@ -63,6 +96,7 @@ describe('Catalog Workflow Search (e2e)', () => {
                 hourly_rate: 100,
             }
         });
+        createdLaborOpIds.push(opUniversal.id);
 
         // Case B: Matching (Skoda Octavia)
         const opMatching = await prisma.laborOperation.create({
@@ -80,6 +114,7 @@ describe('Catalog Workflow Search (e2e)', () => {
                 }
             }
         });
+        createdLaborOpIds.push(opMatching.id);
 
         // Case C: Non-Matching (BMW)
         const opNonMatching = await prisma.laborOperation.create({
@@ -96,6 +131,7 @@ describe('Catalog Workflow Search (e2e)', () => {
                 }
             }
         });
+        createdLaborOpIds.push(opNonMatching.id);
 
         // 3. Register Customer & Vehicle (Skoda Octavia)
         const registerResponse = await request(app.getHttpServer())
@@ -114,8 +150,10 @@ describe('Catalog Workflow Search (e2e)', () => {
             })
             .expect(201);
 
-        const customerId = registerResponse.body.customer_id;
-        const vehicleId = registerResponse.body.id;
+        createdCustomerId = registerResponse.body.customer_id;
+        createdVehicleId = registerResponse.body.id;
+        const vehicleId = createdVehicleId;
+        const customerId = createdCustomerId;
 
         // 4. Create Workshop Order
         const orderResponse = await request(app.getHttpServer())
@@ -129,11 +167,11 @@ describe('Catalog Workflow Search (e2e)', () => {
             })
             .expect(201);
 
-        const workshopOrderId = orderResponse.body.id;
+        createdWorkshopOrderId = orderResponse.body.id;
 
         // 5. Final Step: Search and Verify Fitment Filtering
         const searchResponse = await request(app.getHttpServer())
-            .get(`/api/catalog/search?q=SearchKey&workshopOrderId=${workshopOrderId}`)
+            .get(`/api/catalog/search?q=SearchKey&workshopOrderId=${createdWorkshopOrderId}`)
             .set('x-api-key', apiKey)
             .expect(200);
 

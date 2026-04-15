@@ -26,7 +26,7 @@ async function cleanDb() {
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
         'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
-        'labor_operations', 'labor_categories', 'vehicles', 'customers'
+        'labor_operations', 'labor_categories', 'workshop_orders', 'vehicles', 'customers'
     ];
 
     const existingTables = new Set<string>();
@@ -54,6 +54,8 @@ async function cleanDb() {
         await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
         await prisma.laborCategory.deleteMany();
     }
+    // workshop_orders cascade-deletes workshop_tasks and workshop_task_line_items
+    if (existingTables.has('workshop_orders')) await prisma.workshopOrder.deleteMany();
     if (existingTables.has('vehicles')) await prisma.vehicle.deleteMany();
     if (existingTables.has('customers')) await prisma.customer.deleteMany();
     if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
@@ -450,18 +452,20 @@ async function main() {
     }
 
     console.log('Seeding Vendors (one per brand)...');
-    for (const brand of allBrands) {
-        await prisma.vendor.create({
-            data: {
-                name: `${brand.name} Parts Direct`,
-                email: `sales@${brand.name.toLowerCase().replace(/\s+/g, '-')}-parts.com`,
-                account_number: `VEND-${brand.name.substring(0, 3).toUpperCase()}`,
-                supportedBrands: {
-                    connect: { id: brand.id }
+    await Promise.all(
+        allBrands.map((brand) =>
+            prisma.vendor.create({
+                data: {
+                    name: `${brand.name} Parts Direct`,
+                    email: `sales@${brand.name.toLowerCase().replace(/\s+/g, '-')}-parts.com`,
+                    account_number: `VEND-${brand.name.substring(0, 3).toUpperCase()}`,
+                    supportedBrands: {
+                        connect: { id: brand.id }
+                    }
                 }
-            }
-        });
-    }
+            })
+        )
+    );
 
     console.log('Seeding Customers and Vehicles...');
     const customersData = [
@@ -528,20 +532,21 @@ async function main() {
         }
     ];
 
-    for (const data of customersData) {
-        const { vehicles, ...customerInfo } = data;
-        const customer = await prisma.customer.create({
-            data: customerInfo
-        });
+    const createdCustomers = await Promise.all(
+        customersData.map(({ vehicles: _vehicles, ...customerInfo }) =>
+            prisma.customer.create({ data: customerInfo })
+        )
+    );
 
-        for (const v of vehicles) {
-            await prisma.vehicle.create({
-                data: {
-                    ...v,
-                    customer_id: customer.id
-                }
-            });
-        }
+    const vehiclesToCreate = customersData.flatMap((data, index) =>
+        data.vehicles.map((vehicle) => ({
+            ...vehicle,
+            customer_id: createdCustomers[index].id,
+        }))
+    );
+
+    if (vehiclesToCreate.length > 0) {
+        await prisma.vehicle.createMany({ data: vehiclesToCreate });
     }
 
     console.log('Seeding specific LaborFitments (for testing)...');
