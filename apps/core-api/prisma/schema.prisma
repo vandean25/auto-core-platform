@@ -526,11 +526,17 @@ model WorkshopTaskLineItem {
   description       String
   quantity          Decimal              @db.Decimal(10, 2)
   unit_price        Decimal              @db.Decimal(10, 2)
+  labor_operation_id String?             @map("labor_operation_id")
+  labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id])
+  standard_aw        Decimal?            @db.Decimal(10, 2)
+  actual_hours       Decimal?            @db.Decimal(10, 2)
+  internal_cost_rate Decimal?            @db.Decimal(10, 2)
 
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
   @@map("workshop_task_line_items")
+  @@index([labor_operation_id])
 }
 
 model LaborCategory {
@@ -564,6 +570,7 @@ model LaborOperation {
   category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict)
   is_active     Boolean        @default(true)
   fitments      LaborFitment[]
+  task_line_items WorkshopTaskLineItem[]
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
