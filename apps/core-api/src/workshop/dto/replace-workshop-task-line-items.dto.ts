@@ -4,7 +4,9 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
+  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -31,6 +33,28 @@ class WorkshopTaskLineItemDto {
   @Min(0)
   @Type(() => Number)
   unitPrice!: number;
+
+  @IsOptional()
+  @IsUUID()
+  laborOperationId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  standardAw?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  actualHours?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  internalCostRate?: number;
 }
 
 export class ReplaceWorkshopTaskLineItemsDto {
