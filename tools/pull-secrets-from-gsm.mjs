@@ -58,6 +58,7 @@ function runGcloud(secretName, projectId, version = 'latest') {
     return execFileSync('gcloud.cmd', args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
     })
   }
   return execFileSync('gcloud', args, {
@@ -68,9 +69,18 @@ function runGcloud(secretName, projectId, version = 'latest') {
 
 function serializeEnvValue(raw) {
   const value = raw.replace(/\r?\n$/, '')
-  const needsQuoting = /[\s#"'`\\]/.test(value) || value.includes('\n')
-  if (!needsQuoting) return value
-  return `"${value
+  
+  // If it's already correctly quoted (starts and ends with " and has no unescaped inner "), we might want to keep it.
+  // But to be safe and consistent, we'll strip existing quotes if they wrap the whole thing,
+  // then let our logic decide if it needs quoting.
+  let cleaned = value
+  if (cleaned.length >= 2 && cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.substring(1, cleaned.length - 1)
+  }
+
+  const needsQuoting = /[\s#"'`\\]/.test(cleaned) || cleaned.includes('\n')
+  if (!needsQuoting) return cleaned
+  return `"${cleaned
     .replace(/\\/g, '\\\\')
     .replace(/\n/g, '\\n')
     .replace(/"/g, '\\"')}"`
