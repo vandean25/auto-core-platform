@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { generateId } from '@/lib/id'
 import type { DashboardWidget } from '@/features/dashboard-widgets/types'
 
 const STORAGE_PREFIX = 'acp:dashboard-widgets:'
@@ -19,10 +20,7 @@ function getStorageKey(userKey: string): string {
 }
 
 function createWidgetId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return generateId()
 }
 
 function loadWidgets(storageKey: string): DashboardWidget[] {

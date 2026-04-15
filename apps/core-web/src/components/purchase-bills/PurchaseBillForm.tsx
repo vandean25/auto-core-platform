@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { generateId } from '@/lib/id'
 import { format } from 'date-fns'
 import { ArrowLeft, CircleDollarSign, Loader2, Package, ReceiptText, Trash2, CloudCheck, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -358,7 +359,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             const newLinesFromReceipt = unbilledItems
                 .filter(item => item.purchaseOrderId === receiptId)
                 .map(item => ({
-                    tempId: crypto.randomUUID(),
+                    tempId: generateId(),
                     source: 'receipt' as const,
                     receiptId: item.purchaseOrderId,
                     receiptNumber: item.purchaseOrderNumber,
@@ -442,7 +443,7 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
                 next = [
                     ...previous,
                     {
-                        tempId: crypto.randomUUID(),
+                        tempId: generateId(),
                         source: 'manual',
                         catalogItemId: stagedItem.id,
                         description: `${stagedItem.sku} · ${stagedItem.name}`,

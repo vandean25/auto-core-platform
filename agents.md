@@ -90,6 +90,7 @@ auto-core-platform/
 - **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g., `purchaseInvoiceKeys`, `workshopOrderKeys`) in their respective hook or service files. Legacy inline arrays (like in `workshop.ts`) should be refactored to factories when those files are next touched.
 - **Components**: Page components in `src/pages/`, Reusable components in `src/components/`.
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop).
+- **ID Generation**: Always use the centralized `generateId()` utility from `@/lib/id` instead of direct `crypto.randomUUID()` calls. This ensures compatibility with automated test environments (Playwright) where `crypto.randomUUID` might be unavailable.
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
 
 ### Page Layout Defaults

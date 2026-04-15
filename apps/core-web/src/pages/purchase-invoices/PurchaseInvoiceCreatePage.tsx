@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import { Trash2, Plus, Loader2, Package } from "lucide-react"
 import { toast } from "sonner"
 
+import { generateId } from "@/lib/id"
 import { useUnbilledReceipts, useCreatePurchaseInvoice } from "@/api/usePurchaseInvoices"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,7 +85,7 @@ export default function PurchaseInvoiceCreatePage() {
                 }
 
                 next.push({
-                    tempId: crypto.randomUUID(),
+                    tempId: generateId(),
                     purchaseOrderItemId: item.purchaseOrderItemId,
                     description: `${item.catalogItemName} (${item.purchaseOrderNumber})`,
                     quantity: quantity,
@@ -103,7 +104,7 @@ export default function PurchaseInvoiceCreatePage() {
 
     const addManualLine = () => {
         setLines(prev => [...prev, {
-            tempId: crypto.randomUUID(),
+            tempId: generateId(),
             description: "",
             quantity: 1,
             unitPrice: 0

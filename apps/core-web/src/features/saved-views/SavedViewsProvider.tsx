@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { generateId } from '@/lib/id'
 
 const STORAGE_PREFIX = 'acp:saved-views:'
 const MAX_SAVED_VIEWS = 30
@@ -74,10 +75,7 @@ function persistSavedViews(storageKey: string, savedViews: SavedView[]) {
 }
 
 function createSavedViewId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return generateId()
 }
 
 type SavedViewsProviderProps = {
