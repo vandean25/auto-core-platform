@@ -21,8 +21,6 @@ availableSecrets:
       env: API_KEY
     - versionName: projects/${_BACKEND_PROJECT}/secrets/FIREBASE_API_KEY/versions/latest
       env: FIREBASE_API_KEY
-    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-core-api-sentry-dsn/versions/latest
-      env: SENTRY_DSN
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-dsn/versions/latest
       env: VITE_SENTRY_DSN
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-auth-token/versions/latest
@@ -31,8 +29,6 @@ availableSecrets:
       env: SENTRY_ORG
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-project/versions/latest
       env: SENTRY_PROJECT
-    - versionName: projects/${_BACKEND_PROJECT}/secrets/INVOICE_PDF_BUCKET/versions/latest
-      env: INVOICE_PDF_BUCKET
 
 steps:
   - id: migrate-db
