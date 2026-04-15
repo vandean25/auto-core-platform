@@ -26,7 +26,7 @@ async function cleanDb() {
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
         'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
-        'labor_operations', 'labor_categories'
+        'labor_operations', 'labor_categories', 'vehicles', 'customers'
     ];
 
     const existingTables = new Set<string>();
@@ -41,7 +41,6 @@ async function cleanDb() {
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
     if (existingTables.has('purchase_orders')) await prisma.purchaseOrder.deleteMany();
-    if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
     if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
     if (existingTables.has('inventory_stocks')) await prisma.inventoryStock.deleteMany();
     if (existingTables.has('invoice_items')) await prisma.invoiceItem.deleteMany();
@@ -50,18 +49,15 @@ async function cleanDb() {
     if (existingTables.has('storage_locations')) await prisma.storageLocation.deleteMany();
     if (existingTables.has('revenue_groups')) await prisma.revenueGroup.deleteMany();
     if (existingTables.has('finance_settings')) await prisma.financeSettings.deleteMany();
-    if (existingTables.has('brands')) await prisma.brand.deleteMany();
-
-    // Labor: operations reference categories (Restrict), fitments cascade from operations
-    if (existingTables.has('labor_operations')) {
-        await prisma.laborOperation.deleteMany();
-    }
-    
+    if (existingTables.has('labor_operations')) await prisma.laborOperation.deleteMany();
     if (existingTables.has('labor_categories')) {
-        // Delete sub-categories before top-level categories (self-referencing Restrict)
         await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
         await prisma.laborCategory.deleteMany();
     }
+    if (existingTables.has('vehicles')) await prisma.vehicle.deleteMany();
+    if (existingTables.has('customers')) await prisma.customer.deleteMany();
+    if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
+    if (existingTables.has('brands')) await prisma.brand.deleteMany();
 }
 
 /**
@@ -412,6 +408,7 @@ async function main() {
         { code: 'GEN-002', description: 'Annual Service – Major (Full Inspection)',     standard_aw: 2.5, hourly_rate: 95.00 },
         { code: 'GEN-003', description: 'Pre-MOT / TÜV Inspection',              standard_aw: 1.5, hourly_rate: 95.00 },
         { code: 'GEN-004', description: 'Cabin & Engine Air Filter Replacement',  standard_aw: 0.5, hourly_rate: 95.00 },
+        { code: 'GEN-005', description: 'Wheel Change (Summer/Winter)',           standard_aw: 0.8, hourly_rate: 95.00 },
     ];
 
     await Promise.all(
@@ -452,6 +449,129 @@ async function main() {
         }
     }
 
+    console.log('Seeding Vendors (one per brand)...');
+    for (const brand of allBrands) {
+        await prisma.vendor.create({
+            data: {
+                name: `${brand.name} Parts Direct`,
+                email: `sales@${brand.name.toLowerCase().replace(/\s+/g, '-')}-parts.com`,
+                account_number: `VEND-${brand.name.substring(0, 3).toUpperCase()}`,
+                supportedBrands: {
+                    connect: { id: brand.id }
+                }
+            }
+        });
+    }
+
+    console.log('Seeding Customers and Vehicles...');
+    const customersData = [
+        {
+            first_name: 'Max',
+            last_name: 'Mustermann',
+            email: 'max@example.at',
+            phone: '+43 664 1234567',
+            address_street: 'Stephansplatz 1',
+            address_city: 'Vienna',
+            address_zip: '1010',
+            vehicles: [
+                { make: 'Volkswagen', model: 'Golf VII', year: 2018, plate: 'W-12345AB', vin: 'VWZZZ12345678901' }
+            ]
+        },
+        {
+            first_name: 'Susi',
+            last_name: 'Sorglos',
+            email: 'susi@sorglos.at',
+            phone: '+43 676 9876543',
+            address_street: 'Mariahilfer Straße 50',
+            address_city: 'Vienna',
+            address_zip: '1070',
+            vehicles: [
+                { make: 'Audi', model: 'A4 B9', year: 2020, plate: 'W-98765XY', vin: 'WAUZZZ9876543210' },
+                { make: 'Porsche', model: '911 Carrera', year: 2022, plate: 'W-911PS', vin: 'WP0ZZZ1112223334' }
+            ]
+        },
+        {
+            first_name: 'Thomas',
+            last_name: 'Turboschrauber',
+            email: 'thomas@tuning.at',
+            phone: '+43 650 5554433',
+            address_street: 'Grazer Gasse 12',
+            address_city: 'Graz',
+            address_zip: '8010',
+            vehicles: [
+                { make: 'BMW', model: 'M3 G80', year: 2023, plate: 'G-TUNER1', vin: 'WBS3334445556667' }
+            ]
+        },
+        {
+            first_name: 'Anna',
+            last_name: 'Alpin',
+            email: 'anna@berge.at',
+            phone: '+43 699 1122334',
+            address_street: 'Tiroler Weg 7',
+            address_city: 'Innsbruck',
+            address_zip: '6020',
+            vehicles: [
+                { make: 'Toyota', model: 'Land Cruiser', year: 2015, plate: 'IL-4WD1', vin: 'JTMLC123456789012' }
+            ]
+        },
+        {
+            first_name: 'Klaus',
+            last_name: 'Kombi',
+            email: 'klaus@logistik.at',
+            phone: '+43 680 8877665',
+            address_street: 'Salzburger Ring 3',
+            address_city: 'Salzburg',
+            address_zip: '5020',
+            vehicles: [
+                { make: 'Skoda', model: 'Octavia IV RS', year: 2021, plate: 'S-SKODA1', vin: 'TMBZZZSK12345678' }
+            ]
+        }
+    ];
+
+    for (const data of customersData) {
+        const { vehicles, ...customerInfo } = data;
+        const customer = await prisma.customer.create({
+            data: customerInfo
+        });
+
+        for (const v of vehicles) {
+            await prisma.vehicle.create({
+                data: {
+                    ...v,
+                    customer_id: customer.id
+                }
+            });
+        }
+    }
+
+    console.log('Seeding specific LaborFitments (for testing)...');
+    const opOilChange = await prisma.laborOperation.findUnique({ where: { code: 'ENG-001' } });
+    const opBrakePad = await prisma.laborOperation.findUnique({ where: { code: 'BRK-001' } });
+
+    if (opOilChange) {
+        await prisma.laborFitment.create({
+            data: {
+                labor_operation_id: opOilChange.id,
+                make: 'Volkswagen',
+                model: 'Golf VII',
+                year_from: 2012,
+                year_to: 2020,
+            }
+        });
+    }
+
+    if (opBrakePad) {
+        await prisma.laborFitment.create({
+            data: {
+                labor_operation_id: opBrakePad.id,
+                make: 'Audi',
+                model: 'A4 B9',
+                year_from: 2015,
+                year_to: 2023,
+            }
+        });
+    }
+
     console.log('Seed completed successfully!');
     console.log('✓ All inventory movements recorded as transactions');
     console.log('✓ Stock cache updated accordingly');
@@ -460,6 +580,8 @@ async function main() {
     console.log(`✓ ${categoryRecords.length} labor categories created/updated`);
     console.log(`✓ ${laborOperationDefs.length} labor operations seeded/updated`);
     console.log(`✓ ${categorizedCount} existing labor operations categorized by prefix`);
+    console.log(`✓ ${allBrands.length} vendors created (one per brand)`);
+    console.log(`✓ ${customersData.length} customers and their vehicles created`);
 }
 
 main()
