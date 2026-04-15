@@ -526,7 +526,7 @@ model WorkshopTaskLineItem {
   description       String
   quantity          Decimal              @db.Decimal(10, 2)
   unit_price        Decimal              @db.Decimal(10, 2)
-  labor_operation_id String?             @map("labor_operation_id")
+  labor_operation_id String?
   labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id])
   standard_aw        Decimal?            @db.Decimal(10, 2)
   actual_hours       Decimal?            @db.Decimal(10, 2)
