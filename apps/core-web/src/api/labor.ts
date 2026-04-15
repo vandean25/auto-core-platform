@@ -5,11 +5,30 @@ import type { components } from './generated/openapi'
 
 const LABOR_API = '/api/labor'
 
+function extractApiErrorText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((item) => extractApiErrorText(item))
+      .filter((item): item is string => Boolean(item))
+
+    return messages.length > 0 ? messages.join(', ') : undefined
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return extractApiErrorText(record.message) ?? extractApiErrorText(record.error)
+  }
+
+  return undefined
+}
+
 async function getApiErrorMessage(res: Response, fallbackMessage: string) {
-  const error = await res
-    .json()
-    .catch(() => ({ message: fallbackMessage })) as { message?: string }
-  return error.message || fallbackMessage
+  const error = await res.json().catch(() => undefined)
+  return extractApiErrorText(error) ?? fallbackMessage
 }
 
 export const laborKeys = {

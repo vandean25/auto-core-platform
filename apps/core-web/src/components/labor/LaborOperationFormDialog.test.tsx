@@ -56,13 +56,19 @@ describe('LaborOperationFormDialog', () => {
       <LaborOperationFormDialog open onOpenChange={onOpenChange} operation={null} />
     )
     expect(screen.getByText('New Labor Operation')).toBeInTheDocument()
+    expect(screen.queryByText('All changes saved')).not.toBeInTheDocument()
 
     rerender(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
     expect(screen.getByText('Edit Labor Operation')).toBeInTheDocument()
   })
 
-  it('auto-saves in edit mode after 750ms and shows saved indicator', async () => {
-    updateMutateAsync.mockResolvedValue(baseOperation)
+  it('auto-saves in edit mode after 750ms and transitions from saving to saved', async () => {
+    let resolveMutation: ((value: laborApi.LaborOperation) => void) | undefined
+    updateMutateAsync.mockReturnValue(
+      new Promise<laborApi.LaborOperation>((resolve) => {
+        resolveMutation = resolve
+      })
+    )
     render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
 
     fireEvent.change(screen.getByLabelText('Description'), {
@@ -70,7 +76,9 @@ describe('LaborOperationFormDialog', () => {
     })
 
     await waitFor(() => expect(updateMutateAsync).toHaveBeenCalled(), { timeout: 2000 })
-    expect(screen.getByText('All changes saved')).toBeInTheDocument()
+    expect(screen.getByText('Saving...')).toBeInTheDocument()
+    resolveMutation?.(baseOperation)
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument(), { timeout: 2000 })
   })
 
   it('prevents invalid values from auto-saving', async () => {
@@ -85,6 +93,23 @@ describe('LaborOperationFormDialog', () => {
     expect(updateMutateAsync).not.toHaveBeenCalled()
   })
 
+  it('prevents blank standard AW from auto-saving', async () => {
+    updateMutateAsync.mockResolvedValue(baseOperation)
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.change(screen.getByLabelText('Standard AW (hrs)'), { target: { value: '' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Standard AW is required')).toBeInTheDocument()
+    }, { timeout: 2000 })
+    expect(updateMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('disables manual save when there are no unsaved changes', () => {
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+    expect(screen.getByRole('button', { name: 'Save now' })).toBeDisabled()
+  })
+
   it('adds and removes fitment rows dynamically', () => {
     render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
 
@@ -93,5 +118,20 @@ describe('LaborOperationFormDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove fitment' }))
     expect(screen.queryByLabelText('Make')).not.toBeInTheDocument()
+  })
+
+  it('validates fitment year bounds', async () => {
+    updateMutateAsync.mockResolvedValue(baseOperation)
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add fitment' }))
+    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Toyota' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Yaris' } })
+    fireEvent.change(screen.getByLabelText('Year From'), { target: { value: '1800' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Year From must be between 1900 and 2100')).toBeInTheDocument()
+    }, { timeout: 2000 })
+    expect(updateMutateAsync).not.toHaveBeenCalled()
   })
 })

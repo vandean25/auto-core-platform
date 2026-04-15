@@ -32,6 +32,7 @@ interface FormState {
 }
 
 interface FitmentState {
+  id: string
   make: string
   model: string
   yearFrom: string
@@ -54,8 +55,26 @@ interface ValidationState {
 }
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
+const MIN_YEAR = 1900
+const MAX_YEAR = 2100
+
+function createFitment(initial?: Partial<Omit<FitmentState, 'id'>>): FitmentState {
+  const generatedId =
+    globalThis.crypto?.randomUUID?.() ??
+    `fitment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+  return {
+    id: generatedId,
+    make: initial?.make ?? '',
+    model: initial?.model ?? '',
+    yearFrom: initial?.yearFrom ?? '',
+    yearTo: initial?.yearTo ?? '',
+    engineCode: initial?.engineCode ?? '',
+  }
+}
 
 const EMPTY_FITMENT: FitmentState = {
+  id: 'fitment-template',
   make: '',
   model: '',
   yearFrom: '',
@@ -101,13 +120,15 @@ function operationToFormState(operation: LaborOperation): FormState {
     internalCost: typeof operation.internalCost === 'number' ? String(operation.internalCost) : '',
     categoryId,
     isActive: operation.isActive,
-    fitments: (operation.fitments ?? []).map((fitment) => ({
-      make: fitment.make ?? '',
-      model: fitment.model ?? '',
-      yearFrom: fitment.yearFrom != null ? String(fitment.yearFrom) : '',
-      yearTo: fitment.yearTo != null ? String(fitment.yearTo) : '',
-      engineCode: typeof fitment.engineCode === 'string' ? fitment.engineCode : '',
-    })),
+    fitments: (operation.fitments ?? []).map((fitment) =>
+      createFitment({
+        make: fitment.make ?? '',
+        model: fitment.model ?? '',
+        yearFrom: fitment.yearFrom != null ? String(fitment.yearFrom) : '',
+        yearTo: fitment.yearTo != null ? String(fitment.yearTo) : '',
+        engineCode: typeof fitment.engineCode === 'string' ? fitment.engineCode : '',
+      })
+    ),
   }
 }
 
@@ -119,12 +140,17 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const isEditing = !!operation
 
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM)
-  const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'error'>('saved')
+  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saved' | 'saving' | 'error'>('idle')
   const [errors, setErrors] = React.useState<ValidationState>({})
   const [dirty, setDirty] = React.useState(false)
   const [isHydrating, setIsHydrating] = React.useState(false)
   const createdOperationIdRef = React.useRef<string | null>(null)
   const lastSavedSnapshotRef = React.useRef(serializeFormState(EMPTY_FORM))
+  const formRef = React.useRef<FormState>(EMPTY_FORM)
+
+  React.useEffect(() => {
+    formRef.current = form
+  }, [form])
 
   React.useEffect(() => {
     if (open) {
@@ -134,12 +160,13 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         setForm(nextForm)
         lastSavedSnapshotRef.current = serializeFormState(nextForm)
         createdOperationIdRef.current = operation.id
+        setSaveStatus('saved')
       } else {
         setForm(EMPTY_FORM)
         lastSavedSnapshotRef.current = serializeFormState(EMPTY_FORM)
         createdOperationIdRef.current = null
+        setSaveStatus('idle')
       }
-      setSaveStatus('saved')
       setErrors({})
       setDirty(false)
       window.setTimeout(() => {
@@ -179,7 +206,8 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
   const validateForm = React.useCallback((currentForm: FormState): ValidationState => {
     const nextErrors: ValidationState = {}
-    const standardAw = Number(currentForm.standardAw)
+    const standardAwRaw = currentForm.standardAw.trim()
+    const standardAw = standardAwRaw === '' ? undefined : Number(standardAwRaw)
     const hourlyRate = Number(currentForm.hourlyRate)
     const internalCost = currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
 
@@ -189,7 +217,9 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     if (!currentForm.description.trim()) {
       nextErrors.description = 'Description is required'
     }
-    if (!Number.isFinite(standardAw) || standardAw < 0) {
+    if (standardAwRaw === '') {
+      nextErrors.standardAw = 'Standard AW is required'
+    } else if (standardAw === undefined || !Number.isFinite(standardAw) || standardAw < 0) {
       nextErrors.standardAw = 'Standard AW must be a non-negative number'
     }
     if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
@@ -225,9 +255,13 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
       if (yearFrom !== undefined && !Number.isInteger(yearFrom)) {
         currentFitmentErrors.yearFrom = 'Year From must be an integer'
+      } else if (yearFrom !== undefined && (yearFrom < MIN_YEAR || yearFrom > MAX_YEAR)) {
+        currentFitmentErrors.yearFrom = `Year From must be between ${MIN_YEAR} and ${MAX_YEAR}`
       }
       if (yearTo !== undefined && !Number.isInteger(yearTo)) {
         currentFitmentErrors.yearTo = 'Year To must be an integer'
+      } else if (yearTo !== undefined && (yearTo < MIN_YEAR || yearTo > MAX_YEAR)) {
+        currentFitmentErrors.yearTo = `Year To must be between ${MIN_YEAR} and ${MAX_YEAR}`
       }
       if (
         yearFrom !== undefined &&
@@ -282,15 +316,22 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     }
   }, [])
 
-  const performAutoSave = React.useCallback(async () => {
-    const currentErrors = validateForm(form)
+  const performAutoSave = React.useCallback(async (formToSave: FormState) => {
+    const saveSnapshot = serializeFormState(formToSave)
+    if (saveSnapshot === lastSavedSnapshotRef.current) {
+      setDirty(false)
+      setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
+      return
+    }
+
+    const currentErrors = validateForm(formToSave)
     if (Object.keys(currentErrors).length > 0) {
       setErrors(currentErrors)
       setSaveStatus('error')
       return
     }
 
-    const payload = buildPayload(form)
+    const payload = buildPayload(formToSave)
     setSaveStatus('saving')
 
     try {
@@ -306,15 +347,21 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         createdOperationIdRef.current = created.id
       }
 
-      setErrors({})
-      lastSavedSnapshotRef.current = serializeFormState(form)
-      setSaveStatus('saved')
+      const latestSnapshot = serializeFormState(formRef.current)
+      if (latestSnapshot === saveSnapshot) {
+        setErrors({})
+        lastSavedSnapshotRef.current = saveSnapshot
+        setDirty(false)
+        setSaveStatus('saved')
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to save labor operation'
-      setSaveStatus('error')
-      setErrors((prev) => ({ ...prev, code: message }))
+      if (serializeFormState(formRef.current) === saveSnapshot) {
+        setSaveStatus('error')
+        setErrors((prev) => ({ ...prev, code: message }))
+      }
     }
-  }, [buildPayload, createMutation, form, operation, updateMutation, validateForm])
+  }, [buildPayload, createMutation, operation, updateMutation, validateForm])
 
   React.useEffect(() => {
     if (!open || isHydrating || !dirty) {
@@ -323,12 +370,12 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
     if (serializeFormState(form) === lastSavedSnapshotRef.current) {
       setDirty(false)
-      setSaveStatus('saved')
+      setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
       return
     }
 
     const timeout = window.setTimeout(() => {
-      void performAutoSave()
+      void performAutoSave(form)
     }, AUTO_SAVE_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timeout)
@@ -475,14 +522,14 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 variant="outline"
                 size="sm"
                 aria-label="Add fitment"
-                onClick={() => setField('fitments', [...form.fitments, { ...EMPTY_FITMENT }])}
+                onClick={() => setField('fitments', [...form.fitments, createFitment(EMPTY_FITMENT)])}
               >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
 
             {form.fitments.map((fitment, index) => (
-              <div key={`fitment-${index}`} className="rounded-md border p-3 space-y-3">
+              <div key={fitment.id} className="rounded-md border p-3 space-y-3">
                 <div className="grid grid-cols-12 gap-2 items-start">
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-make-${index}`}>Make</Label>
@@ -536,7 +583,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       variant="ghost"
                       size="icon"
                       aria-label="Remove fitment"
-                      onClick={() => setField('fitments', form.fitments.filter((_, currentIndex) => currentIndex !== index))}
+                      onClick={() => setField('fitments', form.fitments.filter((currentFitment) => currentFitment.id !== fitment.id))}
                     >
                       ×
                     </Button>
@@ -550,7 +597,14 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button type="button" onClick={() => void performAutoSave()} disabled={isPending}>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!dirty) return
+                void performAutoSave(form)
+              }}
+              disabled={isPending || !dirty}
+            >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save now
             </Button>
