@@ -1,6 +1,11 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkshopOrderStatus, WorkshopTaskStatus } from '@prisma/client';
+import {
+  Prisma,
+  WorkshopLineItemType,
+  WorkshopOrderStatus,
+  WorkshopTaskStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopService } from './workshop.service';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -30,6 +35,10 @@ describe('WorkshopService', () => {
       findMany: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+    },
+    workshopTaskLineItem: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -222,5 +231,81 @@ describe('WorkshopService', () => {
     );
 
     expect(mockPrisma.workshopTask.delete).not.toHaveBeenCalled();
+  });
+
+  it('persists labor metadata when replacing task line items', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 1 });
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await service.replaceTaskLineItems('wo-1', 't-1', {
+      items: [
+        {
+          type: WorkshopLineItemType.LABOR,
+          itemNo: 'LAB-001',
+          description: 'Brake labor',
+          qty: 1,
+          unitPrice: 120,
+          laborOperationId: '550e8400-e29b-41d4-a716-446655440000',
+          standardAw: 0,
+          actualHours: 1.5,
+          internalCostRate: 0,
+        },
+      ],
+    });
+
+    const createManyArg = mockPrisma.workshopTaskLineItem.createMany.mock
+      .calls[0]?.[0];
+    const firstLineItem = createManyArg?.data?.[0];
+    expect(firstLineItem.labor_operation_id).toBe(
+      '550e8400-e29b-41d4-a716-446655440000',
+    );
+    expect(firstLineItem.standard_aw).toEqual(new Prisma.Decimal(0));
+    expect(firstLineItem.actual_hours).toEqual(new Prisma.Decimal(1.5));
+    expect(firstLineItem.internal_cost_rate).toEqual(new Prisma.Decimal(0));
+  });
+
+  it('normalizes labor metadata fields in workshop order response', async () => {
+    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+      id: 'wo-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      invoice: null,
+      tasks: [
+        {
+          id: 't-1',
+          status: WorkshopTaskStatus.NOT_STARTED,
+          line_items: [
+            {
+              id: 'li-1',
+              type: WorkshopLineItemType.LABOR,
+              item_no: 'LAB-001',
+              description: 'Brake labor',
+              quantity: new Prisma.Decimal(1),
+              unit_price: new Prisma.Decimal(100),
+              labor_operation_id: '550e8400-e29b-41d4-a716-446655440000',
+              standard_aw: new Prisma.Decimal(0),
+              actual_hours: new Prisma.Decimal(1.25),
+              internal_cost_rate: new Prisma.Decimal(0),
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.findOne('wo-1');
+    const lineItem = result.tasks[0].lineItems[0];
+    expect(lineItem.laborOperationId).toBe(
+      '550e8400-e29b-41d4-a716-446655440000',
+    );
+    expect(lineItem.standardAw).toBe(0);
+    expect(lineItem.actualHours).toBe(1.25);
+    expect(lineItem.internalCostRate).toBe(0);
   });
 });

@@ -103,6 +103,15 @@ export class WorkshopService {
               description: line.description,
               qty: Number(line.quantity),
               unitPrice: Number(line.unit_price),
+              laborOperationId: line.labor_operation_id,
+              standardAw:
+                line.standard_aw !== null ? Number(line.standard_aw) : null,
+              actualHours:
+                line.actual_hours !== null ? Number(line.actual_hours) : null,
+              internalCostRate:
+                line.internal_cost_rate !== null
+                  ? Number(line.internal_cost_rate)
+                  : null,
             })) ?? [],
         })) ?? [],
     };
@@ -561,6 +570,19 @@ export class WorkshopService {
             description: item.description,
             quantity: new Prisma.Decimal(item.qty),
             unit_price: new Prisma.Decimal(item.unitPrice),
+            labor_operation_id: item.laborOperationId ?? null,
+            standard_aw:
+              item.standardAw !== undefined
+                ? new Prisma.Decimal(item.standardAw)
+                : null,
+            actual_hours:
+              item.actualHours !== undefined
+                ? new Prisma.Decimal(item.actualHours)
+                : null,
+            internal_cost_rate:
+              item.internalCostRate !== undefined
+                ? new Prisma.Decimal(item.internalCostRate)
+                : null,
           })),
         });
       }
