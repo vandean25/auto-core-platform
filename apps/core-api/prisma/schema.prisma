@@ -526,8 +526,8 @@ model WorkshopTaskLineItem {
   description       String
   quantity          Decimal              @db.Decimal(10, 2)
   unit_price        Decimal              @db.Decimal(10, 2)
-  labor_operation_id String?
-  labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id])
+  labor_operation_id String?             @db.Uuid
+  labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   standard_aw        Decimal?            @db.Decimal(10, 2)
   actual_hours       Decimal?            @db.Decimal(10, 2)
   internal_cost_rate Decimal?            @db.Decimal(10, 2)
@@ -540,12 +540,12 @@ model WorkshopTaskLineItem {
 }
 
 model LaborCategory {
-  id                  String            @id @default(uuid())
+  id                  String            @id @default(uuid()) @db.Uuid
   name                String            @unique
   description         String?
   sort_order          Int               @default(0)
-  parent_id           String?
-  parent              LaborCategory?    @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Restrict)
+  parent_id           String?           @db.Uuid
+  parent              LaborCategory?    @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   children            LaborCategory[]   @relation("CategoryHierarchy")
   is_active           Boolean           @default(true)
   default_hourly_rate Decimal?          @db.Decimal(10, 2)
@@ -560,14 +560,14 @@ model LaborCategory {
 }
 
 model LaborOperation {
-  id            String         @id @default(uuid())
+  id            String         @id @default(uuid()) @db.Uuid
   code          String         @unique
   description   String
   standard_aw   Decimal        @db.Decimal(10, 2)
   hourly_rate   Decimal        @db.Decimal(10, 2)
   internal_cost Decimal?       @db.Decimal(10, 2)
-  category_id   String?
-  category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  category_id   String?        @db.Uuid
+  category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   is_active     Boolean        @default(true)
   fitments      LaborFitment[]
   task_line_items WorkshopTaskLineItem[]
@@ -583,9 +583,9 @@ model LaborOperation {
 }
 
 model LaborFitment {
-  id                 String         @id @default(uuid())
-  labor_operation_id String
-  labor_operation    LaborOperation @relation(fields: [labor_operation_id], references: [id], onDelete: Cascade)
+  id                 String         @id @default(uuid()) @db.Uuid
+  labor_operation_id String         @db.Uuid
+  labor_operation    LaborOperation @relation(fields: [labor_operation_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   make               String
   model              String
   year_from          Int?
@@ -601,7 +601,7 @@ model LaborFitment {
 }
 
 model MasterPart {
-  id                   String          @id @default(uuid())
+  id                   String          @id @default(uuid()) @db.Uuid
   supplier_part_number String          @unique
   oem_number           String?
   description          String
@@ -618,9 +618,9 @@ model MasterPart {
 }
 
 model PartFitment {
-  id             String     @id @default(uuid())
-  master_part_id String
-  master_part    MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade)
+  id             String     @id @default(uuid()) @db.Uuid
+  master_part_id String     @db.Uuid
+  master_part    MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   make           String
   model          String
   year_from      Int?
@@ -636,9 +636,9 @@ model PartFitment {
 }
 
 model LocalInventory {
-  id               String     @id @default(uuid())
-  master_part_id   String     @unique
-  master_part      MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade)
+  id               String     @id @default(uuid()) @db.Uuid
+  master_part_id   String     @unique @db.Uuid
+  master_part      MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   quantity_on_hand Int        @default(0)
   bin_location     String?
   cost_price       Decimal    @db.Decimal(10, 2)
