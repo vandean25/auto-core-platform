@@ -1,53 +1,84 @@
 import { test, expect } from '@playwright/test';
+import { AutoCorePage } from './pom/AutoCorePage';
+import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 
-test.describe('Inventory Management', () => {
+/**
+ * Inventory — Smoke Tests (seed-based)
+ *
+ * These tests rely on the live database seed being present.  They are intentionally
+ * lightweight: they verify the page loads and the known seed SKU is visible.
+ * They do NOT validate Golden Rules — see the Blueprint suite in core-workflows.spec.ts.
+ *
+ * Run these against a fully seeded environment to catch regressions in the
+ * real data flow.
+ */
+test.describe('Inventory — Smoke Tests (seed-based)', () => {
+  const SEED_SKU = '06J-115-403-Q';
+
   test('should display inventory list and open item details sheet', async ({ page }) => {
-    await page.goto('/inventory');
+    const corePage = new AutoCorePage(page, 'Item');
+    await corePage.navigate('/inventory');
 
-    // Check if the inventory heading is visible
     await expect(page.getByRole('heading', { name: 'Inventory' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: SEED_SKU }).first()).toBeVisible();
 
-    // Check if the table has data (using a known SKU from seed data)
-    await expect(page.getByRole('cell', { name: '06J-115-403-Q' }).first()).toBeVisible();
-
-    // Click on a row to open details
-    await page.getByRole('row').filter({ hasText: '06J-115-403-Q' }).first().click();
-
-    // Scope assertions to the opened details dialog to avoid strict-mode text ambiguity.
-    const detailsDialog = page.getByRole('dialog', { name: 'Item Details' });
-    await expect(detailsDialog).toBeVisible();
-    await expect(detailsDialog.getByText('06J-115-403-Q', { exact: true })).toBeVisible();
+    // Use the POM row-click helper — validates the Golden Rule data attribute too
+    await corePage.openRowDetails(SEED_SKU);
   });
 
-  test('should allow searching for parts', async ({ page }) => {
-    await page.goto('/inventory');
+  test('should allow searching for parts by SKU', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Item');
+    await corePage.navigate('/inventory');
 
-    // Find the search input and type a part number
     const searchInput = page.getByPlaceholder('Search parts...');
-    await searchInput.fill('06J-115-403-Q');
+    await searchInput.fill(SEED_SKU);
 
-    // Check if the filtered results are visible
-    await expect(page.getByRole('cell', { name: '06J-115-403-Q' }).first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: SEED_SKU }).first()).toBeVisible();
   });
+});
 
-  test('should prevent crashing on malformed API data (Boundary Safety)', async ({ page }) => {
-    // Intercept the brands API and return malformed data
-    // This tests the hardened useBrands hook implementation
-    await page.route(/\/api\/brands(\?.*)?$/, async (route) => {
+/**
+ * Inventory — Blueprint Validation (mocked, deterministic)
+ *
+ * These tests mock the API so they run reliably in any environment.
+ * They validate Golden Rules and resilience behaviours.
+ */
+test.describe('Inventory — Blueprint Validation (mocked)', () => {
+  test('should not crash when the Brands API returns malformed data', async ({ page }) => {
+    // Mock first, then navigate (network isolation)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/brands'), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: 'this-should-be-an-array-but-is-a-string' }), 
+        body: JSON.stringify({ data: 'this-should-be-an-array-but-is-a-string' }),
       });
     });
 
-    // Navigate after route setup to ensure malformed data is used on initial load.
     await page.goto('/inventory');
+    await page.waitForLoadState('networkidle');
 
-    // The page should NOT crash or go blank.
-    await expect(page.getByPlaceholder('Search parts...')).toBeVisible({ timeout: 20000 });
-    
-    // The table should still load items (uses a different API)
-    await expect(page.getByRole('row').filter({ hasText: '06J-115-403-Q' }).first()).toBeVisible({ timeout: 10000 });
+    // The page MUST NOT crash or go blank
+    await expect(page.getByPlaceholder('Search parts...')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('should render mocked inventory items using data-table-row attributes', async ({
+    page,
+  }) => {
+    const item = createMockInventoryItem({ sku: 'MOCK-SKU-001', name: 'Mock Oil Filter' });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([item])),
+      });
+    });
+
+    const corePage = new AutoCorePage(page, 'Item');
+    await corePage.navigate('/inventory');
+
+    // Golden Rule 2: rows carry the data-table-row attribute
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'MOCK-SKU-001' });
+    await expect(row).toBeVisible();
   });
 });

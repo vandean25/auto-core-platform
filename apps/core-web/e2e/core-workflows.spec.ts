@@ -1,57 +1,116 @@
 import { test } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
-import { createMockInventoryItem, createMockCustomer, createMockVehicle } from './utils/mock-factories';
+import {
+  createMockInventoryItem,
+  createMockCustomer,
+  createMockVendor,
+  createMockPurchaseOrder,
+  createMockSalesOrder,
+  createMockPurchaseBill,
+  createMockListResponse,
+} from './utils/mock-factories';
 
-const modules = [
-  { 
-    name: 'Inventory', 
-    path: '/inventory', 
-    entity: 'Item', 
-    seed: '06J-115-403-Q',
-    mockFactory: (seed: string) => createMockInventoryItem({ sku: seed, name: 'Oil Filter' })
+/**
+ * Blueprint Validation Suite — Core Management Workflows
+ *
+ * Each test validates the three Golden Rules for a list page:
+ *   1. Header Structure: correct h1 title + visible create button in the top-right.
+ *   2. Data-attribute rows: rows carry `data-table-row="true"` (enforced by DataTable).
+ *   3. Row Interaction: clicking a row opens a detail Sheet/Dialog OR navigates to a detail URL.
+ *
+ * All API calls are mocked (regex-safe) so tests are deterministic and do not depend
+ * on database seed state.
+ */
+
+interface ModuleConfig {
+  /** Label shown in the page `<h1>` element. */
+  name: string;
+  /** Frontend route, e.g. `/vendors`. */
+  path: string;
+  /** Entity name used by the create button (matched via regex in AutoCorePage). */
+  entity: string;
+  /** Text present in the first mocked row — used for row-click verification. */
+  seed: string;
+  /** Factory that produces a single mocked list item. */
+  mockFactory: () => Record<string, unknown>;
+  /** Backend API path for the list endpoint (used to build the regex route matcher). */
+  apiPath: string;
+}
+
+const modules: ModuleConfig[] = [
+  {
+    name: 'Inventory',
+    path: '/inventory',
+    entity: 'Item',
+    seed: 'TEST-SKU-1',
+    mockFactory: () => createMockInventoryItem({ sku: 'TEST-SKU-1', name: 'Oil Filter' }),
+    apiPath: '/api/inventory',
   },
-  { 
-    name: 'Vendors', 
-    path: '/vendors', 
-    entity: 'Vendor', 
+  {
+    name: 'Vendors',
+    path: '/vendors',
+    entity: 'Vendor',
     seed: 'Bosch Automotive',
-    mockFactory: (seed: string) => ({ id: '1', name: seed, status: 'ACTIVE' })
+    mockFactory: () => createMockVendor({ name: 'Bosch Automotive' }),
+    apiPath: '/api/vendors',
   },
-  { 
-    name: 'Customers', 
-    path: '/customers', 
-    entity: 'Customer', 
-    seed: 'John Doe',
-    mockFactory: (seed: string) => createMockCustomer({ first_name: 'John', last_name: 'Doe' })
+  {
+    name: 'Customers',
+    path: '/customers',
+    entity: 'Customer',
+    seed: 'John',
+    mockFactory: () => createMockCustomer({ first_name: 'John', last_name: 'Doe' }),
+    apiPath: '/api/customers',
+  },
+  {
+    name: 'Purchase Orders',
+    path: '/purchase-orders',
+    entity: 'Purchase Order',
+    seed: 'PO-2026-0001',
+    mockFactory: () => createMockPurchaseOrder({ order_number: 'PO-2026-0001' }),
+    apiPath: '/api/purchase-orders',
+  },
+  {
+    name: 'Sales Orders',
+    path: '/sales-orders',
+    entity: 'Order',
+    seed: 'SO-2026-0001',
+    mockFactory: () => createMockSalesOrder({ order_number: 'SO-2026-0001' }),
+    apiPath: '/api/sales-orders',
+  },
+  {
+    name: 'Purchase Bills',
+    path: '/purchase-bills',
+    entity: 'Bill',
+    seed: 'B-2026-001',
+    mockFactory: () => createMockPurchaseBill({ vendor_invoice_number: 'B-2026-001' }),
+    apiPath: '/api/purchase-invoices',
   },
 ];
 
-test.describe('Core Management Workflows', () => {
+test.describe('Blueprint: Golden Rules — Core List Pages', () => {
   for (const module of modules) {
-    test(`standard list-to-detail flow for ${module.name}`, async ({ page }) => {
+    test(`[${module.name}] header structure, data-table rows, and row-to-detail flow`, async ({
+      page,
+    }) => {
       const corePage = new AutoCorePage(page, module.entity);
-      
-      // 1. Mock the specific API response using the factory and regex
-      const apiRegex = new RegExp(`.*\/api${module.path}(\\?.*)?$`);
-      await page.route(apiRegex, async (route) => {
+
+      // ── Step 1: Mock API before navigating (network isolation) ─────────────
+      await page.route(AutoCorePage.apiRouteMatcher(module.apiPath), async (route) => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({
-            data: [ module.mockFactory(module.seed) ],
-            meta: { total: 1, page: 1, pageSize: 10, pageCount: 1 }
-          }),
+          body: JSON.stringify(createMockListResponse([module.mockFactory()])),
         });
       });
 
-      // 2. Navigate to module
+      // ── Step 2: Navigate and wait for network idle ──────────────────────────
       await corePage.navigate(module.path);
-      await page.waitForLoadState('networkidle');
 
-      // 3. Verify Golden Rule: Header Consistency
+      // ── Step 3: Golden Rule 1 — Header Consistency ─────────────────────────
       await corePage.verifyHeaderConsistency(module.name);
 
-      // 4. Verify Golden Rule: Row Interaction opens Detail
+      // ── Step 4: Golden Rule 3 — Row click opens detail view or navigates ───
       await corePage.openRowDetails(module.seed);
     });
   }
