@@ -20,13 +20,18 @@ export class AutoCorePage {
     this.entityName = entityName;
   }
 
+  /** Escapes a string for safe embedding in a RegExp literal. */
+  private static escapeRegex(text: string): string {
+    return text.replace(/[+.*?^${}()|[\]\\]/g, '\\$&');
+  }
+
   /**
    * Rule: The create button label is the entity name (with a leading `+` only when the button text
    * explicitly contains it, e.g. "+ Item").  We use a regex so both "Item" and "+ Item" are matched,
    * and we also cover `<Button asChild><Link>` patterns that render as anchor elements.
    */
   get createButton(): Locator {
-    const nameRegex = new RegExp(this.entityName.replace(/[+.*?^${}()|[\]\\]/g, '\\$&'));
+    const nameRegex = new RegExp(AutoCorePage.escapeRegex(this.entityName));
     return this.page
       .getByRole('button', { name: nameRegex })
       .or(this.page.getByRole('link', { name: nameRegex }));
@@ -80,7 +85,11 @@ export class AutoCorePage {
         .locator('[role="dialog"], [role="complementary"]')
         .first()
         .isVisible();
-      expect(urlChanged || dialogVisible, 'Expected row click to open a detail view or navigate').toBe(true);
+      expect(
+        urlChanged || dialogVisible,
+        `Expected row click to open a dialog/sheet or navigate to a detail page, ` +
+          `but URL stayed '${urlBefore}' and no dialog appeared`,
+      ).toBe(true);
     }).toPass({ timeout: 5000 });
   }
 
@@ -92,7 +101,7 @@ export class AutoCorePage {
    *   `/api/inventory`, `/api/inventory?page=1&limit=10`, etc.
    */
   static apiRouteMatcher(path: string): RegExp {
-    const escaped = path.replace(/[+.*?^${}()|[\]\\]/g, '\\$&');
+    const escaped = AutoCorePage.escapeRegex(path);
     return new RegExp(`.*${escaped}(\\?.*)?$`);
   }
 

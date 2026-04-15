@@ -81,10 +81,11 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('B-OLD-123');
 
-    // ── Step 4: Trigger the debounce by changing the field value ────────────
-    // waitForAutoSave registers the response listener first, then we fill.
-    // The helper is awaited AFTER fill so the listener is set up before the
-    // 750 ms debounce window elapses.
+    // ── Step 4: Start the auto-save listener BEFORE filling the field ────────
+    // waitForAutoSave registers a network response listener internally, so we
+    // must create the promise BEFORE triggering the fill.  Filling the field
+    // starts the 750 ms debounce; the listener will catch the PATCH request
+    // that fires after the debounce elapses.
     const autoSavePromise = corePage.waitForAutoSave('/api/purchase-invoices');
     await input.fill('B-NEW-789');
 
