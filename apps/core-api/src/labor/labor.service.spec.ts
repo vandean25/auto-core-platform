@@ -251,6 +251,26 @@ describe('LaborService', () => {
       expect(result.fitments).toHaveLength(1);
       expect(result.fitments[0].make).toBe('Toyota');
     });
+
+    it('creates operation with explicit isActive value', async () => {
+      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.create.mockResolvedValue({
+        ...baseOperation,
+        is_active: false,
+      });
+
+      const result = await service.create({
+        ...createDto,
+        isActive: false,
+      });
+
+      expect(result.isActive).toBe(false);
+      expect(mockPrisma.laborOperation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is_active: false }),
+        }),
+      );
+    });
   });
 
   // ── update ────────────────────────────────────────────────────────────
@@ -321,6 +341,23 @@ describe('LaborService', () => {
       });
 
       expect(result.fitments[0].make).toBe('Honda');
+    });
+
+    it('updates is_active when isActive is provided', async () => {
+      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.update.mockResolvedValue({
+        ...baseOperation,
+        is_active: false,
+      });
+
+      const result = await service.update('op-1', { isActive: false });
+
+      expect(result.isActive).toBe(false);
+      expect(mockPrisma.laborOperation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ is_active: false }),
+        }),
+      );
     });
   });
 

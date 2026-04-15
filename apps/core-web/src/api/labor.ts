@@ -5,6 +5,32 @@ import type { components } from './generated/openapi'
 
 const LABOR_API = '/api/labor'
 
+function extractApiErrorText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((entry) => extractApiErrorText(entry))
+      .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+
+    return messages.length > 0 ? messages.join(', ') : undefined
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return extractApiErrorText(record.message) ?? extractApiErrorText(record.error)
+  }
+
+  return undefined
+}
+
+async function getApiErrorMessage(res: Response, fallbackMessage: string) {
+  const error = await res.json().catch(() => undefined)
+  return extractApiErrorText(error) ?? fallbackMessage
+}
+
 export const laborKeys = {
   all: ['labor'] as const,
   categories: () => [...laborKeys.all, 'categories'] as const,
@@ -163,7 +189,9 @@ export function useCreateLaborOperation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to create labor operation')
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, 'Failed to create labor operation'))
+      }
       return res.json() as Promise<LaborOperation>
     },
     onSuccess: () => {
@@ -181,7 +209,9 @@ export function useUpdateLaborOperation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to update labor operation')
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, 'Failed to update labor operation'))
+      }
       return res.json() as Promise<LaborOperation>
     },
     onSuccess: (operation) => {

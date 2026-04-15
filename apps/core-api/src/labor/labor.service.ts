@@ -292,6 +292,7 @@ export class LaborService {
           hourly_rate: dto.hourlyRate,
           internal_cost: dto.internalCost ?? null,
           category_id: dto.categoryId ?? null,
+          is_active: dto.isActive ?? true,
           fitments: dto.fitments
             ? {
                 create: dto.fitments.map((f) => ({
@@ -387,6 +388,7 @@ export class LaborService {
             internal_cost: dto.internalCost,
           }),
           ...(dto.categoryId !== undefined && { category_id: dto.categoryId }),
+          ...(dto.isActive !== undefined && { is_active: dto.isActive }),
           ...(dto.fitments !== undefined && {
             fitments: {
               deleteMany: {},
