@@ -146,31 +146,39 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const createdOperationIdRef = React.useRef<string | null>(null)
   const lastSavedSnapshotRef = React.useRef(serializeFormState(EMPTY_FORM))
   const formRef = React.useRef<FormState>(EMPTY_FORM)
+  const isSavingRef = React.useRef(false)
+  const hasQueuedSaveRef = React.useRef(false)
 
   React.useEffect(() => {
     formRef.current = form
   }, [form])
 
   React.useEffect(() => {
-    if (open) {
-      setIsHydrating(true)
-      if (operation) {
-        const nextForm = operationToFormState(operation)
-        setForm(nextForm)
-        lastSavedSnapshotRef.current = serializeFormState(nextForm)
-        createdOperationIdRef.current = operation.id
-        setSaveStatus('saved')
-      } else {
-        setForm(EMPTY_FORM)
-        lastSavedSnapshotRef.current = serializeFormState(EMPTY_FORM)
-        createdOperationIdRef.current = null
-        setSaveStatus('idle')
-      }
-      setErrors({})
-      setDirty(false)
-      window.setTimeout(() => {
-        setIsHydrating(false)
-      }, 0)
+    if (!open) {
+      return
+    }
+
+    setIsHydrating(true)
+    if (operation) {
+      const nextForm = operationToFormState(operation)
+      setForm(nextForm)
+      lastSavedSnapshotRef.current = serializeFormState(nextForm)
+      createdOperationIdRef.current = operation.id
+      setSaveStatus('saved')
+    } else {
+      setForm(EMPTY_FORM)
+      lastSavedSnapshotRef.current = serializeFormState(EMPTY_FORM)
+      createdOperationIdRef.current = null
+      setSaveStatus('idle')
+    }
+    setErrors({})
+    setDirty(false)
+    const hydrationTimeout = window.setTimeout(() => {
+      setIsHydrating(false)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(hydrationTimeout)
     }
   }, [operation, open])
 
@@ -324,6 +332,10 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
       setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
       return
     }
+    if (isSavingRef.current) {
+      hasQueuedSaveRef.current = true
+      return
+    }
 
     const currentErrors = validateForm(formToSave)
     if (Object.keys(currentErrors).length > 0) {
@@ -332,6 +344,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
       return
     }
 
+    isSavingRef.current = true
     const payload = buildPayload(formToSave)
     setSaveStatus('saving')
 
@@ -354,18 +367,28 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         lastSavedSnapshotRef.current = saveSnapshot
         setDirty(false)
         setSaveStatus('saved')
+      } else {
+        hasQueuedSaveRef.current = true
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to save labor operation'
       if (serializeFormState(formRef.current) === saveSnapshot) {
         setSaveStatus('error')
         setErrors((prev) => ({ ...prev, code: message }))
+      } else {
+        hasQueuedSaveRef.current = true
+      }
+    } finally {
+      isSavingRef.current = false
+      if (hasQueuedSaveRef.current) {
+        hasQueuedSaveRef.current = false
+        void performAutoSave(formRef.current)
       }
     }
   }, [buildPayload, createMutation, operation, updateMutation, validateForm])
 
   React.useEffect(() => {
-    if (!open || isHydrating || !dirty) {
+    if (!open || isHydrating || !dirty || saveStatus === 'saving') {
       return
     }
 
@@ -380,7 +403,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     }, AUTO_SAVE_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timeout)
-  }, [dirty, form, isHydrating, open, performAutoSave])
+  }, [dirty, form, isHydrating, open, performAutoSave, saveStatus])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
