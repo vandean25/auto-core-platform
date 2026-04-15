@@ -61,7 +61,7 @@ const MAX_YEAR = 2100
 function createFitment(initial?: Partial<Omit<FitmentState, 'id'>>): FitmentState {
   const generatedId =
     globalThis.crypto?.randomUUID?.() ??
-    `fitment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    `fitment-${Date.now()}-${Math.trunc(globalThis.performance?.now?.() ?? 0)}-${Math.random().toString(36).slice(2, 8)}`
 
   return {
     id: generatedId,
@@ -73,8 +73,7 @@ function createFitment(initial?: Partial<Omit<FitmentState, 'id'>>): FitmentStat
   }
 }
 
-const EMPTY_FITMENT: FitmentState = {
-  id: 'fitment-template',
+const EMPTY_FITMENT_TEMPLATE: Omit<FitmentState, 'id'> = {
   make: '',
   model: '',
   yearFrom: '',
@@ -207,7 +206,6 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const validateForm = React.useCallback((currentForm: FormState): ValidationState => {
     const nextErrors: ValidationState = {}
     const standardAwRaw = currentForm.standardAw.trim()
-    const standardAw = standardAwRaw === '' ? undefined : Number(standardAwRaw)
     const hourlyRate = Number(currentForm.hourlyRate)
     const internalCost = currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
 
@@ -219,8 +217,11 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     }
     if (standardAwRaw === '') {
       nextErrors.standardAw = 'Standard AW is required'
-    } else if (standardAw === undefined || !Number.isFinite(standardAw) || standardAw < 0) {
-      nextErrors.standardAw = 'Standard AW must be a non-negative number'
+    } else {
+      const standardAw = Number(standardAwRaw)
+      if (!Number.isFinite(standardAw) || standardAw < 0) {
+        nextErrors.standardAw = 'Standard AW must be a non-negative number'
+      }
     }
     if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
       nextErrors.hourlyRate = 'Hourly Rate must be greater than 0'
@@ -522,7 +523,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 variant="outline"
                 size="sm"
                 aria-label="Add fitment"
-                onClick={() => setField('fitments', [...form.fitments, createFitment(EMPTY_FITMENT)])}
+                onClick={() => setField('fitments', [...form.fitments, createFitment(EMPTY_FITMENT_TEMPLATE)])}
               >
                 <Plus className="h-4 w-4" />
               </Button>

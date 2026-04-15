@@ -12,8 +12,8 @@ function extractApiErrorText(value: unknown): string | undefined {
 
   if (Array.isArray(value)) {
     const messages = value
-      .map((item) => extractApiErrorText(item))
-      .filter((item): item is string => Boolean(item))
+      .map((entry) => extractApiErrorText(entry))
+      .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
 
     return messages.length > 0 ? messages.join(', ') : undefined
   }
