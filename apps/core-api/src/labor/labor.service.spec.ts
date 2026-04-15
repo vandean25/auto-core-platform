@@ -144,7 +144,9 @@ describe('LaborService', () => {
     it('throws NotFoundException when operation not found', async () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -169,21 +171,30 @@ describe('LaborService', () => {
     });
 
     it('throws ConflictException on duplicate code (pre-check)', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue({ id: 'existing' });
+      mockPrisma.laborOperation.findUnique.mockResolvedValue({
+        id: 'existing',
+      });
 
-      await expect(service.create(createDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto)).rejects.toThrow(
+        ConflictException,
+      );
       expect(mockPrisma.laborOperation.create).not.toHaveBeenCalled();
     });
 
     it('maps Prisma P2002 to ConflictException (concurrent duplicate)', async () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
-      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-        code: 'P2002',
-        clientVersion: '0',
-      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint',
+        {
+          code: 'P2002',
+          clientVersion: '0',
+        },
+      );
       mockPrisma.laborOperation.create.mockRejectedValue(p2002);
 
-      await expect(service.create(createDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('validates categoryId exists and is active', async () => {
@@ -227,7 +238,13 @@ describe('LaborService', () => {
       const result = await service.create({
         ...createDto,
         fitments: [
-          { make: 'Toyota', model: 'Corolla', yearFrom: 2010, yearTo: 2020, engineCode: '1ZZ' },
+          {
+            make: 'Toyota',
+            model: 'Corolla',
+            yearFrom: 2010,
+            yearTo: 2020,
+            engineCode: '1ZZ',
+          },
         ],
       });
 
@@ -246,7 +263,9 @@ describe('LaborService', () => {
         description: 'Updated Description',
       });
 
-      const result = await service.update('op-1', { description: 'Updated Description' });
+      const result = await service.update('op-1', {
+        description: 'Updated Description',
+      });
 
       expect(result.description).toBe('Updated Description');
     });
@@ -254,9 +273,9 @@ describe('LaborService', () => {
     it('throws NotFoundException when operation not found', async () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
 
-      await expect(service.update('missing', { description: 'New' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('missing', { description: 'New' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when new code is already taken', async () => {
@@ -285,7 +304,16 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
-        fitments: [{ id: 'fit-2', make: 'Honda', model: 'Civic', year_from: null, year_to: null, engine_code: null }],
+        fitments: [
+          {
+            id: 'fit-2',
+            make: 'Honda',
+            model: 'Civic',
+            year_from: null,
+            year_to: null,
+            engine_code: null,
+          },
+        ],
       });
 
       const result = await service.update('op-1', {
@@ -320,14 +348,21 @@ describe('LaborService', () => {
     it('throws NotFoundException when operation not found', async () => {
       mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
 
-      await expect(service.softDelete('missing')).rejects.toThrow(NotFoundException);
+      await expect(service.softDelete('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   // ── search (is_active filter) ─────────────────────────────────────────
 
   describe('search', () => {
-    const vehicle = { make: 'Toyota', model: 'Corolla', year: 2015, engine_code: null };
+    const vehicle = {
+      make: 'Toyota',
+      model: 'Corolla',
+      year: 2015,
+      engine_code: null,
+    };
 
     it('passes is_active: true to the where clause', async () => {
       mockPrisma.workshopOrder.findUnique.mockResolvedValue({ vehicle });
@@ -344,17 +379,23 @@ describe('LaborService', () => {
     });
 
     it('throws BadRequestException when q is empty', async () => {
-      await expect(service.search('', 'wo-1')).rejects.toThrow(BadRequestException);
+      await expect(service.search('', 'wo-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws BadRequestException when workshopOrderId is empty', async () => {
-      await expect(service.search('oil', '')).rejects.toThrow(BadRequestException);
+      await expect(service.search('oil', '')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws NotFoundException when workshop order not found', async () => {
       mockPrisma.workshopOrder.findUnique.mockResolvedValue(null);
 
-      await expect(service.search('oil', 'wo-missing')).rejects.toThrow(NotFoundException);
+      await expect(service.search('oil', 'wo-missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

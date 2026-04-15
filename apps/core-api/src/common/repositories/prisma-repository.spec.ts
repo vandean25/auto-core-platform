@@ -206,7 +206,10 @@ describe('PrismaRepository', () => {
       mockModel.create.mockRejectedValue(error);
 
       await expect(repository.create({})).rejects.toThrow(
-        new ConflictError('Foreign key constraint failed on: brand_id', 'brand_id'),
+        new ConflictError(
+          'Foreign key constraint failed on: brand_id',
+          'brand_id',
+        ),
       );
     });
 
@@ -222,7 +225,10 @@ describe('PrismaRepository', () => {
       mockModel.create.mockRejectedValue(error);
 
       await expect(repository.create({})).rejects.toThrow(
-        new ConflictError('Required relation violation on: VehicleToSalesOrder', 'VehicleToSalesOrder'),
+        new ConflictError(
+          'Required relation violation on: VehicleToSalesOrder',
+          'VehicleToSalesOrder',
+        ),
       );
     });
   });

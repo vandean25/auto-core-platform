@@ -137,7 +137,10 @@ export class LaborService {
 
   private mapLaborOperation(
     operation: Prisma.LaborOperationGetPayload<{
-      include: { category: { select: { id: true; name: true } }; fitments: true };
+      include: {
+        category: { select: { id: true; name: true } };
+        fitments: true;
+      };
     }>,
   ) {
     return {
@@ -147,7 +150,9 @@ export class LaborService {
       standardAw: Number(operation.standard_aw),
       hourlyRate: Number(operation.hourly_rate),
       internalCost:
-        operation.internal_cost !== null ? Number(operation.internal_cost) : null,
+        operation.internal_cost !== null
+          ? Number(operation.internal_cost)
+          : null,
       categoryId: operation.category_id,
       category: operation.category ?? null,
       isActive: operation.is_active,
@@ -328,7 +333,12 @@ export class LaborService {
       throw new NotFoundException(`Labor operation with ID "${id}" not found`);
     }
 
-    const nullableFields = ['code', 'description', 'standardAw', 'hourlyRate'] as const;
+    const nullableFields = [
+      'code',
+      'description',
+      'standardAw',
+      'hourlyRate',
+    ] as const;
     for (const field of nullableFields) {
       if (dto[field] === null) {
         throw new BadRequestException(`Field "${field}" cannot be null`);
@@ -368,7 +378,9 @@ export class LaborService {
         where: { id },
         data: {
           ...(dto.code !== undefined && { code: dto.code }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.standardAw !== undefined && { standard_aw: dto.standardAw }),
           ...(dto.hourlyRate !== undefined && { hourly_rate: dto.hourlyRate }),
           ...(dto.internalCost !== undefined && {

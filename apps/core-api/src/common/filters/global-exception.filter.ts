@@ -38,7 +38,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const responseBody = exception.getResponse();
 
       if (isRecord(responseBody)) {
-        message = (responseBody.message as string | string[]) || exception.message;
+        message =
+          (responseBody.message as string | string[]) || exception.message;
         error = responseBody.error as string | undefined;
       } else {
         message = exception.message;
@@ -70,7 +71,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           break;
         case 'P2003':
           status = HttpStatus.UNPROCESSABLE_ENTITY;
-          message = 'This operation cannot be completed because of a related record.';
+          message =
+            'This operation cannot be completed because of a related record.';
           break;
         case 'P2025':
           status = HttpStatus.NOT_FOUND;

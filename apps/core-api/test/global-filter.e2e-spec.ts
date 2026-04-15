@@ -17,7 +17,9 @@ describe('GlobalExceptionFilter (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 
@@ -30,7 +32,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
 
   it('should map Prisma P2002 (Unique Constraint) to 409 Conflict', async () => {
     const email = `filter-test-${Date.now()}@example.com`;
-    
+
     // Create first customer
     await prisma.customer.create({
       data: {
@@ -81,7 +83,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
       // Or just rely on the filter logic.
       // Since we can't easily trigger a raw Error in a controlled way without adding a test endpoint,
       // we'll assume the unit logic covers it, but here we'll try to trigger an unhandled one if possible.
-      
+
       // For now, let's just verify the standardized shape on a known 400
       const response = await request(app.getHttpServer())
         .post('/api/sales/invoices')

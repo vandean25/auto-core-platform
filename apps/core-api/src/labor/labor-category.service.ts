@@ -123,7 +123,10 @@ export class LaborCategoryService {
         },
       });
 
-      return { ...created, default_hourly_rate: toNumber(created.default_hourly_rate) };
+      return {
+        ...created,
+        default_hourly_rate: toNumber(created.default_hourly_rate),
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -198,7 +201,9 @@ export class LaborCategoryService {
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
           ...(dto.parent_id !== undefined && { parent_id: dto.parent_id }),
           ...(dto.default_hourly_rate !== undefined && {
@@ -208,7 +213,10 @@ export class LaborCategoryService {
         },
       });
 
-      return { ...updated, default_hourly_rate: toNumber(updated.default_hourly_rate) };
+      return {
+        ...updated,
+        default_hourly_rate: toNumber(updated.default_hourly_rate),
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -255,6 +263,9 @@ export class LaborCategoryService {
       where: { id },
     });
 
-    return { ...deleted, default_hourly_rate: toNumber(deleted.default_hourly_rate) };
+    return {
+      ...deleted,
+      default_hourly_rate: toNumber(deleted.default_hourly_rate),
+    };
   }
 }

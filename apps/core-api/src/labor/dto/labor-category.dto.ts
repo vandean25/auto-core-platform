@@ -98,7 +98,11 @@ export class CreateLaborCategoryDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiPropertyOptional({ description: 'Description of the category', type: String, nullable: true })
+  @ApiPropertyOptional({
+    description: 'Description of the category',
+    type: String,
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   description?: string | null;
@@ -135,4 +139,6 @@ export class CreateLaborCategoryDto {
   is_active?: boolean;
 }
 
-export class UpdateLaborCategoryDto extends PartialType(CreateLaborCategoryDto) {}
+export class UpdateLaborCategoryDto extends PartialType(
+  CreateLaborCategoryDto,
+) {}
