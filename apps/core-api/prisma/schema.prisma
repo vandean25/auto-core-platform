@@ -100,6 +100,7 @@ enum LocationType {
   shelf
   bin
   customer_storage
+  staging_tote
 }
 
 model StorageLocation {
@@ -112,6 +113,7 @@ model StorageLocation {
   children     StorageLocation[]      @relation("Hierarchy")
   stocks       InventoryStock[]
   transactions InventoryTransaction[]
+  stagingWorkshopOrders WorkshopOrder[] @relation("WorkshopOrderStagingLocation")
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
   deletedAt    DateTime?
@@ -467,6 +469,8 @@ model WorkshopOrder {
   customer     Customer            @relation(fields: [customer_id], references: [id])
   vehicle_id   String
   vehicle      Vehicle             @relation(fields: [vehicle_id], references: [id])
+  staging_location_id String?
+  stagingLocation StorageLocation? @relation("WorkshopOrderStagingLocation", fields: [staging_location_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   odometer     Int
   fuel_level   Int                 // 0-100
@@ -483,6 +487,7 @@ model WorkshopOrder {
   pdf_generated_at     DateTime?
   pdf_generation_error String?
 
+  @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@map("workshop_orders")
 }
 
