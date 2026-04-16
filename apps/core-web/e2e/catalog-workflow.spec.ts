@@ -1,23 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { WorkshopPOM } from './pom/WorkshopPOM';
-import { createMockWorkshopOrder } from './utils/mock-factories';
+import { AutoCorePage } from './pom/AutoCorePage';
 
-test.describe('Catalog Fitment Filtering Workflow', () => {
+/**
+ * Blueprint: Catalog Fitment Filtering Workflow
+ *
+ * Validates that the workshop task catalog search shows only items the API returns
+ * (universal + vehicle-matching), and does NOT render items that were excluded
+ * server-side (e.g. BMW-specific operations when the vehicle is a Skoda).
+ *
+ * All mocks are registered BEFORE navigation (mock-first-then-navigate pattern).
+ */
+test.describe('Blueprint: Catalog Fitment Filtering Workflow', () => {
   const WORKSHOP_ORDER_ID = 'WS-BLUEPRINT-001';
   const SEARCH_QUERY = 'SearchKey';
 
-  test('should display only universal and vehicle-matching labor operations', async ({ page }) => {
+  test('should show only universal and vehicle-matching labor operations', async ({ page }) => {
     const workshop = new WorkshopPOM(page);
 
-    await test.step('Setup: Mock data aligned with OpenAPI structures', async () => {
-      // Use factory to ensure schema alignment
+    await test.step('Setup: Register all API mocks before navigating', async () => {
+      // Mock workshop order detail (includes vehicle context)
       await workshop.mockOrderDetails(WORKSHOP_ORDER_ID, {
         make: 'Skoda',
         model: 'Octavia',
       });
 
-      // Mock Catalog Search
-      await page.route(/\/api\/catalog\/search\?.*q=SearchKey.*/, async (route) => {
+      // Mock catalog search — API has already filtered by vehicle fitment
+      await page.route(AutoCorePage.apiRouteMatcher('/api/catalog/search'), async (route) => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -45,29 +54,28 @@ test.describe('Catalog Fitment Filtering Workflow', () => {
       });
     });
 
-    await test.step('Action: Navigate and open Task with fitment context', async () => {
+    await test.step('Action: Navigate to order and open task drawer', async () => {
+      // gotoOrder calls navigate which waits for networkidle
       await workshop.gotoOrder(WORKSHOP_ORDER_ID);
-      
-      // Rule: Verify branding visibility establishes context
+
+      // Vehicle context must be visible in the order header
       await expect(page.getByText('Skoda Octavia')).toBeVisible();
 
-      // Rule: Click row to open details
+      // Click the task row — validates data-workshop-task-row attribute
       await workshop.openTask('General Inspection');
     });
 
-    await test.step('Action: Perform Catalog Search', async () => {
+    await test.step('Action: Type in catalog search box', async () => {
       await workshop.searchCatalog(SEARCH_QUERY);
     });
 
-    await test.step('Verify: Result Consistency and Fitment Exclusion', async () => {
+    await test.step('Verify: API-returned items visible; excluded items absent', async () => {
       const drawer = page.getByRole('dialog');
-      
-      // Rule: Verify visibility of expected roles/items
+
       await expect(drawer.getByText('UNIVERSAL-LABOR')).toBeVisible();
       await expect(drawer.getByText('SKODA-LABOR')).toBeVisible();
 
-      // Rule: BMW items should be hidden by the filtering logic (verified by backend integration tests)
-      // but here we verify that the UI doesn't accidentally show items the API omitted.
+      // BMW-LABOR was never returned by the API — it must not appear in the UI
       await expect(drawer.getByText('BMW-LABOR')).not.toBeVisible();
     });
   });

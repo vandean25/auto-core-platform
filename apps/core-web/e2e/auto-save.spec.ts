@@ -1,78 +1,98 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { createMockPurchaseBill, createMockVendor } from './utils/mock-factories';
 
-test.describe('Form Auto-Save Hardening', () => {
+/**
+ * Auto-Save Hardening Suite
+ *
+ * Golden Rule: Complex document forms (Purchase Bills, Sales Orders, etc.) MUST
+ * use a Debounced Form-Level Auto-Save (750 ms) and show a "Saving…" → "Saved"
+ * visual indicator to confirm the save cycle.
+ *
+ * Pattern enforced here:
+ *   1. Mock API BEFORE navigating (network isolation — mock-first-then-navigate).
+ *   2. Trigger a field change to start the debounce timer.
+ *   3. Use `AutoCorePage.waitForAutoSave` to verify the complete Saving → network
+ *      round-trip → Saved cycle.
+ */
+test.describe('Blueprint: Auto-Save Hardening', () => {
   const BILL_ID = 'bill-save-test-123';
-  const VENDOR_ID = 'vendor-123';
+  const VENDOR_ID = 'vendor-auto-save-123';
 
-  test('should auto-save bill changes after debounce', async ({ page }) => {
-    // 1. Mock the initial Purchase Invoice in DRAFT status
-    await page.route(`**/api/purchase-invoices/${BILL_ID}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: BILL_ID,
-          vendor_id: VENDOR_ID,
-          vendor_invoice_number: 'B-OLD-123',
-          status: 'DRAFT',
-          invoice_date: new Date().toISOString(),
-          due_date: new Date().toISOString(),
-          total_amount: '0.00',
-          lines: [],
-          vendor: {
-            id: VENDOR_ID,
-            name: 'Bosch Automotive',
-          }
-        }),
-      });
+  test('should auto-save a Purchase Bill field change after the debounce', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Bill');
+
+    const initialBill = createMockPurchaseBill({
+      id: BILL_ID,
+      vendor_invoice_number: 'B-OLD-123',
+      vendor: createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' }),
     });
 
-    // 2. Mock Vendor details
-    await page.route(`**/api/vendors/${VENDOR_ID}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: VENDOR_ID,
-          name: 'Bosch Automotive',
-          supportedBrands: [{ id: 'b1', name: 'Bosch' }],
-        }),
-      });
-    });
+    // ── Step 1: Register all mocks BEFORE navigating ────────────────────────
 
-    // 3. Mock the PATCH request for auto-save
-    let saveTriggered = false;
-    await page.route(`**/api/purchase-invoices/${BILL_ID}`, async (route) => {
-      if (route.request().method() === 'PATCH') {
-        saveTriggered = true;
+    // GET /api/purchase-invoices/:id  →  return the initial DRAFT bill
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-invoices/${BILL_ID}`),
+      async (route) => {
+        if (route.request().method() === 'PATCH') {
+          // PATCH: auto-save — return the updated bill
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              ...initialBill,
+              vendor_invoice_number: 'B-NEW-789',
+            }),
+          });
+        } else {
+          // GET: initial load
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(initialBill),
+          });
+        }
+      },
+    );
+
+    // GET /api/vendors/:id  →  vendor detail (loaded by the bill form)
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/vendors/${VENDOR_ID}`),
+      async (route) => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ id: BILL_ID, vendor_invoice_number: 'B-NEW-789', status: 'DRAFT' }),
+          body: JSON.stringify(
+            createMockVendor({
+              id: VENDOR_ID,
+              name: 'Bosch Automotive',
+              supportedBrands: [{ id: 'b1', name: 'Bosch' }],
+            }),
+          ),
         });
-      } else {
-        await route.continue();
-      }
-    });
+      },
+    );
 
-    // 4. Navigate to the edit page
-    await page.goto(`/purchase-bills/${BILL_ID}`);
+    // ── Step 2: Navigate (network-idle is handled by corePage.navigate) ──────
+    await corePage.navigate(`/purchase-bills/${BILL_ID}`);
 
-    // Wait for the form to load
+    // ── Step 3: Confirm the form loaded with the initial value ──────────────
     const input = page.getByLabel('Vendor Bill #');
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('B-OLD-123');
 
-    // 5. Fill the field to trigger debounce
+    // ── Step 4: Start the auto-save listener BEFORE filling the field ────────
+    // waitForAutoSave registers a network response listener internally, so we
+    // must create the promise BEFORE triggering the fill.  Filling the field
+    // starts the 750 ms debounce; the listener will catch the PATCH request
+    // that fires after the debounce elapses.
+    const autoSavePromise = corePage.waitForAutoSave('/api/purchase-invoices');
     await input.fill('B-NEW-789');
 
-    // 6. Verify "Saving..." indicator appears
-    await expect(page.getByText(/saving/i)).toBeVisible();
+    // ── Step 5: Verify the complete Saving → network round-trip → Saved cycle
+    await autoSavePromise;
 
-    // 7. Verify the PATCH request was sent and "Saved" indicator appears
-    await expect(page.getByText(/All changes saved/i)).toBeVisible();
-    
-    expect(saveTriggered).toBe(true);
+    // Extra assertion: the field should reflect the saved value
+    await expect(input).toHaveValue('B-NEW-789');
   });
 });
