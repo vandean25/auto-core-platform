@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
 import { CircleDollarSign, Clock3, Package, Trash2, X } from 'lucide-react'
+import { useLaborOperation } from '@/api/labor'
 import { useCatalogSearch } from '@/api/workshop'
 import type { CatalogPartSearchItem, LaborOperationSearchItem } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
@@ -47,6 +48,10 @@ interface TaskLineItem {
   description: string
   qty: number
   unitPrice: number
+  laborOperationId?: string | null
+  standardAw?: number | null
+  actualHours?: number | null
+  internalCostRate?: number | null
 }
 
 interface RepairTask {
@@ -79,11 +84,33 @@ interface StagedLineItemDraft {
   description: string
   unitPrice: number
   label: string
+  laborOperationId?: string
+  standardAw?: number | null
 }
 
 const STABLE_EMPTY_ITEMS: TaskLineItem[] = []
 const STABLE_EMPTY_LABOR: LaborOperationSearchItem[] = []
 const STABLE_EMPTY_PARTS: CatalogPartSearchItem[] = []
+
+function formatHours(value: number | null | undefined) {
+  if (value == null) return '—'
+  return value.toFixed(2)
+}
+
+function calculateEfficiencyRatio(
+  standardAw: number | null | undefined,
+  actualHours: number | null | undefined,
+) {
+  if (standardAw == null || actualHours == null || actualHours <= 0) return null
+  return standardAw / actualHours
+}
+
+function getEfficiencyBadgeClass(ratio: number) {
+  if (ratio >= 1) {
+    return 'border-emerald-200 bg-emerald-100 text-emerald-700'
+  }
+  return 'border-amber-200 bg-amber-100 text-amber-700'
+}
 
 export function TaskDetailDrawer({
   workshopOrderId,
@@ -126,6 +153,16 @@ export function TaskDetailDrawer({
     workshopOrderId,
     open,
   )
+  const stagedLaborOperationId =
+    stagedLineItem?.type === 'LABOR' ? stagedLineItem.laborOperationId ?? '' : ''
+  const {
+    data: stagedLaborOperation,
+    isFetching: isFetchingStagedLaborOperation,
+  } = useLaborOperation(stagedLaborOperationId)
+  const stagedLaborInternalCostRate =
+    typeof stagedLaborOperation?.internalCost === 'number'
+      ? stagedLaborOperation.internalCost
+      : null
   const laborSuggestions = catalogSearch?.labor ?? STABLE_EMPTY_LABOR
   const partSuggestions = catalogSearch?.parts ?? STABLE_EMPTY_PARTS
 
@@ -204,6 +241,8 @@ export function TaskDetailDrawer({
       description: operation.description,
       unitPrice: operation.hourlyRate,
       label: `${operation.code} · ${operation.description}`,
+      laborOperationId: operation.id,
+      standardAw: operation.standardAw,
     })
     setSearchQuery(`${operation.code} · ${operation.description}`)
     setDebouncedSearchQuery('')
@@ -247,6 +286,16 @@ export function TaskDetailDrawer({
     if (!task || readOnly || !stagedLineItem) return
     const qty = Number(newQty)
     const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+    const stagedLaborMetadata =
+      stagedLineItem.type === 'LABOR'
+        ? {
+            laborOperationId: stagedLineItem.laborOperationId,
+            standardAw: stagedLineItem.standardAw ?? safeQty,
+            actualHours: null,
+            internalCostRate: stagedLaborInternalCostRate,
+          }
+        : {}
+
     const next: TaskLineItem = {
       id: `li-${task.id}-${items.length + 1}`,
       type: stagedLineItem.type,
@@ -254,6 +303,7 @@ export function TaskDetailDrawer({
       description: stagedLineItem.description,
       qty: safeQty,
       unitPrice: stagedLineItem.unitPrice,
+      ...stagedLaborMetadata,
     }
     addOrMergeLineItem(next)
   }
@@ -289,6 +339,25 @@ export function TaskDetailDrawer({
     )
   }
 
+  function updateLaborActualHours(
+    lineItemId: string,
+    nextActualHours: number | null,
+  ) {
+    if (!task || readOnly) return
+    const target = items.find((lineItem) => lineItem.id === lineItemId)
+    if (!target || target.type !== 'LABOR') return
+    if ((target.actualHours ?? null) === nextActualHours) return
+
+    onTaskLineItemsChange(
+      task.id,
+      items.map((lineItem) =>
+        lineItem.id === lineItemId
+          ? { ...lineItem, actualHours: nextActualHours }
+          : lineItem,
+      ),
+    )
+  }
+
   const normalizedSearchQuery = searchQuery.trim()
   const showSuggestions = !stagedLineItem && normalizedSearchQuery.length >= 2
   const hasResults = laborSuggestions.length > 0 || partSuggestions.length > 0
@@ -297,6 +366,10 @@ export function TaskDetailDrawer({
     debouncedSearchQuery === normalizedSearchQuery &&
     !isSearchingCatalog &&
     hasResults
+  const isStagedLaborMetadataLoading =
+    stagedLineItem?.type === 'LABOR' &&
+    !!stagedLineItem.laborOperationId &&
+    isFetchingStagedLaborOperation
   const isDocked = variant === 'docked'
 
   const panelBody = (
@@ -473,11 +546,18 @@ export function TaskDetailDrawer({
                         size="sm"
                         className="h-8 px-3 text-xs"
                         onClick={confirmStagedItem}
-                        disabled={readOnly || !stagedLineItem}
+                        disabled={
+                          readOnly || !stagedLineItem || isStagedLaborMetadataLoading
+                        }
                       >
                         + Add
                       </Button>
                     </div>
+                    {isStagedLaborMetadataLoading && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Loading labor metadata...
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -494,71 +574,146 @@ export function TaskDetailDrawer({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {items.map((item) => (
-                          <TableRow
-                            key={item.id}
-                            className={`transition-colors duration-500 ${
-                              highlightedRowId === item.id
-                                ? 'bg-blue-50/80 dark:bg-blue-500/20'
-                                : ''
-                            }`}
-                          >
-                            <TableCell>
-                              <Badge variant={item.type === 'LABOR' ? 'secondary' : 'outline'}>
-                                {item.type === 'LABOR' ? 'Labor' : 'Part'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-medium">{item.itemNo}</TableCell>
-                            <TableCell className="text-muted-foreground">{item.description}</TableCell>
-                            <TableCell>
-                              {item.type === 'PART' && !readOnly ? (
-                                <motion.div
-                                  animate={
-                                    poppedQtyRowId === item.id
-                                      ? { scale: [1, 1.2, 1] }
-                                      : { scale: 1 }
-                                  }
-                                  transition={{ duration: 0.24, ease: 'easeOut' }}
-                                  className="origin-center"
-                                >
-                                  <Input
-                                    key={`${item.id}-${item.qty}`}
-                                    defaultValue={String(item.qty)}
-                                    inputMode="decimal"
-                                    className="h-7 w-16 text-right text-xs"
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter') {
-                                        event.currentTarget.blur()
-                                      }
-                                    }}
-                                    onBlur={(event) => {
-                                      const parsedQty = Number(event.currentTarget.value)
-                                      if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
-                                        event.currentTarget.value = String(item.qty)
-                                        return
-                                      }
-                                      event.currentTarget.value = String(parsedQty)
-                                      updatePartQuantity(item.id, parsedQty)
-                                    }}
-                                  />
-                                </motion.div>
-                              ) : (
-                                <motion.span
-                                  animate={
-                                    poppedQtyRowId === item.id
-                                      ? { scale: [1, 1.2, 1] }
-                                      : { scale: 1 }
-                                  }
-                                  transition={{ duration: 0.24, ease: 'easeOut' }}
-                                  className="inline-block origin-center"
-                                >
-                                  {item.qty}
-                                </motion.span>
-                              )}
-                            </TableCell>
-                            <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                          </TableRow>
-                        ))}
+                        {items.map((item) => {
+                          const efficiencyRatio = calculateEfficiencyRatio(
+                            item.standardAw,
+                            item.actualHours,
+                          )
+
+                          return (
+                            <TableRow
+                              key={item.id}
+                              className={`transition-colors duration-500 ${
+                                highlightedRowId === item.id
+                                  ? 'bg-blue-50/80 dark:bg-blue-500/20'
+                                  : ''
+                              }`}
+                            >
+                              <TableCell>
+                                <Badge variant={item.type === 'LABOR' ? 'secondary' : 'outline'}>
+                                  {item.type === 'LABOR' ? 'Labor' : 'Part'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-medium">{item.itemNo}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="text-muted-foreground">{item.description}</div>
+                                  {item.type === 'LABOR' && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant="outline" className="text-[10px]">
+                                        Standard AW {formatHours(item.standardAw)}
+                                      </Badge>
+                                      {readOnly ? (
+                                        <Badge variant="outline" className="text-[10px]">
+                                          Actual Hours {formatHours(item.actualHours)}
+                                        </Badge>
+                                      ) : (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-muted-foreground">
+                                            Actual Hours
+                                          </span>
+                                          <Input
+                                            key={`${item.id}-${item.actualHours ?? 'none'}`}
+                                            aria-label="Actual Hours"
+                                            defaultValue={
+                                              item.actualHours != null
+                                                ? String(item.actualHours)
+                                                : ''
+                                            }
+                                            inputMode="decimal"
+                                            className="h-7 w-20 text-right text-xs"
+                                            onKeyDown={(event) => {
+                                              if (event.key === 'Enter') {
+                                                event.currentTarget.blur()
+                                              }
+                                            }}
+                                            onBlur={(event) => {
+                                              const rawValue = event.currentTarget.value.trim()
+                                              if (rawValue === '') {
+                                                updateLaborActualHours(item.id, null)
+                                                return
+                                              }
+
+                                              const parsedHours = Number(rawValue)
+                                              if (
+                                                !Number.isFinite(parsedHours) ||
+                                                parsedHours < 0
+                                              ) {
+                                                event.currentTarget.value =
+                                                  item.actualHours != null
+                                                    ? String(item.actualHours)
+                                                    : ''
+                                                return
+                                              }
+
+                                              event.currentTarget.value = String(parsedHours)
+                                              updateLaborActualHours(item.id, parsedHours)
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                      {efficiencyRatio != null && (
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] ${getEfficiencyBadgeClass(efficiencyRatio)}`}
+                                        >
+                                          Efficiency {efficiencyRatio.toFixed(2)}x
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.type === 'PART' && !readOnly ? (
+                                  <motion.div
+                                    animate={
+                                      poppedQtyRowId === item.id
+                                        ? { scale: [1, 1.2, 1] }
+                                        : { scale: 1 }
+                                    }
+                                    transition={{ duration: 0.24, ease: 'easeOut' }}
+                                    className="origin-center"
+                                  >
+                                    <Input
+                                      key={`${item.id}-${item.qty}`}
+                                      defaultValue={String(item.qty)}
+                                      inputMode="decimal"
+                                      className="h-7 w-16 text-right text-xs"
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                          event.currentTarget.blur()
+                                        }
+                                      }}
+                                      onBlur={(event) => {
+                                        const parsedQty = Number(event.currentTarget.value)
+                                        if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
+                                          event.currentTarget.value = String(item.qty)
+                                          return
+                                        }
+                                        event.currentTarget.value = String(parsedQty)
+                                        updatePartQuantity(item.id, parsedQty)
+                                      }}
+                                    />
+                                  </motion.div>
+                                ) : (
+                                  <motion.span
+                                    animate={
+                                      poppedQtyRowId === item.id
+                                        ? { scale: [1, 1.2, 1] }
+                                        : { scale: 1 }
+                                    }
+                                    transition={{ duration: 0.24, ease: 'easeOut' }}
+                                    className="inline-block origin-center"
+                                  >
+                                    {item.qty}
+                                  </motion.span>
+                                )}
+                              </TableCell>
+                              <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>

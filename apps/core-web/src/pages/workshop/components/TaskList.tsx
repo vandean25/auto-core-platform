@@ -124,9 +124,17 @@ export function TaskList({
                   >
                     Open
                   </Button>
-                  <span className='text-sm font-semibold'>{formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}</span>
+                  <span className='text-sm font-semibold'>
+                    {formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}
+                  </span>
                   <StatusBadge status={task.status} />
                 </span>
+              </div>
+              <div className='mt-1 pl-7 text-xs text-muted-foreground'>
+                Parts {formatCurrency(rawTaskTotals.get(task.id)?.parts ?? 0)} · Labor{' '}
+                {formatCurrency(rawTaskTotals.get(task.id)?.labor ?? 0)} · Std{' '}
+                {(rawTaskTotals.get(task.id)?.laborStandardHours ?? 0).toFixed(2)}h · Actual{' '}
+                {(rawTaskTotals.get(task.id)?.laborActualHours ?? 0).toFixed(2)}h
               </div>
             </div>
           ))}
