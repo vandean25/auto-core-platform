@@ -296,6 +296,7 @@ describe('WorkshopService', () => {
       new Prisma.PrismaClientKnownRequestError('Foreign key failed', {
         code: 'P2003',
         clientVersion: 'test',
+        meta: { field_name: 'labor_operation_id' },
       }),
     );
 

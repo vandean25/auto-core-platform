@@ -589,7 +589,10 @@ export class WorkshopService {
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003'
+        error.code === 'P2003' &&
+        String((error.meta as Record<string, unknown> | undefined)?.field_name ?? '').includes(
+          'labor_operation_id',
+        )
       ) {
         throw new BadRequestException(
           'Invalid laborOperationId: referenced labor operation was not found',

@@ -237,7 +237,7 @@ export function WorkshopOrderDetails() {
       description: string
       qty: number
       unitPrice: number
-      laborOperationId?: string
+      laborOperationId?: string | null
       standardAw?: number | null
       actualHours?: number | null
       internalCostRate?: number | null

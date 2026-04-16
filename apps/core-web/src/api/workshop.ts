@@ -24,6 +24,18 @@ export const workshopKeys = {
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
 }
 
+export const laborKeys = {
+  all: ['labor'] as const,
+  search: (query: string, workshopOrderId: string) =>
+    [...laborKeys.all, 'search', query, workshopOrderId] as const,
+}
+
+export const catalogKeys = {
+  all: ['catalog'] as const,
+  search: (query: string, workshopOrderId: string) =>
+    [...catalogKeys.all, 'search', query, workshopOrderId] as const,
+}
+
 type WorkshopOrderResponse = {
   data: WorkshopOrder[]
   meta: {
@@ -103,7 +115,7 @@ export const useLaborSearch = (
   const normalizedQuery = query.trim().toLowerCase()
   const normalizedWorkshopOrderId = workshopOrderId.trim()
   return useQuery<LaborOperationSearchResponse>({
-    queryKey: ['labor', 'search', normalizedQuery, normalizedWorkshopOrderId],
+    queryKey: laborKeys.search(normalizedQuery, normalizedWorkshopOrderId),
     queryFn: async () => {
       if (!normalizedQuery || !normalizedWorkshopOrderId) {
         return { data: [], meta: { total: 0, limit: 20 } }
@@ -126,7 +138,7 @@ export const useCatalogSearch = (
   const normalizedQuery = query.trim().toLowerCase()
   const normalizedWorkshopOrderId = workshopOrderId.trim()
   return useQuery<CatalogSearchResponse>({
-    queryKey: ['catalog', 'search', normalizedQuery, normalizedWorkshopOrderId],
+    queryKey: catalogKeys.search(normalizedQuery, normalizedWorkshopOrderId),
     queryFn: async () => {
       if (!normalizedQuery || !normalizedWorkshopOrderId) {
         return { labor: [], parts: [], meta: { laborCount: 0, partCount: 0, limit: 20 } }
@@ -280,7 +292,7 @@ export const useReplaceWorkshopTaskLineItems = () => {
         description: string
         qty: number
         unitPrice: number
-        laborOperationId?: string
+        laborOperationId?: string | null
         standardAw?: number | null
         actualHours?: number | null
         internalCostRate?: number | null

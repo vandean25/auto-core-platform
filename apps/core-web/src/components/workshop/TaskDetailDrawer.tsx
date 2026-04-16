@@ -48,7 +48,7 @@ interface TaskLineItem {
   description: string
   qty: number
   unitPrice: number
-  laborOperationId?: string
+  laborOperationId?: string | null
   standardAw?: number | null
   actualHours?: number | null
   internalCostRate?: number | null
@@ -86,7 +86,6 @@ interface StagedLineItemDraft {
   label: string
   laborOperationId?: string
   standardAw?: number | null
-  internalCostRate?: number | null
 }
 
 const STABLE_EMPTY_ITEMS: TaskLineItem[] = []
@@ -107,7 +106,7 @@ function calculateEfficiencyRatio(
 }
 
 function getEfficiencyBadgeClass(ratio: number) {
-  if (ratio <= 1) {
+  if (ratio >= 1) {
     return 'border-emerald-200 bg-emerald-100 text-emerald-700'
   }
   return 'border-amber-200 bg-amber-100 text-amber-700'
@@ -185,23 +184,6 @@ export function TaskDetailDrawer({
     }
   }, [])
 
-  useEffect(() => {
-    if (!stagedLineItem || stagedLineItem.type !== 'LABOR') return
-    if (!stagedLineItem.laborOperationId) return
-    if (!stagedLaborOperation) return
-    if (stagedLaborOperation.id !== stagedLineItem.laborOperationId) return
-    if (stagedLineItem.internalCostRate === stagedLaborInternalCostRate) return
-
-    setStagedLineItem((current) => {
-      if (!current || current.type !== 'LABOR') return current
-      if (current.laborOperationId !== stagedLaborOperation.id) return current
-      return {
-        ...current,
-        internalCostRate: stagedLaborInternalCostRate,
-      }
-    })
-  }, [stagedLaborInternalCostRate, stagedLaborOperation, stagedLineItem])
-
   function clearQuickEntry() {
     setSearchQuery('')
     setDebouncedSearchQuery('')
@@ -261,7 +243,6 @@ export function TaskDetailDrawer({
       label: `${operation.code} · ${operation.description}`,
       laborOperationId: operation.id,
       standardAw: operation.standardAw,
-      internalCostRate: null,
     })
     setSearchQuery(`${operation.code} · ${operation.description}`)
     setDebouncedSearchQuery('')
@@ -311,8 +292,7 @@ export function TaskDetailDrawer({
             laborOperationId: stagedLineItem.laborOperationId,
             standardAw: stagedLineItem.standardAw ?? safeQty,
             actualHours: null,
-            internalCostRate:
-              stagedLineItem.internalCostRate ?? stagedLaborInternalCostRate,
+            internalCostRate: stagedLaborInternalCostRate,
           }
         : {}
 

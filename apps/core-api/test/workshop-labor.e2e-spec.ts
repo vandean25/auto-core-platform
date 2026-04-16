@@ -26,18 +26,6 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    await prisma.invoiceItem.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.workshopTaskLineItem.deleteMany();
-    await prisma.workshopTask.deleteMany();
-    await prisma.workshopOrder.deleteMany();
-    await prisma.laborFitment.deleteMany();
-    await prisma.laborOperation.deleteMany();
-    await prisma.laborCategory.deleteMany();
-    await prisma.vehicle.deleteMany();
-    await prisma.customer.deleteMany();
-    await prisma.invoiceSequence.deleteMany();
-
     const customer = await prisma.customer.create({
       data: {
         first_name: 'Workshop',
@@ -73,17 +61,35 @@ describe('Workshop Labor Metadata (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.invoiceItem.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.workshopTaskLineItem.deleteMany();
-    await prisma.workshopTask.deleteMany();
-    await prisma.workshopOrder.deleteMany();
-    await prisma.laborFitment.deleteMany();
-    await prisma.laborOperation.deleteMany();
-    await prisma.laborCategory.deleteMany();
-    await prisma.vehicle.deleteMany();
-    await prisma.customer.deleteMany();
-    await prisma.invoiceSequence.deleteMany();
+    if (customerId) {
+      await prisma.invoiceItem.deleteMany({
+        where: { invoice: { workshop_order: { customer_id: customerId } } },
+      });
+      await prisma.invoice.deleteMany({
+        where: { workshop_order: { customer_id: customerId } },
+      });
+      await prisma.workshopTaskLineItem.deleteMany({
+        where: {
+          workshop_task: { workshop_order: { customer_id: customerId } },
+        },
+      });
+      await prisma.workshopTask.deleteMany({
+        where: { workshop_order: { customer_id: customerId } },
+      });
+      await prisma.workshopOrder.deleteMany({
+        where: { customer_id: customerId },
+      });
+      await prisma.vehicle.deleteMany({ where: { customer_id: customerId } });
+      await prisma.customer.deleteMany({ where: { id: customerId } });
+    }
+    if (laborOperationId) {
+      await prisma.laborFitment.deleteMany({
+        where: { labor_operation_id: laborOperationId },
+      });
+      await prisma.laborOperation.deleteMany({
+        where: { id: laborOperationId },
+      });
+    }
     await app.close();
   });
 
