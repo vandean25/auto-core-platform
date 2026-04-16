@@ -285,6 +285,39 @@ describe('WorkshopService', () => {
     expect(secondLineItem.internal_cost_rate).toBeNull();
   });
 
+  it('returns a bad request error for invalid laborOperationId', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.createMany.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Foreign key failed', {
+        code: 'P2003',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        items: [
+          {
+            type: WorkshopLineItemType.LABOR,
+            itemNo: 'LAB-INVALID',
+            description: 'Invalid labor reference',
+            qty: 1,
+            unitPrice: 100,
+            laborOperationId: '00000000-0000-0000-0000-000000000001',
+            standardAw: 1,
+            actualHours: 1,
+            internalCostRate: 50,
+          },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('normalizes labor metadata fields in workshop order response', async () => {
     mockPrisma.workshopOrder.findUnique.mockResolvedValue({
       id: 'wo-1',

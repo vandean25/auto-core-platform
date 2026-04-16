@@ -26,6 +26,9 @@ export interface OrderTopBarProps {
   orderPartsTotal: number
   orderLaborTotal: number
   orderGrandTotal: number
+  orderLaborInternalCostTotal: number
+  orderLaborMarginPercent: number | null
+  hasOrderLaborCostData: boolean
   invoiceActionLabel: string
   isInvoiceActionDisabled: boolean
   onCheckoutAction: () => void
@@ -37,6 +40,9 @@ export function OrderTopBar({
   orderPartsTotal,
   orderLaborTotal,
   orderGrandTotal,
+  orderLaborInternalCostTotal,
+  orderLaborMarginPercent,
+  hasOrderLaborCostData,
   invoiceActionLabel,
   isInvoiceActionDisabled,
   onCheckoutAction,
@@ -55,7 +61,7 @@ export function OrderTopBar({
           </div>
 
           <div className='flex w-full flex-col gap-3 lg:w-auto lg:items-end'>
-            <div className='grid grid-cols-1 sm:grid-cols-3 gap-2 lg:min-w-[460px]'>
+            <div className='grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[760px] lg:grid-cols-5'>
               <div className='rounded-xl border bg-muted/40 px-3 py-2'>
                 <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
                   <Package className='h-3.5 w-3.5' />
@@ -66,10 +72,34 @@ export function OrderTopBar({
               <div className='rounded-xl border bg-muted/40 px-3 py-2'>
                 <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
                   <Clock3 className='h-3.5 w-3.5' />
-                  <span>Total Labor</span>
+                  <span>Labor Revenue</span>
                 </div>
                 <div className='mt-1 text-sm font-medium'>{formatCurrency(orderLaborTotal)}</div>
               </div>
+              {hasOrderLaborCostData && (
+                <>
+                  <div className='rounded-xl border bg-muted/40 px-3 py-2'>
+                    <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+                      <Clock3 className='h-3.5 w-3.5' />
+                      <span>Internal Labor Cost</span>
+                    </div>
+                    <div className='mt-1 text-sm font-medium'>
+                      {formatCurrency(orderLaborInternalCostTotal)}
+                    </div>
+                  </div>
+                  <div className='rounded-xl border bg-muted/40 px-3 py-2'>
+                    <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+                      <CircleDollarSign className='h-3.5 w-3.5' />
+                      <span>Est. Margin</span>
+                    </div>
+                    <div className='mt-1 text-sm font-medium'>
+                      {orderLaborMarginPercent != null
+                        ? `${orderLaborMarginPercent.toFixed(1)}%`
+                        : '—'}
+                    </div>
+                  </div>
+                </>
+              )}
               <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
                 <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
                   <CircleDollarSign className='h-3.5 w-3.5' />

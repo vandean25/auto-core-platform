@@ -40,6 +40,10 @@ export interface TaskTotals {
   parts: number
   labor: number
   total: number
+  laborStandardHours: number
+  laborActualHours: number
+  laborInternalCost: number
+  hasLaborCostData: boolean
 }
 
 interface UseWorkshopCalculationsInput {
@@ -104,13 +108,41 @@ export function useWorkshopCalculations({
       new Map<string, TaskTotals>(
         tasks.map((task) => {
           const lineItems = task.lineItems ?? []
-          const parts = lineItems
-            .filter((li) => li.type === 'PART')
-            .reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
-          const labor = lineItems
-            .filter((li) => li.type === 'LABOR')
-            .reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
-          return [task.id, { parts, labor, total: parts + labor }]
+          const partsLines = lineItems.filter((li) => li.type === 'PART')
+          const laborLines = lineItems.filter((li) => li.type === 'LABOR')
+
+          const parts = partsLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+          const labor = laborLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+
+          const laborStandardHours = laborLines.reduce(
+            (sum, li) => sum + (li.standardAw ?? 0),
+            0,
+          )
+          const laborActualHours = laborLines.reduce(
+            (sum, li) => sum + (li.actualHours ?? 0),
+            0,
+          )
+          const laborInternalCost = laborLines.reduce((sum, li) => {
+            if (li.internalCostRate == null) return sum
+            const costHours = li.actualHours ?? li.qty
+            return sum + costHours * li.internalCostRate
+          }, 0)
+          const hasLaborCostData = laborLines.some(
+            (li) => li.internalCostRate != null,
+          )
+
+          return [
+            task.id,
+            {
+              parts,
+              labor,
+              total: parts + labor,
+              laborStandardHours,
+              laborActualHours,
+              laborInternalCost,
+              hasLaborCostData,
+            },
+          ]
         }),
       ),
     [tasks],
@@ -123,6 +155,18 @@ export function useWorkshopCalculations({
   )
   const baseOrderLaborTotal = useMemo(
     () => Array.from(rawTaskTotals.values()).reduce((sum, t) => sum + t.labor, 0),
+    [rawTaskTotals],
+  )
+  const baseOrderLaborInternalCostTotal = useMemo(
+    () =>
+      Array.from(rawTaskTotals.values()).reduce(
+        (sum, t) => sum + t.laborInternalCost,
+        0,
+      ),
+    [rawTaskTotals],
+  )
+  const hasOrderLaborCostData = useMemo(
+    () => Array.from(rawTaskTotals.values()).some((t) => t.hasLaborCostData),
     [rawTaskTotals],
   )
 
@@ -263,6 +307,12 @@ export function useWorkshopCalculations({
   const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderPartsTotal
   const orderLaborTotal = isCheckoutView ? checkoutLaborTotal : baseOrderLaborTotal
   const orderGrandTotal = orderPartsTotal + orderLaborTotal
+  const orderLaborRevenue = orderLaborTotal
+  const orderLaborInternalCostTotal = baseOrderLaborInternalCostTotal
+  const orderLaborMarginPercent =
+    hasOrderLaborCostData && orderLaborRevenue > 0
+      ? ((orderLaborRevenue - orderLaborInternalCostTotal) / orderLaborRevenue) * 100
+      : null
 
   return {
     // Normalized tasks
@@ -292,5 +342,9 @@ export function useWorkshopCalculations({
     orderPartsTotal,
     orderLaborTotal,
     orderGrandTotal,
+    orderLaborRevenue,
+    orderLaborInternalCostTotal,
+    orderLaborMarginPercent,
+    hasOrderLaborCostData,
   }
 }

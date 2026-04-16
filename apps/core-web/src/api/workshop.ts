@@ -280,6 +280,10 @@ export const useReplaceWorkshopTaskLineItems = () => {
         description: string
         qty: number
         unitPrice: number
+        laborOperationId?: string
+        standardAw?: number | null
+        actualHours?: number | null
+        internalCostRate?: number | null
       }>
     }) => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/tasks/${taskId}/line-items`, {

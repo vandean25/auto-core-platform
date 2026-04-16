@@ -105,6 +105,9 @@ export function WorkshopOrderDetails() {
     orderPartsTotal,
     orderLaborTotal,
     orderGrandTotal,
+    orderLaborInternalCostTotal,
+    orderLaborMarginPercent,
+    hasOrderLaborCostData,
   } = useWorkshopCalculations({
     orderTasks: order?.tasks,
     taskLineItemOverrides,
@@ -227,7 +230,18 @@ export function WorkshopOrderDetails() {
 
   const handleTaskLineItemsChange = async (
     taskId: string,
-    items: Array<{ id?: string; type: WorkshopLineItemType; itemNo: string; description: string; qty: number; unitPrice: number }>,
+    items: Array<{
+      id?: string
+      type: WorkshopLineItemType
+      itemNo: string
+      description: string
+      qty: number
+      unitPrice: number
+      laborOperationId?: string
+      standardAw?: number | null
+      actualHours?: number | null
+      internalCostRate?: number | null
+    }>,
   ) => {
     if (isLocked) return
     const saveSeq = (lineItemSaveSeq.current[taskId] ?? 0) + 1
@@ -240,6 +254,10 @@ export function WorkshopOrderDetails() {
       description: item.description,
       qty: item.qty,
       unitPrice: item.unitPrice,
+      laborOperationId: item.laborOperationId,
+      standardAw: item.standardAw ?? null,
+      actualHours: item.actualHours ?? null,
+      internalCostRate: item.internalCostRate ?? null,
     }))
     setTaskLineItemOverrides((previous) => ({
       ...previous,
@@ -249,12 +267,26 @@ export function WorkshopOrderDetails() {
       await replaceTaskLineItems.mutateAsync({
         orderId: order.id,
         taskId,
-        items: items.map(({ type, itemNo, description, qty, unitPrice }) => ({
+        items: items.map(({
           type,
           itemNo,
           description,
           qty,
           unitPrice,
+          laborOperationId,
+          standardAw,
+          actualHours,
+          internalCostRate,
+        }) => ({
+          type,
+          itemNo,
+          description,
+          qty,
+          unitPrice,
+          laborOperationId,
+          standardAw: standardAw ?? null,
+          actualHours: actualHours ?? null,
+          internalCostRate: internalCostRate ?? null,
         })),
       })
       if (lineItemSaveSeq.current[taskId] !== saveSeq) return
@@ -493,6 +525,9 @@ export function WorkshopOrderDetails() {
             orderPartsTotal={orderPartsTotal}
             orderLaborTotal={orderLaborTotal}
             orderGrandTotal={orderGrandTotal}
+            orderLaborInternalCostTotal={orderLaborInternalCostTotal}
+            orderLaborMarginPercent={orderLaborMarginPercent}
+            hasOrderLaborCostData={hasOrderLaborCostData}
             invoiceActionLabel={invoiceActionLabel}
             isInvoiceActionDisabled={isInvoiceActionDisabled}
             onCheckoutAction={() => void handleCheckoutAction()}

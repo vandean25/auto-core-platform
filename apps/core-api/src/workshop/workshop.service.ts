@@ -551,40 +551,52 @@ export class WorkshopService {
     }
     this.assertOrderEditable(task.workshop_order.status);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.workshopTaskLineItem.deleteMany({
-        where: { workshop_task_id: taskId },
-      });
-
-      if (dto.items.length > 0) {
-        await tx.workshopTaskLineItem.createMany({
-          data: dto.items.map((item) => ({
-            workshop_task_id: taskId,
-            type:
-              item.type === WorkshopLineItemType.LABOR
-                ? WorkshopLineItemType.LABOR
-                : WorkshopLineItemType.PART,
-            item_no: item.itemNo,
-            description: item.description,
-            quantity: new Prisma.Decimal(item.qty),
-            unit_price: new Prisma.Decimal(item.unitPrice),
-            labor_operation_id: item.laborOperationId ?? null,
-            standard_aw:
-              item.standardAw != null
-                ? new Prisma.Decimal(item.standardAw)
-                : null,
-            actual_hours:
-              item.actualHours != null
-                ? new Prisma.Decimal(item.actualHours)
-                : null,
-            internal_cost_rate:
-              item.internalCostRate != null
-                ? new Prisma.Decimal(item.internalCostRate)
-                : null,
-          })),
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.workshopTaskLineItem.deleteMany({
+          where: { workshop_task_id: taskId },
         });
+
+        if (dto.items.length > 0) {
+          await tx.workshopTaskLineItem.createMany({
+            data: dto.items.map((item) => ({
+              workshop_task_id: taskId,
+              type:
+                item.type === WorkshopLineItemType.LABOR
+                  ? WorkshopLineItemType.LABOR
+                  : WorkshopLineItemType.PART,
+              item_no: item.itemNo,
+              description: item.description,
+              quantity: new Prisma.Decimal(item.qty),
+              unit_price: new Prisma.Decimal(item.unitPrice),
+              labor_operation_id: item.laborOperationId ?? null,
+              standard_aw:
+                item.standardAw != null
+                  ? new Prisma.Decimal(item.standardAw)
+                  : null,
+              actual_hours:
+                item.actualHours != null
+                  ? new Prisma.Decimal(item.actualHours)
+                  : null,
+              internal_cost_rate:
+                item.internalCostRate != null
+                  ? new Prisma.Decimal(item.internalCostRate)
+                  : null,
+            })),
+          });
+        }
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'Invalid laborOperationId: referenced labor operation was not found',
+        );
       }
-    });
+      throw error;
+    }
 
     return this.findOne(orderId);
   }

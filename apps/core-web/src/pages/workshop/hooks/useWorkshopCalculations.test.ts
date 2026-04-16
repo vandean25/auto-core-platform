@@ -28,6 +28,9 @@ const laborLine = {
   description: 'Oil change labor',
   qty: 0.5,
   unitPrice: 80,
+  standardAw: 0.5,
+  actualHours: 0.75,
+  internalCostRate: 30,
 }
 
 const brakePads = {
@@ -153,6 +156,16 @@ describe('useWorkshopCalculations — rawTaskTotals', () => {
     expect(totals.parts).toBe(0)
     expect(totals.labor).toBe(0)
     expect(totals.total).toBe(0)
+  })
+
+  it('includes labor hours and internal cost analytics per task', () => {
+    const { result } = renderHook(() => useWorkshopCalculations(defaultInput))
+    const totals = result.current.rawTaskTotals.get('task-1')!
+
+    expect(totals.laborStandardHours).toBe(0.5)
+    expect(totals.laborActualHours).toBe(0.75)
+    expect(totals.laborInternalCost).toBe(22.5)
+    expect(totals.hasLaborCostData).toBe(true)
   })
 })
 
@@ -456,5 +469,16 @@ describe('useWorkshopCalculations — view-aware order totals', () => {
     // Labor: unchanged = 40
     expect(result.current.orderLaborTotal).toBe(40)
     expect(result.current.orderGrandTotal).toBe(53.5)
+  })
+
+  it('returns order-level labor revenue, internal cost, and margin when cost data exists', () => {
+    const { result } = renderHook(() =>
+      useWorkshopCalculations({ ...defaultInput, isCheckoutView: false }),
+    )
+
+    expect(result.current.orderLaborRevenue).toBe(40)
+    expect(result.current.orderLaborInternalCostTotal).toBe(22.5)
+    expect(result.current.orderLaborMarginPercent).toBeCloseTo(43.75)
+    expect(result.current.hasOrderLaborCostData).toBe(true)
   })
 })
