@@ -31,6 +31,17 @@ type MockCustomer = {
   phone: string | null;
 };
 
+/** Minimal brand shape used inside vendor/test payloads. */
+type MockBrand = {
+  id: string | number;
+  name: string;
+};
+
+/**
+ * Aligns with the frontend `Vendor` interface from `src/api/types.ts`.
+ * Includes `account_number` and `supportedBrands` so vendor-related mocks
+ * remain type-safe without needing `as any` or manual spreads.
+ */
 type MockVendorShape = {
   id: string;
   name: string;
@@ -38,6 +49,8 @@ type MockVendorShape = {
   email: string | null;
   phone: string | null;
   address: string | null;
+  account_number: string;
+  supportedBrands: MockBrand[];
 };
 
 export const createMockVehicle = (overrides: Partial<MockVehicle> = {}): MockVehicle => ({
@@ -67,6 +80,8 @@ export const createMockVendor = (overrides: Partial<MockVendorShape> = {}): Mock
   email: 'vendor@bosch.com',
   phone: null,
   address: null,
+  account_number: 'ACC-001',
+  supportedBrands: [],
   ...overrides,
 });
 
@@ -136,22 +151,32 @@ type MockPurchaseBill = {
   due_date: string;
   total_amount: string;
   lines: unknown[];
+  vendor_id: string;
   vendor: MockVendorShape;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export const createMockPurchaseBill = (
   overrides: Partial<MockPurchaseBill> = {},
-): MockPurchaseBill => ({
-  id: 'bill-123',
-  vendor_invoice_number: 'B-2026-001',
-  status: 'DRAFT',
-  invoice_date: new Date().toISOString().slice(0, 10),
-  due_date: new Date().toISOString().slice(0, 10),
-  total_amount: '0.00',
-  lines: [],
-  vendor: createMockVendor(),
-  ...overrides,
-});
+): MockPurchaseBill => {
+  const vendor = overrides.vendor ?? createMockVendor();
+  const now = new Date().toISOString();
+  return {
+    id: 'bill-123',
+    vendor_invoice_number: 'B-2026-001',
+    status: 'DRAFT',
+    invoice_date: now.slice(0, 10),
+    due_date: now.slice(0, 10),
+    total_amount: '0.00',
+    lines: [],
+    vendor_id: vendor.id,
+    vendor,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Sales Orders

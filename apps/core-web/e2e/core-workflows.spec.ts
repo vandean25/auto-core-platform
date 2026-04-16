@@ -35,6 +35,12 @@ interface ModuleConfig {
   mockFactory: () => Record<string, unknown>;
   /** Backend API path for the list endpoint (used to build the regex route matcher). */
   apiPath: string;
+  /**
+   * Additional API paths that the page calls on mount (e.g. filter dropdowns).
+   * These are mocked with an empty success payload so the test is fully network-isolated
+   * even when the primary list endpoint is already mocked.
+   */
+  secondaryApiMocks?: string[];
 }
 
 const modules: ModuleConfig[] = [
@@ -45,6 +51,8 @@ const modules: ModuleConfig[] = [
     seed: 'TEST-SKU-1',
     mockFactory: () => createMockInventoryItem({ sku: 'TEST-SKU-1', name: 'Oil Filter' }),
     apiPath: '/api/inventory',
+    // InventoryList also calls /api/brands for the brand filter dropdown
+    secondaryApiMocks: ['/api/brands'],
   },
   {
     name: 'Vendors',
@@ -95,7 +103,7 @@ test.describe('Blueprint: Golden Rules — Core List Pages', () => {
     }) => {
       const corePage = new AutoCorePage(page, module.entity);
 
-      // ── Step 1: Mock API before navigating (network isolation) ─────────────
+      // ── Step 1: Mock primary API before navigating (network isolation) ────────
       await page.route(AutoCorePage.apiRouteMatcher(module.apiPath), async (route) => {
         await route.fulfill({
           status: 200,
@@ -103,6 +111,19 @@ test.describe('Blueprint: Golden Rules — Core List Pages', () => {
           body: JSON.stringify(createMockListResponse([module.mockFactory()])),
         });
       });
+
+      // ── Step 1b: Mock secondary APIs with empty payloads ──────────────────────
+      // Prevents unmocked background requests from adding flakiness when the
+      // backend is not available (e.g. brand filter dropdowns on Inventory).
+      for (const secondaryPath of module.secondaryApiMocks ?? []) {
+        await page.route(AutoCorePage.apiRouteMatcher(secondaryPath), async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(createMockListResponse([])),
+          });
+        });
+      }
 
       // ── Step 2: Navigate and wait for network idle ──────────────────────────
       await corePage.navigate(module.path);

@@ -46,6 +46,16 @@ test.describe('Inventory — Smoke Tests (seed-based)', () => {
 test.describe('Inventory — Blueprint Validation (mocked)', () => {
   test('should not crash when the Brands API returns malformed data', async ({ page }) => {
     // Mock first, then navigate (network isolation)
+    // Mock /api/inventory so this test does NOT depend on the real backend
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([])),
+      });
+    });
+
+    // Mock /api/brands with deliberately malformed data — the resilience target
     await page.route(AutoCorePage.apiRouteMatcher('/api/brands'), async (route) => {
       await route.fulfill({
         status: 200,

@@ -26,12 +26,16 @@ export class AutoCorePage {
   }
 
   /**
-   * Rule: The create button label is the entity name (with a leading `+` only when the button text
-   * explicitly contains it, e.g. "+ Item").  We use a regex so both "Item" and "+ Item" are matched,
-   * and we also cover `<Button asChild><Link>` patterns that render as anchor elements.
+   * Rule: The create button label is the entity name (with an optional leading `+ ` only when the
+   * button text explicitly contains it, e.g. `"+ Item"`).
+   *
+   * The regex is anchored (`^…$`) so that sidebar navigation links like "Vendors", "Purchase Orders",
+   * or "Customers" do NOT accidentally match entity names like "Vendor", "Purchase Order", or
+   * "Customer".  The `<Button asChild><Link>` pattern is covered by the `.or(link)` branch.
    */
   get createButton(): Locator {
-    const nameRegex = new RegExp(AutoCorePage.escapeRegex(this.entityName));
+    // Anchored: matches exactly "Item" or "+ Item" but NOT "Items", "Purchase Orders", etc.
+    const nameRegex = new RegExp(`^(\\+ )?${AutoCorePage.escapeRegex(this.entityName)}$`);
     return this.page
       .getByRole('button', { name: nameRegex })
       .or(this.page.getByRole('link', { name: nameRegex }));
