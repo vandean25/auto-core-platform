@@ -66,7 +66,7 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
             createMockVendor({
               id: VENDOR_ID,
               name: 'Bosch Automotive',
-              supportedBrands: [{ id: 'b1', name: 'Bosch' }],
+              supportedBrands: [{ id: 1, name: 'Bosch' }],
             }),
           ),
         });

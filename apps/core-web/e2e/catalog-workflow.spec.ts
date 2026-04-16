@@ -70,7 +70,7 @@ test.describe('Blueprint: Catalog Fitment Filtering Workflow', () => {
     });
 
     await test.step('Verify: API-returned items visible; excluded items absent', async () => {
-      const drawer = page.getByRole('dialog');
+      const drawer = page.locator('[role="dialog"], [role="complementary"]').first();
 
       await expect(drawer.getByText('UNIVERSAL-LABOR')).toBeVisible();
       await expect(drawer.getByText('SKODA-LABOR')).toBeVisible();

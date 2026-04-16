@@ -33,7 +33,7 @@ type MockCustomer = {
 
 /** Minimal brand shape used inside vendor/test payloads. */
 type MockBrand = {
-  id: string | number;
+  id: number;
   name: string;
 };
 
@@ -286,13 +286,21 @@ export const createMockLaborOperation = (
 /**
  * Wraps an array of items in the standard `{ data, meta }` envelope that all
  * Auto Core list endpoints return.
+ *
+ * Some endpoints expose pagination as `pageCount` while others use
+ * `totalPages`, so mocks include both keys.
  */
-export const createMockListResponse = <T>(items: T[], total = items.length) => ({
-  data: items,
-  meta: {
-    total,
-    page: 1,
-    limit: 10,
-    pageCount: Math.ceil(total / 10),
-  },
-});
+export const createMockListResponse = <T>(items: T[], total = items.length) => {
+  const totalPages = Math.ceil(total / 10);
+
+  return {
+    data: items,
+    meta: {
+      total,
+      page: 1,
+      limit: 10,
+      pageCount: totalPages,
+      totalPages,
+    },
+  };
+};

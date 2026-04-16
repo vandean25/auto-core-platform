@@ -104,13 +104,15 @@ When you add a new list page, your E2E test MUST:
 ### Create Button Convention
 
 The `AutoCorePage.createButton` locator matches any `<button>` or `<a>` element whose accessible
-name contains the `entityName`.  The page button must follow the design-system convention:
+name exactly matches the `entityName` (optionally with a leading `+ `). The page button must
+follow the design-system convention:
 
 ```tsx
-// ✅ Correct — accessible name is "Vendor" (icon is decorative)
+// ✅ Correct — accessible name is exactly "Vendor" or "+ Vendor" (icon is decorative)
 <Button onClick={...}><Plus className="mr-2 h-4 w-4" /> Vendor</Button>
 
-// ✅ Also correct for Link-as-Button pattern
+// ✅ Also correct for Link-as-Button pattern — exact label matches
+// "Purchase Order" or "+ Purchase Order"
 <Button asChild><Link to="/new"><Plus /> Purchase Order</Link></Button>
 
 // ❌ Wrong — do not use "Add", "New", or "Create" in the label
