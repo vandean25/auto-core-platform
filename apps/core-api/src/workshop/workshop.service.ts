@@ -38,6 +38,8 @@ type SourceAllocation = {
   quantity: number;
 };
 
+type AllocationReservationMap = Map<string, number>;
+
 @Injectable()
 export class WorkshopService {
   constructor(
@@ -112,11 +114,19 @@ export class WorkshopService {
     }
   }
 
+  private getAllocationReservationKey(
+    catalogItemId: string,
+    sourceLocationId: string,
+  ) {
+    return `${catalogItemId}:${sourceLocationId}`;
+  }
+
   private async allocateFromExplicitSource(
     tx: Prisma.TransactionClient,
     catalogItemId: string,
     sourceLocationId: string,
     quantity: number,
+    reservations: AllocationReservationMap,
   ): Promise<SourceAllocation[]> {
     const sourceLocation = await tx.storageLocation.findUnique({
       where: { id: sourceLocationId },
@@ -149,10 +159,15 @@ export class WorkshopService {
       },
     });
 
-    const available = sourceStock?.quantity_on_hand ?? 0;
+    const reservationKey = this.getAllocationReservationKey(
+      catalogItemId,
+      sourceLocationId,
+    );
+    const reservedQuantity = reservations.get(reservationKey) ?? 0;
+    const available = (sourceStock?.quantity_on_hand ?? 0) - reservedQuantity;
     if (available < quantity) {
       throw new UnprocessableEntityException(
-        `Insufficient stock in location ${sourceLocationId}. Requested ${quantity}, available ${available}.`,
+        `Insufficient stock in location ${sourceLocationId}. Requested ${quantity}, available ${Math.max(available, 0)}.`,
       );
     }
 
@@ -163,6 +178,7 @@ export class WorkshopService {
     tx: Prisma.TransactionClient,
     catalogItemId: string,
     quantity: number,
+    reservations: AllocationReservationMap,
   ): Promise<SourceAllocation[]> {
     const sourceStocks = await tx.inventoryStock.findMany({
       where: {
@@ -189,7 +205,18 @@ export class WorkshopService {
         break;
       }
 
-      const allocatedQuantity = Math.min(remaining, stock.quantity_on_hand);
+      const reservationKey = this.getAllocationReservationKey(
+        catalogItemId,
+        stock.location_id,
+      );
+      const reservedQuantity = reservations.get(reservationKey) ?? 0;
+      const availableQuantity = stock.quantity_on_hand - reservedQuantity;
+
+      if (availableQuantity <= 0) {
+        continue;
+      }
+
+      const allocatedQuantity = Math.min(remaining, availableQuantity);
       if (allocatedQuantity <= 0) {
         continue;
       }
@@ -850,6 +877,7 @@ export class WorkshopService {
       const catalogItemBySku = new Map(catalogItems.map((item) => [item.sku, item]));
       const transferGroupId = `WO-PICK-${order.id}-${Date.now()}`;
       const ledgerTransactions: RecordTransactionParams[] = [];
+      const reservations: AllocationReservationMap = new Map();
       const movedLines: Array<{
         workshopTaskLineItemId: string;
         movedQuantity: number;
@@ -881,12 +909,25 @@ export class WorkshopService {
               catalogItem.id,
               requestedItem.sourceLocationId,
               requestedItem.quantity,
+              reservations,
             )
           : await this.allocateAcrossSources(
               tx,
               catalogItem.id,
               requestedItem.quantity,
+              reservations,
             );
+
+        for (const allocation of allocations) {
+          const reservationKey = this.getAllocationReservationKey(
+            catalogItem.id,
+            allocation.sourceLocationId,
+          );
+          reservations.set(
+            reservationKey,
+            (reservations.get(reservationKey) ?? 0) + allocation.quantity,
+          );
+        }
 
         const allocationSummaries: Array<{
           sourceLocationId: string;
