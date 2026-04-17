@@ -58,6 +58,7 @@ export function WorkshopOrderPickDrawer({
   const queryClient = useQueryClient()
   const pickPartsMutation = usePickWorkshopParts()
   const toteTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const prevOpenRef = useRef(false)
 
   const { data: order, isLoading: isOrderLoading } = useWorkshopOrder(orderId ?? '')
   const { data: locations, isLoading: areLocationsLoading } = useLocations({ enabled: open })
@@ -97,7 +98,10 @@ export function WorkshopOrderPickDrawer({
   )
 
   useEffect(() => {
-    if (!open || !order) return
+    const wasOpen = prevOpenRef.current
+    prevOpenRef.current = open
+
+    if (!open || wasOpen || !order) return
 
     setSelectedStagingLocationId(order.stagingLocationId ?? order.staging_location_id ?? null)
     setQuantitiesByLineId(defaultQuantitiesByLineId)
@@ -109,14 +113,7 @@ export function WorkshopOrderPickDrawer({
     }, 20)
 
     return () => window.clearTimeout(focusTimer)
-  }, [
-    defaultQuantitiesByLineId,
-    open,
-    order,
-    order?.id,
-    order?.stagingLocationId,
-    order?.staging_location_id,
-  ])
+  }, [defaultQuantitiesByLineId, open, order])
 
   const handlePickAll = () => {
     setQuantitiesByLineId(defaultQuantitiesByLineId)

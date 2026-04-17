@@ -70,10 +70,11 @@ function DashboardWidgetCard({
   }, [rows, widget.displayType, widget.metricCalculation, widget.metricField])
 
   const metricFieldType = source.fields.find((field) => field.key === widget.metricField)?.type
+  const currency = (widget as any).metricCurrency || 'EUR'
+
   const formattedMetricValue = useMemo(() => {
     if (metricValue == null) return '-'
     const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US'
-    const currency = (widget as any).metricCurrency || 'EUR'
 
     if (widget.metricCalculation === 'sum' && metricFieldType === 'currency') {
       return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(metricValue)
@@ -82,7 +83,7 @@ function DashboardWidgetCard({
       return new Intl.NumberFormat(locale).format(metricValue)
     }
     return `${metricValue}`
-  }, [metricValue, widget.metricCalculation, metricFieldType, widget])
+  }, [currency, metricFieldType, metricValue, widget.metricCalculation])
 
   return (
     <Card className="h-full">
