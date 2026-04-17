@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { DECORATORS } from '@nestjs/swagger/dist/constants';
 import { WorkshopController } from './workshop.controller';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
+import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto';
 
 describe('WorkshopController', () => {
   let controller: WorkshopController;
@@ -53,5 +57,25 @@ describe('WorkshopController', () => {
       '11111111-1111-1111-1111-111111111111',
       { targetBaseUrl: 'https://app.example.com/api' },
     );
+  });
+
+  it('registers pick-parts route under workshop orders path', () => {
+    const routePath = Reflect.getMetadata(PATH_METADATA, controller.pickParts);
+    const routeMethod = Reflect.getMetadata(
+      METHOD_METADATA,
+      controller.pickParts,
+    );
+
+    expect(routePath).toBe('orders/:id/pick-parts');
+    expect(routeMethod).toBe(RequestMethod.POST);
+  });
+
+  it('documents pick-parts response schema in Swagger metadata', () => {
+    const responses = Reflect.getMetadata(
+      DECORATORS.API_RESPONSE,
+      controller.pickParts,
+    ) as Record<string, { type?: unknown }>;
+
+    expect(responses?.['201']?.type).toBe(PickWorkshopPartsResponseDto);
   });
 });

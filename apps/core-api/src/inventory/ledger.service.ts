@@ -54,6 +54,7 @@ export class LedgerService {
       where: { id: { in: locationIds } },
     });
     const locationsMap = new Map(locations.map((loc) => [loc.id, loc]));
+    const stockEnabledLocationTypes = new Set(['bin', 'staging_tote']);
 
     for (const params of paramsArray) {
       const location = locationsMap.get(params.locationId);
@@ -62,9 +63,9 @@ export class LedgerService {
           `Location ${params.locationId} not found`,
         );
       }
-      if (location.type !== 'bin') {
+      if (!stockEnabledLocationTypes.has(location.type)) {
         throw new BadRequestException(
-          `Stock can only be stored in BIN locations. Current type: ${location.type} (${location.name})`,
+          `Stock can only be stored in BIN or STAGING_TOTE locations. Current type: ${location.type} (${location.name})`,
         );
       }
     }
