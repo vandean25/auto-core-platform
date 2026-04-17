@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
@@ -227,6 +228,14 @@ async function main() {
     });
 
     const locations = [showroom, storage, tireHotel];
+
+    console.log('Seeding fixed staging totes...');
+    const stagingToteSummary = await seedFixedStagingTotes(prisma, {
+        parentLocationId: storage.id,
+    });
+    console.log(
+        `Staging totes summary: created=${stagingToteSummary.created}, updated=${stagingToteSummary.updated}, unchanged=${stagingToteSummary.unchanged}`,
+    );
 
     console.log('Seeding supersession items (Phase 1: Creation)...');
     const vwBrand = allBrands.find(b => b.name === 'Volkswagen');

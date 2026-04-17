@@ -52,3 +52,6 @@ apps/core-web/test-results/
 stitch-downloads/
 .vercel
 .env*.local
+
+# Docs
+docs/superpowers/

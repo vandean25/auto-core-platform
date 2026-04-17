@@ -644,6 +644,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/{id}/pick-parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_pickParts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{orderId}/tasks/{taskId}": {
         parameters: {
             query?: never;
@@ -995,6 +1011,19 @@ export interface components {
         CreateWorkshopOrderDto: Record<string, never>;
         UpdateWorkshopOrderDto: Record<string, never>;
         CreateWorkshopTaskDto: Record<string, never>;
+        PickWorkshopPartsLineDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 4 */
+            quantity: number;
+            /** Format: uuid */
+            sourceLocationId?: string;
+        };
+        PickWorkshopPartsDto: {
+            /** Format: uuid */
+            destinationLocationId: string;
+            items: components["schemas"]["PickWorkshopPartsLineDto"][];
+        };
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
         WorkshopPdfGenerationResponseDto: {
@@ -2608,6 +2637,29 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateWorkshopTaskDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_pickParts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickWorkshopPartsDto"];
             };
         };
         responses: {

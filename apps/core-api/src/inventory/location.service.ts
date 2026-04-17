@@ -183,11 +183,19 @@ export class LocationService {
         LocationType.warehouse,
       ],
       [LocationType.customer_storage]: [LocationType.warehouse],
+      [LocationType.staging_tote]: [LocationType.warehouse],
     };
 
-    if (!allowedParents[type as string].includes(parent.type)) {
+    const allowedParentsForType = allowedParents[type as string];
+    if (!allowedParentsForType) {
       throw new BadRequestException(
-        `Location of type ${type} cannot be child of ${parent.type}. Allowed parents: ${allowedParents[type as string].join(', ')}`,
+        `Unsupported location type hierarchy for ${type}`,
+      );
+    }
+
+    if (!allowedParentsForType.includes(parent.type)) {
+      throw new BadRequestException(
+        `Location of type ${type} cannot be child of ${parent.type}. Allowed parents: ${allowedParentsForType.join(', ')}`,
       );
     }
   }

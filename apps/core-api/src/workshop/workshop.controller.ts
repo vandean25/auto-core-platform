@@ -28,6 +28,7 @@ import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
 import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
+import { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
 import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
 import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
@@ -112,6 +113,11 @@ export class WorkshopController {
   @Post('orders/:id/tasks')
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
     return this.workshopService.createTask(id, dto);
+  }
+
+  @Post(':id/pick-parts')
+  pickParts(@Param('id') id: string, @Body() dto: PickWorkshopPartsDto) {
+    return this.workshopService.pickParts(id, dto);
   }
 
   @Patch('orders/:orderId/tasks/:taskId')
