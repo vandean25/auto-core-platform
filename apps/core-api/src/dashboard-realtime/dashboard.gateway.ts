@@ -40,11 +40,18 @@ const allowedOrigins = resolveCorsOrigins();
     credentials: true,
   },
   allowRequest: (req, callback) => {
+    // If the server is severely misconfigured and has no allowed origins,
+    // we must fail completely closed, regardless of the client type.
+    if (allowedOrigins.length === 0) {
+      return callback(null, false);
+    }
+
     const origin = req.headers.origin;
-    // If there is no origin header, we assume it's a non-browser client (e.g. mobile app, curl, server-to-server).
-    // The strict origin check only applies to browser environments that send the Origin header.
+
+    // As this is a @Public() gateway, permitting connections without an Origin header
+    // provides a bypass for custom Socket.IO clients. We must enforce the Origin header.
     if (!origin) {
-      return callback(null, true);
+      return callback(null, false);
     }
 
     // Check if the origin is in our allowed list
