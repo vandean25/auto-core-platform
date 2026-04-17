@@ -159,13 +159,18 @@ export class SalesService {
         });
       }
 
-      // 2b. Aggregate quantities per catalog_item_id to minimize DB roundtrips
-      const itemAggregations = new Map<
+      // 2b. Iterate sequentially in memory to assign locations, then aggregate updates by (catalog_item_id + location_id)
+      const stockUpdatesMap = new Map<
         string,
-        { catalog_item_id: string; quantityToDeduct: number; items: any[] }
+        {
+          catalog_item_id: string;
+          locationId: string;
+          quantityToDeduct: number;
+        }
       >();
+      const transactionCreations: Prisma.InventoryTransactionCreateManyInput[] =
+        [];
 
-      // Dry-Run Validation and Aggregation
       for (const item of invoice.items) {
         if (!item.catalog_item_id) continue;
 
@@ -180,67 +185,53 @@ export class SalesService {
           );
         }
 
-        const agg = itemAggregations.get(item.catalog_item_id) || {
-          catalog_item_id: item.catalog_item_id,
-          quantityToDeduct: 0,
-          items: [],
-        };
-        agg.quantityToDeduct += quantityToDeduct;
-        agg.items.push(item);
-        itemAggregations.set(item.catalog_item_id, agg);
-      }
-
-      const stockUpdates: {
-        catalog_item_id: string;
-        locationId: string;
-        quantityToDeduct: number;
-      }[] = [];
-      const transactionCreations: Prisma.InventoryTransactionCreateManyInput[] =
-        [];
-
-      for (const agg of itemAggregations.values()) {
-        const stocks = stockMap.get(agg.catalog_item_id) || [];
+        const stocks = stockMap.get(item.catalog_item_id) || [];
 
         // Find first location with sufficient stock, or fallback to first one available
         const stock =
-          stocks.find((s) => s.quantity_on_hand >= agg.quantityToDeduct) ||
+          stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
           stocks[0];
 
         if (!stock) {
           throw new BadRequestException(
-            `No stock record found for item ${agg.items[0].description}`,
+            `No stock record found for item ${item.description}`,
           );
         }
 
-        if (stock.quantity_on_hand < agg.quantityToDeduct) {
+        // Dry run validation
+        if (stock.quantity_on_hand < quantityToDeduct) {
           throw new BadRequestException(
-            `Insufficient stock for item ${agg.items[0].description} at location ${stock.location_id} (Req: ${agg.quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
           );
         }
 
         const locationId = stock.location_id;
-        stockUpdates.push({
-          catalog_item_id: agg.catalog_item_id,
-          locationId,
-          quantityToDeduct: agg.quantityToDeduct,
-        });
+        const compositeKey = `${item.catalog_item_id}_${locationId}`;
 
-        // Track local update for potential sequential calls
-        stock.quantity_on_hand -= agg.quantityToDeduct;
+        const existingUpdate = stockUpdatesMap.get(compositeKey) || {
+          catalog_item_id: item.catalog_item_id,
+          locationId,
+          quantityToDeduct: 0,
+        };
+
+        existingUpdate.quantityToDeduct += quantityToDeduct;
+        stockUpdatesMap.set(compositeKey, existingUpdate);
+
+        // Update local stock map for subsequent items of the same catalog ID sequentially
+        stock.quantity_on_hand -= quantityToDeduct;
 
         // Preserve 1:1 audit trail granularity for transactions
-        for (const item of agg.items) {
-          transactionCreations.push({
-            item_id: item.catalog_item_id,
-            location_id: locationId,
-            quantity: new Prisma.Decimal(item.quantity).negated(),
-            type: TransactionType.SALE_ISSUE,
-            reference_id: invoiceNumber,
-          });
-        }
+        transactionCreations.push({
+          item_id: item.catalog_item_id,
+          location_id: locationId,
+          quantity: new Prisma.Decimal(item.quantity).negated(),
+          type: TransactionType.SALE_ISSUE,
+          reference_id: invoiceNumber,
+        });
       }
 
       // 2c. Execute updates concurrently and create transactions in bulk
+      const stockUpdates = Array.from(stockUpdatesMap.values());
       await chunkedPromiseAll(stockUpdates, async (update) => {
         const updateResult = await tx.inventoryStock.updateMany({
           where: {

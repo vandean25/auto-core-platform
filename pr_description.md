@@ -4,7 +4,8 @@
 The `SalesService.finalize` method was originally executing sequential database queries inside a `for` loop, causing an N+1 issue for both `inventoryStock` updates and `inventoryTransaction` inserts.
 
 This PR applies a hybrid aggregation approach:
-- Aggregates invoice item quantities per `catalog_item_id` and location in memory first.
+- Iterates sequentially through invoice items in memory to accurately assign `location_id` for fulfillment, splitting quantities if needed.
+- Aggregates invoice item quantities by a composite key of `${catalog_item_id}_${location_id}` in memory.
 - Performs a "Dry-Run" validation to fail fast before issuing database updates.
 - Uses `chunkedPromiseAll` to execute the reduced number of `tx.inventoryStock.updateMany` operations concurrently, staying within connection pool limits.
 - Batches the 1:1 ledger entries using `tx.inventoryTransaction.createMany` to preserve the granular audit trail while eliminating the N+1 insert queries.
