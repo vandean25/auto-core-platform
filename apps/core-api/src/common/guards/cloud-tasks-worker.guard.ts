@@ -11,6 +11,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class CloudTasksWorkerGuard implements CanActivate {
+  private readonly logger = new Logger(CloudTasksWorkerGuard.name);
+
   canActivate(context: ExecutionContext) {
     const secret = process.env.CLOUD_TASKS_WORKER_SECRET;
     if (!secret) {
@@ -23,10 +25,15 @@ export class CloudTasksWorkerGuard implements CanActivate {
     const providedSecret = typeof headerToken === 'string' ? headerToken : '';
 
     const expectedHash = crypto.createHash('sha256').update(secret).digest();
-    const providedHash = crypto.createHash('sha256').update(providedSecret).digest();
+    const providedHash = crypto
+      .createHash('sha256')
+      .update(providedSecret)
+      .digest();
 
     if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
-      Logger.warn(`Invalid Cloud Tasks worker secret attempt from IP: ${request.ip} for route: ${request.originalUrl}`, 'CloudTasksWorkerGuard');
+      this.logger.warn(
+        `Invalid Cloud Tasks worker secret attempt from IP: ${request.ip} for route: ${request.originalUrl}`,
+      );
       throw new UnauthorizedException('Unauthorized');
     }
 
