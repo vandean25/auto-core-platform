@@ -1024,6 +1024,29 @@ export interface components {
             destinationLocationId: string;
             items: components["schemas"]["PickWorkshopPartsLineDto"][];
         };
+        PickWorkshopPartAllocationResponseDto: {
+            /** Format: uuid */
+            sourceLocationId: string;
+            /** @example 2 */
+            quantity: number;
+            referenceId: string;
+        };
+        PickWorkshopPartMovedLineResponseDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 4 */
+            movedQuantity: number;
+            allocations: components["schemas"]["PickWorkshopPartAllocationResponseDto"][];
+        };
+        PickWorkshopPartsResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            stagingLocationId: string;
+            /** @example WO-PICK-<order-id>-<timestamp> */
+            transferGroupId: string;
+            movedLines: components["schemas"]["PickWorkshopPartMovedLineResponseDto"][];
+        };
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
         WorkshopPdfGenerationResponseDto: {
@@ -2663,11 +2686,14 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Workshop parts pick transfer summary. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PickWorkshopPartsResponseDto"];
+                };
             };
         };
     };

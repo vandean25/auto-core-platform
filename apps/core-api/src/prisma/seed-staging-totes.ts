@@ -27,6 +27,7 @@ export async function seedFixedStagingTotes(
       name: `Staging Tote ${suffix}`,
       type: stagingToteType,
       parent_id: parentLocationId,
+      deletedAt: null,
     };
   });
 
@@ -37,6 +38,7 @@ export async function seedFixedStagingTotes(
       name: true,
       type: true,
       parent_id: true,
+      deletedAt: true,
     },
   });
 
@@ -54,7 +56,8 @@ export async function seedFixedStagingTotes(
     } else if (
       existing.name !== definition.name ||
       existing.type !== definition.type ||
-      existing.parent_id !== definition.parent_id
+      existing.parent_id !== definition.parent_id ||
+      existing.deletedAt !== definition.deletedAt
     ) {
       updated += 1;
     } else {
@@ -67,12 +70,14 @@ export async function seedFixedStagingTotes(
         name: definition.name,
         type: definition.type,
         parent_id: definition.parent_id,
+        deletedAt: definition.deletedAt,
       },
       create: {
         code: definition.code,
         name: definition.name,
         type: definition.type,
         parent_id: definition.parent_id,
+        deletedAt: definition.deletedAt,
       },
     });
   });

@@ -406,7 +406,7 @@ describe('WorkshopService', () => {
     });
 
     await expect(
-      (service as any).pickParts('wo-1', {
+      service.pickParts('wo-1', {
         destinationLocationId: 'dest-1',
         items: [
           {
@@ -455,7 +455,7 @@ describe('WorkshopService', () => {
     ]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
 
-    await (service as any).pickParts('wo-1', {
+    await service.pickParts('wo-1', {
       destinationLocationId: 'tote-1',
       items: [
         {
@@ -522,7 +522,7 @@ describe('WorkshopService', () => {
     ]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
 
-    await (service as any).pickParts('wo-1', {
+    await service.pickParts('wo-1', {
       destinationLocationId: 'tote-1',
       items: [
         {

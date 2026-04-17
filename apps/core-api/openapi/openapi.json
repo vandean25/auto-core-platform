@@ -1921,7 +1921,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "Workshop parts pick transfer summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickWorkshopPartsResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -3221,6 +3228,82 @@
         "required": [
           "destinationLocationId",
           "items"
+        ]
+      },
+      "PickWorkshopPartAllocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "sourceLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 2,
+            "minimum": 1
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceLocationId",
+          "quantity",
+          "referenceId"
+        ]
+      },
+      "PickWorkshopPartMovedLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "movedQuantity": {
+            "type": "number",
+            "example": 4,
+            "minimum": 1
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickWorkshopPartAllocationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "movedQuantity",
+          "allocations"
+        ]
+      },
+      "PickWorkshopPartsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stagingLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "transferGroupId": {
+            "type": "string",
+            "example": "WO-PICK-<order-id>-<timestamp>"
+          },
+          "movedLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickWorkshopPartMovedLineResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "stagingLocationId",
+          "transferGroupId",
+          "movedLines"
         ]
       },
       "UpdateWorkshopTaskDto": {
