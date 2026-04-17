@@ -7,6 +7,8 @@ import {
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
 
+const setupLogger = new Logger('DashboardGatewaySetup');
+
 function resolveCorsOrigins(): string[] {
   const configuredOrigins = process.env.FRONTEND_URL?.split(',')
     .map((origin) => origin.trim())
@@ -15,11 +17,11 @@ function resolveCorsOrigins(): string[] {
   if (!configuredOrigins || configuredOrigins.length === 0) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'CRITICAL: Starting the server without a defined frontend origin is a critical misconfiguration.',
+        'CRITICAL: Starting the server without FRONTEND_URL is a critical misconfiguration. It must contain the allowed frontend origin(s) for the dashboard-realtime gateway.',
       );
     }
-    console.warn(
-      'WARNING: CORS origins are empty, and cross-origin WebSocket connections will be rejected.',
+    setupLogger.warn(
+      'WARNING: CORS origins are empty because FRONTEND_URL is not set. No browser origins will be allowed to connect via WebSocket.',
     );
     return [];
   }
@@ -27,13 +29,27 @@ function resolveCorsOrigins(): string[] {
   return configuredOrigins;
 }
 
+const allowedOrigins = resolveCorsOrigins();
+
 @Public()
 @WebSocketGateway({
   namespace: '/dashboard-realtime',
   path: '/api/socket.io',
   cors: {
-    origin: resolveCorsOrigins(),
+    origin: allowedOrigins,
     credentials: true,
+  },
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+    // If there is no origin header, we assume it's a non-browser client (e.g. mobile app, curl, server-to-server).
+    // The strict origin check only applies to browser environments that send the Origin header.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Check if the origin is in our allowed list
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(null, isAllowed);
   },
 })
 export class DashboardGateway {
