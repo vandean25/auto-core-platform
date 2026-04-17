@@ -80,10 +80,15 @@ export default function WorkshopOrderList() {
           <h1 className='text-2xl font-semibold tracking-tight'>Workshop Orders</h1>
           <p className='text-slate-500'>Open a work order to view full job details and task drawer.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className='h-4 w-4 mr-2' />
-          Order
-        </Button>
+        <div className='flex items-center gap-2'>
+          <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
+            Pick Queue
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className='h-4 w-4 mr-2' />
+            Order
+          </Button>
+        </div>
       </div>
 
       <DataTable

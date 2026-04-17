@@ -29,6 +29,7 @@ import DashboardPage from './pages/DashboardPage'
 import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
 import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
 import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
+import WorkshopPickList from './pages/workshop/WorkshopPickList'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
 import VehicleDetail from './pages/vehicles/VehicleDetail'
@@ -77,6 +78,7 @@ function AppRoutes() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/workshop/intake" element={<IntakeDashboard />} />
             <Route path="/workshop/orders" element={<WorkshopOrderList />} />
+            <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
             <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
           </Routes>
         </motion.div>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 
-export type LocationType = 'warehouse' | 'aisle' | 'shelf' | 'bin' | 'customer_storage'
+export type LocationType = 'warehouse' | 'aisle' | 'shelf' | 'bin' | 'customer_storage' | 'staging_tote'
 
 export interface StorageLocation {
     id: string
@@ -34,7 +34,7 @@ export function useLocationTree() {
     })
 }
 
-export function useLocations() {
+export function useLocations(options?: { enabled?: boolean }) {
     return useQuery<StorageLocation[]>({
         queryKey: locationKeys.list(),
         queryFn: async () => {
@@ -42,6 +42,7 @@ export function useLocations() {
             if (!response.ok) throw new Error('Failed to fetch locations')
             return response.json()
         },
+        enabled: options?.enabled ?? true,
     })
 }
 

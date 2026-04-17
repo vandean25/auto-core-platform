@@ -7,6 +7,9 @@ import type {
   RegisterIntakePayload,
   WorkshopLineItemType,
   WorkshopOrder,
+  WorkshopOrderStatus,
+  WorkshopPickPartsPayload,
+  WorkshopPickPartsResponse,
   WorkshopSearchResponse,
   WorkshopTaskStatus,
 } from './types'
@@ -16,11 +19,23 @@ import { buildDataTableUrl } from './data-table-query'
 const WORKSHOP_API = '/api/workshop'
 const LABOR_API = '/api/labor'
 const CATALOG_API = '/api/catalog'
+const PICK_LIST_SOURCE_PAGE_SIZE = 500
+const PICK_ELIGIBLE_ORDER_STATUSES = new Set<WorkshopOrderStatus>(['INTAKE', 'IN_PROGRESS'])
+
+const workshopOrderDetailKey = (id: string) => ['workshop', 'order', id] as const
+
+type WorkshopApiError = Error & {
+  status?: number
+}
 
 export const workshopKeys = {
   all: ['workshop'] as const,
   orders: () => [...workshopKeys.all, 'orders'] as const,
-  order: (id: string) => [...workshopKeys.all, 'order', id] as const,
+  ordersPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.orders(), queryParams] as const,
+  pickList: () => [...workshopKeys.all, 'pick-list'] as const,
+  pickListPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.pickList(), queryParams] as const,
+  detail: (id: string) => workshopOrderDetailKey(id),
+  order: (id: string) => workshopOrderDetailKey(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
 }
 
@@ -59,13 +74,96 @@ function normalizeOrder(order: any): WorkshopOrder {
     ...order,
     order_number: order.order_number ?? order.orderNumber ?? order.id,
     reportedIssue: order.reportedIssue ?? order.reported_issue ?? '',
+    stagingLocationId: order.stagingLocationId ?? order.staging_location_id ?? null,
+    staging_location_id: order.staging_location_id ?? order.stagingLocationId ?? null,
     tasks: (order.tasks ?? []).map(normalizeTask),
   }
 }
 
+function getCustomerDisplayName(order: WorkshopOrder) {
+  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
+    return order.customer.company_name
+  }
+  return `${order.customer.first_name ?? ''} ${order.customer.last_name ?? ''}`.trim()
+}
+
+function countPickablePartLines(order: WorkshopOrder) {
+  let count = 0
+  for (const task of order.tasks ?? []) {
+    for (const lineItem of task.lineItems ?? []) {
+      if (lineItem.type === 'PART' && Number(lineItem.qty) > 0) {
+        count += 1
+      }
+    }
+  }
+  return count
+}
+
+function totalPickablePartQuantity(order: WorkshopOrder) {
+  let total = 0
+  for (const task of order.tasks ?? []) {
+    for (const lineItem of task.lineItems ?? []) {
+      if (lineItem.type === 'PART' && Number(lineItem.qty) > 0) {
+        total += Number(lineItem.qty)
+      }
+    }
+  }
+  return total
+}
+
+function isPickListEligibleOrder(order: WorkshopOrder) {
+  return PICK_ELIGIBLE_ORDER_STATUSES.has(order.status) && countPickablePartLines(order) > 0
+}
+
+function comparePickListOrders(
+  left: WorkshopOrder,
+  right: WorkshopOrder,
+  sortField?: string,
+  sortDirection: 'asc' | 'desc' = 'desc',
+) {
+  const direction = sortDirection === 'asc' ? 1 : -1
+
+  if (sortField === 'orderNo' || sortField === 'order_number') {
+    return direction * (left.order_number ?? '').localeCompare(right.order_number ?? '')
+  }
+
+  if (sortField === 'customer') {
+    return direction * getCustomerDisplayName(left).localeCompare(getCustomerDisplayName(right))
+  }
+
+  if (sortField === 'vehicle') {
+    const leftVehicle = `${left.vehicle.year} ${left.vehicle.make} ${left.vehicle.model}`
+    const rightVehicle = `${right.vehicle.year} ${right.vehicle.make} ${right.vehicle.model}`
+    return direction * leftVehicle.localeCompare(rightVehicle)
+  }
+
+  if (sortField === 'status') {
+    return direction * left.status.localeCompare(right.status)
+  }
+
+  if (sortField === 'partLines') {
+    return direction * (countPickablePartLines(left) - countPickablePartLines(right))
+  }
+
+  if (sortField === 'requiredQty') {
+    return direction * (totalPickablePartQuantity(left) - totalPickablePartQuantity(right))
+  }
+
+  const leftCreatedAt = Number(new Date(left.createdAt))
+  const rightCreatedAt = Number(new Date(right.createdAt))
+  return direction * (leftCreatedAt - rightCreatedAt)
+}
+
+async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<WorkshopApiError> {
+  const payload = await response.json().catch(() => ({})) as { message?: string }
+  const error = new Error(payload.message || fallbackMessage) as WorkshopApiError
+  error.status = response.status
+  return error
+}
+
 export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
   return useQuery<WorkshopOrderResponse>({
-    queryKey: [...workshopKeys.orders(), queryParams],
+    queryKey: workshopKeys.ordersPage(queryParams),
     queryFn: async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
         searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
@@ -81,9 +179,54 @@ export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
   })
 }
 
+export function useWorkshopPickList(queryParams?: DataTableQueryParams) {
+  return useQuery<WorkshopOrderResponse>({
+    queryKey: workshopKeys.pickListPage(queryParams),
+    queryFn: async () => {
+      const sourceQueryParams: DataTableQueryParams = {
+        page: 1,
+        pageSize: PICK_LIST_SOURCE_PAGE_SIZE,
+        search: queryParams?.search,
+        sortField: queryParams?.sortField,
+        sortDirection: queryParams?.sortDirection,
+        filters: queryParams?.filters ?? [],
+      }
+      const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, sourceQueryParams, {
+        searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+      })
+
+      const response = await fetchWithAuth(url)
+      if (!response.ok) throw new Error('Failed to fetch workshop pick list')
+      const json = await response.json()
+
+      const normalizedOrders = (json.data ?? []).map(normalizeOrder)
+      const filteredOrders = normalizedOrders.filter(isPickListEligibleOrder)
+      const sortedOrders = [...filteredOrders].sort((left, right) =>
+        comparePickListOrders(left, right, queryParams?.sortField, queryParams?.sortDirection),
+      )
+
+      const page = queryParams?.page ?? 1
+      const pageSize = queryParams?.pageSize ?? 25
+      const offset = (page - 1) * pageSize
+      const pagedOrders = sortedOrders.slice(offset, offset + pageSize)
+      const pageCount = Math.max(1, Math.ceil(sortedOrders.length / pageSize))
+
+      return {
+        data: pagedOrders,
+        meta: {
+          total: sortedOrders.length,
+          page,
+          pageSize,
+          pageCount,
+        },
+      }
+    },
+  })
+}
+
 export function useWorkshopOrder(id: string) {
   return useQuery<WorkshopOrder>({
-    queryKey: workshopKeys.order(id),
+    queryKey: workshopKeys.detail(id),
     queryFn: async () => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}`)
       if (!response.ok) throw new Error('Failed to fetch workshop order')
@@ -310,6 +453,28 @@ export const useReplaceWorkshopTaskLineItems = () => {
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       queryClient.setQueryData(workshopKeys.order(order.id), order)
+    },
+  })
+}
+
+export const usePickWorkshopParts = () => {
+  const queryClient = useQueryClient()
+  return useMutation<WorkshopPickPartsResponse, WorkshopApiError, { orderId: string; payload: WorkshopPickPartsPayload }>({
+    mutationFn: async ({ orderId, payload }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/pick-parts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to pick parts')
+      }
+      return response.json()
+    },
+    onSuccess: (_result, { orderId }) => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.detail(orderId) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.pickList() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })
 }
