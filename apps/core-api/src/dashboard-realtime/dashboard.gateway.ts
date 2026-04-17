@@ -7,19 +7,21 @@ import {
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
 
-function resolveCorsOrigins(): string[] | boolean {
+function resolveCorsOrigins(): string[] {
   const configuredOrigins = process.env.FRONTEND_URL?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
   if (!configuredOrigins || configuredOrigins.length === 0) {
-    const message =
-      'No FRONTEND_URL configured for CORS. Falling back to permissive (allow-all) mode.';
     if (process.env.NODE_ENV === 'production') {
-      throw new Error(`CRITICAL: ${message} This is prohibited in production.`);
+      throw new Error(
+        'CRITICAL: Starting the server without a defined frontend origin is a critical misconfiguration.',
+      );
     }
-    console.warn(`WARNING: ${message}`);
-    return true;
+    console.warn(
+      'WARNING: CORS origins are empty, and cross-origin WebSocket connections will be rejected.',
+    );
+    return [];
   }
 
   return configuredOrigins;
