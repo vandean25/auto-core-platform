@@ -317,6 +317,8 @@ export interface WorkshopOrder {
     id: string
     order_number: string
     status: WorkshopOrderStatus
+    staging_location_id?: string | null
+    stagingLocationId?: string | null
     customer_id: string
     customer: Customer
     vehicle_id: string
@@ -329,6 +331,36 @@ export interface WorkshopOrder {
     tasks?: WorkshopTask[]
     invoice?: Invoice | null
     createdAt: string
+}
+
+export interface WorkshopPickLineItemPayload {
+    workshopTaskLineItemId: string
+    quantity: number
+    sourceLocationId?: string
+}
+
+export interface WorkshopPickPartsPayload {
+    destinationLocationId: string
+    items: WorkshopPickLineItemPayload[]
+}
+
+export interface WorkshopPickLineAllocation {
+    sourceLocationId: string
+    quantity: number
+    referenceId: string
+}
+
+export interface WorkshopPickMovedLine {
+    workshopTaskLineItemId: string
+    movedQuantity: number
+    allocations: WorkshopPickLineAllocation[]
+}
+
+export interface WorkshopPickPartsResponse {
+    id: string
+    stagingLocationId: string
+    transferGroupId: string
+    movedLines: WorkshopPickMovedLine[]
 }
 
 export interface NormalizedWorkshopTask extends Omit<WorkshopTask, 'lineItems'> {

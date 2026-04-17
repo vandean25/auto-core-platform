@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { useWorkshopOrders } from '@/api/workshop'
 import type { WorkshopOrder } from '@/api/types'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
+import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 
 interface WorkshopOrderRow {
   id: string
@@ -20,13 +21,6 @@ interface WorkshopOrderRow {
   vehicle: string
   openedAt: string
   status: WorkshopOrder['status']
-}
-
-function getCustomerName(order: WorkshopOrder) {
-  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
-    return order.customer.company_name
-  }
-  return `${order.customer.first_name} ${order.customer.last_name}`.trim()
 }
 
 export default function WorkshopOrderList() {
@@ -40,7 +34,7 @@ export default function WorkshopOrderList() {
     return source.map((order) => ({
       id: order.id,
       orderNo: order.order_number ?? order.id,
-      customer: getCustomerName(order),
+      customer: getWorkshopCustomerDisplayName(order),
       vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
       openedAt: format(new Date(order.createdAt), 'PPP'),
       status: order.status,
@@ -80,10 +74,15 @@ export default function WorkshopOrderList() {
           <h1 className='text-2xl font-semibold tracking-tight'>Workshop Orders</h1>
           <p className='text-slate-500'>Open a work order to view full job details and task drawer.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className='h-4 w-4 mr-2' />
-          Order
-        </Button>
+        <div className='flex items-center gap-2'>
+          <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
+            Pick Queue
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className='h-4 w-4 mr-2' />
+            Order
+          </Button>
+        </div>
       </div>
 
       <DataTable

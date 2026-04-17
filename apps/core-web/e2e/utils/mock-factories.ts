@@ -216,8 +216,17 @@ type MockWorkshopTask = {
   title: string;
   done: boolean;
   status: string;
-  lineItems: unknown[];
+  lineItems: MockWorkshopTaskLineItem[];
   mechanicNotes: string;
+};
+
+type MockWorkshopTaskLineItem = {
+  id: string;
+  type: 'PART' | 'LABOR';
+  itemNo: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
 };
 
 type MockWorkshopOrder = {
@@ -225,6 +234,8 @@ type MockWorkshopOrder = {
   order_number: string;
   status: string;
   reported_issue: string;
+  staging_location_id?: string | null;
+  stagingLocationId?: string | null;
   customer: MockCustomer;
   vehicle: MockVehicle;
   tasks: MockWorkshopTask[];
@@ -236,9 +247,11 @@ export const createMockWorkshopOrder = (
   overrides: Partial<MockWorkshopOrder> = {},
 ): MockWorkshopOrder => ({
   id: 'ws-123',
-  order_number: 'WS-2026-001',
-  status: 'OPEN',
+  order_number: 'WO-2026-0001',
+  status: 'INTAKE',
   reported_issue: 'Vehicle maintenance',
+  staging_location_id: null,
+  stagingLocationId: null,
   customer: createMockCustomer(),
   vehicle: createMockVehicle(),
   tasks: [
@@ -247,12 +260,44 @@ export const createMockWorkshopOrder = (
       title: 'General Inspection',
       done: false,
       status: 'NOT_STARTED',
-      lineItems: [],
+      lineItems: [
+        {
+          id: 'line-1',
+          type: 'PART',
+          itemNo: '06J-115-403-Q',
+          description: 'Oil Filter',
+          qty: 2,
+          unitPrice: 19.9,
+        },
+      ],
       mechanicNotes: '',
     },
   ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+  ...overrides,
+});
+
+// ---------------------------------------------------------------------------
+// Storage Locations
+// ---------------------------------------------------------------------------
+
+type MockStorageLocation = {
+  id: string;
+  name: string;
+  code: string;
+  type: 'warehouse' | 'aisle' | 'shelf' | 'bin' | 'customer_storage' | 'staging_tote';
+  parent_id?: string | null;
+};
+
+export const createMockStorageLocation = (
+  overrides: Partial<MockStorageLocation> = {},
+): MockStorageLocation => ({
+  id: 'loc-tote-001',
+  name: 'Staging Tote 001',
+  code: 'TOTE-001',
+  type: 'staging_tote',
+  parent_id: null,
   ...overrides,
 });
 
