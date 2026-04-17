@@ -13,6 +13,7 @@ import {
   TransactionType,
 } from '@prisma/client';
 import type { CatalogItem, RevenueGroup, InventoryStock } from '@prisma/client';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
 
 @Injectable()
 export class SalesService {
@@ -158,76 +159,111 @@ export class SalesService {
         });
       }
 
-      // 2b. Iterate sequentially through invoice items to maintain 1:1 mapping in ledger
-      for (const item of invoice.items) {
-        if (item.catalog_item_id) {
-          const stocks = stockMap.get(item.catalog_item_id) || [];
-          const quantityToDeduct = Number(item.quantity);
-
-          if (
-            !Number.isFinite(quantityToDeduct) ||
-            !Number.isInteger(quantityToDeduct) ||
-            quantityToDeduct <= 0
-          ) {
-            throw new BadRequestException(
-              `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
-            );
-          }
-
-          // Find first location with sufficient stock, or fallback to first one available
-          const stock =
-            stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
-            stocks[0];
-
-          if (!stock) {
-            throw new BadRequestException(
-              `No stock record found for item ${item.description}`,
-            );
-          }
-
-          const locationId = stock.location_id;
-
-          // Atomic Update with Check (Optimistic Locking via WHERE clause)
-          const updateResult = await tx.inventoryStock.updateMany({
-            where: {
-              catalog_item_id: item.catalog_item_id,
-              location_id: locationId,
-              quantity_on_hand: { gte: quantityToDeduct }, // Ensure sufficient stock
-            },
-            data: {
-              quantity_on_hand: { decrement: quantityToDeduct },
-            },
-          });
-
-          if (updateResult.count === 0) {
-            // Refetch stock to give accurate error message if concurrency was high
-            const latestStock = await tx.inventoryStock.findUnique({
-              where: {
-                catalog_item_id_location_id: {
-                  catalog_item_id: item.catalog_item_id,
-                  location_id: locationId,
-                },
-              },
-            });
-            throw new BadRequestException(
-              `Insufficient stock for item ${item.description} at location ${locationId} (Req: ${quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
-            );
-          }
-
-          // Update local stock map for subsequent items of the same catalog ID
-          stock.quantity_on_hand -= quantityToDeduct;
-
-          // Create Sale Issue Transaction (Per-item for audit trail granularity)
-          await tx.inventoryTransaction.create({
-            data: {
-              item_id: item.catalog_item_id,
-              location_id: locationId,
-              quantity: new Prisma.Decimal(item.quantity).negated(),
-              type: TransactionType.SALE_ISSUE,
-              reference_id: invoiceNumber,
-            },
-          });
+      // 2b. Iterate sequentially in memory to assign locations, then aggregate updates by (catalog_item_id + location_id)
+      const stockUpdatesMap = new Map<
+        string,
+        {
+          catalog_item_id: string;
+          locationId: string;
+          quantityToDeduct: number;
         }
+      >();
+      const transactionCreations: Prisma.InventoryTransactionCreateManyInput[] =
+        [];
+
+      for (const item of invoice.items) {
+        if (!item.catalog_item_id) continue;
+
+        const quantityToDeduct = Number(item.quantity);
+        if (
+          !Number.isFinite(quantityToDeduct) ||
+          !Number.isInteger(quantityToDeduct) ||
+          quantityToDeduct <= 0
+        ) {
+          throw new BadRequestException(
+            `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+          );
+        }
+
+        const stocks = stockMap.get(item.catalog_item_id) || [];
+
+        // Find first location with sufficient stock, or fallback to first one available
+        const stock =
+          stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
+          stocks[0];
+
+        if (!stock) {
+          throw new BadRequestException(
+            `No stock record found for item ${item.description}`,
+          );
+        }
+
+        // Dry run validation
+        if (stock.quantity_on_hand < quantityToDeduct) {
+          throw new BadRequestException(
+            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+          );
+        }
+
+        const locationId = stock.location_id;
+        const compositeKey = `${item.catalog_item_id}_${locationId}`;
+
+        const existingUpdate = stockUpdatesMap.get(compositeKey) || {
+          catalog_item_id: item.catalog_item_id,
+          locationId,
+          quantityToDeduct: 0,
+        };
+
+        existingUpdate.quantityToDeduct += quantityToDeduct;
+        stockUpdatesMap.set(compositeKey, existingUpdate);
+
+        // Update local stock map for subsequent items of the same catalog ID sequentially
+        stock.quantity_on_hand -= quantityToDeduct;
+
+        // Preserve 1:1 audit trail granularity for transactions
+        transactionCreations.push({
+          item_id: item.catalog_item_id,
+          location_id: locationId,
+          quantity: new Prisma.Decimal(item.quantity).negated(),
+          type: TransactionType.SALE_ISSUE,
+          reference_id: invoiceNumber,
+        });
+      }
+
+      // 2c. Execute updates concurrently and create transactions in bulk
+      const stockUpdates = Array.from(stockUpdatesMap.values());
+      await chunkedPromiseAll(stockUpdates, async (update) => {
+        const updateResult = await tx.inventoryStock.updateMany({
+          where: {
+            catalog_item_id: update.catalog_item_id,
+            location_id: update.locationId,
+            quantity_on_hand: { gte: update.quantityToDeduct }, // Ensure sufficient stock
+          },
+          data: {
+            quantity_on_hand: { decrement: update.quantityToDeduct },
+          },
+        });
+
+        if (updateResult.count === 0) {
+          // Refetch stock to give accurate error message if concurrency was high
+          const latestStock = await tx.inventoryStock.findUnique({
+            where: {
+              catalog_item_id_location_id: {
+                catalog_item_id: update.catalog_item_id,
+                location_id: update.locationId,
+              },
+            },
+          });
+          throw new BadRequestException(
+            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+          );
+        }
+      });
+
+      if (transactionCreations.length > 0) {
+        await tx.inventoryTransaction.createMany({
+          data: transactionCreations,
+        });
       }
 
       // 3. Update Invoice Status and return updated invoice (Concurrency Safe)
