@@ -1896,7 +1896,7 @@
         ]
       }
     },
-    "/api/workshop/{id}/pick-parts": {
+    "/api/workshop/orders/{id}/pick-parts": {
       "post": {
         "operationId": "WorkshopController_pickParts",
         "parameters": [

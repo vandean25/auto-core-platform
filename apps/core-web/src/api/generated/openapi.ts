@@ -644,7 +644,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workshop/{id}/pick-parts": {
+    "/api/workshop/orders/{id}/pick-parts": {
         parameters: {
             query?: never;
             header?: never;
