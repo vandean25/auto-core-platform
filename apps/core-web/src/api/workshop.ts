@@ -7,7 +7,6 @@ import type {
   RegisterIntakePayload,
   WorkshopLineItemType,
   WorkshopOrder,
-  WorkshopOrderStatus,
   WorkshopPickPartsPayload,
   WorkshopPickPartsResponse,
   WorkshopSearchResponse,
@@ -15,12 +14,15 @@ import type {
 } from './types'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
+import {
+  getWorkshopCustomerDisplayName,
+  isWorkshopOrderPickEligible,
+} from '@/features/workshop/pick-utils'
 
 const WORKSHOP_API = '/api/workshop'
 const LABOR_API = '/api/labor'
 const CATALOG_API = '/api/catalog'
-const PICK_LIST_SOURCE_PAGE_SIZE = 500
-const PICK_ELIGIBLE_ORDER_STATUSES = new Set<WorkshopOrderStatus>(['INTAKE', 'IN_PROGRESS'])
+const PICK_LIST_SOURCE_PAGE_SIZE = 100
 
 const workshopOrderDetailKey = (id: string) => ['workshop', 'order', id] as const
 
@@ -80,13 +82,6 @@ function normalizeOrder(order: any): WorkshopOrder {
   }
 }
 
-function getCustomerDisplayName(order: WorkshopOrder) {
-  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
-    return order.customer.company_name
-  }
-  return `${order.customer.first_name ?? ''} ${order.customer.last_name ?? ''}`.trim()
-}
-
 function countPickablePartLines(order: WorkshopOrder) {
   let count = 0
   for (const task of order.tasks ?? []) {
@@ -111,10 +106,6 @@ function totalPickablePartQuantity(order: WorkshopOrder) {
   return total
 }
 
-function isPickListEligibleOrder(order: WorkshopOrder) {
-  return PICK_ELIGIBLE_ORDER_STATUSES.has(order.status) && countPickablePartLines(order) > 0
-}
-
 function comparePickListOrders(
   left: WorkshopOrder,
   right: WorkshopOrder,
@@ -128,7 +119,7 @@ function comparePickListOrders(
   }
 
   if (sortField === 'customer') {
-    return direction * getCustomerDisplayName(left).localeCompare(getCustomerDisplayName(right))
+    return direction * getWorkshopCustomerDisplayName(left).localeCompare(getWorkshopCustomerDisplayName(right))
   }
 
   if (sortField === 'vehicle') {
@@ -161,6 +152,21 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
   return error
 }
 
+async function fetchWorkshopOrdersPage(queryParams: DataTableQueryParams): Promise<WorkshopOrderResponse> {
+  const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
+    searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+  })
+
+  const response = await fetchWithAuth(url)
+  if (!response.ok) throw new Error('Failed to fetch workshop pick list')
+
+  const json = await response.json()
+  return {
+    ...json,
+    data: (json.data ?? []).map(normalizeOrder),
+  }
+}
+
 export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
   return useQuery<WorkshopOrderResponse>({
     queryKey: workshopKeys.ordersPage(queryParams),
@@ -191,16 +197,19 @@ export function useWorkshopPickList(queryParams?: DataTableQueryParams) {
         sortDirection: queryParams?.sortDirection,
         filters: queryParams?.filters ?? [],
       }
-      const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, sourceQueryParams, {
-        searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
-      })
+      const firstPage = await fetchWorkshopOrdersPage(sourceQueryParams)
+      const sourcePageCount = Math.max(1, firstPage.meta.pageCount)
+      const additionalPages = sourcePageCount > 1
+        ? await Promise.all(
+          Array.from({ length: sourcePageCount - 1 }, (_, index) => fetchWorkshopOrdersPage({
+            ...sourceQueryParams,
+            page: index + 2,
+          })),
+        )
+        : []
 
-      const response = await fetchWithAuth(url)
-      if (!response.ok) throw new Error('Failed to fetch workshop pick list')
-      const json = await response.json()
-
-      const normalizedOrders = (json.data ?? []).map(normalizeOrder)
-      const filteredOrders = normalizedOrders.filter(isPickListEligibleOrder)
+      const normalizedOrders = [firstPage, ...additionalPages].flatMap((page) => page.data)
+      const filteredOrders = normalizedOrders.filter(isWorkshopOrderPickEligible)
       const sortedOrders = [...filteredOrders].sort((left, right) =>
         comparePickListOrders(left, right, queryParams?.sortField, queryParams?.sortDirection),
       )

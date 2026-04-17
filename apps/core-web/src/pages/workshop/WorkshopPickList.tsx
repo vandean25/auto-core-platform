@@ -12,6 +12,7 @@ import type { WorkshopOrder } from '@/api/types'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { WorkshopOrderPickDrawer } from '@/features/workshop/components/WorkshopOrderPickDrawer'
 import {
+  getWorkshopCustomerDisplayName,
   getRequiredPartLines,
   getTotalRequiredQuantity,
 } from '@/features/workshop/pick-utils'
@@ -25,13 +26,6 @@ interface WorkshopPickQueueRow {
   status: WorkshopOrder['status']
   partLines: number
   requiredQty: number
-}
-
-function getCustomerName(order: WorkshopOrder) {
-  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
-    return order.customer.company_name
-  }
-  return `${order.customer.first_name} ${order.customer.last_name}`.trim()
 }
 
 function formatQuantity(value: number) {
@@ -53,7 +47,7 @@ export default function WorkshopPickList() {
       return {
         id: order.id,
         orderNo: order.order_number ?? order.id,
-        customer: getCustomerName(order),
+        customer: getWorkshopCustomerDisplayName(order),
         vehicle: `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`,
         openedAt: format(new Date(order.createdAt), 'PPP'),
         status: order.status,

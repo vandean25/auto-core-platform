@@ -3,10 +3,18 @@ import type {
   WorkshopOrderStatus,
 } from '@/api/types'
 
-export const PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES: WorkshopOrderStatus[] = [
+export const PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES = new Set<WorkshopOrderStatus>([
   'INTAKE',
   'IN_PROGRESS',
-]
+])
+
+export function getWorkshopCustomerDisplayName(order: WorkshopOrder) {
+  if (order.customer.type === 'COMPANY' && order.customer.company_name) {
+    return order.customer.company_name
+  }
+
+  return `${order.customer.first_name ?? ''} ${order.customer.last_name ?? ''}`.trim()
+}
 
 export interface WorkshopRequiredPartLine {
   workshopTaskLineItemId: string
@@ -44,7 +52,7 @@ export function getRequiredPartLines(order: WorkshopOrder | null | undefined): W
 
 export function isWorkshopOrderPickEligible(order: WorkshopOrder | null | undefined): boolean {
   if (!order) return false
-  if (!PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES.includes(order.status)) return false
+  if (!PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES.has(order.status)) return false
   return getRequiredPartLines(order).length > 0
 }
 
