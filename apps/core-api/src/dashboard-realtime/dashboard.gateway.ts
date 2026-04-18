@@ -7,31 +7,56 @@ import {
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
 
-function resolveCorsOrigins(): string[] | boolean {
+const setupLogger = new Logger('DashboardGatewaySetup');
+
+function resolveCorsOrigins(): string[] {
   const configuredOrigins = process.env.FRONTEND_URL?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
   if (!configuredOrigins || configuredOrigins.length === 0) {
-    const message =
-      'No FRONTEND_URL configured for CORS. Falling back to permissive (allow-all) mode.';
     if (process.env.NODE_ENV === 'production') {
-      throw new Error(`CRITICAL: ${message} This is prohibited in production.`);
+      throw new Error(
+        'CRITICAL: Starting the server without FRONTEND_URL is a critical misconfiguration. It must contain the allowed frontend origin(s) for the dashboard-realtime gateway.',
+      );
     }
-    console.warn(`WARNING: ${message}`);
-    return true;
+    setupLogger.warn(
+      'WARNING: CORS origins are empty because FRONTEND_URL is not set. No browser origins will be allowed to connect via WebSocket.',
+    );
+    return [];
   }
 
   return configuredOrigins;
 }
+
+const allowedOrigins = resolveCorsOrigins();
 
 @Public()
 @WebSocketGateway({
   namespace: '/dashboard-realtime',
   path: '/api/socket.io',
   cors: {
-    origin: resolveCorsOrigins(),
+    origin: allowedOrigins,
     credentials: true,
+  },
+  allowRequest: (req, callback) => {
+    // If the server is severely misconfigured and has no allowed origins,
+    // we must fail completely closed, regardless of the client type.
+    if (allowedOrigins.length === 0) {
+      return callback(null, false);
+    }
+
+    const origin = req.headers.origin;
+
+    // As this is a @Public() gateway, permitting connections without an Origin header
+    // provides a bypass for custom Socket.IO clients. We must enforce the Origin header.
+    if (!origin) {
+      return callback(null, false);
+    }
+
+    // Check if the origin is in our allowed list
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(null, isAllowed);
   },
 })
 export class DashboardGateway {
