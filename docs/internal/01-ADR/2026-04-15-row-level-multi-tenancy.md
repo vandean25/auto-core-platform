@@ -326,7 +326,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 | Milestone 2 | Phase 2 — ORM Isolation Layer (target: 2026-05-15) |
 | Milestone 3 | Phase 3 — WebSocket Tenant Scoping (target: 2026-05-22) |
 | Milestone 4 | Phase 4 — Testing and Contract (target: 2026-05-31) |
-| Issues | AUT-59, AUT-60, AUT-61, AUT-62, AUT-63, AUT-64, AUT-65, AUT-66, AUT-67, AUT-68, AUT-69, AUT-70 |
+| Issues | AUT-59, AUT-60, AUT-61, AUT-62, AUT-63, AUT-64, AUT-65, AUT-66, AUT-67, AUT-68, AUT-69, AUT-70, AUT-71, AUT-72, AUT-73, AUT-74 |
 
 ### Issue Breakdown
 
@@ -344,3 +344,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 | [AUT-68](https://linear.app/auto-core-platform/issue/AUT-68) | QA-1: Update integration test helpers to seed Tenant row and ALS context | Phase 4 | High |
 | [AUT-69](https://linear.app/auto-core-platform/issue/AUT-69) | QA-2: Tenant isolation regression tests (cross-tenant data leakage prevention) | Phase 4 | Urgent |
 | [AUT-70](https://linear.app/auto-core-platform/issue/AUT-70) | BE-7: Regenerate OpenAPI spec and frontend types after auth scheme change | Phase 4 | High |
+| [AUT-71](https://linear.app/auto-core-platform/issue/AUT-71) | DB-4: Build Prisma schema linter for tenant isolation in CI | Phase 1 | Urgent |
+| [AUT-72](https://linear.app/auto-core-platform/issue/AUT-72) | OPS-1: Develop Single-Tenant Restore Runbook | Phase 4 | High |
+| [AUT-73](https://linear.app/auto-core-platform/issue/AUT-73) | OPS-2: Connection Pooling Strategy & Metrics | Phase 4 | High |
+| [AUT-74](https://linear.app/auto-core-platform/issue/AUT-74) | DB-5: PostgreSQL Declarative Partitioning | Phase 4 | Low |
