@@ -297,7 +297,7 @@ export class WorkshopService {
         customerId = customer.id;
       }
     } else {
-      const exists = await this.prisma.customer.findUnique({
+      const exists = await this.prisma.customer.findFirst({
         where: { id: customerId, tenant_id: tenantId },
       });
       if (!exists)

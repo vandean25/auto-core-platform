@@ -13,6 +13,15 @@ export class TenantContextService {
     TenantContextStorage.setUser(user);
   }
 
+  setTenantIdForWorker(tenantId: string): void {
+    this.setAuthenticatedUser({
+      userId: 'cloud-tasks-worker',
+      email: '',
+      tenantId,
+      role: 'worker',
+    });
+  }
+
   getAuthenticatedUser(): AuthenticatedUser | undefined {
     return TenantContextStorage.getUser();
   }

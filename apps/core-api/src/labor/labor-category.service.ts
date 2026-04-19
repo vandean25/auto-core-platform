@@ -98,8 +98,8 @@ export class LaborCategoryService {
 
     // Validate parent exists and depth constraint
     if (dto.parent_id) {
-      const parent = await this.prisma.laborCategory.findUnique({
-        where: { id: dto.parent_id },
+      const parent = await this.prisma.laborCategory.findFirst({
+        where: { id: dto.parent_id, tenant_id: tenantId },
         select: { id: true, parent_id: true },
       });
 
@@ -175,8 +175,8 @@ export class LaborCategoryService {
         throw new BadRequestException('A category cannot be its own parent.');
       }
 
-      const parent = await this.prisma.laborCategory.findUnique({
-        where: { id: dto.parent_id },
+      const parent = await this.prisma.laborCategory.findFirst({
+        where: { id: dto.parent_id, tenant_id: tenantId },
         select: { id: true, parent_id: true },
       });
 

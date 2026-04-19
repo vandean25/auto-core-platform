@@ -16,9 +16,7 @@ type StorageLocationSeedClient =
 
 export async function seedFixedStagingTotes(
   prisma: StorageLocationSeedClient,
-  options: { parentLocationId?: string | null; tenantId: string } = {
-    tenantId: 'default-tenant',
-  },
+  options: { parentLocationId?: string | null; tenantId: string },
 ): Promise<StagingToteSeedSummary> {
   const parentLocationId = options.parentLocationId ?? null;
   const tenantId = options.tenantId;

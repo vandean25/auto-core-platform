@@ -3294,11 +3294,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Returns the authenticated user. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        userId?: string;
+                        email?: string;
+                        tenantId?: string;
+                        role?: string;
+                    };
+                };
             };
         };
     };

@@ -110,6 +110,14 @@ export class VendorService {
       brandIds?: number[];
     },
   ): Promise<Vendor> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.vendor.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Vendor ${id} not found`);
+    }
+
     const vendor = await this.prisma.vendor.update({
       where: { id },
       data: {

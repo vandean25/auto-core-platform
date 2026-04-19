@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -36,12 +37,14 @@ import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Controller('workshop')
 export class WorkshopController {
   constructor(
     private readonly workshopService: WorkshopService,
     private readonly pdfService: WorkshopPdfService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   @Post('register')
@@ -222,7 +225,13 @@ export class WorkshopController {
   @Post('orders/:id/pdf/worker')
   @UseGuards(CloudTasksWorkerGuard)
   @HttpCode(204)
-  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
+  async generatePdfWorker(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-tenant-id') tenantHeader: string,
+  ) {
+    if (tenantHeader) {
+      this.tenantContext.setTenantIdForWorker(tenantHeader);
+    }
     await this.pdfService.generateNow(id);
   }
 

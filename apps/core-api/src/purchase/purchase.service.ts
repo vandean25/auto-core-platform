@@ -410,8 +410,9 @@ export class PurchaseService {
     itemId: string,
     updates: { quantity?: number; unitCost?: number },
   ) {
-    const po = await this.prisma.purchaseOrder.findUnique({
-      where: { id: orderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
       include: { items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -473,8 +474,9 @@ export class PurchaseService {
   }
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
-    const po = await this.prisma.purchaseOrder.findUnique({
-      where: { id: orderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
       include: { items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -530,29 +532,33 @@ export class PurchaseService {
   async findAll(
     params?: Prisma.PurchaseOrderFindManyArgs | string,
   ): Promise<PaginatedPurchaseOrderResult | PurchaseOrderWithRelations[]> {
+    const tenantId = await this.tenantContext.getTenantId();
     if (
       params &&
       typeof params === 'object' &&
       ('where' in params || 'orderBy' in params || 'skip' in params)
     ) {
+      const scopedWhere = { ...(params.where ?? {}), tenant_id: tenantId };
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
           ...params,
+          where: scopedWhere,
           include: { vendor: true, items: true },
         }),
         this.prisma.purchaseOrder.count({
-          where: params.where,
+          where: scopedWhere,
         }),
       ]);
       return { data, total };
     }
 
-    let where = {};
+    let where: Prisma.PurchaseOrderWhereInput = { tenant_id: tenantId };
     const status = params as string;
     const filter = status || 'all';
 
     if (filter === 'open') {
       where = {
+        tenant_id: tenantId,
         status: {
           in: [
             PurchaseOrderStatus.DRAFT,
@@ -571,8 +577,9 @@ export class PurchaseService {
   }
 
   async findOne(id: string) {
-    return this.prisma.purchaseOrder.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    return this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         vendor: { include: { supportedBrands: true } },
         items: {
@@ -583,9 +590,10 @@ export class PurchaseService {
   }
 
   async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.purchaseOrder.findUnique({
-        where: { id },
+      const order = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
         include: {
           items: {
             include: {

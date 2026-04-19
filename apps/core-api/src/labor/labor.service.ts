@@ -276,8 +276,8 @@ export class LaborService {
     }
 
     if (dto.categoryId) {
-      const category = await this.prisma.laborCategory.findUnique({
-        where: { id: dto.categoryId },
+      const category = await this.prisma.laborCategory.findFirst({
+        where: { id: dto.categoryId, tenant_id: tenantId },
         select: { id: true, is_active: true },
       });
       if (!category) {
@@ -369,8 +369,8 @@ export class LaborService {
     }
 
     if (dto.categoryId !== undefined && dto.categoryId !== null) {
-      const category = await this.prisma.laborCategory.findUnique({
-        where: { id: dto.categoryId },
+      const category = await this.prisma.laborCategory.findFirst({
+        where: { id: dto.categoryId, tenant_id: tenantId },
         select: { id: true, is_active: true },
       });
       if (!category) {
@@ -434,8 +434,9 @@ export class LaborService {
   }
 
   async softDelete(id: string) {
-    const operation = await this.prisma.laborOperation.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const operation = await this.prisma.laborOperation.findFirst({
+      where: { id, tenant_id: tenantId },
     });
 
     if (!operation) {

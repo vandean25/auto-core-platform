@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpException,
   HttpCode,
   Logger,
@@ -18,6 +19,7 @@ import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Controller('invoices')
 export class InvoicesController {
@@ -26,6 +28,7 @@ export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
     private readonly invoicePdfService: InvoicePdfService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   @Post('drafts')
@@ -56,7 +59,13 @@ export class InvoicesController {
   @UseGuards(CloudTasksWorkerGuard)
   @Post(':id/pdf/worker')
   @HttpCode(204)
-  async generatePdfWorker(@Param('id') id: string) {
+  async generatePdfWorker(
+    @Param('id') id: string,
+    @Headers('x-tenant-id') tenantHeader: string,
+  ) {
+    if (tenantHeader) {
+      this.tenantContext.setTenantIdForWorker(tenantHeader);
+    }
     try {
       await this.invoicePdfService.generateNow(id);
     } catch (error) {

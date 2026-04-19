@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
 import { WorkshopPdfStorage } from './workshop-pdf.storage';
 import { CloudTasksService } from '../common';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -30,6 +31,7 @@ export class WorkshopPdfService {
     private renderer: WorkshopPdfRenderer,
     private storage: WorkshopPdfStorage,
     private cloudTasks: CloudTasksService,
+    private tenantContext: TenantContextService,
   ) {}
 
   async requestGeneration(
@@ -98,9 +100,11 @@ export class WorkshopPdfService {
     }
 
     try {
+      const tenantId = await this.tenantContext.getTenantId();
       const { taskId } = await this.cloudTasks.enqueueWorkshopPdfGeneration({
         workshopOrderId,
         targetBaseUrl: params.targetBaseUrl,
+        tenantId,
       });
       return {
         mode: 'enqueued',
