@@ -73,6 +73,86 @@ export const createMockCustomer = (overrides: Partial<MockCustomer> = {}): MockC
   ...overrides,
 });
 
+// ---------------------------------------------------------------------------
+// Customer Detail Response (GET /api/customers/:id)
+// ---------------------------------------------------------------------------
+
+type MockSalesOrderSummary = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: string | number;
+  createdAt: string;
+};
+
+type MockWorkshopLineItemSummary = {
+  quantity: number;
+  unitPrice: number;
+};
+
+type MockWorkshopTaskSummary = {
+  lineItems?: MockWorkshopLineItemSummary[];
+};
+
+type MockWorkshopOrderSummary = {
+  id: string;
+  order_number?: string;
+  status: string;
+  createdAt: string;
+  vehicle_id?: string;
+  tasks?: MockWorkshopTaskSummary[];
+};
+
+type MockInvoiceSummary = {
+  id: string;
+  invoice_number: string | null;
+  status: string;
+  date: string;
+  total_gross: string | number;
+};
+
+type MockVehicleDetail = MockVehicle & {
+  vin?: string | null;
+};
+
+/**
+ * Full customer detail response matching the shape returned by
+ * GET /api/customers/:id (CustomerDetailResponse in CustomerDetail.tsx).
+ */
+type MockCustomerDetailResponse = MockCustomer & {
+  vat_id?: string | null;
+  address_street?: string | null;
+  address_zip?: string | null;
+  address_city?: string | null;
+  address_country?: string | null;
+  sales_orders?: MockSalesOrderSummary[];
+  workshop_orders?: MockWorkshopOrderSummary[];
+  invoices?: MockInvoiceSummary[];
+  vehicles?: MockVehicleDetail[];
+};
+
+export const createMockCustomerDetailResponse = (
+  overrides: Partial<MockCustomerDetailResponse> = {},
+): MockCustomerDetailResponse => ({
+  id: 'cust-123',
+  type: 'PRIVATE',
+  first_name: 'John',
+  last_name: 'Doe',
+  company_name: null,
+  email: 'john.doe@example.com',
+  phone: '+43 1 234 5678',
+  vat_id: null,
+  address_street: null,
+  address_zip: null,
+  address_city: null,
+  address_country: null,
+  sales_orders: [],
+  workshop_orders: [],
+  invoices: [],
+  vehicles: [],
+  ...overrides,
+});
+
 export const createMockVendor = (overrides: Partial<MockVendorShape> = {}): MockVendorShape => ({
   id: 'vendor-123',
   name: 'Bosch Automotive',
