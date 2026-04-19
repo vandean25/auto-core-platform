@@ -16,12 +16,7 @@ import { AutoCorePage } from './pom/AutoCorePage';
  * so tests are deterministic and do not depend on database seed state.
  */
 
-const STORAGE_KEY = 'acp:dashboard-widgets:e2e-user';
-
 /**
- * Seed the DashboardWidgetsProvider localStorage BEFORE the app boots.
- * The provider reads from `acp:dashboard-widgets:<userKey>` on mount.
- *
  * We need the app's DashboardWidgetsProvider to use the same userKey
  * that we seed here. Since the E2E env skips auth (VITE_E2E_SKIP_AUTH),
  * we look at how the app determines the userKey.
@@ -67,19 +62,6 @@ type MockWidget = {
   createdAt: string;
 };
 
-/**
- * Helper: Seed widgets into localStorage before navigation.
- * Uses page.addInitScript to inject the data before React hydration.
- */
-async function seedWidgets(page: import('@playwright/test').Page, widgets: MockWidget[], storageKey: string) {
-  const serialized = JSON.stringify(widgets);
-  await page.addInitScript(
-    ({ key, value }: { key: string; value: string }) => {
-      window.localStorage.setItem(key, value);
-    },
-    { key: storageKey, value: serialized },
-  );
-}
 
 test.describe('Blueprint: Dashboard Page', () => {
   test('renders page header with title and subtitle', async ({ page }) => {
