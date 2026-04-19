@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import {
-  createMockCustomer,
   createMockVehicle,
   createMockCustomerDetailResponse,
 } from './utils/mock-factories';
