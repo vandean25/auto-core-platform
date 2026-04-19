@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateLaborCategoryDto,
@@ -18,15 +19,19 @@ function toNumber(value: Prisma.Decimal | null | undefined): number | null {
 
 @Injectable()
 export class LaborCategoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Returns tree-structured categories: top-level parents with their
    * children nested. Only depth-1 children are included (max depth = 2).
    */
   async findAll() {
+    const tenantId = await this.tenantContext.getTenantId();
     const topLevel = await this.prisma.laborCategory.findMany({
-      where: { parent_id: null },
+      where: { tenant_id: tenantId, parent_id: null },
       orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
@@ -80,9 +85,10 @@ export class LaborCategoryService {
   }
 
   async create(dto: CreateLaborCategoryDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     // Validate unique name
-    const existing = await this.prisma.laborCategory.findUnique({
-      where: { name: dto.name },
+    const existing = await this.prisma.laborCategory.findFirst({
+      where: { tenant_id: tenantId, name: dto.name },
     });
     if (existing) {
       throw new ConflictException(
@@ -114,6 +120,7 @@ export class LaborCategoryService {
     try {
       const created = await this.prisma.laborCategory.create({
         data: {
+          tenant_id: tenantId,
           name: dto.name,
           description: dto.description,
           sort_order: dto.sort_order ?? 0,
@@ -141,8 +148,9 @@ export class LaborCategoryService {
   }
 
   async update(id: string, dto: UpdateLaborCategoryDto) {
-    const category = await this.prisma.laborCategory.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const category = await this.prisma.laborCategory.findFirst({
+      where: { id, tenant_id: tenantId },
     });
 
     if (!category) {
@@ -151,8 +159,8 @@ export class LaborCategoryService {
 
     // Validate unique name if being changed
     if (dto.name !== undefined && dto.name !== category.name) {
-      const existing = await this.prisma.laborCategory.findUnique({
-        where: { name: dto.name },
+      const existing = await this.prisma.laborCategory.findFirst({
+        where: { tenant_id: tenantId, name: dto.name },
       });
       if (existing) {
         throw new ConflictException(
@@ -187,7 +195,7 @@ export class LaborCategoryService {
       // Guard against depth-3: if this category already has children, making
       // it a child of another category would create a 3-level hierarchy.
       const existingChildCount = await this.prisma.laborCategory.count({
-        where: { parent_id: id },
+        where: { tenant_id: tenantId, parent_id: id },
       });
       if (existingChildCount > 0) {
         throw new BadRequestException(
@@ -231,8 +239,9 @@ export class LaborCategoryService {
   }
 
   async remove(id: string) {
-    const category = await this.prisma.laborCategory.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const category = await this.prisma.laborCategory.findFirst({
+      where: { id, tenant_id: tenantId },
     });
 
     if (!category) {
@@ -241,7 +250,7 @@ export class LaborCategoryService {
 
     // Guard: no child categories
     const childCount = await this.prisma.laborCategory.count({
-      where: { parent_id: id },
+      where: { tenant_id: tenantId, parent_id: id },
     });
     if (childCount > 0) {
       throw new ConflictException(
@@ -251,7 +260,7 @@ export class LaborCategoryService {
 
     // Guard: no LaborOperations referencing this category
     const operationCount = await this.prisma.laborOperation.count({
-      where: { category_id: id },
+      where: { tenant_id: tenantId, category_id: id },
     });
     if (operationCount > 0) {
       throw new ConflictException(

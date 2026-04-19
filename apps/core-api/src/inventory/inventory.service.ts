@@ -3,11 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Checks the availability of a part by SKU.
@@ -15,8 +19,9 @@ export class InventoryService {
    * @param sku The Manufacturer Part Number (MPN).
    */
   async checkAvailability(sku: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const item = await this.prisma.catalogItem.findUnique({
-      where: { sku },
+      where: { tenant_id_sku: { tenant_id: tenantId, sku } },
       include: {
         stocks: {
           include: {
@@ -71,6 +76,7 @@ export class InventoryService {
    * @param options Pagination, search, and filter options.
    */
   async findAll(params: any) {
+    const tenantId = await this.tenantContext.getTenantId();
     let items, total;
 
     // Check if using QueryBuilder params (has where/skip/take)
@@ -81,6 +87,7 @@ export class InventoryService {
       [items, total] = await Promise.all([
         this.prisma.catalogItem.findMany({
           ...params,
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
           include: {
             brand: true,
             stocks: {
@@ -93,7 +100,9 @@ export class InventoryService {
             },
           },
         }),
-        this.prisma.catalogItem.count({ where: params.where }),
+        this.prisma.catalogItem.count({
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
+        }),
       ]);
     } else {
       // Legacy path
@@ -108,7 +117,7 @@ export class InventoryService {
       } = params;
       const effectivePageSize = pageSize ?? limit;
       const skip = (page - 1) * effectivePageSize;
-      const where: any = {};
+      const where: any = { tenant_id: tenantId };
 
       if (search) {
         where.OR = [
@@ -211,9 +220,10 @@ export class InventoryService {
     brandId?: number;
     revenue_group_id?: number;
   }) {
+    const tenantId = await this.tenantContext.getTenantId();
     if (data.brandId) {
-      const brand = await this.prisma.brand.findUnique({
-        where: { id: data.brandId },
+      const brand = await this.prisma.brand.findFirst({
+        where: { id: data.brandId, tenant_id: tenantId },
       });
       if (!brand) {
         throw new BadRequestException(
@@ -224,6 +234,7 @@ export class InventoryService {
 
     const catalogItem = await this.prisma.catalogItem.create({
       data: {
+        tenant_id: tenantId,
         sku: data.sku,
         name: data.name,
         cost_price: data.cost_price,

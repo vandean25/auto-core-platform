@@ -8,17 +8,21 @@ import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class PurchaseInvoiceService {
   constructor(
     private prisma: PrismaService,
     private readonly realtimeService: DashboardRealtimeService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async getUnbilledReceipts(vendorId: string, invoiceId?: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const poItems = await this.prisma.purchaseOrderItem.findMany({
       where: {
+        tenant_id: tenantId,
         purchase_order: {
           vendor_id: vendorId,
         },
@@ -67,6 +71,7 @@ export class PurchaseInvoiceService {
   }
 
   async create(createDto: CreatePurchaseInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = createDto;
     const poItemTotals = new Map<string, number>();
 
@@ -80,7 +85,7 @@ export class PurchaseInvoiceService {
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } },
+          where: { tenant_id: tenantId, id: { in: poItemIds } },
           include: {
             purchase_order: {
               select: {
@@ -124,6 +129,7 @@ export class PurchaseInvoiceService {
         const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
+          tenant_id: tenantId,
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,
@@ -135,6 +141,7 @@ export class PurchaseInvoiceService {
 
       const invoice = await tx.purchaseInvoice.create({
         data: {
+          tenant_id: tenantId,
           vendor_id: data.vendorId,
           vendor_invoice_number: data.vendorInvoiceNumber,
           invoice_date: new Date(data.invoiceDate),
@@ -176,6 +183,7 @@ export class PurchaseInvoiceService {
   }
 
   async update(id: string, updateDto: CreatePurchaseInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = updateDto;
     const poItemTotals = new Map<string, number>();
 
@@ -188,7 +196,7 @@ export class PurchaseInvoiceService {
     const updatedInvoice = await this.prisma.$transaction(async (tx) => {
       // Atomic check and lock attempt via updateMany (which returns count)
       const updateCount = await tx.purchaseInvoice.updateMany({
-        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { updatedAt: new Date() }, // Just to "touch" the row and ensure it's DRAFT
       });
 
@@ -198,8 +206,8 @@ export class PurchaseInvoiceService {
         );
       }
 
-      const existingInvoice = await tx.purchaseInvoice.findUnique({
-        where: { id },
+      const existingInvoice = await tx.purchaseInvoice.findFirst({
+        where: { id, tenant_id: tenantId },
         include: { lines: true },
       });
 
@@ -224,7 +232,7 @@ export class PurchaseInvoiceService {
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } },
+          where: { tenant_id: tenantId, id: { in: poItemIds } },
           include: {
             purchase_order: {
               select: {
@@ -274,6 +282,7 @@ export class PurchaseInvoiceService {
         const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
+          tenant_id: tenantId,
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,

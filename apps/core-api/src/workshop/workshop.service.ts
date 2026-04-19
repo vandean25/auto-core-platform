@@ -24,6 +24,7 @@ import {
 import { InvoicesService } from '../invoices/invoices.service';
 import { LedgerService } from '../inventory/ledger.service';
 import type { RecordTransactionParams } from '../inventory/ledger.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -46,18 +47,21 @@ export class WorkshopService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(InvoicesService) private invoicesService: InvoicesService,
     @Inject(LedgerService) private ledgerService: LedgerService,
+    @Inject(TenantContextService)
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   private async generateOrderNumber() {
+    const tenantId = await this.tenantContext.getTenantId();
     const currentYear = new Date().getFullYear();
     const prefix = `WO-${currentYear}-`;
 
     const settings = await this.prisma.$transaction(async (tx) => {
       await tx.financeSettings.upsert({
-        where: { id: 1 },
+        where: { tenant_id: tenantId },
         update: {},
         create: {
-          id: 1,
+          tenant_id: tenantId,
           fiscal_year_start_month: 1,
           lock_date: null,
           next_invoice_number: 1001,
@@ -70,7 +74,7 @@ export class WorkshopService {
       });
 
       return tx.financeSettings.update({
-        where: { id: 1 },
+        where: { tenant_id: tenantId },
         data: {
           next_workshop_order_number: { increment: 1 },
           workshop_order_prefix: prefix,
@@ -128,8 +132,9 @@ export class WorkshopService {
     quantity: number,
     reservations: AllocationReservationMap,
   ): Promise<SourceAllocation[]> {
-    const sourceLocation = await tx.storageLocation.findUnique({
-      where: { id: sourceLocationId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const sourceLocation = await tx.storageLocation.findFirst({
+      where: { id: sourceLocationId, tenant_id: tenantId },
       select: {
         id: true,
         type: true,
@@ -147,12 +152,11 @@ export class WorkshopService {
       );
     }
 
-    const sourceStock = await tx.inventoryStock.findUnique({
+    const sourceStock = await tx.inventoryStock.findFirst({
       where: {
-        catalog_item_id_location_id: {
-          catalog_item_id: catalogItemId,
-          location_id: sourceLocationId,
-        },
+        tenant_id: tenantId,
+        catalog_item_id: catalogItemId,
+        location_id: sourceLocationId,
       },
       select: {
         quantity_on_hand: true,
@@ -180,8 +184,10 @@ export class WorkshopService {
     quantity: number,
     reservations: AllocationReservationMap,
   ): Promise<SourceAllocation[]> {
+    const tenantId = await this.tenantContext.getTenantId();
     const sourceStocks = await tx.inventoryStock.findMany({
       where: {
+        tenant_id: tenantId,
         catalog_item_id: catalogItemId,
         quantity_on_hand: { gt: 0 },
         location: {
@@ -265,11 +271,14 @@ export class WorkshopService {
   }
 
   async register(dto: RegisterIntakeDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     let customerId = dto.customerId;
 
     if (!customerId) {
       const existingCustomer = dto.email
-        ? await this.prisma.customer.findUnique({ where: { email: dto.email } })
+        ? await this.prisma.customer.findFirst({
+            where: { tenant_id: tenantId, email: dto.email },
+          })
         : null;
 
       if (existingCustomer) {
@@ -277,6 +286,7 @@ export class WorkshopService {
       } else {
         const customer = await this.prisma.customer.create({
           data: {
+            tenant_id: tenantId,
             first_name: dto.firstName || '',
             last_name: dto.lastName || '',
             email: dto.email,
@@ -288,19 +298,20 @@ export class WorkshopService {
       }
     } else {
       const exists = await this.prisma.customer.findUnique({
-        where: { id: customerId },
+        where: { id: customerId, tenant_id: tenantId },
       });
       if (!exists)
         throw new NotFoundException(`Customer ${customerId} not found`);
     }
 
     const vehicle = await this.prisma.vehicle.upsert({
-      where: { vin: dto.vin },
+      where: { tenant_id_vin: { tenant_id: tenantId, vin: dto.vin } },
       update: {
         plate: dto.plate,
         customer_id: customerId,
       },
       create: {
+        tenant_id: tenantId,
         vin: dto.vin,
         plate: dto.plate,
         make: dto.make,
@@ -317,9 +328,14 @@ export class WorkshopService {
   }
 
   async create(dto: CreateWorkshopOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const [customer, vehicle] = await Promise.all([
-      this.prisma.customer.findUnique({ where: { id: dto.customerId } }),
-      this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } }),
+      this.prisma.customer.findFirst({
+        where: { id: dto.customerId, tenant_id: tenantId },
+      }),
+      this.prisma.vehicle.findFirst({
+        where: { id: dto.vehicleId, tenant_id: tenantId },
+      }),
     ]);
     if (!customer)
       throw new NotFoundException(`Customer ${dto.customerId} not found`);
@@ -330,6 +346,7 @@ export class WorkshopService {
 
     const order = await this.prisma.workshopOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: orderNumber,
         customer_id: dto.customerId,
         vehicle_id: dto.vehicleId,
@@ -360,6 +377,7 @@ export class WorkshopService {
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
   }) {
+    const tenantId = await this.tenantContext.getTenantId();
     const page = params.page && params.page > 0 ? params.page : 1;
     const resolvedPageSize =
       params.pageSize && params.pageSize > 0
@@ -369,6 +387,7 @@ export class WorkshopService {
 
     const where: Prisma.WorkshopOrderWhereInput = params.search
       ? {
+          tenant_id: tenantId,
           OR: [
             {
               order_number: { contains: params.search, mode: 'insensitive' },
@@ -407,7 +426,7 @@ export class WorkshopService {
             },
           ],
         }
-      : {};
+      : { tenant_id: tenantId };
 
     const sortField = params.sortField ?? 'createdAt';
     const sortDirection = params.sortDirection ?? 'desc';
@@ -459,8 +478,9 @@ export class WorkshopService {
   }
 
   async findOne(id: string) {
-    const order = await this.prisma.workshopOrder.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const order = await this.prisma.workshopOrder.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         customer: true,
         vehicle: true,
@@ -508,9 +528,10 @@ export class WorkshopService {
   }
 
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const createdTask = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findUnique({
-        where: { id: orderId },
+      const order = await tx.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           tasks: true,
           invoice: { select: { id: true, invoice_number: true } },
@@ -524,6 +545,7 @@ export class WorkshopService {
 
       const task = await tx.workshopTask.create({
         data: {
+          tenant_id: tenantId,
           workshop_order_id: orderId,
           title: dto.title,
           status: WorkshopTaskStatus.NOT_STARTED,
@@ -680,9 +702,11 @@ export class WorkshopService {
     taskId: string,
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     const task = await this.prisma.workshopTask.findFirst({
       where: {
         id: taskId,
+        tenant_id: tenantId,
         workshop_order_id: orderId,
       },
       include: {
@@ -709,6 +733,7 @@ export class WorkshopService {
         if (dto.items.length > 0) {
           await tx.workshopTaskLineItem.createMany({
             data: dto.items.map((item) => ({
+              tenant_id: tenantId,
               workshop_task_id: taskId,
               type:
                 item.type === WorkshopLineItemType.LABOR
@@ -754,9 +779,10 @@ export class WorkshopService {
   }
 
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findUnique({
-        where: { id: orderId },
+      const order = await tx.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         select: {
           id: true,
           order_number: true,
@@ -780,8 +806,8 @@ export class WorkshopService {
         );
       }
 
-      const destinationLocation = await tx.storageLocation.findUnique({
-        where: { id: dto.destinationLocationId },
+      const destinationLocation = await tx.storageLocation.findFirst({
+        where: { id: dto.destinationLocationId, tenant_id: tenantId },
         select: {
           id: true,
           type: true,
@@ -857,6 +883,7 @@ export class WorkshopService {
       const skus = Array.from(new Set(lineItems.map((lineItem) => lineItem.item_no)));
       const catalogItems = await tx.catalogItem.findMany({
         where: {
+          tenant_id: tenantId,
           sku: { in: skus },
         },
         select: {

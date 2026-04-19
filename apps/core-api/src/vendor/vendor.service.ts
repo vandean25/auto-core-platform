@@ -5,10 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Vendor, Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class VendorService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async create(data: {
     name: string;
@@ -16,8 +20,10 @@ export class VendorService {
     accountNumber: string;
     brandIds?: number[];
   }): Promise<Vendor> {
+    const tenantId = await this.tenantContext.getTenantId();
     const vendor = await this.prisma.vendor.create({
       data: {
+        tenant_id: tenantId,
         name: data.name,
         email: data.email,
         account_number: data.accountNumber,
@@ -36,6 +42,7 @@ export class VendorService {
   }
 
   async findAll(params?: any): Promise<any> {
+    const tenantId = await this.tenantContext.getTenantId();
     // return type any to support paginated response
     if (
       params &&
@@ -44,16 +51,20 @@ export class VendorService {
       const [data, total] = await Promise.all([
         this.prisma.vendor.findMany({
           ...params,
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
           include: {
             supportedBrands: true,
           },
         }),
-        this.prisma.vendor.count({ where: params.where }),
+        this.prisma.vendor.count({
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
+        }),
       ]);
       return { data, total };
     }
 
     return this.prisma.vendor.findMany({
+      where: { tenant_id: tenantId },
       include: {
         supportedBrands: true,
       },
@@ -70,8 +81,9 @@ export class VendorService {
       purchase_invoices: true;
     };
   }> | null> {
-    return this.prisma.vendor.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    return this.prisma.vendor.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         supportedBrands: true,
         purchase_orders: {
@@ -119,16 +131,21 @@ export class VendorService {
   }
 
   async remove(id: string): Promise<Vendor> {
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id, tenant_id: tenantId },
     });
     if (!vendor) {
       throw new NotFoundException(`Vendor ${id} not found`);
     }
 
     const [purchaseOrdersCount, purchaseInvoicesCount] = await Promise.all([
-      this.prisma.purchaseOrder.count({ where: { vendor_id: id } }),
-      this.prisma.purchaseInvoice.count({ where: { vendor_id: id } }),
+      this.prisma.purchaseOrder.count({
+        where: { tenant_id: tenantId, vendor_id: id },
+      }),
+      this.prisma.purchaseInvoice.count({
+        where: { tenant_id: tenantId, vendor_id: id },
+      }),
     ]);
 
     if (purchaseOrdersCount > 0 || purchaseInvoicesCount > 0) {

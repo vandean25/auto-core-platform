@@ -24,6 +24,7 @@ async function cleanDb() {
     console.log('Cleaning database...');
     
     const tables = [
+        'tenants',
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
         'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
@@ -38,6 +39,7 @@ async function cleanDb() {
     }
 
     // Delete in order to satisfy foreign key constraints
+    if (existingTables.has('tenants')) await prisma.tenant.deleteMany();
     if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
@@ -114,6 +116,17 @@ async function recordInitialStock(
 
 async function main() {
     await cleanDb();
+
+    console.log('Seeding tenant foundation...');
+    await prisma.tenant.upsert({
+        where: { slug: 'default-workshop' },
+        update: {},
+        create: {
+            name: 'Default Workshop',
+            slug: 'default-workshop',
+            plan: 'STANDARD',
+        },
+    });
 
     console.log('Seeding Finance Module settings...');
     // Revenue Groups (Austrian standards)

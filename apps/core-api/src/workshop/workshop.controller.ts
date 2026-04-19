@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
+import { Public } from '../common/decorators/public.decorator';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
@@ -217,6 +218,7 @@ export class WorkshopController {
   }
 
   @ApiExcludeEndpoint()
+  @Public()
   @Post('orders/:id/pdf/worker')
   @UseGuards(CloudTasksWorkerGuard)
   @HttpCode(204)

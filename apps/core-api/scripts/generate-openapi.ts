@@ -20,6 +20,15 @@ async function generateOpenApiSpec() {
       'Generated OpenAPI spec for contract checks and client types.',
     )
     .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'bearer',
+    )
+    .addSecurityRequirements('bearer')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

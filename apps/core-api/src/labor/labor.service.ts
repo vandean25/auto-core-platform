@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateLaborOperationDto,
@@ -16,9 +17,13 @@ const SEARCH_LIMIT = 20;
 
 @Injectable()
 export class LaborService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async search(query: string, workshopOrderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const trimmedQuery = query.trim();
     const trimmedWorkshopOrderId = workshopOrderId.trim();
     if (!trimmedQuery) {
@@ -29,8 +34,8 @@ export class LaborService {
       throw new BadRequestException('workshopOrderId is required');
     }
 
-    const workshopOrder = await this.prisma.workshopOrder.findUnique({
-      where: { id: trimmedWorkshopOrderId },
+    const workshopOrder = await this.prisma.workshopOrder.findFirst({
+      where: { id: trimmedWorkshopOrderId, tenant_id: tenantId },
       select: {
         vehicle: {
           select: {
@@ -57,6 +62,7 @@ export class LaborService {
     const { make, model, year, engine_code } = workshopOrder.vehicle;
 
     const laborWhere: Prisma.LaborOperationWhereInput = {
+      tenant_id: tenantId,
       is_active: true,
       OR: [
         {
@@ -170,6 +176,7 @@ export class LaborService {
   }
 
   async findAll(query: ListLaborOperationsQueryDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const {
       search,
       categoryId,
@@ -180,7 +187,7 @@ export class LaborService {
       sortDirection = 'asc',
     } = query;
 
-    const where: Prisma.LaborOperationWhereInput = {};
+    const where: Prisma.LaborOperationWhereInput = { tenant_id: tenantId };
 
     if (search) {
       where.OR = [
@@ -241,8 +248,9 @@ export class LaborService {
   }
 
   async findOne(id: string) {
-    const operation = await this.prisma.laborOperation.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const operation = await this.prisma.laborOperation.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         category: { select: { id: true, name: true } },
         fitments: true,
@@ -257,8 +265,9 @@ export class LaborService {
   }
 
   async create(dto: CreateLaborOperationDto) {
-    const existing = await this.prisma.laborOperation.findUnique({
-      where: { code: dto.code },
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.laborOperation.findFirst({
+      where: { tenant_id: tenantId, code: dto.code },
     });
     if (existing) {
       throw new ConflictException(
@@ -286,6 +295,7 @@ export class LaborService {
     try {
       const created = await this.prisma.laborOperation.create({
         data: {
+          tenant_id: tenantId,
           code: dto.code,
           description: dto.description,
           standard_aw: dto.standardAw,
@@ -326,8 +336,9 @@ export class LaborService {
   }
 
   async update(id: string, dto: UpdateLaborOperationDto) {
-    const operation = await this.prisma.laborOperation.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const operation = await this.prisma.laborOperation.findFirst({
+      where: { id, tenant_id: tenantId },
     });
 
     if (!operation) {
@@ -347,8 +358,8 @@ export class LaborService {
     }
 
     if (dto.code !== undefined && dto.code !== operation.code) {
-      const existing = await this.prisma.laborOperation.findUnique({
-        where: { code: dto.code },
+      const existing = await this.prisma.laborOperation.findFirst({
+        where: { tenant_id: tenantId, code: dto.code },
       });
       if (existing) {
         throw new ConflictException(

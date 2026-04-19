@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Customer, Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -13,11 +14,16 @@ const MAX_HISTORY_LIMIT = 100;
 
 @Injectable()
 export class CustomerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async create(createCustomerDto: CreateCustomerDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const customer = await this.prisma.client.customer.create({
       data: {
+        tenant_id: tenantId,
         type: createCustomerDto.type,
         company_name: createCustomerDto.company_name,
         first_name: createCustomerDto.first_name,
@@ -43,6 +49,7 @@ export class CustomerService {
   async findAll(
     params?: string | Prisma.CustomerFindManyArgs,
   ): Promise<Customer[] | { data: Customer[]; total: number }> {
+    const tenantId = await this.tenantContext.getTenantId();
     // If params is just a Prisma query object from QueryBuilder
     if (
       params &&
@@ -50,8 +57,13 @@ export class CustomerService {
       (params.where || params.orderBy || params.skip !== undefined)
     ) {
       const [data, total] = await Promise.all([
-        this.prisma.client.customer.findMany(params),
-        this.prisma.customer.count({ where: params.where }),
+        this.prisma.client.customer.findMany({
+          ...params,
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
+        }),
+        this.prisma.customer.count({
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
+        }),
       ]);
       return { data, total };
     }
@@ -61,6 +73,7 @@ export class CustomerService {
     return this.prisma.client.customer.findMany({
       where: search
         ? {
+            tenant_id: tenantId,
             OR: [
               { first_name: { contains: search, mode: 'insensitive' } },
               { last_name: { contains: search, mode: 'insensitive' } },
@@ -68,7 +81,7 @@ export class CustomerService {
               { email: { contains: search, mode: 'insensitive' } },
             ],
           }
-        : undefined,
+        : { tenant_id: tenantId },
       orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
     });
   }
@@ -77,6 +90,7 @@ export class CustomerService {
     id: string,
     options?: { historyPage?: number; historyLimit?: number },
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     const historyPage =
       options?.historyPage && options.historyPage > 0 ? options.historyPage : 1;
     const requestedHistoryLimit =
@@ -87,8 +101,8 @@ export class CustomerService {
     const historySkip = (historyPage - 1) * historyLimit;
 
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
-      this.prisma.customer.findUnique({
-        where: { id },
+      this.prisma.customer.findFirst({
+        where: { id, tenant_id: tenantId },
         include: {
           vehicles: true,
           sales_orders: {
@@ -121,8 +135,12 @@ export class CustomerService {
           },
         },
       }),
-      this.prisma.workshopOrder.count({ where: { customer_id: id } }),
-      this.prisma.invoice.count({ where: { customer_id: id } }),
+      this.prisma.workshopOrder.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
+      this.prisma.invoice.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
     ]);
     if (!customer)
       throw new NotFoundException(`Customer with ID ${id} not found`);
@@ -165,6 +183,7 @@ export class CustomerService {
   }
 
   async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     await this.ensureCustomerExists(id);
 
     const [
@@ -173,10 +192,18 @@ export class CustomerService {
       workshopOrdersCount,
       vehiclesCount,
     ] = await Promise.all([
-      this.prisma.salesOrder.count({ where: { customer_id: id } }),
-      this.prisma.invoice.count({ where: { customer_id: id } }),
-      this.prisma.workshopOrder.count({ where: { customer_id: id } }),
-      this.prisma.vehicle.count({ where: { customer_id: id } }),
+      this.prisma.salesOrder.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
+      this.prisma.invoice.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
+      this.prisma.workshopOrder.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
+      this.prisma.vehicle.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
     ]);
 
     if (salesOrdersCount > 0 || invoicesCount > 0 || workshopOrdersCount > 0) {
@@ -199,8 +226,9 @@ export class CustomerService {
   }
 
   private async ensureCustomerExists(id: string) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, tenant_id: tenantId },
       select: { id: true },
     });
     if (!customer) {

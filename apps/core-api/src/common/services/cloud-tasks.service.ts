@@ -75,7 +75,6 @@ export class CloudTasksService {
     const configured =
       Boolean(process.env.CLOUD_TASKS_LOCATION) &&
       Boolean(process.env.CLOUD_TASKS_QUEUE) &&
-      Boolean(process.env.API_KEY) &&
       Boolean(process.env.CLOUD_TASKS_WORKER_SECRET);
     if (!configured) {
       return false;
@@ -105,12 +104,11 @@ export class CloudTasksService {
           );
         }
 
-        const apiKey = process.env.API_KEY;
         const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
         const location = process.env.CLOUD_TASKS_LOCATION;
         const queue = process.env.CLOUD_TASKS_QUEUE;
 
-        if (!apiKey || !workerSecret || !location || !queue) {
+        if (!workerSecret || !location || !queue) {
           throw new InternalServerErrorException(
             'Cloud Tasks is missing required configuration environment variables',
           );
@@ -152,7 +150,6 @@ export class CloudTasksService {
               url,
               headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey,
                 'x-cloud-tasks-secret': workerSecret,
               },
               body: Buffer.from('{}'),
@@ -201,12 +198,11 @@ export class CloudTasksService {
           );
         }
 
-        const apiKey = process.env.API_KEY;
         const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
         const location = process.env.CLOUD_TASKS_LOCATION;
         const queue = process.env.CLOUD_TASKS_QUEUE;
 
-        if (!apiKey || !workerSecret || !location || !queue) {
+        if (!workerSecret || !location || !queue) {
           throw new InternalServerErrorException(
             'Cloud Tasks is missing required config variables',
           );
@@ -251,7 +247,6 @@ export class CloudTasksService {
               url,
               headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey,
                 'x-cloud-tasks-secret': workerSecret,
               },
               body: Buffer.from('{}'),
