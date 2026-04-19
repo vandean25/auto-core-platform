@@ -2744,6 +2744,28 @@
         "tags": [
           "Vehicle"
         ]
+      },
+      "post": {
+        "operationId": "VehicleController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
       }
     },
     "/api/vehicles/{id}": {
@@ -4035,6 +4057,39 @@
           "labor",
           "parts",
           "meta"
+        ]
+      },
+      "CreateVehicleDto": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "make",
+          "model",
+          "year"
         ]
       },
       "UpdateVehicleDto": {

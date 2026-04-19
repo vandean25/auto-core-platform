@@ -56,6 +56,38 @@ export function useVehicle<TVehicle = Vehicle>(id: string) {
   })
 }
 
+export function useCreateVehicle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: {
+      make: string
+      model: string
+      year: number
+      engine_code?: string
+      vin?: string
+      plate?: string
+      customer_id?: string | null
+    }) => {
+      const response = await fetchWithAuth('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ message: 'Failed to create vehicle' }))
+        throw new Error(payload.message || 'Failed to create vehicle')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+    },
+  })
+}
+
 export function useUpdateVehicle() {
   const queryClient = useQueryClient()
 

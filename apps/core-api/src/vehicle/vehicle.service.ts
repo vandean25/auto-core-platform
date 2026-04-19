@@ -6,10 +6,56 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
 
 @Injectable()
 export class VehicleService {
   constructor(private prisma: PrismaService) {}
+
+  async create(createVehicleDto: CreateVehicleDto) {
+    const { customer_id, ...scalarData } = createVehicleDto;
+
+    if (customer_id) {
+      const customerExists = await this.prisma.customer.findUnique({
+        where: { id: customer_id },
+        select: { id: true },
+      });
+
+      if (!customerExists) {
+        throw new NotFoundException(
+          `Customer with ID ${customer_id} not found`,
+        );
+      }
+    }
+
+    const data: Prisma.VehicleCreateInput = {
+      ...scalarData,
+      ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
+    };
+
+    try {
+      const createdVehicle = await this.prisma.vehicle.create({
+        data,
+        include: { customer: true },
+      });
+
+      return createdVehicle;
+    } catch (error: any) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = error.meta?.target;
+        const fields = Array.isArray(target) ? target.join(', ') : undefined;
+        throw new ConflictException(
+          fields
+            ? `Unique constraint failed on fields: ${fields}`
+            : 'Unique constraint violation',
+        );
+      }
+      throw error;
+    }
+  }
 
   async findAll(params: {
     search?: string;

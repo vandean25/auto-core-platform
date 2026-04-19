@@ -62,6 +62,20 @@ export const createMockVehicle = (overrides: Partial<MockVehicle> = {}): MockVeh
   ...overrides,
 });
 
+export const createMockVehicleListItem = (overrides: Partial<MockVehicle & { customer: Partial<MockCustomer> }> = {}) => ({
+  id: 'veh-list-123',
+  make: 'Toyota',
+  model: 'Corolla',
+  year: 2021,
+  engine_code: '2ZR-FAE',
+  vin: 'JTD1234567890VIN',
+  plate: 'TY-2021-COR',
+  createdAt: '2026-03-01T10:00:00Z',
+  updatedAt: '2026-03-01T10:00:00Z',
+  customer: createMockCustomer(),
+  ...overrides,
+});
+
 export const createMockCustomer = (overrides: Partial<MockCustomer> = {}): MockCustomer => ({
   id: 'cust-123',
   type: 'PRIVATE',
