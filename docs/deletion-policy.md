@@ -31,8 +31,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
 | PurchaseInvoice | No | Financial document; use status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
-| Employee | Conditional (future API) | Allow only when not referenced by any `WorkshopOrder.mechanic_id`; prefer `is_active = false` for deactivation. |
-| Bay | Conditional (future API) | Allow only when not referenced by any `WorkshopOrder.bay_id`; prefer `is_active = false` for deactivation. |
+| Employee | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.mechanic_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
+| Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED` and no linked invoice exists yet on the order. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
