@@ -36,6 +36,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
+| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.mechanic_id` references this employee. |
+| Bay | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.bay_id` references this bay. |
 
 ## UI Contract
 
