@@ -460,6 +460,37 @@ enum WorkshopOrderStatus {
   INVOICED
 }
 
+enum EmployeeRole {
+  MECHANIC
+  SERVICE_ADVISOR
+  PARTS_CLERK
+}
+
+model Employee {
+  id                      String          @id @default(uuid())
+  name                    String
+  role                    EmployeeRole
+  is_active               Boolean         @default(true)
+  sort_order              Int             @default(0)
+  workshopOrdersAsMechanic WorkshopOrder[] @relation("WorkshopOrderMechanic")
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@map("employees")
+}
+
+model Bay {
+  id             String          @id @default(uuid())
+  name           String          @unique
+  is_active      Boolean         @default(true)
+  sort_order     Int             @default(0)
+  workshopOrders WorkshopOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("bays")
+}
+
 model WorkshopOrder {
   id           String              @id @default(uuid())
   order_number String              @unique
@@ -471,6 +502,10 @@ model WorkshopOrder {
   vehicle      Vehicle             @relation(fields: [vehicle_id], references: [id])
   staging_location_id String?
   stagingLocation StorageLocation? @relation("WorkshopOrderStagingLocation", fields: [staging_location_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  mechanic_id  String?
+  mechanic     Employee?           @relation("WorkshopOrderMechanic", fields: [mechanic_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  bay_id       String?
+  bay          Bay?                @relation(fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   odometer     Int
   fuel_level   Int                 // 0-100
@@ -488,6 +523,8 @@ model WorkshopOrder {
   pdf_generation_error String?
 
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
+  @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
+  @@index([bay_id], map: "idx_workshop_orders_bay_id")
   @@map("workshop_orders")
 }
 
