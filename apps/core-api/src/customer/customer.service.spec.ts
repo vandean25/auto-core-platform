@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerService } from './customer.service';
 
@@ -9,6 +10,7 @@ describe('CustomerService', () => {
   const mockPrisma = {
     customer: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       delete: jest.fn(),
     },
     salesOrder: { count: jest.fn() },
@@ -22,6 +24,7 @@ describe('CustomerService', () => {
       providers: [
         CustomerService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
       ],
     }).compile();
 
@@ -30,7 +33,7 @@ describe('CustomerService', () => {
   });
 
   it('deletes customer when no linked business records exist', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.salesOrder.count.mockResolvedValue(0);
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
@@ -45,7 +48,7 @@ describe('CustomerService', () => {
   });
 
   it('blocks delete when orders/invoices/workshop orders are linked', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.salesOrder.count.mockResolvedValue(1);
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
@@ -55,7 +58,7 @@ describe('CustomerService', () => {
   });
 
   it('blocks delete when vehicles are linked', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.salesOrder.count.mockResolvedValue(0);
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
@@ -65,7 +68,7 @@ describe('CustomerService', () => {
   });
 
   it('throws not found when customer does not exist', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue(null);
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
   });
 });

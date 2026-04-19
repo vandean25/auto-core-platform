@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LaborService } from './labor.service';
 
@@ -11,6 +12,7 @@ const mockPrisma = {
   laborOperation: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -20,7 +22,12 @@ const mockPrisma = {
   },
   workshopOrder: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
+};
+
+const mockTenantContextService = {
+  getTenantId: jest.fn().mockResolvedValue('tenant-1'),
 };
 
 const baseOperation = {
@@ -42,7 +49,10 @@ describe('LaborService', () => {
   let service: LaborService;
 
   beforeEach(() => {
-    service = new LaborService(mockPrisma as unknown as PrismaService);
+    service = new LaborService(
+      mockPrisma as unknown as PrismaService,
+      mockTenantContextService as unknown as TenantContextService,
+    );
     jest.clearAllMocks();
   });
 
@@ -131,7 +141,7 @@ describe('LaborService', () => {
 
   describe('findOne', () => {
     it('returns a mapped operation by ID', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
 
       const result = await service.findOne('op-1');
 
@@ -142,7 +152,7 @@ describe('LaborService', () => {
     });
 
     it('throws NotFoundException when operation not found', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
 
       await expect(service.findOne('missing')).rejects.toThrow(
         NotFoundException,
@@ -161,7 +171,7 @@ describe('LaborService', () => {
     };
 
     it('creates an operation successfully', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       mockPrisma.laborOperation.create.mockResolvedValue(baseOperation);
 
       const result = await service.create(createDto);
@@ -171,7 +181,7 @@ describe('LaborService', () => {
     });
 
     it('throws ConflictException on duplicate code (pre-check)', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue({
+      mockPrisma.laborOperation.findFirst.mockResolvedValue({
         id: 'existing',
       });
 
@@ -182,7 +192,7 @@ describe('LaborService', () => {
     });
 
     it('maps Prisma P2002 to ConflictException (concurrent duplicate)', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       const p2002 = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint',
         {
@@ -198,7 +208,7 @@ describe('LaborService', () => {
     });
 
     it('validates categoryId exists and is active', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -207,7 +217,7 @@ describe('LaborService', () => {
     });
 
     it('throws BadRequestException when category is inactive', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       mockPrisma.laborCategory.findUnique.mockResolvedValue({
         id: 'cat-uuid',
         is_active: false,
@@ -232,7 +242,7 @@ describe('LaborService', () => {
           },
         ],
       };
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       mockPrisma.laborOperation.create.mockResolvedValue(opWithFitments);
 
       const result = await service.create({
@@ -253,7 +263,7 @@ describe('LaborService', () => {
     });
 
     it('creates operation with explicit isActive value', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
       mockPrisma.laborOperation.create.mockResolvedValue({
         ...baseOperation,
         is_active: false,
@@ -277,7 +287,7 @@ describe('LaborService', () => {
 
   describe('update', () => {
     it('updates operation successfully', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         description: 'Updated Description',
@@ -291,7 +301,7 @@ describe('LaborService', () => {
     });
 
     it('throws NotFoundException when operation not found', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
 
       await expect(
         service.update('missing', { description: 'New' }),
@@ -299,7 +309,7 @@ describe('LaborService', () => {
     });
 
     it('throws ConflictException when new code is already taken', async () => {
-      mockPrisma.laborOperation.findUnique
+      mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation) // operation exists
         .mockResolvedValueOnce({ id: 'other-op' }); // code taken
 
@@ -309,7 +319,7 @@ describe('LaborService', () => {
     });
 
     it('does not re-check code uniqueness when code is unchanged', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValueOnce(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValueOnce(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         description: 'Updated',
@@ -317,11 +327,11 @@ describe('LaborService', () => {
 
       await service.update('op-1', { code: 'OP001', description: 'Updated' });
 
-      expect(mockPrisma.laborOperation.findUnique).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.laborOperation.findFirst).toHaveBeenCalledTimes(1);
     });
 
     it('replaces fitments when fitments array provided', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         fitments: [
@@ -344,7 +354,7 @@ describe('LaborService', () => {
     });
 
     it('updates is_active when isActive is provided', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         is_active: false,
@@ -402,7 +412,7 @@ describe('LaborService', () => {
     };
 
     it('passes is_active: true to the where clause', async () => {
-      mockPrisma.workshopOrder.findUnique.mockResolvedValue({ vehicle });
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({ vehicle });
       mockPrisma.laborOperation.findMany.mockResolvedValue([]);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
 
@@ -428,7 +438,7 @@ describe('LaborService', () => {
     });
 
     it('throws NotFoundException when workshop order not found', async () => {
-      mockPrisma.workshopOrder.findUnique.mockResolvedValue(null);
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
 
       await expect(service.search('oil', 'wo-missing')).rejects.toThrow(
         NotFoundException,

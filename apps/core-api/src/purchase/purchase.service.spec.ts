@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PurchaseService } from './purchase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 
@@ -15,10 +16,12 @@ describe('PurchaseService', () => {
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     purchaseOrder: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
@@ -49,12 +52,17 @@ describe('PurchaseService', () => {
     recordTransactions: jest.fn(),
   };
 
+  const mockTenantContextService = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchaseService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
+        { provide: TenantContextService, useValue: mockTenantContextService },
       ],
     }).compile();
 
@@ -69,14 +77,14 @@ describe('PurchaseService', () => {
 
   describe('createPurchaseOrder', () => {
     it('should throw if vendor not found', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue(null);
+      mockPrismaService.vendor.findFirst.mockResolvedValue(null);
       await expect(service.createPurchaseOrder('v1', [])).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should throw if brand not supported', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -97,7 +105,7 @@ describe('PurchaseService', () => {
     });
 
     it('should create PO if brand supported', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -123,7 +131,7 @@ describe('PurchaseService', () => {
     });
 
     it('should use secure random number generator for order number', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -175,7 +183,11 @@ describe('PurchaseService', () => {
         ],
       };
 
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue(mockPO);
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(mockPO);
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        ...mockPO,
+        items: [{ ...mockPO.items[0], quantity_received: 5 }],
+      });
       mockPrismaService.storageLocation.findFirst.mockResolvedValue({
         id: 'loc1',
         type: 'warehouse',
