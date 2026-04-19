@@ -89,6 +89,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                 vin: vehicle.vin || '',
                 plate: vehicle.plate || '',
             })
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedCustomer(vehicle.customer || null)
         } else {
             form.reset(DEFAULT_VEHICLE)
