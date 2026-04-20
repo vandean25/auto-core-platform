@@ -222,10 +222,10 @@ describe('PurchaseService', () => {
     it('should return all orders by default when no filter is specified', async () => {
       mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
       await service.findAll();
-      // Based on code: filter defaults to 'all', which means where is {}
+      // Based on code: filter defaults to 'all', which means where only contains tenant_id
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
+          where: { tenant_id: 'tenant-1' },
         }),
       );
     });
@@ -236,6 +236,7 @@ describe('PurchaseService', () => {
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            tenant_id: 'tenant-1',
             status: {
               in: [
                 PurchaseOrderStatus.DRAFT,
@@ -253,7 +254,7 @@ describe('PurchaseService', () => {
       await service.findAll('all');
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
+          where: { tenant_id: 'tenant-1' },
         }),
       );
     });
@@ -261,7 +262,7 @@ describe('PurchaseService', () => {
 
   describe('remove', () => {
     it('should delete DRAFT purchase order with no received or invoiced items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.DRAFT,
         items: [
@@ -290,7 +291,7 @@ describe('PurchaseService', () => {
     });
 
     it('should block deleting non-draft purchase order', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-2',
         status: PurchaseOrderStatus.PARTIAL,
         items: [],
@@ -300,7 +301,7 @@ describe('PurchaseService', () => {
     });
 
     it('should block deleting purchase order with received items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-3',
         status: PurchaseOrderStatus.DRAFT,
         items: [
@@ -316,7 +317,7 @@ describe('PurchaseService', () => {
     });
 
     it('should block deleting purchase order with invoiced items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-4',
         status: PurchaseOrderStatus.DRAFT,
         items: [

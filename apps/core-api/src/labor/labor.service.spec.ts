@@ -19,6 +19,7 @@ const mockPrisma = {
   },
   laborCategory: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
   workshopOrder: {
     findUnique: jest.fn(),
@@ -209,7 +210,7 @@ describe('LaborService', () => {
 
     it('validates categoryId exists and is active', async () => {
       mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
 
       await expect(
         service.create({ ...createDto, categoryId: 'cat-uuid' }),
@@ -218,7 +219,7 @@ describe('LaborService', () => {
 
     it('throws BadRequestException when category is inactive', async () => {
       mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
-      mockPrisma.laborCategory.findUnique.mockResolvedValue({
+      mockPrisma.laborCategory.findFirst.mockResolvedValue({
         id: 'cat-uuid',
         is_active: false,
       });
@@ -375,7 +376,7 @@ describe('LaborService', () => {
 
   describe('softDelete', () => {
     it('sets is_active to false', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
       mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         is_active: false,
@@ -393,7 +394,7 @@ describe('LaborService', () => {
     });
 
     it('throws NotFoundException when operation not found', async () => {
-      mockPrisma.laborOperation.findUnique.mockResolvedValue(null);
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(null);
 
       await expect(service.softDelete('missing')).rejects.toThrow(
         NotFoundException,
