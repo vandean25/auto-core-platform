@@ -16,6 +16,7 @@ export class AuthController {
         tenantId: { type: 'string' },
         role: { type: 'string' },
       },
+      required: ['userId', 'email', 'tenantId', 'role'],
     },
   })
   getMe(@Req() request: Request & { user: AuthenticatedUser }): AuthenticatedUser {

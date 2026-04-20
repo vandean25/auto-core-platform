@@ -2824,7 +2824,13 @@
                     "role": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "userId",
+                    "email",
+                    "tenantId",
+                    "role"
+                  ]
                 }
               }
             }

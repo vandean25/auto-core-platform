@@ -3301,10 +3301,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        userId?: string;
-                        email?: string;
-                        tenantId?: string;
-                        role?: string;
+                        userId: string;
+                        email: string;
+                        tenantId: string;
+                        role: string;
                     };
                 };
             };

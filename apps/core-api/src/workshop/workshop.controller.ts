@@ -229,9 +229,10 @@ export class WorkshopController {
     @Param('id', ParseUUIDPipe) id: string,
     @Headers('x-tenant-id') tenantHeader: string,
   ) {
-    if (tenantHeader) {
-      this.tenantContext.setTenantIdForWorker(tenantHeader);
+    if (!tenantHeader) {
+      throw new BadRequestException('x-tenant-id header is required');
     }
+    this.tenantContext.setTenantIdForWorker(tenantHeader);
     await this.pdfService.generateNow(id);
   }
 

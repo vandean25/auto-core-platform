@@ -92,6 +92,7 @@ async function recordInitialStock(
     // Update or create the cached stock (using findFirst + create/update to work around Prisma adapter upsert issue)
     const existingStock = await prisma.inventoryStock.findFirst({
         where: {
+            tenant_id: tenantId,
             catalog_item_id: itemId,
             location_id: locationId,
         },
@@ -182,6 +183,8 @@ async function main() {
             invoice_prefix: `RE-${currentYear}-`,
             next_workshop_order_number: 1,
             workshop_order_prefix: `WO-${currentYear}-`,
+            next_sales_order_number: 1,
+            sales_order_prefix: `SO-${currentYear}-`,
         },
     });
 
