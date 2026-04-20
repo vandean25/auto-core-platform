@@ -162,8 +162,8 @@ export function InlineEdit({
           event.shiftKey,
         )
         event.preventDefault()
-        void commitEdit().then(() => {
-          if (nextFocusable) {
+        void commitEdit().then((committed) => {
+          if (committed && nextFocusable) {
             nextFocusable.focus()
           }
         }).catch(() => undefined)

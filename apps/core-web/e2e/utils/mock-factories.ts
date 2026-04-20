@@ -116,9 +116,18 @@ type MockVehicleDetail = MockVehicle & {
 };
 
 /**
- * Full customer detail response matching the shape returned by
- * GET /api/customers/:id (CustomerDetailResponse in CustomerDetail.tsx).
+ * Customer detail response shape used by the current CustomerDetail.tsx view.
+ * This mock matches the local frontend shape consumed in E2E tests and does
+ * not claim to include every field from the full GET /api/customers/:id API contract.
  */
+type MockCustomerHistoryMeta = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  pageCount: number;
+  hasMore: boolean;
+};
+
 type MockCustomerDetailResponse = MockCustomer & {
   vat_id?: string | null;
   address_street?: string | null;
@@ -129,6 +138,8 @@ type MockCustomerDetailResponse = MockCustomer & {
   workshop_orders?: MockWorkshopOrderSummary[];
   invoices?: MockInvoiceSummary[];
   vehicles?: MockVehicleDetail[];
+  workshop_orders_meta?: MockCustomerHistoryMeta;
+  invoices_meta?: MockCustomerHistoryMeta;
 };
 
 export const createMockCustomerDetailResponse = (
@@ -150,6 +161,20 @@ export const createMockCustomerDetailResponse = (
   workshop_orders: [],
   invoices: [],
   vehicles: [],
+  workshop_orders_meta: {
+    page: 1,
+    pageSize: 10,
+    totalCount: 0,
+    pageCount: 1,
+    hasMore: false,
+  },
+  invoices_meta: {
+    page: 1,
+    pageSize: 10,
+    totalCount: 0,
+    pageCount: 1,
+    hasMore: false,
+  },
   ...overrides,
 });
 

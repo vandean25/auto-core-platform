@@ -297,5 +297,12 @@ test.describe('Blueprint: Customer Detail Page', () => {
     // PATCH should fire
     const response = await patchPromise;
     expect(response.status()).toBe(200);
+
+    // Verify the request payload contained the updated email field
+    const requestBody = response.request().postDataJSON() as Record<string, unknown>;
+    expect(requestBody).toMatchObject({ email: 'new.email@example.com' });
+
+    // Verify the UI reflects the saved value
+    await expect(page.getByText('new.email@example.com')).toBeVisible();
   });
 });
