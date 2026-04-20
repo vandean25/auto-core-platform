@@ -730,6 +730,23 @@ export class WorkshopService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Tenant isolation check for labor operations
+        const laborIds = dto.items
+          .map((i) => i.laborOperationId)
+          .filter((id): id is string => typeof id === 'string');
+
+        if (laborIds.length > 0) {
+          const uniqueLaborIds = [...new Set(laborIds)];
+          const laborCount = await tx.laborOperation.count({
+            where: { id: { in: uniqueLaborIds }, tenant_id: tenantId },
+          });
+          if (laborCount !== uniqueLaborIds.length) {
+            throw new BadRequestException(
+              'One or more labor operations not found or belong to another tenant',
+            );
+          }
+        }
+
         await tx.workshopTaskLineItem.deleteMany({
           where: { workshop_task_id: taskId },
         });

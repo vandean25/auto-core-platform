@@ -32,6 +32,25 @@ export class SalesService {
       throw new BadRequestException('Invoice must have at least one item');
     }
 
+    // Tenant isolation checks
+    if (invoiceData.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: invoiceData.customerId, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Customer not found or belongs to another tenant');
+      }
+    }
+
+    if (invoiceData.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: invoiceData.vehicleId, tenant_id: tenantId },
+      });
+      if (!vehicle) {
+        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+      }
+    }
+
     // Calculate totals and snapshot revenue groups
     let totalNet = 0;
     let totalTax = 0;
@@ -69,7 +88,13 @@ export class SalesService {
       if (item.catalogItemId) {
         const catalogItem = catalogItemMap.get(item.catalogItemId);
 
-        if (catalogItem?.revenue_group) {
+        if (!catalogItem) {
+          throw new BadRequestException(
+            `Catalog item ${item.catalogItemId} not found or belongs to another tenant`,
+          );
+        }
+
+        if (catalogItem.revenue_group) {
           revenueGroupName = catalogItem.revenue_group.name;
           taxRate = Number(catalogItem.revenue_group.tax_rate);
         }

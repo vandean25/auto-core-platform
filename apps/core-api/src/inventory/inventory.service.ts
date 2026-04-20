@@ -232,6 +232,17 @@ export class InventoryService {
       }
     }
 
+    if (data.revenue_group_id) {
+      const revenueGroup = await this.prisma.revenueGroup.findFirst({
+        where: { id: data.revenue_group_id, tenant_id: tenantId },
+      });
+      if (!revenueGroup) {
+        throw new BadRequestException(
+          `Revenue group with ID ${data.revenue_group_id} not found or belongs to another tenant`,
+        );
+      }
+    }
+
     const catalogItem = await this.prisma.catalogItem.create({
       data: {
         tenant_id: tenantId,

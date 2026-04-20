@@ -21,6 +21,19 @@ export class VendorService {
     brandIds?: number[];
   }): Promise<Vendor> {
     const tenantId = await this.tenantContext.getTenantId();
+
+    if (data.brandIds?.length) {
+      const validBrandsCount = await this.prisma.brand.count({
+        where: {
+          id: { in: data.brandIds },
+          tenant_id: tenantId,
+        },
+      });
+      if (validBrandsCount !== data.brandIds.length) {
+        throw new BadRequestException('One or more brands are invalid or belong to another tenant');
+      }
+    }
+
     const vendor = await this.prisma.vendor.create({
       data: {
         tenant_id: tenantId,
@@ -116,6 +129,18 @@ export class VendorService {
     });
     if (!existing) {
       throw new NotFoundException(`Vendor ${id} not found`);
+    }
+
+    if (data.brandIds?.length) {
+      const validBrandsCount = await this.prisma.brand.count({
+        where: {
+          id: { in: data.brandIds },
+          tenant_id: tenantId,
+        },
+      });
+      if (validBrandsCount !== data.brandIds.length) {
+        throw new BadRequestException('One or more brands are invalid or belong to another tenant');
+      }
     }
 
     const vendor = await this.prisma.vendor.update({

@@ -73,6 +73,14 @@ export class PurchaseInvoiceService {
   async create(createDto: CreatePurchaseInvoiceDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = createDto;
+
+    const vendorExists = await this.prisma.vendor.findFirst({
+      where: { id: data.vendorId, tenant_id: tenantId },
+    });
+    if (!vendorExists) {
+      throw new BadRequestException('Vendor not found or belongs to another tenant');
+    }
+
     const poItemTotals = new Map<string, number>();
 
     for (const line of items) {
@@ -185,6 +193,14 @@ export class PurchaseInvoiceService {
   async update(id: string, updateDto: CreatePurchaseInvoiceDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = updateDto;
+
+    const vendorExists = await this.prisma.vendor.findFirst({
+      where: { id: data.vendorId, tenant_id: tenantId },
+    });
+    if (!vendorExists) {
+      throw new BadRequestException('Vendor not found or belongs to another tenant');
+    }
+
     const poItemTotals = new Map<string, number>();
 
     for (const line of items) {
