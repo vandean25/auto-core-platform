@@ -592,10 +592,12 @@ export class WorkshopService {
     taskId: string,
     dto: UpdateWorkshopTaskDto,
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     await this.prisma.$transaction(async (tx) => {
       const task = await tx.workshopTask.findFirst({
         where: {
           id: taskId,
+          tenant_id: tenantId,
           workshop_order_id: orderId,
         },
         include: {
@@ -623,7 +625,7 @@ export class WorkshopService {
       });
 
       const tasks = await tx.workshopTask.findMany({
-        where: { workshop_order_id: orderId },
+        where: { workshop_order_id: orderId, tenant_id: tenantId },
         select: { status: true },
       });
 
@@ -646,10 +648,12 @@ export class WorkshopService {
   }
 
   async deleteTask(orderId: string, taskId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     await this.prisma.$transaction(async (tx) => {
       const task = await tx.workshopTask.findFirst({
         where: {
           id: taskId,
+          tenant_id: tenantId,
           workshop_order_id: orderId,
         },
         include: {
@@ -678,7 +682,7 @@ export class WorkshopService {
       });
 
       const tasks = await tx.workshopTask.findMany({
-        where: { workshop_order_id: orderId },
+        where: { workshop_order_id: orderId, tenant_id: tenantId },
         select: { status: true },
       });
 
@@ -863,6 +867,7 @@ export class WorkshopService {
       const lineItems = await tx.workshopTaskLineItem.findMany({
         where: {
           id: { in: requestedLineItemIds },
+          tenant_id: tenantId,
           type: WorkshopLineItemType.PART,
           workshop_task: {
             workshop_order_id: orderId,

@@ -633,7 +633,7 @@ model WorkshopTask {
   tenant_id         String
   tenant            Tenant             @relation(fields: [tenant_id], references: [id])
   workshop_order_id String
-  workshop_order    WorkshopOrder      @relation(fields: [workshop_order_id], references: [id], onDelete: Cascade)
+  workshop_order    WorkshopOrder      @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade)
 
   title             String
   status            WorkshopTaskStatus @default(NOT_STARTED)
@@ -644,6 +644,7 @@ model WorkshopTask {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  @@unique([tenant_id, id])
   @@index([tenant_id])
   @@map("workshop_tasks")
 }
@@ -653,7 +654,7 @@ model WorkshopTaskLineItem {
   tenant_id         String
   tenant            Tenant               @relation(fields: [tenant_id], references: [id])
   workshop_task_id  String
-  workshop_task     WorkshopTask         @relation(fields: [workshop_task_id], references: [id], onDelete: Cascade)
+  workshop_task     WorkshopTask         @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
 
   type              WorkshopLineItemType
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
