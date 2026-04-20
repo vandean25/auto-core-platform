@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CarFront } from 'lucide-react'
+import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useVehicles } from '@/api/vehicles'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 
 type VehicleRow = {

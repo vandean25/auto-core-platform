@@ -3,6 +3,10 @@ import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
+import type { components } from './generated/openapi'
+
+type CreateVehicleDto = components['schemas']['CreateVehicleDto']
+type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']
 
 type VehicleListResponse = {
   data: Array<
@@ -60,15 +64,7 @@ export function useCreateVehicle() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: {
-      make: string
-      model: string
-      year: number
-      engine_code?: string
-      vin?: string
-      plate?: string
-      customer_id?: string | null
-    }) => {
+    mutationFn: async (data: CreateVehicleDto) => {
       const response = await fetchWithAuth('/api/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,15 +93,7 @@ export function useUpdateVehicle() {
       data,
     }: {
       id: string
-      data: {
-        make?: string
-        model?: string
-        year?: number
-        engine_code?: string
-        vin?: string
-        plate?: string
-        customer_id?: string | null
-      }
+      data: UpdateVehicleDto
     }) => {
       const response = await fetchWithAuth(`/api/vehicles/${id}`, {
         method: 'PATCH',

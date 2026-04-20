@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +25,7 @@ import { toast } from 'sonner'
 
 interface VehicleDialogProps {
     vehicle?: Vehicle & { customer?: Customer | null }
-    trigger?: React.ReactNode
+    trigger?: ReactNode
     open?: boolean
     onOpenChange?: (open: boolean) => void
 }
