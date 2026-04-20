@@ -39,7 +39,7 @@ async function cleanDb() {
     }
 
     // Delete in order to satisfy foreign key constraints
-    if (existingTables.has('tenants')) await prisma.tenant.deleteMany();
+    // NOTE: tenants must be deleted LAST because all other models have FK references to it
     if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
@@ -63,6 +63,8 @@ async function cleanDb() {
     if (existingTables.has('customers')) await prisma.customer.deleteMany();
     if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
     if (existingTables.has('brands')) await prisma.brand.deleteMany();
+    // Tenants deleted last — all other tables reference tenant via FK
+    if (existingTables.has('tenants')) await prisma.tenant.deleteMany();
 }
 
 /**

@@ -33,7 +33,12 @@ export class TenantContextService {
     }
 
     if (!this.defaultTenantIdPromise) {
-      this.defaultTenantIdPromise = this.resolveDefaultTenantId();
+      this.defaultTenantIdPromise = this.resolveDefaultTenantId().catch(
+        (error) => {
+          this.defaultTenantIdPromise = undefined;
+          throw error;
+        },
+      );
     }
 
     return this.defaultTenantIdPromise;

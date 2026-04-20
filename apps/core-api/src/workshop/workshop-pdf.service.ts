@@ -38,8 +38,9 @@ export class WorkshopPdfService {
     workshopOrderId: string,
     params: { targetBaseUrl: string },
   ): Promise<WorkshopPdfRequestGenerationResponse> {
-    const order = await this.prisma.client.workshopOrder.findUnique({
-      where: { id: workshopOrderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const order = await this.prisma.client.workshopOrder.findFirst({
+      where: { id: workshopOrderId, tenant_id: tenantId },
       select: {
         id: true,
         pdf_storage_bucket: true,
@@ -88,8 +89,8 @@ export class WorkshopPdfService {
     }
 
     try {
-      await this.prisma.client.workshopOrder.update({
-        where: { id: workshopOrderId },
+      await this.prisma.client.workshopOrder.updateMany({
+        where: { id: workshopOrderId, tenant_id: tenantId },
         data: { pdf_generation_error: null },
       });
     } catch (error) {
@@ -131,6 +132,7 @@ export class WorkshopPdfService {
       await this.safeStoreGenerationError(
         workshopOrderId,
         'Failed to enqueue background PDF generation task. Please try again.',
+        tenantId,
       );
 
       throw new InternalServerErrorException(
@@ -149,8 +151,9 @@ export class WorkshopPdfService {
       { name: 'Generate Workshop PDF', op: 'pdf.generate' },
       async (span) => {
         span.setAttribute('workshopOrderId', workshopOrderId);
-        const order = await this.prisma.client.workshopOrder.findUnique({
-          where: { id: workshopOrderId },
+        const tenantId = await this.tenantContext.getTenantId();
+        const order = await this.prisma.client.workshopOrder.findFirst({
+          where: { id: workshopOrderId, tenant_id: tenantId },
           include: {
             customer: true,
             vehicle: true,
@@ -208,8 +211,8 @@ export class WorkshopPdfService {
           );
 
           const generatedAt = new Date();
-          await this.prisma.client.workshopOrder.update({
-            where: { id: workshopOrderId },
+          await this.prisma.client.workshopOrder.updateMany({
+            where: { id: workshopOrderId, tenant_id: tenantId },
             data: {
               pdf_storage_bucket: upload.bucket,
               pdf_storage_key: upload.key,
@@ -230,7 +233,7 @@ export class WorkshopPdfService {
           this.logger.error(
             `Workshop PDF generation exhausted all retries: ${message}`,
           );
-          await this.safeStoreGenerationError(workshopOrderId, message);
+          await this.safeStoreGenerationError(workshopOrderId, message, tenantId);
           throw error;
         }
       },
@@ -243,8 +246,9 @@ export class WorkshopPdfService {
     contentLength: number | null;
     stream: Readable;
   }> {
-    const order = await this.prisma.client.workshopOrder.findUnique({
-      where: { id: workshopOrderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const order = await this.prisma.client.workshopOrder.findFirst({
+      where: { id: workshopOrderId, tenant_id: tenantId },
       select: {
         id: true,
         order_number: true,
@@ -277,6 +281,7 @@ export class WorkshopPdfService {
   private async safeStoreGenerationError(
     workshopOrderId: string,
     message: string,
+    tenantId: string,
   ) {
     try {
       // Log full error for debugging; store only a user-safe summary in DB
@@ -285,8 +290,8 @@ export class WorkshopPdfService {
       );
       const safeMessage =
         'PDF generation failed. Please try again or contact support.';
-      await this.prisma.client.workshopOrder.update({
-        where: { id: workshopOrderId },
+      await this.prisma.client.workshopOrder.updateMany({
+        where: { id: workshopOrderId, tenant_id: tenantId },
         data: {
           pdf_generation_error: safeMessage,
         },
