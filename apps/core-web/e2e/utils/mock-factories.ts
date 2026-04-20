@@ -35,7 +35,19 @@ type MockCustomer = {
 type MockBrand = {
   id: number;
   name: string;
+  isVehicleMake?: boolean;
+  isPartManufacturer?: boolean;
 };
+
+export const createMockBrand = (
+  overrides: Partial<MockBrand> = {}
+): MockBrand => ({
+  id: 1,
+  name: 'Bosch',
+  isVehicleMake: false,
+  isPartManufacturer: true,
+  ...overrides,
+});
 
 /**
  * Aligns with the frontend `Vendor` interface from `src/api/types.ts`.
@@ -327,6 +339,67 @@ export const createMockLaborOperation = (
 // ---------------------------------------------------------------------------
 // Shared list response wrapper
 // ---------------------------------------------------------------------------
+
+type MockFinanceSettings = {
+  lock_date: string | null;
+  invoice_prefix: string;
+  next_invoice_number: number;
+};
+
+export const createMockFinanceSettings = (
+  overrides: Partial<MockFinanceSettings> = {}
+): MockFinanceSettings => ({
+  lock_date: null,
+  invoice_prefix: 'INV-',
+  next_invoice_number: 1000,
+  ...overrides,
+});
+
+type MockRevenueGroup = {
+  id: string;
+  name: string;
+  description: string | null;
+  revenue_account_code: string | null;
+  expense_account_code: string | null;
+  isActive: boolean;
+};
+
+export const createMockRevenueGroup = (
+  overrides: Partial<MockRevenueGroup> = {}
+): MockRevenueGroup => ({
+  id: 'rg-1',
+  name: 'Parts Sales',
+  description: 'Parts revenue',
+  revenue_account_code: '4000',
+  expense_account_code: '5000',
+  isActive: true,
+  ...overrides,
+});
+
+type MockLaborCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+  parent_id: string | null;
+  default_hourly_rate: number | null;
+  is_active: boolean;
+  children: MockLaborCategory[];
+};
+
+export const createMockLaborCategory = (
+  overrides: Partial<MockLaborCategory> = {}
+): MockLaborCategory => ({
+  id: 'cat-1',
+  name: 'Engine Repair',
+  description: null,
+  sort_order: 10,
+  parent_id: null,
+  default_hourly_rate: 150.00,
+  is_active: true,
+  children: [],
+  ...overrides,
+});
 
 /**
  * Wraps an array of items in the standard `{ data, meta }` envelope that all
