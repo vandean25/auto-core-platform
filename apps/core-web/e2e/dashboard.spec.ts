@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { createMockInventoryItem, createMockSalesOrder, createMockListResponse } from './utils/mock-factories';
 
 /**
  * Blueprint Validation Suite — Dashboard Page
@@ -105,13 +106,12 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: [
-            { id: '1', sku: 'BRK-001', name: 'Brake Pad Set', brand: 'Bosch', status: 'ACTIVE', price: '45.00' },
-            { id: '2', sku: 'OIL-005', name: '5W-30 Engine Oil', brand: 'Castrol', status: 'ACTIVE', price: '12.50' },
-          ],
-          meta: { total: 2, page: 1, pageSize: 200 },
-        }),
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockInventoryItem({ id: '1', sku: 'BRK-001', name: 'Brake Pad Set', brand: 'Bosch', status: 'ACTIVE' }),
+            createMockInventoryItem({ id: '2', sku: 'OIL-005', name: '5W-30 Engine Oil', brand: 'Castrol', status: 'ACTIVE' }),
+          ]),
+        ),
       });
     });
 
@@ -137,13 +137,12 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: [
-            { id: 'so-1', order_number: 'SO-2026-0001', status: 'CONFIRMED', total_amount: '1250.00', customer: { last_name: 'Smith' } },
-            { id: 'so-2', order_number: 'SO-2026-0002', status: 'COMPLETED', total_amount: '750.00', customer: { last_name: 'Doe' } },
-          ],
-          meta: { total: 2, page: 1, pageSize: 200 },
-        }),
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockSalesOrder({ id: 'so-1', order_number: 'SO-2026-0001', status: 'CONFIRMED', total_amount: '1250.00' }),
+            createMockSalesOrder({ id: 'so-2', order_number: 'SO-2026-0002', status: 'COMPLETED', total_amount: '750.00' }),
+          ]),
+        ),
       });
     });
 
@@ -167,7 +166,7 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [], meta: { total: 0, page: 1, pageSize: 200 } }),
+        body: JSON.stringify(createMockListResponse([])),
       });
     });
 
@@ -188,7 +187,7 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [], meta: { total: 0, page: 1, pageSize: 200 } }),
+        body: JSON.stringify(createMockListResponse([])),
       });
     });
 
@@ -219,10 +218,11 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: [{ id: '1', sku: 'BRK-001', name: 'Brake Pad Set', brand: 'Bosch', status: 'ACTIVE', price: '45.00' }],
-          meta: { total: 1, page: 1, pageSize: 200 },
-        }),
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockInventoryItem({ id: '1', sku: 'BRK-001', name: 'Brake Pad Set', brand: 'Bosch', status: 'ACTIVE' }),
+          ]),
+        ),
       });
     });
 
@@ -230,10 +230,11 @@ test.describe('Blueprint: Dashboard Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: [{ id: 'so-1', order_number: 'SO-2026-0001', status: 'CONFIRMED', total_amount: '500.00', customer: { last_name: 'Test' } }],
-          meta: { total: 1, page: 1, pageSize: 200 },
-        }),
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockSalesOrder({ id: 'so-1', order_number: 'SO-2026-0001', status: 'CONFIRMED', total_amount: '500.00' }),
+          ]),
+        ),
       });
     });
 
@@ -251,37 +252,19 @@ test.describe('Blueprint: Dashboard Page', () => {
 });
 
 /**
- * Seeds widgets into the app's localStorage using the actual storage key
- * that the DashboardWidgetsProvider will read from.
+ * Seeds widgets into the app's localStorage using the exact storage key
+ * that the DashboardWidgetsProvider will read from in E2E skip-auth mode.
  *
- * In E2E mode (VITE_E2E_SKIP_AUTH=true), we need to match whatever userKey
- * the app passes to DashboardWidgetsProvider. We scan all possible keys and
- * also set a wildcard fallback to cover any userKey variant.
+ * The skip-auth flow uses a fixed email as the effective user key, so we can
+ * seed the single deterministic storage entry without monkey-patching
+ * localStorage access.
  */
 async function seedWidgetsForApp(page: import('@playwright/test').Page, widgets: MockWidget[]) {
   const serialized = JSON.stringify(widgets);
   await page.addInitScript(
     ({ value }: { value: string }) => {
-      // The app's DashboardWidgetsProvider uses a userKey-based storage key.
-      // In E2E mode, the exact userKey depends on the auth mock.
-      // We seed multiple common variants to ensure the provider picks up the widgets.
-      const possibleKeys = [
-        'acp:dashboard-widgets:e2e-user',
-        'acp:dashboard-widgets:default',
-        'acp:dashboard-widgets:anonymous',
-        'acp:dashboard-widgets:test',
-      ];
-      for (const key of possibleKeys) {
-        window.localStorage.setItem(key, value);
-      }
-      // Also intercept any future calls to getItem for dashboard widgets
-      const originalGetItem = window.localStorage.getItem.bind(window.localStorage);
-      window.localStorage.getItem = function (key: string) {
-        if (key.startsWith('acp:dashboard-widgets:')) {
-          return value;
-        }
-        return originalGetItem(key);
-      };
+      const storageKey = 'acp:dashboard-widgets:testauto@auto.core.at';
+      window.localStorage.setItem(storageKey, value);
     },
     { value: serialized },
   );
