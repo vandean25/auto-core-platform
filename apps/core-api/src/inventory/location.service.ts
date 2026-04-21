@@ -5,14 +5,19 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LocationType } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class LocationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async findAll() {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.storageLocation.findMany({
-      where: { deletedAt: null },
+      where: { tenant_id: tenantId, deletedAt: null },
       orderBy: { name: 'asc' },
       include: {
         parent: true,
@@ -29,8 +34,9 @@ export class LocationService {
   }
 
   async getChildren(parentId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.storageLocation.findMany({
-      where: { parent_id: parentId, deletedAt: null },
+      where: { tenant_id: tenantId, parent_id: parentId, deletedAt: null },
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -41,8 +47,9 @@ export class LocationService {
   }
 
   async getBins() {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.storageLocation.findMany({
-      where: { type: 'bin', deletedAt: null },
+      where: { tenant_id: tenantId, type: 'bin', deletedAt: null },
       orderBy: { name: 'asc' },
       include: { parent: true },
     });
@@ -63,11 +70,12 @@ export class LocationService {
     type: LocationType;
     parentId?: string;
   }) {
+    const tenantId = await this.tenantContext.getTenantId();
     // Validation
     await this.validateHierarchy(data.type, data.parentId);
 
-    const existingCode = await this.prisma.storageLocation.findUnique({
-      where: { code: data.code },
+    const existingCode = await this.prisma.storageLocation.findFirst({
+      where: { tenant_id: tenantId, code: data.code },
     });
     if (existingCode) {
       throw new BadRequestException('Location code must be unique');
@@ -75,6 +83,7 @@ export class LocationService {
 
     return this.prisma.storageLocation.create({
       data: {
+        tenant_id: tenantId,
         name: data.name,
         code: data.code,
         type: data.type,
@@ -92,14 +101,15 @@ export class LocationService {
       parentId?: string;
     },
   ) {
-    const location = await this.prisma.storageLocation.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const location = await this.prisma.storageLocation.findFirst({
+      where: { id, tenant_id: tenantId },
     });
     if (!location) throw new NotFoundException('Location not found');
 
     if (data.code && data.code !== location.code) {
-      const existing = await this.prisma.storageLocation.findUnique({
-        where: { code: data.code },
+      const existing = await this.prisma.storageLocation.findFirst({
+        where: { tenant_id: tenantId, code: data.code },
       });
       if (existing) throw new BadRequestException('Code already in use');
     }
@@ -129,8 +139,9 @@ export class LocationService {
   }
 
   async remove(id: string) {
-    const location = await this.prisma.storageLocation.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const location = await this.prisma.storageLocation.findFirst({
+      where: { id, tenant_id: tenantId },
       include: { _count: { select: { children: true, stocks: true } } },
     });
 
@@ -156,6 +167,7 @@ export class LocationService {
     type: LocationType,
     parentId?: string | null,
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     if (type === LocationType.warehouse) {
       if (parentId)
         throw new BadRequestException(
@@ -167,8 +179,8 @@ export class LocationService {
     if (!parentId)
       throw new BadRequestException(`${type} must have a parent location`);
 
-    const parent = await this.prisma.storageLocation.findUnique({
-      where: { id: parentId },
+    const parent = await this.prisma.storageLocation.findFirst({
+      where: { id: parentId, tenant_id: tenantId },
     });
     if (!parent) throw new NotFoundException('Parent location not found');
 

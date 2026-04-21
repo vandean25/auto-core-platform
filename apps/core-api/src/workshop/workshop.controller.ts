@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -23,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
+import { Public } from '../common/decorators/public.decorator';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
@@ -35,12 +37,14 @@ import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Controller('workshop')
 export class WorkshopController {
   constructor(
     private readonly workshopService: WorkshopService,
     private readonly pdfService: WorkshopPdfService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   @Post('register')
@@ -217,10 +221,18 @@ export class WorkshopController {
   }
 
   @ApiExcludeEndpoint()
+  @Public()
   @Post('orders/:id/pdf/worker')
   @UseGuards(CloudTasksWorkerGuard)
   @HttpCode(204)
-  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
+  async generatePdfWorker(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-tenant-id') tenantHeader: string,
+  ) {
+    if (!tenantHeader) {
+      throw new BadRequestException('x-tenant-id header is required');
+    }
+    this.tenantContext.setTenantIdForWorker(tenantHeader);
     await this.pdfService.generateNow(id);
   }
 

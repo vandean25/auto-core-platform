@@ -5,6 +5,8 @@ import type { Socket } from 'socket.io-client'
 import { API_BASE_URL } from '@/api/client'
 import { getDashboardSourceKeysForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { ENTITY_UPDATED_EVENT } from '@/features/realtime/types'
+import { firebaseAuth } from '@/lib/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 function resolveRealtimeBaseUrl(): string | undefined {
   if (API_BASE_URL) return API_BASE_URL
@@ -19,15 +21,29 @@ type RealtimeDashboardSyncProviderProps = {
 
 export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyncProviderProps) {
   const queryClient = useQueryClient()
+  const [token, setToken] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!firebaseAuth) return
+    return onAuthStateChanged(firebaseAuth, async (user) => {
+      if (user) {
+        const idToken = await user.getIdToken()
+        setToken(idToken)
+      } else {
+        setToken(null)
+      }
+    })
+  }, [])
 
   React.useEffect(() => {
     const baseUrl = resolveRealtimeBaseUrl()
-    if (!baseUrl) return
+    if (!baseUrl || !token) return
 
     const socket: Socket = io(`${baseUrl}/dashboard-realtime`, {
       path: '/api/socket.io',
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      auth: { token },
     })
 
     const onEntityUpdated = (payload: unknown) => {
@@ -48,7 +64,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off(ENTITY_UPDATED_EVENT, onEntityUpdated)
       socket.disconnect()
     }
-  }, [queryClient])
+  }, [queryClient, token])
 
   return <>{children}</>
 }

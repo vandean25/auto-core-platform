@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CatalogService } from './catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 describe('CatalogService Search (Mocked)', () => {
   let service: CatalogService;
 
   const mockPrisma = {
     workshopOrder: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     laborOperation: {
@@ -21,6 +23,10 @@ describe('CatalogService Search (Mocked)', () => {
     },
   };
 
+  const mockTenantContext = {
+    getTenantId: jest.fn().mockResolvedValue('test-tenant-id'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -28,6 +34,10 @@ describe('CatalogService Search (Mocked)', () => {
         {
           provide: PrismaService,
           useValue: mockPrisma,
+        },
+        {
+          provide: TenantContextService,
+          useValue: mockTenantContext,
         },
       ],
     }).compile();
@@ -41,7 +51,7 @@ describe('CatalogService Search (Mocked)', () => {
 
   it('should include universal items (no fitments) and specific items in the search query', async () => {
     // 1. Mock Workshop Order & Vehicle
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       vehicle: {
         make: 'Volkswagen',
         model: 'Golf VII',
@@ -66,6 +76,7 @@ describe('CatalogService Search (Mocked)', () => {
     expect(mockPrisma.laborOperation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          tenant_id: 'test-tenant-id',
           AND: expect.arrayContaining([
             expect.objectContaining({
               OR: expect.arrayContaining([
@@ -80,14 +91,14 @@ describe('CatalogService Search (Mocked)', () => {
   });
 
   it('should throw NotFoundException if workshop order vehicle is missing', async () => {
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue(null);
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
 
     await expect(service.search('test', 'invalid-id')).rejects.toThrow(NotFoundException);
   });
 
   it('should include universal master parts (no fitments) and exclude non-matching fitments', async () => {
     // 1. Mock Workshop Order & Vehicle
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       vehicle: {
         make: 'Volkswagen',
         model: 'Golf VII',

@@ -1,8 +1,10 @@
 import {
+  Inject,
   Injectable,
   OnModuleInit,
   OnModuleDestroy,
   Logger,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
@@ -19,7 +21,10 @@ export class PrismaService
   private pool: Pool;
   public readonly client: PrismaClient;
 
-  constructor(dashboardRealtime: DashboardRealtimeService) {
+  constructor(
+    @Inject(forwardRef(() => DashboardRealtimeService))
+    dashboardRealtime: DashboardRealtimeService,
+  ) {
     const connectionString = process.env.DATABASE_URL;
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
