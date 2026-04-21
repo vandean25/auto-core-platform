@@ -3225,6 +3225,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Workshop task deleted successfully. */
             200: {
                 headers: {
                     [name: string]: unknown;
