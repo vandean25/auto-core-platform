@@ -8,6 +8,7 @@ describe('Staging Tote Seed (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let warehouseId: string;
+  let tenantId: string;
 
   const toteCodes = Array.from({ length: 50 }, (_, index) => {
     const value = String(index + 1).padStart(3, '0');
@@ -25,14 +26,31 @@ describe('Staging Tote Seed (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
+    const defaultTenant = await prisma.tenant.findUnique({
+      where: { slug: 'default-workshop' },
+      select: { id: true },
+    });
+
+    if (!defaultTenant) {
+      throw new Error('Expected default-workshop tenant to exist');
+    }
+
+    tenantId = defaultTenant.id;
+
     const warehouse = await prisma.storageLocation.upsert({
-      where: { code: 'WH-STAGE-TOTE-E2E' },
+      where: {
+        tenant_id_code: {
+          tenant_id: tenantId,
+          code: 'WH-STAGE-TOTE-E2E',
+        },
+      },
       update: {
         name: 'Staging Tote E2E Warehouse',
         type: 'warehouse',
         parent_id: null,
       },
       create: {
+        tenant_id: tenantId,
         code: 'WH-STAGE-TOTE-E2E',
         name: 'Staging Tote E2E Warehouse',
         type: 'warehouse',
@@ -45,6 +63,7 @@ describe('Staging Tote Seed (e2e)', () => {
   beforeEach(async () => {
     await prisma.storageLocation.deleteMany({
       where: {
+        tenant_id: tenantId,
         code: { in: toteCodes },
       },
     });
@@ -53,6 +72,7 @@ describe('Staging Tote Seed (e2e)', () => {
   afterAll(async () => {
     await prisma.storageLocation.deleteMany({
       where: {
+        tenant_id: tenantId,
         code: { in: toteCodes },
       },
     });
@@ -67,6 +87,7 @@ describe('Staging Tote Seed (e2e)', () => {
   it('creates 50 fixed staging totes and stays idempotent on reruns', async () => {
     const firstRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
+      tenantId,
     });
 
     expect(firstRun).toEqual({
@@ -78,6 +99,7 @@ describe('Staging Tote Seed (e2e)', () => {
 
     const seededTotes = await prisma.storageLocation.findMany({
       where: {
+        tenant_id: tenantId,
         code: { in: toteCodes },
       },
       orderBy: { code: 'asc' },
@@ -92,6 +114,7 @@ describe('Staging Tote Seed (e2e)', () => {
 
     const secondRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
+      tenantId,
     });
 
     expect(secondRun).toEqual({
@@ -102,7 +125,12 @@ describe('Staging Tote Seed (e2e)', () => {
     });
 
     await prisma.storageLocation.update({
-      where: { code: 'TOTE-010' },
+      where: {
+        tenant_id_code: {
+          tenant_id: tenantId,
+          code: 'TOTE-010',
+        },
+      },
       data: {
         name: 'Mutated Tote Name',
       },
@@ -110,6 +138,7 @@ describe('Staging Tote Seed (e2e)', () => {
 
     const thirdRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
+      tenantId,
     });
 
     expect(thirdRun).toEqual({
@@ -120,7 +149,12 @@ describe('Staging Tote Seed (e2e)', () => {
     });
 
     const restoredTote = await prisma.storageLocation.findUnique({
-      where: { code: 'TOTE-010' },
+      where: {
+        tenant_id_code: {
+          tenant_id: tenantId,
+          code: 'TOTE-010',
+        },
+      },
     });
 
     expect(restoredTote?.name).toBe('Staging Tote 010');

@@ -141,7 +141,10 @@ export class WorkshopPdfService {
     }
   }
 
-  async generateNow(workshopOrderId: string, tenantId?: string): Promise<{
+  async generateNow(
+    workshopOrderId: string,
+    tenantId?: string,
+  ): Promise<{
     workshopOrderId: string;
     bucket: string;
     key: string;
@@ -150,7 +153,8 @@ export class WorkshopPdfService {
     return Sentry.startSpan(
       { name: 'Generate Workshop PDF', op: 'pdf.generate' },
       async (span) => {
-        const resolvedTenantId = tenantId ?? (await this.tenantContext.getTenantId());
+        const resolvedTenantId =
+          tenantId ?? (await this.tenantContext.getTenantId());
         span.setAttribute('workshopOrderId', workshopOrderId);
         const order = await this.prisma.client.workshopOrder.findFirst({
           where: { id: workshopOrderId, tenant_id: resolvedTenantId },
