@@ -41,18 +41,27 @@ export class EmployeeService {
       ...(query.role ? { role: query.role } : {}),
     };
 
-    const employees = await this.prisma.employee.findMany({
-      where,
-      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-    });
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 25));
+    const skip = (page - 1) * limit;
+
+    const [employees, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
 
     return {
       data: employees.map((employee) => this.mapEmployee(employee)),
       meta: {
-        total: employees.length,
-        page: 1,
-        limit: employees.length,
-        totalPages: 1,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
   }

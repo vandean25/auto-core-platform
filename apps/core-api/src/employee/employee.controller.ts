@@ -6,6 +6,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { EmployeeRole } from '@prisma/client';
 import { EmployeeService } from './employee.service';
 import {
   CreateEmployeeDto,
@@ -23,8 +24,15 @@ export class EmployeeController {
 
   @Get()
   @ApiOkResponse({ type: EmployeesListResponseDto })
-  @ApiQuery({ name: 'role', required: false, enumName: 'EmployeeRole', enum: ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK'] })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enumName: 'EmployeeRole',
+    enum: EmployeeRole,
+  })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(@Query() query: ListEmployeesQueryDto) {
     return this.employeeService.findAll(query);
   }

@@ -1388,18 +1388,14 @@ export interface components {
         CreateEmployeeDto: {
             name: string;
             role: components["schemas"]["EmployeeRole"];
-            /** @default true */
-            isActive: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            isActive?: boolean;
+            sortOrder?: number;
         };
         UpdateEmployeeDto: {
             name?: string;
             role?: components["schemas"]["EmployeeRole"];
-            /** @default true */
-            isActive: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            isActive?: boolean;
+            sortOrder?: number;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
@@ -1430,17 +1426,13 @@ export interface components {
         };
         CreateBayDto: {
             name: string;
-            /** @default true */
-            isActive: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            isActive?: boolean;
+            sortOrder?: number;
         };
         UpdateBayDto: {
             name?: string;
-            /** @default true */
-            isActive: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            isActive?: boolean;
+            sortOrder?: number;
         };
         BayDeleteResponseDto: {
             /** Format: uuid */
@@ -3426,6 +3418,10 @@ export interface operations {
                 role?: components["schemas"]["EmployeeRole"];
                 /** @description Include inactive employees when true */
                 includeInactive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -3545,6 +3541,10 @@ export interface operations {
             query?: {
                 /** @description Include inactive bays when true */
                 includeInactive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
             };
             header?: never;
             path?: never;

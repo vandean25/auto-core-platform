@@ -3,35 +3,62 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EmployeeRole } from '@prisma/client';
 
 export class CreateEmployeeDto {
   @ApiProperty()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty()
   name!: string;
 
   @ApiProperty({ enum: EmployeeRole, enumName: 'EmployeeRole' })
   @IsEnum(EmployeeRole)
   role!: EmployeeRole;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()
   @IsInt()
   @Min(0)
   sortOrder?: number;
 }
 
-export class UpdateEmployeeDto extends PartialType(CreateEmployeeDto) {}
+export class UpdateEmployeeDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  name?: string;
+
+  @ApiPropertyOptional({ enum: EmployeeRole, enumName: 'EmployeeRole' })
+  @IsOptional()
+  @IsEnum(EmployeeRole)
+  role?: EmployeeRole;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
 
 export class ListEmployeesQueryDto {
   @ApiPropertyOptional({ enum: EmployeeRole, enumName: 'EmployeeRole' })
@@ -40,7 +67,6 @@ export class ListEmployeesQueryDto {
   role?: EmployeeRole;
 
   @ApiPropertyOptional({
-    default: false,
     description: 'Include inactive employees when true',
   })
   @IsOptional()
@@ -51,6 +77,33 @@ export class ListEmployeesQueryDto {
   })
   @IsBoolean()
   includeInactive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Page number (1-based)', minimum: 1 })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }
 
 export class EmployeeResponseDto {

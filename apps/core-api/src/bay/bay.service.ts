@@ -41,18 +41,27 @@ export class BayService {
   async findAll(query: ListBaysQueryDto) {
     const where = query.includeInactive ? {} : { is_active: true };
 
-    const bays = await this.prisma.bay.findMany({
-      where,
-      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-    });
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 25));
+    const skip = (page - 1) * limit;
+
+    const [bays, total] = await Promise.all([
+      this.prisma.bay.findMany({
+        where,
+        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.bay.count({ where }),
+    ]);
 
     return {
       data: bays.map((bay) => this.mapBay(bay)),
       meta: {
-        total: bays.length,
-        page: 1,
-        limit: bays.length,
-        totalPages: 1,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
   }

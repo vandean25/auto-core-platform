@@ -41,24 +41,30 @@ describe('BayService', () => {
     mockPrisma.bay.findMany.mockResolvedValue([baseBay]);
     mockPrisma.bay.count.mockResolvedValue(1);
 
-    await service.findAll({});
+    const result = await service.findAll({});
 
     expect(mockPrisma.bay.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
+      {
         where: { is_active: true },
-      }),
+        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+        skip: 0,
+        take: 25,
+      },
     );
+    expect(result.meta).toEqual({ total: 1, page: 1, limit: 25, totalPages: 1 });
   });
 
   it('supports includeInactive list filter', async () => {
     mockPrisma.bay.findMany.mockResolvedValue([baseBay]);
     mockPrisma.bay.count.mockResolvedValue(1);
 
-    await service.findAll({ includeInactive: true });
+    await service.findAll({ includeInactive: true, page: 2, limit: 10 });
 
     expect(mockPrisma.bay.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {},
+        skip: 10,
+        take: 10,
       }),
     );
   });
@@ -80,6 +86,19 @@ describe('BayService', () => {
 
     await expect(service.update('missing', { name: 'Bay B' })).rejects.toThrow(
       NotFoundException,
+    );
+  });
+
+  it('maps duplicate update to ConflictException', async () => {
+    mockPrisma.bay.findUnique.mockResolvedValue(baseBay);
+    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+      code: 'P2002',
+      clientVersion: '0',
+    });
+    mockPrisma.bay.update.mockRejectedValue(p2002);
+
+    await expect(service.update('bay-1', { name: 'Bay B' })).rejects.toThrow(
+      ConflictException,
     );
   });
 

@@ -24,6 +24,8 @@ export class BayController {
   @Get()
   @ApiOkResponse({ type: BaysListResponseDto })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(@Query() query: ListBaysQueryDto) {
     return this.bayService.findAll(query);
   }

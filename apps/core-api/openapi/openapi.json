@@ -2818,8 +2818,28 @@
             "in": "query",
             "description": "Include inactive employees when true",
             "schema": {
-              "default": false,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based)",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
             }
           }
         ],
@@ -2978,8 +2998,28 @@
             "in": "query",
             "description": "Include inactive bays when true",
             "schema": {
-              "default": false,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based)",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
             }
           }
         ],
@@ -4504,12 +4544,10 @@
             ]
           },
           "isActive": {
-            "type": "boolean",
-            "default": true
+            "type": "boolean"
           },
           "sortOrder": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           }
         },
@@ -4532,12 +4570,10 @@
             ]
           },
           "isActive": {
-            "type": "boolean",
-            "default": true
+            "type": "boolean"
           },
           "sortOrder": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           }
         }
@@ -4642,12 +4678,10 @@
             "type": "string"
           },
           "isActive": {
-            "type": "boolean",
-            "default": true
+            "type": "boolean"
           },
           "sortOrder": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           }
         },
@@ -4662,12 +4696,10 @@
             "type": "string"
           },
           "isActive": {
-            "type": "boolean",
-            "default": true
+            "type": "boolean"
           },
           "sortOrder": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           }
         }

@@ -39,24 +39,35 @@ describe('EmployeeService', () => {
     mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
     mockPrisma.employee.count.mockResolvedValue(1);
 
-    await service.findAll({});
+    const result = await service.findAll({});
 
     expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
+      {
         where: { is_active: true },
-      }),
+        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+        skip: 0,
+        take: 25,
+      },
     );
+    expect(result.meta).toEqual({ total: 1, page: 1, limit: 25, totalPages: 1 });
   });
 
   it('supports role and includeInactive filters', async () => {
     mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
     mockPrisma.employee.count.mockResolvedValue(1);
 
-    await service.findAll({ role: EmployeeRole.MECHANIC, includeInactive: true });
+    await service.findAll({
+      role: EmployeeRole.MECHANIC,
+      includeInactive: true,
+      page: 2,
+      limit: 10,
+    });
 
     expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { role: EmployeeRole.MECHANIC },
+        skip: 10,
+        take: 10,
       }),
     );
   });
