@@ -187,10 +187,14 @@ export class VendorService {
       );
     }
 
-    const deletedVendor = await this.prisma.vendor.delete({
-      where: { id },
+    const deleteResult = await this.prisma.vendor.deleteMany({
+      where: { id, tenant_id: tenantId },
     });
 
-    return deletedVendor;
+    if (deleteResult.count === 0) {
+      throw new NotFoundException(`Vendor ${id} not found`);
+    }
+
+    return vendor;
   }
 }

@@ -12,6 +12,7 @@ describe('CustomerService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     salesOrder: { count: jest.fn() },
     invoice: { count: jest.fn() },
@@ -38,12 +39,12 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.vehicle.count.mockResolvedValue(0);
-    mockPrisma.customer.delete.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.customer.deleteMany.mockResolvedValue({ id: 'c-1', count: 1 });
 
     await service.remove('c-1');
 
-    expect(mockPrisma.customer.delete).toHaveBeenCalledWith({
-      where: { id: 'c-1' },
+    expect(mockPrisma.customer.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'c-1', tenant_id: 'tenant-1' },
     });
   });
 

@@ -25,6 +25,7 @@ describe('PurchaseService', () => {
       update: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     purchaseOrderItem: {
       update: jest.fn(),
@@ -276,7 +277,7 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrderItem.deleteMany.mockResolvedValue({
         count: 1,
       });
-      mockPrismaService.purchaseOrder.delete.mockResolvedValue({ id: 'po-1' });
+      mockPrismaService.purchaseOrder.deleteMany.mockResolvedValue({ id: 'po-1', count: 1 });
 
       await service.remove('po-1');
 
@@ -285,8 +286,8 @@ describe('PurchaseService', () => {
       ).toHaveBeenCalledWith({
         where: { purchase_order_id: 'po-1' },
       });
-      expect(mockPrismaService.purchaseOrder.delete).toHaveBeenCalledWith({
-        where: { id: 'po-1' },
+      expect(mockPrismaService.purchaseOrder.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'po-1', tenant_id: 'tenant-1' },
       });
     });
 
@@ -333,7 +334,7 @@ describe('PurchaseService', () => {
       expect(
         mockPrismaService.purchaseOrderItem.deleteMany,
       ).not.toHaveBeenCalled();
-      expect(mockPrismaService.purchaseOrder.delete).not.toHaveBeenCalled();
+      expect(mockPrismaService.purchaseOrder.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

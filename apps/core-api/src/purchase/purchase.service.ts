@@ -640,9 +640,15 @@ export class PurchaseService {
         where: { purchase_order_id: id },
       });
 
-      return tx.purchaseOrder.delete({
-        where: { id },
+      const deleteResult = await tx.purchaseOrder.deleteMany({
+        where: { id, tenant_id: tenantId },
       });
+
+      if (deleteResult.count === 0) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      return { id };
     });
 
     return deletedOrder;

@@ -677,9 +677,13 @@ export class WorkshopService {
         );
       }
 
-      await tx.workshopTask.delete({
-        where: { id: taskId },
+      const deleteResult = await tx.workshopTask.deleteMany({
+        where: { id: taskId, tenant_id: tenantId },
       });
+
+      if (deleteResult.count === 0) {
+        throw new NotFoundException(`Task ${taskId} not found for this order`);
+      }
 
       const tasks = await tx.workshopTask.findMany({
         where: { workshop_order_id: orderId, tenant_id: tenantId },

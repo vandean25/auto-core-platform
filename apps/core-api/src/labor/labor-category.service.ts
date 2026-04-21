@@ -268,13 +268,17 @@ export class LaborCategoryService {
       );
     }
 
-    const deleted = await this.prisma.laborCategory.delete({
-      where: { id },
+    const deleteResult = await this.prisma.laborCategory.deleteMany({
+      where: { id, tenant_id: tenantId },
     });
 
+    if (deleteResult.count === 0) {
+      throw new NotFoundException(`Labor category with ID "${id}" not found`);
+    }
+
     return {
-      ...deleted,
-      default_hourly_rate: toNumber(deleted.default_hourly_rate),
+      ...category,
+      default_hourly_rate: toNumber(category.default_hourly_rate),
     };
   }
 }

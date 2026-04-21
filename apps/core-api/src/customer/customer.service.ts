@@ -218,11 +218,15 @@ export class CustomerService {
       );
     }
 
-    const deletedCustomer = await this.prisma.customer.delete({
-      where: { id },
+    const deleteResult = await this.prisma.customer.deleteMany({
+      where: { id, tenant_id: tenantId },
     });
 
-    return deletedCustomer;
+    if (deleteResult.count === 0) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    return { id };
   }
 
   private async ensureCustomerExists(id: string) {

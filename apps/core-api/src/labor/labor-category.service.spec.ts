@@ -17,6 +17,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
   },
   laborOperation: {
     count: jest.fn(),
@@ -414,22 +415,26 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(0);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
-      mockPrisma.laborCategory.delete.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.deleteMany.mockResolvedValue({ id: 'cat-1', count: 1 });
 
       const result = await service.remove('cat-1');
 
       expect(result.id).toBe('cat-1');
-      expect(mockPrisma.laborCategory.delete).toHaveBeenCalledWith({
-        where: { id: 'cat-1' },
+      expect(mockPrisma.laborCategory.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'cat-1', tenant_id: 'tenant-1' },
       });
     });
 
     it('preserves 0 as a valid default_hourly_rate on delete result', async () => {
-      mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue({
+        ...existingCategory,
+        default_hourly_rate: 0,
+      });
       mockPrisma.laborCategory.count.mockResolvedValue(0);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
-      mockPrisma.laborCategory.delete.mockResolvedValue({
+      mockPrisma.laborCategory.deleteMany.mockResolvedValue({
         ...existingCategory,
+        count: 1,
         default_hourly_rate: 0,
       });
 
@@ -451,7 +456,7 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.count.mockResolvedValue(2); // has children
 
       await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
-      expect(mockPrisma.laborCategory.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException when labor operations reference the category', async () => {
@@ -460,7 +465,7 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborOperation.count.mockResolvedValue(3); // has operations
 
       await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
-      expect(mockPrisma.laborCategory.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

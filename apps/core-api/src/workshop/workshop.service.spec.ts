@@ -48,6 +48,7 @@ describe('WorkshopService', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
       update: jest.fn(),
     },
     catalogItem: {
@@ -226,7 +227,7 @@ describe('WorkshopService', () => {
         invoice: null,
       },
     });
-    mockPrisma.workshopTask.delete.mockResolvedValue({});
+    mockPrisma.workshopTask.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTask.findMany.mockResolvedValue([]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
@@ -235,8 +236,8 @@ describe('WorkshopService', () => {
       id: 'wo-1',
     });
 
-    expect(mockPrisma.workshopTask.delete).toHaveBeenCalledWith({
-      where: { id: 't-1' },
+    expect(mockPrisma.workshopTask.deleteMany).toHaveBeenCalledWith({
+      where: { id: 't-1', tenant_id: 'tenant-1' },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
       where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
@@ -266,7 +267,7 @@ describe('WorkshopService', () => {
       BadRequestException,
     );
 
-    expect(mockPrisma.workshopTask.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.deleteMany).not.toHaveBeenCalled();
   });
 
   it('persists labor metadata when replacing task line items', async () => {

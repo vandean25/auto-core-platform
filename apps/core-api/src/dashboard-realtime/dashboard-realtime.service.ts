@@ -9,9 +9,10 @@ import type {
 export class DashboardRealtimeService {
   constructor(private readonly dashboardGateway: DashboardGateway) {}
 
-  emitEntityUpdated(input: EmitDashboardEntityUpdatedInput): void {
+  emitEntityUpdated(tenantId: string, input: EmitDashboardEntityUpdatedInput): void {
     const payload: DashboardEntityUpdatedPayload = {
       ...input,
+      tenantId,
       timestamp: new Date().toISOString(),
     };
     this.dashboardGateway.emitEntityUpdated(payload);
