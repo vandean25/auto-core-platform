@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LaborCategoryService } from './labor-category.service';
 
@@ -11,21 +12,30 @@ const mockPrisma = {
   laborCategory: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
   },
   laborOperation: {
     count: jest.fn(),
   },
 };
 
+const mockTenantContextService = {
+  getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+};
+
 describe('LaborCategoryService', () => {
   let service: LaborCategoryService;
 
   beforeEach(() => {
-    service = new LaborCategoryService(mockPrisma as unknown as PrismaService);
+    service = new LaborCategoryService(
+      mockPrisma as unknown as PrismaService,
+      mockTenantContextService as unknown as TenantContextService,
+    );
     jest.clearAllMocks();
   });
 
@@ -71,7 +81,7 @@ describe('LaborCategoryService', () => {
         childCount: 1,
       });
       expect(mockPrisma.laborCategory.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { parent_id: null } }),
+        expect.objectContaining({ where: { parent_id: null, tenant_id: 'tenant-1' } }),
       );
     });
 
@@ -136,7 +146,7 @@ describe('LaborCategoryService', () => {
 
   describe('create', () => {
     it('creates a top-level category successfully', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
       const mockCreated = {
         id: 'new-1',
         name: 'Engine',
@@ -157,7 +167,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('preserves 0 as a valid default_hourly_rate on create', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
       mockPrisma.laborCategory.create.mockResolvedValue({
         id: 'new-2',
         name: 'Free Service',
@@ -179,7 +189,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws ConflictException on duplicate name (pre-check)', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue({ id: 'existing' });
+      mockPrisma.laborCategory.findFirst.mockResolvedValue({ id: 'existing' });
 
       await expect(service.create({ name: 'Engine' })).rejects.toThrow(
         ConflictException,
@@ -188,7 +198,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('maps Prisma P2002 to ConflictException (concurrent duplicate)', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
       const p2002 = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint',
         {
@@ -204,9 +214,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('creates a subcategory with a valid top-level parent', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(null) // name uniqueness check
-        .mockResolvedValueOnce({ id: 'parent-1', parent_id: null }); // parent lookup
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // name uniqueness check
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'parent-1', parent_id: null }); // parent lookup
 
       const mockCreated = {
         id: 'sub-1',
@@ -230,9 +239,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws NotFoundException when parent_id does not exist', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(null) // name uniqueness check
-        .mockResolvedValueOnce(null); // parent not found
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // name uniqueness check
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // parent not found
 
       await expect(
         service.create({
@@ -243,9 +251,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when parent is itself a subcategory (depth > 2)', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(null) // name uniqueness check
-        .mockResolvedValueOnce({ id: 'sub-1', parent_id: 'grandparent-1' }); // parent is already a child
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // name uniqueness check
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'sub-1', parent_id: 'grandparent-1' }); // parent is already a child
 
       await expect(
         service.create({ name: 'Deep', parent_id: 'sub-1' }),
@@ -269,7 +276,7 @@ describe('LaborCategoryService', () => {
     };
 
     it('updates a category name successfully', async () => {
-      mockPrisma.laborCategory.findUnique
+      mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory) // category exists
         .mockResolvedValueOnce(null); // new name is unique
       mockPrisma.laborCategory.update.mockResolvedValue({
@@ -283,7 +290,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('preserves 0 as a valid default_hourly_rate on update', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValueOnce(
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
         existingCategory,
       );
       mockPrisma.laborCategory.update.mockResolvedValue({
@@ -297,7 +304,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws NotFoundException when category does not exist', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
 
       await expect(service.update('missing', { name: 'New' })).rejects.toThrow(
         NotFoundException,
@@ -305,7 +312,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws ConflictException when new name already taken', async () => {
-      mockPrisma.laborCategory.findUnique
+      mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory) // category exists
         .mockResolvedValueOnce({ id: 'other-cat' }); // name taken
 
@@ -315,7 +322,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('maps Prisma P2002 to ConflictException on concurrent duplicate (update)', async () => {
-      mockPrisma.laborCategory.findUnique
+      mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory)
         .mockResolvedValueOnce(null); // name appears unique
       const p2002 = new Prisma.PrismaClientKnownRequestError(
@@ -333,7 +340,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when setting parent_id to self', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValueOnce(
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
         existingCategory,
       );
 
@@ -343,9 +350,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws NotFoundException when new parent_id does not exist', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(existingCategory) // category exists
-        .mockResolvedValueOnce(null); // parent not found
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // parent not found
 
       await expect(
         service.update('cat-1', {
@@ -355,9 +361,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when new parent is a subcategory (depth > 2)', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(existingCategory) // category exists
-        .mockResolvedValueOnce({ id: 'sub', parent_id: 'grandparent' }); // parent is itself a child
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'sub', parent_id: 'grandparent' }); // parent is itself a child
 
       await expect(
         service.update('cat-1', { parent_id: 'sub' }),
@@ -365,9 +370,8 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when re-parenting a category that already has children (depth-3 guard)', async () => {
-      mockPrisma.laborCategory.findUnique
-        .mockResolvedValueOnce(existingCategory) // category exists
-        .mockResolvedValueOnce({ id: 'other-top', parent_id: null }); // valid top-level parent
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'other-top', parent_id: null }); // valid top-level parent
       // category has 2 children
       mockPrisma.laborCategory.count.mockResolvedValue(2);
 
@@ -377,7 +381,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('does not re-check name uniqueness when name is unchanged', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValueOnce(
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
         existingCategory,
       );
       mockPrisma.laborCategory.update.mockResolvedValue({
@@ -387,8 +391,8 @@ describe('LaborCategoryService', () => {
 
       await service.update('cat-1', { name: 'Engine', sort_order: 5 });
 
-      // findUnique should only be called once (for the category existence check)
-      expect(mockPrisma.laborCategory.findUnique).toHaveBeenCalledTimes(1);
+      // findFirst should only be called once (for the category existence check)
+      expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -408,25 +412,29 @@ describe('LaborCategoryService', () => {
     };
 
     it('deletes a category with no children and no operations', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(0);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
-      mockPrisma.laborCategory.delete.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.deleteMany.mockResolvedValue({ id: 'cat-1', count: 1 });
 
       const result = await service.remove('cat-1');
 
       expect(result.id).toBe('cat-1');
-      expect(mockPrisma.laborCategory.delete).toHaveBeenCalledWith({
-        where: { id: 'cat-1' },
+      expect(mockPrisma.laborCategory.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'cat-1', tenant_id: 'tenant-1' },
       });
     });
 
     it('preserves 0 as a valid default_hourly_rate on delete result', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue({
+        ...existingCategory,
+        default_hourly_rate: 0,
+      });
       mockPrisma.laborCategory.count.mockResolvedValue(0);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
-      mockPrisma.laborCategory.delete.mockResolvedValue({
+      mockPrisma.laborCategory.deleteMany.mockResolvedValue({
         ...existingCategory,
+        count: 1,
         default_hourly_rate: 0,
       });
 
@@ -436,7 +444,7 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws NotFoundException when category does not exist', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(null);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
 
       await expect(service.remove('missing')).rejects.toThrow(
         NotFoundException,
@@ -444,20 +452,20 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws ConflictException when child categories exist', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(2); // has children
 
       await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
-      expect(mockPrisma.laborCategory.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException when labor operations reference the category', async () => {
-      mockPrisma.laborCategory.findUnique.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(0); // no children
       mockPrisma.laborOperation.count.mockResolvedValue(3); // has operations
 
       await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
-      expect(mockPrisma.laborCategory.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

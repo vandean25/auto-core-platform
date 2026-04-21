@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,10 +8,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class VehicleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private prisma: PrismaService,
+    @Inject(TenantContextService)
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async create(createVehicleDto: CreateVehicleDto) {
     const { customer_id, ...scalarData } = createVehicleDto;
@@ -64,6 +70,7 @@ export class VehicleService {
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
   }) {
+    const tenantId = await this.tenantContext.getTenantId();
     const page = params.page && params.page > 0 ? params.page : 1;
     const resolvedPageSize =
       params.pageSize && params.pageSize > 0 ? params.pageSize : 25;
@@ -72,6 +79,7 @@ export class VehicleService {
 
     const where: Prisma.VehicleWhereInput = params.search
       ? {
+          tenant_id: tenantId,
           OR: [
             { make: { contains: params.search, mode: 'insensitive' } },
             { model: { contains: params.search, mode: 'insensitive' } },
@@ -101,7 +109,7 @@ export class VehicleService {
             },
           ],
         }
-      : {};
+      : { tenant_id: tenantId };
 
     const sortField = params.sortField ?? 'createdAt';
     let orderBy: Prisma.VehicleOrderByWithRelationInput = {
@@ -145,8 +153,9 @@ export class VehicleService {
   }
 
   async findOne(id: string) {
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         customer: true,
         sales_orders: {
@@ -186,8 +195,9 @@ export class VehicleService {
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {
-    const existingVehicle = await this.prisma.vehicle.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const existingVehicle = await this.prisma.vehicle.findFirst({
+      where: { id, tenant_id: tenantId },
       select: { id: true },
     });
 
@@ -196,8 +206,8 @@ export class VehicleService {
     }
 
     if (updateVehicleDto.customer_id) {
-      const customerExists = await this.prisma.customer.findUnique({
-        where: { id: updateVehicleDto.customer_id },
+      const customerExists = await this.prisma.customer.findFirst({
+        where: { id: updateVehicleDto.customer_id, tenant_id: tenantId },
         select: { id: true },
       });
 

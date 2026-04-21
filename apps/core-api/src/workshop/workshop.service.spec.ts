@@ -15,6 +15,7 @@ import { LedgerService } from '../inventory/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopService } from './workshop.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 describe('WorkshopService', () => {
   let service: WorkshopService;
@@ -26,23 +27,28 @@ describe('WorkshopService', () => {
     },
     customer: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     vehicle: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     workshopOrder: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
     storageLocation: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     workshopTask: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
       update: jest.fn(),
     },
     catalogItem: {
@@ -51,11 +57,15 @@ describe('WorkshopService', () => {
     inventoryStock: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     workshopTaskLineItem: {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
       findMany: jest.fn(),
+    },
+    laborOperation: {
+      count: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -68,6 +78,10 @@ describe('WorkshopService', () => {
     recordTransactions: jest.fn(),
   };
 
+  const mockTenantContextService = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,6 +89,7 @@ describe('WorkshopService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InvoicesService, useValue: mockInvoices },
         { provide: LedgerService, useValue: mockLedgerService },
+        { provide: TenantContextService, useValue: mockTenantContextService },
       ],
     }).compile();
 
@@ -94,8 +109,8 @@ describe('WorkshopService', () => {
   });
 
   it('creates workshop order with generated order number', async () => {
-    mockPrisma.customer.findUnique.mockResolvedValue({ id: 'c-1' });
-    mockPrisma.vehicle.findUnique.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.financeSettings.upsert.mockResolvedValue({ id: 1 });
     mockPrisma.financeSettings.update.mockResolvedValue({
       next_workshop_order_number: 2,
@@ -212,7 +227,7 @@ describe('WorkshopService', () => {
         invoice: null,
       },
     });
-    mockPrisma.workshopTask.delete.mockResolvedValue({});
+    mockPrisma.workshopTask.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTask.findMany.mockResolvedValue([]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
@@ -221,8 +236,8 @@ describe('WorkshopService', () => {
       id: 'wo-1',
     });
 
-    expect(mockPrisma.workshopTask.delete).toHaveBeenCalledWith({
-      where: { id: 't-1' },
+    expect(mockPrisma.workshopTask.deleteMany).toHaveBeenCalledWith({
+      where: { id: 't-1', tenant_id: 'tenant-1' },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
       where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
@@ -252,7 +267,7 @@ describe('WorkshopService', () => {
       BadRequestException,
     );
 
-    expect(mockPrisma.workshopTask.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.deleteMany).not.toHaveBeenCalled();
   });
 
   it('persists labor metadata when replacing task line items', async () => {
@@ -263,6 +278,7 @@ describe('WorkshopService', () => {
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.laborOperation.count.mockResolvedValue(1);
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.replaceTaskLineItems('wo-1', 't-1', {
@@ -314,6 +330,7 @@ describe('WorkshopService', () => {
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.laborOperation.count.mockResolvedValue(0); // Fails tenant check
     mockPrisma.workshopTaskLineItem.createMany.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('Foreign key failed', {
         code: 'P2003',
@@ -342,7 +359,7 @@ describe('WorkshopService', () => {
   });
 
   it('normalizes labor metadata fields in workshop order response', async () => {
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       customer: { id: 'c-1' },
@@ -399,7 +416,7 @@ describe('WorkshopService', () => {
   });
 
   it('rejects pick-parts when workshop order status is not eligible', async () => {
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
       status: WorkshopOrderStatus.COMPLETED,
       order_number: 'WO-2026-0001',
@@ -419,12 +436,12 @@ describe('WorkshopService', () => {
   });
 
   it('allocates from multiple source bins and records paired ledger transfers', async () => {
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       order_number: 'WO-2026-0001',
     });
-    mockPrisma.storageLocation.findUnique.mockResolvedValue({
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
       id: 'tote-1',
       type: 'staging_tote',
       deletedAt: null,
@@ -482,12 +499,12 @@ describe('WorkshopService', () => {
   });
 
   it('does not overcommit the same source bin across same-SKU lines in one request', async () => {
-    mockPrisma.workshopOrder.findUnique.mockResolvedValue({
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       order_number: 'WO-2026-0001',
     });
-    mockPrisma.storageLocation.findUnique.mockResolvedValue({
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
       id: 'tote-1',
       type: 'staging_tote',
       deletedAt: null,

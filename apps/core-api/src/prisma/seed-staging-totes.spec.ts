@@ -14,7 +14,7 @@ describe('seedFixedStagingTotes', () => {
     const locationMap = new Map(initialLocations.map((location) => [location.code, location]));
 
     const storageLocation = {
-      findMany: jest.fn().mockImplementation(async (args: { where: { code: { in: string[] } } }) => {
+      findMany: jest.fn().mockImplementation(async (args: { where: { tenant_id?: string; code: { in: string[] } } }) => {
         const codes = args.where.code.in;
         return codes
           .map((code) => locationMap.get(code))
@@ -28,7 +28,7 @@ describe('seedFixedStagingTotes', () => {
           }));
       }),
       upsert: jest.fn().mockImplementation(async (args: {
-        where: { code: string };
+        where: { tenant_id_code: { tenant_id: string; code: string } };
         update: {
           name: string;
           type: 'staging_tote';
@@ -36,6 +36,7 @@ describe('seedFixedStagingTotes', () => {
           deletedAt?: Date | null;
         };
         create: {
+          tenant_id: string;
           code: string;
           name: string;
           type: 'staging_tote';
@@ -43,7 +44,8 @@ describe('seedFixedStagingTotes', () => {
           deletedAt?: Date | null;
         };
       }) => {
-        const existing = locationMap.get(args.where.code);
+        const code = args.where.tenant_id_code.code;
+        const existing = locationMap.get(code);
         const next = existing
           ? {
               ...existing,
@@ -56,7 +58,7 @@ describe('seedFixedStagingTotes', () => {
                   : args.update.deletedAt,
             }
           : {
-              id: `id-${args.where.code}`,
+              id: `id-${code}`,
               code: args.create.code,
               name: args.create.name,
               type: args.create.type,
@@ -64,7 +66,7 @@ describe('seedFixedStagingTotes', () => {
               deletedAt: args.create.deletedAt ?? null,
             };
 
-        locationMap.set(args.where.code, next);
+        locationMap.set(code, next);
         return next;
       }),
     };
@@ -80,6 +82,7 @@ describe('seedFixedStagingTotes', () => {
 
     const firstRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
+      tenantId: 'tenant-1',
     });
 
     expect(firstRun).toEqual({
@@ -95,6 +98,7 @@ describe('seedFixedStagingTotes', () => {
 
     const secondRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
+      tenantId: 'tenant-1',
     });
 
     expect(secondRun).toEqual({
@@ -116,6 +120,7 @@ describe('seedFixedStagingTotes', () => {
 
     const thirdRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
+      tenantId: 'tenant-1',
     });
 
     expect(thirdRun).toEqual({
@@ -142,6 +147,7 @@ describe('seedFixedStagingTotes', () => {
 
     const result = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
+      tenantId: 'tenant-1',
     });
 
     expect(result).toEqual({

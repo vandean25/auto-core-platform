@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import './pre-generate-openapi'; // MUST BE FIRST
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../src/app.module';
@@ -9,9 +10,9 @@ import { AppModule } from '../src/app.module';
  * to `apps/core-api/openapi/openapi.json` for CI contract checks.
  */
 async function generateOpenApiSpec() {
-  process.env.SKIP_PRISMA_CONNECT = 'true';
-
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
@@ -20,6 +21,15 @@ async function generateOpenApiSpec() {
       'Generated OpenAPI spec for contract checks and client types.',
     )
     .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'bearer',
+    )
+    .addSecurityRequirements('bearer')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -32,4 +42,8 @@ async function generateOpenApiSpec() {
   console.log(`OpenAPI spec written to ${outputFile}`);
 }
 
-void generateOpenApiSpec();
+generateOpenApiSpec().catch((error) => {
+  console.error('Failed to generate OpenAPI spec:');
+  console.error(error instanceof Error ? error.stack : error);
+  process.exit(1);
+});

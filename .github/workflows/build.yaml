@@ -190,6 +190,9 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Lint Prisma tenant isolation invariants
+        run: npm run lint:prisma-tenant
+
       - name: Build backend
         run: npm run build
 

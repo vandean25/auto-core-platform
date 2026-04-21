@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VendorService } from './vendor.service';
 
@@ -9,7 +10,9 @@ describe('VendorService', () => {
   const mockPrisma = {
     vendor: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     purchaseOrder: {
       count: jest.fn(),
@@ -24,6 +27,7 @@ describe('VendorService', () => {
       providers: [
         VendorService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
       ],
     }).compile();
 
@@ -32,20 +36,20 @@ describe('VendorService', () => {
   });
 
   it('deletes vendor when unlinked', async () => {
-    mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.purchaseOrder.count.mockResolvedValue(0);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
-    mockPrisma.vendor.delete.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.vendor.deleteMany.mockResolvedValue({ id: 'v-1', count: 1 });
 
     await service.remove('v-1');
 
-    expect(mockPrisma.vendor.delete).toHaveBeenCalledWith({
-      where: { id: 'v-1' },
+    expect(mockPrisma.vendor.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'v-1', tenant_id: 'tenant-1' },
     });
   });
 
   it('blocks delete when purchase records are linked', async () => {
-    mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.purchaseOrder.count.mockResolvedValue(1);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
 
@@ -53,7 +57,7 @@ describe('VendorService', () => {
   });
 
   it('throws not found when vendor is missing', async () => {
-    mockPrisma.vendor.findUnique.mockResolvedValue(null);
+    mockPrisma.vendor.findFirst.mockResolvedValue(null);
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
 import { buildInvoiceSnapshot } from './invoice-snapshot';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -22,14 +23,16 @@ export class InvoicesService {
   constructor(
     private prisma: PrismaService,
     private financeService: FinanceService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async createDraftInvoice(workshopOrderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     await this.financeService.validateTransactionDate(new Date());
 
     return this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findUnique({
-        where: { id: workshopOrderId },
+      const order = await tx.workshopOrder.findFirst({
+        where: { id: workshopOrderId, tenant_id: tenantId },
         include: {
           tasks: {
             include: {
@@ -64,7 +67,7 @@ export class InvoicesService {
       }
 
       const { itemsData, totalNet, totalTax } =
-        this.buildInvoiceItems(lineItems);
+        this.buildInvoiceItems(lineItems, tenantId);
       const totalGross = totalNet.add(totalTax);
       this.assertDiscountPair('Global', null, null);
       itemsData.forEach((item, index) => {
@@ -78,6 +81,7 @@ export class InvoicesService {
       try {
         return await tx.invoice.create({
           data: {
+            tenant_id: tenantId,
             customer_id: order.customer_id,
             vehicle_id: order.vehicle_id,
             workshop_order_id: order.id,
@@ -112,9 +116,10 @@ export class InvoicesService {
   }
 
   async issueInvoice(invoiceId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.findUnique({
-        where: { id: invoiceId },
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenant_id: tenantId },
         include: {
           items: { orderBy: { createdAt: 'asc' } },
           customer: true,
@@ -147,7 +152,7 @@ export class InvoicesService {
       }
 
       const invoiceNumber =
-        invoice.invoice_number ?? (await this.generateInvoiceNumber(tx));
+        invoice.invoice_number ?? (await this.generateInvoiceNumber(tx, tenantId));
       const snapshot = buildInvoiceSnapshot({
         ...invoice,
         invoice_number: invoiceNumber,
@@ -166,8 +171,8 @@ export class InvoicesService {
         data: { status: WorkshopOrderStatus.INVOICED },
       });
 
-      const updated = await tx.invoice.findUnique({
-        where: { id: invoiceId },
+      const updated = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenant_id: tenantId },
         include: {
           items: { orderBy: { createdAt: 'asc' } },
           customer: true,
@@ -184,7 +189,10 @@ export class InvoicesService {
     });
   }
 
-  private buildInvoiceItems(lineItems: WorkshopTaskLineItem[]) {
+  private buildInvoiceItems(
+    lineItems: WorkshopTaskLineItem[],
+    tenantId: string,
+  ) {
     let totalNet = new Prisma.Decimal(0);
     let totalTax = new Prisma.Decimal(0);
 
@@ -198,6 +206,7 @@ export class InvoicesService {
       totalTax = totalTax.add(tax);
 
       return {
+        tenant_id: tenantId,
         description: line.description,
         quantity,
         unit_price: unitPrice,
@@ -244,14 +253,15 @@ export class InvoicesService {
 
   private async generateInvoiceNumber(
     tx: Prisma.TransactionClient,
+    tenantId: string,
   ): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `RE-${year}-`;
 
     const sequence = await tx.invoiceSequence.upsert({
-      where: { year },
+      where: { tenant_id_year: { tenant_id: tenantId, year } },
       update: { current: { increment: 1 } },
-      create: { year, current: 1 },
+      create: { tenant_id: tenantId, year, current: 1 },
     });
 
     return `${prefix}${sequence.current.toString().padStart(4, '0')}`;

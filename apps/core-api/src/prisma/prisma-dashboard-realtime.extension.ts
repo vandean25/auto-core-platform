@@ -45,6 +45,22 @@ function extractEntityId(result: unknown): string | undefined {
   return typeof candidate.id === 'string' ? candidate.id : undefined;
 }
 
+function extractTenantId(result: any, args: any): string | undefined {
+  // 1. Try to get from result
+  if (result && typeof result === 'object' && result.tenant_id) {
+    return result.tenant_id;
+  }
+  // 2. Try to get from data (create/update)
+  if (args?.data?.tenant_id) {
+    return args.data.tenant_id;
+  }
+  // 3. Try to get from where (updateMeta/delete/many)
+  if (args?.where?.tenant_id) {
+    return args.where.tenant_id;
+  }
+  return undefined;
+}
+
 export function createDashboardRealtimeExtension(
   dashboardRealtime: DashboardRealtimeService,
 ) {
@@ -56,8 +72,9 @@ export function createDashboardRealtimeExtension(
           const result = await query(args);
           const type = modelNameToEntityType(model);
           const action = operationToAction('create');
-          if (type && action) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && action && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
               entityId: extractEntityId(result),
@@ -69,8 +86,9 @@ export function createDashboardRealtimeExtension(
           const result = await query(args);
           const type = modelNameToEntityType(model);
           const action = operationToAction('update');
-          if (type && action) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && action && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
               entityId: extractEntityId(result),
@@ -82,8 +100,9 @@ export function createDashboardRealtimeExtension(
           const result = await query(args);
           const type = modelNameToEntityType(model);
           const action = operationToAction('delete');
-          if (type && action) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && action && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
               entityId: extractEntityId(result),
@@ -95,8 +114,9 @@ export function createDashboardRealtimeExtension(
           const result = await query(args);
           const type = modelNameToEntityType(model);
           const action = operationToAction('updateMany');
-          if (type && action) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && action && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
             });
@@ -107,8 +127,9 @@ export function createDashboardRealtimeExtension(
           const result = await query(args);
           const type = modelNameToEntityType(model);
           const action = operationToAction('deleteMany');
-          if (type && action) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && action && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
             });
@@ -130,8 +151,9 @@ export function createDashboardRealtimeExtension(
             ? 'UPDATED'
             : 'CREATED';
 
-          if (type) {
-            dashboardRealtime.emitEntityUpdated({
+          const tenantId = extractTenantId(result, args);
+          if (type && tenantId) {
+            dashboardRealtime.emitEntityUpdated(tenantId, {
               type,
               action,
               entityId: extractEntityId(result),

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -16,7 +17,10 @@ export interface RecordTransactionParams {
 
 @Injectable()
 export class LedgerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Records an inventory transaction and updates the cached stock quantity.
@@ -47,11 +51,12 @@ export class LedgerService {
     if (paramsArray.length === 0) return;
 
     const tx = prismaVal || this.prisma;
+    const tenantId = await this.tenantContext.getTenantId();
 
     // PRE-FETCH & MAP Location validation
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
     const locations = await tx.storageLocation.findMany({
-      where: { id: { in: locationIds } },
+      where: { tenant_id: tenantId, id: { in: locationIds } },
     });
     const locationsMap = new Map(locations.map((loc) => [loc.id, loc]));
     const stockEnabledLocationTypes = new Set(['bin', 'staging_tote']);
@@ -72,6 +77,7 @@ export class LedgerService {
 
     // Create transactions in bulk
     const transactionsData = paramsArray.map((params) => ({
+      tenant_id: tenantId,
       item_id: params.itemId,
       location_id: params.locationId,
       quantity: new Decimal(params.quantity.toString()),
@@ -115,6 +121,7 @@ export class LedgerService {
     // Find all existing stocks for the item/location combinations
     const existingStocks = await tx.inventoryStock.findMany({
       where: {
+        tenant_id: tenantId,
         OR: aggregatedArray.map((p) => ({
           catalog_item_id: p.itemId,
           location_id: p.locationId,
@@ -147,6 +154,7 @@ export class LedgerService {
       } else {
         stock = await tx.inventoryStock.create({
           data: {
+            tenant_id: tenantId,
             catalog_item_id: params.itemId,
             location_id: params.locationId,
             quantity_on_hand: Number(params.quantity),
@@ -169,8 +177,10 @@ export class LedgerService {
    * Useful for audit trail and debugging.
    */
   async getTransactionHistory(itemId: string, locationId?: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     return await this.prisma.inventoryTransaction.findMany({
       where: {
+        tenant_id: tenantId,
         item_id: itemId,
         ...(locationId && { location_id: locationId }),
       },
@@ -207,19 +217,20 @@ export class LedgerService {
     itemId: string,
     locationId: string,
   ): Promise<boolean> {
+    const tenantId = await this.tenantContext.getTenantId();
     const [transactions, stock] = await Promise.all([
       this.prisma.inventoryTransaction.findMany({
         where: {
+          tenant_id: tenantId,
           item_id: itemId,
           location_id: locationId,
         },
       }),
-      this.prisma.inventoryStock.findUnique({
+      this.prisma.inventoryStock.findFirst({
         where: {
-          catalog_item_id_location_id: {
-            catalog_item_id: itemId,
-            location_id: locationId,
-          },
+          tenant_id: tenantId,
+          catalog_item_id: itemId,
+          location_id: locationId,
         },
       }),
     ]);
