@@ -3,6 +3,10 @@ import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
+import type { components } from './generated/openapi'
+
+type CreateVehicleDto = components['schemas']['CreateVehicleDto']
+type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']
 
 type VehicleListResponse = {
   data: Array<
@@ -56,6 +60,30 @@ export function useVehicle<TVehicle = Vehicle>(id: string) {
   })
 }
 
+export function useCreateVehicle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: CreateVehicleDto) => {
+      const response = await fetchWithAuth('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ message: 'Failed to create vehicle' }))
+        throw new Error(payload.message || 'Failed to create vehicle')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+    },
+  })
+}
+
 export function useUpdateVehicle() {
   const queryClient = useQueryClient()
 
@@ -65,15 +93,7 @@ export function useUpdateVehicle() {
       data,
     }: {
       id: string
-      data: {
-        make?: string
-        model?: string
-        year?: number
-        engine_code?: string
-        vin?: string
-        plate?: string
-        customer_id?: string | null
-      }
+      data: UpdateVehicleDto
     }) => {
       const response = await fetchWithAuth(`/api/vehicles/${id}`, {
         method: 'PATCH',

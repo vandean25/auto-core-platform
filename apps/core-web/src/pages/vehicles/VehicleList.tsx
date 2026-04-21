@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
-import { CarFront } from 'lucide-react'
+import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useVehicles } from '@/api/vehicles'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
+import { Button } from '@/components/ui/button'
+import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 
 type VehicleRow = {
   id: string
@@ -32,6 +34,7 @@ export default function VehicleList() {
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, isLoading } = useVehicles(queryParams)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
     return (responseData?.data ?? []).map((vehicle) => ({
@@ -60,7 +63,7 @@ export default function VehicleList() {
     },
     {
       accessorKey: 'vehicle',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Vehicle' />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Make & Model' />,
       cell: ({ row }) => <span className='font-medium'>{row.original.vehicle}</span>,
     },
     {
@@ -89,7 +92,12 @@ export default function VehicleList() {
           <h1 className='text-2xl font-semibold tracking-tight'>Vehicles</h1>
           <p className='text-slate-500'>Browse all vehicles and open full vehicle context.</p>
         </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Vehicle
+        </Button>
       </div>
+
+      <VehicleDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
 
       <DataTable
         columns={columns}

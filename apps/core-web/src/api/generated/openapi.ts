@@ -909,7 +909,7 @@ export interface paths {
         };
         get: operations["VehicleController_findAll"];
         put?: never;
-        post?: never;
+        post: operations["VehicleController_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1578,6 +1578,16 @@ export interface components {
             labor: components["schemas"]["CatalogLaborSearchItemDto"][];
             parts: components["schemas"]["CatalogPartSearchItemDto"][];
             meta: components["schemas"]["CatalogSearchMetaDto"];
+        };
+        CreateVehicleDto: {
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string;
+            vin?: string;
+            plate?: string;
+            /** Format: uuid */
+            customer_id?: string | null;
         };
         UpdateVehicleDto: {
             make?: string;
@@ -3764,6 +3774,27 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>;
                 };
+            };
+        };
+    };
+    VehicleController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

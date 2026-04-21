@@ -5,11 +5,13 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
 
 @Controller('vehicles')
 export class VehicleController {
@@ -71,6 +73,11 @@ export class VehicleController {
       sortField,
       sortDirection: sortDirection ? sortDirection : undefined,
     });
+  }
+
+  @Post()
+  create(@Body() createVehicleDto: CreateVehicleDto) {
+    return this.vehicleService.create(createVehicleDto);
   }
 
   @Get(':id')

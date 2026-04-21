@@ -8,6 +8,7 @@ import {
   createMockSalesOrder,
   createMockPurchaseBill,
   createMockListResponse,
+  createMockVehicleListItem,
 } from './utils/mock-factories';
 
 /**
@@ -93,6 +94,14 @@ const modules: ModuleConfig[] = [
     seed: 'B-2026-001',
     mockFactory: () => createMockPurchaseBill({ vendor_invoice_number: 'B-2026-001' }),
     apiPath: '/api/purchase-invoices',
+  },
+  {
+    name: 'Vehicles',
+    path: '/vehicles',
+    entity: 'Vehicle',
+    seed: 'Toyota Corolla',
+    mockFactory: () => createMockVehicleListItem({ make: 'Toyota', model: 'Corolla' }),
+    apiPath: '/api/vehicles',
   },
 ];
 
