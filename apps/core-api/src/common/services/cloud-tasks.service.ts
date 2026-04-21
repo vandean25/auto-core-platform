@@ -91,7 +91,7 @@ export class CloudTasksService {
     invoiceId: string;
     targetBaseUrl: string;
     delaySeconds?: number;
-    tenantId?: string;
+    tenantId: string;
   }): Promise<{ taskId: string }> {
     return Sentry.startSpan(
       { name: 'Enqueue PDF generation task', op: 'cloudtasks.enqueue' },
@@ -152,7 +152,7 @@ export class CloudTasksService {
               headers: {
                 'Content-Type': 'application/json',
                 'x-cloud-tasks-secret': workerSecret,
-                ...(params.tenantId && { 'x-tenant-id': params.tenantId }),
+                'x-tenant-id': params.tenantId,
               },
               body: Buffer.from('{}'),
             },
@@ -187,7 +187,7 @@ export class CloudTasksService {
     workshopOrderId: string;
     targetBaseUrl: string;
     delaySeconds?: number;
-    tenantId?: string;
+    tenantId: string;
   }): Promise<{ taskId: string }> {
     return Sentry.startSpan(
       { name: 'Enqueue Workshop PDF task', op: 'cloudtasks.enqueue' },
@@ -251,7 +251,7 @@ export class CloudTasksService {
               headers: {
                 'Content-Type': 'application/json',
                 'x-cloud-tasks-secret': workerSecret,
-                ...(params.tenantId && { 'x-tenant-id': params.tenantId }),
+                'x-tenant-id': params.tenantId,
               },
               body: Buffer.from('{}'),
             },

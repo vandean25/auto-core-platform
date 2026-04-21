@@ -110,8 +110,13 @@ export class AuthService {
       }
     }
 
-    const decoded = await getAuth(this.getFirebaseApp()).verifyIdToken(token);
-    return this.assertClaims(this.mapFirebaseClaims(decoded));
+    try {
+      const decoded = await getAuth(this.getFirebaseApp()).verifyIdToken(token);
+      return this.assertClaims(this.mapFirebaseClaims(decoded));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new UnauthorizedException(`Invalid or expired token: ${message}`);
+    }
   }
 
   private assertClaims(payload: Partial<AuthClaims>): AuthClaims {
