@@ -35,7 +35,19 @@ type MockCustomer = {
 type MockBrand = {
   id: number;
   name: string;
+  isVehicleMake: boolean;
+  isPartManufacturer: boolean;
 };
+
+export const createMockBrand = (
+  overrides: Partial<MockBrand> = {}
+): MockBrand => ({
+  id: 1,
+  name: 'Bosch',
+  isVehicleMake: false,
+  isPartManufacturer: true,
+  ...overrides,
+});
 
 /**
  * Aligns with the frontend `Vendor` interface from `src/api/types.ts`.
@@ -432,6 +444,87 @@ export const createMockLaborOperation = (
 // ---------------------------------------------------------------------------
 // Shared list response wrapper
 // ---------------------------------------------------------------------------
+
+type MockFinanceSettings = {
+  id: number;
+  fiscal_year_start_month: number;
+  lock_date: string | null;
+  invoice_prefix: string;
+  next_invoice_number: number;
+};
+
+export const createMockFinanceSettings = (
+  overrides: Partial<MockFinanceSettings> = {}
+): MockFinanceSettings => ({
+  id: 1,
+  fiscal_year_start_month: 1,
+  lock_date: null,
+  invoice_prefix: 'INV-',
+  next_invoice_number: 1000,
+  ...overrides,
+});
+
+type MockRevenueGroup = {
+  id: number;
+  name: string;
+  description?: string | null;
+  tax_rate: number;
+  account_number: string;
+  is_default: boolean;
+};
+
+export const createMockRevenueGroup = (
+  overrides: Partial<MockRevenueGroup> = {}
+): MockRevenueGroup => ({
+  id: 1,
+  name: 'Parts Sales',
+  description: 'Parts revenue',
+  tax_rate: 25,
+  account_number: '4000',
+  is_default: true,
+  ...overrides,
+});
+
+type MockLaborCategoryChild = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+  parent_id: string | null;
+  default_hourly_rate: number | null;
+  is_active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type MockLaborCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+  parent_id: string | null;
+  default_hourly_rate: number | null;
+  is_active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  children: MockLaborCategoryChild[];
+};
+
+export const createMockLaborCategory = (
+  overrides: Partial<MockLaborCategory> = {}
+): MockLaborCategory => ({
+  id: 'cat-1',
+  name: 'Engine Repair',
+  description: null,
+  sort_order: 10,
+  parent_id: null,
+  default_hourly_rate: 150.00,
+  is_active: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  children: [],
+  ...overrides,
+});
 
 /**
  * Wraps an array of items in the standard `{ data, meta }` envelope that all
