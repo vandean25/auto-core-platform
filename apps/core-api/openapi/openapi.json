@@ -3910,6 +3910,7 @@
           },
           "category": {
             "nullable": true,
+            "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/LaborOperationCategoryDto"
