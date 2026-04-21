@@ -414,69 +414,6 @@ export const createMockWorkshopOrder = (
 });
 
 // ---------------------------------------------------------------------------
-// Customer Detail (full detail response including related entities)
-// ---------------------------------------------------------------------------
-
-type MockCustomerDetailSalesOrder = {
-  id: string;
-  order_number: string;
-  status: string;
-  total_amount: string;
-  createdAt: string;
-};
-
-type MockCustomerDetailWorkshopOrder = {
-  id: string;
-  order_number: string;
-  status: string;
-  createdAt: string;
-  tasks: MockCustomerDetailWorkshopTask[];
-};
-
-type MockCustomerDetailWorkshopTask = {
-  lineItems: MockCustomerDetailLineItem[];
-};
-
-type MockCustomerDetailLineItem = {
-  quantity: number;
-  unitPrice: number;
-};
-
-type MockCustomerDetailInvoice = {
-  id: string;
-  invoice_number: string;
-  status: string;
-  date: string;
-  total_gross: string;
-};
-
-type MockCustomerDetailVehicle = MockVehicle & { vin: string };
-
-type MockCustomerDetail = MockCustomer & {
-  sales_orders: MockCustomerDetailSalesOrder[];
-  workshop_orders: MockCustomerDetailWorkshopOrder[];
-  invoices: MockCustomerDetailInvoice[];
-  vehicles: MockCustomerDetailVehicle[];
-};
-
-export const createMockCustomerDetailResponse = (
-  overrides: Partial<MockCustomerDetail> = {},
-): MockCustomerDetail => ({
-  id: 'cust-detail-123',
-  type: 'PRIVATE',
-  first_name: 'John',
-  last_name: 'Doe',
-  company_name: null,
-  email: 'john.doe@example.com',
-  phone: null,
-  sales_orders: [],
-  workshop_orders: [],
-  invoices: [],
-  vehicles: [],
-  ...overrides,
-});
-
-// ---------------------------------------------------------------------------
 // Storage Locations
 // ---------------------------------------------------------------------------
 
@@ -563,6 +500,50 @@ export const createMockRevenueGroup = (
   tax_rate: 25,
   account_number: '4000',
   is_default: true,
+  ...overrides,
+});
+
+type MockEmployee = {
+  id: string;
+  name: string;
+  role: 'MECHANIC' | 'SERVICE_ADVISOR' | 'PARTS_CLERK';
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const createMockEmployee = (
+  overrides: Partial<MockEmployee> = {}
+): MockEmployee => ({
+  id: 'employee-1',
+  name: 'Alex Novak',
+  role: 'MECHANIC',
+  isActive: true,
+  sortOrder: 10,
+  createdAt: '2026-04-21T09:00:00.000Z',
+  updatedAt: '2026-04-21T09:00:00.000Z',
+  ...overrides,
+});
+
+type MockBay = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const createMockBay = (
+  overrides: Partial<MockBay> = {}
+): MockBay => ({
+  id: 'bay-1',
+  name: 'Bay 01',
+  isActive: true,
+  sortOrder: 1,
+  createdAt: '2026-04-21T09:15:00.000Z',
+  updatedAt: '2026-04-21T09:15:00.000Z',
   ...overrides,
 });
 
