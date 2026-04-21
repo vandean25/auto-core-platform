@@ -46,6 +46,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { getErrorMessage, isAbortError } from '@/lib/error-utils'
 
 const DEFAULT_TAX_RATE = 20
 const AUTO_SAVE_DEBOUNCE_MS = 750
@@ -308,10 +309,10 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             })
             if (controller.signal.aborted) return
             setSaveStatus('saved')
-        } catch (error: any) {
-            if (error.name === 'AbortError') return
+        } catch (error: unknown) {
+            if (isAbortError(error)) return
             setSaveStatus('error')
-            toast.error('Auto-save failed', { description: error.message || 'Please check your connection' })
+            toast.error('Auto-save failed', { description: getErrorMessage(error, 'Please check your connection') })
         }
     }, [isEdit, initialData, updateMutation])
 
@@ -545,8 +546,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             const result = await createMutation.mutateAsync(payload)
             toast.success('Bill created')
             onSuccess(result)
-        } catch (error: any) {
-            toast.error('Failed to create bill', { description: error.message })
+        } catch (error: unknown) {
+            toast.error('Failed to create bill', { description: getErrorMessage(error, 'Please check your input and try again') })
         } finally {
             setIsCreating(false)
         }
@@ -580,8 +581,8 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
             const posted = await postMutation.mutateAsync(initialData.id)
             toast.success('Bill posted successfully')
             onSuccess(posted)
-        } catch (err: any) {
-            toast.error('Failed to post bill', { description: err.message })
+        } catch (err: unknown) {
+            toast.error('Failed to post bill', { description: getErrorMessage(err, 'Please check your input and try again') })
         } finally {
             setIsPosting(false)
         }

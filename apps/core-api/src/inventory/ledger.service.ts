@@ -136,12 +136,14 @@ export class LedgerService {
       ]),
     );
 
+    type InventoryStockRecord = (typeof existingStocks)[number];
+
     // Process stock updates concurrently using chunkedPromiseAll
     await chunkedPromiseAll(aggregatedArray, async (params) => {
       const stockKey = `${params.itemId}-${params.locationId}`;
       const existingStock = existingStocksMap.get(stockKey);
 
-      let stock;
+      let stock: InventoryStockRecord;
       if (existingStock) {
         stock = await tx.inventoryStock.update({
           where: { id: existingStock.id },

@@ -15,6 +15,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, FileText, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { getErrorMessage } from '@/lib/error-utils'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -40,8 +41,8 @@ export default function SalesOrderDetail() {
             // Optionally redirect to the new invoice?
             // Since API returns invoice object, we could grab ID but mutation hook might not expose it easily unless we change it.
             // But we invalidate queries so status should update.
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to create invoice')
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to create invoice'))
         }
     }
 
@@ -60,8 +61,8 @@ export default function SalesOrderDetail() {
                 data: { notes: nextNotes },
             })
             toast.success('Order notes saved')
-        } catch (error: any) {
-            toast.error(error?.message || 'Failed to save order notes')
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to save order notes'))
             throw error
         }
     }

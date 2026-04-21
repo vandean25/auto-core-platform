@@ -7,7 +7,7 @@ import {
   Patch,
   Query,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
@@ -32,6 +32,9 @@ export class VehicleController {
     name: 'sortDirection',
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
+  })
+  @ApiOkResponse({
+    schema: { type: 'object' },
   })
   findAll(
     @Query('search') search?: string,
@@ -71,11 +74,17 @@ export class VehicleController {
   }
 
   @Get(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   findOne(@Param('id') id: string) {
     return this.vehicleService.findOne(id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   update(@Param('id') id: string, @Body() updateVehicleDto: UpdateVehicleDto) {
     return this.vehicleService.update(id, updateVehicleDto);
   }

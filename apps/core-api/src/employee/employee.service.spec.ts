@@ -41,15 +41,18 @@ describe('EmployeeService', () => {
 
     const result = await service.findAll({});
 
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
-      {
-        where: { is_active: true },
-        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-        skip: 0,
-        take: 25,
-      },
-    );
-    expect(result.meta).toEqual({ total: 1, page: 1, limit: 25, totalPages: 1 });
+    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
+      where: { is_active: true },
+      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+      skip: 0,
+      take: 25,
+    });
+    expect(result.meta).toEqual({
+      total: 1,
+      page: 1,
+      limit: 25,
+      totalPages: 1,
+    });
   });
 
   it('supports role and includeInactive filters', async () => {

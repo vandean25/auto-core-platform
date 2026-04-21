@@ -182,7 +182,11 @@ export class PurchaseService {
         // Aggregate received items by poItem.id to prevent duplicate itemIds from exceeding the limit
         const aggregatedReceived = new Map<
           string,
-          { quantity: number; received: any; poItem: any }
+          {
+            quantity: number;
+            received: { itemId: string; quantity: number };
+            poItem: Prisma.PurchaseOrderItemGetPayload<Record<string, never>>;
+          }
         >();
 
         for (const received of receivedItems) {
@@ -432,7 +436,7 @@ export class PurchaseService {
     }
 
     // Map camelCase to snake_case for Prisma
-    const prismaUpdates: Record<string, any> = {};
+    const prismaUpdates: Prisma.PurchaseOrderItemUpdateInput = {};
     if (updates.quantity !== undefined)
       prismaUpdates.quantity = updates.quantity;
     if (updates.unitCost !== undefined)
@@ -526,12 +530,8 @@ export class PurchaseService {
   }
 
   async findAll(
-    params: Prisma.PurchaseOrderFindManyArgs,
-  ): Promise<PaginatedPurchaseOrderResult>;
-  async findAll(status?: string): Promise<PurchaseOrderWithRelations[]>;
-  async findAll(
     params?: Prisma.PurchaseOrderFindManyArgs | string,
-  ): Promise<PaginatedPurchaseOrderResult | PurchaseOrderWithRelations[]> {
+  ): Promise<PaginatedPurchaseOrderResult> {
     const tenantId = await this.tenantContext.getTenantId();
     if (
       params &&
@@ -553,10 +553,9 @@ export class PurchaseService {
     }
 
     let where: Prisma.PurchaseOrderWhereInput = { tenant_id: tenantId };
-    const status = params as string;
-    const filter = status || 'all';
+    const status = typeof params === 'string' ? params : 'all';
 
-    if (filter === 'open') {
+    if (status === 'open') {
       where = {
         tenant_id: tenantId,
         status: {
@@ -569,11 +568,12 @@ export class PurchaseService {
       };
     }
 
-    return this.prisma.purchaseOrder.findMany({
+    const data = await this.prisma.purchaseOrder.findMany({
       where,
       include: { vendor: true, items: true },
       orderBy: { createdAt: 'desc' },
     });
+    return { data, total: data.length };
   }
 
   async findOne(id: string) {

@@ -44,7 +44,7 @@ export function RevenueBreakdownCard() {
                             ))}
                         </Pie>
                         <Tooltip 
-                            formatter={(value: any) => [
+                            formatter={(value: unknown) => [
                                 typeof value === 'number' ? `€${value.toLocaleString()}` : (value ? String(value) : "€0"),
                                 'Revenue'
                             ]}

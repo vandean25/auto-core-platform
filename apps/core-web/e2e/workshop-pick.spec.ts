@@ -13,9 +13,10 @@ async function seedWorkshopOrderForPick(page: Page) {
   expect(searchResponse.ok(), 'Expected workshop search API to succeed').toBeTruthy();
 
   const searchPayload = await searchResponse.json();
-  const vehicle = (searchPayload?.data?.vehicles ?? []).find(
-    (entry: any) => entry?.customer?.id,
-  );
+  const vehicles = Array.isArray(searchPayload?.data?.vehicles)
+    ? (searchPayload.data.vehicles as Array<{ customer?: { id?: string } | null; id: string }>)
+    : [];
+  const vehicle = vehicles.find((entry) => entry.customer?.id);
   expect(vehicle, 'Expected at least one seeded vehicle with a linked customer').toBeTruthy();
 
   const createOrderResponse = await page.request.post('/api/workshop/orders', {

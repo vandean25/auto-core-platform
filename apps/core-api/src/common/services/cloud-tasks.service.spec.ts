@@ -103,7 +103,6 @@ describe('CloudTasksService', () => {
     expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
   });
 
-
   it('includes x-tenant-id header when tenantId is provided to enqueueWorkshopPdfGeneration', async () => {
     const { service, createTask } = createService();
     createTask.mockResolvedValue([
@@ -121,5 +120,4 @@ describe('CloudTasksService', () => {
     const request = createTask.mock.calls[0][0];
     expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
   });
-
 });

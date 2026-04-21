@@ -3,6 +3,7 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { CustomerType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { InvoiceSnapshot } from './invoice-snapshot';
 
 async function generatePDFs() {
   const browserService = new PlaywrightBrowserService();
@@ -41,7 +42,7 @@ async function generatePDFs() {
     snapshot_created_at: new Date().toISOString(),
   };
 
-  async function renderToFile(name: string, snapshot: any) {
+  async function renderToFile(name: string, snapshot: InvoiceSnapshot) {
     const pdf = await renderer.render(snapshot);
     fs.writeFileSync(path.join(outputDir, name), pdf);
     console.log(`Generated ${name} in ${outputDir}`);

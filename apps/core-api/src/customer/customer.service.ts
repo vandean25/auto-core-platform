@@ -41,14 +41,9 @@ export class CustomerService {
     return customer;
   }
 
-  async findAll(): Promise<Customer[]>;
-  async findAll(search?: string): Promise<Customer[]>;
-  async findAll(
-    params: Prisma.CustomerFindManyArgs,
-  ): Promise<{ data: Customer[]; total: number }>;
   async findAll(
     params?: string | Prisma.CustomerFindManyArgs,
-  ): Promise<Customer[] | { data: Customer[]; total: number }> {
+  ): Promise<{ data: Customer[]; total: number }> {
     const tenantId = await this.tenantContext.getTenantId();
     // If params is just a Prisma query object from QueryBuilder
     if (
@@ -70,7 +65,7 @@ export class CustomerService {
 
     // Fallback for legacy calls (if any)
     const search = typeof params === 'string' ? params : undefined;
-    return this.prisma.client.customer.findMany({
+    const result = await this.prisma.client.customer.findMany({
       where: search
         ? {
             tenant_id: tenantId,
@@ -84,6 +79,7 @@ export class CustomerService {
         : { tenant_id: tenantId },
       orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
     });
+    return { data: result, total: result.length };
   }
 
   async findOne(

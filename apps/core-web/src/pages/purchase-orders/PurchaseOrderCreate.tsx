@@ -20,7 +20,7 @@ export default function PurchaseOrderCreate() {
 
     // Step 2: Vendor
     const { data: vendorsResponse } = useVendors()
-    const vendors = (Array.isArray(vendorsResponse) ? vendorsResponse : (vendorsResponse as any)?.data || []) as Vendor[]
+    const vendors: Vendor[] = vendorsResponse?.data ?? []
 
     // Compute valid vendor ID based on params, brand, and available vendors
     const computeValidVendorId = () => {

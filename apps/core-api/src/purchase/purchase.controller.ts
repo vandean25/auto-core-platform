@@ -10,9 +10,9 @@ import {
   HttpCode,
   Patch,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
-import { QueryBuilder } from '../common/utils/query-builder';
+import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
 import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
@@ -24,6 +24,9 @@ export class PurchaseController {
   constructor(private readonly purchaseService: PurchaseService) {}
 
   @Post()
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   async createPurchaseOrder(
     @Body() createPurchaseOrderDto: CreatePurchaseOrderDto,
   ) {
@@ -35,6 +38,9 @@ export class PurchaseController {
 
   @Post(':id/receive')
   @HttpCode(201)
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   async receiveItems(
     @Param('id') orderId: string,
     @Body() receivePurchaseOrderDto: ReceivePurchaseOrderDto,
@@ -87,6 +93,9 @@ export class PurchaseController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   async findAll(
     @Query('status') status?: string,
     @Query('search') search?: string,
@@ -95,7 +104,7 @@ export class PurchaseController {
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    const queryParams: any = {};
+    const queryParams: QueryParams = {};
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
@@ -145,10 +154,22 @@ export class PurchaseController {
       };
     }
 
-    return this.purchaseService.findAll(status);
+    const result = await this.purchaseService.findAll(status);
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: 1,
+        pageSize: result.data.length || 1,
+        pageCount: 1,
+      },
+    };
   }
 
   @Get(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   async findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
   }
@@ -159,6 +180,9 @@ export class PurchaseController {
   }
 
   @Post(':id/items')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   async addItems(
     @Param('id') orderId: string,
     @Body() dto: AddPurchaseOrderItemsDto,
@@ -167,6 +191,9 @@ export class PurchaseController {
   }
 
   @Patch(':id/items/:itemId')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   async updateItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,

@@ -1,7 +1,4 @@
-import {
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BayService } from './bay.service';
@@ -43,15 +40,18 @@ describe('BayService', () => {
 
     const result = await service.findAll({});
 
-    expect(mockPrisma.bay.findMany).toHaveBeenCalledWith(
-      {
-        where: { is_active: true },
-        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-        skip: 0,
-        take: 25,
-      },
-    );
-    expect(result.meta).toEqual({ total: 1, page: 1, limit: 25, totalPages: 1 });
+    expect(mockPrisma.bay.findMany).toHaveBeenCalledWith({
+      where: { is_active: true },
+      orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
+      skip: 0,
+      take: 25,
+    });
+    expect(result.meta).toEqual({
+      total: 1,
+      page: 1,
+      limit: 25,
+      totalPages: 1,
+    });
   });
 
   it('supports includeInactive list filter', async () => {
@@ -70,10 +70,13 @@ describe('BayService', () => {
   });
 
   it('maps duplicate create to ConflictException', async () => {
-    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-      code: 'P2002',
-      clientVersion: '0',
-    });
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint',
+      {
+        code: 'P2002',
+        clientVersion: '0',
+      },
+    );
     mockPrisma.bay.create.mockRejectedValue(p2002);
 
     await expect(service.create({ name: 'Bay A' })).rejects.toThrow(
@@ -91,10 +94,13 @@ describe('BayService', () => {
 
   it('maps duplicate update to ConflictException', async () => {
     mockPrisma.bay.findUnique.mockResolvedValue(baseBay);
-    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-      code: 'P2002',
-      clientVersion: '0',
-    });
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint',
+      {
+        code: 'P2002',
+        clientVersion: '0',
+      },
+    );
     mockPrisma.bay.update.mockRejectedValue(p2002);
 
     await expect(service.update('bay-1', { name: 'Bay B' })).rejects.toThrow(
@@ -126,7 +132,10 @@ describe('BayService', () => {
   });
 
   it('hard deletes only when already inactive and unreferenced', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue({ ...baseBay, is_active: false });
+    mockPrisma.bay.findUnique.mockResolvedValue({
+      ...baseBay,
+      is_active: false,
+    });
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.bay.delete.mockResolvedValue({ id: 'bay-1' });
 

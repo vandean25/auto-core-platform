@@ -46,6 +46,21 @@ import { CheckoutSummary } from './components/CheckoutSummary'
 
 const EMPTY_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
 
+function getErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const maybeMessage = (error as { message?: unknown }).message
+    if (typeof maybeMessage === 'string' && maybeMessage.length > 0) {
+      return maybeMessage
+    }
+  }
+
+  return fallbackMessage
+}
+
 export function WorkshopOrderDetails() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
@@ -176,8 +191,8 @@ export function WorkshopOrderDetails() {
     try {
       await updateOrder.mutateAsync({ id: order.id, notes: nextNotes })
       toast.success('Internal notes saved')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to save notes')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to save notes'))
     }
   }
 
@@ -190,8 +205,8 @@ export function WorkshopOrderDetails() {
         reportedIssue: nextIssue,
       })
       toast.success('Reported issue saved')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to save reported issue')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to save reported issue'))
     }
   }
 
@@ -205,8 +220,8 @@ export function WorkshopOrderDetails() {
       setNewTaskTitle('')
       setActiveTaskId(created.id)
       toast.success('Task created')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to create task')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to create task'))
     }
   }
 
@@ -214,8 +229,8 @@ export function WorkshopOrderDetails() {
     if (isLocked) return
     try {
       await updateTask.mutateAsync({ orderId: order.id, taskId, status })
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update task status')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update task status'))
     }
   }
 
@@ -223,8 +238,8 @@ export function WorkshopOrderDetails() {
     if (isLocked) return
     try {
       await updateTask.mutateAsync({ orderId: order.id, taskId, mechanicNotes: notes })
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update mechanic notes')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update mechanic notes'))
     }
   }
 
@@ -295,13 +310,13 @@ export function WorkshopOrderDetails() {
         delete next[taskId]
         return next
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (lineItemSaveSeq.current[taskId] !== saveSeq) return
       setTaskLineItemOverrides((previous) => ({
         ...previous,
         [taskId]: previousItems,
       }))
-      toast.error(error?.message || 'Failed to update task line items')
+      toast.error(getErrorMessage(error, 'Failed to update task line items'))
     }
   }
 
@@ -325,8 +340,8 @@ export function WorkshopOrderDetails() {
       delete lineItemSaveSeq.current[taskPendingDelete.id]
       setTaskPendingDelete(null)
       toast.success('Task deleted')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to delete task')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to delete task'))
     }
   }
 
@@ -361,8 +376,8 @@ export function WorkshopOrderDetails() {
       const invoice = await createDraftInvoice.mutateAsync(order.id)
       setCheckoutInvoiceIdOverride(invoice.id)
       toast.success(`Draft invoice created (${invoice.invoice_number || invoice.id})`)
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to create draft invoice')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to create draft invoice'))
     }
   }
 
@@ -397,8 +412,8 @@ export function WorkshopOrderDetails() {
 
       const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
       toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to issue invoice')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to issue invoice'))
     }
   }
 
@@ -430,8 +445,8 @@ export function WorkshopOrderDetails() {
       document.body.removeChild(link)
 
       toast.success('Job Card PDF downloaded successfully', { id: toastId })
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to generate PDF', { id: toastId })
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to generate PDF'), { id: toastId })
     } finally {
       if (url) {
         const urlToRevoke = url

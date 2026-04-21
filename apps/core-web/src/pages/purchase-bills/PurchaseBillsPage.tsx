@@ -20,8 +20,8 @@ export default function PurchaseBillsPage() {
 
     const { data: responseData, isLoading } = usePurchaseInvoices(queryParams)
 
-    const data: PurchaseInvoice[] = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
-    const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+    const data: PurchaseInvoice[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const columns: ColumnDef<PurchaseInvoice>[] = [
         {

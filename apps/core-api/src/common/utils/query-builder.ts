@@ -11,7 +11,7 @@ export interface FilterParam {
     | 'lte'
     | 'in'
     | 'notIn';
-  value: any;
+  value: string | number | boolean | string[] | number[];
 }
 
 export interface SortParam {
@@ -27,9 +27,9 @@ export interface QueryParams {
   search?: string; // Global search fallback
 }
 
-export interface PrismaQueryResult<T = any> {
+export interface PrismaQueryResult<T = Record<string, unknown>> {
   where: T;
-  orderBy: T | T[];
+  orderBy?: Record<string, unknown> | Record<string, unknown>[];
   skip: number;
   take: number;
 }
@@ -40,8 +40,8 @@ export class QueryBuilder {
     whitelist: string[],
     globalSearch?: string,
     searchFields?: string[],
-  ): any {
-    const where: any = {};
+  ): Record<string, unknown> {
+    const where: Record<string, unknown> = {};
 
     // 1. Process explicit filters
     for (const filter of filters) {
@@ -58,7 +58,7 @@ export class QueryBuilder {
         if (!currentLevel[part]) {
           currentLevel[part] = {};
         }
-        currentLevel = currentLevel[part];
+        currentLevel = currentLevel[part] as Record<string, unknown>;
       }
 
       const fieldName = fieldParts[fieldParts.length - 1];
@@ -78,11 +78,11 @@ export class QueryBuilder {
           return { [field]: { contains: globalSearch, mode: 'insensitive' } };
         }
         // Nested search
-        const nestedCondition: any = {};
+        const nestedCondition: Record<string, unknown> = {};
         let current = nestedCondition;
         for (let i = 0; i < parts.length - 1; i++) {
           current[parts[i]] = {};
-          current = current[parts[i]];
+          current = current[parts[i]] as Record<string, unknown>;
         }
         current[parts[parts.length - 1]] = {
           contains: globalSearch,
@@ -108,8 +108,11 @@ export class QueryBuilder {
     return where;
   }
 
-  static buildOrderBy(sorting: SortParam[] = [], whitelist: string[]): any {
-    const orderBy: any[] = [];
+  static buildOrderBy(
+    sorting: SortParam[] = [],
+    whitelist: string[],
+  ): Record<string, unknown>[] | undefined {
+    const orderBy: Record<string, unknown>[] = [];
 
     for (const sort of sorting) {
       if (!whitelist.includes(sort.field)) {
@@ -117,13 +120,13 @@ export class QueryBuilder {
       }
 
       const fieldParts = sort.field.split('.');
-      const orderObject: any = {};
+      const orderObject: Record<string, unknown> = {};
       let currentLevel = orderObject;
 
       for (let i = 0; i < fieldParts.length - 1; i++) {
         const part = fieldParts[i];
         currentLevel[part] = {};
-        currentLevel = currentLevel[part];
+        currentLevel = currentLevel[part] as Record<string, unknown>;
       }
 
       currentLevel[fieldParts[fieldParts.length - 1]] = sort.direction;
@@ -165,7 +168,10 @@ export class QueryBuilder {
     };
   }
 
-  private static mapOperator(operator: string, value: any): any {
+  private static mapOperator(
+    operator: string,
+    value: string | number | boolean | string[] | number[],
+  ): Record<string, unknown> {
     switch (operator) {
       case 'equals':
         return { equals: value };

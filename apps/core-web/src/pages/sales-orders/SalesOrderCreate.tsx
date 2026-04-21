@@ -26,6 +26,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import type { Customer, InventoryItem } from '@/api/types'
 
 interface SalesOrderItemForm {
     catalog_item_id?: string
@@ -99,7 +100,7 @@ export default function SalesOrderCreate() {
     const [itemSearchQuery, setItemSearchQuery] = useState('')
     const { data: inventory } = useInventory({ search: itemSearchQuery, pageSize: 10 })
 
-    const handleAddItem = (item: any) => {
+    const handleAddItem = (item: InventoryItem) => {
         append({
             catalog_item_id: item.id,
             description: `${item.sku} - ${item.name}`,
@@ -142,12 +143,23 @@ export default function SalesOrderCreate() {
                             <FormField
                                 control={form.control}
                                 name="customer_id"
-                                render={({ field }: { field: any }) => (
+                                render={({ field }) => {
+                                    const placeholderCustomer: Customer | null = field.value
+                                        ? {
+                                            id: field.value,
+                                            type: 'PRIVATE',
+                                            first_name: 'Loading...',
+                                            last_name: '',
+                                            email: '',
+                                        }
+                                        : null
+
+                                    return (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Customer</FormLabel>
                                         <FormControl>
                                             <CustomerSearch
-                                                value={preselectedCustomer || (field.value ? { id: field.value, type: 'PRIVATE', first_name: 'Loading...', last_name: '', email: '' } as any : null)}
+                                                value={preselectedCustomer || placeholderCustomer}
                                                 onChange={(customer) => {
                                                     field.onChange(customer?.id)
                                                 }}
@@ -155,13 +167,13 @@ export default function SalesOrderCreate() {
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
-                                )}
+                                )}}
                             />
                             <div className="mt-4">
                                 <FormField
                                     control={form.control}
                                     name="notes"
-                                    render={({ field }: { field: any }) => (
+                                    render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Internal Notes</FormLabel>
                                             <FormControl>
@@ -235,7 +247,7 @@ export default function SalesOrderCreate() {
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.description`}
-                                                        render={({ field }: { field: any }) => (
+                                                        render={({ field }) => (
                                                             <Input {...field} />
                                                         )}
                                                     />
@@ -244,7 +256,7 @@ export default function SalesOrderCreate() {
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.quantity`}
-                                                        render={({ field }: { field: any }) => (
+                                                        render={({ field }) => (
                                                             <Input type="number" min="1" {...field} />
                                                         )}
                                                     />
@@ -253,7 +265,7 @@ export default function SalesOrderCreate() {
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.unit_price`}
-                                                        render={({ field }: { field: any }) => (
+                                                        render={({ field }) => (
                                                             <Input type="number" step="0.01" {...field} />
                                                         )}
                                                     />

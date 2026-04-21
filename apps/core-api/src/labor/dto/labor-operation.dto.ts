@@ -15,6 +15,23 @@ import {
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 
+function trimIfString(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function parseOptionalBoolean(value: unknown): unknown {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}
+
+function parseOptionalNumber(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  return Number(value);
+}
+
 export class LaborOperationFitmentDto {
   @ApiProperty({ description: 'Vehicle make' })
   @IsString()
@@ -44,13 +61,13 @@ export class LaborOperationFitmentDto {
 
 export class CreateLaborOperationDto {
   @ApiProperty({ description: 'Unique operation code' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimIfString(value as unknown))
   @IsString()
   @IsNotEmpty()
   code!: string;
 
   @ApiProperty({ description: 'Operation description' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimIfString(value as unknown))
   @IsString()
   @IsNotEmpty()
   description!: string;
@@ -117,21 +134,13 @@ export class ListLaborOperationsQueryDto {
 
   @ApiPropertyOptional({ description: 'Filter by active status' })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
+  @Transform(({ value }) => parseOptionalBoolean(value as unknown))
   @IsBoolean()
   isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Page number (1-based)', minimum: 1 })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : Number(value),
-  )
+  @Transform(({ value }) => parseOptionalNumber(value as unknown))
   @IsInt()
   @Min(1)
   page?: number;
@@ -142,11 +151,7 @@ export class ListLaborOperationsQueryDto {
     maximum: 100,
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : Number(value),
-  )
+  @Transform(({ value }) => parseOptionalNumber(value as unknown))
   @IsInt()
   @Min(1)
   @Max(100)
@@ -171,7 +176,7 @@ export class ListLaborOperationsQueryDto {
   sortDirection?: 'asc' | 'desc';
 }
 
-// ── Response DTOs ─────────────────────────────────────────────────────────
+// -- Response DTOs ----------------------------------------------------------
 
 export class LaborOperationCategoryDto {
   @ApiProperty({ format: 'uuid' })

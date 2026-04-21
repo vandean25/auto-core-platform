@@ -19,7 +19,9 @@ export class AuthController {
       required: ['userId', 'email', 'tenantId', 'role'],
     },
   })
-  getMe(@Req() request: Request & { user: AuthenticatedUser }): AuthenticatedUser {
+  getMe(
+    @Req() request: Request & { user: AuthenticatedUser },
+  ): AuthenticatedUser {
     return request.user;
   }
 }

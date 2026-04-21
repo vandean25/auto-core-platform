@@ -24,7 +24,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
-import { Public } from '../common/decorators/public.decorator';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
@@ -35,9 +35,14 @@ import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response
 import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
 import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
+import {
+  WorkshopOrderResponseDto,
+  WorkshopTaskResponseDto,
+} from './dto/workshop-response.dto';
+import { Public } from '../common/decorators/public.decorator';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Controller('workshop')
 export class WorkshopController {
@@ -48,11 +53,15 @@ export class WorkshopController {
   ) {}
 
   @Post('register')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   register(@Body() dto: RegisterIntakeDto) {
     return this.workshopService.register(dto);
   }
 
   @Post('orders')
+  @ApiCreatedResponse({ type: WorkshopOrderResponseDto })
   create(@Body() createWorkshopOrderDto: CreateWorkshopOrderDto) {
     return this.workshopService.create(createWorkshopOrderDto);
   }
@@ -75,6 +84,7 @@ export class WorkshopController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiPaginatedResponse(WorkshopOrderResponseDto)
   findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -106,16 +116,19 @@ export class WorkshopController {
   }
 
   @Get('orders/:id')
+  @ApiOkResponse({ type: WorkshopOrderResponseDto })
   findOne(@Param('id') id: string) {
     return this.workshopService.findOne(id);
   }
 
   @Patch('orders/:id')
+  @ApiOkResponse({ type: WorkshopOrderResponseDto })
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
     return this.workshopService.updateOrder(id, dto);
   }
 
   @Post('orders/:id/tasks')
+  @ApiCreatedResponse({ type: WorkshopTaskResponseDto })
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
     return this.workshopService.createTask(id, dto);
   }
@@ -130,6 +143,7 @@ export class WorkshopController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId')
+  @ApiOkResponse({ type: WorkshopOrderResponseDto })
   updateTask(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
@@ -139,6 +153,7 @@ export class WorkshopController {
   }
 
   @Delete('orders/:orderId/tasks/:taskId')
+  @ApiOkResponse({ type: WorkshopOrderResponseDto })
   @ApiResponse({
     status: 200,
     description: 'Workshop task deleted successfully.',
@@ -176,6 +191,7 @@ export class WorkshopController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
+  @ApiOkResponse({ type: WorkshopOrderResponseDto })
   replaceTaskLineItems(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
@@ -185,11 +201,17 @@ export class WorkshopController {
   }
 
   @Post('orders/:id/create-invoice')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   createInvoiceFromOrder(@Param('id') id: string) {
     return this.workshopService.createInvoiceFromOrder(id);
   }
 
   @Get('search')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   search(@Query('q') q: string) {
     return this.workshopService.search(q);
   }
@@ -233,7 +255,7 @@ export class WorkshopController {
       throw new BadRequestException('x-tenant-id header is required');
     }
     this.tenantContext.setTenantIdForWorker(tenantHeader);
-    await this.pdfService.generateNow(id);
+    await this.pdfService.generateNow(id, tenantHeader);
   }
 
   @Get('orders/:id/pdf')

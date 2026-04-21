@@ -290,7 +290,21 @@ export class WorkshopPdfRenderer {
     if (value === null || value === undefined) {
       return '';
     }
-    const str = String(value);
+    let str: string;
+    if (typeof value === 'string') {
+      str = value;
+    } else if (
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    ) {
+      str = String(value);
+    } else if (value instanceof Date) {
+      str = value.toISOString();
+    } else {
+      str = JSON.stringify(value) ?? '';
+    }
+
     return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')

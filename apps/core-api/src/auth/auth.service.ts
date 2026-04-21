@@ -42,7 +42,10 @@ export class AuthService {
     const token = this.extractBearerToken(authorizationHeader);
     const claims = await this.verifyToken(token);
 
-    if (process.env.NODE_ENV === 'test' && claims.iss === 'local-test-fixture') {
+    if (
+      process.env.NODE_ENV === 'test' &&
+      claims.iss === 'local-test-fixture'
+    ) {
       return {
         userId: claims.sub,
         email: claims.email,

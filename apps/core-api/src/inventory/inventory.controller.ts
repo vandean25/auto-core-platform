@@ -1,8 +1,15 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { LedgerService } from './ledger.service';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
+import {
+  AvailabilityCheckResultDto,
+  InventoryItemResponseDto,
+  InventoryTransactionResponseDto,
+  CatalogItemResponseDto,
+} from './dto/inventory-response.dto';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
 
 @Controller('inventory')
 export class InventoryController {
@@ -12,11 +19,13 @@ export class InventoryController {
   ) {}
 
   @Get('availability/:sku')
+  @ApiOkResponse({ type: AvailabilityCheckResultDto })
   async checkAvailability(@Param('sku') sku: string) {
     return await this.inventoryService.checkAvailability(sku);
   }
 
   @Get(':id/history')
+  @ApiOkResponse({ type: [InventoryTransactionResponseDto] })
   async getHistory(@Param('id') id: string) {
     const transactions = await this.ledgerService.getTransactionHistory(id);
     // Return last 20 transactions
@@ -42,6 +51,7 @@ export class InventoryController {
     required: false,
     schema: { type: 'integer', minimum: 1 },
   })
+  @ApiPaginatedResponse(InventoryItemResponseDto)
   async findAll(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -71,6 +81,7 @@ export class InventoryController {
   }
 
   @Post()
+  @ApiCreatedResponse({ type: CatalogItemResponseDto })
   async createItem(@Body() createInventoryItemDto: CreateInventoryItemDto) {
     return await this.inventoryService.createItem(createInventoryItemDto);
   }

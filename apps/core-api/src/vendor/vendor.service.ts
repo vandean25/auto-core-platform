@@ -30,7 +30,9 @@ export class VendorService {
         },
       });
       if (validBrandsCount !== data.brandIds.length) {
-        throw new BadRequestException('One or more brands are invalid or belong to another tenant');
+        throw new BadRequestException(
+          'One or more brands are invalid or belong to another tenant',
+        );
       }
     }
 
@@ -54,7 +56,10 @@ export class VendorService {
     return vendor;
   }
 
-  async findAll(params?: any): Promise<any> {
+  async findAll(params?: Prisma.VendorFindManyArgs): Promise<{
+    data: Prisma.VendorGetPayload<{ include: { supportedBrands: true } }>[];
+    total: number;
+  }> {
     const tenantId = await this.tenantContext.getTenantId();
     // return type any to support paginated response
     if (
@@ -76,13 +81,14 @@ export class VendorService {
       return { data, total };
     }
 
-    return this.prisma.vendor.findMany({
+    const result = await this.prisma.vendor.findMany({
       where: { tenant_id: tenantId },
       include: {
         supportedBrands: true,
       },
       orderBy: { name: 'asc' },
     });
+    return { data: result, total: result.length };
   }
 
   async findOne(id: string): Promise<Prisma.VendorGetPayload<{
@@ -139,7 +145,9 @@ export class VendorService {
         },
       });
       if (validBrandsCount !== data.brandIds.length) {
-        throw new BadRequestException('One or more brands are invalid or belong to another tenant');
+        throw new BadRequestException(
+          'One or more brands are invalid or belong to another tenant',
+        );
       }
     }
 

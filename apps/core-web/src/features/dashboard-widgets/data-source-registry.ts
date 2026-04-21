@@ -2,6 +2,7 @@ import { buildDataTableUrl } from '@/api/data-table-query'
 import { fetchWithAuth } from '@/api/client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { applyClientFiltersAndSort, parseDataTableQueryParams } from '@/features/dashboard-widgets/utils'
+import { isAbortError } from '@/lib/error-utils'
 
 type WidgetSourceDefinition = {
   key: string
@@ -144,8 +145,8 @@ export async function fetchRowsForWidgetHref(href: string): Promise<unknown[]> {
     const payload = (await response.json()) as unknown
     const rows = extractRows(payload)
     return applyClientFiltersAndSort(rows, queryParams)
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error: unknown) {
+    if (isAbortError(error)) {
       console.warn(`Fetch for widget ${source.key} timed out after 10s`)
       return []
     }

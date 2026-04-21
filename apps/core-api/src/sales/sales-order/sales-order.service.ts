@@ -29,7 +29,9 @@ export class SalesOrderService {
         where: { id: createDto.customer_id, tenant_id: tenantId },
       });
       if (!customer) {
-        throw new BadRequestException('Customer not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Customer not found or belongs to another tenant',
+        );
       }
     }
 
@@ -38,7 +40,9 @@ export class SalesOrderService {
         where: { id: createDto.vehicle_id, tenant_id: tenantId },
       });
       if (!vehicle) {
-        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Vehicle not found or belongs to another tenant',
+        );
       }
     }
 
@@ -129,11 +133,19 @@ export class SalesOrderService {
     return createdOrder;
   }
 
-  async findAll(params: any) {
+  async findAll(
+    params?: Prisma.SalesOrderFindManyArgs | SalesOrderStatus,
+  ): Promise<{
+    data: Prisma.SalesOrderGetPayload<{
+      include: { customer: true; vehicle: true; items: true };
+    }>[];
+    total: number;
+  }> {
     const tenantId = await this.tenantContext.getTenantId();
     // If params is just a Prisma query object from QueryBuilder
     if (
       params &&
+      typeof params === 'object' &&
       (params.where || params.orderBy || params.skip !== undefined)
     ) {
       const [data, total] = await Promise.all([
@@ -153,8 +165,8 @@ export class SalesOrderService {
       return { data, total };
     }
 
-    const status = params as SalesOrderStatus;
-    return this.prisma.salesOrder.findMany({
+    const status = typeof params === 'string' ? params : undefined;
+    const data = await this.prisma.salesOrder.findMany({
       where: status ? { tenant_id: tenantId, status } : { tenant_id: tenantId },
       include: {
         customer: true,
@@ -163,6 +175,7 @@ export class SalesOrderService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return { data, total: data.length };
   }
 
   async findOne(id: string) {
@@ -194,7 +207,9 @@ export class SalesOrderService {
         where: { id: updateDto.customer_id, tenant_id: tenantId },
       });
       if (!customer) {
-        throw new BadRequestException('Customer not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Customer not found or belongs to another tenant',
+        );
       }
     }
 
@@ -203,12 +218,16 @@ export class SalesOrderService {
         where: { id: updateDto.vehicle_id, tenant_id: tenantId },
       });
       if (!vehicle) {
-        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Vehicle not found or belongs to another tenant',
+        );
       }
     }
 
     // If updating items, recalculate total
-    let itemsUpdate: any = undefined;
+    let itemsUpdate:
+      | Prisma.SalesOrderItemUpdateManyWithoutSales_orderNestedInput
+      | undefined = undefined;
     let totalAmount = order.total_amount;
 
     if (updateDto.items) {

@@ -43,6 +43,7 @@ export class WorkshopPdfService {
       where: { id: workshopOrderId, tenant_id: tenantId },
       select: {
         id: true,
+        tenant_id: true,
         pdf_storage_bucket: true,
         pdf_storage_key: true,
         pdf_generated_at: true,
@@ -84,7 +85,7 @@ export class WorkshopPdfService {
         );
       }
 
-      const generated = await this.generateNow(workshopOrderId);
+      const generated = await this.generateNow(workshopOrderId, tenantId);
       return { mode: 'generated', ...generated };
     }
 
@@ -101,11 +102,10 @@ export class WorkshopPdfService {
     }
 
     try {
-      const tenantId = await this.tenantContext.getTenantId();
       const { taskId } = await this.cloudTasks.enqueueWorkshopPdfGeneration({
         workshopOrderId,
+        tenantId: order.tenant_id,
         targetBaseUrl: params.targetBaseUrl,
-        tenantId,
       });
       return {
         mode: 'enqueued',
@@ -125,7 +125,7 @@ export class WorkshopPdfService {
         this.logger.warn(
           `Falling back to inline generation for workshop order ${workshopOrderId}`,
         );
-        const generated = await this.generateNow(workshopOrderId);
+        const generated = await this.generateNow(workshopOrderId, tenantId);
         return { mode: 'generated', ...generated };
       }
 
@@ -141,7 +141,10 @@ export class WorkshopPdfService {
     }
   }
 
-  async generateNow(workshopOrderId: string): Promise<{
+  async generateNow(
+    workshopOrderId: string,
+    tenantId?: string,
+  ): Promise<{
     workshopOrderId: string;
     bucket: string;
     key: string;
@@ -150,10 +153,11 @@ export class WorkshopPdfService {
     return Sentry.startSpan(
       { name: 'Generate Workshop PDF', op: 'pdf.generate' },
       async (span) => {
+        const resolvedTenantId =
+          tenantId ?? (await this.tenantContext.getTenantId());
         span.setAttribute('workshopOrderId', workshopOrderId);
-        const tenantId = await this.tenantContext.getTenantId();
         const order = await this.prisma.client.workshopOrder.findFirst({
-          where: { id: workshopOrderId, tenant_id: tenantId },
+          where: { id: workshopOrderId, tenant_id: resolvedTenantId },
           include: {
             customer: true,
             vehicle: true,
@@ -212,7 +216,7 @@ export class WorkshopPdfService {
 
           const generatedAt = new Date();
           await this.prisma.client.workshopOrder.updateMany({
-            where: { id: workshopOrderId, tenant_id: tenantId },
+            where: { id: workshopOrderId, tenant_id: resolvedTenantId },
             data: {
               pdf_storage_bucket: upload.bucket,
               pdf_storage_key: upload.key,
@@ -233,7 +237,11 @@ export class WorkshopPdfService {
           this.logger.error(
             `Workshop PDF generation exhausted all retries: ${message}`,
           );
-          await this.safeStoreGenerationError(workshopOrderId, message, tenantId);
+          await this.safeStoreGenerationError(
+            workshopOrderId,
+            message,
+            resolvedTenantId,
+          );
           throw error;
         }
       },
@@ -296,7 +304,7 @@ export class WorkshopPdfService {
           pdf_generation_error: safeMessage,
         },
       });
-    } catch (error) {
+    } catch {
       this.logger.error(
         `Failed to store workshop PDF error for ${workshopOrderId}`,
       );

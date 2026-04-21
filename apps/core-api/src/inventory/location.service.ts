@@ -4,8 +4,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LocationType } from '@prisma/client';
+import { LocationType, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+
+const locationInclude = {
+  parent: true,
+  _count: {
+    select: { children: true, stocks: true },
+  },
+} as const;
+
+type LocationWithRelations = Prisma.StorageLocationGetPayload<{
+  include: typeof locationInclude;
+}>;
+
+type LocationTreeNode = LocationWithRelations & {
+  children: LocationTreeNode[];
+};
 
 @Injectable()
 export class LocationService {
@@ -14,17 +29,12 @@ export class LocationService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async findAll() {
+  async findAll(): Promise<LocationWithRelations[]> {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.storageLocation.findMany({
       where: { tenant_id: tenantId, deletedAt: null },
       orderBy: { name: 'asc' },
-      include: {
-        parent: true,
-        _count: {
-          select: { children: true, stocks: true },
-        },
-      },
+      include: locationInclude,
     });
   }
 
@@ -55,7 +65,10 @@ export class LocationService {
     });
   }
 
-  private buildTree(locations: any[], parentId: string | null = null): any[] {
+  private buildTree(
+    locations: LocationWithRelations[],
+    parentId: string | null = null,
+  ): LocationTreeNode[] {
     return locations
       .filter((loc) => loc.parent_id === parentId)
       .map((loc) => ({

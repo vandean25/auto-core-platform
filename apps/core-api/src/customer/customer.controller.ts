@@ -8,18 +8,21 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto';
-import { QueryBuilder } from '../common/utils/query-builder';
+import { CustomerResponseDto } from './dto/customer-response.dto';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
+import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
 
 @Controller('customers')
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   @Post()
+  @ApiCreatedResponse({ type: CustomerResponseDto })
   create(@Body() createCustomerDto: CreateCustomerDto) {
     return this.customerService.create(createCustomerDto);
   }
@@ -47,6 +50,7 @@ export class CustomerController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiPaginatedResponse(CustomerResponseDto)
   async findAll(
     @Query('search') search?: string,
     @Query('type') type?: 'PRIVATE' | 'COMPANY',
@@ -55,7 +59,7 @@ export class CustomerController {
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    const queryParams: any = {};
+    const queryParams: QueryParams = {};
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
@@ -110,7 +114,16 @@ export class CustomerController {
       };
     }
 
-    return this.customerService.findAll(search);
+    const result = await this.customerService.findAll(search);
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: 1,
+        pageSize: result.data.length || 1,
+        pageCount: 1,
+      },
+    };
   }
 
   @Get(':id')
@@ -146,6 +159,7 @@ export class CustomerController {
   }
 
   @Patch(':id')
+  @ApiOkResponse({ type: CustomerResponseDto })
   update(
     @Param('id') id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,

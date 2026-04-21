@@ -82,7 +82,7 @@ describe('InventoryController (e2e) Security', () => {
       })
       .expect(201)
       .expect((res: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+         
         expect(res.body.sku).toBe('TEST-SKU-VALID');
       });
   });

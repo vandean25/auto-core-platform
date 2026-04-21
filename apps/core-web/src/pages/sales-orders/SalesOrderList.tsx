@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import type { SalesOrder } from '@/api/types'
 import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export default function SalesOrderList() {
     const navigate = useNavigate()
@@ -18,22 +19,16 @@ export default function SalesOrderList() {
     const { data: responseData, isLoading } = useSalesOrders(queryParams)
     const deleteMutation = useDeleteSalesOrder()
 
-    const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
-    const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+    const data = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this sales order?')) return
         try {
             await deleteMutation.mutateAsync(id)
             toast.success('Sales order deleted')
-        } catch (error: any) {
-            const userMessage =
-                error?.response?.data?.message ||
-                error?.data?.message ||
-                error?.message ||
-                String(error) ||
-                'Failed to delete sales order'
-            toast.error(userMessage)
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to delete sales order'))
         }
     }
 

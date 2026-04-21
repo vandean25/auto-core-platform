@@ -8,6 +8,7 @@ import {
   Patch,
   Delete,
 } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { PurchaseInvoiceService } from './purchase-invoice.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { PurchaseInvoiceStatus } from '@prisma/client';
@@ -17,11 +18,17 @@ export class PurchaseInvoiceController {
   constructor(private readonly service: PurchaseInvoiceService) {}
 
   @Post()
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   create(@Body() createDto: CreatePurchaseInvoiceDto) {
     return this.service.create(createDto);
   }
 
   @Get()
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   findAll(
     @Query('vendorId') vendorId?: string,
     @Query('status') status?: PurchaseInvoiceStatus,
@@ -53,21 +60,33 @@ export class PurchaseInvoiceController {
   }
 
   @Get(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   update(@Param('id') id: string, @Body() updateDto: CreatePurchaseInvoiceDto) {
     return this.service.update(id, updateDto);
   }
 
   @Patch(':id/post')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   post(@Param('id') id: string) {
     return this.service.post(id);
   }
 
   @Patch(':id/pay')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   pay(@Param('id') id: string) {
     return this.service.pay(id);
   }

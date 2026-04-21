@@ -12,8 +12,18 @@ export const vendorKeys = {
     detail: (id: string) => [...vendorKeys.all, 'detail', id] as const,
 }
 
+type VendorListResponse = {
+    data: Vendor[]
+    meta: {
+        total: number
+        page: number
+        pageSize: number
+        pageCount: number
+    }
+}
+
 export function useVendors(queryParams?: DataTableQueryParams) {
-    return useQuery<any>({
+    return useQuery<VendorListResponse>({
         queryKey: vendorKeys.list(queryParams),
         queryFn: async () => {
             const url = buildDataTableUrl(VENDORS_API, queryParams, {

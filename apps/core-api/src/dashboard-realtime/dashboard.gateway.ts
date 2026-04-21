@@ -11,6 +11,7 @@ import {
   DASHBOARD_ENTITY_UPDATED_EVENT,
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
+import type { IncomingHttpHeaders } from 'node:http';
 
 const setupLogger = new Logger('DashboardGatewaySetup');
 
@@ -44,14 +45,23 @@ const allowedOrigins = resolveCorsOrigins();
     origin: allowedOrigins,
     credentials: true,
   },
-  allowRequest: (req, callback) => {
+  allowRequest: (
+    req: { headers: IncomingHttpHeaders },
+    callback: (err: string | null, success: boolean) => void,
+  ) => {
     // If the server is severely misconfigured and has no allowed origins,
     // we must fail completely closed, regardless of the client type.
     if (allowedOrigins.length === 0) {
       return callback(null, false);
     }
 
-    const origin = req.headers.origin;
+    const originHeader = (req.headers as Record<string, unknown>).origin;
+    const origin =
+      typeof originHeader === 'string'
+        ? originHeader
+        : Array.isArray(originHeader) && typeof originHeader[0] === 'string'
+          ? originHeader[0]
+          : undefined;
 
     // As this is a @Public() gateway, permitting connections without an Origin header
     // provides a bypass for custom Socket.IO clients. We must enforce the Origin header.
@@ -77,8 +87,9 @@ export class DashboardGateway implements OnGatewayConnection {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth.token;
-      if (!token) {
+      const auth = client.handshake.auth as Record<string, unknown> | undefined;
+      const token = auth?.token;
+      if (typeof token !== 'string' || token.trim().length === 0) {
         this.logger.debug(
           `Unauthorized: No token provided (Socket ID: ${client.id})`,
         );
@@ -86,8 +97,12 @@ export class DashboardGateway implements OnGatewayConnection {
         return;
       }
 
+      const normalizedToken = token.trim();
+
       // Prepend 'Bearer ' if not present to satisfy authenticateBearerToken
-      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      const authHeader = normalizedToken.startsWith('Bearer ')
+        ? normalizedToken
+        : `Bearer ${normalizedToken}`;
       const user = await this.authService.authenticateBearerToken(authHeader);
 
       await client.join(user.tenantId);
@@ -111,7 +126,9 @@ export class DashboardGateway implements OnGatewayConnection {
       return;
     }
     // Emit only to the specific tenant's room
-    this.server.to(payload.tenantId).emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
+    this.server
+      .to(payload.tenantId)
+      .emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
       `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${payload.tenantId}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
     );

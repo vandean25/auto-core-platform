@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BrandCombobox } from "@/components/BrandCombobox"
 import { useCreateInventoryItem } from "@/api/inventory"
+import { getErrorMessage } from "@/lib/error-utils"
 
 export function AddItemDialog() {
     const [open, setOpen] = React.useState(false)
@@ -37,8 +38,8 @@ export function AddItemDialog() {
             toast.success("Inventory item created")
             setOpen(false)
             setSelectedBrandId(undefined)
-        } catch (error: any) {
-            toast.error(error.message || "Failed to create item")
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to create item"))
         }
     }
 

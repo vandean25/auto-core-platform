@@ -11,6 +11,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export default function CustomerList() {
     const navigate = useNavigate()
@@ -47,8 +48,8 @@ export default function CustomerList() {
         try {
             await deleteMutation.mutateAsync(id)
             toast.success('Customer deleted')
-        } catch (error: any) {
-            toast.error(error?.message || 'Failed to delete customer')
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to delete customer'))
         }
     }
 

@@ -98,11 +98,17 @@ export class LaborController {
   }
 
   @Post('categories')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   createCategory(@Body() dto: CreateLaborCategoryDto) {
     return this.laborCategoryService.create(dto);
   }
 
   @Patch('categories/:id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   updateCategory(@Param('id') id: string, @Body() dto: UpdateLaborCategoryDto) {
     return this.laborCategoryService.update(id, dto);
   }

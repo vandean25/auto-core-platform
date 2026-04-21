@@ -13,7 +13,12 @@ import {
   UseGuards,
   StreamableFile,
 } from '@nestjs/common';
-import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+  ApiProduces,
+} from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
 import { Public } from '../common/decorators/public.decorator';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
@@ -33,16 +38,25 @@ export class InvoicesController {
   ) {}
 
   @Post('drafts')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   createDraft(@Body() dto: CreateDraftInvoiceDto) {
     return this.invoicesService.createDraftInvoice(dto.workshopOrderId);
   }
 
   @Patch(':id/issue')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   issue(@Param('id') id: string) {
     return this.invoicesService.issueInvoice(id);
   }
 
   @Post(':id/pdf')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   generatePdf(@Param('id') id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
 
@@ -88,6 +102,13 @@ export class InvoicesController {
   }
 
   @Get(':id/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({
+    schema: {
+      type: 'string',
+      format: 'binary',
+    },
+  })
   async getPdf(@Param('id') id: string) {
     const pdf = await this.invoicePdfService.getPdf(id);
     const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');

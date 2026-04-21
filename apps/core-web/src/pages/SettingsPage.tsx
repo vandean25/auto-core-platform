@@ -30,6 +30,7 @@ import { BrandTable } from "@/components/BrandTable"
 import { AddBrandDialog } from "@/components/AddBrandDialog"
 import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
 import { cn } from "@/lib/utils"
+import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
 import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
 
@@ -123,8 +124,8 @@ function StorageLocationsTab() {
             toast.success('Location created successfully')
             setNewItem({ name: '', code: '', type: 'warehouse', parentId: '' })
             refetch()
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to create location'))
         }
     }
 
@@ -133,8 +134,8 @@ function StorageLocationsTab() {
             await deleteMutation.mutateAsync(id)
             toast.success('Location deleted')
             refetch()
-        } catch (error: any) {
-            toast.error(error.message)
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to delete location'))
         }
     }
 
@@ -303,7 +304,7 @@ export default function SettingsPage() {
                 lock_date: formState.lock_date || null,
                 invoice_prefix: formState.invoice_prefix,
                 next_invoice_number: formState.next_invoice_number
-            } as any)
+            })
             toast.success("Settings updated")
             setIsAlertOpen(false)
         } catch (error) {

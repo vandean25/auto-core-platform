@@ -25,7 +25,10 @@ describe('CustomerService', () => {
       providers: [
         CustomerService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
       ],
     }).compile();
 

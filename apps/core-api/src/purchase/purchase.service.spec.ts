@@ -277,7 +277,10 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrderItem.deleteMany.mockResolvedValue({
         count: 1,
       });
-      mockPrismaService.purchaseOrder.deleteMany.mockResolvedValue({ id: 'po-1', count: 1 });
+      mockPrismaService.purchaseOrder.deleteMany.mockResolvedValue({
+        id: 'po-1',
+        count: 1,
+      });
 
       await service.remove('po-1');
 

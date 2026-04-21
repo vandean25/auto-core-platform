@@ -3,8 +3,47 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+const catalogItemInclude = {
+  brand: true,
+  stocks: {
+    include: {
+      location: true,
+    },
+  },
+  superseded_by: {
+    select: { id: true, sku: true },
+  },
+} as const;
+
+export interface AvailabilityCheckResult {
+  sku: string;
+  name: string;
+  brand: string;
+  original_sku?: string;
+  suggested_sku?: string;
+  quantity_on_hand: number;
+  quantity_reserved: number;
+  quantity_available: number;
+  is_superseded: boolean;
+}
+
+export interface InventoryQueryParams {
+  where?: Prisma.CatalogItemWhereInput;
+  orderBy?: Prisma.CatalogItemOrderByWithRelationInput[];
+  skip?: number;
+  take?: number;
+  page?: number | string;
+  pageSize?: number | string;
+  limit?: number | string;
+  search?: string;
+  location?: string;
+  brand?: string;
+  brandId?: number;
+}
 
 @Injectable()
 export class InventoryService {
@@ -18,21 +57,11 @@ export class InventoryService {
    * If the part is superseded, it recursively checks the stock for the superseding part.
    * @param sku The Manufacturer Part Number (MPN).
    */
-  async checkAvailability(sku: string) {
+  async checkAvailability(sku: string): Promise<AvailabilityCheckResult> {
     const tenantId = await this.tenantContext.getTenantId();
     const item = await this.prisma.catalogItem.findUnique({
       where: { tenant_id_sku: { tenant_id: tenantId, sku } },
-      include: {
-        stocks: {
-          include: {
-            location: true,
-          },
-        },
-        brand: true,
-        superseded_by: {
-          select: { id: true, sku: true },
-        },
-      },
+      include: catalogItemInclude,
     });
 
     if (!item) {
@@ -41,9 +70,7 @@ export class InventoryService {
 
     // If there is a superseding part, recursively check its availability
     if (item.superseded_by) {
-      const suggestion: any = await this.checkAvailability(
-        item.superseded_by.sku,
-      );
+      const suggestion = await this.checkAvailability(item.superseded_by.sku);
       return {
         ...suggestion,
         original_sku: sku,
@@ -73,96 +100,84 @@ export class InventoryService {
 
   /**
    * Finds items in the inventory with pagination, search, and filtering.
-   * @param options Pagination, search, and filter options.
+   * @param params Pagination, search, and filter options.
    */
-  async findAll(params: any) {
+  async findAll(params: InventoryQueryParams) {
     const tenantId = await this.tenantContext.getTenantId();
-    let items, total;
-
-    // Check if using QueryBuilder params (has where/skip/take)
-    if (
-      params &&
-      (params.where || params.orderBy || params.skip !== undefined)
-    ) {
-      [items, total] = await Promise.all([
-        this.prisma.catalogItem.findMany({
-          ...params,
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-          include: {
-            brand: true,
-            stocks: {
-              include: {
-                location: true,
+    const [items, total] =
+      // Check if using QueryBuilder params (has where/skip/take)
+      params && (params.where || params.orderBy || params.skip !== undefined)
+        ? await Promise.all([
+            this.prisma.catalogItem.findMany({
+              where: {
+                ...(params.where ?? {}),
+                tenant_id: tenantId,
               },
-            },
-            superseded_by: {
-              select: { id: true, sku: true },
-            },
-          },
-        }),
-        this.prisma.catalogItem.count({
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-        }),
-      ]);
-    } else {
-      // Legacy path
-      const {
-        page = 1,
-        pageSize,
-        limit = 10,
-        search,
-        location,
-        brand,
-        brandId,
-      } = params;
-      const effectivePageSize = pageSize ?? limit;
-      const skip = (page - 1) * effectivePageSize;
-      const where: any = { tenant_id: tenantId };
-
-      if (search) {
-        where.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
-          { brand: { name: { contains: search, mode: 'insensitive' } } },
-        ];
-      }
-
-      if (brand) where.brand = { name: { equals: brand, mode: 'insensitive' } };
-      if (brandId) where.brand_id = brandId;
-      if (location) {
-        where.stocks = {
-          some: {
-            location: {
-              name: { contains: location, mode: 'insensitive' },
-            },
-          },
-        };
-      }
-
-      [items, total] = await Promise.all([
-        this.prisma.catalogItem.findMany({
-          where,
-          include: {
-            brand: true,
-            stocks: {
-              include: {
-                location: true,
+              orderBy: params.orderBy,
+              skip: params.skip,
+              take: params.take,
+              include: catalogItemInclude,
+            }),
+            this.prisma.catalogItem.count({
+              where: {
+                ...(params.where ?? {}),
+                tenant_id: tenantId,
               },
-            },
-            superseded_by: {
-              select: { id: true, sku: true },
-            },
-          },
-          skip,
-          take: effectivePageSize,
-        }),
-        this.prisma.catalogItem.count({ where }),
-      ]);
-    }
+            }),
+          ])
+        : await (async () => {
+            // Legacy path
+            const search = params.search;
+            const location = params.location;
+            const brand = params.brand;
+            const brandId = params.brandId;
+
+            const page = params.page ? Number(params.page) : 1;
+            const pageSize = params.pageSize
+              ? Number(params.pageSize)
+              : undefined;
+            const limit = params.limit ? Number(params.limit) : 10;
+
+            const effectivePageSize = pageSize ?? limit;
+            const skip = (page - 1) * effectivePageSize;
+            const where: Prisma.CatalogItemWhereInput = { tenant_id: tenantId };
+
+            if (search) {
+              where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { sku: { contains: search, mode: 'insensitive' } },
+                { brand: { name: { contains: search, mode: 'insensitive' } } },
+              ];
+            }
+
+            if (brand)
+              where.brand = { name: { equals: brand, mode: 'insensitive' } };
+            if (brandId) where.brand_id = brandId;
+            if (location) {
+              where.stocks = {
+                some: {
+                  location: {
+                    name: { contains: location, mode: 'insensitive' },
+                  },
+                },
+              };
+            }
+
+            return Promise.all([
+              this.prisma.catalogItem.findMany({
+                where,
+                include: catalogItemInclude,
+                skip,
+                take: effectivePageSize,
+              }),
+              this.prisma.catalogItem.count({ where }),
+            ]);
+          })();
 
     // Pagination precedence: take > pageSize > limit > default(10)
-    const resolvedPageSize =
-      params.take || params.pageSize || params.limit || 10;
+    const resolvedPageSize = Number(
+      params.take || params.pageSize || params.limit || 10,
+    );
     const pageCount = Math.ceil(total / resolvedPageSize);
 
     // Transform items to match frontend expected shape
@@ -204,7 +219,9 @@ export class InventoryService {
       meta: {
         total,
         page:
-          params.page || params.skip / (params.take || resolvedPageSize) + 1, // Estimate page for legacy or QB
+          Number(params.page) ||
+          Number(params.skip ?? 0) / (Number(params.take) || resolvedPageSize) +
+            1, // Estimate page for legacy or QB
         pageSize: resolvedPageSize,
         pageCount,
       },

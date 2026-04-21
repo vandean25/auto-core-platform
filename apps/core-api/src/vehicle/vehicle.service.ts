@@ -190,7 +190,7 @@ export class VehicleService {
       });
 
       return updatedVehicle;
-    } catch (error: any) {
+    } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'

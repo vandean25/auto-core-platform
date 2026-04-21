@@ -28,10 +28,12 @@ describe('WorkshopService', () => {
     customer: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      create: jest.fn(),
     },
     vehicle: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      upsert: jest.fn(),
     },
     workshopOrder: {
       create: jest.fn(),
@@ -48,8 +50,8 @@ describe('WorkshopService', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
-      deleteMany: jest.fn(),
       update: jest.fn(),
+      deleteMany: jest.fn(),
     },
     catalogItem: {
       findMany: jest.fn(),
@@ -78,8 +80,8 @@ describe('WorkshopService', () => {
     recordTransactions: jest.fn(),
   };
 
-  const mockTenantContextService = {
-    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+  const mockTenantContext = {
+    getTenantId: jest.fn().mockResolvedValue('00000000-0000-0000-0000-000000000001'),
   };
 
   beforeEach(async () => {
@@ -89,7 +91,7 @@ describe('WorkshopService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InvoicesService, useValue: mockInvoices },
         { provide: LedgerService, useValue: mockLedgerService },
-        { provide: TenantContextService, useValue: mockTenantContextService },
+        { provide: TenantContextService, useValue: mockTenantContext },
       ],
     }).compile();
 
@@ -237,7 +239,7 @@ describe('WorkshopService', () => {
     });
 
     expect(mockPrisma.workshopTask.deleteMany).toHaveBeenCalledWith({
-      where: { id: 't-1', tenant_id: 'tenant-1' },
+      where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001' },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
       where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
@@ -267,7 +269,7 @@ describe('WorkshopService', () => {
       BadRequestException,
     );
 
-    expect(mockPrisma.workshopTask.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.delete).not.toHaveBeenCalled();
   });
 
   it('persists labor metadata when replacing task line items', async () => {
@@ -277,7 +279,7 @@ describe('WorkshopService', () => {
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
-    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 2 });
     mockPrisma.laborOperation.count.mockResolvedValue(1);
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
@@ -330,14 +332,7 @@ describe('WorkshopService', () => {
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
-    mockPrisma.laborOperation.count.mockResolvedValue(0); // Fails tenant check
-    mockPrisma.workshopTaskLineItem.createMany.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('Foreign key failed', {
-        code: 'P2003',
-        clientVersion: 'test',
-        meta: { field_name: 'labor_operation_id' },
-      }),
-    );
+    mockPrisma.laborOperation.count.mockResolvedValue(0); // Simulate missing/wrong tenant ID
 
     await expect(
       service.replaceTaskLineItems('wo-1', 't-1', {
@@ -355,7 +350,9 @@ describe('WorkshopService', () => {
           },
         ],
       }),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(
+      'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
+    );
   });
 
   it('normalizes labor metadata fields in workshop order response', async () => {

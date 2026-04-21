@@ -8,6 +8,10 @@ import {
   ValidateIf,
 } from 'class-validator';
 
+type FinanceSettingsContext = {
+  lock_date?: string | null;
+};
+
 export class UpdateFinanceSettingsDto {
   @IsOptional()
   @IsInt()
@@ -16,7 +20,7 @@ export class UpdateFinanceSettingsDto {
   fiscal_year_start_month?: number;
 
   @IsOptional()
-  @ValidateIf((o) => o.lock_date !== null)
+  @ValidateIf((o: FinanceSettingsContext) => o.lock_date !== null)
   @IsDateString()
   lock_date?: string | null;
 

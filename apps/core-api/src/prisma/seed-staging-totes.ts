@@ -21,16 +21,19 @@ export async function seedFixedStagingTotes(
   const parentLocationId = options.parentLocationId ?? null;
   const tenantId = options.tenantId;
   const stagingToteType = 'staging_tote' as LocationType;
-  const toteDefinitions = Array.from({ length: FIXED_TOTE_COUNT }, (_, index) => {
-    const suffix = String(index + 1).padStart(3, '0');
-    return {
-      code: `TOTE-${suffix}`,
-      name: `Staging Tote ${suffix}`,
-      type: stagingToteType,
-      parent_id: parentLocationId,
-      deletedAt: null,
-    };
-  });
+  const toteDefinitions = Array.from(
+    { length: FIXED_TOTE_COUNT },
+    (_, index) => {
+      const suffix = String(index + 1).padStart(3, '0');
+      return {
+        code: `TOTE-${suffix}`,
+        name: `Staging Tote ${suffix}`,
+        type: stagingToteType,
+        parent_id: parentLocationId,
+        deletedAt: null,
+      };
+    },
+  );
 
   const existingTotes = await prisma.storageLocation.findMany({
     where: {
@@ -46,7 +49,9 @@ export async function seedFixedStagingTotes(
     },
   });
 
-  const existingByCode = new Map(existingTotes.map((location) => [location.code, location]));
+  const existingByCode = new Map(
+    existingTotes.map((location) => [location.code, location]),
+  );
 
   let created = 0;
   let updated = 0;

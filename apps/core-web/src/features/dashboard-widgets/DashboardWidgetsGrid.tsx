@@ -70,7 +70,11 @@ function DashboardWidgetCard({
   }, [rows, widget.displayType, widget.metricCalculation, widget.metricField])
 
   const metricFieldType = source.fields.find((field) => field.key === widget.metricField)?.type
-  const currency = (widget as any).metricCurrency || 'EUR'
+  const currency =
+    'metricCurrency' in widget &&
+    typeof (widget as { metricCurrency?: unknown }).metricCurrency === 'string'
+      ? (widget as { metricCurrency: string }).metricCurrency
+      : 'EUR'
 
   const formattedMetricValue = useMemo(() => {
     if (metricValue == null) return '-'

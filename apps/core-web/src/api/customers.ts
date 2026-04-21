@@ -14,6 +14,16 @@ export const customerKeys = {
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
 }
 
+type CustomerListResponse = {
+    data: Customer[]
+    meta: {
+        total: number
+        page: number
+        pageSize: number
+        pageCount: number
+    }
+}
+
 type RawWorkshopTaskLineItem = Partial<NormalizedWorkshopTaskLineItem> & {
     quantity?: string | number
     qty?: string | number
@@ -51,7 +61,7 @@ function normalizeWorkshopOrders(workshopOrders: RawWorkshopOrder[] | undefined)
 }
 
 export function useCustomers(queryParams?: DataTableQueryParams) {
-    return useQuery<any>({ // Using any for now to handle data/meta structure or array
+    return useQuery<CustomerListResponse>({
         queryKey: customerKeys.list(queryParams),
         queryFn: async () => {
             let url = '/api/customers'
