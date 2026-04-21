@@ -95,8 +95,9 @@ export class DashboardGateway implements OnGatewayConnection {
         `Client authenticated and joined room: ${user.tenantId} (Socket ID: ${client.id})`,
       );
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.debug(
-        `Unauthorized: Invalid token (Socket ID: ${client.id}): ${error.message}`,
+        `Unauthorized: Invalid token (Socket ID: ${client.id}): ${message}`,
       );
       client.disconnect();
     }

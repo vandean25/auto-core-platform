@@ -22,5 +22,5 @@ export interface DashboardEntityUpdatedPayload {
 
 export type EmitDashboardEntityUpdatedInput = Omit<
   DashboardEntityUpdatedPayload,
-  'timestamp'
+  'timestamp' | 'tenantId'
 >;

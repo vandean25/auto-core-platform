@@ -181,7 +181,7 @@ export class PurchaseInvoiceService {
       return invoice;
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'CREATED',
       entityId: invoice.id,
@@ -352,7 +352,7 @@ export class PurchaseInvoiceService {
       return updated;
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -398,7 +398,7 @@ export class PurchaseInvoiceService {
       return { success: true };
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -420,7 +420,7 @@ export class PurchaseInvoiceService {
       );
     }
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -478,7 +478,7 @@ export class PurchaseInvoiceService {
       }
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'DELETED',
       entityId: id,
@@ -555,7 +555,7 @@ export class PurchaseInvoiceService {
       return { success: true };
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: invoiceId,
