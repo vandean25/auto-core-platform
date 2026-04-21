@@ -30,6 +30,32 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // AUT-65: Ban raw Prisma queries in application code.
+      // Raw queries bypass the tenant isolation extension entirely (ADR-0013).
+      // Use typed Prisma operations instead. See: docs/internal/05-Runbooks/prisma-raw-query-prohibition.md
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[property.name='$queryRaw']",
+          message:
+            '[AUT-65] prisma.$queryRaw() is banned in application code. It bypasses tenant isolation (ADR-0013). Use typed Prisma queries instead. See docs/internal/05-Runbooks/prisma-raw-query-prohibition.md',
+        },
+        {
+          selector: "MemberExpression[property.name='$queryRawUnsafe']",
+          message:
+            '[AUT-65] prisma.$queryRawUnsafe() is banned in application code. It bypasses tenant isolation (ADR-0013). Use typed Prisma queries instead.',
+        },
+        {
+          selector: "MemberExpression[property.name='$executeRaw']",
+          message:
+            '[AUT-65] prisma.$executeRaw() is banned in application code. It bypasses tenant isolation (ADR-0013). Use typed Prisma queries instead. See docs/internal/05-Runbooks/prisma-raw-query-prohibition.md',
+        },
+        {
+          selector: "MemberExpression[property.name='$executeRawUnsafe']",
+          message:
+            '[AUT-65] prisma.$executeRawUnsafe() is banned in application code. It bypasses tenant isolation (ADR-0013). Use typed Prisma queries instead.',
+        },
+      ],
     },
   },
   {

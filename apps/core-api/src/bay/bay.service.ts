@@ -67,7 +67,7 @@ export class BayService {
   }
 
   async findOne(id: string) {
-    const bay = await this.prisma.bay.findUnique({ where: { id } });
+    const bay = await this.prisma.bay.findFirst({ where: { id } });
     if (!bay) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }
@@ -91,7 +91,7 @@ export class BayService {
   }
 
   async update(id: string, dto: UpdateBayDto) {
-    const existing = await this.prisma.bay.findUnique({ where: { id } });
+    const existing = await this.prisma.bay.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }
@@ -114,7 +114,7 @@ export class BayService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.bay.findUnique({ where: { id } });
+    const existing = await this.prisma.bay.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }

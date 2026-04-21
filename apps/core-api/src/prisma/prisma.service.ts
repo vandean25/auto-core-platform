@@ -11,6 +11,7 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension';
+import { createTenantIsolationExtension } from './tenant-isolation.extension';
 
 @Injectable()
 export class PrismaService
@@ -35,9 +36,11 @@ export class PrismaService
     });
 
     this.pool = pool;
-    this.client = this.$extends(
-      createDashboardRealtimeExtension(dashboardRealtime),
-    ) as PrismaClient;
+    this.client = this
+      .$extends(createTenantIsolationExtension())
+      .$extends(
+        createDashboardRealtimeExtension(dashboardRealtime),
+      ) as PrismaClient;
   }
 
   async onModuleInit() {

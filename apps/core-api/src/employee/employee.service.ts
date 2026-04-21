@@ -67,7 +67,7 @@ export class EmployeeService {
   }
 
   async findOne(id: string) {
-    const employee = await this.prisma.employee.findUnique({ where: { id } });
+    const employee = await this.prisma.employee.findFirst({ where: { id } });
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -88,7 +88,7 @@ export class EmployeeService {
   }
 
   async update(id: string, dto: UpdateEmployeeDto) {
-    const existing = await this.prisma.employee.findUnique({ where: { id } });
+    const existing = await this.prisma.employee.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -107,7 +107,7 @@ export class EmployeeService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.employee.findUnique({ where: { id } });
+    const existing = await this.prisma.employee.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
