@@ -21,6 +21,8 @@ import { LaborModule } from './labor/labor.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { VehicleModule } from './vehicle/vehicle.module';
 import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime.module';
+import { EmployeeModule } from './employee/employee.module';
+import { BayModule } from './bay/bay.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
@@ -40,6 +42,8 @@ import { AuthModule } from './auth/auth.module';
     CatalogModule,
     VehicleModule,
     DashboardRealtimeModule,
+    EmployeeModule,
+    BayModule,
     AuthModule,
   ],
   controllers: [AppController],
