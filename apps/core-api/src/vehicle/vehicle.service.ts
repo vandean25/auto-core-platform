@@ -19,11 +19,12 @@ export class VehicleService {
   ) {}
 
   async create(createVehicleDto: CreateVehicleDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { customer_id, ...scalarData } = createVehicleDto;
 
     if (customer_id) {
-      const customerExists = await this.prisma.customer.findUnique({
-        where: { id: customer_id },
+      const customerExists = await this.prisma.customer.findFirst({
+        where: { id: customer_id, tenant_id: tenantId },
         select: { id: true },
       });
 
@@ -36,6 +37,7 @@ export class VehicleService {
 
     const data: Prisma.VehicleCreateInput = {
       ...scalarData,
+      tenant: { connect: { id: tenantId } },
       ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
     };
 
