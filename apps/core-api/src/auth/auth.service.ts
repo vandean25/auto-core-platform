@@ -1,7 +1,9 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -29,6 +31,7 @@ export class AuthService {
   private readonly testJwtSecret = 'test-jwt-secret';
 
   constructor(
+    @Inject(forwardRef(() => PrismaService))
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}

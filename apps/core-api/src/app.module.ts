@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, forwardRef } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
@@ -25,7 +25,7 @@ import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    PrismaModule,
+    forwardRef(() => PrismaModule),
     InventoryModule,
     PurchaseModule,
     VendorModule,

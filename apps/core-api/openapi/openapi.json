@@ -29,6 +29,47 @@
         ]
       }
     },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "AuthController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns the authenticated user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "tenantId": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "email",
+                    "tenantId",
+                    "role"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/inventory/availability/{sku}": {
       "get": {
         "operationId": "InventoryController_checkAvailability",
@@ -2797,47 +2838,6 @@
         },
         "tags": [
           "Vehicle"
-        ]
-      }
-    },
-    "/api/auth/me": {
-      "get": {
-        "operationId": "AuthController_getMe",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Returns the authenticated user.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "userId": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "tenantId": {
-                      "type": "string"
-                    },
-                    "role": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "userId",
-                    "email",
-                    "tenantId",
-                    "role"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
         ]
       }
     }
