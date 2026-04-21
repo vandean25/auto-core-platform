@@ -12,6 +12,7 @@ import { Trash2, Edit2 } from "lucide-react"
 import type { Brand } from "@/api/types"
 import { useDeleteBrand } from "@/api/brands"
 import { toast } from "sonner"
+import { getErrorMessage } from "@/lib/error-utils"
 
 interface BrandTableProps {
     brands: Brand[]
@@ -26,8 +27,8 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
         try {
             await deleteMutation.mutateAsync(id)
             toast.success("Brand deleted")
-        } catch (error: any) {
-            toast.error(error.message || "Failed to delete brand")
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to delete brand"))
         }
     }
 

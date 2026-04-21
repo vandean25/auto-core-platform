@@ -22,7 +22,13 @@ import { Button } from "@/components/ui/button"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableToolbar } from "./data-table-toolbar"
 
-interface DataTableProps<TData, TValue> {
+type DataTableRowContextAction<TData extends object> = {
+  label: string
+  onClick: (row: TData) => void
+  destructive?: boolean
+}
+
+interface DataTableProps<TData extends object, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   pageCount?: number
@@ -40,16 +46,10 @@ interface DataTableProps<TData, TValue> {
   searchColumn?: string
   searchPlaceholder?: string
   onRowClick?: (row: TData) => void
-  getRowContextActions?: (
-    row: TData
-  ) => Array<{
-    label: string
-    onClick: (row: TData) => void
-    destructive?: boolean
-  }>
+  getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends object, TValue>({
   columns,
   data,
   pageCount = -1,

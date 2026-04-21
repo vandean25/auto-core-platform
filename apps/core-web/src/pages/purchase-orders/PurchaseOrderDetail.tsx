@@ -78,7 +78,7 @@ export default function PurchaseOrderDetail() {
     }, [searchQuery])
 
     // Fetch inventory for item search - filter by vendor's supported brands
-    const vendorBrandNames = po?.vendor?.supportedBrands?.map((b: any) => b.name) ?? []
+    const vendorBrandNames = po?.vendor?.supportedBrands?.map((b) => b.name) ?? []
     
     // Fetch larger page size to ensure vendor-brand filtered results include all valid items
     // We filter client-side, so we need to fetch enough items to get a good set after filtering
@@ -87,7 +87,7 @@ export default function PurchaseOrderDetail() {
         pageSize: 100, // Increased from 10 to ensure we have valid items after brand filtering
         brand: vendorBrandNames.length > 0 ? undefined : undefined
     })
-    const inventory = inventoryResponse as any
+    const inventory = inventoryResponse
     
     // Filter inventory items to only show those from vendor's supported brands
     const filteredInventory = inventory?.data?.filter((item: InventoryItem) => 
@@ -175,7 +175,7 @@ export default function PurchaseOrderDetail() {
         }
 
         // Check if item already exists in the PO
-        const existingItem = po.items.find((item: any) => item.catalog_item_id === stagedItem.id)
+        const existingItem = po.items.find((item: PurchaseOrderItem) => item.catalog_item_id === stagedItem.id)
 
         if (existingItem) {
             // Item exists - update quantity by adding the new quantity

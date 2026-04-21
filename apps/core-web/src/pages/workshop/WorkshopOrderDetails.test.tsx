@@ -138,7 +138,10 @@ const multiTaskOrder = {
 // Mock helpers
 // --------------------------------------------------------------------------
 
-function createMutationMock(overrides: Record<string, any> = {}) {
+const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
+  fn as unknown as ReturnType<typeof vi.fn>
+
+function createMutationMock(overrides: Record<string, unknown> = {}) {
   return {
     mutate: vi.fn(),
     mutateAsync: vi.fn().mockResolvedValue({}),
@@ -147,21 +150,21 @@ function createMutationMock(overrides: Record<string, any> = {}) {
   }
 }
 
-function setupDefaultMocks(orderOverride?: any) {
-  ;(workshopApi.useWorkshopOrder as any).mockReturnValue({
+function setupDefaultMocks(orderOverride?: unknown) {
+  asMock(workshopApi.useWorkshopOrder).mockReturnValue({
     data: orderOverride ?? baseOrder,
     isLoading: false,
   })
-  ;(salesApi.useInvoice as any).mockReturnValue({ data: null, isLoading: false })
-  ;(workshopApi.useUpdateWorkshopOrder as any).mockReturnValue(createMutationMock())
-  ;(workshopApi.useCreateWorkshopTask as any).mockReturnValue(createMutationMock())
-  ;(workshopApi.useDeleteWorkshopTask as any).mockReturnValue(createMutationMock())
-  ;(workshopApi.useUpdateWorkshopTask as any).mockReturnValue(createMutationMock())
-  ;(workshopApi.useReplaceWorkshopTaskLineItems as any).mockReturnValue(createMutationMock())
-  ;(invoicesApi.useCreateDraftInvoice as any).mockReturnValue(createMutationMock())
-  ;(invoicesApi.useIssueInvoice as any).mockReturnValue(createMutationMock())
-  ;(invoicesApi.useUpdateInvoiceDiscount as any).mockReturnValue(createMutationMock())
-  ;(workshopApi.useCatalogSearch as any).mockReturnValue({ data: [], isFetching: false })
+  asMock(salesApi.useInvoice).mockReturnValue({ data: null, isLoading: false })
+  asMock(workshopApi.useUpdateWorkshopOrder).mockReturnValue(createMutationMock())
+  asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(createMutationMock())
+  asMock(workshopApi.useDeleteWorkshopTask).mockReturnValue(createMutationMock())
+  asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(createMutationMock())
+  asMock(workshopApi.useReplaceWorkshopTaskLineItems).mockReturnValue(createMutationMock())
+  asMock(invoicesApi.useCreateDraftInvoice).mockReturnValue(createMutationMock())
+  asMock(invoicesApi.useIssueInvoice).mockReturnValue(createMutationMock())
+  asMock(invoicesApi.useUpdateInvoiceDiscount).mockReturnValue(createMutationMock())
+  asMock(workshopApi.useCatalogSearch).mockReturnValue({ data: [], isFetching: false })
 }
 
 // --------------------------------------------------------------------------
@@ -200,7 +203,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
   describe('loading and error states', () => {
     it('renders loading indicator while fetching', () => {
-      ;(workshopApi.useWorkshopOrder as any).mockReturnValue({
+      asMock(workshopApi.useWorkshopOrder).mockReturnValue({
         data: undefined,
         isLoading: true,
       })
@@ -211,7 +214,7 @@ describe('WorkshopOrderDetails Characterization', () => {
     })
 
     it('renders not-found card when order is null', () => {
-      ;(workshopApi.useWorkshopOrder as any).mockReturnValue({
+      asMock(workshopApi.useWorkshopOrder).mockReturnValue({
         data: null,
         isLoading: false,
       })
@@ -347,7 +350,7 @@ describe('WorkshopOrderDetails Characterization', () => {
   describe('INVOICED (locked) mode', () => {
     beforeEach(() => {
       setupDefaultMocks(invoicedOrder)
-      ;(salesApi.useInvoice as any).mockReturnValue({
+      asMock(salesApi.useInvoice).mockReturnValue({
         data: invoicedOrder.invoice,
         isLoading: false,
       })
@@ -381,7 +384,7 @@ describe('WorkshopOrderDetails Characterization', () => {
   describe('handleAddTask', () => {
     it('creates a task and clears input on success', async () => {
       const mockMutateAsync = vi.fn().mockResolvedValue({ id: 'task-new' })
-      ;(workshopApi.useCreateWorkshopTask as any).mockReturnValue(createMutationMock({
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(createMutationMock({
         mutateAsync: mockMutateAsync,
       }))
 
@@ -404,7 +407,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
     it('does not create task when input is empty or whitespace', async () => {
       const mockMutateAsync = vi.fn()
-      ;(workshopApi.useCreateWorkshopTask as any).mockReturnValue(createMutationMock({
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(createMutationMock({
         mutateAsync: mockMutateAsync,
       }))
 
@@ -419,7 +422,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
     it('creates task on Enter key press with non-empty input', async () => {
       const mockMutateAsync = vi.fn().mockResolvedValue({ id: 'task-new' })
-      ;(workshopApi.useCreateWorkshopTask as any).mockReturnValue(createMutationMock({
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(createMutationMock({
         mutateAsync: mockMutateAsync,
       }))
 
@@ -442,7 +445,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
     it('toasts error when create task fails', async () => {
       const mockMutateAsync = vi.fn().mockRejectedValue(new Error('Server error'))
-      ;(workshopApi.useCreateWorkshopTask as any).mockReturnValue(createMutationMock({
+      asMock(workshopApi.useCreateWorkshopTask).mockReturnValue(createMutationMock({
         mutateAsync: mockMutateAsync,
       }))
 
@@ -461,7 +464,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
     it('disables task input when order is INVOICED', () => {
       setupDefaultMocks(invoicedOrder)
-      ;(salesApi.useInvoice as any).mockReturnValue({
+      asMock(salesApi.useInvoice).mockReturnValue({
         data: invoicedOrder.invoice,
         isLoading: false,
       })
@@ -476,7 +479,7 @@ describe('WorkshopOrderDetails Characterization', () => {
   describe('handleToggleTask', () => {
     it('calls updateTask with DONE when checkbox is checked', async () => {
       const mockMutateAsync = vi.fn().mockResolvedValue({})
-      ;(workshopApi.useUpdateWorkshopTask as any).mockReturnValue(createMutationMock({
+      asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(createMutationMock({
         mutateAsync: mockMutateAsync,
       }))
 
@@ -556,7 +559,7 @@ describe('WorkshopOrderDetails Characterization', () => {
         id: 'inv-draft-1',
         invoice_number: 'RE-2026-0099',
       })
-      ;(invoicesApi.useCreateDraftInvoice as any).mockReturnValue(createMutationMock({
+      asMock(invoicesApi.useCreateDraftInvoice).mockReturnValue(createMutationMock({
         mutateAsync: mockCreate,
       }))
 
@@ -648,7 +651,7 @@ describe('WorkshopOrderDetails Characterization', () => {
           { id: 'line-3', unit_price: 50, qty: 2, tax_rate: 10 },
         ],
       }
-      ;(salesApi.useInvoice as any).mockReturnValue({ data: mockInvoice, isLoading: false })
+      asMock(salesApi.useInvoice).mockReturnValue({ data: mockInvoice, isLoading: false })
 
       renderComponent()
 
@@ -675,7 +678,7 @@ describe('WorkshopOrderDetails Characterization', () => {
         ...completedOrder,
         invoice: { id: 'inv-draft-1' },
       })
-      ;(salesApi.useInvoice as any).mockReturnValue({
+      asMock(salesApi.useInvoice).mockReturnValue({
         data: { id: 'inv-draft-1', status: 'DRAFT', invoice_number: 'RE-2026-0001', items: [] },
         isLoading: false,
       })
@@ -693,7 +696,7 @@ describe('WorkshopOrderDetails Characterization', () => {
         ...completedOrder,
         invoice: { id: 'inv-draft-1' },
       })
-      ;(salesApi.useInvoice as any).mockReturnValue({
+      asMock(salesApi.useInvoice).mockReturnValue({
         data: { id: 'inv-draft-1', status: 'DRAFT', invoice_number: 'RE-2026-0001', items: [] },
         isLoading: false,
       })
@@ -701,7 +704,7 @@ describe('WorkshopOrderDetails Characterization', () => {
         id: 'inv-draft-1',
         invoice_number: 'RE-2026-0001',
       })
-      ;(invoicesApi.useIssueInvoice as any).mockReturnValue(createMutationMock({
+      asMock(invoicesApi.useIssueInvoice).mockReturnValue(createMutationMock({
         mutateAsync: mockIssue,
       }))
 
@@ -730,17 +733,17 @@ describe('WorkshopOrderDetails Characterization', () => {
           { id: 'line-2', unit_price: 80, qty: 0.5, tax_rate: 0 },
         ],
       }
-      ;(salesApi.useInvoice as any).mockReturnValue({ data: invoiceData, isLoading: false })
+      asMock(salesApi.useInvoice).mockReturnValue({ data: invoiceData, isLoading: false })
 
       const mockUpdateDiscount = vi.fn().mockResolvedValue({})
       const mockIssue = vi.fn().mockResolvedValue({
         id: 'inv-draft-1',
         invoice_number: 'RE-2026-0001',
       })
-      ;(invoicesApi.useUpdateInvoiceDiscount as any).mockReturnValue(createMutationMock({
+      asMock(invoicesApi.useUpdateInvoiceDiscount).mockReturnValue(createMutationMock({
         mutateAsync: mockUpdateDiscount,
       }))
-      ;(invoicesApi.useIssueInvoice as any).mockReturnValue(createMutationMock({
+      asMock(invoicesApi.useIssueInvoice).mockReturnValue(createMutationMock({
         mutateAsync: mockIssue,
       }))
 

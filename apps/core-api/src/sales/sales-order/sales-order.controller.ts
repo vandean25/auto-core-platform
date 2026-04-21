@@ -8,18 +8,24 @@ import {
   Query,
   Delete,
 } from '@nestjs/common';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { SalesOrderService } from './sales-order.service';
 import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { SalesOrderStatus } from '@prisma/client';
-import { QueryBuilder } from '../../common/utils/query-builder';
+import {
+  QueryBuilder,
+  type QueryParams,
+} from '../../common/utils/query-builder';
 
 @Controller('sales-orders')
 export class SalesOrderController {
   constructor(private readonly salesOrderService: SalesOrderService) {}
 
   @Post()
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   create(@Body() createDto: CreateSalesOrderDto) {
     return this.salesOrderService.create(createDto);
   }
@@ -50,6 +56,9 @@ export class SalesOrderController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
     @Query('page') page?: string,
@@ -58,7 +67,7 @@ export class SalesOrderController {
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    const queryParams: any = {};
+    const queryParams: QueryParams = {};
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
@@ -107,7 +116,7 @@ export class SalesOrderController {
       whitelist,
       searchFields,
     );
-    const result = (await this.salesOrderService.findAll(prismaQuery)) as any;
+    const result = await this.salesOrderService.findAll(prismaQuery);
 
     return {
       data: result.data,
@@ -121,11 +130,17 @@ export class SalesOrderController {
   }
 
   @Get(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   findOne(@Param('id') id: string) {
     return this.salesOrderService.findOne(id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   update(@Param('id') id: string, @Body() updateDto: UpdateSalesOrderDto) {
     return this.salesOrderService.update(id, updateDto);
   }
@@ -136,6 +151,9 @@ export class SalesOrderController {
   }
 
   @Post(':id/create-invoice')
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   createInvoice(@Param('id') id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
   }

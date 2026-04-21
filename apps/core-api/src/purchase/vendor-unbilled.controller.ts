@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { PurchaseInvoiceService } from './purchase-invoice.service';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 
 @Controller('vendors')
 export class VendorUnbilledController {
@@ -8,6 +8,9 @@ export class VendorUnbilledController {
 
   @Get(':vendorId/unbilled-receipts')
   @ApiQuery({ name: 'invoiceId', required: false, type: String })
+  @ApiOkResponse({
+    schema: { type: 'array', items: { type: 'object' } },
+  })
   getUnbilledReceipts(
     @Param('vendorId') vendorId: string,
     @Query('invoiceId') invoiceId?: string,

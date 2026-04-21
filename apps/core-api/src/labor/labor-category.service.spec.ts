@@ -81,7 +81,9 @@ describe('LaborCategoryService', () => {
         childCount: 1,
       });
       expect(mockPrisma.laborCategory.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { parent_id: null, tenant_id: 'tenant-1' } }),
+        expect.objectContaining({
+          where: { parent_id: null, tenant_id: 'tenant-1' },
+        }),
       );
     });
 
@@ -215,7 +217,10 @@ describe('LaborCategoryService', () => {
 
     it('creates a subcategory with a valid top-level parent', async () => {
       mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // name uniqueness check
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'parent-1', parent_id: null }); // parent lookup
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({
+        id: 'parent-1',
+        parent_id: null,
+      }); // parent lookup
 
       const mockCreated = {
         id: 'sub-1',
@@ -252,7 +257,10 @@ describe('LaborCategoryService', () => {
 
     it('throws BadRequestException when parent is itself a subcategory (depth > 2)', async () => {
       mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // name uniqueness check
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'sub-1', parent_id: 'grandparent-1' }); // parent is already a child
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({
+        id: 'sub-1',
+        parent_id: 'grandparent-1',
+      }); // parent is already a child
 
       await expect(
         service.create({ name: 'Deep', parent_id: 'sub-1' }),
@@ -350,7 +358,9 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws NotFoundException when new parent_id does not exist', async () => {
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
+        existingCategory,
+      ); // category exists
       mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(null); // parent not found
 
       await expect(
@@ -361,8 +371,13 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when new parent is a subcategory (depth > 2)', async () => {
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'sub', parent_id: 'grandparent' }); // parent is itself a child
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
+        existingCategory,
+      ); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({
+        id: 'sub',
+        parent_id: 'grandparent',
+      }); // parent is itself a child
 
       await expect(
         service.update('cat-1', { parent_id: 'sub' }),
@@ -370,8 +385,13 @@ describe('LaborCategoryService', () => {
     });
 
     it('throws BadRequestException when re-parenting a category that already has children (depth-3 guard)', async () => {
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(existingCategory); // category exists
-      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({ id: 'other-top', parent_id: null }); // valid top-level parent
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
+        existingCategory,
+      ); // category exists
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce({
+        id: 'other-top',
+        parent_id: null,
+      }); // valid top-level parent
       // category has 2 children
       mockPrisma.laborCategory.count.mockResolvedValue(2);
 
@@ -415,7 +435,10 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(0);
       mockPrisma.laborOperation.count.mockResolvedValue(0);
-      mockPrisma.laborCategory.deleteMany.mockResolvedValue({ id: 'cat-1', count: 1 });
+      mockPrisma.laborCategory.deleteMany.mockResolvedValue({
+        id: 'cat-1',
+        count: 1,
+      });
 
       const result = await service.remove('cat-1');
 

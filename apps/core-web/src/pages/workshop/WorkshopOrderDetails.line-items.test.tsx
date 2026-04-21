@@ -18,8 +18,14 @@ vi.mock('sonner', () => ({
   },
 }))
 
+interface MockTaskDetailDrawerProps {
+  open: boolean
+  task: { id: string } | null
+  onTaskLineItemsChange: (taskId: string, lineItems: unknown[]) => void
+}
+
 vi.mock('@/components/workshop/TaskDetailDrawer', () => ({
-  TaskDetailDrawer: ({ open, task, onTaskLineItemsChange }: any) => {
+  TaskDetailDrawer: ({ open, task, onTaskLineItemsChange }: MockTaskDetailDrawerProps) => {
     if (!open || !task) return null
     return (
       <button

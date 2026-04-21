@@ -1,4 +1,8 @@
-export type InventoryStatus = 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED'
+import type { components } from './generated/openapi'
+
+type OpenApiSchemas = components['schemas']
+
+export type InventoryStatus = OpenApiSchemas['InventoryItemResponseDto']['status']
 
 export type TransactionType =
     | 'PURCHASE_RECEIPT'
@@ -8,17 +12,8 @@ export type TransactionType =
     | 'TRANSFER_OUT'
     | 'INITIAL_BALANCE'
 
-export interface InventoryItem {
-    id: string
-    sku: string
-    name: string
-    brand: string
-    brand_id?: number
-    price: number
-    status: InventoryStatus
-    quantity_available: number
+export type InventoryItem = OpenApiSchemas['InventoryItemResponseDto'] & {
     category?: string
-    warehouse_location?: string
 }
 
 export interface InventoryResponse {
@@ -31,29 +26,14 @@ export interface InventoryResponse {
     }
 }
 
-export interface InventoryTransaction {
-    id: string
-    quantity: string
+export type InventoryTransaction = Omit<
+    OpenApiSchemas['InventoryTransactionResponseDto'],
+    'type'
+> & {
     type: TransactionType
-    reference_id: string | null
-    cost_basis: string | null
-    createdAt: string
-    item: {
-        sku: string
-        name: string
-    }
-    location: {
-        name: string
-    }
 }
 
-export interface Vendor {
-    id: string
-    name: string
-    email: string
-    account_number: string
-    supportedBrands: Brand[]
-}
+export type Vendor = OpenApiSchemas['VendorResponseDto']
 
 export type PurchaseOrderStatus = 'DRAFT' | 'SENT' | 'PARTIAL' | 'COMPLETED'
 
@@ -246,7 +226,7 @@ export interface Brand {
     name: string
     isVehicleMake: boolean
     isPartManufacturer: boolean
-    logoUrl?: string
+    logoUrl?: string | null
     createdAt: string
     updatedAt: string
 }
@@ -277,22 +257,11 @@ export interface RevenueAnalytics {
     period: string
 }
 
-export type WorkshopOrderStatus = 'SCHEDULED' | 'INTAKE' | 'IN_PROGRESS' | 'COMPLETED' | 'INVOICED'
-export type WorkshopTaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'WAITING_PARTS' | 'DONE'
-export type WorkshopLineItemType = 'LABOR' | 'PART'
+export type WorkshopOrderStatus = OpenApiSchemas['WorkshopOrderResponseDto']['status']
+export type WorkshopTaskStatus = OpenApiSchemas['WorkshopTaskResponseDto']['status']
+export type WorkshopLineItemType = OpenApiSchemas['WorkshopTaskLineItemResponseDto']['type']
 
-export interface WorkshopTaskLineItem {
-    id: string
-    type: WorkshopLineItemType
-    itemNo: string
-    description: string
-    qty: number
-    unitPrice: number
-    laborOperationId?: string | null
-    standardAw?: number | null
-    actualHours?: number | null
-    internalCostRate?: number | null
-}
+export type WorkshopTaskLineItem = OpenApiSchemas['WorkshopTaskLineItemResponseDto']
 
 export interface NormalizedWorkshopTaskLineItem {
     id?: string
@@ -304,33 +273,22 @@ export interface NormalizedWorkshopTaskLineItem {
     quantity: number
 }
 
-export interface WorkshopTask {
-    id: string
-    title: string
-    status: WorkshopTaskStatus
-    done: boolean
-    mechanicNotes?: string
+export type WorkshopTask = Omit<
+    OpenApiSchemas['WorkshopTaskResponseDto'],
+    'lineItems' | 'createdAt' | 'updatedAt'
+> & {
     lineItems?: WorkshopTaskLineItem[]
+    createdAt?: string
+    updatedAt?: string
 }
 
-export interface WorkshopOrder {
-    id: string
-    order_number: string
-    status: WorkshopOrderStatus
-    staging_location_id?: string | null
-    stagingLocationId?: string | null
-    customer_id: string
-    customer: Customer
-    vehicle_id: string
-    vehicle: Vehicle
-    odometer: number
-    fuel_level: number
-    reported_issue?: string
-    reportedIssue?: string
-    notes?: string
+export type WorkshopOrder = Omit<
+    OpenApiSchemas['WorkshopOrderResponseDto'],
+    'tasks' | 'invoice' | 'updatedAt'
+> & {
     tasks?: WorkshopTask[]
-    invoice?: Invoice | null
-    createdAt: string
+    invoice?: OpenApiSchemas['WorkshopInvoiceSummaryDto'] | null
+    updatedAt?: string
 }
 
 export interface WorkshopPickLineItemPayload {

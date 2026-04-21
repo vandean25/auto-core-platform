@@ -11,64 +11,74 @@ type MockLocation = {
 
 describe('seedFixedStagingTotes', () => {
   function createPrismaMock(initialLocations: MockLocation[] = []) {
-    const locationMap = new Map(initialLocations.map((location) => [location.code, location]));
+    const locationMap = new Map(
+      initialLocations.map((location) => [location.code, location]),
+    );
 
     const storageLocation = {
-      findMany: jest.fn().mockImplementation(async (args: { where: { tenant_id?: string; code: { in: string[] } } }) => {
-        const codes = args.where.code.in;
-        return codes
-          .map((code) => locationMap.get(code))
-          .filter((location): location is MockLocation => Boolean(location))
-          .map((location) => ({
-            code: location.code,
-            name: location.name,
-            type: location.type,
-            parent_id: location.parent_id,
-            deletedAt: location.deletedAt,
-          }));
-      }),
-      upsert: jest.fn().mockImplementation(async (args: {
-        where: { tenant_id_code: { tenant_id: string; code: string } };
-        update: {
-          name: string;
-          type: 'staging_tote';
-          parent_id: string | null;
-          deletedAt?: Date | null;
-        };
-        create: {
-          tenant_id: string;
-          code: string;
-          name: string;
-          type: 'staging_tote';
-          parent_id: string | null;
-          deletedAt?: Date | null;
-        };
-      }) => {
-        const code = args.where.tenant_id_code.code;
-        const existing = locationMap.get(code);
-        const next = existing
-          ? {
-              ...existing,
-              name: args.update.name,
-              type: args.update.type,
-              parent_id: args.update.parent_id,
-              deletedAt:
-                args.update.deletedAt === undefined
-                  ? existing.deletedAt
-                  : args.update.deletedAt,
-            }
-          : {
-              id: `id-${code}`,
-              code: args.create.code,
-              name: args.create.name,
-              type: args.create.type,
-              parent_id: args.create.parent_id,
-              deletedAt: args.create.deletedAt ?? null,
-            };
+      findMany: jest
+        .fn()
+        .mockImplementation(
+          async (args: {
+            where: { tenant_id?: string; code: { in: string[] } };
+          }) => {
+            const codes = args.where.code.in;
+            return codes
+              .map((code) => locationMap.get(code))
+              .filter((location): location is MockLocation => Boolean(location))
+              .map((location) => ({
+                code: location.code,
+                name: location.name,
+                type: location.type,
+                parent_id: location.parent_id,
+                deletedAt: location.deletedAt,
+              }));
+          },
+        ),
+      upsert: jest.fn().mockImplementation(
+        async (args: {
+          where: { tenant_id_code: { tenant_id: string; code: string } };
+          update: {
+            name: string;
+            type: 'staging_tote';
+            parent_id: string | null;
+            deletedAt?: Date | null;
+          };
+          create: {
+            tenant_id: string;
+            code: string;
+            name: string;
+            type: 'staging_tote';
+            parent_id: string | null;
+            deletedAt?: Date | null;
+          };
+        }) => {
+          const code = args.where.tenant_id_code.code;
+          const existing = locationMap.get(code);
+          const next = existing
+            ? {
+                ...existing,
+                name: args.update.name,
+                type: args.update.type,
+                parent_id: args.update.parent_id,
+                deletedAt:
+                  args.update.deletedAt === undefined
+                    ? existing.deletedAt
+                    : args.update.deletedAt,
+              }
+            : {
+                id: `id-${code}`,
+                code: args.create.code,
+                name: args.create.name,
+                type: args.create.type,
+                parent_id: args.create.parent_id,
+                deletedAt: args.create.deletedAt ?? null,
+              };
 
-        locationMap.set(code, next);
-        return next;
-      }),
+          locationMap.set(code, next);
+          return next;
+        },
+      ),
     };
 
     return {

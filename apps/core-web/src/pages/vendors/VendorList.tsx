@@ -12,6 +12,7 @@ import { DataTableColumnHeader } from '@/components/data-table/data-table-column
 import type { Vendor } from '@/api/types'
 import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_VENDORS } from '@/features/dashboard-widgets/sources'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export default function VendorList() {
     const navigate = useNavigate()
@@ -20,16 +21,16 @@ export default function VendorList() {
     const deleteMutation = useDeleteVendor()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-    const data = Array.isArray(responseData) ? responseData : (responseData as any)?.data || []
-    const pageCount = Array.isArray(responseData) ? 1 : (responseData as any)?.meta?.pageCount || 1
+    const data = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this vendor?')) return
         try {
             await deleteMutation.mutateAsync(id)
             toast.success('Vendor deleted')
-        } catch (error: any) {
-            toast.error(error?.message || 'Failed to delete vendor')
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to delete vendor'))
         }
     }
 

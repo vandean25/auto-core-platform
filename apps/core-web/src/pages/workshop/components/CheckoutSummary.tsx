@@ -19,11 +19,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import type { Invoice } from '@/api/types'
 import type { GroupedCheckoutTask } from '../hooks/useWorkshopCalculations'
 
 export interface CheckoutSummaryProps {
   activeInvoiceId: string | null | undefined
-  fetchedInvoice: any
+  fetchedInvoice: Invoice | null | undefined
   isInvoiceLoading: boolean
   isLocked: boolean
   canCreateDraftInCheckout: boolean

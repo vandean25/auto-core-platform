@@ -7,6 +7,8 @@ import type {
   RegisterIntakePayload,
   WorkshopLineItemType,
   WorkshopOrder,
+  WorkshopTask,
+  WorkshopTaskLineItem,
   WorkshopPickPartsPayload,
   WorkshopPickPartsResponse,
   WorkshopSearchResponse,
@@ -63,7 +65,23 @@ type WorkshopOrderResponse = {
   }
 }
 
-function normalizeTask(task: any) {
+type RawWorkshopTask = Omit<WorkshopTask, 'lineItems' | 'mechanicNotes'> & {
+  lineItems?: WorkshopTaskLineItem[]
+  line_items?: WorkshopTaskLineItem[]
+  mechanicNotes?: string | null
+  mechanic_notes?: string | null
+}
+
+type RawWorkshopOrder = Omit<WorkshopOrder, 'tasks'> & {
+  tasks?: RawWorkshopTask[]
+  orderNumber?: string
+  reportedIssue?: string
+  reported_issue?: string
+  stagingLocationId?: string | null
+  staging_location_id?: string | null
+}
+
+function normalizeTask(task: RawWorkshopTask): WorkshopTask {
   return {
     ...task,
     mechanicNotes: task.mechanicNotes ?? task.mechanic_notes ?? '',
@@ -71,7 +89,7 @@ function normalizeTask(task: any) {
   }
 }
 
-function normalizeOrder(order: any): WorkshopOrder {
+function normalizeOrder(order: RawWorkshopOrder): WorkshopOrder {
   return {
     ...order,
     order_number: order.order_number ?? order.orderNumber ?? order.id,

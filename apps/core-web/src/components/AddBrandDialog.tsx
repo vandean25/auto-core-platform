@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCreateBrand, useUpdateBrand } from "@/api/brands"
 import type { Brand } from "@/api/types"
+import { getErrorMessage } from "@/lib/error-utils"
 
 interface AddBrandDialogProps {
     brand?: Brand | null
@@ -69,8 +70,8 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
                 toast.success("Brand created")
             }
             handleClose(false)
-        } catch (error: any) {
-            toast.error(error.message || "Failed to save brand")
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to save brand"))
         }
     }
 
@@ -108,7 +109,7 @@ export function AddBrandDialog({ brand, onClose }: AddBrandDialogProps) {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="logoUrl">Logo URL (optional)</Label>
-                            <Input id="logoUrl" name="logoUrl" defaultValue={brand?.logoUrl} placeholder="https://..." />
+                            <Input id="logoUrl" name="logoUrl" defaultValue={brand?.logoUrl ?? ''} placeholder="https://..." />
                         </div>
                     </div>
                     <DialogFooter>

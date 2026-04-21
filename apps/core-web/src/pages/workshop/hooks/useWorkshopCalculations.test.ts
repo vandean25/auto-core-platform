@@ -5,7 +5,7 @@ import {
   buildTaskLineRowKey,
   findInvoiceItemByLineItemId,
 } from './useWorkshopCalculations'
-import type { WorkshopTask } from '@/api/types'
+import type { Invoice, InvoiceItem, WorkshopTask } from '@/api/types'
 import type { DiscountState } from './useWorkshopCalculations'
 
 // ---------------------------------------------------------------------------
@@ -81,10 +81,10 @@ describe('buildTaskLineRowKey', () => {
 })
 
 describe('findInvoiceItemByLineItemId', () => {
-  const items = [
+  const items: InvoiceItem[] = [
     { id: 'line-1', description: 'Oil Filter', quantity: 1, unit_price: 15, tax_rate: 21 },
     { id: 'line-2', description: 'Labor', quantity: 0.5, unit_price: 80, tax_rate: 0 },
-  ] as any[]
+  ]
 
   it('returns matching invoice item', () => {
     expect(findInvoiceItemByLineItemId(items, 'line-1')?.description).toBe('Oil Filter')
@@ -289,7 +289,7 @@ describe('useWorkshopCalculations — checkoutLineSummaries (with discounts)', (
           line_discount_value: 20,
         },
       ],
-    } as any
+    } as unknown as Invoice
 
     const { result } = renderHook(() =>
       useWorkshopCalculations({
@@ -317,7 +317,7 @@ describe('useWorkshopCalculations — checkoutLineSummaries (with discounts)', (
           line_discount_value: 20,
         },
       ],
-    } as any
+    } as unknown as Invoice
 
     const overrides: Record<string, DiscountState> = {
       'task-1:line-1': { type: 'FLAT_AMOUNT', value: '2' },
@@ -349,7 +349,7 @@ describe('useWorkshopCalculations — tax calculation', () => {
         { id: 'line-1', quantity: 1, unit_price: 15, tax_rate: 21 },
         { id: 'line-2', quantity: 0.5, unit_price: 80, tax_rate: 0 },
       ],
-    } as any
+    } as unknown as Invoice
 
     const { result } = renderHook(() =>
       useWorkshopCalculations({ ...defaultInput, fetchedInvoice: invoice }),
@@ -416,7 +416,7 @@ describe('useWorkshopCalculations — checkout aggregate totals', () => {
         { id: 'line-2', quantity: 0.5, unit_price: 80, tax_rate: 0 },
         { id: 'line-3', quantity: 2, unit_price: 50, tax_rate: 10 },
       ],
-    } as any
+    } as unknown as Invoice
 
     const { result } = renderHook(() =>
       useWorkshopCalculations({

@@ -41,6 +41,22 @@ type SourceAllocation = {
 
 type AllocationReservationMap = Map<string, number>;
 
+type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
+  include: {
+    customer: true;
+    vehicle: true;
+    tasks: {
+      include: {
+        line_items: true;
+      };
+    };
+  };
+}>;
+
+type WorkshopOrderWithRelations = WorkshopOrderWithTasks & {
+  invoice?: { id: string; invoice_number: string | null } | null;
+};
+
 @Injectable()
 export class WorkshopService {
   constructor(
@@ -143,7 +159,9 @@ export class WorkshopService {
     });
 
     if (!sourceLocation || sourceLocation.deletedAt) {
-      throw new NotFoundException(`Source location ${sourceLocationId} not found`);
+      throw new NotFoundException(
+        `Source location ${sourceLocationId} not found`,
+      );
     }
 
     if (sourceLocation.type !== 'bin') {
@@ -243,15 +261,15 @@ export class WorkshopService {
     return allocations;
   }
 
-  private normalizeWorkshopOrder(order: any) {
+  private normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
     return {
       ...order,
       tasks:
-        order.tasks?.map((task: any) => ({
+        order.tasks?.map((task) => ({
           ...task,
           done: task.status === WorkshopTaskStatus.DONE,
           lineItems:
-            task.line_items?.map((line: any) => ({
+            task.line_items?.map((line) => ({
               id: line.id,
               type: line.type,
               itemNo: line.item_no,
@@ -259,8 +277,10 @@ export class WorkshopService {
               qty: Number(line.quantity),
               unitPrice: Number(line.unit_price),
               laborOperationId: line.labor_operation_id,
-              standardAw: line.standard_aw != null ? Number(line.standard_aw) : null,
-              actualHours: line.actual_hours != null ? Number(line.actual_hours) : null,
+              standardAw:
+                line.standard_aw != null ? Number(line.standard_aw) : null,
+              actualHours:
+                line.actual_hours != null ? Number(line.actual_hours) : null,
               internalCostRate:
                 line.internal_cost_rate != null
                   ? Number(line.internal_cost_rate)
@@ -367,7 +387,7 @@ export class WorkshopService {
       },
     });
 
-    return this.normalizeWorkshopOrder(order);
+    return this.normalizeWorkshopOrder(order as WorkshopOrderWithRelations);
   }
 
   async findAll(params: {
@@ -467,7 +487,9 @@ export class WorkshopService {
     ]);
 
     return {
-      data: data.map((order) => this.normalizeWorkshopOrder(order)),
+      data: data.map((order) =>
+        this.normalizeWorkshopOrder(order as WorkshopOrderWithRelations),
+      ),
       meta: {
         total,
         page,
@@ -498,7 +520,7 @@ export class WorkshopService {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
 
-    return this.normalizeWorkshopOrder(order);
+    return this.normalizeWorkshopOrder(order as WorkshopOrderWithRelations);
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
@@ -524,7 +546,7 @@ export class WorkshopService {
       },
     });
 
-    return this.normalizeWorkshopOrder(updated);
+    return this.normalizeWorkshopOrder(updated as WorkshopOrderWithRelations);
   }
 
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {
@@ -734,23 +756,6 @@ export class WorkshopService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        // Tenant isolation check for labor operations
-        const laborIds = dto.items
-          .map((i) => i.laborOperationId)
-          .filter((id): id is string => typeof id === 'string');
-
-        if (laborIds.length > 0) {
-          const uniqueLaborIds = [...new Set(laborIds)];
-          const laborCount = await tx.laborOperation.count({
-            where: { id: { in: uniqueLaborIds }, tenant_id: tenantId },
-          });
-          if (laborCount !== uniqueLaborIds.length) {
-            throw new BadRequestException(
-              'One or more labor operations not found or belong to another tenant',
-            );
-          }
-        }
-
         await tx.workshopTaskLineItem.deleteMany({
           where: { workshop_task_id: taskId },
         });
@@ -786,12 +791,23 @@ export class WorkshopService {
         }
       });
     } catch (error) {
+      const fieldName =
+        error instanceof Prisma.PrismaClientKnownRequestError
+          ? error.meta?.field_name
+          : undefined;
+      const fieldNameText =
+        typeof fieldName === 'string'
+          ? fieldName
+          : Array.isArray(fieldName)
+            ? fieldName
+                .filter((part): part is string => typeof part === 'string')
+                .join(',')
+            : '';
+
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2003' &&
-        String((error.meta as Record<string, unknown> | undefined)?.field_name ?? '').includes(
-          'labor_operation_id',
-        )
+        fieldNameText.includes('labor_operation_id')
       ) {
         throw new BadRequestException(
           'Invalid laborOperationId: referenced labor operation was not found',
@@ -862,7 +878,9 @@ export class WorkshopService {
       >();
 
       for (const requestItem of dto.items) {
-        const existing = aggregatedItems.get(requestItem.workshopTaskLineItemId);
+        const existing = aggregatedItems.get(
+          requestItem.workshopTaskLineItemId,
+        );
         if (!existing) {
           aggregatedItems.set(requestItem.workshopTaskLineItemId, {
             workshopTaskLineItemId: requestItem.workshopTaskLineItemId,
@@ -888,7 +906,6 @@ export class WorkshopService {
       const lineItems = await tx.workshopTaskLineItem.findMany({
         where: {
           id: { in: requestedLineItemIds },
-          tenant_id: tenantId,
           type: WorkshopLineItemType.PART,
           workshop_task: {
             workshop_order_id: orderId,
@@ -906,7 +923,9 @@ export class WorkshopService {
         );
       }
 
-      const skus = Array.from(new Set(lineItems.map((lineItem) => lineItem.item_no)));
+      const skus = Array.from(
+        new Set(lineItems.map((lineItem) => lineItem.item_no)),
+      );
       const catalogItems = await tx.catalogItem.findMany({
         where: {
           tenant_id: tenantId,
@@ -926,8 +945,12 @@ export class WorkshopService {
         );
       }
 
-      const lineItemById = new Map(lineItems.map((lineItem) => [lineItem.id, lineItem]));
-      const catalogItemBySku = new Map(catalogItems.map((item) => [item.sku, item]));
+      const lineItemById = new Map(
+        lineItems.map((lineItem) => [lineItem.id, lineItem]),
+      );
+      const catalogItemBySku = new Map(
+        catalogItems.map((item) => [item.sku, item]),
+      );
       const transferGroupId = `WO-PICK-${order.id}-${Date.now()}`;
       const ledgerTransactions: RecordTransactionParams[] = [];
       const reservations: AllocationReservationMap = new Map();
@@ -1059,6 +1082,7 @@ export class WorkshopService {
   }
 
   async search(query: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         query,
@@ -1067,8 +1091,6 @@ export class WorkshopService {
     const page = 1;
     const limit = SEARCH_LIMIT;
     const skip = (page - 1) * limit;
-
-    const tenantId = await this.tenantContext.getTenantId();
 
     const vehicleWhere: Prisma.VehicleWhereInput = {
       tenant_id: tenantId,

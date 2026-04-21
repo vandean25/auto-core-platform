@@ -320,7 +320,10 @@ describe('BrandService', () => {
 
   describe('remove', () => {
     it('deletes successfully if no dependencies', async () => {
-      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        tenant_id: 'test-tenant-id',
+      });
       mockPrisma.catalogItem.count.mockResolvedValue(0);
       mockPrisma.vendor.count.mockResolvedValue(0);
       mockRepository.delete.mockResolvedValue({ id: 1 });
@@ -331,7 +334,10 @@ describe('BrandService', () => {
     });
 
     it('throws ConflictException if catalog items linked', async () => {
-      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        tenant_id: 'test-tenant-id',
+      });
       mockPrisma.catalogItem.count.mockResolvedValue(5);
 
       await expect(service.remove(1)).rejects.toThrow(ConflictException);
@@ -340,7 +346,10 @@ describe('BrandService', () => {
     });
 
     it('throws ConflictException if vendors linked', async () => {
-      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        tenant_id: 'test-tenant-id',
+      });
       mockPrisma.catalogItem.count.mockResolvedValue(0);
       mockPrisma.vendor.count.mockResolvedValue(2);
 

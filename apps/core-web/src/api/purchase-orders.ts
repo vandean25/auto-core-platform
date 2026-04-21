@@ -6,9 +6,25 @@ import { buildDataTableUrl } from './data-table-query'
 
 const PO_API = '/api/purchase-orders'
 
+export const purchaseOrderKeys = {
+    all: ['purchase-orders'] as const,
+    list: (queryParams?: DataTableQueryParams) => [...purchaseOrderKeys.all, 'list', queryParams] as const,
+    detail: (id: string) => [...purchaseOrderKeys.all, 'detail', id] as const,
+}
+
+type PurchaseOrderListResponse = {
+    data: PurchaseOrder[]
+    meta: {
+        total: number
+        page: number
+        pageSize: number
+        pageCount: number
+    }
+}
+
 export function usePurchaseOrders(queryParams?: DataTableQueryParams) {
-    return useQuery<any>({
-        queryKey: ['purchase-orders', queryParams],
+    return useQuery<PurchaseOrderListResponse>({
+        queryKey: purchaseOrderKeys.list(queryParams),
         queryFn: async () => {
             const url = buildDataTableUrl(PO_API, queryParams, {
                 sortFieldMap: { vendor: 'vendor.name' },
@@ -20,7 +36,7 @@ export function usePurchaseOrders(queryParams?: DataTableQueryParams) {
             if (!res.ok) throw new Error('Failed to fetch purchase orders')
             return res.json()
         },
-        placeholderData: (previousData: any) => previousData, 
+        placeholderData: (previousData) => previousData,
     })
 }
 
@@ -37,14 +53,14 @@ export function useCreatePO() {
             return res.json()
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
         },
     })
 }
 
 export function usePurchaseOrder(id: string) {
     return useQuery({
-        queryKey: ['purchase-orders', id],
+        queryKey: purchaseOrderKeys.detail(id),
         queryFn: async () => {
             // The endpoint isn't explicitly defined in my previous view_file of controller, but usually we need one.
             // I see `receiveItems` uses `:id/receive`.
@@ -70,7 +86,7 @@ export function useReceiveGoods() {
             return res.json()
         },
         onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.orderId) })
             queryClient.invalidateQueries({ queryKey: ['inventory'] }) // Update stock lists
         },
     })
@@ -89,8 +105,8 @@ export function useAddPOItems() {
             return res.json()
         },
         onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.orderId) })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
         },
     })
 }
@@ -108,8 +124,8 @@ export function useUpdatePOItem() {
             return res.json()
         },
         onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.orderId) })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
         },
     })
 }
@@ -125,8 +141,8 @@ export function useDeletePOItem() {
             return res.json()
         },
         onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders', variables.orderId] })
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.orderId) })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
         },
     })
 }
@@ -145,7 +161,7 @@ export function useDeletePurchaseOrder() {
             return id
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
         },
     })
 }

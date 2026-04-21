@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
+import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
 
 interface InvoiceDrawerProps {
@@ -167,8 +168,8 @@ export function InvoiceDrawer({
           ],
         },
       })
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update line discount')
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to update line discount'))
     }
   }
 
@@ -204,8 +205,8 @@ export function InvoiceDrawer({
           ),
         },
       })
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update global discount')
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to update global discount'))
     }
   }
 
@@ -214,8 +215,8 @@ export function InvoiceDrawer({
     try {
       await issueInvoice.mutateAsync(invoiceId)
       toast.success('Invoice issued and locked')
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to issue invoice')
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to issue invoice'))
     }
   }
 
@@ -247,7 +248,7 @@ export function InvoiceDrawer({
             )}
             {isError && (
               <div className="text-sm text-muted-foreground">
-                {(error as any)?.message || 'Failed to load invoice'}
+                {getErrorMessage(error, 'Failed to load invoice')}
               </div>
             )}
             {!isLoading && !isError && invoice && (

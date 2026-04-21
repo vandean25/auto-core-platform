@@ -20,7 +20,8 @@ export class CreateBrandDto {
 
   @IsOptional()
   @ValidateIf(
-    (o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
+    (o: { logoUrl?: string | null }) =>
+      o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
   )
   @IsUrl()
   logoUrl?: string;
@@ -41,7 +42,8 @@ export class UpdateBrandDto {
 
   @IsOptional()
   @ValidateIf(
-    (o) => o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
+    (o: { logoUrl?: string | null }) =>
+      o.logoUrl !== '' && o.logoUrl !== null && o.logoUrl !== undefined,
   )
   @IsUrl()
   logoUrl?: string;

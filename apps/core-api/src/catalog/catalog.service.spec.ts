@@ -62,7 +62,13 @@ describe('CatalogService Search (Mocked)', () => {
 
     // 2. Mock search results
     mockPrisma.laborOperation.findMany.mockResolvedValue([
-      { id: '1', code: 'UNIVERSAL', description: 'Universal Item', standard_aw: 1, hourly_rate: 100 },
+      {
+        id: '1',
+        code: 'UNIVERSAL',
+        description: 'Universal Item',
+        standard_aw: 1,
+        hourly_rate: 100,
+      },
     ]);
     mockPrisma.masterPart.findMany.mockResolvedValue([]);
     mockPrisma.catalogItem.findMany.mockResolvedValue([]);
@@ -80,20 +86,24 @@ describe('CatalogService Search (Mocked)', () => {
           AND: expect.arrayContaining([
             expect.objectContaining({
               OR: expect.arrayContaining([
-                expect.objectContaining({ fitments: { some: expect.any(Object) } }),
+                expect.objectContaining({
+                  fitments: { some: expect.any(Object) },
+                }),
                 expect.objectContaining({ fitments: { none: {} } }),
               ]),
             }),
           ]),
         }),
-      })
+      }),
     );
   });
 
   it('should throw NotFoundException if workshop order vehicle is missing', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
 
-    await expect(service.search('test', 'invalid-id')).rejects.toThrow(NotFoundException);
+    await expect(service.search('test', 'invalid-id')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should include universal master parts (no fitments) and exclude non-matching fitments', async () => {
@@ -130,13 +140,15 @@ describe('CatalogService Search (Mocked)', () => {
           AND: expect.arrayContaining([
             expect.objectContaining({
               OR: expect.arrayContaining([
-                expect.objectContaining({ fitments: { some: expect.any(Object) } }),
+                expect.objectContaining({
+                  fitments: { some: expect.any(Object) },
+                }),
                 expect.objectContaining({ fitments: { none: {} } }),
               ]),
             }),
           ]),
         }),
-      })
+      }),
     );
   });
 });

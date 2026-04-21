@@ -45,18 +45,24 @@ function extractEntityId(result: unknown): string | undefined {
   return typeof candidate.id === 'string' ? candidate.id : undefined;
 }
 
-function extractTenantId(result: any, args: any): string | undefined {
+function extractTenantId(
+  result: unknown,
+  args: Record<string, unknown>,
+): string | undefined {
   // 1. Try to get from result
-  if (result && typeof result === 'object' && result.tenant_id) {
-    return result.tenant_id;
+  if (result && typeof result === 'object') {
+    const res = result as { tenant_id?: unknown };
+    if (typeof res.tenant_id === 'string') return res.tenant_id;
   }
   // 2. Try to get from data (create/update)
-  if (args?.data?.tenant_id) {
-    return args.data.tenant_id;
+  if (args?.data && typeof args.data === 'object') {
+    const data = args.data as { tenant_id?: unknown };
+    if (typeof data.tenant_id === 'string') return data.tenant_id;
   }
   // 3. Try to get from where (updateMeta/delete/many)
-  if (args?.where?.tenant_id) {
-    return args.where.tenant_id;
+  if (args?.where && typeof args.where === 'object') {
+    const where = args.where as { tenant_id?: unknown };
+    if (typeof where.tenant_id === 'string') return where.tenant_id;
   }
   return undefined;
 }
@@ -139,8 +145,14 @@ export function createDashboardRealtimeExtension(
         async upsert({ model, args, query }) {
           // Distinguish between create and update by performing an existence pre-check
           const ctx = Prisma.getExtensionContext(this);
-          // Cast to any to bypass TS6 compatibility issues with findFirst in dynamic context
-          const existing = await (ctx as any).findFirst({
+          const existing = await (
+            ctx as {
+              findFirst: (args: {
+                where: unknown;
+                select: { id: boolean };
+              }) => Promise<{ id: string } | null>;
+            }
+          ).findFirst({
             where: args.where,
             select: { id: true },
           });

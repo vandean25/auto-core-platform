@@ -21,7 +21,10 @@ describe('InventoryService', () => {
       providers: [
         InventoryService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
       ],
     }).compile();
 

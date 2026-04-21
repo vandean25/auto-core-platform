@@ -10,8 +10,20 @@ export const salesOrderKeys = {
     detail: (id: string) => [...salesOrderKeys.all, 'detail', id] as const,
 }
 
+type SalesOrderListResponse = {
+    data: SalesOrder[]
+    meta: {
+        total: number
+        page: number
+        pageSize: number
+        pageCount: number
+    }
+}
+
+type SalesOrderMutationPayload = Record<string, unknown>
+
 export function useSalesOrders(queryParams?: DataTableQueryParams) {
-    return useQuery<any>({
+    return useQuery<SalesOrderListResponse>({
         queryKey: salesOrderKeys.list(queryParams),
         queryFn: async () => {
             const url = buildDataTableUrl('/api/sales-orders', queryParams, {
@@ -43,14 +55,14 @@ export function useCreateSalesOrder() {
     const queryClient = useQueryClient()
     
     return useMutation({
-        mutationFn: async (order: any) => {
+        mutationFn: async (order: SalesOrderMutationPayload) => {
             const response = await fetchWithAuth('/api/sales-orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(order),
             })
             if (!response.ok) throw new Error('Failed to create sales order')
-            return response.json()
+            return response.json() as Promise<SalesOrder>
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: salesOrderKeys.all })
@@ -62,14 +74,14 @@ export function useUpdateSalesOrder() {
     const queryClient = useQueryClient()
     
     return useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: any }) => {
+        mutationFn: async ({ id, data }: { id: string; data: SalesOrderMutationPayload }) => {
             const response = await fetchWithAuth(`/api/sales-orders/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             })
             if (!response.ok) throw new Error('Failed to update sales order')
-            return response.json()
+            return response.json() as Promise<SalesOrder>
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: salesOrderKeys.all })

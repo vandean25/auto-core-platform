@@ -98,7 +98,7 @@ export default function StockTimeline({ itemId }: StockTimelineProps) {
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                     <p className="font-medium text-slate-900">
-                                        {getTransactionTitle(transaction.type, transaction.reference_id)}
+                                        {getTransactionTitle(transaction.type, transaction.reference_id ?? null)}
                                     </p>
                                     <p className="text-sm text-slate-500 mt-0.5">
                                         {transaction.location.name}

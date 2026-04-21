@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
 } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { BrandService } from './brand.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 
@@ -17,11 +18,17 @@ export class BrandController {
   constructor(private readonly brandService: BrandService) {}
 
   @Post()
+  @ApiCreatedResponse({
+    schema: { type: 'object' },
+  })
   create(@Body() createBrandDto: CreateBrandDto) {
     return this.brandService.create(createBrandDto);
   }
 
   @Get()
+  @ApiOkResponse({
+    schema: { type: 'array', items: { type: 'object' } },
+  })
   findAll(
     @Query('isVehicleMake') isVehicleMake?: string,
     @Query('isPartManufacturer') isPartManufacturer?: string,
@@ -43,11 +50,17 @@ export class BrandController {
   }
 
   @Get(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.brandService.findOne(id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateBrandDto: UpdateBrandDto,

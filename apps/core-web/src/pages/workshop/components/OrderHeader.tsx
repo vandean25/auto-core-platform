@@ -5,24 +5,25 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { ActionGroup } from '@/components/ui/action-group'
 import { formatCurrency } from '@/lib/utils'
+import type { WorkshopOrder } from '@/api/types'
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
 }
 
-function getCustomerName(order: any) {
+function getCustomerName(order: WorkshopOrder) {
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
     return order.customer.company_name
   }
   return `${order.customer.first_name} ${order.customer.last_name}`.trim()
 }
 
-function getVehicleLabel(order: any) {
+function getVehicleLabel(order: WorkshopOrder) {
   return `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`
 }
 
 export interface OrderTopBarProps {
-  order: any
+  order: WorkshopOrder
   orderPartsTotal: number
   orderLaborTotal: number
   orderGrandTotal: number
@@ -140,7 +141,7 @@ export function OrderTopBar({
   )
 }
 
-export function CustomerVehicleInfo({ order }: { order: any }) {
+export function CustomerVehicleInfo({ order }: { order: WorkshopOrder }) {
   const customerName = getCustomerName(order)
   const customerPhone = order.customer.phone ?? ''
 

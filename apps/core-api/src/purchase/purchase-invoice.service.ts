@@ -78,7 +78,9 @@ export class PurchaseInvoiceService {
       where: { id: data.vendorId, tenant_id: tenantId },
     });
     if (!vendorExists) {
-      throw new BadRequestException('Vendor not found or belongs to another tenant');
+      throw new BadRequestException(
+        'Vendor not found or belongs to another tenant',
+      );
     }
 
     const poItemTotals = new Map<string, number>();
@@ -198,7 +200,9 @@ export class PurchaseInvoiceService {
       where: { id: data.vendorId, tenant_id: tenantId },
     });
     if (!vendorExists) {
-      throw new BadRequestException('Vendor not found or belongs to another tenant');
+      throw new BadRequestException(
+        'Vendor not found or belongs to another tenant',
+      );
     }
 
     const poItemTotals = new Map<string, number>();
@@ -363,7 +367,7 @@ export class PurchaseInvoiceService {
 
   async post(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const result = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       // 1. Check if invoice exists and is DRAFT
       const invoice = await tx.purchaseInvoice.findFirst({
         where: { id, tenant_id: tenantId },
@@ -492,7 +496,11 @@ export class PurchaseInvoiceService {
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Enforce DRAFT status on the invoice by touching it
       const lockResult = await tx.purchaseInvoice.updateMany({
-        where: { id: invoiceId, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
+        where: {
+          id: invoiceId,
+          tenant_id: tenantId,
+          status: PurchaseInvoiceStatus.DRAFT,
+        },
         data: { updatedAt: new Date() },
       });
 
@@ -542,7 +550,11 @@ export class PurchaseInvoiceService {
       );
 
       const updateTotalResult = await tx.purchaseInvoice.updateMany({
-        where: { id: invoiceId, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
+        where: {
+          id: invoiceId,
+          tenant_id: tenantId,
+          status: PurchaseInvoiceStatus.DRAFT,
+        },
         data: { total_amount: newTotal },
       });
 

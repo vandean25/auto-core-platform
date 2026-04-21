@@ -27,7 +27,10 @@ describe('SalesOrderService', () => {
         SalesOrderService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: FinanceService, useValue: mockFinance },
-        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
       ],
     }).compile();
 

@@ -38,7 +38,9 @@ export class SalesService {
         where: { id: invoiceData.customerId, tenant_id: tenantId },
       });
       if (!customer) {
-        throw new BadRequestException('Customer not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Customer not found or belongs to another tenant',
+        );
       }
     }
 
@@ -47,7 +49,9 @@ export class SalesService {
         where: { id: invoiceData.vehicleId, tenant_id: tenantId },
       });
       if (!vehicle) {
-        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+        throw new BadRequestException(
+          'Vehicle not found or belongs to another tenant',
+        );
       }
     }
 

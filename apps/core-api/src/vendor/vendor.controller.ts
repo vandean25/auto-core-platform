@@ -8,17 +8,25 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
-import { QueryBuilder } from '../common/utils/query-builder';
+import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { VendorResponseDto } from './dto/vendor-response.dto';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
 
 @Controller('vendors')
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
 
   @Post()
+  @ApiCreatedResponse({ type: VendorResponseDto })
   async create(@Body() createVendorDto: CreateVendorDto) {
     return this.vendorService.create(createVendorDto);
   }
@@ -41,6 +49,7 @@ export class VendorController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiPaginatedResponse(VendorResponseDto)
   async findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -48,7 +57,7 @@ export class VendorController {
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    const queryParams: any = {};
+    const queryParams: QueryParams = {};
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
@@ -88,15 +97,26 @@ export class VendorController {
       };
     }
 
-    return this.vendorService.findAll();
+    const result = await this.vendorService.findAll();
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: 1,
+        pageSize: result.data.length || 1,
+        pageCount: 1,
+      },
+    };
   }
 
   @Get(':id')
+  @ApiOkResponse({ type: VendorResponseDto })
   async findOne(@Param('id') id: string) {
     return this.vendorService.findOne(id);
   }
 
   @Put(':id')
+  @ApiOkResponse({ type: VendorResponseDto })
   async update(
     @Param('id') id: string,
     @Body() updateVendorDto: UpdateVendorDto,

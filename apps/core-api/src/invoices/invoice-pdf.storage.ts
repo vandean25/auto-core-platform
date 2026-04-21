@@ -17,8 +17,12 @@ export class InvoicePdfStorage {
     const credentials = process.env.GCP_CREDENTIALS;
     if (credentials) {
       try {
+        const parsedCredentials = JSON.parse(credentials) as Record<
+          string,
+          unknown
+        >;
         this.storage = new Storage({
-          credentials: JSON.parse(credentials),
+          credentials: parsedCredentials,
         });
         this.logger.log(
           'Storage client initialized with GCP_CREDENTIALS from env',

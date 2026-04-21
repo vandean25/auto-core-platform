@@ -455,7 +455,11 @@ export class InvoicePdfService {
     return true;
   }
 
-  private async safeStoreGenerationError(invoiceId: string, message: string, tenantId: string) {
+  private async safeStoreGenerationError(
+    invoiceId: string,
+    message: string,
+    tenantId: string,
+  ) {
     try {
       await this.prisma.client.invoice.updateMany({
         where: { id: invoiceId, tenant_id: tenantId },

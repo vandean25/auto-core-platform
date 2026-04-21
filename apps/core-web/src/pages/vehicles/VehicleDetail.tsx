@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/error-utils'
 import type {
   Customer,
   InvoiceStatus,
@@ -187,8 +188,8 @@ export default function VehicleDetail() {
         data: payload,
       })
       toast.success('Vehicle updated')
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update vehicle')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update vehicle'))
       throw error
     }
   }
@@ -211,8 +212,8 @@ export default function VehicleDetail() {
       })
       toast.success('Vehicle customer updated')
       setCustomerDialogOpen(false)
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update vehicle customer')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update vehicle customer'))
     }
   }
 

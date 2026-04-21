@@ -21,18 +21,23 @@ export interface PaginatedResult<T> {
   meta: PaginationMeta;
 }
 
+type PrismaDelegateArgs = Record<string, unknown>;
+
 /**
  * Structural contract every Prisma delegate satisfies.
  * Using this instead of `any` prevents consumers from accidentally passing
  * a function (e.g. `prisma.brand.findMany`) instead of the delegate itself.
  */
 export interface PrismaDelegate {
-  findMany(args?: any): Promise<any[]>;
-  findUnique(args?: any): Promise<any | null>;
-  create(args: any): Promise<any>;
-  update(args: any): Promise<any>;
-  delete(args: any): Promise<any>;
-  count(args?: any): Promise<number>;
+  findMany(args?: PrismaDelegateArgs): Promise<unknown[]>;
+  findUnique(
+    args?: PrismaDelegateArgs,
+  ): Promise<Record<string, unknown> | null>;
+  findFirst(args?: PrismaDelegateArgs): Promise<Record<string, unknown> | null>;
+  create(args: PrismaDelegateArgs): Promise<unknown>;
+  update(args: PrismaDelegateArgs): Promise<unknown>;
+  delete(args: PrismaDelegateArgs): Promise<unknown>;
+  count(args?: PrismaDelegateArgs): Promise<number>;
 }
 
 export interface FindManyParams {

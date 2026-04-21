@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as purchaseApi from '@/api/usePurchaseInvoices'
 import * as vendorApi from '@/api/vendors'
 import * as inventoryApi from '@/api/inventory'
+import type { PurchaseInvoice } from '@/api/types'
 
 vi.mock('@/api/usePurchaseInvoices')
 vi.mock('@/api/vendors')
@@ -34,32 +35,35 @@ const mockInitialData = {
   ]
 }
 
+const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
+  fn as unknown as ReturnType<typeof vi.fn>
+
 describe('PurchaseBillForm Characterization', () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
     queryClient = new QueryClient()
     vi.clearAllMocks()
-    ;(purchaseApi.useUnbilledReceipts as any).mockReturnValue({ data: [], isLoading: false })
-    ;(vendorApi.useVendor as any).mockReturnValue({ data: { id: 'vendor-1', name: 'Vendor One' }, isLoading: false })
-    ;(inventoryApi.useInventory as any).mockReturnValue({ data: { data: [] }, isLoading: false })
-    ;(purchaseApi.useCreatePurchaseInvoice as any).mockReturnValue({ mutateAsync: vi.fn() })
-    ;(purchaseApi.useUpdatePurchaseInvoice as any).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
-    ;(purchaseApi.usePostPurchaseInvoice as any).mockReturnValue({ mutateAsync: vi.fn() })
-    ;(purchaseApi.useDeletePurchaseInvoiceLine as any).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(purchaseApi.useUnbilledReceipts).mockReturnValue({ data: [], isLoading: false })
+    asMock(vendorApi.useVendor).mockReturnValue({ data: { id: 'vendor-1', name: 'Vendor One' }, isLoading: false })
+    asMock(inventoryApi.useInventory).mockReturnValue({ data: { data: [] }, isLoading: false })
+    asMock(purchaseApi.useCreatePurchaseInvoice).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(purchaseApi.useUpdatePurchaseInvoice).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
+    asMock(purchaseApi.usePostPurchaseInvoice).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(purchaseApi.useDeletePurchaseInvoiceLine).mockReturnValue({ mutateAsync: vi.fn() })
   })
 
   const renderComponent = () => {
     return render(
       <QueryClientProvider client={queryClient}>
-        <PurchaseBillForm initialData={mockInitialData as any} onSuccess={vi.fn()} onCancel={vi.fn()} />
+        <PurchaseBillForm initialData={mockInitialData as unknown as PurchaseInvoice} onSuccess={vi.fn()} onCancel={vi.fn()} />
       </QueryClientProvider>
     )
   }
 
   it('triggers auto-save after vendor invoice number changes', async () => {
     const updateMutation = vi.fn().mockResolvedValue({ id: 'bill-1' })
-    ;(purchaseApi.useUpdatePurchaseInvoice as any).mockReturnValue({ mutateAsync: updateMutation, isPending: false })
+    asMock(purchaseApi.useUpdatePurchaseInvoice).mockReturnValue({ mutateAsync: updateMutation, isPending: false })
     
     renderComponent()
 

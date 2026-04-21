@@ -66,8 +66,10 @@ export class InvoicesService {
         );
       }
 
-      const { itemsData, totalNet, totalTax } =
-        this.buildInvoiceItems(lineItems, tenantId);
+      const { itemsData, totalNet, totalTax } = this.buildInvoiceItems(
+        lineItems,
+        tenantId,
+      );
       const totalGross = totalNet.add(totalTax);
       this.assertDiscountPair('Global', null, null);
       itemsData.forEach((item, index) => {
@@ -152,7 +154,8 @@ export class InvoicesService {
       }
 
       const invoiceNumber =
-        invoice.invoice_number ?? (await this.generateInvoiceNumber(tx, tenantId));
+        invoice.invoice_number ??
+        (await this.generateInvoiceNumber(tx, tenantId));
       const snapshot = buildInvoiceSnapshot({
         ...invoice,
         invoice_number: invoiceNumber,

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
+import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
 import { Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -206,13 +207,13 @@ export default function InvoiceDetailPage() {
   }
 
   if (isError) {
-    const status = (error as any)?.response?.status ?? (error as any)?.status
+    const status = getErrorStatus(error)
     if (status === 404) {
       return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
     }
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
-        {(error as any)?.message || 'Failed to load invoice'}
+        {getErrorMessage(error, 'Failed to load invoice')}
       </div>
     )
   }

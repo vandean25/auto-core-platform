@@ -7,11 +7,14 @@ import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import type { TaskTotals } from '../hooks/useWorkshopCalculations'
 import type { WorkshopTask } from '@/api/types'
+import type { TaskTotals } from '../hooks/useWorkshopCalculations'
+import type { WorkshopOrder } from '@/api/types'
+
+type WorkshopOrderWithLegacyReportedIssue = WorkshopOrder & { reported_issue?: string | null }
 
 export interface TaskListProps {
-  order: any
+  order: WorkshopOrderWithLegacyReportedIssue
   tasks: WorkshopTask[]
   rawTaskTotals: Map<string, TaskTotals>
   isLocked: boolean

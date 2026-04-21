@@ -26,13 +26,13 @@ vi.mock('framer-motion', async (importOriginal) => {
       {},
       {
         get: (_target, key: string) => {
-          return ({ children, ...props }: any) => {
+          return ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
             return React.createElement(key, props, children)
           }
         },
       }
     ),
-    AnimatePresence: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    AnimatePresence: ({ children }: React.PropsWithChildren) => React.createElement(React.Fragment, null, children),
   }
 })
 

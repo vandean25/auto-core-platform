@@ -10,9 +10,26 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+function trimIfString(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function parseOptionalBoolean(value: unknown): unknown {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return value;
+}
+
+function parseOptionalNumber(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  return Number(value);
+}
+
 export class CreateBayDto {
   @ApiProperty()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimIfString(value as unknown))
   @IsString()
   @IsNotEmpty()
   name!: string;
@@ -32,7 +49,7 @@ export class CreateBayDto {
 export class UpdateBayDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimIfString(value as unknown))
   @IsString()
   @IsNotEmpty()
   name?: string;
@@ -54,21 +71,13 @@ export class ListBaysQueryDto {
     description: 'Include inactive bays when true',
   })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === true || value === 'true') return true;
-    if (value === false || value === 'false') return false;
-    return value;
-  })
+  @Transform(({ value }) => parseOptionalBoolean(value as unknown))
   @IsBoolean()
   includeInactive?: boolean;
 
   @ApiPropertyOptional({ description: 'Page number (1-based)', minimum: 1 })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : Number(value),
-  )
+  @Transform(({ value }) => parseOptionalNumber(value as unknown))
   @IsInt()
   @Min(1)
   page?: number;
@@ -79,11 +88,7 @@ export class ListBaysQueryDto {
     maximum: 100,
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : Number(value),
-  )
+  @Transform(({ value }) => parseOptionalNumber(value as unknown))
   @IsInt()
   @Min(1)
   @Max(100)

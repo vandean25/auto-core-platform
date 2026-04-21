@@ -8,6 +8,10 @@ import {
   IsEmail,
 } from 'class-validator';
 
+type RegisterIntakeContext = {
+  customerId?: string;
+};
+
 export class RegisterIntakeDto {
   // Vehicle Details
   @IsString()
@@ -36,12 +40,12 @@ export class RegisterIntakeDto {
   customerId?: string;
 
   // New Customer Details (if customerId is missing)
-  @ValidateIf((o) => !o.customerId)
+  @ValidateIf((o: RegisterIntakeContext) => !o.customerId)
   @IsString()
   @IsNotEmpty()
   firstName?: string;
 
-  @ValidateIf((o) => !o.customerId)
+  @ValidateIf((o: RegisterIntakeContext) => !o.customerId)
   @IsString()
   @IsNotEmpty()
   lastName?: string;

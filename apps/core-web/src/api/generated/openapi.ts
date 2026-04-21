@@ -1000,7 +1000,109 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AvailabilityCheckResultDto: {
+            sku: string;
+            name: string;
+            brand: string;
+            original_sku?: string | null;
+            suggested_sku?: string | null;
+            quantity_on_hand: number;
+            quantity_reserved: number;
+            quantity_available: number;
+            is_superseded: boolean;
+        };
+        InventoryTransactionItemDto: {
+            sku: string;
+            name: string;
+        };
+        InventoryTransactionLocationDto: {
+            name: string;
+        };
+        InventoryTransactionResponseDto: {
+            id: string;
+            quantity: string;
+            type: string;
+            reference_id?: string | null;
+            cost_basis?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            item: components["schemas"]["InventoryTransactionItemDto"];
+            location: components["schemas"]["InventoryTransactionLocationDto"];
+        };
+        PaginationMetaDto: {
+            total: number;
+            page: number;
+            pageSize: number;
+            pageCount: number;
+        };
+        PaginatedResponseDto: {
+            data: Record<string, never>[];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        InventoryItemResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            brand: string;
+            brand_id?: number | null;
+            price: number;
+            /** @enum {string} */
+            status: "IN_STOCK" | "OUT_OF_STOCK" | "SUPERSEDED";
+            quantity_available: number;
+            warehouse_location: string;
+        };
         CreateInventoryItemDto: Record<string, never>;
+        CatalogItemResponseDto: {
+            id: string;
+            sku: string;
+            name: string;
+            cost_price: string;
+            retail_price: string;
+            unit: string;
+            brand_id?: number | null;
+            revenue_group_id?: number | null;
+        };
+        LocationParentResponseDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            parent_id?: string | null;
+        };
+        LocationCountsDto: {
+            children: number;
+            stocks: number;
+        };
+        LocationTreeNodeDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            parent_id?: string | null;
+            parent?: components["schemas"]["LocationParentResponseDto"];
+            _count?: components["schemas"]["LocationCountsDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            children: components["schemas"]["LocationTreeNodeDto"][];
+        };
+        LocationResponseDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            parent_id?: string | null;
+            parent?: components["schemas"]["LocationParentResponseDto"];
+            _count?: components["schemas"]["LocationCountsDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
         CreatePurchaseOrderDto: Record<string, never>;
@@ -1009,9 +1111,46 @@ export interface components {
         UpdatePurchaseOrderItemDto: Record<string, never>;
         CreatePurchaseInvoiceDto: Record<string, never>;
         CreateVendorDto: Record<string, never>;
+        BrandResponseDto: {
+            id: number;
+            name: string;
+            isVehicleMake: boolean;
+            isPartManufacturer: boolean;
+            logoUrl?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        VendorResponseDto: {
+            id: string;
+            name: string;
+            email: string;
+            account_number: string;
+            supportedBrands: components["schemas"]["BrandResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         UpdateVendorDto: Record<string, never>;
         CreateInvoiceDto: Record<string, never>;
         CreateCustomerDto: Record<string, never>;
+        CustomerResponseDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            company_name?: string | null;
+            first_name: string;
+            last_name: string;
+            email?: string | null;
+            phone?: string | null;
+            address_city?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         VehicleSummaryDto: {
             id: string;
             make: string;
@@ -1089,6 +1228,79 @@ export interface components {
         UpdateSalesOrderDto: Record<string, never>;
         RegisterIntakeDto: Record<string, never>;
         CreateWorkshopOrderDto: Record<string, never>;
+        WorkshopCustomerSummaryDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            company_name?: string | null;
+            first_name: string;
+            last_name: string;
+            email?: string | null;
+            phone?: string | null;
+        };
+        WorkshopVehicleSummaryDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin?: string | null;
+            plate?: string | null;
+        };
+        WorkshopTaskLineItemResponseDto: {
+            id: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
+            itemNo: string;
+            description: string;
+            qty: number;
+            unitPrice: number;
+            laborOperationId?: string | null;
+            standardAw?: number | null;
+            actualHours?: number | null;
+            internalCostRate?: number | null;
+        };
+        WorkshopTaskResponseDto: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "DONE";
+            mechanic_notes?: string | null;
+            mechanicNotes?: string | null;
+            done: boolean;
+            line_items?: components["schemas"]["WorkshopTaskLineItemResponseDto"][];
+            lineItems: components["schemas"]["WorkshopTaskLineItemResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        WorkshopInvoiceSummaryDto: {
+            id: string;
+            invoice_number?: string | null;
+        };
+        WorkshopOrderResponseDto: {
+            id: string;
+            order_number: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            customer_id: string;
+            vehicle_id: string;
+            odometer: number;
+            fuel_level: number;
+            reported_issue?: string | null;
+            reportedIssue?: string | null;
+            notes?: string | null;
+            staging_location_id?: string | null;
+            stagingLocationId?: string | null;
+            customer: components["schemas"]["WorkshopCustomerSummaryDto"];
+            vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
+            tasks: components["schemas"]["WorkshopTaskResponseDto"][];
+            invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         UpdateWorkshopOrderDto: Record<string, never>;
         CreateWorkshopTaskDto: Record<string, never>;
         PickWorkshopPartsLineDto: {
@@ -1478,7 +1690,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": string;
+                };
             };
         };
     };
@@ -1495,7 +1709,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": string;
+                };
             };
         };
     };
@@ -1539,7 +1755,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AvailabilityCheckResultDto"];
+                };
             };
         };
     };
@@ -1558,7 +1776,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InventoryTransactionResponseDto"][];
+                };
             };
         };
     };
@@ -1582,7 +1802,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["InventoryItemResponseDto"][];
+                    };
+                };
             };
         };
     };
@@ -1603,7 +1827,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CatalogItemResponseDto"];
+                };
             };
         };
     };
@@ -1620,7 +1846,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationTreeNodeDto"][];
+                };
             };
         };
     };
@@ -1637,7 +1865,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
             };
         };
     };
@@ -1656,7 +1886,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
             };
         };
     };
@@ -1673,7 +1905,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
             };
         };
     };
@@ -1694,7 +1928,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"];
+                };
             };
         };
     };
@@ -1736,7 +1972,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"];
+                };
             };
         };
     };
@@ -1760,7 +1998,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1781,7 +2021,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1804,7 +2046,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1823,7 +2067,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1865,7 +2111,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1909,7 +2157,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1933,7 +2183,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1954,7 +2206,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1973,7 +2227,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2015,7 +2271,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2034,7 +2292,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2053,7 +2313,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2094,7 +2356,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>[];
+                };
             };
         };
     };
@@ -2117,7 +2381,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["VendorResponseDto"][];
+                    };
+                };
             };
         };
     };
@@ -2138,7 +2406,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VendorResponseDto"];
+                };
             };
         };
     };
@@ -2157,7 +2427,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VendorResponseDto"];
+                };
             };
         };
     };
@@ -2180,7 +2452,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VendorResponseDto"];
+                };
             };
         };
     };
@@ -2231,7 +2505,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>[];
+                };
             };
         };
     };
@@ -2252,7 +2528,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2271,7 +2549,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2290,7 +2570,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2314,7 +2596,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["CustomerResponseDto"][];
+                    };
+                };
             };
         };
     };
@@ -2335,7 +2621,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerResponseDto"];
+                };
             };
         };
     };
@@ -2401,7 +2689,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CustomerResponseDto"];
+                };
             };
         };
     };
@@ -2418,7 +2708,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2439,7 +2731,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2456,7 +2750,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>[];
+                };
             };
         };
     };
@@ -2477,7 +2773,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2494,7 +2792,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2514,7 +2814,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>[];
+                };
             };
         };
     };
@@ -2535,7 +2837,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2554,7 +2858,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2596,7 +2902,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2620,7 +2928,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2641,7 +2951,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2660,7 +2972,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2702,7 +3016,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2721,7 +3037,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2742,7 +3060,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -2765,7 +3085,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["WorkshopOrderResponseDto"][];
+                    };
+                };
             };
         };
     };
@@ -2786,7 +3110,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
         };
     };
@@ -2805,7 +3131,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
         };
     };
@@ -2828,7 +3156,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
         };
     };
@@ -2851,7 +3181,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopTaskResponseDto"];
+                };
             };
         };
     };
@@ -2893,12 +3225,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Workshop task deleted successfully. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
             /** @description Task cannot be deleted because the order is invoiced or already has a linked invoice. */
             400: {
@@ -2950,7 +3283,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
         };
     };
@@ -2974,7 +3309,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
             };
         };
     };
@@ -2993,7 +3330,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3012,7 +3351,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3077,7 +3418,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3096,7 +3439,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3115,7 +3460,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/pdf": string;
+                };
             };
         };
     };
@@ -3134,7 +3481,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3320,7 +3669,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3362,7 +3713,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3407,7 +3760,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3426,7 +3781,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -3449,7 +3806,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
