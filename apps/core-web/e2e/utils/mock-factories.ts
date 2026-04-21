@@ -97,6 +97,7 @@ type MockInventoryItem = {
   status: string;
   price: number;
   stock_quantity: number;
+  quantity_available: number;
 };
 
 export const createMockInventoryItem = (
@@ -109,6 +110,7 @@ export const createMockInventoryItem = (
   status: 'IN_STOCK',
   price: 100,
   stock_quantity: 10,
+  quantity_available: 10,
   ...overrides,
 });
 
@@ -120,6 +122,7 @@ type MockPurchaseOrder = {
   id: string;
   order_number: string;
   status: string;
+  vendor_id: string;
   vendor: MockVendorShape;
   items: unknown[];
   createdAt: string;
@@ -132,6 +135,7 @@ export const createMockPurchaseOrder = (
   id: 'po-123',
   order_number: 'PO-2026-0001',
   status: 'DRAFT',
+  vendor_id: 'vendor-123',
   vendor: createMockVendor(),
   items: [],
   createdAt: new Date().toISOString(),
