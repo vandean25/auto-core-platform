@@ -396,6 +396,69 @@ export const createMockWorkshopOrder = (
 });
 
 // ---------------------------------------------------------------------------
+// Customer Detail (full detail response including related entities)
+// ---------------------------------------------------------------------------
+
+type MockCustomerDetailSalesOrder = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: string;
+  createdAt: string;
+};
+
+type MockCustomerDetailWorkshopOrder = {
+  id: string;
+  order_number: string;
+  status: string;
+  createdAt: string;
+  tasks: MockCustomerDetailWorkshopTask[];
+};
+
+type MockCustomerDetailWorkshopTask = {
+  lineItems: MockCustomerDetailLineItem[];
+};
+
+type MockCustomerDetailLineItem = {
+  quantity: number;
+  unitPrice: number;
+};
+
+type MockCustomerDetailInvoice = {
+  id: string;
+  invoice_number: string;
+  status: string;
+  date: string;
+  total_gross: string;
+};
+
+type MockCustomerDetailVehicle = MockVehicle & { vin: string };
+
+type MockCustomerDetail = MockCustomer & {
+  sales_orders: MockCustomerDetailSalesOrder[];
+  workshop_orders: MockCustomerDetailWorkshopOrder[];
+  invoices: MockCustomerDetailInvoice[];
+  vehicles: MockCustomerDetailVehicle[];
+};
+
+export const createMockCustomerDetailResponse = (
+  overrides: Partial<MockCustomerDetail> = {},
+): MockCustomerDetail => ({
+  id: 'cust-detail-123',
+  type: 'PRIVATE',
+  first_name: 'John',
+  last_name: 'Doe',
+  company_name: null,
+  email: 'john.doe@example.com',
+  phone: null,
+  sales_orders: [],
+  workshop_orders: [],
+  invoices: [],
+  vehicles: [],
+  ...overrides,
+});
+
+// ---------------------------------------------------------------------------
 // Storage Locations
 // ---------------------------------------------------------------------------
 
