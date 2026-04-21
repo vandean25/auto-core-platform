@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PurchaseService } from './purchase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 
@@ -15,13 +16,16 @@ describe('PurchaseService', () => {
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     purchaseOrder: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     purchaseOrderItem: {
       update: jest.fn(),
@@ -49,12 +53,17 @@ describe('PurchaseService', () => {
     recordTransactions: jest.fn(),
   };
 
+  const mockTenantContextService = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchaseService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
+        { provide: TenantContextService, useValue: mockTenantContextService },
       ],
     }).compile();
 
@@ -69,14 +78,14 @@ describe('PurchaseService', () => {
 
   describe('createPurchaseOrder', () => {
     it('should throw if vendor not found', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue(null);
+      mockPrismaService.vendor.findFirst.mockResolvedValue(null);
       await expect(service.createPurchaseOrder('v1', [])).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should throw if brand not supported', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -97,7 +106,7 @@ describe('PurchaseService', () => {
     });
 
     it('should create PO if brand supported', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -123,7 +132,7 @@ describe('PurchaseService', () => {
     });
 
     it('should use secure random number generator for order number', async () => {
-      mockPrismaService.vendor.findUnique.mockResolvedValue({
+      mockPrismaService.vendor.findFirst.mockResolvedValue({
         id: 'v1',
         name: 'VW Vendor',
         supportedBrands: [{ id: 'brand_vw', name: 'VW' }],
@@ -175,7 +184,11 @@ describe('PurchaseService', () => {
         ],
       };
 
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue(mockPO);
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(mockPO);
+      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+        ...mockPO,
+        items: [{ ...mockPO.items[0], quantity_received: 5 }],
+      });
       mockPrismaService.storageLocation.findFirst.mockResolvedValue({
         id: 'loc1',
         type: 'warehouse',
@@ -210,10 +223,10 @@ describe('PurchaseService', () => {
     it('should return all orders by default when no filter is specified', async () => {
       mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
       await service.findAll();
-      // Based on code: filter defaults to 'all', which means where is {}
+      // Based on code: filter defaults to 'all', which means where only contains tenant_id
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
+          where: { tenant_id: 'tenant-1' },
         }),
       );
     });
@@ -224,6 +237,7 @@ describe('PurchaseService', () => {
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            tenant_id: 'tenant-1',
             status: {
               in: [
                 PurchaseOrderStatus.DRAFT,
@@ -241,7 +255,7 @@ describe('PurchaseService', () => {
       await service.findAll('all');
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
+          where: { tenant_id: 'tenant-1' },
         }),
       );
     });
@@ -249,7 +263,7 @@ describe('PurchaseService', () => {
 
   describe('remove', () => {
     it('should delete DRAFT purchase order with no received or invoiced items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.DRAFT,
         items: [
@@ -263,7 +277,7 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrderItem.deleteMany.mockResolvedValue({
         count: 1,
       });
-      mockPrismaService.purchaseOrder.delete.mockResolvedValue({ id: 'po-1' });
+      mockPrismaService.purchaseOrder.deleteMany.mockResolvedValue({ id: 'po-1', count: 1 });
 
       await service.remove('po-1');
 
@@ -272,13 +286,13 @@ describe('PurchaseService', () => {
       ).toHaveBeenCalledWith({
         where: { purchase_order_id: 'po-1' },
       });
-      expect(mockPrismaService.purchaseOrder.delete).toHaveBeenCalledWith({
-        where: { id: 'po-1' },
+      expect(mockPrismaService.purchaseOrder.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'po-1', tenant_id: 'tenant-1' },
       });
     });
 
     it('should block deleting non-draft purchase order', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-2',
         status: PurchaseOrderStatus.PARTIAL,
         items: [],
@@ -288,7 +302,7 @@ describe('PurchaseService', () => {
     });
 
     it('should block deleting purchase order with received items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-3',
         status: PurchaseOrderStatus.DRAFT,
         items: [
@@ -304,7 +318,7 @@ describe('PurchaseService', () => {
     });
 
     it('should block deleting purchase order with invoiced items', async () => {
-      mockPrismaService.purchaseOrder.findUnique.mockResolvedValue({
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-4',
         status: PurchaseOrderStatus.DRAFT,
         items: [
@@ -320,7 +334,7 @@ describe('PurchaseService', () => {
       expect(
         mockPrismaService.purchaseOrderItem.deleteMany,
       ).not.toHaveBeenCalled();
-      expect(mockPrismaService.purchaseOrder.delete).not.toHaveBeenCalled();
+      expect(mockPrismaService.purchaseOrder.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

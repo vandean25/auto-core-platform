@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 const SEARCH_LIMIT = 20;
 
@@ -45,9 +47,14 @@ function buildFitmentFilter(
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(TenantContextService)
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async search(query: string, workshopOrderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const trimmedQuery = query.trim();
     const trimmedWorkshopOrderId = workshopOrderId.trim();
     if (!trimmedQuery) {
@@ -57,8 +64,8 @@ export class CatalogService {
       throw new BadRequestException('workshopOrderId is required');
     }
 
-    const workshopOrder = await this.prisma.workshopOrder.findUnique({
-      where: { id: trimmedWorkshopOrderId },
+    const workshopOrder = await this.prisma.workshopOrder.findFirst({
+      where: { id: trimmedWorkshopOrderId, tenant_id: tenantId },
       select: {
         vehicle: {
           select: {
@@ -91,6 +98,7 @@ export class CatalogService {
     const [laborOperations, masterParts, catalogItems] = await Promise.all([
       this.prisma.laborOperation.findMany({
         where: {
+          tenant_id: tenantId,
           AND: [
             {
               OR: [
@@ -174,6 +182,7 @@ export class CatalogService {
       }),
       this.prisma.catalogItem.findMany({
         where: {
+          tenant_id: tenantId,
           OR: [
             {
               sku: {

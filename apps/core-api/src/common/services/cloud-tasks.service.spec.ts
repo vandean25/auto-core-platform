@@ -51,6 +51,7 @@ describe('CloudTasksService', () => {
       service.enqueuePdfGeneration({
         invoiceId: 'invoice-1',
         targetBaseUrl: 'https://app.example.com/api',
+        tenantId: 'tenant-1',
       }),
     ).resolves.toEqual({ taskId: 'generated-invoice-task' });
 
@@ -73,6 +74,7 @@ describe('CloudTasksService', () => {
       service.enqueueWorkshopPdfGeneration({
         workshopOrderId: 'workshop-1',
         targetBaseUrl: 'https://app.example.com/api',
+        tenantId: 'tenant-1',
       }),
     ).resolves.toEqual({ taskId: 'generated-workshop-task' });
 
@@ -82,4 +84,42 @@ describe('CloudTasksService', () => {
       'https://app.example.com/api/workshop/orders/workshop-1/pdf/worker',
     );
   });
+
+  it('includes x-tenant-id header when tenantId is provided to enqueuePdfGeneration', async () => {
+    const { service, createTask } = createService();
+    createTask.mockResolvedValue([
+      {
+        name: 'projects/test-project/locations/europe-west3/queues/pdf-queue/tasks/generated-invoice-task',
+      },
+    ]);
+
+    await service.enqueuePdfGeneration({
+      invoiceId: 'invoice-1',
+      targetBaseUrl: 'https://app.example.com/api',
+      tenantId: 'tenant-abc',
+    });
+
+    const request = createTask.mock.calls[0][0];
+    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
+  });
+
+
+  it('includes x-tenant-id header when tenantId is provided to enqueueWorkshopPdfGeneration', async () => {
+    const { service, createTask } = createService();
+    createTask.mockResolvedValue([
+      {
+        name: 'projects/test-project/locations/europe-west3/queues/pdf-queue/tasks/generated-workshop-task',
+      },
+    ]);
+
+    await service.enqueueWorkshopPdfGeneration({
+      workshopOrderId: 'workshop-1',
+      targetBaseUrl: 'https://app.example.com/api',
+      tenantId: 'tenant-abc',
+    });
+
+    const request = createTask.mock.calls[0][0];
+    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
+  });
+
 });

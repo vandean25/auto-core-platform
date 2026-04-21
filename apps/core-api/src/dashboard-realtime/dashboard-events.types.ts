@@ -13,6 +13,7 @@ export type DashboardEntityType =
 export type DashboardEntityAction = 'CREATED' | 'UPDATED' | 'DELETED';
 
 export interface DashboardEntityUpdatedPayload {
+  tenantId: string;
   type: DashboardEntityType;
   action: DashboardEntityAction;
   entityId?: string;
@@ -21,5 +22,5 @@ export interface DashboardEntityUpdatedPayload {
 
 export type EmitDashboardEntityUpdatedInput = Omit<
   DashboardEntityUpdatedPayload,
-  'timestamp'
+  'timestamp' | 'tenantId'
 >;

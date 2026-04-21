@@ -1,8 +1,7 @@
 import './instrument';
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { GlobalExceptionFilter } from './common';
 
 async function bootstrap() {
@@ -10,10 +9,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
-
-  // Global Auth Guard
-  const reflector = app.get(Reflector);
-  app.useGlobalGuards(new ApiKeyGuard(reflector));
 
   // CORS Configuration
   const frontendUrl = process.env.FRONTEND_URL;

@@ -9,6 +9,7 @@ import {
   ConflictError,
   NotFoundError,
 } from '../common/errors/application-errors';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 // ---------------------------------------------------------------------------
 // Mock the repository at the correct layer. We inject a minimal PrismaService
@@ -31,6 +32,7 @@ const mockRepository = {
 const mockPrisma = {
   brand: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -41,14 +43,22 @@ const mockPrisma = {
   vendor: { count: jest.fn() },
 };
 
+const mockTenantContext = {
+  getTenantId: jest.fn().mockResolvedValue('test-tenant-id'),
+};
+
 describe('BrandService', () => {
   let service: BrandService;
 
   beforeEach(() => {
-    service = new BrandService(mockPrisma as unknown as PrismaService);
+    service = new BrandService(
+      mockPrisma as unknown as PrismaService,
+      mockTenantContext as unknown as TenantContextService,
+    );
     // Replace the private repository with our mock
     (service as any).brandRepository = mockRepository;
     jest.clearAllMocks();
+    mockTenantContext.getTenantId.mockResolvedValue('test-tenant-id');
   });
 
   // ── findAll ───────────────────────────────────────────────────────────
@@ -65,7 +75,7 @@ describe('BrandService', () => {
         meta: { total: 1, page: 1, limit: 1, totalPages: 1 },
       });
       expect(mockRepository.findMany).toHaveBeenCalledWith({
-        where: {},
+        where: { tenant_id: 'test-tenant-id' },
         orderBy: { name: 'asc' },
       });
     });
@@ -81,7 +91,7 @@ describe('BrandService', () => {
 
       expect(result).toEqual(paginatedResponse);
       expect(mockRepository.findManyPaginated).toHaveBeenCalledWith({
-        where: {},
+        where: { tenant_id: 'test-tenant-id' },
         orderBy: { name: 'asc' },
         page: 1,
         limit: 10,
@@ -95,7 +105,7 @@ describe('BrandService', () => {
 
       expect(mockRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isVehicleMake: true },
+          where: { tenant_id: 'test-tenant-id', isVehicleMake: true },
         }),
       );
     });
@@ -107,7 +117,7 @@ describe('BrandService', () => {
 
       expect(mockRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isPartManufacturer: false },
+          where: { tenant_id: 'test-tenant-id', isPartManufacturer: false },
         }),
       );
     });
@@ -128,26 +138,26 @@ describe('BrandService', () => {
 
   describe('findOne', () => {
     it('returns a brand if found', async () => {
-      const mockBrand = { id: 1, name: 'Toyota' };
-      mockRepository.findById.mockResolvedValue(mockBrand);
+      const mockBrand = { id: 1, name: 'Toyota', tenant_id: 'test-tenant-id' };
+      mockPrisma.brand.findFirst.mockResolvedValue(mockBrand);
 
       const result = await service.findOne(1);
 
       expect(result).toEqual(mockBrand);
-      expect(mockRepository.findById).toHaveBeenCalledWith(1);
+      expect(mockPrisma.brand.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, tenant_id: 'test-tenant-id' },
+      });
     });
 
-    it('maps NotFoundError to NotFoundException', async () => {
-      mockRepository.findById.mockRejectedValue(
-        new NotFoundError('Record with ID 999 not found'),
-      );
+    it('throws NotFoundException if not found', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue(null);
 
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
 
     it('rethrows unknown errors without mapping', async () => {
       const unknownError = new Error('Connection timed out');
-      mockRepository.findById.mockRejectedValue(unknownError);
+      mockPrisma.brand.findFirst.mockRejectedValue(unknownError);
 
       await expect(service.findOne(1)).rejects.toThrow('Connection timed out');
     });
@@ -168,6 +178,10 @@ describe('BrandService', () => {
       const result = await service.create(dto as any);
 
       expect(result).toEqual(mockBrand);
+      expect(mockRepository.create).toHaveBeenCalledWith({
+        ...dto,
+        tenant_id: 'test-tenant-id',
+      });
     });
 
     it('throws BadRequestException if neither type is true', async () => {
@@ -204,6 +218,12 @@ describe('BrandService', () => {
 
   describe('update', () => {
     it('updates a brand successfully (name only, no flag validation)', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Toyota',
+        isVehicleMake: true,
+        tenant_id: 'test-tenant-id',
+      });
       const dto = { name: 'Toyota Updated' };
       const mockBrand = { id: 1, name: 'Toyota Updated', isVehicleMake: true };
       mockRepository.update.mockResolvedValue(mockBrand);
@@ -211,11 +231,19 @@ describe('BrandService', () => {
       const result = await service.update(1, dto);
 
       expect(result).toEqual(mockBrand);
-      // findById should NOT be called since no flags are being updated
-      expect(mockRepository.findById).not.toHaveBeenCalled();
+      // findFirst should be called for finding the brand before update
+      expect(mockPrisma.brand.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, tenant_id: 'test-tenant-id' },
+      });
     });
 
     it('updates logoUrl only without triggering flag validation', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Toyota',
+        isVehicleMake: true,
+        tenant_id: 'test-tenant-id',
+      });
       const dto = { logoUrl: 'https://example.com/logo.png' };
       const mockBrand = {
         id: 1,
@@ -227,14 +255,17 @@ describe('BrandService', () => {
       const result = await service.update(1, dto);
 
       expect(result).toEqual(mockBrand);
-      expect(mockRepository.findById).not.toHaveBeenCalled();
+      expect(mockPrisma.brand.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, tenant_id: 'test-tenant-id' },
+      });
     });
 
     it('validates flags if isVehicleMake is being set to false (last remaining flag)', async () => {
-      mockRepository.findById.mockResolvedValue({
+      mockPrisma.brand.findFirst.mockResolvedValue({
         id: 1,
         isVehicleMake: true,
         isPartManufacturer: false,
+        tenant_id: 'test-tenant-id',
       });
 
       await expect(service.update(1, { isVehicleMake: false })).rejects.toThrow(
@@ -243,10 +274,11 @@ describe('BrandService', () => {
     });
 
     it('allows update when at least one flag remains true', async () => {
-      mockRepository.findById.mockResolvedValue({
+      mockPrisma.brand.findFirst.mockResolvedValue({
         id: 1,
         isVehicleMake: true,
         isPartManufacturer: true,
+        tenant_id: 'test-tenant-id',
       });
       mockRepository.update.mockResolvedValue({
         id: 1,
@@ -259,10 +291,8 @@ describe('BrandService', () => {
       expect(result.isPartManufacturer).toBe(true);
     });
 
-    it('maps NotFoundError to NotFoundException', async () => {
-      mockRepository.update.mockRejectedValue(
-        new NotFoundError('Record with ID 999 not found'),
-      );
+    it('throws NotFoundException if update target missing', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue(null);
 
       await expect(service.update(999, { name: 'New' })).rejects.toThrow(
         NotFoundException,
@@ -270,6 +300,12 @@ describe('BrandService', () => {
     });
 
     it('maps ConflictError to ConflictException', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        tenant_id: 'test-tenant-id',
+        isVehicleMake: true,
+        isPartManufacturer: false,
+      });
       mockRepository.update.mockRejectedValue(
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
@@ -284,6 +320,7 @@ describe('BrandService', () => {
 
   describe('remove', () => {
     it('deletes successfully if no dependencies', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
       mockPrisma.catalogItem.count.mockResolvedValue(0);
       mockPrisma.vendor.count.mockResolvedValue(0);
       mockRepository.delete.mockResolvedValue({ id: 1 });
@@ -294,6 +331,7 @@ describe('BrandService', () => {
     });
 
     it('throws ConflictException if catalog items linked', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
       mockPrisma.catalogItem.count.mockResolvedValue(5);
 
       await expect(service.remove(1)).rejects.toThrow(ConflictException);
@@ -302,6 +340,7 @@ describe('BrandService', () => {
     });
 
     it('throws ConflictException if vendors linked', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({ id: 1, tenant_id: 'test-tenant-id' });
       mockPrisma.catalogItem.count.mockResolvedValue(0);
       mockPrisma.vendor.count.mockResolvedValue(2);
 
@@ -309,12 +348,8 @@ describe('BrandService', () => {
       expect(mockRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('maps NotFoundError to NotFoundException on delete', async () => {
-      mockPrisma.catalogItem.count.mockResolvedValue(0);
-      mockPrisma.vendor.count.mockResolvedValue(0);
-      mockRepository.delete.mockRejectedValue(
-        new NotFoundError('Record with ID 1 not found'),
-      );
+    it('throws NotFoundException if delete target missing', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue(null);
 
       await expect(service.remove(1)).rejects.toThrow(NotFoundException);
     });
