@@ -754,6 +754,30 @@ export class WorkshopService {
     }
     this.assertOrderEditable(task.workshop_order.status);
 
+    // Validate labor operations belong to the current tenant
+    const laborOperationIds = [
+      ...new Set(
+        dto.items
+          .map((i) => i.laborOperationId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+
+    if (laborOperationIds.length > 0) {
+      const foundCount = await this.prisma.laborOperation.count({
+        where: {
+          id: { in: laborOperationIds },
+          tenant_id: tenantId,
+        },
+      });
+
+      if (foundCount !== laborOperationIds.length) {
+        throw new BadRequestException(
+          'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
+        );
+      }
+    }
+
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.workshopTaskLineItem.deleteMany({

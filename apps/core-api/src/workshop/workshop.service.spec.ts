@@ -66,6 +66,9 @@ describe('WorkshopService', () => {
       createMany: jest.fn(),
       findMany: jest.fn(),
     },
+    laborOperation: {
+      count: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -276,7 +279,8 @@ describe('WorkshopService', () => {
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
-    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 2 });
+    mockPrisma.laborOperation.count.mockResolvedValue(1);
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.replaceTaskLineItems('wo-1', 't-1', {
@@ -328,13 +332,7 @@ describe('WorkshopService', () => {
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
-    mockPrisma.workshopTaskLineItem.createMany.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('Foreign key failed', {
-        code: 'P2003',
-        clientVersion: 'test',
-        meta: { field_name: 'labor_operation_id' },
-      }),
-    );
+    mockPrisma.laborOperation.count.mockResolvedValue(0); // Simulate missing/wrong tenant ID
 
     await expect(
       service.replaceTaskLineItems('wo-1', 't-1', {
@@ -352,7 +350,9 @@ describe('WorkshopService', () => {
           },
         ],
       }),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(
+      'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
+    );
   });
 
   it('normalizes labor metadata fields in workshop order response', async () => {
