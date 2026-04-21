@@ -1064,7 +1064,10 @@ export class WorkshopService {
     const limit = SEARCH_LIMIT;
     const skip = (page - 1) * limit;
 
+    const tenantId = await this.tenantContext.getTenantId();
+
     const vehicleWhere: Prisma.VehicleWhereInput = {
+      tenant_id: tenantId,
       OR: [
         { vin: { contains: query, mode: 'insensitive' } },
         { plate: { contains: query, mode: 'insensitive' } },
@@ -1072,6 +1075,7 @@ export class WorkshopService {
     };
 
     const customerWhere: Prisma.CustomerWhereInput = {
+      tenant_id: tenantId,
       OR: [
         ...(isUuid ? [{ id: { equals: query } }] : []),
         { first_name: { contains: query, mode: 'insensitive' } },
