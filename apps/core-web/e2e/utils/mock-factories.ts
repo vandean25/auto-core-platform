@@ -73,6 +73,111 @@ export const createMockCustomer = (overrides: Partial<MockCustomer> = {}): MockC
   ...overrides,
 });
 
+// ---------------------------------------------------------------------------
+// Customer Detail Response (GET /api/customers/:id)
+// ---------------------------------------------------------------------------
+
+type MockSalesOrderSummary = {
+  id: string;
+  order_number: string;
+  status: string;
+  total_amount: string | number;
+  createdAt: string;
+};
+
+type MockWorkshopLineItemSummary = {
+  quantity: number;
+  unitPrice: number;
+};
+
+type MockWorkshopTaskSummary = {
+  lineItems?: MockWorkshopLineItemSummary[];
+};
+
+type MockWorkshopOrderSummary = {
+  id: string;
+  order_number?: string;
+  status: string;
+  createdAt: string;
+  vehicle_id?: string;
+  tasks?: MockWorkshopTaskSummary[];
+};
+
+type MockInvoiceSummary = {
+  id: string;
+  invoice_number: string | null;
+  status: string;
+  date: string;
+  total_gross: string | number;
+};
+
+type MockVehicleDetail = MockVehicle & {
+  vin?: string | null;
+};
+
+/**
+ * Customer detail response shape used by the current CustomerDetail.tsx view.
+ * This mock matches the local frontend shape consumed in E2E tests and does
+ * not claim to include every field from the full GET /api/customers/:id API contract.
+ */
+type MockCustomerHistoryMeta = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  pageCount: number;
+  hasMore: boolean;
+};
+
+type MockCustomerDetailResponse = MockCustomer & {
+  vat_id?: string | null;
+  address_street?: string | null;
+  address_zip?: string | null;
+  address_city?: string | null;
+  address_country?: string | null;
+  sales_orders?: MockSalesOrderSummary[];
+  workshop_orders?: MockWorkshopOrderSummary[];
+  invoices?: MockInvoiceSummary[];
+  vehicles?: MockVehicleDetail[];
+  workshop_orders_meta?: MockCustomerHistoryMeta;
+  invoices_meta?: MockCustomerHistoryMeta;
+};
+
+export const createMockCustomerDetailResponse = (
+  overrides: Partial<MockCustomerDetailResponse> = {},
+): MockCustomerDetailResponse => ({
+  id: 'cust-123',
+  type: 'PRIVATE',
+  first_name: 'John',
+  last_name: 'Doe',
+  company_name: null,
+  email: 'john.doe@example.com',
+  phone: '+43 1 234 5678',
+  vat_id: null,
+  address_street: null,
+  address_zip: null,
+  address_city: null,
+  address_country: null,
+  sales_orders: [],
+  workshop_orders: [],
+  invoices: [],
+  vehicles: [],
+  workshop_orders_meta: {
+    page: 1,
+    pageSize: 10,
+    totalCount: 0,
+    pageCount: 1,
+    hasMore: false,
+  },
+  invoices_meta: {
+    page: 1,
+    pageSize: 10,
+    totalCount: 0,
+    pageCount: 1,
+    hasMore: false,
+  },
+  ...overrides,
+});
+
 export const createMockVendor = (overrides: Partial<MockVendorShape> = {}): MockVendorShape => ({
   id: 'vendor-123',
   name: 'Bosch Automotive',
