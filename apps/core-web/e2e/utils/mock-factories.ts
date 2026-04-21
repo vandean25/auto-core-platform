@@ -35,8 +35,8 @@ type MockCustomer = {
 type MockBrand = {
   id: number;
   name: string;
-  isVehicleMake?: boolean;
-  isPartManufacturer?: boolean;
+  isVehicleMake: boolean;
+  isPartManufacturer: boolean;
 };
 
 export const createMockBrand = (
@@ -341,6 +341,8 @@ export const createMockLaborOperation = (
 // ---------------------------------------------------------------------------
 
 type MockFinanceSettings = {
+  id: number;
+  fiscal_year_start_month: number;
   lock_date: string | null;
   invoice_prefix: string;
   next_invoice_number: number;
@@ -349,6 +351,8 @@ type MockFinanceSettings = {
 export const createMockFinanceSettings = (
   overrides: Partial<MockFinanceSettings> = {}
 ): MockFinanceSettings => ({
+  id: 1,
+  fiscal_year_start_month: 1,
   lock_date: null,
   invoice_prefix: 'INV-',
   next_invoice_number: 1000,
@@ -356,25 +360,37 @@ export const createMockFinanceSettings = (
 });
 
 type MockRevenueGroup = {
-  id: string;
+  id: number;
   name: string;
-  description: string | null;
-  revenue_account_code: string | null;
-  expense_account_code: string | null;
-  isActive: boolean;
+  description?: string | null;
+  tax_rate: number;
+  account_number: string;
+  is_default: boolean;
 };
 
 export const createMockRevenueGroup = (
   overrides: Partial<MockRevenueGroup> = {}
 ): MockRevenueGroup => ({
-  id: 'rg-1',
+  id: 1,
   name: 'Parts Sales',
   description: 'Parts revenue',
-  revenue_account_code: '4000',
-  expense_account_code: '5000',
-  isActive: true,
+  tax_rate: 25,
+  account_number: '4000',
+  is_default: true,
   ...overrides,
 });
+
+type MockLaborCategoryChild = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+  parent_id: string | null;
+  default_hourly_rate: number | null;
+  is_active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 type MockLaborCategory = {
   id: string;
@@ -384,7 +400,9 @@ type MockLaborCategory = {
   parent_id: string | null;
   default_hourly_rate: number | null;
   is_active: boolean;
-  children: MockLaborCategory[];
+  createdAt: string;
+  updatedAt: string;
+  children: MockLaborCategoryChild[];
 };
 
 export const createMockLaborCategory = (
@@ -397,6 +415,8 @@ export const createMockLaborCategory = (
   parent_id: null,
   default_hourly_rate: 150.00,
   is_active: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   children: [],
   ...overrides,
 });

@@ -17,7 +17,7 @@ import {
  * without tightly coupling to backend seeded state.
  */
 test.describe('Blueprint: Settings Page', () => {
-  test('Settings tab navigation, content rendering, and CRUD operations', async ({ page }) => {
+  test('Settings tab navigation and content rendering across tabs', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Settings');
 
     const mockFinance = createMockFinanceSettings({ invoice_prefix: 'TEST-', next_invoice_number: 999 });
@@ -65,7 +65,7 @@ test.describe('Blueprint: Settings Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [mockLaborCategory] }),
+        body: JSON.stringify(createMockListResponse([mockLaborCategory])),
       });
     });
 
