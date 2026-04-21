@@ -14,19 +14,41 @@ import {
 } from '@prisma/client';
 import type { CatalogItem, RevenueGroup, InventoryStock } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class SalesService {
   constructor(
     private prisma: PrismaService,
     private financeService: FinanceService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { items = [], ...invoiceData } = createInvoiceDto;
 
     if (!items || items.length === 0) {
       throw new BadRequestException('Invoice must have at least one item');
+    }
+
+    // Tenant isolation checks
+    if (invoiceData.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: invoiceData.customerId, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Customer not found or belongs to another tenant');
+      }
+    }
+
+    if (invoiceData.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: invoiceData.vehicleId, tenant_id: tenantId },
+      });
+      if (!vehicle) {
+        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+      }
     }
 
     // Calculate totals and snapshot revenue groups
@@ -51,7 +73,7 @@ export class SalesService {
     >();
     if (uniqueCatalogItemIds.length > 0) {
       const catalogItems = await this.prisma.catalogItem.findMany({
-        where: { id: { in: uniqueCatalogItemIds } },
+        where: { tenant_id: tenantId, id: { in: uniqueCatalogItemIds } },
         include: { revenue_group: true },
         orderBy: { id: 'asc' },
       });
@@ -66,7 +88,13 @@ export class SalesService {
       if (item.catalogItemId) {
         const catalogItem = catalogItemMap.get(item.catalogItemId);
 
-        if (catalogItem?.revenue_group) {
+        if (!catalogItem) {
+          throw new BadRequestException(
+            `Catalog item ${item.catalogItemId} not found or belongs to another tenant`,
+          );
+        }
+
+        if (catalogItem.revenue_group) {
           revenueGroupName = catalogItem.revenue_group.name;
           taxRate = Number(catalogItem.revenue_group.tax_rate);
         }
@@ -78,6 +106,7 @@ export class SalesService {
       totalTax += tax;
 
       formattedItems.push({
+        tenant_id: tenantId,
         catalog_item_id: item.catalogItemId,
         description: item.description,
         quantity: item.quantity,
@@ -93,6 +122,7 @@ export class SalesService {
 
     return this.prisma.invoice.create({
       data: {
+        tenant_id: tenantId,
         customer_id: invoiceData.customerId,
         vehicle_id: invoiceData.vehicleId,
         notes: invoiceData.notes,
@@ -114,8 +144,9 @@ export class SalesService {
   }
 
   async finalize(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenant_id: tenantId },
       include: { items: true },
     });
 
@@ -133,7 +164,7 @@ export class SalesService {
     // Execute everything in a single transaction
     return this.prisma.$transaction(async (tx) => {
       // 1. Generate Invoice Number (Atomic)
-      const invoiceNumber = await this.generateInvoiceNumber(tx);
+      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
 
       // 2. Process Inventory Transactions
 
@@ -149,7 +180,10 @@ export class SalesService {
       const stockMap = new Map<string, InventoryStock[]>();
       if (uniqueCatalogItemIds.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
-          where: { catalog_item_id: { in: uniqueCatalogItemIds } },
+          where: {
+            tenant_id: tenantId,
+            catalog_item_id: { in: uniqueCatalogItemIds },
+          },
           orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
         });
         stocks.forEach((stock) => {
@@ -222,6 +256,7 @@ export class SalesService {
 
         // Preserve 1:1 audit trail granularity for transactions
         transactionCreations.push({
+          tenant_id: tenantId,
           item_id: item.catalog_item_id,
           location_id: locationId,
           quantity: new Prisma.Decimal(item.quantity).negated(),
@@ -248,7 +283,8 @@ export class SalesService {
           // Refetch stock to give accurate error message if concurrency was high
           const latestStock = await tx.inventoryStock.findUnique({
             where: {
-              catalog_item_id_location_id: {
+              tenant_id_catalog_item_id_location_id: {
+                tenant_id: tenantId,
                 catalog_item_id: update.catalog_item_id,
                 location_id: update.locationId,
               },
@@ -324,30 +360,34 @@ export class SalesService {
 
   private async generateInvoiceNumber(
     tx: Prisma.TransactionClient,
+    tenantId: string,
   ): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `RE-${year}-`;
 
     // Upsert the sequence for the current year
     const sequence = await tx.invoiceSequence.upsert({
-      where: { year },
+      where: { tenant_id_year: { tenant_id: tenantId, year } },
       update: { current: { increment: 1 } },
-      create: { year, current: 1 },
+      create: { tenant_id: tenantId, year, current: 1 },
     });
 
     return `${prefix}${sequence.current.toString().padStart(4, '0')}`;
   }
 
   async findAll() {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.invoice.findMany({
+      where: { tenant_id: tenantId },
       include: { customer: true, items: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenant_id: tenantId },
       include: { customer: true, items: true, vehicle: true },
     });
 

@@ -5,6 +5,7 @@ import { DECORATORS } from '@nestjs/swagger/dist/constants';
 import { WorkshopController } from './workshop.controller';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto';
 
 describe('WorkshopController', () => {
@@ -13,6 +14,10 @@ describe('WorkshopController', () => {
   const mockWorkshopService = {};
   const mockPdfService = {
     requestGeneration: jest.fn(),
+  };
+  const mockTenantContextService = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+    setTenantIdForWorker: jest.fn(),
   };
 
   const originalTargetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL;
@@ -23,6 +28,7 @@ describe('WorkshopController', () => {
         WorkshopController,
         { provide: WorkshopService, useValue: mockWorkshopService },
         { provide: WorkshopPdfService, useValue: mockPdfService },
+        { provide: TenantContextService, useValue: mockTenantContextService },
       ],
     }).compile();
 

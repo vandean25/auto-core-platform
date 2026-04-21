@@ -21,6 +21,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "lint:prisma-tenant": "ts-node -r tsconfig-paths/register scripts/lint-prisma-tenant.ts prisma/schema.prisma",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
@@ -34,6 +35,7 @@
     "@google-cloud/tasks": "^6.2.1",
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-socket.io": "^11.1.19",
@@ -46,10 +48,11 @@
     "@sentry/nestjs": "^10.47.0",
     "@sentry/node": "^10.47.0",
     "async-retry": "^1.3.3",
-    "axios": "^1.13.4",
+    "axios": "^1.15.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.1",
+    "firebase-admin": "^13.8.0",
     "pg": "^8.17.2",
     "playwright": "^1.51.0",
     "reflect-metadata": "^0.2.2",
@@ -69,12 +72,12 @@
     "@types/node": "^25.6.0",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^7.2.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.5.0",
     "jest": "^30.0.0",
-    "prettier": "^3.4.2",
+    "prettier": "^3.8.3",
     "prisma": "^7.7.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
@@ -82,7 +85,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.20.0"
   },
   "jest": {
@@ -98,7 +101,14 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "rootDir": "." } }]
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "rootDir": "."
+          }
+        }
+      ]
     },
     "collectCoverageFrom": [
       "{src,scripts}/**/*.(t|j)s",

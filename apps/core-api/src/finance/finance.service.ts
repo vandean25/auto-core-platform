@@ -3,22 +3,29 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
 import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class FinanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   async getSettings() {
+    const tenantId = await this.tenantContext.getTenantId();
     const currentYear = new Date().getFullYear();
     return this.prisma.financeSettings.upsert({
-      where: { id: 1 },
+      where: { tenant_id: tenantId },
       update: {},
       create: {
-        id: 1,
+        tenant_id: tenantId,
         fiscal_year_start_month: 1,
         lock_date: null,
         next_invoice_number: 1001,
         invoice_prefix: `RE-${currentYear}-`,
+        next_sales_order_number: 1001,
+        sales_order_prefix: `SO-${currentYear}-`,
         next_workshop_order_number: 1,
         workshop_order_prefix: `WO-${currentYear}-`,
       },
@@ -26,8 +33,9 @@ export class FinanceService {
   }
 
   async updateSettings(data: UpdateFinanceSettingsDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.financeSettings.update({
-      where: { id: 1 },
+      where: { tenant_id: tenantId },
       data: {
         ...data,
         lock_date: data.lock_date ? new Date(data.lock_date) : null,
@@ -49,14 +57,18 @@ export class FinanceService {
   }
 
   async getRevenueGroups() {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.revenueGroup.findMany({
+      where: { tenant_id: tenantId },
       orderBy: { id: 'asc' },
     });
   }
 
   async createRevenueGroup(data: CreateRevenueGroupDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.revenueGroup.create({
       data: {
+        tenant_id: tenantId,
         ...data,
         tax_rate: new Prisma.Decimal(data.tax_rate),
       },
@@ -64,12 +76,14 @@ export class FinanceService {
   }
 
   async getRevenueAnalytics() {
+    const tenantId = await this.tenantContext.getTenantId();
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const items = await this.prisma.invoiceItem.findMany({
       where: {
         invoice: {
+          tenant_id: tenantId,
           status: { in: ['FINALIZED', 'ISSUED', 'PAID'] },
           date: { gte: startOfMonth },
         },
