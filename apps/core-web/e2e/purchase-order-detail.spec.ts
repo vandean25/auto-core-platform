@@ -19,6 +19,7 @@ import {
 test.describe('Blueprint: Purchase Order Detail', () => {
   const PO_ID = 'po-blueprint-123'
   const VENDOR_ID = 'vendor-mock-123'
+  const MOCK_AVAILABLE_QUANTITY = 25
 
   test('Purchase Order Detail - rendering and items', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Purchase Order')
@@ -83,7 +84,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(
-          createMockListResponse([createMockInventoryItem({ quantity_available: 25 })]),
+          createMockListResponse([createMockInventoryItem({ quantity_available: MOCK_AVAILABLE_QUANTITY })]),
         ),
       })
     })
