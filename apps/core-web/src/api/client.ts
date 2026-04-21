@@ -1,6 +1,5 @@
 import { firebaseAuth } from '@/lib/firebase'
 
-export const API_KEY = import.meta.env.VITE_API_KEY
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 
 function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
@@ -19,12 +18,6 @@ function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
 
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
-
-  if (API_KEY) {
-    headers.set('x-api-key', API_KEY)
-  } else {
-    console.warn('VITE_API_KEY is not set')
-  }
 
   const currentUser = firebaseAuth?.currentUser
   if (currentUser) {

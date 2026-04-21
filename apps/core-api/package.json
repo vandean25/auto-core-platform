@@ -21,6 +21,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "lint:prisma-tenant": "ts-node -r tsconfig-paths/register scripts/lint-prisma-tenant.ts prisma/schema.prisma",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
@@ -34,10 +35,11 @@
     "@google-cloud/tasks": "^6.2.1",
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-socket.io": "^11.1.19",
-    "@nestjs/swagger": "^11.2.7",
+    "@nestjs/swagger": "^11.3.2",
     "@nestjs/websockets": "^11.1.19",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
@@ -50,6 +52,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.1",
+    "firebase-admin": "^13.8.0",
     "pg": "^8.17.2",
     "playwright": "^1.51.0",
     "reflect-metadata": "^0.2.2",
@@ -60,8 +63,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^10.0.1",
-    "@nestjs/cli": "^11.0.19",
-    "@nestjs/schematics": "^11.0.10",
+    "@nestjs/cli": "^11.0.21",
+    "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.19",
     "@types/async-retry": "^1.4.9",
     "@types/express": "^5.0.0",
@@ -98,7 +101,14 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": { "rootDir": "." } }]
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "rootDir": "."
+          }
+        }
+      ]
     },
     "collectCoverageFrom": [
       "{src,scripts}/**/*.(t|j)s",

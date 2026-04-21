@@ -14,6 +14,7 @@ import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { InvoicePdfStorage } from './invoice-pdf.storage';
 import { CloudTasksService } from '../common';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type InvoicePdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -33,14 +34,16 @@ export class InvoicePdfService {
     private renderer: InvoicePdfRenderer,
     private storage: InvoicePdfStorage,
     private cloudTasks: CloudTasksService,
+    private tenantContext: TenantContextService,
   ) {}
 
   async requestGeneration(
     invoiceId: string,
     params: { targetBaseUrl: string },
   ): Promise<InvoicePdfRequestGenerationResponse> {
-    const invoice = await this.prisma.client.invoice.findUnique({
-      where: { id: invoiceId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.prisma.client.invoice.findFirst({
+      where: { id: invoiceId, tenant_id: tenantId },
       select: {
         id: true,
         status: true,
@@ -94,8 +97,8 @@ export class InvoicePdfService {
     }
 
     try {
-      await this.prisma.client.invoice.update({
-        where: { id: invoiceId },
+      await this.prisma.client.invoice.updateMany({
+        where: { id: invoiceId, tenant_id: tenantId },
         data: { pdf_generation_error: null },
       });
     } catch (error) {
@@ -106,9 +109,11 @@ export class InvoicePdfService {
     }
 
     try {
+      const tenantId = await this.tenantContext.getTenantId();
       const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
         invoiceId,
         targetBaseUrl: params.targetBaseUrl,
+        tenantId,
       });
       return {
         mode: 'enqueued',
@@ -140,6 +145,7 @@ export class InvoicePdfService {
       await this.safeStoreGenerationError(
         invoiceId,
         'Failed to enqueue background PDF generation task. Please try again.',
+        tenantId,
       );
 
       throw new InternalServerErrorException(
@@ -158,8 +164,9 @@ export class InvoicePdfService {
       { name: 'Generate Invoice PDF', op: 'pdf.generate' },
       async (span) => {
         span.setAttribute('invoiceId', invoiceId);
-        const invoice = await this.prisma.client.invoice.findUnique({
-          where: { id: invoiceId },
+        const tenantId = await this.tenantContext.getTenantId();
+        const invoice = await this.prisma.client.invoice.findFirst({
+          where: { id: invoiceId, tenant_id: tenantId },
           select: {
             id: true,
             invoice_number: true,
@@ -215,6 +222,7 @@ export class InvoicePdfService {
         const snapshot = await this.getOrCreateSnapshot(
           invoiceId,
           invoice.snapshot,
+          tenantId,
         );
         const key = `invoices/${invoiceId}.pdf`;
 
@@ -266,8 +274,8 @@ export class InvoicePdfService {
           );
 
           const generatedAt = new Date();
-          await this.prisma.client.invoice.update({
-            where: { id: invoiceId },
+          await this.prisma.client.invoice.updateMany({
+            where: { id: invoiceId, tenant_id: tenantId },
             data: {
               pdf_storage_bucket: upload.bucket,
               pdf_storage_key: upload.key,
@@ -298,7 +306,7 @@ export class InvoicePdfService {
             },
           });
 
-          await this.safeStoreGenerationError(invoiceId, message);
+          await this.safeStoreGenerationError(invoiceId, message, tenantId);
           throw error;
         }
       },
@@ -311,8 +319,9 @@ export class InvoicePdfService {
     contentLength: number | null;
     stream: Readable;
   }> {
-    const invoice = await this.prisma.client.invoice.findUnique({
-      where: { id: invoiceId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.prisma.client.invoice.findFirst({
+      where: { id: invoiceId, tenant_id: tenantId },
       select: {
         id: true,
         invoice_number: true,
@@ -345,13 +354,14 @@ export class InvoicePdfService {
   private async getOrCreateSnapshot(
     invoiceId: string,
     existingSnapshot: unknown,
+    tenantId: string,
   ): Promise<InvoiceSnapshot> {
     if (this.isInvoiceSnapshot(existingSnapshot)) {
       return existingSnapshot;
     }
 
-    const fullInvoice = await this.prisma.client.invoice.findUnique({
-      where: { id: invoiceId },
+    const fullInvoice = await this.prisma.client.invoice.findFirst({
+      where: { id: invoiceId, tenant_id: tenantId },
       include: {
         items: { orderBy: { createdAt: 'asc' } },
         customer: true,
@@ -364,8 +374,8 @@ export class InvoicePdfService {
     }
 
     const snapshot = buildInvoiceSnapshot(fullInvoice);
-    await this.prisma.client.invoice.update({
-      where: { id: invoiceId },
+    await this.prisma.client.invoice.updateMany({
+      where: { id: invoiceId, tenant_id: tenantId },
       data: { snapshot },
     });
     return snapshot;
@@ -445,10 +455,10 @@ export class InvoicePdfService {
     return true;
   }
 
-  private async safeStoreGenerationError(invoiceId: string, message: string) {
+  private async safeStoreGenerationError(invoiceId: string, message: string, tenantId: string) {
     try {
-      await this.prisma.client.invoice.update({
-        where: { id: invoiceId },
+      await this.prisma.client.invoice.updateMany({
+        where: { id: invoiceId, tenant_id: tenantId },
         data: {
           pdf_generation_error: message.slice(0, 2000),
         },

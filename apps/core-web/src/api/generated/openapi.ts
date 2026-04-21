@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AuthController_getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory/availability/{sku}": {
         parameters: {
             query?: never;
@@ -916,6 +932,70 @@ export interface paths {
         patch: operations["VehicleController_update"];
         trace?: never;
     };
+    "/api/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EmployeeController_findAll"];
+        put?: never;
+        post: operations["EmployeeController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/employees/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EmployeeController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["EmployeeController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["EmployeeController_update"];
+        trace?: never;
+    };
+    "/api/bays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BayController_findAll"];
+        put?: never;
+        post: operations["BayController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BayController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["BayController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["BayController_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1297,6 +1377,85 @@ export interface components {
             /** Format: uuid */
             customer_id?: string | null;
         };
+        /** @enum {string} */
+        EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
+        EmployeeResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            role: components["schemas"]["EmployeeRole"];
+            isActive: boolean;
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        EmployeesListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        EmployeesListResponseDto: {
+            data: components["schemas"]["EmployeeResponseDto"][];
+            meta: components["schemas"]["EmployeesListMetaDto"];
+        };
+        CreateEmployeeDto: {
+            name: string;
+            role: components["schemas"]["EmployeeRole"];
+            isActive?: boolean;
+            sortOrder?: number;
+        };
+        UpdateEmployeeDto: {
+            name?: string;
+            role?: components["schemas"]["EmployeeRole"];
+            isActive?: boolean;
+            sortOrder?: number;
+        };
+        EmployeeDeleteResponseDto: {
+            /** Format: uuid */
+            id: string;
+            isActive?: boolean;
+            deleted?: boolean;
+        };
+        BayResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            isActive: boolean;
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BaysListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        BaysListResponseDto: {
+            data: components["schemas"]["BayResponseDto"][];
+            meta: components["schemas"]["BaysListMetaDto"];
+        };
+        CreateBayDto: {
+            name: string;
+            isActive?: boolean;
+            sortOrder?: number;
+        };
+        UpdateBayDto: {
+            name?: string;
+            isActive?: boolean;
+            sortOrder?: number;
+        };
+        BayDeleteResponseDto: {
+            /** Format: uuid */
+            id: string;
+            isActive?: boolean;
+            deleted?: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -1337,6 +1496,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AuthController_getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Returns the authenticated user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        userId: string;
+                        email: string;
+                        tenantId: string;
+                        role: string;
+                    };
+                };
             };
         };
     };
@@ -3262,6 +3446,267 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EmployeeController_findAll: {
+        parameters: {
+            query?: {
+                role?: components["schemas"]["EmployeeRole"];
+                /** @description Include inactive employees when true */
+                includeInactive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeesListResponseDto"];
+                };
+            };
+        };
+    };
+    EmployeeController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmployeeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeResponseDto"];
+                };
+            };
+        };
+    };
+    EmployeeController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeResponseDto"];
+                };
+            };
+        };
+    };
+    EmployeeController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeDeleteResponseDto"];
+                };
+            };
+            /** @description Employee is referenced by workshop orders */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EmployeeController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmployeeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeResponseDto"];
+                };
+            };
+        };
+    };
+    BayController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Include inactive bays when true */
+                includeInactive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BaysListResponseDto"];
+                };
+            };
+        };
+    };
+    BayController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBayDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BayResponseDto"];
+                };
+            };
+            /** @description Bay name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BayController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BayResponseDto"];
+                };
+            };
+        };
+    };
+    BayController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BayDeleteResponseDto"];
+                };
+            };
+            /** @description Bay is referenced by workshop orders */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BayController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBayDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BayResponseDto"];
+                };
+            };
+            /** @description Bay name already exists */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

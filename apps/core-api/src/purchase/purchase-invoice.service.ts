@@ -8,17 +8,21 @@ import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Injectable()
 export class PurchaseInvoiceService {
   constructor(
     private prisma: PrismaService,
     private readonly realtimeService: DashboardRealtimeService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async getUnbilledReceipts(vendorId: string, invoiceId?: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const poItems = await this.prisma.purchaseOrderItem.findMany({
       where: {
+        tenant_id: tenantId,
         purchase_order: {
           vendor_id: vendorId,
         },
@@ -67,7 +71,16 @@ export class PurchaseInvoiceService {
   }
 
   async create(createDto: CreatePurchaseInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = createDto;
+
+    const vendorExists = await this.prisma.vendor.findFirst({
+      where: { id: data.vendorId, tenant_id: tenantId },
+    });
+    if (!vendorExists) {
+      throw new BadRequestException('Vendor not found or belongs to another tenant');
+    }
+
     const poItemTotals = new Map<string, number>();
 
     for (const line of items) {
@@ -80,7 +93,7 @@ export class PurchaseInvoiceService {
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } },
+          where: { tenant_id: tenantId, id: { in: poItemIds } },
           include: {
             purchase_order: {
               select: {
@@ -124,6 +137,7 @@ export class PurchaseInvoiceService {
         const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
+          tenant_id: tenantId,
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,
@@ -135,6 +149,7 @@ export class PurchaseInvoiceService {
 
       const invoice = await tx.purchaseInvoice.create({
         data: {
+          tenant_id: tenantId,
           vendor_id: data.vendorId,
           vendor_invoice_number: data.vendorInvoiceNumber,
           invoice_date: new Date(data.invoiceDate),
@@ -166,7 +181,7 @@ export class PurchaseInvoiceService {
       return invoice;
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'CREATED',
       entityId: invoice.id,
@@ -176,7 +191,16 @@ export class PurchaseInvoiceService {
   }
 
   async update(id: string, updateDto: CreatePurchaseInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const { items, ...data } = updateDto;
+
+    const vendorExists = await this.prisma.vendor.findFirst({
+      where: { id: data.vendorId, tenant_id: tenantId },
+    });
+    if (!vendorExists) {
+      throw new BadRequestException('Vendor not found or belongs to another tenant');
+    }
+
     const poItemTotals = new Map<string, number>();
 
     for (const line of items) {
@@ -188,7 +212,7 @@ export class PurchaseInvoiceService {
     const updatedInvoice = await this.prisma.$transaction(async (tx) => {
       // Atomic check and lock attempt via updateMany (which returns count)
       const updateCount = await tx.purchaseInvoice.updateMany({
-        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { updatedAt: new Date() }, // Just to "touch" the row and ensure it's DRAFT
       });
 
@@ -198,8 +222,8 @@ export class PurchaseInvoiceService {
         );
       }
 
-      const existingInvoice = await tx.purchaseInvoice.findUnique({
-        where: { id },
+      const existingInvoice = await tx.purchaseInvoice.findFirst({
+        where: { id, tenant_id: tenantId },
         include: { lines: true },
       });
 
@@ -224,7 +248,7 @@ export class PurchaseInvoiceService {
       if (poItemTotals.size > 0) {
         const poItemIds = Array.from(poItemTotals.keys());
         const poItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } },
+          where: { tenant_id: tenantId, id: { in: poItemIds } },
           include: {
             purchase_order: {
               select: {
@@ -274,6 +298,7 @@ export class PurchaseInvoiceService {
         const lineTotal = lineNet + lineTax;
         totalAmount += lineTotal;
         return {
+          tenant_id: tenantId,
           purchase_order_item_id: line.purchaseOrderItemId,
           description: line.description,
           quantity: line.quantity,
@@ -327,7 +352,7 @@ export class PurchaseInvoiceService {
       return updated;
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -337,10 +362,11 @@ export class PurchaseInvoiceService {
   }
 
   async post(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Check if invoice exists and is DRAFT
-      const invoice = await tx.purchaseInvoice.findUnique({
-        where: { id },
+      const invoice = await tx.purchaseInvoice.findFirst({
+        where: { id, tenant_id: tenantId },
       });
 
       if (!invoice) throw new NotFoundException('Invoice not found');
@@ -359,7 +385,7 @@ export class PurchaseInvoiceService {
 
       // 3. Atomic update with status check
       const updateResult = await tx.purchaseInvoice.updateMany({
-        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { status: PurchaseInvoiceStatus.POSTED },
       });
 
@@ -372,7 +398,7 @@ export class PurchaseInvoiceService {
       return { success: true };
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -382,8 +408,9 @@ export class PurchaseInvoiceService {
   }
 
   async pay(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const result = await this.prisma.purchaseInvoice.updateMany({
-      where: { id, status: PurchaseInvoiceStatus.POSTED },
+      where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.POSTED },
       data: { status: PurchaseInvoiceStatus.PAID },
     });
 
@@ -393,7 +420,7 @@ export class PurchaseInvoiceService {
       );
     }
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: id,
@@ -403,12 +430,13 @@ export class PurchaseInvoiceService {
   }
 
   async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     // When deleting an invoice, we MUST decrement quantity_invoiced on PO items
     // to avoid ghost allocations.
     await this.prisma.$transaction(async (tx) => {
       // Atomic status enforcement: "touch" the invoice to ensure it's DRAFT and lock it
       const lockResult = await tx.purchaseInvoice.updateMany({
-        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { updatedAt: new Date() },
       });
 
@@ -418,8 +446,8 @@ export class PurchaseInvoiceService {
         );
       }
 
-      const invoice = await tx.purchaseInvoice.findUnique({
-        where: { id },
+      const invoice = await tx.purchaseInvoice.findFirst({
+        where: { id, tenant_id: tenantId },
         include: { lines: true },
       });
 
@@ -440,7 +468,7 @@ export class PurchaseInvoiceService {
 
       // Atomic delete check
       const result = await tx.purchaseInvoice.deleteMany({
-        where: { id, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
       });
 
       if (result.count === 0) {
@@ -450,7 +478,7 @@ export class PurchaseInvoiceService {
       }
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'DELETED',
       entityId: id,
@@ -460,10 +488,11 @@ export class PurchaseInvoiceService {
   }
 
   async removeLine(invoiceId: string, lineId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Enforce DRAFT status on the invoice by touching it
       const lockResult = await tx.purchaseInvoice.updateMany({
-        where: { id: invoiceId, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id: invoiceId, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { updatedAt: new Date() },
       });
 
@@ -513,7 +542,7 @@ export class PurchaseInvoiceService {
       );
 
       const updateTotalResult = await tx.purchaseInvoice.updateMany({
-        where: { id: invoiceId, status: PurchaseInvoiceStatus.DRAFT },
+        where: { id: invoiceId, tenant_id: tenantId, status: PurchaseInvoiceStatus.DRAFT },
         data: { total_amount: newTotal },
       });
 
@@ -526,7 +555,7 @@ export class PurchaseInvoiceService {
       return { success: true };
     });
 
-    this.realtimeService.emitEntityUpdated({
+    this.realtimeService.emitEntityUpdated(tenantId, {
       type: 'PURCHASE_INVOICE',
       action: 'UPDATED',
       entityId: invoiceId,
@@ -543,6 +572,7 @@ export class PurchaseInvoiceService {
     sortBy: string = 'due_date',
     order: 'asc' | 'desc' = 'asc',
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     // Whitelist allowed sortBy fields to prevent SQL injection
     const ALLOWED_SORT_BY = [
       'vendor_invoice_number',
@@ -565,6 +595,7 @@ export class PurchaseInvoiceService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.PurchaseInvoiceWhereInput = {
+      tenant_id: tenantId,
       ...(vendorId && { vendor_id: vendorId }),
       ...(status && { status }),
     };
@@ -596,8 +627,9 @@ export class PurchaseInvoiceService {
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.purchaseInvoice.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.prisma.purchaseInvoice.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         vendor: true,
         lines: {

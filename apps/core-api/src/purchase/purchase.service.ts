@@ -9,6 +9,7 @@ import { LedgerService } from '../inventory/ledger.service';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
   include: { vendor: true; items: true };
@@ -24,6 +25,7 @@ export class PurchaseService {
   constructor(
     private prisma: PrismaService,
     private ledgerService: LedgerService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -64,15 +66,16 @@ export class PurchaseService {
     vendorId: string,
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
   ) {
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id: vendorId, tenant_id: tenantId },
       include: { supportedBrands: true },
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
     const itemIds = items.map((i) => i.catalogItemId);
     const catalogItems = await this.prisma.catalogItem.findMany({
-      where: { id: { in: itemIds } },
+      where: { tenant_id: tenantId, id: { in: itemIds } },
       include: { brand: true },
     });
 
@@ -98,11 +101,13 @@ export class PurchaseService {
 
     const purchaseOrder = await this.prisma.purchaseOrder.create({
       data: {
+        tenant_id: tenantId,
         vendor_id: vendorId,
         order_number: this.generateOrderNumber(),
         status: PurchaseOrderStatus.DRAFT,
         items: {
           create: items.map((i) => ({
+            tenant_id: tenantId,
             catalog_item_id: i.catalogItemId,
             quantity: i.quantity,
             unit_cost: i.unitCost,
@@ -121,19 +126,21 @@ export class PurchaseService {
     receivedItems: { itemId: string; quantity: number }[],
   ) {
     try {
+      const tenantId = await this.tenantContext.getTenantId();
       const updatedPO = await this.prisma.$transaction(async (tx) => {
-        const po = await tx.purchaseOrder.findUnique({
-          where: { id: orderId },
+        const po = await tx.purchaseOrder.findFirst({
+          where: { id: orderId, tenant_id: tenantId },
           include: { items: true },
         });
         if (!po) throw new NotFoundException('Purchase Order not found');
 
         let warehouse = await tx.storageLocation.findFirst({
-          where: { type: 'warehouse' },
+          where: { tenant_id: tenantId, type: 'warehouse' },
         });
         if (!warehouse) {
           warehouse = await tx.storageLocation.create({
             data: {
+              tenant_id: tenantId,
               name: 'Default Warehouse',
               code: 'WH-001',
               type: 'warehouse',
@@ -144,6 +151,7 @@ export class PurchaseService {
         // Ensure General Bin exists for this warehouse
         let generalBin = await tx.storageLocation.findFirst({
           where: {
+            tenant_id: tenantId,
             parent_id: warehouse.id,
             type: 'bin',
             name: 'General Bin',
@@ -153,6 +161,7 @@ export class PurchaseService {
         if (!generalBin) {
           generalBin = await tx.storageLocation.create({
             data: {
+              tenant_id: tenantId,
               name: 'General Bin',
               code: `${warehouse.code}-GEN`,
               type: 'bin',
@@ -295,8 +304,9 @@ export class PurchaseService {
     orderId: string,
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
   ) {
-    const po = await this.prisma.purchaseOrder.findUnique({
-      where: { id: orderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
       include: { vendor: { include: { supportedBrands: true } }, items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -314,7 +324,7 @@ export class PurchaseService {
 
     const itemIds = items.map((i) => i.catalogItemId);
     const catalogItems = await this.prisma.catalogItem.findMany({
-      where: { id: { in: itemIds } },
+      where: { tenant_id: tenantId, id: { in: itemIds } },
       include: { brand: true },
     });
 
@@ -355,6 +365,7 @@ export class PurchaseService {
         items.map((i) =>
           tx.purchaseOrderItem.create({
             data: {
+              tenant_id: tenantId,
               purchase_order_id: orderId,
               catalog_item_id: i.catalogItemId,
               quantity: i.quantity,
@@ -399,8 +410,9 @@ export class PurchaseService {
     itemId: string,
     updates: { quantity?: number; unitCost?: number },
   ) {
-    const po = await this.prisma.purchaseOrder.findUnique({
-      where: { id: orderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
       include: { items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -462,8 +474,9 @@ export class PurchaseService {
   }
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
-    const po = await this.prisma.purchaseOrder.findUnique({
-      where: { id: orderId },
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
       include: { items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -519,29 +532,33 @@ export class PurchaseService {
   async findAll(
     params?: Prisma.PurchaseOrderFindManyArgs | string,
   ): Promise<PaginatedPurchaseOrderResult | PurchaseOrderWithRelations[]> {
+    const tenantId = await this.tenantContext.getTenantId();
     if (
       params &&
       typeof params === 'object' &&
       ('where' in params || 'orderBy' in params || 'skip' in params)
     ) {
+      const scopedWhere = { ...(params.where ?? {}), tenant_id: tenantId };
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
           ...params,
+          where: scopedWhere,
           include: { vendor: true, items: true },
         }),
         this.prisma.purchaseOrder.count({
-          where: params.where,
+          where: scopedWhere,
         }),
       ]);
       return { data, total };
     }
 
-    let where = {};
+    let where: Prisma.PurchaseOrderWhereInput = { tenant_id: tenantId };
     const status = params as string;
     const filter = status || 'all';
 
     if (filter === 'open') {
       where = {
+        tenant_id: tenantId,
         status: {
           in: [
             PurchaseOrderStatus.DRAFT,
@@ -560,8 +577,9 @@ export class PurchaseService {
   }
 
   async findOne(id: string) {
-    return this.prisma.purchaseOrder.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    return this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         vendor: { include: { supportedBrands: true } },
         items: {
@@ -572,9 +590,10 @@ export class PurchaseService {
   }
 
   async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.purchaseOrder.findUnique({
-        where: { id },
+      const order = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
         include: {
           items: {
             include: {
@@ -621,9 +640,15 @@ export class PurchaseService {
         where: { purchase_order_id: id },
       });
 
-      return tx.purchaseOrder.delete({
-        where: { id },
+      const deleteResult = await tx.purchaseOrder.deleteMany({
+        where: { id, tenant_id: tenantId },
       });
+
+      if (deleteResult.count === 0) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      return { id };
     });
 
     return deletedOrder;

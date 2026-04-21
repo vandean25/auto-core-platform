@@ -24,6 +24,7 @@ async function cleanDb() {
     console.log('Cleaning database...');
     
     const tables = [
+        'tenants',
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
         'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
@@ -38,6 +39,7 @@ async function cleanDb() {
     }
 
     // Delete in order to satisfy foreign key constraints
+    // NOTE: tenants must be deleted LAST because all other models have FK references to it
     if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
@@ -61,6 +63,8 @@ async function cleanDb() {
     if (existingTables.has('customers')) await prisma.customer.deleteMany();
     if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
     if (existingTables.has('brands')) await prisma.brand.deleteMany();
+    // Tenants deleted last — all other tables reference tenant via FK
+    if (existingTables.has('tenants')) await prisma.tenant.deleteMany();
 }
 
 /**
@@ -71,11 +75,13 @@ async function recordInitialStock(
     locationId: string,
     quantity: number,
     costBasis: number,
+    tenantId: string,
     reserved: number = 0
 ) {
     // Create the transaction record
     await prisma.inventoryTransaction.create({
         data: {
+            tenant_id: tenantId,
             item_id: itemId,
             location_id: locationId,
             quantity: quantity,
@@ -88,6 +94,7 @@ async function recordInitialStock(
     // Update or create the cached stock (using findFirst + create/update to work around Prisma adapter upsert issue)
     const existingStock = await prisma.inventoryStock.findFirst({
         where: {
+            tenant_id: tenantId,
             catalog_item_id: itemId,
             location_id: locationId,
         },
@@ -103,6 +110,7 @@ async function recordInitialStock(
     } else {
         await prisma.inventoryStock.create({
             data: {
+                tenant_id: tenantId,
                 catalog_item_id: itemId,
                 location_id: locationId,
                 quantity_on_hand: quantity,
@@ -115,13 +123,25 @@ async function recordInitialStock(
 async function main() {
     await cleanDb();
 
+    console.log('Seeding tenant foundation...');
+    const defaultTenant = await prisma.tenant.upsert({
+        where: { slug: 'default-workshop' },
+        update: {},
+        create: {
+            name: 'Default Workshop',
+            slug: 'default-workshop',
+            plan: 'STANDARD',
+        },
+    });
+
     console.log('Seeding Finance Module settings...');
     // Revenue Groups (Austrian standards)
     const revenueGroups = await Promise.all([
         prisma.revenueGroup.upsert({
-            where: { name: 'Parts / Goods 20%' },
+            where: { tenant_id_name: { tenant_id: defaultTenant.id, name: 'Parts / Goods 20%' } },
             update: {},
             create: {
+                tenant_id: defaultTenant.id,
                 name: 'Parts / Goods 20%',
                 tax_rate: 20.0,
                 account_number: '4000',
@@ -129,9 +149,10 @@ async function main() {
             },
         }),
         prisma.revenueGroup.upsert({
-            where: { name: 'Services / Labor 20%' },
+            where: { tenant_id_name: { tenant_id: defaultTenant.id, name: 'Services / Labor 20%' } },
             update: {},
             create: {
+                tenant_id: defaultTenant.id,
                 name: 'Services / Labor 20%',
                 tax_rate: 20.0,
                 account_number: '4001',
@@ -139,9 +160,10 @@ async function main() {
             },
         }),
         prisma.revenueGroup.upsert({
-            where: { name: 'Tax Free / Margin' },
+            where: { tenant_id_name: { tenant_id: defaultTenant.id, name: 'Tax Free / Margin' } },
             update: {},
             create: {
+                tenant_id: defaultTenant.id,
                 name: 'Tax Free / Margin',
                 tax_rate: 0.0,
                 account_number: '4099',
@@ -153,16 +175,18 @@ async function main() {
     // Default Finance Settings
     const currentYear = new Date().getFullYear();
     await prisma.financeSettings.upsert({
-        where: { id: 1 },
+        where: { tenant_id: defaultTenant.id },
         update: {},
         create: {
-            id: 1,
+            tenant_id: defaultTenant.id,
             fiscal_year_start_month: 1,
             lock_date: null,
             next_invoice_number: 1001,
             invoice_prefix: `RE-${currentYear}-`,
             next_workshop_order_number: 1,
             workshop_order_prefix: `WO-${currentYear}-`,
+            next_sales_order_number: 1,
+            sales_order_prefix: `SO-${currentYear}-`,
         },
     });
 
@@ -175,7 +199,7 @@ async function main() {
     const dualBrandRecords = await Promise.all(
         dualBrands.map(name =>
             prisma.brand.create({
-                data: { name, isVehicleMake: true, isPartManufacturer: true }
+                data: { tenant_id: defaultTenant.id, name, isVehicleMake: true, isPartManufacturer: true }
             })
         )
     );
@@ -185,7 +209,7 @@ async function main() {
     const pureVehicleMakeRecords = await Promise.all(
         pureVehicleMakes.map(name =>
             prisma.brand.create({
-                data: { name, isVehicleMake: true, isPartManufacturer: false }
+                data: { tenant_id: defaultTenant.id, name, isVehicleMake: true, isPartManufacturer: false }
             })
         )
     );
@@ -195,7 +219,7 @@ async function main() {
     const purePartManufacturerRecords = await Promise.all(
         purePartManufacturers.map(name =>
             prisma.brand.create({
-                data: { name, isVehicleMake: false, isPartManufacturer: true }
+                data: { tenant_id: defaultTenant.id, name, isVehicleMake: false, isPartManufacturer: true }
             })
         )
     );
@@ -205,6 +229,7 @@ async function main() {
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({
         data: {
+            tenant_id: defaultTenant.id,
             name: 'Main Showroom (Vienna)',
             code: 'WH-VIE-01',
             type: LocationType.warehouse,
@@ -213,6 +238,7 @@ async function main() {
 
     const storage = await prisma.storageLocation.create({
         data: {
+            tenant_id: defaultTenant.id,
             name: 'Workshop Storage (Graz)',
             code: 'WH-GRZ-01',
             type: LocationType.warehouse,
@@ -221,6 +247,7 @@ async function main() {
 
     const tireHotel = await prisma.storageLocation.create({
         data: {
+            tenant_id: defaultTenant.id,
             name: 'Tire Hotel (Basement)',
             code: 'WH-TIRE-01',
             type: LocationType.warehouse,
@@ -232,6 +259,7 @@ async function main() {
     console.log('Seeding fixed staging totes...');
     const stagingToteSummary = await seedFixedStagingTotes(prisma, {
         parentLocationId: storage.id,
+        tenantId: defaultTenant.id,
     });
     console.log(
         `Staging totes summary: created=${stagingToteSummary.created}, updated=${stagingToteSummary.updated}, unchanged=${stagingToteSummary.unchanged}`,
@@ -242,6 +270,7 @@ async function main() {
 
     const partA = await prisma.catalogItem.create({
         data: {
+            tenant_id: defaultTenant.id,
             sku: '06J-115-403-C',
             name: 'Oil Filter (Legacy)',
             cost_price: 8.50,
@@ -253,6 +282,7 @@ async function main() {
 
     const partB = await prisma.catalogItem.create({
         data: {
+            tenant_id: defaultTenant.id,
             sku: '06J-115-403-Q',
             name: 'Oil Filter (Improved)',
             cost_price: 9.00,
@@ -264,6 +294,7 @@ async function main() {
 
     const partC = await prisma.catalogItem.create({
         data: {
+            tenant_id: defaultTenant.id,
             sku: '06J-115-561-B',
             name: 'Oil Filter (Current)',
             cost_price: 10.20,
@@ -303,6 +334,7 @@ async function main() {
 
         const part = await prisma.catalogItem.create({
             data: {
+                tenant_id: defaultTenant.id,
                 sku,
                 name: `${category.name} - ${brand.name} model ${i}`,
                 cost_price: Math.random() * 50 + 10,
@@ -321,6 +353,7 @@ async function main() {
         showroom.id,
         25,
         Number(partC.cost_price),
+        defaultTenant.id,
         2 // reserved quantity
     );
 
@@ -336,6 +369,7 @@ async function main() {
                 location.id,
                 quantity,
                 Number(part.cost_price),
+                defaultTenant.id,
                 reserved
             );
         }
@@ -356,12 +390,12 @@ async function main() {
     const categoryRecords = await Promise.all(
         categoriesToSeed.map(cat =>
             prisma.laborCategory.upsert({
-                where: { name: cat.name },
+                where: { tenant_id_name: { tenant_id: defaultTenant.id, name: cat.name } },
                 update: {
                     description: cat.description,
                     sort_order: cat.sort_order,
                 },
-                create: cat,
+                create: { tenant_id: defaultTenant.id, ...cat },
             })
         )
     );
@@ -425,7 +459,7 @@ async function main() {
     await Promise.all(
         laborOperationDefs.map(op =>
             prisma.laborOperation.upsert({
-                where: { code: op.code },
+                where: { tenant_id_code: { tenant_id: defaultTenant.id, code: op.code } },
                 update: {
                     description: op.description,
                     standard_aw: op.standard_aw,
@@ -433,6 +467,7 @@ async function main() {
                     category_id: resolveCategoryId(op.code),
                 },
                 create: {
+                    tenant_id: defaultTenant.id,
                     code: op.code,
                     description: op.description,
                     standard_aw: op.standard_aw,
@@ -445,7 +480,7 @@ async function main() {
 
     console.log('Categorizing all existing LaborOperation records...');
     const allOperations = await prisma.laborOperation.findMany({
-        where: { category_id: null }
+        where: { category_id: null, tenant_id: defaultTenant.id }
     });
 
     let categorizedCount = 0;
@@ -465,6 +500,7 @@ async function main() {
         allBrands.map((brand) =>
             prisma.vendor.create({
                 data: {
+                    tenant_id: defaultTenant.id,
                     name: `${brand.name} Parts Direct`,
                     email: `sales@${brand.name.toLowerCase().replace(/\s+/g, '-')}-parts.com`,
                     account_number: `VEND-${brand.name.substring(0, 3).toUpperCase()}`,
@@ -543,12 +579,13 @@ async function main() {
 
     const createdCustomers = await Promise.all(
         customersData.map(({ vehicles: _vehicles, ...customerInfo }) =>
-            prisma.customer.create({ data: customerInfo })
+            prisma.customer.create({ data: { tenant_id: defaultTenant.id, ...customerInfo } })
         )
     );
 
     const vehiclesToCreate = customersData.flatMap((data, index) =>
         data.vehicles.map((vehicle) => ({
+            tenant_id: defaultTenant.id,
             ...vehicle,
             customer_id: createdCustomers[index].id,
         }))
@@ -559,8 +596,8 @@ async function main() {
     }
 
     console.log('Seeding specific LaborFitments (for testing)...');
-    const opOilChange = await prisma.laborOperation.findUnique({ where: { code: 'ENG-001' } });
-    const opBrakePad = await prisma.laborOperation.findUnique({ where: { code: 'BRK-001' } });
+    const opOilChange = await prisma.laborOperation.findFirst({ where: { code: 'ENG-001', tenant_id: defaultTenant.id } });
+    const opBrakePad = await prisma.laborOperation.findFirst({ where: { code: 'BRK-001', tenant_id: defaultTenant.id } });
 
     if (opOilChange) {
         await prisma.laborFitment.create({

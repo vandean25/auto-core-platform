@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryService } from './inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { NotFoundException } from '@nestjs/common';
 
 describe('InventoryService', () => {
@@ -20,6 +21,7 @@ describe('InventoryService', () => {
       providers: [
         InventoryService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: TenantContextService, useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') } },
       ],
     }).compile();
 
@@ -184,6 +186,7 @@ describe('InventoryService', () => {
       expect(prisma.catalogItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            tenant_id: 'tenant-1',
             OR: [
               { name: { contains: search, mode: 'insensitive' } },
               { sku: { contains: search, mode: 'insensitive' } },
@@ -201,6 +204,7 @@ describe('InventoryService', () => {
       expect(prisma.catalogItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            tenant_id: 'tenant-1',
             stocks: {
               some: {
                 location: {

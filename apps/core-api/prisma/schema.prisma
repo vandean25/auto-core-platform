@@ -11,12 +11,61 @@ datasource db {
 }
 
 // ============================================================================
+// Multi-tenant Foundation
+// ============================================================================
+
+enum TenantPlan {
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+}
+
+model Tenant {
+  id         String     @id @default(uuid())
+  name       String
+  slug       String     @unique
+  plan       TenantPlan @default(STANDARD)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+  is_active  Boolean    @default(true)
+
+  revenueGroups        RevenueGroup[]
+  financeSettings      FinanceSettings?
+  brands               Brand[]
+  catalogItems         CatalogItem[]
+  storageLocations     StorageLocation[]
+  inventoryStocks      InventoryStock[]
+  inventoryTransactions InventoryTransaction[]
+  vendors              Vendor[]
+  purchaseOrders       PurchaseOrder[]
+  purchaseOrderItems   PurchaseOrderItem[]
+  customers            Customer[]
+  vehicles             Vehicle[]
+  salesOrders          SalesOrder[]
+  salesOrderItems      SalesOrderItem[]
+  invoices             Invoice[]
+  invoiceSequences     InvoiceSequence[]
+  invoiceItems         InvoiceItem[]
+  purchaseInvoices     PurchaseInvoice[]
+  purchaseInvoiceLines PurchaseInvoiceLine[]
+  workshopOrders       WorkshopOrder[]
+  workshopTasks        WorkshopTask[]
+  workshopTaskLineItems WorkshopTaskLineItem[]
+  laborCategories      LaborCategory[]
+  laborOperations      LaborOperation[]
+
+  @@map("tenants")
+}
+
+// ============================================================================
 // Finance Settings & Revenue Groups
 // ============================================================================
 
 model RevenueGroup {
   id             Int           @id @default(autoincrement())
-  name           String        @unique
+  tenant_id      String
+  tenant         Tenant        @relation(fields: [tenant_id], references: [id])
+  name           String
   tax_rate       Decimal       @db.Decimal(5, 2)
   account_number String
   is_default     Boolean       @default(false)
@@ -26,11 +75,15 @@ model RevenueGroup {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, name]) // tenant-scoped
   @@map("revenue_groups")
 }
 
 model FinanceSettings {
-  id                      Int       @id @default(1)
+  id                      String    @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant    @relation(fields: [tenant_id], references: [id])
   fiscal_year_start_month Int       @default(1)
   lock_date               DateTime?
   next_invoice_number     Int       @default(1001)
@@ -42,6 +95,8 @@ model FinanceSettings {
   
   updatedAt               DateTime  @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id]) // tenant-scoped
   @@map("finance_settings")
 }
 
@@ -51,7 +106,9 @@ model FinanceSettings {
 
 model Brand {
   id                 Int       @id @default(autoincrement())
-  name               String    @unique
+  tenant_id          String
+  tenant             Tenant    @relation(fields: [tenant_id], references: [id])
+  name               String
   isVehicleMake      Boolean   @default(false) @map("is_vehicle_make")
   isPartManufacturer Boolean   @default(false) @map("is_part_manufacturer")
   logoUrl            String?   @map("logo_url")
@@ -61,6 +118,8 @@ model Brand {
   vendors      Vendor[]      @relation("VendorBrands")
   catalogItems CatalogItem[]
 
+  @@index([tenant_id])
+  @@unique([tenant_id, name]) // tenant-scoped
   @@map("brands")
 }
 
@@ -70,7 +129,9 @@ model Brand {
 
 model CatalogItem {
   id               String                 @id @default(uuid())
-  sku              String                 @unique
+  tenant_id        String
+  tenant           Tenant                 @relation(fields: [tenant_id], references: [id])
+  sku              String
   name             String
   cost_price       Decimal                @db.Decimal(10, 2)
   retail_price     Decimal                @db.Decimal(10, 2)
@@ -91,6 +152,8 @@ model CatalogItem {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, sku]) // tenant-scoped
   @@map("catalog_items")
 }
 
@@ -105,7 +168,9 @@ enum LocationType {
 
 model StorageLocation {
   id           String                 @id @default(uuid())
-  code         String                 @unique
+  tenant_id    String
+  tenant       Tenant                 @relation(fields: [tenant_id], references: [id])
+  code         String
   name         String
   type         LocationType
   parent_id    String?
@@ -118,11 +183,15 @@ model StorageLocation {
   updatedAt    DateTime               @updatedAt
   deletedAt    DateTime?
 
+  @@index([tenant_id])
+  @@unique([tenant_id, code]) // tenant-scoped
   @@map("storage_locations")
 }
 
 model InventoryStock {
   id                String          @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant          @relation(fields: [tenant_id], references: [id])
   catalog_item_id   String
   catalog_item      CatalogItem     @relation(fields: [catalog_item_id], references: [id])
   location_id       String
@@ -132,7 +201,8 @@ model InventoryStock {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  @@unique([catalog_item_id, location_id])
+  @@index([tenant_id])
+  @@unique([tenant_id, catalog_item_id, location_id]) // tenant-scoped
   @@map("inventory_stocks")
 }
 
@@ -147,6 +217,8 @@ enum TransactionType {
 
 model InventoryTransaction {
   id           String          @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant          @relation(fields: [tenant_id], references: [id])
   item_id      String
   item         CatalogItem     @relation(fields: [item_id], references: [id])
   location_id  String
@@ -158,6 +230,7 @@ model InventoryTransaction {
   createdAt    DateTime        @default(now())
 
   @@map("inventory_transactions")
+  @@index([tenant_id])
   @@index([item_id, location_id])
   @@index([type])
   @@index([createdAt])
@@ -165,6 +238,8 @@ model InventoryTransaction {
 
 model Vendor {
   id               String   @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant   @relation(fields: [tenant_id], references: [id])
   name             String
   email            String
   account_number   String
@@ -175,6 +250,7 @@ model Vendor {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
+  @@index([tenant_id])
   @@map("vendors")
 }
 
@@ -187,20 +263,26 @@ enum PurchaseOrderStatus {
 
 model PurchaseOrder {
   id           String              @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant              @relation(fields: [tenant_id], references: [id])
   vendor_id    String
   vendor       Vendor              @relation(fields: [vendor_id], references: [id])
   status       PurchaseOrderStatus @default(DRAFT)
-  order_number String              @unique
+  order_number String
   items        PurchaseOrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, order_number]) // tenant-scoped
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
   id                String  @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant  @relation(fields: [tenant_id], references: [id])
   purchase_order_id String
   purchase_order    PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
   catalog_item_id   String
@@ -216,6 +298,7 @@ model PurchaseOrderItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenant_id])
   @@map("purchase_order_items")
 }
 
@@ -226,11 +309,13 @@ enum CustomerType {
 
 model Customer {
   id             String       @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant       @relation(fields: [tenant_id], references: [id])
   type           CustomerType @default(PRIVATE)
   company_name   String?
   first_name     String
   last_name      String
-  email          String?      @unique
+  email          String?
   phone          String?
   vat_id         String?      // UID-Nummer
   
@@ -247,16 +332,20 @@ model Customer {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, email]) // tenant-scoped
   @@map("customers")
 }
 
 model Vehicle {
   id           String    @id @default(uuid())
+  tenant_id    String    
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id])
   make         String
   model        String
   year         Int
   engine_code  String?
-  vin          String?   @unique
+  vin          String?
   plate        String?
   customer_id  String?
   customer     Customer? @relation(fields: [customer_id], references: [id])
@@ -267,6 +356,8 @@ model Vehicle {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, vin]) // tenant-scoped
   @@map("vehicles")
 }
 
@@ -280,7 +371,9 @@ enum SalesOrderStatus {
 
 model SalesOrder {
   id           String           @id @default(uuid())
-  order_number String           @unique // e.g., SO-2026-001
+  tenant_id    String
+  tenant       Tenant           @relation(fields: [tenant_id], references: [id])
+  order_number String           // e.g., SO-2026-001
   customer_id  String
   customer     Customer         @relation(fields: [customer_id], references: [id])
   vehicle_id   String?
@@ -296,11 +389,16 @@ model SalesOrder {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, order_number]) // tenant-scoped
   @@map("sales_orders")
 }
 
 model SalesOrderItem {
   id              String       @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
   sales_order_id  String
   sales_order     SalesOrder   @relation(fields: [sales_order_id], references: [id], onDelete: Cascade)
   
@@ -316,6 +414,7 @@ model SalesOrderItem {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
+  @@index([tenant_id])
   @@map("sales_order_items")
 }
 
@@ -334,15 +433,17 @@ enum DiscountType {
 
 model Invoice {
   id             String        @id @default(uuid())
-  invoice_number String?       @unique // Nullable because it's only generated on FINALIZED
+  tenant_id      String
+  tenant         Tenant        @relation(fields: [tenant_id], references: [id])
+  invoice_number String?       // Nullable because it's only generated on FINALIZED
   customer_id    String
   customer       Customer      @relation(fields: [customer_id], references: [id])
   vehicle_id     String?
   vehicle        Vehicle?      @relation(fields: [vehicle_id], references: [id])
-  sales_order_id String?       @unique
-  sales_order    SalesOrder?   @relation(fields: [sales_order_id], references: [id])
-  workshop_order_id String?    @unique
-  workshop_order  WorkshopOrder? @relation(fields: [workshop_order_id], references: [id])
+  sales_order_id String?
+  sales_order    SalesOrder?   @relation(fields: [tenant_id, sales_order_id], references: [tenant_id, id])
+  workshop_order_id String?
+  workshop_order  WorkshopOrder? @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id])
   
   status         InvoiceStatus @default(DRAFT)
   date           DateTime      @default(now())
@@ -370,18 +471,29 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, invoice_number]) // tenant-scoped
+  @@unique([tenant_id, sales_order_id]) // tenant-scoped
+  @@unique([tenant_id, workshop_order_id]) // tenant-scoped
   @@map("invoices")
 }
 
 model InvoiceSequence {
-  year    Int    @id
-  current Int    @default(0)
+  id        String @id @default(uuid())
+  tenant_id String
+  tenant    Tenant @relation(fields: [tenant_id], references: [id])
+  year      Int
+  current   Int    @default(0)
 
+  @@index([tenant_id])
+  @@unique([tenant_id, year]) // tenant-scoped
   @@map("invoice_sequences")
 }
 
 model InvoiceItem {
   id              String       @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
   invoice_id      String
   invoice         Invoice      @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   
@@ -401,6 +513,7 @@ model InvoiceItem {
   updatedAt       DateTime     @updatedAt
 
   @@map("invoice_items")
+  @@index([tenant_id])
   @@index([catalog_item_id])
 }
 
@@ -412,9 +525,11 @@ enum PurchaseInvoiceStatus {
 
 model PurchaseInvoice {
   id                    String                @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                @relation(fields: [tenant_id], references: [id])
   vendor_id             String
   vendor                Vendor                @relation(fields: [vendor_id], references: [id])
-  invoice_number        String?               @unique
+  invoice_number        String?
   vendor_invoice_number String
   status                PurchaseInvoiceStatus @default(DRAFT)
   invoice_date          DateTime
@@ -426,11 +541,15 @@ model PurchaseInvoice {
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
+  @@index([tenant_id])
+  @@unique([tenant_id, invoice_number]) // tenant-scoped
   @@map("purchase_invoices")
 }
 
 model PurchaseInvoiceLine {
   id                      String             @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant             @relation(fields: [tenant_id], references: [id])
   purchase_invoice_id     String
   purchase_invoice        PurchaseInvoice    @relation(fields: [purchase_invoice_id], references: [id], onDelete: Cascade)
   purchase_order_item_id  String?
@@ -445,6 +564,7 @@ model PurchaseInvoiceLine {
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
 
+  @@index([tenant_id])
   @@map("purchase_invoice_lines")
 }
 
@@ -493,7 +613,9 @@ model Bay {
 
 model WorkshopOrder {
   id           String              @id @default(uuid())
-  order_number String              @unique
+  tenant_id    String
+  tenant       Tenant              @relation(fields: [tenant_id], references: [id])
+  order_number String
   status       WorkshopOrderStatus @default(INTAKE)
 
   customer_id  String
@@ -522,6 +644,9 @@ model WorkshopOrder {
   pdf_generated_at     DateTime?
   pdf_generation_error String?
 
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
@@ -542,8 +667,10 @@ enum WorkshopLineItemType {
 
 model WorkshopTask {
   id                String             @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant             @relation(fields: [tenant_id], references: [id])
   workshop_order_id String
-  workshop_order    WorkshopOrder      @relation(fields: [workshop_order_id], references: [id], onDelete: Cascade)
+  workshop_order    WorkshopOrder      @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade)
 
   title             String
   status            WorkshopTaskStatus @default(NOT_STARTED)
@@ -554,13 +681,17 @@ model WorkshopTask {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@map("workshop_tasks")
 }
 
 model WorkshopTaskLineItem {
   id                String               @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant               @relation(fields: [tenant_id], references: [id])
   workshop_task_id  String
-  workshop_task     WorkshopTask         @relation(fields: [workshop_task_id], references: [id], onDelete: Cascade)
+  workshop_task     WorkshopTask         @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
 
   type              WorkshopLineItemType
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
@@ -578,12 +709,15 @@ model WorkshopTaskLineItem {
   updatedAt         DateTime             @updatedAt
 
   @@map("workshop_task_line_items")
+  @@index([tenant_id])
   @@index([labor_operation_id])
 }
 
 model LaborCategory {
   id                  String            @id @default(uuid()) @db.Uuid
-  name                String            @unique
+  tenant_id           String
+  tenant              Tenant            @relation(fields: [tenant_id], references: [id])
+  name                String
   description         String?
   sort_order          Int               @default(0)
   parent_id           String?           @db.Uuid
@@ -598,12 +732,16 @@ model LaborCategory {
   updatedAt           DateTime          @updatedAt
 
   @@map("labor_categories")
+  @@index([tenant_id])
+  @@unique([tenant_id, name]) // tenant-scoped
   @@index([parent_id])
 }
 
 model LaborOperation {
   id            String         @id @default(uuid()) @db.Uuid
-  code          String         @unique
+  tenant_id     String
+  tenant        Tenant         @relation(fields: [tenant_id], references: [id])
+  code          String
   description   String
   standard_aw   Decimal        @db.Decimal(10, 2)
   hourly_rate   Decimal        @db.Decimal(10, 2)
@@ -618,6 +756,8 @@ model LaborOperation {
   updatedAt     DateTime       @updatedAt
 
   @@map("labor_operations")
+  @@index([tenant_id])
+  @@unique([tenant_id, code]) // tenant-scoped
   @@index([description])
   @@index([code, description])
   @@index([category_id])

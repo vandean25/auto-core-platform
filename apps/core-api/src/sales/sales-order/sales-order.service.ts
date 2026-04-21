@@ -9,19 +9,79 @@ import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service';
+import { TenantContextService } from '../../common/services/tenant-context.service';
 
 @Injectable()
 export class SalesOrderService {
   constructor(
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(FinanceService) private financeService: FinanceService,
+    @Inject(TenantContextService)
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async create(createDto: CreateSalesOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    // Tenant isolation checks
+    if (createDto.customer_id) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: createDto.customer_id, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Customer not found or belongs to another tenant');
+      }
+    }
+
+    if (createDto.vehicle_id) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: createDto.vehicle_id, tenant_id: tenantId },
+      });
+      if (!vehicle) {
+        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+      }
+    }
+
+    // Tenant isolation checks for catalog items
+    const catalogItemIds = createDto.items
+      .map((i) => i.catalog_item_id)
+      .filter((id): id is string => typeof id === 'string');
+
+    if (catalogItemIds.length > 0) {
+      const uniqueIds = [...new Set(catalogItemIds)];
+      const count = await this.prisma.catalogItem.count({
+        where: { id: { in: uniqueIds }, tenant_id: tenantId },
+      });
+      if (count !== uniqueIds.length) {
+        throw new BadRequestException(
+          'One or more catalog items not found or belong to another tenant',
+        );
+      }
+    }
+
     // Get and increment sales order number atomically
-    const settings = await this.prisma.financeSettings.update({
-      where: { id: 1 },
-      data: { next_sales_order_number: { increment: 1 } },
+    const currentYear = new Date().getFullYear();
+    const settings = await this.prisma.$transaction(async (tx) => {
+      await tx.financeSettings.upsert({
+        where: { tenant_id: tenantId },
+        update: {},
+        create: {
+          tenant_id: tenantId,
+          fiscal_year_start_month: 1,
+          lock_date: null,
+          next_invoice_number: 1001,
+          invoice_prefix: `RE-${currentYear}-`,
+          next_sales_order_number: 1001,
+          sales_order_prefix: `SO-${currentYear}-`,
+          next_workshop_order_number: 1,
+          workshop_order_prefix: `WO-${currentYear}-`,
+        },
+      });
+
+      return tx.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: { next_sales_order_number: { increment: 1 } },
+      });
     });
     const orderNumber = `${settings.sales_order_prefix}${settings.next_sales_order_number - 1}`;
 
@@ -31,6 +91,7 @@ export class SalesOrderService {
       const unitPrice = new Prisma.Decimal(item.unit_price);
       const total = quantity.mul(unitPrice);
       return {
+        tenant_id: tenantId,
         catalog_item_id: item.catalog_item_id,
         description: item.description,
         quantity: quantity,
@@ -47,6 +108,7 @@ export class SalesOrderService {
 
     const createdOrder = await this.prisma.salesOrder.create({
       data: {
+        tenant_id: tenantId,
         order_number: orderNumber,
         customer_id: createDto.customer_id,
         vehicle_id: createDto.vehicle_id,
@@ -68,6 +130,7 @@ export class SalesOrderService {
   }
 
   async findAll(params: any) {
+    const tenantId = await this.tenantContext.getTenantId();
     // If params is just a Prisma query object from QueryBuilder
     if (
       params &&
@@ -76,20 +139,23 @@ export class SalesOrderService {
       const [data, total] = await Promise.all([
         this.prisma.salesOrder.findMany({
           ...params,
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
           include: {
             customer: true,
             vehicle: true,
             items: true,
           },
         }),
-        this.prisma.salesOrder.count({ where: params.where }),
+        this.prisma.salesOrder.count({
+          where: { ...(params.where ?? {}), tenant_id: tenantId },
+        }),
       ]);
       return { data, total };
     }
 
     const status = params as SalesOrderStatus;
     return this.prisma.salesOrder.findMany({
-      where: status ? { status } : undefined,
+      where: status ? { tenant_id: tenantId, status } : { tenant_id: tenantId },
       include: {
         customer: true,
         vehicle: true,
@@ -100,8 +166,9 @@ export class SalesOrderService {
   }
 
   async findOne(id: string) {
-    const order = await this.prisma.salesOrder.findUnique({
-      where: { id },
+    const tenantId = await this.tenantContext.getTenantId();
+    const order = await this.prisma.salesOrder.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         items: {
           include: {
@@ -118,13 +185,50 @@ export class SalesOrderService {
   }
 
   async update(id: string, updateDto: UpdateSalesOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const order = await this.findOne(id);
+
+    // Tenant isolation checks
+    if (updateDto.customer_id) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: updateDto.customer_id, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Customer not found or belongs to another tenant');
+      }
+    }
+
+    if (updateDto.vehicle_id) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: updateDto.vehicle_id, tenant_id: tenantId },
+      });
+      if (!vehicle) {
+        throw new BadRequestException('Vehicle not found or belongs to another tenant');
+      }
+    }
 
     // If updating items, recalculate total
     let itemsUpdate: any = undefined;
     let totalAmount = order.total_amount;
 
     if (updateDto.items) {
+      // Tenant isolation checks for catalog items
+      const catalogItemIds = updateDto.items
+        .map((i) => i.catalog_item_id)
+        .filter((id): id is string => typeof id === 'string');
+
+      if (catalogItemIds.length > 0) {
+        const uniqueIds = [...new Set(catalogItemIds)];
+        const count = await this.prisma.catalogItem.count({
+          where: { id: { in: uniqueIds }, tenant_id: tenantId },
+        });
+        if (count !== uniqueIds.length) {
+          throw new BadRequestException(
+            'One or more catalog items not found or belong to another tenant',
+          );
+        }
+      }
+
       // Delete existing items and recreate (simple approach for now)
       // In a real app, we might want to reconcile
 
@@ -136,6 +240,7 @@ export class SalesOrderService {
         const unitPrice = new Prisma.Decimal(item.unit_price);
         const total = quantity.mul(unitPrice);
         return {
+          tenant_id: tenantId,
           catalog_item_id: item.catalog_item_id,
           description: item.description,
           quantity: quantity,
@@ -173,6 +278,7 @@ export class SalesOrderService {
   }
 
   async createInvoiceFromOrder(orderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     // Validate transaction date against lock period
     await this.financeService.validateTransactionDate(new Date());
 
@@ -194,6 +300,7 @@ export class SalesOrderService {
       totalTax = totalTax.add(tax);
 
       return {
+        tenant_id: tenantId,
         catalog_item_id: item.catalog_item_id,
         description: item.description,
         quantity: item.quantity,
@@ -211,6 +318,7 @@ export class SalesOrderService {
       try {
         const invoice = await tx.invoice.create({
           data: {
+            tenant_id: tenantId,
             customer_id: order.customer_id,
             vehicle_id: order.vehicle_id,
             sales_order_id: order.id,
@@ -242,9 +350,11 @@ export class SalesOrderService {
   }
 
   async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
     const result = await this.prisma.salesOrder.deleteMany({
       where: {
         id,
+        tenant_id: tenantId,
         status: SalesOrderStatus.DRAFT,
         invoice: null,
       },
