@@ -4,7 +4,7 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage'
 
 const TENANT_ID = 'tenant-test-123';
 
-function runWithTenant(fn: () => unknown) {
+function runWithTenant<T>(fn: () => T) {
   return TenantContextStorage.run(() => {
     TenantContextStorage.setUser({
       userId: 'user-1',
@@ -27,35 +27,35 @@ function call(
 
 describe('applyTenantIsolation', () => {
   describe('GLOBAL_MODELS (Tenant, Employee, Bay)', () => {
-    it('passes through Tenant queries without injecting tenant_id', () => {
-      const query = jest.fn().mockReturnValue([]);
+    it('passes through Tenant queries without injecting tenant_id', async () => {
+      const query = jest.fn().mockResolvedValue([]);
       const args = { where: { slug: 'acme' } };
 
-      runWithTenant(() => call('Tenant', 'findMany', args, query));
+      await runWithTenant(() => call('Tenant', 'findMany', args, query));
 
       expect(query).toHaveBeenCalledWith(args);
       expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
     });
 
-    it('passes through Employee queries without injecting tenant_id', () => {
-      const query = jest.fn().mockReturnValue([]);
-      runWithTenant(() => call('Employee', 'findMany', { where: {} }, query));
+    it('passes through Employee queries without injecting tenant_id', async () => {
+      const query = jest.fn().mockResolvedValue([]);
+      await runWithTenant(() => call('Employee', 'findMany', { where: {} }, query));
       expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
     });
 
-    it('passes through Bay queries without injecting tenant_id', () => {
-      const query = jest.fn().mockReturnValue([]);
-      runWithTenant(() => call('Bay', 'findMany', { where: {} }, query));
+    it('passes through Bay queries without injecting tenant_id', async () => {
+      const query = jest.fn().mockResolvedValue([]);
+      await runWithTenant(() => call('Bay', 'findMany', { where: {} }, query));
       expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
     });
   });
 
   describe('count() — must be scoped', () => {
-    it('injects tenant_id into where for count()', () => {
-      const query = jest.fn().mockReturnValue(5);
+    it('injects tenant_id into where for count()', async () => {
+      const query = jest.fn().mockResolvedValue(5);
       const args = { where: {} };
 
-      runWithTenant(() => call('SalesOrder', 'count', args, query));
+      await runWithTenant(() => call('SalesOrder', 'count', args, query));
 
       expect(query).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID },
@@ -64,11 +64,11 @@ describe('applyTenantIsolation', () => {
   });
 
   describe('findMany() — must be scoped', () => {
-    it('injects tenant_id into where while preserving existing filters', () => {
-      const query = jest.fn().mockReturnValue([]);
+    it('injects tenant_id into where while preserving existing filters', async () => {
+      const query = jest.fn().mockResolvedValue([]);
       const args = { where: { status: 'DRAFT' } };
 
-      runWithTenant(() => call('PurchaseOrder', 'findMany', args, query));
+      await runWithTenant(() => call('PurchaseOrder', 'findMany', args, query));
 
       expect(query).toHaveBeenCalledWith({
         where: { status: 'DRAFT', tenant_id: TENANT_ID },
@@ -77,11 +77,11 @@ describe('applyTenantIsolation', () => {
   });
 
   describe('create() — must stamp tenant_id', () => {
-    it('injects tenant_id into data', () => {
-      const query = jest.fn().mockReturnValue({ id: '1', tenant_id: TENANT_ID });
+    it('injects tenant_id into data', async () => {
+      const query = jest.fn().mockResolvedValue({ id: '1', tenant_id: TENANT_ID });
       const args = { data: { name: 'Test', status: 'DRAFT' } };
 
-      runWithTenant(() => call('SalesOrder', 'create', args, query));
+      await runWithTenant(() => call('SalesOrder', 'create', args, query));
 
       expect(query).toHaveBeenCalledWith({
         data: { name: 'Test', status: 'DRAFT', tenant_id: TENANT_ID },
@@ -89,63 +89,95 @@ describe('applyTenantIsolation', () => {
     });
   });
 
-  describe('upsert() — must stamp tenant_id in both where and create', () => {
-    it('injects tenant_id into where and create', () => {
-      const query = jest.fn().mockReturnValue({});
+  describe('upsert() — must stamp tenant_id in create and enforce tenant-scoped where', () => {
+    it('injects tenant_id into composite unique where and create', async () => {
+      const query = jest.fn().mockResolvedValue({});
       const args = {
-        where: { slug: 'default-workshop' },
-        create: { name: 'Default', slug: 'default-workshop' },
-        update: { name: 'Default' },
+        where: {
+          tenant_id_code: {
+            tenant_id: 'wrong-tenant',
+            code: 'LOC-001',
+          },
+        },
+        create: {
+          code: 'LOC-001',
+          name: 'Main Warehouse',
+          type: 'warehouse',
+        },
+        update: { name: 'Main Warehouse' },
       };
 
-      runWithTenant(() => call('RevenueGroup', 'upsert', args, query));
+      await runWithTenant(() => call('StorageLocation', 'upsert', args, query));
 
       expect(query).toHaveBeenCalledWith({
-        where: { slug: 'default-workshop', tenant_id: TENANT_ID },
+        where: {
+          tenant_id_code: {
+            tenant_id: TENANT_ID,
+            code: 'LOC-001',
+          },
+        },
         create: {
-          name: 'Default',
-          slug: 'default-workshop',
+          code: 'LOC-001',
+          name: 'Main Warehouse',
+          type: 'warehouse',
           tenant_id: TENANT_ID,
         },
-        update: { name: 'Default' },
+        update: { name: 'Main Warehouse' },
       });
+    });
+
+    it('throws when upsert where selector does not include tenant_id', async () => {
+      const query = jest.fn();
+      const args = {
+        where: { id: 'loc-1' },
+        create: {
+          code: 'LOC-001',
+          name: 'Main Warehouse',
+          type: 'warehouse',
+        },
+        update: { name: 'Main Warehouse' },
+      };
+
+      await expect(
+        runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
+      ).rejects.toThrow(/must use a tenant-scoped unique selector containing tenant_id/);
+      expect(query).not.toHaveBeenCalled();
     });
   });
 
   describe('findUnique() — must throw', () => {
-    it('throws a developer-facing Error for findUnique', () => {
+    it('throws a developer-facing Error for findUnique', async () => {
       const query = jest.fn();
 
-      expect(() =>
+      await expect(
         runWithTenant(() =>
           call('SalesOrder', 'findUnique', { where: { id: '1' } }, query),
         ),
-      ).toThrow(/Do not use findUnique\(\)/);
+      ).rejects.toThrow(/Do not use findUnique\(\)/);
 
       expect(query).not.toHaveBeenCalled();
     });
 
-    it('throws a developer-facing Error for findUniqueOrThrow', () => {
+    it('throws a developer-facing Error for findUniqueOrThrow', async () => {
       const query = jest.fn();
 
-      expect(() =>
+      await expect(
         runWithTenant(() =>
           call('Invoice', 'findUniqueOrThrow', { where: { id: '1' } }, query),
         ),
-      ).toThrow(/Do not use findUniqueOrThrow\(\)/);
+      ).rejects.toThrow(/Do not use findUniqueOrThrow\(\)/);
 
       expect(query).not.toHaveBeenCalled();
     });
   });
 
   describe('no tenant context', () => {
-    it('throws InternalServerErrorException when called outside a tenant context', () => {
+    it('throws InternalServerErrorException when called outside a tenant context', async () => {
       const query = jest.fn();
 
-      // Deliberately NOT wrapping in runWithTenant
-      expect(() =>
+      await expect(
         call('SalesOrder', 'count', { where: {} }, query),
-      ).toThrow(InternalServerErrorException);
+      ).rejects.toThrow(InternalServerErrorException);
 
       expect(query).not.toHaveBeenCalled();
     });

@@ -27,9 +27,9 @@ async function generateOpenApiSpec() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
       },
-      'bearer',
+      'BearerAuth',
     )
-    .addSecurityRequirements('bearer')
+    .addSecurityRequirements('BearerAuth')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

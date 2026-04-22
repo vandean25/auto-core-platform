@@ -43,6 +43,41 @@ function getCurrentTenantId(): string {
   return user.tenantId;
 }
 
+function scopeUpsertWhere(
+  model: string,
+  where: Record<string, unknown> | undefined,
+  tenantId: string,
+): Record<string, unknown> {
+  const scopedWhere = { ...(where ?? {}) };
+  let injected = false;
+
+  if (Object.hasOwn(scopedWhere, 'tenant_id')) {
+    scopedWhere.tenant_id = tenantId;
+    injected = true;
+  }
+
+  for (const [key, value] of Object.entries(scopedWhere)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      continue;
+    }
+
+    const nested = { ...(value as Record<string, unknown>) };
+    if (Object.hasOwn(nested, 'tenant_id')) {
+      nested.tenant_id = tenantId;
+      scopedWhere[key] = nested;
+      injected = true;
+    }
+  }
+
+  if (!injected) {
+    throw new Error(
+      `[TenantIsolation] upsert() on model '${model}' must use a tenant-scoped unique selector containing tenant_id.`,
+    );
+  }
+
+  return scopedWhere;
+}
+
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
@@ -53,63 +88,69 @@ export function applyTenantIsolation(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query: (args: any) => unknown,
-): unknown {
-  // Pass through for models without a tenant_id column
-  if (GLOBAL_MODELS.has(model)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return query(args);
-  }
+  query: (args: any) => Promise<unknown>,
+): Promise<unknown> {
+  return (async () => {
+    // Pass through for models without a tenant_id column
+    if (GLOBAL_MODELS.has(model)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return query(args);
+    }
 
-  // Developer guard: findUnique bypasses tenant isolation due to Prisma's
-  // unique-index type constraints, so it must not be used in tenant-scoped code.
-  if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
-    throw new Error(
-      `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
-        `Use findFirst() with an explicit where clause instead. ` +
-        `findUnique() bypasses tenant_id injection due to Prisma unique-index type constraints.`,
-    );
-  }
+    // Developer guard: findUnique bypasses tenant isolation due to Prisma's
+    // unique-index type constraints, so it must not be used in tenant-scoped code.
+    if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
+      throw new Error(
+        `[TenantIsolation] Do not use ${operation}() on model '${model}'. ` +
+          `Use findFirst() with an explicit where clause instead. ` +
+          `findUnique() bypasses tenant_id injection due to Prisma unique-index type constraints.`,
+      );
+    }
 
-  const tenantId = getCurrentTenantId();
+    const tenantId = getCurrentTenantId();
 
-  // Read + bulk-mutation operations: inject into where clause
-  if (FILTERABLE_OPERATIONS.has(operation)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    args.where = { ...args.where, tenant_id: tenantId };
+    // Read + bulk-mutation operations: inject into where clause
+    if (FILTERABLE_OPERATIONS.has(operation)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      args.where = { ...args.where, tenant_id: tenantId };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return query(args);
+    }
+
+    // Targeted single-row mutations: scope where to prevent cross-tenant writes
+    if (operation === 'update' || operation === 'delete') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      args.where = { ...args.where, tenant_id: tenantId };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return query(args);
+    }
+
+    // create: stamp tenant_id onto the new record
+    if (operation === 'create') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      args.data = { ...args.data, tenant_id: tenantId };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return query(args);
+    }
+
+    // upsert: tenant_id required in both where (lookup) and create (new row)
+    if (operation === 'upsert') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      args.where = scopeUpsertWhere(
+        model,
+        args.where as Record<string, unknown> | undefined,
+        tenantId,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      args.create = { ...args.create, tenant_id: tenantId };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return query(args);
+    }
+
+    // Passthrough for any unhandled operations (createMany, etc.)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return query(args);
-  }
-
-  // Targeted single-row mutations: scope where to prevent cross-tenant writes
-  if (operation === 'update' || operation === 'delete') {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    args.where = { ...args.where, tenant_id: tenantId };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-    return query(args);
-  }
-
-  // create: stamp tenant_id onto the new record
-  if (operation === 'create') {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    args.data = { ...args.data, tenant_id: tenantId };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-    return query(args);
-  }
-
-  // upsert: tenant_id required in both where (lookup) and create (new row)
-  if (operation === 'upsert') {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    args.where = { ...args.where, tenant_id: tenantId };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    args.create = { ...args.create, tenant_id: tenantId };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-    return query(args);
-  }
-
-  // Passthrough for any unhandled operations (createMany, etc.)
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-  return query(args);
+  })();
 }
 
 /**
@@ -135,7 +176,7 @@ export function createTenantIsolationExtension() {
     query: {
       $allModels: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        $allOperations({ model, operation, args, query }: any) {
+        async $allOperations({ model, operation, args, query }: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return applyTenantIsolation(model, operation, args, query);
         },

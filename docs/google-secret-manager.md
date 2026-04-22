@@ -68,3 +68,17 @@ Required GitHub repository secrets for GSM access:
 - `GSM_SENTRY_AUTH_TOKEN_SECRET`
 - `GSM_SENTRY_ORG_SECRET`
 - `GSM_SENTRY_PROJECT_SECRET`
+
+## 7. Database Pooling Secrets (Multi-Tenant)
+
+For multi-tenant runtime stability, keep separate GSM secrets for direct and pooled database endpoints:
+
+- `DATABASE_URL` (direct endpoint, migrations/admin)
+- `DATABASE_URL_POOLED` (runtime pooled endpoint via PgBouncer/Neon pooler/Data Proxy)
+
+Recommended mapping pattern in `secrets/gsm-mapping.json`:
+
+- backend `.env` `DATABASE_URL` -> GSM `DATABASE_URL_POOLED`
+- backend `.env` `DATABASE_URL_DIRECT` -> GSM `DATABASE_URL`
+
+This keeps application runtime on the pool while preserving direct connectivity for operational scripts.

@@ -3,6 +3,7 @@ import { INestApplication, HttpStatus, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { GlobalExceptionFilter } from '../src/common';
 
 describe('GlobalExceptionFilter (e2e)', () => {
@@ -24,6 +25,9 @@ describe('GlobalExceptionFilter (e2e)', () => {
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+
+    const testTenant = await createTestTenant(prisma);
+    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
   });
 
   afterAll(async () => {

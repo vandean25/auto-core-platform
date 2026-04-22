@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
+import { TenantContextStorage } from '../common/services/tenant-context.storage';
 import type {
   DashboardEntityAction,
   DashboardEntityType,
@@ -45,26 +46,32 @@ function extractEntityId(result: unknown): string | undefined {
   return typeof candidate.id === 'string' ? candidate.id : undefined;
 }
 
-function extractTenantId(
+function getTenantIdFromContext(): string | undefined {
+  return TenantContextStorage.getUser()?.tenantId;
+}
+
+type RealtimeEmitter = Pick<DashboardRealtimeService, 'emitEntityUpdated'>;
+
+export function emitRealtimeForOperation(
+  dashboardRealtime: RealtimeEmitter,
+  model: string,
+  operation: string,
   result: unknown,
-  args: Record<string, unknown>,
-): string | undefined {
-  // 1. Try to get from result
-  if (result && typeof result === 'object') {
-    const res = result as { tenant_id?: unknown };
-    if (typeof res.tenant_id === 'string') return res.tenant_id;
+  actionOverride?: DashboardEntityAction,
+) {
+  const type = modelNameToEntityType(model);
+  const action = actionOverride ?? operationToAction(operation);
+  const tenantId = getTenantIdFromContext();
+
+  if (!type || !action || !tenantId) {
+    return;
   }
-  // 2. Try to get from data (create/update)
-  if (args?.data && typeof args.data === 'object') {
-    const data = args.data as { tenant_id?: unknown };
-    if (typeof data.tenant_id === 'string') return data.tenant_id;
-  }
-  // 3. Try to get from where (updateMeta/delete/many)
-  if (args?.where && typeof args.where === 'object') {
-    const where = args.where as { tenant_id?: unknown };
-    if (typeof where.tenant_id === 'string') return where.tenant_id;
-  }
-  return undefined;
+
+  dashboardRealtime.emitEntityUpdated(tenantId, {
+    type,
+    action,
+    entityId: extractEntityId(result),
+  });
 }
 
 export function createDashboardRealtimeExtension(
@@ -76,101 +83,64 @@ export function createDashboardRealtimeExtension(
       $allModels: {
         async create({ model, args, query }) {
           const result = await query(args);
-          const type = modelNameToEntityType(model);
-          const action = operationToAction('create');
-          const tenantId = extractTenantId(result, args);
-          if (type && action && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-              entityId: extractEntityId(result),
-            });
-          }
+          emitRealtimeForOperation(dashboardRealtime, model, 'create', result);
           return result;
         },
         async update({ model, args, query }) {
           const result = await query(args);
-          const type = modelNameToEntityType(model);
-          const action = operationToAction('update');
-          const tenantId = extractTenantId(result, args);
-          if (type && action && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-              entityId: extractEntityId(result),
-            });
-          }
+          emitRealtimeForOperation(dashboardRealtime, model, 'update', result);
           return result;
         },
         async delete({ model, args, query }) {
           const result = await query(args);
-          const type = modelNameToEntityType(model);
-          const action = operationToAction('delete');
-          const tenantId = extractTenantId(result, args);
-          if (type && action && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-              entityId: extractEntityId(result),
-            });
-          }
+          emitRealtimeForOperation(dashboardRealtime, model, 'delete', result);
           return result;
         },
         async updateMany({ model, args, query }) {
           const result = await query(args);
-          const type = modelNameToEntityType(model);
-          const action = operationToAction('updateMany');
-          const tenantId = extractTenantId(result, args);
-          if (type && action && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-            });
-          }
+          emitRealtimeForOperation(dashboardRealtime, model, 'updateMany', result);
           return result;
         },
         async deleteMany({ model, args, query }) {
           const result = await query(args);
-          const type = modelNameToEntityType(model);
-          const action = operationToAction('deleteMany');
-          const tenantId = extractTenantId(result, args);
-          if (type && action && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-            });
-          }
+          emitRealtimeForOperation(dashboardRealtime, model, 'deleteMany', result);
           return result;
         },
         async upsert({ model, args, query }) {
           // Distinguish between create and update by performing an existence pre-check
-          const ctx = Prisma.getExtensionContext(this);
-          const existing = await (
-            ctx as {
-              findFirst: (args: {
-                where: unknown;
-                select: { id: boolean };
-              }) => Promise<{ id: string } | null>;
-            }
-          ).findFirst({
-            where: args.where,
-            select: { id: true },
-          });
+          const ctx = Prisma.getExtensionContext(this) as Record<
+            string,
+            unknown
+          >;
+          const modelDelegate = ctx[model] as
+            | {
+                findFirst?: (args: {
+                  where: unknown;
+                  select: { id: boolean };
+                }) => Promise<{ id: string } | null>;
+              }
+            | undefined;
+
+          const existing =
+            typeof modelDelegate?.findFirst === 'function'
+              ? await modelDelegate.findFirst({
+                  where: args.where,
+                  select: { id: true },
+                })
+              : null;
 
           const result = await query(args);
-          const type = modelNameToEntityType(model);
           const action: DashboardEntityAction = existing
             ? 'UPDATED'
             : 'CREATED';
 
-          const tenantId = extractTenantId(result, args);
-          if (type && tenantId) {
-            dashboardRealtime.emitEntityUpdated(tenantId, {
-              type,
-              action,
-              entityId: extractEntityId(result),
-            });
-          }
+          emitRealtimeForOperation(
+            dashboardRealtime,
+            model,
+            'upsert',
+            result,
+            action,
+          );
           return result;
         },
       },

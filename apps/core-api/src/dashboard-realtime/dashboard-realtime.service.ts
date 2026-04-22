@@ -15,9 +15,8 @@ export class DashboardRealtimeService {
   ): void {
     const payload: DashboardEntityUpdatedPayload = {
       ...input,
-      tenantId,
       timestamp: new Date().toISOString(),
     };
-    this.dashboardGateway.emitEntityUpdated(payload);
+    this.dashboardGateway.emitEntityUpdated(tenantId, payload);
   }
 }

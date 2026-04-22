@@ -3,10 +3,15 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { AuthService } from './../src/auth/auth.service';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 describe('FinanceModule (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let authService: AuthService;
+  let authHeader: string;
+  let tenantId: string;
 
   beforeAll(async () => {
     process.env.API_KEY = 'test-api-key';
@@ -20,6 +25,12 @@ describe('FinanceModule (e2e)', () => {
     );
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
+    authService = app.get<AuthService>(AuthService);
+
+    const testTenant = await createTestTenant(prisma);
+    tenantId = testTenant.tenantId;
+    prisma = createTenantAwarePrisma(prisma, tenantId);
+    authHeader = `Bearer ${authService.createTestToken({ tenantId })}`;
   });
 
   afterAll(async () => {
@@ -38,10 +49,10 @@ describe('FinanceModule (e2e)', () => {
   it('/finance/settings (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/finance/settings')
-      .set('x-api-key', 'test-api-key')
+      .set('Authorization', authHeader)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id', 1);
+    expect(response.body).toHaveProperty('id');
     expect(response.body).toHaveProperty('invoice_prefix');
   });
 
@@ -49,7 +60,7 @@ describe('FinanceModule (e2e)', () => {
     const lockDate = new Date('2025-12-31').toISOString();
     const response = await request(app.getHttpServer())
       .patch('/finance/settings')
-      .set('x-api-key', 'test-api-key')
+      .set('Authorization', authHeader)
       .send({ lock_date: lockDate })
       .expect(200);
 
@@ -57,9 +68,19 @@ describe('FinanceModule (e2e)', () => {
   });
 
   it('Fiscal Lock Enforcement - Prevent Finalization before lock_date', async () => {
+    await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', authHeader)
+      .send({ lock_date: new Date('2025-12-31').toISOString() })
+      .expect(200);
+
     // 1. Create a customer
     const customer = await prisma.customer.create({
-      data: { name: 'Finance Test', email: `fin-${Date.now()}@test.com` },
+      data: {
+        first_name: 'Finance',
+        last_name: 'Test',
+        email: `fin-${Date.now()}@test.com`,
+      },
     });
 
     // 2. Create an invoice with an old date
@@ -79,24 +100,35 @@ describe('FinanceModule (e2e)', () => {
     // 3. Try to finalize (Settings locked up to 2025-12-31)
     await request(app.getHttpServer())
       .put(`/sales/invoices/${invoice.id}/finalize`)
-      .set('x-api-key', 'test-api-key')
+      .set('Authorization', authHeader)
       .expect(403);
   });
 
   it('Revenue Group Snapshot - Create Invoice Draft', async () => {
+    const revenueGroupName = `E2E Test Parts 20% ${Date.now()}`;
+
     // 1. Setup Test Data (Self-contained)
     const revGroup = await prisma.revenueGroup.upsert({
-      where: { name: 'E2E Test Parts 20%' },
+      where: {
+        tenant_id_name: {
+          tenant_id: tenantId,
+          name: revenueGroupName,
+        },
+      },
       update: {},
       create: {
-        name: 'E2E Test Parts 20%',
+        name: revenueGroupName,
         tax_rate: 20.0,
         account_number: 'E2E-4000',
       },
     });
 
     const customer = await prisma.customer.create({
-      data: { name: 'Snapshot Test', email: `snap-${Date.now()}@test.com` },
+      data: {
+        first_name: 'Snapshot',
+        last_name: 'Test',
+        email: `snap-${Date.now()}@test.com`,
+      },
     });
 
     const catalogItem = await prisma.catalogItem.create({
@@ -112,7 +144,7 @@ describe('FinanceModule (e2e)', () => {
     // 2. Create invoice draft
     const response = await request(app.getHttpServer())
       .post('/sales/invoices')
-      .set('x-api-key', 'test-api-key')
+      .set('Authorization', authHeader)
       .send({
         customerId: customer.id,
         items: [

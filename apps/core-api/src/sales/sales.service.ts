@@ -287,11 +287,9 @@ export class SalesService {
           // Refetch stock to give accurate error message if concurrency was high
           const latestStock = await tx.inventoryStock.findFirst({
             where: {
-              tenant_id_catalog_item_id_location_id: {
-                tenant_id: tenantId,
-                catalog_item_id: update.catalog_item_id,
-                location_id: update.locationId,
-              },
+              tenant_id: tenantId,
+              catalog_item_id: update.catalog_item_id,
+              location_id: update.locationId,
             },
           });
           throw new BadRequestException(
