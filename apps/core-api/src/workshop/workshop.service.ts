@@ -1184,12 +1184,12 @@ export class WorkshopService {
 
     const [mechanics, bays] = await Promise.all([
       this.prisma.employee.findMany({
-        where: { role: 'MECHANIC', is_active: true },
+        where: { tenant_id: tenantId, role: 'MECHANIC', is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         select: { id: true, name: true, role: true, is_active: true, sort_order: true },
       }),
       this.prisma.bay.findMany({
-        where: { is_active: true },
+        where: { tenant_id: tenantId, is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         select: { id: true, name: true, is_active: true, sort_order: true },
       }),
@@ -1375,7 +1375,7 @@ export class WorkshopService {
 
     if (dto.mechanicId !== undefined && dto.mechanicId !== null) {
       const mechanic = await this.prisma.employee.findFirst({
-        where: { id: dto.mechanicId },
+        where: { id: dto.mechanicId, tenant_id: tenantId },
         select: { id: true, role: true, is_active: true },
       });
 
@@ -1400,7 +1400,7 @@ export class WorkshopService {
 
     if (dto.bayId !== undefined && dto.bayId !== null) {
       const bay = await this.prisma.bay.findFirst({
-        where: { id: dto.bayId },
+        where: { id: dto.bayId, tenant_id: tenantId },
         select: { id: true, is_active: true },
       });
 

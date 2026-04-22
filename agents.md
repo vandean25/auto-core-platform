@@ -144,7 +144,10 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **Error Handling**: Use standard NestJS HTTP exceptions (`BadRequestException`, `NotFoundException`, etc.) with clear, descriptive error messages.
 - **Prisma**: Use `PrismaService` for all DB operations. Schema uses `snake_case` via `@@map()`. Always run `npx prisma generate` after schema changes. Seed data is in `prisma/seed.ts`. Use `npx prisma migrate dev` for development migrations.
 - **Validation**: Global `ValidationPipe` is enabled in `main.ts` with `whitelist: true` and `transform: true`. Use `class-validator` and `class-transformer` extensively in validation DTOs.
-
+- **Tenant Isolation (Critical — Zero-Tolerance)**: Every Prisma query against a tenant-scoped model **must** include `tenant_id: tenantId` in its `where` clause. This applies to all read queries (`findMany`, `findFirst`, `findUnique`), write validation lookups, and any `include`/subquery that resolves a related entity the caller owns. Omitting `tenant_id` is a cross-tenant data leak vulnerability. The `tenantId` must be obtained from `this.tenantContext.getTenantId()` at the top of each service method — never trust an ID supplied directly from the request body for scoping. Tenant-scoped models are those with a `tenant_id` column (e.g., `Employee`, `Bay`, `Customer`, `Vehicle`, `WorkshopOrder`, `InventoryStock`, etc.).
+  - 🔴 **DON'T:** `prisma.employee.findMany({ where: { role: 'MECHANIC' } })` — leaks employees from all tenants.
+  - 🟢 **DO:** `prisma.employee.findMany({ where: { tenant_id: tenantId, role: 'MECHANIC' } })`
+  
 ### API Conventions
 - **Prefix**: All endpoints are prefixed with `/api`.
 - **Formatting**: List endpoints return `{ data, meta }` format for list endpoints. Use pagination with `page` and `limit` query params.
