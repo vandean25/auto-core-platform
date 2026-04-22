@@ -41,6 +41,8 @@ export const workshopKeys = {
   detail: (id: string) => workshopOrderDetailKey(id),
   order: (id: string) => workshopOrderDetailKey(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
+  boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
+  boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
 }
 
 export const laborKeys = {
@@ -579,3 +581,141 @@ export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
   }
   return response.blob()
 }
+
+// ─── Board API ────────────────────────────────────────────────────────────────
+
+export type PartsStatus = 'READY' | 'SHORTAGE' | 'WAITING' | 'NO_PARTS'
+
+export type WorkshopMechanic = {
+  id: string
+  name: string
+  role: string
+  isActive: boolean
+  sortOrder: number
+}
+
+export type WorkshopBay = {
+  id: string
+  name: string
+  isActive: boolean
+  sortOrder: number
+}
+
+export type WorkshopResourcesResponse = {
+  mechanics: WorkshopMechanic[]
+  bays: WorkshopBay[]
+}
+
+export type BoardLineItem = {
+  id: string
+  type: WorkshopLineItemType
+  itemNo: string
+  description: string
+  quantity: number
+  unitPrice: number
+  catalogItemId: string | null
+}
+
+export type BoardTask = {
+  id: string
+  title: string
+  status: WorkshopTaskStatus
+  lineItems: BoardLineItem[]
+}
+
+export type BoardCustomer = {
+  id: string
+  type: string
+  firstName: string
+  lastName: string
+  companyName: string | null
+}
+
+export type BoardVehicle = {
+  id: string
+  make: string
+  model: string
+  year: number
+  plate: string | null
+}
+
+export type BoardAssignmentTarget = {
+  kind: 'mechanic' | 'bay'
+  id: string
+  label: string
+}
+
+export type BoardOrder = {
+  id: string
+  orderNumber: string
+  status: string
+  customer: BoardCustomer
+  vehicle: BoardVehicle
+  mechanicId: string | null
+  bayId: string | null
+  stagingLocationId: string | null
+  partsStatus: PartsStatus
+  tasks: BoardTask[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type BoardActiveResponse = {
+  data: BoardOrder[]
+}
+
+export type AssignBoardPayload = {
+  orderId: string
+  mechanicId?: string | null
+  bayId?: string | null
+}
+
+export const boardKeys = {
+  all: ['workshop'] as const,
+  resources: () => workshopKeys.boardResources(),
+  active: () => workshopKeys.boardActive(),
+}
+
+export function useWorkshopResources() {
+  return useQuery<WorkshopResourcesResponse>({
+    queryKey: boardKeys.resources(),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/resources`)
+      if (!response.ok) throw new Error('Failed to fetch workshop resources')
+      return response.json()
+    },
+  })
+}
+
+export function useBoardActive() {
+  return useQuery<BoardActiveResponse>({
+    queryKey: boardKeys.active(),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/board/active`)
+      if (!response.ok) throw new Error('Failed to fetch active board')
+      return response.json()
+    },
+  })
+}
+
+export function useAssignBoard() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: AssignBoardPayload) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/board/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { message?: string }
+        throw new Error(body.message ?? 'Failed to assign board')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: boardKeys.active() })
+    },
+  })
+}
+

@@ -756,6 +756,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getBoardResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/board/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getBoardActive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/board/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_assignBoard"];
+        trace?: never;
+    };
     "/api/invoices/drafts": {
         parameters: {
             query?: never;
@@ -1345,6 +1393,83 @@ export interface components {
             message: string;
             enqueued: boolean;
             taskId?: string;
+        };
+        WorkshopMechanicDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
+            isActive: boolean;
+            sortOrder: number;
+        };
+        WorkshopBayDto: {
+            id: string;
+            name: string;
+            isActive: boolean;
+            sortOrder: number;
+        };
+        WorkshopResourcesResponseDto: {
+            mechanics: components["schemas"]["WorkshopMechanicDto"][];
+            bays: components["schemas"]["WorkshopBayDto"][];
+        };
+        BoardCustomerDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            firstName: string;
+            lastName: string;
+            companyName?: string | null;
+        };
+        BoardVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            plate?: string | null;
+        };
+        BoardLineItemDto: {
+            id: string;
+            type: string;
+            itemNo: string;
+            description: string;
+            quantity: number;
+            unitPrice: number;
+            catalogItemId?: string | null;
+        };
+        BoardTaskDto: {
+            id: string;
+            title: string;
+            status: string;
+            lineItems: components["schemas"]["BoardLineItemDto"][];
+        };
+        BoardOrderDto: {
+            id: string;
+            orderNumber: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            customer: components["schemas"]["BoardCustomerDto"];
+            vehicle: components["schemas"]["BoardVehicleDto"];
+            mechanicId?: string | null;
+            bayId?: string | null;
+            stagingLocationId?: string | null;
+            /** @description Parts readiness status */
+            partsStatus: string;
+            tasks: components["schemas"]["BoardTaskDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BoardActiveResponseDto: {
+            data: components["schemas"]["BoardOrderDto"][];
+        };
+        AssignBoardDto: {
+            /** @description Workshop order ID to assign */
+            orderId: string;
+            /** @description Mechanic (employee) ID to assign, or null to unassign */
+            mechanicId?: string | null;
+            /** @description Bay ID to assign, or null to unassign */
+            bayId?: string | null;
         };
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
@@ -3409,6 +3534,66 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
+            };
+        };
+    };
+    WorkshopController_getBoardResources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopResourcesResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getBoardActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardActiveResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_assignBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignBoardDto"];
+            };
+        };
+        responses: {
+            /** @description Updated workshop order assignment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

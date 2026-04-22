@@ -15,6 +15,7 @@ import {
   Truck,
   UserRound,
   Wrench,
+  LayoutGrid,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -73,7 +74,15 @@ const coreModules: SidebarModule[] = [
     to: '/workshop/orders',
     icon: Wrench,
     isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/workshop'),
+    isActive: (pathname) => pathname.startsWith('/workshop/orders') || pathname.startsWith('/workshop/intake') || pathname.startsWith('/workshop/pick'),
+  },
+  {
+    id: 'workshop-board',
+    label: 'Workshop Board',
+    to: '/workshop/board',
+    icon: LayoutGrid,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/board'),
   },
   {
     id: 'inventory',
