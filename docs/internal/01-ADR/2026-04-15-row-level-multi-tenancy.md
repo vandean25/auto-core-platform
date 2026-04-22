@@ -12,6 +12,8 @@ tags:
   - prisma
   - auth
   - database
+  - firebase
+  - user-management
 ---
 
 # ADR-0013: Row-Level Multi-Tenancy
@@ -19,6 +21,8 @@ tags:
 ## Status
 
 **Accepted** — 2026-04-15
+
+**Amended** — 2026-04-22 (Hybrid Authentication & Membership Foundation)
 
 ## Context
 
@@ -30,6 +34,8 @@ Our core constraints are:
 2. **Cost-efficiency.** Each new dedicated PostgreSQL instance adds a fixed monthly floor cost regardless of utilisation. At launch scale, most customer databases would be nearly idle. Google Cloud Run's shared-compute model is already proven to serve our workload cost-effectively.
 3. **DRY codebase.** Schema, business logic, API layer, and frontend must remain unified. Per-customer forks violate every principle of sustainable product development.
 4. **Strict data isolation.** Despite sharing infrastructure, a mechanic logged into Workshop A must have **zero ability** to read, write, or infer the existence of Workshop B's data — even in the event of a developer error. Data isolation must be enforced at the ORM layer, not left to per-query discipline.
+
+As the platform moves from script-based onboarding toward real SaaS administration, a second problem has become unavoidable: **Firebase Custom Claims alone cannot act as the system of record for user membership**. They are excellent for stateless request-time authorization, but they are poor at powering relational product features such as a tenant user directory, invite flows, team management DataTables, and cross-tenant platform administration. We therefore need a persistent relational membership layer in PostgreSQL without sacrificing the performance and simplicity of JWT-based request authorization.
 
 The decision determines the architectural foundation for all future domain work: every table, every query, every unique constraint, and every authentication flow is affected.
 
@@ -90,9 +96,59 @@ model SalesOrder {
 
 This applies to every uniqueness invariant across the schema, including (but not limited to) `order_number`, `invoice_number`, `sku`, and `slug` fields.
 
-#### 2. Authentication: JWT with Embedded `tenantId`
+#### 2. Authentication & Membership: Hybrid Auth Architecture
 
-The current global API-key authentication is replaced by JWT-based authentication. JWTs are issued by the Auth module upon successful login and contain the following claims:
+The original JWT-based request model remains intact, but **Firebase Custom Claims are no longer treated as the system of record for user membership**. Instead, we adopt a hybrid model:
+
+- **PostgreSQL is the source of truth** for users and tenant memberships.
+- **Firebase remains the authentication provider and token transport layer**.
+- **JWT bearer tokens still carry `tenantId` and `role`** for fast, stateless request processing.
+- **Existing request middleware remains unchanged** because the database state is synchronized into Firebase Custom Claims.
+
+**New relational models:**
+
+```prisma
+model User {
+  id          String         @id @default(uuid())
+  firebaseUid String         @unique
+  email       String         @unique
+  firstName   String?
+  lastName    String?
+  memberships TenantMember[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("users")
+}
+
+enum TenantMemberRole {
+  OWNER
+  ADMIN
+  TECH
+  SALES
+}
+
+model TenantMember {
+  id        String           @id @default(uuid())
+  tenant_id String
+  tenant    Tenant           @relation(fields: [tenant_id], references: [id])
+  user_id   String
+  user      User             @relation(fields: [user_id], references: [id])
+  role      TenantMemberRole
+  is_active Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@unique([tenant_id, user_id])
+  @@map("tenant_members")
+}
+```
+
+A single `User` may hold memberships in multiple tenants in PostgreSQL. However, the JWT still represents **one active tenant context per session**. The `tenantId` and `role` claims embedded in the bearer token are therefore treated as a synchronized projection of the user's currently active `TenantMember`, not the source of truth.
+
+**JWT payload remains hot-path optimized:**
 
 ```json
 {
@@ -105,7 +161,23 @@ The current global API-key authentication is replaced by JWT-based authenticatio
 }
 ```
 
-The `tenantId` claim is extracted and validated by a NestJS `JwtAuthGuard` on every authenticated request. It is **never sourced from the request body or query parameters** — only from the signed JWT payload, preventing tenant spoofing.
+The `tenantId` claim is still extracted and validated by `JwtAuthGuard` on every authenticated request. It is **never sourced from the request body or query parameters** — only from the signed JWT payload, preventing tenant spoofing.
+
+**Synchronization workflow:**
+
+1. Backend writes `User` and `TenantMember` state to PostgreSQL.
+2. Backend immediately calls the Firebase Admin SDK to update the user's custom claims, e.g. `{ tenantId: "xyz", role: "ADMIN" }`.
+3. Client obtains a refreshed Firebase ID token on the next token refresh or sign-in.
+4. Existing `auth.service.ts` logic continues to trust the token claims for request-time authorization without an extra membership database lookup.
+
+**Administrative modules introduced by this decision:**
+
+- `PlatformAdminModule` for internal `Tenant` CRUD, protected by a `SuperAdminGuard` backed by a platform-level claim or a temporary hardcoded admin-email allowlist.
+- `TenantMemberModule` for invite, list, update, and deactivate membership workflows.
+- `POST /tenant-members/invite` resolves or provisions the Firebase user, writes the `User`, writes the `TenantMember`, and synchronizes custom claims.
+- Frontend admin routes:
+  - `/platform/tenants` for Super Admin tenant management.
+  - `/settings/team` for tenant-scoped team management.
 
 #### 3. Data Isolation: Prisma Client Extension + AsyncLocalStorage
 
@@ -277,6 +349,9 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **Single codebase, single deployment pipeline.** All tenants run identical application code. Bug fixes and feature releases are deployed once.
 - **Defence-in-depth isolation.** The ALS + Prisma extension chain ensures that forgetting to add `where: { tenant_id }` in a new query is not a security vulnerability — the ORM layer enforces it automatically.
 - **Audit trail is tenant-scoped by default.** `InventoryTransaction`, `InvoiceSequence`, and all append-only tables carry `tenant_id`, so per-tenant historical reports are trivially filterable.
+- **Relational user management becomes possible.** `User` and `TenantMember` allow efficient DataTable-backed features such as team directories, invite flows, and tenant membership administration.
+- **Request-time auth remains fast.** Existing middleware continues to read `tenantId` and `role` from the JWT without an additional database lookup on every request.
+- **Platform administration becomes tractable.** Super Admin workflows such as tenant CRUD and subscription-facing management now have a relational foundation.
 
 ### Negative
 
@@ -285,12 +360,60 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **Raw query prohibition.** Any RLS bypass (e.g., cross-tenant admin reporting) requires out-of-band tooling (e.g., a privileged internal service with a non-extended Prisma client) that is not covered by this ADR and must undergo separate architectural review before use.
 - **WebSocket tenant isolation — resolved via Socket.io Rooms.** On socket connection, the NestJS gateway calls `client.join('tenant_' + jwt.tenantId)`. The `createDashboardRealtimeExtension` is updated to emit `this.server.to('tenant_' + tenantId).emit(...)` instead of broadcasting globally. `tenantId` is sourced from the ALS context, which is already populated by `TenantMiddleware` for the duration of the originating HTTP request that triggered the mutation. No changes are required to event payloads.
 - **Testing complexity.** Integration tests must seed a `Tenant` row and establish an ALS context before any Prisma operation. Test helpers must be updated to inject a default `tenantId`.
+- **Dual-write synchronization complexity.** Membership changes now touch both PostgreSQL and Firebase Custom Claims. Failure handling, retries, and token refresh semantics must be defined carefully.
+- **Token staleness becomes a product concern.** After a role or membership change, users may carry an old token until refresh or re-authentication. UI and backend workflows must account for this delay.
+- **User lifecycle becomes broader than authentication.** Placeholder invitees, deactivated memberships, and cross-tenant membership history now require explicit domain handling instead of being delegated entirely to Firebase.
 
 ### Neutral
 
 - The authentication change from API key to JWT is a prerequisite, not a consequence. Existing consumers must rotate credentials at cutover.
 - The `Tenant` table is not a "domain entity" in the business sense — it is infrastructure. It does not participate in the real-time entity map (ADR-0001) and is explicitly excluded from `SUPPORTED_ENTITY_TYPES`.
 - Per-tenant `FinanceSettings` means the initial data seeding step at tenant onboarding must create a `FinanceSettings` row. Onboarding runbooks must be updated accordingly.
+- A JWT still carries only one active tenant context per session. Supporting a tenant switcher or simultaneous multi-tenant sessions is a future product decision, not part of this amendment.
+
+---
+
+## Follow-On Feature: Tenant Management & User Membership Foundation
+
+### Objective
+
+Introduce the relational and administrative foundation required to manage tenants and tenant members as first-class SaaS concepts while preserving the current fast JWT-based request pipeline.
+
+### Execution Steps
+
+1. **Database Schema Update (Prisma)**
+  - Create a `User` model with `id`, `firebaseUid`, `email`, `firstName`, `lastName`, and standard timestamps.
+  - Create a `TenantMember` model with `id`, `tenantId`, `userId`, `role`, `isActive`, and standard timestamps.
+  - Add `@@unique([tenantId, userId])` on `TenantMember`.
+
+2. **Backend API Development (NestJS)**
+  - Create `PlatformAdminModule` with internal `Tenant` CRUD endpoints.
+  - Protect tenant CRUD routes with `SuperAdminGuard` using a system-level claim or a temporary hardcoded allowlist of platform-admin emails.
+  - Create `TenantMemberModule` with `POST /tenant-members/invite` and supporting list/update endpoints.
+  - Invite workflow:
+    - Check whether the user exists by email.
+    - If not, provision the Firebase identity required to obtain a `firebaseUid`, create the `User` row, and trigger a Firebase invite/reset-link flow.
+    - Create the `TenantMember` record.
+    - Immediately synchronize Firebase Custom Claims to reflect the user's active `tenantId` and `role`.
+
+3. **Frontend UI Implementation (React 19 / Vite)**
+  - Add `/platform/tenants` for Super Admins.
+  - Use the shared `DataTable` for tenant listing.
+  - Place `+ Tenant` in the top-right header area.
+  - Open a shadcn `Sheet` on row click for tenant editing with debounced auto-save (750ms).
+  - Add `/settings/team` for tenant admins.
+  - Use the shared `DataTable` for `TenantMember` listing.
+  - Place `+ Member` in the top-right header area and open an invite modal.
+  - Use TanStack Query v5 with strict query key factories, e.g. `tenantMemberKeys.list({ tenantId })`.
+
+### Acceptance Criteria
+
+- [ ] Prisma migrations run successfully without data loss.
+- [ ] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims.
+- [ ] Existing `auth.service.ts` request middleware continues to function without modification by reading the synchronized claims.
+- [ ] Frontend query usage follows TanStack Query v5 key-factory discipline.
+- [ ] Primary list pages use the standardized shared `DataTable` component.
+- [ ] Database access uses bulk-fetch / pre-fetch-and-map patterns; no `await` calls inside loops when resolving tenant member data.
 
 ---
 
@@ -301,6 +424,14 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 | **A — Database-per-tenant** | Each customer gets a dedicated PostgreSQL instance. Application routes to the correct DB by tenant subdomain at connection time. | Strongest possible isolation. Easy per-tenant backup and restore. Schema migrations can be staggered per customer. | $50–$150+/month per customer at minimum regardless of activity. Requires a connection-routing layer. Prisma does not natively support dynamic database URLs per request. Operational burden grows linearly with customer count. | **Rejected** |
 | **B — Schema-per-tenant** | All tenants share a single PostgreSQL server. Each tenant gets its own PostgreSQL schema (`thunder_auto.*`, `city_motors.*`). Prisma sets `search_path` per request. | Strong isolation (PostgreSQL enforces schema separation at the engine level). Easier per-tenant migrations. Backup per schema is possible. | Prisma Migrate does not support dynamic schema targeting — migrations run against a single, hard-coded schema. Workarounds (running migrations programmatically per schema) introduce operational fragility. At 50+ tenants, the number of live schemas creates non-trivial PostgreSQL catalog overhead. The real-time extension (ADR-0001) and connection pooling (PgBouncer / Cloud SQL) interact poorly with per-request `search_path` switching. | **Rejected** |
 | **C — Row-Level Multi-Tenancy (Shared Schema)** | All tenants share tables. Every row is tagged with `tenant_id`. ORM layer enforces scoping via Prisma `$extends` + NestJS ALS. | Zero infrastructure overhead for new tenants. No Prisma Migrate limitations. Works seamlessly with existing Cloud Run + Cloud SQL setup. Defence-in-depth isolation enforced at ORM layer. | Requires schema migration across all tables. Composite unique constraints must be maintained as a convention. Raw queries bypass isolation. | **Accepted** |
+
+### Authentication & Membership Alternatives Considered
+
+| Option | Description | Pros | Cons | Verdict |
+|--------|-------------|------|------|---------|
+| **D — Claims-Only Membership** | Store tenant assignment and role exclusively in Firebase Custom Claims, with no relational membership tables in PostgreSQL. | Fast request-time auth. Minimal schema work. | Cannot support user directory queries, invite workflows, tenant team tables, or cross-tenant administration without abusing Firebase as an application database. No reliable system of record for memberships. | **Rejected** |
+| **E — Database Lookup on Every Request** | Resolve tenant membership from PostgreSQL for every authenticated request and ignore token claims for authorization. | PostgreSQL is authoritative. No claim synchronization required. | Adds a membership database hit to every request, complicates the hot path, and throws away the performance benefits of stateless JWT authorization already established in this ADR. | **Rejected** |
+| **F — Hybrid Auth & Membership** | Store `User` and `TenantMember` in PostgreSQL, then synchronize active membership into Firebase Custom Claims so JWTs still carry `tenantId` and `role`. | Preserves fast stateless auth while enabling relational admin features and DataTable-backed user management. | Introduces claim synchronization and token-refresh complexity. | **Accepted as Amendment** |
 
 ---
 
