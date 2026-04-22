@@ -5,6 +5,7 @@ import type {
   DashboardEntityAction,
   DashboardEntityType,
 } from '../dashboard-realtime/dashboard-events.types';
+import { toPrismaDelegateKey } from './prisma-delegate';
 
 const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,
@@ -112,7 +113,8 @@ export function createDashboardRealtimeExtension(
             string,
             unknown
           >;
-          const modelDelegate = ctx[model] as
+          const delegateKey = toPrismaDelegateKey(model);
+          const modelDelegate = (ctx[delegateKey] ?? ctx[model]) as
             | {
                 findFirst?: (args: {
                   where: unknown;

@@ -45,6 +45,20 @@ describe('Tenant Isolation Regression (e2e)', () => {
       where: { name: { startsWith: prefix } },
     });
 
+    await tenantAPrisma.employee.deleteMany({
+      where: { name: { startsWith: prefix } },
+    });
+    await tenantBPrisma.employee.deleteMany({
+      where: { name: { startsWith: prefix } },
+    });
+
+    await tenantAPrisma.bay.deleteMany({
+      where: { name: { startsWith: prefix } },
+    });
+    await tenantBPrisma.bay.deleteMany({
+      where: { name: { startsWith: prefix } },
+    });
+
     await tenantAPrisma.storageLocation.deleteMany({
       where: { code: { startsWith: `${prefix}-LOC` } },
     });
@@ -59,6 +73,20 @@ describe('Tenant Isolation Regression (e2e)', () => {
         where: { name: { startsWith: prefix } },
       });
       await tenantBPrisma.brand.deleteMany({
+        where: { name: { startsWith: prefix } },
+      });
+
+      await tenantAPrisma.employee.deleteMany({
+        where: { name: { startsWith: prefix } },
+      });
+      await tenantBPrisma.employee.deleteMany({
+        where: { name: { startsWith: prefix } },
+      });
+
+      await tenantAPrisma.bay.deleteMany({
+        where: { name: { startsWith: prefix } },
+      });
+      await tenantBPrisma.bay.deleteMany({
         where: { name: { startsWith: prefix } },
       });
 
@@ -273,5 +301,79 @@ describe('Tenant Isolation Regression (e2e)', () => {
     await expect(
       tenantAPrisma.brand.findUnique({ where: { id: 1 } }),
     ).rejects.toThrow(/Do not use findUnique\(\)/);
+  });
+
+  it('scopes bays and employees to the current tenant for reads and writes', async () => {
+    const sharedBayName = `${prefix}-BAY-SHARED`;
+    const sharedEmployeeName = `${prefix}-EMP-SHARED`;
+
+    const bayA = await tenantAPrisma.bay.create({
+      data: {
+        name: sharedBayName,
+        is_active: true,
+        sort_order: 1,
+      },
+    });
+    const bayB = await tenantBPrisma.bay.create({
+      data: {
+        name: sharedBayName,
+        is_active: true,
+        sort_order: 1,
+      },
+    });
+
+    const employeeA = await tenantAPrisma.employee.create({
+      data: {
+        name: sharedEmployeeName,
+        role: 'MECHANIC',
+        is_active: true,
+        sort_order: 1,
+      },
+    });
+    const employeeB = await tenantBPrisma.employee.create({
+      data: {
+        name: sharedEmployeeName,
+        role: 'MECHANIC',
+        is_active: true,
+        sort_order: 1,
+      },
+    });
+
+    const baysForTenantA = await tenantAPrisma.bay.findMany({
+      where: { name: sharedBayName },
+    });
+    const baysForTenantB = await tenantBPrisma.bay.findMany({
+      where: { name: sharedBayName },
+    });
+
+    expect(baysForTenantA).toHaveLength(1);
+    expect(baysForTenantA[0].id).toBe(bayA.id);
+    expect(baysForTenantB).toHaveLength(1);
+    expect(baysForTenantB[0].id).toBe(bayB.id);
+
+    const employeesForTenantA = await tenantAPrisma.employee.findMany({
+      where: { name: sharedEmployeeName },
+    });
+    const employeesForTenantB = await tenantBPrisma.employee.findMany({
+      where: { name: sharedEmployeeName },
+    });
+
+    expect(employeesForTenantA).toHaveLength(1);
+    expect(employeesForTenantA[0].id).toBe(employeeA.id);
+    expect(employeesForTenantB).toHaveLength(1);
+    expect(employeesForTenantB[0].id).toBe(employeeB.id);
+
+    await expect(
+      tenantAPrisma.bay.update({
+        where: { id: bayB.id },
+        data: { sort_order: 9 },
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      tenantAPrisma.employee.delete({
+        where: { id: employeeB.id },
+      }),
+    ).rejects.toThrow();
   });
 });

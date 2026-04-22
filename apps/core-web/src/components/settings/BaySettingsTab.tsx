@@ -75,7 +75,10 @@ function sortBays(
 export function BaySettingsTab() {
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
-  const { data: responseData, isLoading } = useBays({ includeInactive: true })
+  const { data: responseData, isLoading } = useBays({
+    includeInactive: true,
+    limit: 100,
+  })
   const createMutation = useCreateBay()
   const updateMutation = useUpdateBay()
   const deleteMutation = useDeleteBay()

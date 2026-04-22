@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EmployeeRole } from '@prisma/client';
+import { EmployeeRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateEmployeeDto,
@@ -81,7 +81,7 @@ export class EmployeeService {
         role: dto.role,
         is_active: dto.isActive ?? true,
         sort_order: dto.sortOrder ?? 0,
-      },
+      } as Prisma.EmployeeUncheckedCreateInput,
     });
 
     return this.mapEmployee(created);

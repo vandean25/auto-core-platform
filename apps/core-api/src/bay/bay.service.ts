@@ -81,7 +81,7 @@ export class BayService {
           name: dto.name.trim(),
           is_active: dto.isActive ?? true,
           sort_order: dto.sortOrder ?? 0,
-        },
+        } as Prisma.BayUncheckedCreateInput,
       });
       return this.mapBay(created);
     } catch (error) {

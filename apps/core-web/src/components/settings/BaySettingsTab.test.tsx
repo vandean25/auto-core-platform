@@ -1,16 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { useBays } from '@/api/bays'
 import { BaySettingsTab } from './BaySettingsTab'
 
 vi.mock('@/api/bays', () => ({
-  useBays: () => ({
+  useBays: vi.fn(() => ({
     data: {
       data: [],
-      meta: { total: 0, page: 1, limit: 25, totalPages: 1 },
+      meta: { total: 0, page: 1, limit: 100, totalPages: 1 },
     },
     isLoading: false,
-  }),
+  })),
   useCreateBay: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateBay: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteBay: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -26,5 +27,9 @@ describe('BaySettingsTab', () => {
 
     expect(screen.getByText('Bays')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Bay' })).toBeInTheDocument()
+    expect(vi.mocked(useBays)).toHaveBeenCalledWith({
+      includeInactive: true,
+      limit: 100,
+    })
   })
 })

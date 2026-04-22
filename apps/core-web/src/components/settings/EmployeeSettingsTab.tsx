@@ -100,7 +100,10 @@ function sortEmployees(
 export function EmployeeSettingsTab() {
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
-  const { data: responseData, isLoading } = useEmployees({ includeInactive: true })
+  const { data: responseData, isLoading } = useEmployees({
+    includeInactive: true,
+    limit: 100,
+  })
   const createMutation = useCreateEmployee()
   const updateMutation = useUpdateEmployee()
   const deleteMutation = useDeleteEmployee()

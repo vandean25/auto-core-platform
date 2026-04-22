@@ -19,14 +19,14 @@ function runWithTenant<T>(fn: () => T) {
 function call(
   model: string,
   operation: string,
-  args: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
 ) {
   return applyTenantIsolation(model, operation, args, queryFn);
 }
 
 describe('applyTenantIsolation', () => {
-  describe('GLOBAL_MODELS (Tenant, Employee, Bay)', () => {
+  describe('GLOBAL_MODELS (Tenant only)', () => {
     it('passes through Tenant queries without injecting tenant_id', async () => {
       const query = jest.fn().mockResolvedValue([]);
       const args = { where: { slug: 'acme' } };
@@ -36,17 +36,55 @@ describe('applyTenantIsolation', () => {
       expect(query).toHaveBeenCalledWith(args);
       expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
     });
+  });
 
-    it('passes through Employee queries without injecting tenant_id', async () => {
+  describe('tenant-scoped workshop settings models', () => {
+    it('injects tenant_id into Bay findMany queries', async () => {
       const query = jest.fn().mockResolvedValue([]);
-      await runWithTenant(() => call('Employee', 'findMany', { where: {} }, query));
-      expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
+
+      await runWithTenant(() => call('Bay', 'findMany', { where: {} }, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+      });
     });
 
-    it('passes through Bay queries without injecting tenant_id', async () => {
+    it('injects tenant_id into Employee create payloads', async () => {
+      const query = jest.fn().mockResolvedValue({});
+
+      await runWithTenant(() =>
+        call(
+          'Employee',
+          'create',
+          {
+            data: {
+              name: 'Jane Doe',
+              role: 'MECHANIC',
+              is_active: true,
+            },
+          },
+          query,
+        ),
+      );
+
+      expect(query).toHaveBeenCalledWith({
+        data: {
+          name: 'Jane Doe',
+          role: 'MECHANIC',
+          is_active: true,
+          tenant_id: TENANT_ID,
+        },
+      });
+    });
+
+    it('initialises missing args before scoping a Bay query', async () => {
       const query = jest.fn().mockResolvedValue([]);
-      await runWithTenant(() => call('Bay', 'findMany', { where: {} }, query));
-      expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
+
+      await runWithTenant(() => call('Bay', 'findMany', undefined, query));
+
+      expect(query).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+      });
     });
   });
 

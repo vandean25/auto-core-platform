@@ -41,6 +41,25 @@ export class PrismaService
       .$extends(
         createDashboardRealtimeExtension(dashboardRealtime),
       ) as PrismaClient;
+
+    const serviceProxy = new Proxy(this, {
+      get(target, property, receiver) {
+        if (
+          property === 'client' ||
+          property === 'logger' ||
+          property === 'pool' ||
+          property === 'onModuleInit' ||
+          property === 'onModuleDestroy' ||
+          property === 'connectWithRetry'
+        ) {
+          return Reflect.get(target, property, receiver);
+        }
+
+        return Reflect.get(target.client as object, property, target.client);
+      },
+    });
+
+    return serviceProxy as PrismaService;
   }
 
   async onModuleInit() {

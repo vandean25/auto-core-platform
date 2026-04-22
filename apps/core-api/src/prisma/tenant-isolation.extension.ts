@@ -1,13 +1,13 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage';
+import { toPrismaDelegateKey } from './prisma-delegate';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
- * These are either the root Tenant entity itself, or shared resource entities
- * (Employees, Bays) that are configured globally for the workshop system.
+ * Only the root Tenant entity itself is global.
  */
-const GLOBAL_MODELS = new Set(['Tenant', 'Employee', 'Bay']);
+const GLOBAL_MODELS = new Set(['Tenant']);
 
 /**
  * Operations where tenant_id is injected into args.where.
@@ -43,12 +43,20 @@ function getCurrentTenantId(): string {
   return user.tenantId;
 }
 
+function normalizeRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return { ...(value as Record<string, unknown>) };
+}
+
 function scopeUpsertWhere(
   model: string,
   where: Record<string, unknown> | undefined,
   tenantId: string,
 ): Record<string, unknown> {
-  const scopedWhere = { ...(where ?? {}) };
+  const scopedWhere = normalizeRecord(where);
   let injected = false;
 
   if (Object.hasOwn(scopedWhere, 'tenant_id')) {
@@ -83,6 +91,7 @@ function scopeUpsertWhere(
  * Applies tenant isolation rules to a single Prisma operation.
  */
 export function applyTenantIsolation(
+  this: unknown,
   model: string,
   operation: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,10 +100,12 @@ export function applyTenantIsolation(
   query: (args: any) => Promise<unknown>,
 ): Promise<unknown> {
   return (async () => {
+    const nextArgs = normalizeRecord(args);
+
     // Pass through for models without a tenant_id column
     if (GLOBAL_MODELS.has(model)) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return query(args);
+      return query(nextArgs);
     }
 
     // Developer guard: findUnique bypasses tenant isolation due to Prisma's
@@ -111,45 +122,84 @@ export function applyTenantIsolation(
 
     // Read + bulk-mutation operations: inject into where clause
     if (FILTERABLE_OPERATIONS.has(operation)) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      args.where = { ...args.where, tenant_id: tenantId };
+      nextArgs.where = {
+        ...normalizeRecord(nextArgs.where),
+        tenant_id: tenantId,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-      return query(args);
+      return query(nextArgs);
     }
 
-    // Targeted single-row mutations: scope where to prevent cross-tenant writes
+    // Targeted single-row mutations: pre-check against the current tenant and
+    // then execute the write with the caller's unique selector.
     if (operation === 'update' || operation === 'delete') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      args.where = { ...args.where, tenant_id: tenantId };
+      const where = normalizeRecord(nextArgs.where);
+      if (Object.keys(where).length === 0) {
+        throw new Error(
+          `[TenantIsolation] ${operation}() on model '${model}' requires a where clause.`,
+        );
+      }
+
+      const ctx = Prisma.getExtensionContext(this) as Record<string, unknown>;
+      const delegateKey = toPrismaDelegateKey(model);
+      const modelDelegate = ctx[delegateKey] as
+        | {
+            findFirst?: (findArgs: {
+              where: Record<string, unknown>;
+              select: { id: boolean };
+            }) => Promise<{ id: string } | null>;
+          }
+        | undefined;
+
+      if (typeof modelDelegate?.findFirst !== 'function') {
+        throw new Error(
+          `[TenantIsolation] Unable to resolve delegate for model '${model}'.`,
+        );
+      }
+
+      const existing = await modelDelegate.findFirst({
+        where,
+        select: { id: true },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(
+          `[TenantIsolation] ${model} record not found for current tenant.`,
+        );
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-      return query(args);
+      return query(nextArgs);
     }
 
     // create: stamp tenant_id onto the new record
     if (operation === 'create') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      args.data = { ...args.data, tenant_id: tenantId };
+      nextArgs.data = {
+        ...normalizeRecord(nextArgs.data),
+        tenant_id: tenantId,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-      return query(args);
+      return query(nextArgs);
     }
 
     // upsert: tenant_id required in both where (lookup) and create (new row)
     if (operation === 'upsert') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      args.where = scopeUpsertWhere(
+      nextArgs.where = scopeUpsertWhere(
         model,
-        args.where as Record<string, unknown> | undefined,
+        nextArgs.where as Record<string, unknown> | undefined,
         tenantId,
       );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      args.create = { ...args.create, tenant_id: tenantId };
+      nextArgs.create = {
+        ...normalizeRecord(nextArgs.create),
+        tenant_id: tenantId,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-      return query(args);
+      return query(nextArgs);
     }
 
     // Passthrough for any unhandled operations (createMany, etc.)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-    return query(args);
+    return query(nextArgs);
   })();
 }
 
@@ -178,7 +228,7 @@ export function createTenantIsolationExtension() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async $allOperations({ model, operation, args, query }: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyTenantIsolation(model, operation, args, query);
+          return applyTenantIsolation.call(this, model, operation, args, query);
         },
       },
     },
