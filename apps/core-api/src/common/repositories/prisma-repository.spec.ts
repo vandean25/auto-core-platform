@@ -13,6 +13,7 @@ describe('PrismaRepository', () => {
   beforeEach(() => {
     mockModel = {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -147,7 +148,7 @@ describe('PrismaRepository', () => {
   describe('findById', () => {
     it('returns record if found', async () => {
       const mockRecord = { id: 1 };
-      mockModel.findUnique.mockResolvedValue(mockRecord);
+      mockModel.findFirst.mockResolvedValue(mockRecord);
 
       const result = await repository.findById(1);
 
@@ -155,17 +156,17 @@ describe('PrismaRepository', () => {
     });
 
     it('throws NotFoundError if record missing', async () => {
-      mockModel.findUnique.mockResolvedValue(null);
+      mockModel.findFirst.mockResolvedValue(null);
 
       await expect(repository.findById(999)).rejects.toThrow(NotFoundError);
     });
 
     it('passes include option through', async () => {
-      mockModel.findUnique.mockResolvedValue({ id: 1 });
+      mockModel.findFirst.mockResolvedValue({ id: 1 });
 
       await repository.findById(1, { items: true });
 
-      expect(mockModel.findUnique).toHaveBeenCalledWith({
+      expect(mockModel.findFirst).toHaveBeenCalledWith({
         where: { id: 1 },
         include: { items: true },
       });
