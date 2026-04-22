@@ -152,14 +152,16 @@ A single `User` may hold memberships in multiple tenants in PostgreSQL. However,
 
 ```json
 {
-  "sub": "user-cuid",
+  "sub": "firebase-uid-9f3c2b7a",
   "email": "ali@thunder-auto.com",
-  "tenantId": "tenant-cuid",
+  "tenantId": "550e8400-e29b-41d4-a716-446655440000",
   "role": "ADMIN",
   "iat": 1744000000,
   "exp": 1744086400
 }
 ```
+
+In the current backend, `sub` maps to Firebase `decoded.uid` rather than the relational `User.id`. `tenantId` remains the PostgreSQL tenant UUID carried in the custom claims payload.
 
 The `tenantId` claim is still extracted and validated by `JwtAuthGuard` on every authenticated request. It is **never sourced from the request body or query parameters** — only from the signed JWT payload, preventing tenant spoofing.
 
@@ -167,20 +169,21 @@ The `tenantId` claim is still extracted and validated by `JwtAuthGuard` on every
 
 1. Backend writes `User` and `TenantMember` state to PostgreSQL.
 2. Backend immediately calls the Firebase Admin SDK to update the user's custom claims, e.g. `{ tenantId: "xyz", role: "ADMIN" }`.
-3. Backend emits `auth:claims_updated` to the affected user's private Socket.io room (for example `user_<userId>` or `user_<firebaseUid>`), not to the whole tenant room.
-4. The React 19 frontend listens for `auth:claims_updated` and silently forces a Firebase token refresh via `currentUser.getIdToken(true)`.
-5. After the forced refresh, the frontend updates the global auth context and invalidates TanStack Query caches so role-sensitive screens re-resolve immediately.
-6. If the forced refresh fails or the refreshed token no longer carries an active `tenantId` / `role` pair, the frontend clears auth state and signs the user out of privileged screens.
-7. Existing `auth.service.ts` logic continues to trust the token claims for request-time authorization without an extra membership database lookup.
+3. For security-sensitive membership changes such as role downgrades, tenant removal, or membership deactivation, the backend also revokes the user's Firebase refresh tokens after the claim sync succeeds. This does not invalidate an already-issued ID token by itself, but it prevents missed-socket or offline clients from minting fresh privileged tokens later.
+4. Backend emits `auth:claims_updated` to the affected user's private Socket.io room (for example `user_<firebaseUid>`), not to the whole tenant room.
+5. The React 19 frontend listens for `auth:claims_updated` and silently forces a Firebase token refresh via `currentUser.getIdToken(true)`.
+6. After the forced refresh, the frontend updates the global auth context and invalidates TanStack Query caches so role-sensitive screens re-resolve immediately.
+7. If the forced refresh fails or the refreshed token no longer carries an active `tenantId` / `role` pair, the frontend clears auth state and signs the user out of privileged screens.
+8. Existing `auth.service.ts` logic continues to trust the token claims for request-time authorization without an extra membership database lookup.
 
-This real-time claims refresh path is mandatory for role downgrades, membership deactivation, tenant removal, and any other `TenantMember` mutation that changes effective access.
+This real-time claims refresh path is mandatory for role downgrades, membership deactivation, tenant removal, and any other `TenantMember` mutation that changes effective access. Refresh-token revocation is a complementary control for sensitive changes, not a substitute for the targeted socket refresh path.
 
 **Administrative modules introduced by this decision:**
 
-- `PlatformAdminModule` for internal `Tenant` CRUD, protected by a `SuperAdminGuard` backed by a platform-level claim or a temporary hardcoded admin-email allowlist.
+- `PlatformAdminModule` for internal `Tenant` CRUD, protected by a `SuperAdminGuard` backed by a platform-level claim. If a short-lived bootstrap fallback is ever required before that claim exists, it must use an environment-configured admin-email allowlist with a documented expiration date and removal criterion before release; hardcoded identities are forbidden.
 - `TenantMemberModule` for invite, list, update, and deactivate membership workflows.
 - `POST /tenant-members/invite` resolves or provisions the Firebase user, writes the `User`, writes the `TenantMember`, and synchronizes custom claims.
-- `PATCH /tenant-members/:id` (or equivalent role / activation endpoint) must synchronize claims and emit `auth:claims_updated` to the affected user's private socket room immediately after the membership mutation succeeds.
+- `PATCH /tenant-members/:id` (or equivalent role / activation endpoint) must synchronize claims, revoke Firebase refresh tokens for security-sensitive changes, and emit `auth:claims_updated` to the affected user's private socket room immediately after the membership mutation succeeds.
 - Frontend admin routes:
   - `/platform/tenants` for Super Admin tenant management.
   - `/settings/team` for tenant-scoped team management.
@@ -367,7 +370,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **Raw query prohibition.** Any RLS bypass (e.g., cross-tenant admin reporting) requires out-of-band tooling (e.g., a privileged internal service with a non-extended Prisma client) that is not covered by this ADR and must undergo separate architectural review before use.
 - **WebSocket tenant isolation — resolved via Socket.io Rooms.** On socket connection, the NestJS gateway calls `client.join('tenant_' + jwt.tenantId)`. The `createDashboardRealtimeExtension` is updated to emit `this.server.to('tenant_' + tenantId).emit(...)` instead of broadcasting globally. `tenantId` is sourced from the ALS context, which is already populated by `TenantMiddleware` for the duration of the originating HTTP request that triggered the mutation. No changes are required to event payloads.
 - **Testing complexity.** Integration tests must seed a `Tenant` row and establish an ALS context before any Prisma operation. Test helpers must be updated to inject a default `tenantId`.
-- **Dual-write synchronization complexity.** Membership changes now touch both PostgreSQL and Firebase Custom Claims. Failure handling, retries, and token refresh semantics must be defined carefully.
+- **Dual-write synchronization complexity.** Membership changes now touch both PostgreSQL and Firebase Custom Claims. Failure handling, retries, token refresh semantics, and selective refresh-token revocation for security-sensitive changes must be defined carefully.
 - **Token staleness is reduced, not eliminated.** Connected sessions can be forced to refresh through `auth:claims_updated`, but disconnected clients still depend on the normal token refresh or expiry cycle. Forced-refresh failure is therefore a first-class sign-out and access-loss path, not an exceptional edge case.
 - **User lifecycle becomes broader than authentication.** Placeholder invitees, deactivated memberships, and cross-tenant membership history now require explicit domain handling instead of being delegated entirely to Firebase.
 
@@ -390,14 +393,14 @@ Introduce the relational and administrative foundation required to manage tenant
 
 1. **Database Schema Update (Prisma)**
   - Create a `User` model with `id`, `firebaseUid`, `email`, `firstName`, `lastName`, and standard timestamps.
-  - Create a `TenantMember` model with `id`, `tenantId`, `userId`, `role`, `isActive`, and standard timestamps.
-  - Add `@@unique([tenantId, userId])` on `TenantMember`.
+  - Create a `TenantMember` model with `id`, `tenant_id`, `user_id`, `role`, `is_active`, and standard timestamps.
+  - Add `@@unique([tenant_id, user_id])` on `TenantMember`.
 
 2. **Backend API Development (NestJS)**
   - Create `PlatformAdminModule` with internal `Tenant` CRUD endpoints.
-  - Protect tenant CRUD routes with `SuperAdminGuard` using a system-level claim or a temporary hardcoded allowlist of platform-admin emails.
+  - Protect tenant CRUD routes with `SuperAdminGuard` using a system-level claim. If a bootstrap fallback is needed temporarily, it must use an environment-configured allowlist of platform-admin emails with an explicit expiration date and removal criterion.
   - Create `TenantMemberModule` with `POST /tenant-members/invite` and supporting list/update endpoints.
-  - `TenantMember` mutations (invite, role change, deactivate, reactivate, tenant reassignment) must trigger the same three-step side effect chain in order: persist PostgreSQL state, synchronize Firebase Custom Claims, then emit `auth:claims_updated` to the affected user's private socket room.
+  - `TenantMember` mutations (invite, role change, deactivate, reactivate, tenant reassignment) must trigger the same side effect chain in order: persist PostgreSQL state, synchronize Firebase Custom Claims, revoke Firebase refresh tokens when the change is security-sensitive, then emit `auth:claims_updated` to the affected user's private socket room.
   - Invite workflow:
     - Check whether the user exists by email.
     - If not, provision the Firebase identity required to obtain a `firebaseUid`, create the `User` row, and trigger a Firebase invite/reset-link flow.
@@ -431,6 +434,7 @@ Introduce the relational and administrative foundation required to manage tenant
 
 - [ ] Prisma migrations run successfully without data loss.
 - [ ] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims.
+- [ ] Security-sensitive membership changes revoke Firebase refresh tokens after claims are synchronized.
 - [ ] `TenantMember` role / activation changes emit `auth:claims_updated` to the affected user's private socket room.
 - [ ] A connected frontend session silently forces a token refresh, updates the auth context, and invalidates TanStack Query caches when `auth:claims_updated` is received.
 - [ ] Existing `auth.service.ts` request middleware continues to function without modification by reading the synchronized claims.
