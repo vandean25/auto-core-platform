@@ -167,14 +167,20 @@ The `tenantId` claim is still extracted and validated by `JwtAuthGuard` on every
 
 1. Backend writes `User` and `TenantMember` state to PostgreSQL.
 2. Backend immediately calls the Firebase Admin SDK to update the user's custom claims, e.g. `{ tenantId: "xyz", role: "ADMIN" }`.
-3. Client obtains a refreshed Firebase ID token on the next token refresh or sign-in.
-4. Existing `auth.service.ts` logic continues to trust the token claims for request-time authorization without an extra membership database lookup.
+3. Backend emits `auth:claims_updated` to the affected user's private Socket.io room (for example `user_<userId>` or `user_<firebaseUid>`), not to the whole tenant room.
+4. The React 19 frontend listens for `auth:claims_updated` and silently forces a Firebase token refresh via `currentUser.getIdToken(true)`.
+5. After the forced refresh, the frontend updates the global auth context and invalidates TanStack Query caches so role-sensitive screens re-resolve immediately.
+6. If the forced refresh fails or the refreshed token no longer carries an active `tenantId` / `role` pair, the frontend clears auth state and signs the user out of privileged screens.
+7. Existing `auth.service.ts` logic continues to trust the token claims for request-time authorization without an extra membership database lookup.
+
+This real-time claims refresh path is mandatory for role downgrades, membership deactivation, tenant removal, and any other `TenantMember` mutation that changes effective access.
 
 **Administrative modules introduced by this decision:**
 
 - `PlatformAdminModule` for internal `Tenant` CRUD, protected by a `SuperAdminGuard` backed by a platform-level claim or a temporary hardcoded admin-email allowlist.
 - `TenantMemberModule` for invite, list, update, and deactivate membership workflows.
 - `POST /tenant-members/invite` resolves or provisions the Firebase user, writes the `User`, writes the `TenantMember`, and synchronizes custom claims.
+- `PATCH /tenant-members/:id` (or equivalent role / activation endpoint) must synchronize claims and emit `auth:claims_updated` to the affected user's private socket room immediately after the membership mutation succeeds.
 - Frontend admin routes:
   - `/platform/tenants` for Super Admin tenant management.
   - `/settings/team` for tenant-scoped team management.
@@ -330,7 +336,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 
 | Existing ADR | Impact |
 |---|---|
-| **ADR-0001** — Prisma `$extends` Real-Time Sync | The tenant isolation extension is chained before the real-time extension. **WebSocket event scoping is resolved via Socket.io Rooms.** On authenticated socket connection the gateway executes `client.join('tenant_' + jwt.tenantId)`. The `createDashboardRealtimeExtension` reads `tenantId` from the ALS context (already populated by `TenantMiddleware`) and emits to the room: `this.server.to('tenant_' + tenantId).emit('entityUpdated', payload)` instead of the current global `this.server.emit(...)`. Real-time events in the WebSocket payload do not carry `tenant_id` — tenancy is enforced by room membership at the socket layer. |
+| **ADR-0001** — Prisma `$extends` Real-Time Sync | The tenant isolation extension is chained before the real-time extension. **WebSocket event scoping is resolved via Socket.io Rooms.** On authenticated socket connection the gateway executes both `client.join('tenant_' + jwt.tenantId)` for tenant-scoped entity events and `client.join('user_' + jwt.sub)` (or equivalent Firebase UID room) for private auth refresh events. The `createDashboardRealtimeExtension` reads `tenantId` from the ALS context (already populated by `TenantMiddleware`) and emits to the room: `this.server.to('tenant_' + tenantId).emit('entityUpdated', payload)` instead of the current global `this.server.emit(...)`. Separately, membership-changing application services emit `auth:claims_updated` only to the affected user room so the frontend can force `getIdToken(true)`, refresh auth state, and invalidate TanStack Query caches without broadcasting auth churn tenant-wide. Real-time events in the WebSocket payload do not carry `tenant_id` — tenancy is enforced by room membership at the socket layer. |
 | **ADR-0002** — Ledger-Based Inventory | `InventoryTransaction` gains `tenant_id`. The ledger pattern (append-only, never direct `InventoryStock` mutation) is unchanged. Ledger reads and writes are automatically scoped by the isolation extension. |
 | **ADR-0003** — Fiscal Lock Date | `FinanceSettings` becomes a per-tenant singleton. The lock-date check must be loaded with `findFirst({ where: { tenant_id: ctx } })`. The isolation extension handles this automatically. |
 | **ADR-0004** — Invoice Snapshotting | Snapshot fields (`revenue_group_name`, `unit_price`) are tenant-agnostic values stored on immutable `InvoiceItem` rows. No changes required beyond the `tenant_id` column addition. |
@@ -351,6 +357,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **Audit trail is tenant-scoped by default.** `InventoryTransaction`, `InvoiceSequence`, and all append-only tables carry `tenant_id`, so per-tenant historical reports are trivially filterable.
 - **Relational user management becomes possible.** `User` and `TenantMember` allow efficient DataTable-backed features such as team directories, invite flows, and tenant membership administration.
 - **Request-time auth remains fast.** Existing middleware continues to read `tenantId` and `role` from the JWT without an additional database lookup on every request.
+- **Connected sessions self-heal after access changes.** Targeted `auth:claims_updated` events force token refresh, auth-context reconciliation, and query invalidation without requiring a full reload.
 - **Platform administration becomes tractable.** Super Admin workflows such as tenant CRUD and subscription-facing management now have a relational foundation.
 
 ### Negative
@@ -361,7 +368,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **WebSocket tenant isolation — resolved via Socket.io Rooms.** On socket connection, the NestJS gateway calls `client.join('tenant_' + jwt.tenantId)`. The `createDashboardRealtimeExtension` is updated to emit `this.server.to('tenant_' + tenantId).emit(...)` instead of broadcasting globally. `tenantId` is sourced from the ALS context, which is already populated by `TenantMiddleware` for the duration of the originating HTTP request that triggered the mutation. No changes are required to event payloads.
 - **Testing complexity.** Integration tests must seed a `Tenant` row and establish an ALS context before any Prisma operation. Test helpers must be updated to inject a default `tenantId`.
 - **Dual-write synchronization complexity.** Membership changes now touch both PostgreSQL and Firebase Custom Claims. Failure handling, retries, and token refresh semantics must be defined carefully.
-- **Token staleness becomes a product concern.** After a role or membership change, users may carry an old token until refresh or re-authentication. UI and backend workflows must account for this delay.
+- **Token staleness is reduced, not eliminated.** Connected sessions can be forced to refresh through `auth:claims_updated`, but disconnected clients still depend on the normal token refresh or expiry cycle. Forced-refresh failure is therefore a first-class sign-out and access-loss path, not an exceptional edge case.
 - **User lifecycle becomes broader than authentication.** Placeholder invitees, deactivated memberships, and cross-tenant membership history now require explicit domain handling instead of being delegated entirely to Firebase.
 
 ### Neutral
@@ -377,7 +384,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 
 ### Objective
 
-Introduce the relational and administrative foundation required to manage tenants and tenant members as first-class SaaS concepts while preserving the current fast JWT-based request pipeline.
+Introduce the relational and administrative foundation required to manage tenants and tenant members as first-class SaaS concepts while preserving the current fast JWT-based request pipeline, collapsing stale-token windows for connected clients, and keeping admin UX inside the platform's established page and sheet patterns.
 
 ### Execution Steps
 
@@ -390,30 +397,50 @@ Introduce the relational and administrative foundation required to manage tenant
   - Create `PlatformAdminModule` with internal `Tenant` CRUD endpoints.
   - Protect tenant CRUD routes with `SuperAdminGuard` using a system-level claim or a temporary hardcoded allowlist of platform-admin emails.
   - Create `TenantMemberModule` with `POST /tenant-members/invite` and supporting list/update endpoints.
+  - `TenantMember` mutations (invite, role change, deactivate, reactivate, tenant reassignment) must trigger the same three-step side effect chain in order: persist PostgreSQL state, synchronize Firebase Custom Claims, then emit `auth:claims_updated` to the affected user's private socket room.
   - Invite workflow:
     - Check whether the user exists by email.
     - If not, provision the Firebase identity required to obtain a `firebaseUid`, create the `User` row, and trigger a Firebase invite/reset-link flow.
     - Create the `TenantMember` record.
     - Immediately synchronize Firebase Custom Claims to reflect the user's active `tenantId` and `role`.
+  - List endpoints must be written to avoid N+1 queries by default:
+    - Tenant member queries load related users in one read, e.g. `prisma.tenantMember.findMany({ include: { user: true } })`.
+    - Tenant listing endpoints use relation counts / aggregate queries for member totals instead of looping over tenants and issuing per-row count queries.
+  - Bulk invite workflows must avoid serial `await` loops:
+    - Build Firebase Admin SDK calls as an array of promises and resolve them concurrently as one batch.
+    - Persist the corresponding `User` / `TenantMember` rows with `createMany` or concurrent Prisma writes inside a transaction.
 
 3. **Frontend UI Implementation (React 19 / Vite)**
   - Add `/platform/tenants` for Super Admins.
-  - Use the shared `DataTable` for tenant listing.
+  - Use the shared `DataTable` for tenant listing with in-table `Skeleton` loaders for loading states and an inline error state with retry inside the table shell.
   - Place `+ Tenant` in the top-right header area.
-  - Open a shadcn `Sheet` on row click for tenant editing with debounced auto-save (750ms).
+  - Clicking `+ Tenant` opens a shadcn `Dialog` or `Sheet`; no full-page create route is allowed.
+  - Clicking an existing tenant row opens a detail `Sheet` for editing; no full-page edit route is allowed.
+  - Tenant queries use strict TanStack Query v5 key factories only; inline array keys are forbidden.
   - Add `/settings/team` for tenant admins.
-  - Use the shared `DataTable` for `TenantMember` listing.
-  - Place `+ Member` in the top-right header area and open an invite modal.
-  - Use TanStack Query v5 with strict query key factories, e.g. `tenantMemberKeys.list({ tenantId })`.
+  - Use the shared `DataTable` for `TenantMember` listing with in-table `Skeleton` loaders for loading states and an inline error state with retry inside the table shell.
+  - Place `+ Member` in the top-right header area.
+  - Clicking `+ Member` opens a shadcn `Dialog` or `Sheet`; no full-page invite route is allowed.
+  - Clicking an existing team row opens a detail `Sheet`.
+  - Role changes in the team detail sheet use the shared `InlineEdit` field-level save-on-blur pattern and call a `PATCH` membership endpoint that immediately triggers the claims refresh sequence above.
+  - The frontend auth layer listens for `auth:claims_updated`, forces `currentUser.getIdToken(true)`, refreshes the global auth context, and invalidates TanStack Query caches.
+  - If the refreshed token no longer authorizes the current route, the UI signs the user out and exits the privileged screen gracefully instead of leaving stale data visible.
+  - Use TanStack Query v5 with strict query key factories, e.g. `tenantMemberKeys.list({ tenantId })`; inline array keys are forbidden.
 
 ### Acceptance Criteria
 
 - [ ] Prisma migrations run successfully without data loss.
 - [ ] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims.
+- [ ] `TenantMember` role / activation changes emit `auth:claims_updated` to the affected user's private socket room.
+- [ ] A connected frontend session silently forces a token refresh, updates the auth context, and invalidates TanStack Query caches when `auth:claims_updated` is received.
 - [ ] Existing `auth.service.ts` request middleware continues to function without modification by reading the synchronized claims.
-- [ ] Frontend query usage follows TanStack Query v5 key-factory discipline.
+- [ ] Frontend query usage follows TanStack Query v5 key-factory discipline; no inline array query keys are introduced.
 - [ ] Primary list pages use the standardized shared `DataTable` component.
+- [ ] Page action buttons remain exclusively in the top-right header area.
+- [ ] Team role edits use the shared `InlineEdit` save-on-blur pattern rather than a full-page edit flow.
 - [ ] Database access uses bulk-fetch / pre-fetch-and-map patterns; no `await` calls inside loops when resolving tenant member data.
+- [ ] N+1 query prevention is verified on the backend by using `include: { user: true }` for tenant members and aggregate / relation-count queries for tenant summaries.
+- [ ] DataTable-driven admin screens render loading states with `Skeleton` rows and keep error states inside the table shell with an inline retry path.
 
 ---
 
