@@ -181,6 +181,7 @@ This real-time claims refresh path is mandatory for role downgrades, membership 
 **Administrative modules introduced by this decision:**
 
 - `PlatformAdminModule` for internal `Tenant` CRUD, protected by a `SuperAdminGuard` backed by a platform-level claim. If a short-lived bootstrap fallback is ever required before that claim exists, it must use an environment-configured admin-email allowlist with a documented expiration date and removal criterion before release; hardcoded identities are forbidden.
+- Bootstrapping the first platform administrator, or creating a persistent platform-admin record outside the normal authenticated admin flow, must happen through a dedicated deployment-scoped Prisma seed / CLI script that runs with direct production environment access and uses Firebase Admin plus Prisma directly. This capability must not be exposed as an HTTP endpoint.
 - `TenantMemberModule` for invite, list, update, and deactivate membership workflows.
 - `POST /tenant-members/invite` resolves or provisions the Firebase user, writes the `User`, writes the `TenantMember`, and synchronizes custom claims.
 - `PATCH /tenant-members/:id` (or equivalent role / activation endpoint) must synchronize claims, revoke Firebase refresh tokens for security-sensitive changes, and emit `auth:claims_updated` to the affected user's private socket room immediately after the membership mutation succeeds.
@@ -399,6 +400,8 @@ Introduce the relational and administrative foundation required to manage tenant
 2. **Backend API Development (NestJS)**
   - Create `PlatformAdminModule` with internal `Tenant` CRUD endpoints.
   - Protect tenant CRUD routes with `SuperAdminGuard` using a system-level claim. If a bootstrap fallback is needed temporarily, it must use an environment-configured allowlist of platform-admin emails with an explicit expiration date and removal criterion.
+  - The initial platform-admin bootstrap path must bypass HTTP entirely. Provide a dedicated Prisma seed / CLI command (for example `npm --prefix apps/core-api run db:seed:platform-admin -- --email=founder@autocore.com`) that is run only from a trusted deployment or operations context with direct database credentials.
+  - The seed / CLI bootstrap writes any persistent platform-admin record required by the design, uses Prisma directly, calls Firebase Admin to synchronize the corresponding claims, and is never invokable by an end-user request.
   - Create `TenantMemberModule` with `POST /tenant-members/invite` and supporting list/update endpoints.
   - `TenantMember` mutations (invite, role change, deactivate, reactivate, tenant reassignment) must trigger the same side effect chain in order: persist PostgreSQL state, synchronize Firebase Custom Claims, revoke Firebase refresh tokens when the change is security-sensitive, then emit `auth:claims_updated` to the affected user's private socket room.
   - Invite workflow:
@@ -434,6 +437,7 @@ Introduce the relational and administrative foundation required to manage tenant
 
 - [ ] Prisma migrations run successfully without data loss.
 - [ ] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims.
+- [ ] Initial platform-admin bootstrap is performed only through a deployment-scoped Prisma seed / CLI path, not through a public HTTP endpoint.
 - [ ] Security-sensitive membership changes revoke Firebase refresh tokens after claims are synchronized.
 - [ ] `TenantMember` role / activation changes emit `auth:claims_updated` to the affected user's private socket room.
 - [ ] A connected frontend session silently forces a token refresh, updates the auth context, and invalidates TanStack Query caches when `auth:claims_updated` is received.
