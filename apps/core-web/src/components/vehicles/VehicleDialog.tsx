@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useCreateVehicle, useUpdateVehicle } from '@/api/vehicles'
+import type { components } from '@/api/generated/openapi'
 import type { Customer, Vehicle } from '@/api/types'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { toast } from 'sonner'
@@ -30,7 +31,9 @@ interface VehicleDialogProps {
     onOpenChange?: (open: boolean) => void
 }
 
-const DEFAULT_VEHICLE = {
+type VehicleFormValues = Omit<components['schemas']['CreateVehicleDto'], 'customer_id'>
+
+const DEFAULT_VEHICLE: VehicleFormValues = {
     make: '',
     model: '',
     year: new Date().getFullYear(),
@@ -46,7 +49,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
     const createMutation = useCreateVehicle()
     const updateMutation = useUpdateVehicle()
 
-    const form = useForm({
+    const form = useForm<VehicleFormValues>({
         defaultValues: {
             make: vehicle?.make || DEFAULT_VEHICLE.make,
             model: vehicle?.model || DEFAULT_VEHICLE.model,
@@ -57,9 +60,9 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
         },
     })
 
-    const onSubmit = async (data: any) => {
+    const onSubmit = async (data: VehicleFormValues) => {
         try {
-            const payload = {
+            const payload: components['schemas']['CreateVehicleDto'] = {
                 ...data,
                 year: Number(data.year),
                 customer_id: selectedCustomer?.id || null,
@@ -75,7 +78,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
             handleOpenChange(false)
             form.reset()
             setSelectedCustomer(null)
-        } catch (error) {
+        } catch {
             toast.error('Failed to save vehicle')
         }
     }
@@ -90,7 +93,6 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                 vin: vehicle.vin || '',
                 plate: vehicle.plate || '',
             })
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedCustomer(vehicle.customer || null)
         } else {
             form.reset(DEFAULT_VEHICLE)

@@ -285,13 +285,11 @@ export class SalesService {
 
         if (updateResult.count === 0) {
           // Refetch stock to give accurate error message if concurrency was high
-          const latestStock = await tx.inventoryStock.findUnique({
+          const latestStock = await tx.inventoryStock.findFirst({
             where: {
-              tenant_id_catalog_item_id_location_id: {
-                tenant_id: tenantId,
-                catalog_item_id: update.catalog_item_id,
-                location_id: update.locationId,
-              },
+              tenant_id: tenantId,
+              catalog_item_id: update.catalog_item_id,
+              location_id: update.locationId,
             },
           });
           throw new BadRequestException(
@@ -321,7 +319,7 @@ export class SalesService {
         );
       }
 
-      const updatedInvoice = await tx.invoice.findUnique({
+      const updatedInvoice = await tx.invoice.findFirst({
         where: { id },
         include: { items: true, customer: true },
       });
@@ -331,7 +329,7 @@ export class SalesService {
       }
 
       if (invoice.sales_order_id) {
-        const salesOrder = await tx.salesOrder.findUnique({
+        const salesOrder = await tx.salesOrder.findFirst({
           where: { id: invoice.sales_order_id },
           select: { status: true },
         });

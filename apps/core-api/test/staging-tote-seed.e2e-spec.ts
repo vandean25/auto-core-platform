@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
 
 describe('Staging Tote Seed (e2e)', () => {
@@ -26,16 +27,9 @@ describe('Staging Tote Seed (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    const defaultTenant = await prisma.tenant.findUnique({
-      where: { slug: 'default-workshop' },
-      select: { id: true },
-    });
-
-    if (!defaultTenant) {
-      throw new Error('Expected default-workshop tenant to exist');
-    }
-
-    tenantId = defaultTenant.id;
+    const testTenant = await createTestTenant(prisma);
+    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    tenantId = testTenant.tenantId;
 
     const warehouse = await prisma.storageLocation.upsert({
       where: {

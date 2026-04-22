@@ -59,8 +59,8 @@ export class InventoryService {
    */
   async checkAvailability(sku: string): Promise<AvailabilityCheckResult> {
     const tenantId = await this.tenantContext.getTenantId();
-    const item = await this.prisma.catalogItem.findUnique({
-      where: { tenant_id_sku: { tenant_id: tenantId, sku } },
+    const item = await this.prisma.catalogItem.findFirst({
+      where: { tenant_id: tenantId, sku },
       include: catalogItemInclude,
     });
 

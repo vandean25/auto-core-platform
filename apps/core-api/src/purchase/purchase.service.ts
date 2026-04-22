@@ -264,7 +264,7 @@ export class PurchaseService {
           },
         );
 
-        const updatedPO = await tx.purchaseOrder.findUnique({
+        const updatedPO = await tx.purchaseOrder.findFirst({
           where: { id: orderId },
           include: { items: true },
         });
@@ -381,7 +381,7 @@ export class PurchaseService {
       );
 
       // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findUnique({
+      const updatedPO = await tx.purchaseOrder.findFirst({
         where: { id: orderId },
         include: { items: true },
       });
@@ -450,7 +450,7 @@ export class PurchaseService {
       });
 
       // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findUnique({
+      const updatedPO = await tx.purchaseOrder.findFirst({
         where: { id: orderId },
         include: { items: true },
       });
@@ -502,7 +502,7 @@ export class PurchaseService {
       });
 
       // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findUnique({
+      const updatedPO = await tx.purchaseOrder.findFirst({
         where: { id: orderId },
         include: { items: true },
       });

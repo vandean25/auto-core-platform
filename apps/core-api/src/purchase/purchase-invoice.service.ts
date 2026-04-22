@@ -510,7 +510,7 @@ export class PurchaseInvoiceService {
         );
       }
 
-      const line = await tx.purchaseInvoiceLine.findUnique({
+      const line = await tx.purchaseInvoiceLine.findFirst({
         where: { id: lineId },
       });
 

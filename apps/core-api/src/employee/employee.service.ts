@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EmployeeRole } from '@prisma/client';
+import { EmployeeRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateEmployeeDto,
@@ -67,7 +67,7 @@ export class EmployeeService {
   }
 
   async findOne(id: string) {
-    const employee = await this.prisma.employee.findUnique({ where: { id } });
+    const employee = await this.prisma.employee.findFirst({ where: { id } });
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -81,14 +81,14 @@ export class EmployeeService {
         role: dto.role,
         is_active: dto.isActive ?? true,
         sort_order: dto.sortOrder ?? 0,
-      },
+      } as Prisma.EmployeeUncheckedCreateInput,
     });
 
     return this.mapEmployee(created);
   }
 
   async update(id: string, dto: UpdateEmployeeDto) {
-    const existing = await this.prisma.employee.findUnique({ where: { id } });
+    const existing = await this.prisma.employee.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -107,7 +107,7 @@ export class EmployeeService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.employee.findUnique({ where: { id } });
+    const existing = await this.prisma.employee.findFirst({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }

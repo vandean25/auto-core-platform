@@ -125,7 +125,7 @@ export class PrismaRepository<T> {
     id: number | string,
     include?: Record<string, unknown>,
   ): Promise<T> {
-    const record = await this.model.findUnique({
+    const record = await this.model.findFirst({
       where: { id },
       include,
     });

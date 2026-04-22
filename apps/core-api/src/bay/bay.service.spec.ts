@@ -5,6 +5,7 @@ import { BayService } from './bay.service';
 
 const mockPrisma = {
   bay: {
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
     findUnique: jest.fn(),
@@ -85,7 +86,7 @@ describe('BayService', () => {
   });
 
   it('throws not found on update missing bay', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue(null);
+    mockPrisma.bay.findFirst.mockResolvedValue(null);
 
     await expect(service.update('missing', { name: 'Bay B' })).rejects.toThrow(
       NotFoundException,
@@ -93,7 +94,7 @@ describe('BayService', () => {
   });
 
   it('maps duplicate update to ConflictException', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue(baseBay);
+    mockPrisma.bay.findFirst.mockResolvedValue(baseBay);
     const p2002 = new Prisma.PrismaClientKnownRequestError(
       'Unique constraint',
       {
@@ -109,7 +110,7 @@ describe('BayService', () => {
   });
 
   it('blocks delete when bay is referenced by workshop orders', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue(baseBay);
+    mockPrisma.bay.findFirst.mockResolvedValue(baseBay);
     mockPrisma.workshopOrder.count.mockResolvedValue(2);
 
     await expect(service.remove('bay-1')).rejects.toThrow(ConflictException);
@@ -118,7 +119,7 @@ describe('BayService', () => {
   });
 
   it('soft-disables bay on first delete when unreferenced', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue(baseBay);
+    mockPrisma.bay.findFirst.mockResolvedValue(baseBay);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.bay.update.mockResolvedValue({ ...baseBay, is_active: false });
 
@@ -132,7 +133,7 @@ describe('BayService', () => {
   });
 
   it('hard deletes only when already inactive and unreferenced', async () => {
-    mockPrisma.bay.findUnique.mockResolvedValue({
+    mockPrisma.bay.findFirst.mockResolvedValue({
       ...baseBay,
       is_active: false,
     });

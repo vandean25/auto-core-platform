@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user';
 import { TenantContextStorage } from './tenant-context.storage';
@@ -26,6 +30,21 @@ export class TenantContextService {
     return TenantContextStorage.getUser();
   }
 
+  /**
+   * Returns the current tenant ID synchronously from the AsyncLocalStorage context.
+   * Throws InternalServerErrorException if no tenant context has been set for this request.
+   * Use this in Prisma extensions and other synchronous-context code paths.
+   */
+  getRequiredTenantId(): string {
+    const user = TenantContextStorage.getUser();
+    if (!user?.tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context not initialised. Is the JwtAuthGuard applied?',
+      );
+    }
+    return user.tenantId;
+  }
+
   async getTenantId(): Promise<string> {
     const user = this.getAuthenticatedUser();
     if (user?.tenantId) {
@@ -51,7 +70,7 @@ export class TenantContextService {
 
     const defaultTenantSlug =
       process.env.DEFAULT_TENANT_SLUG ?? 'default-workshop';
-    const tenant = await this.prisma.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findFirst({
       where: { slug: defaultTenantSlug },
       select: { id: true },
     });

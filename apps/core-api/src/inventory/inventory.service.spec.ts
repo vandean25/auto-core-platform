@@ -10,6 +10,7 @@ describe('InventoryService', () => {
 
   const mockPrismaService = {
     catalogItem: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -38,7 +39,7 @@ describe('InventoryService', () => {
 
   describe('checkAvailability', () => {
     it('should return stock for a part that is not superseded', async () => {
-      mockPrismaService.catalogItem.findUnique.mockResolvedValue({
+      mockPrismaService.catalogItem.findFirst.mockResolvedValue({
         sku: 'PART-A',
         name: 'Brake Pad',
         brand: { name: 'Bosch' },
@@ -82,7 +83,7 @@ describe('InventoryService', () => {
         superseded_by: null,
       };
 
-      mockPrismaService.catalogItem.findUnique
+      mockPrismaService.catalogItem.findFirst
         .mockResolvedValueOnce(partA)
         .mockResolvedValueOnce(partB);
 
@@ -102,7 +103,7 @@ describe('InventoryService', () => {
     });
 
     it('should throw NotFoundException if SKU does not exist', async () => {
-      mockPrismaService.catalogItem.findUnique.mockResolvedValue(null);
+      mockPrismaService.catalogItem.findFirst.mockResolvedValue(null);
 
       await expect(service.checkAvailability('UNKNOWN')).rejects.toThrow(
         NotFoundException,

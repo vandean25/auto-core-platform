@@ -29,6 +29,8 @@ import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
 import { BrandTable } from "@/components/BrandTable"
 import { AddBrandDialog } from "@/components/AddBrandDialog"
 import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
+import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
+import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -257,7 +259,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "labor"] as const
+const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "employees", "bays", "labor"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -334,11 +336,13 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5 max-w-[900px]">
+                <TabsList className="grid w-full grid-cols-7 max-w-[1100px]">
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
                     <TabsTrigger value="brands">Brands</TabsTrigger>
                     <TabsTrigger value="locations">Storage Locations</TabsTrigger>
+                    <TabsTrigger value="employees">Employees</TabsTrigger>
+                    <TabsTrigger value="bays">Bays</TabsTrigger>
                     <TabsTrigger value="labor">Labor</TabsTrigger>
                 </TabsList>
 
@@ -444,6 +448,16 @@ export default function SettingsPage() {
                 {/* ── Storage Locations Tab ── */}
                 <TabsContent value="locations" className="space-y-6">
                     <StorageLocationsTab />
+                </TabsContent>
+
+                {/* ── Employees Tab ── */}
+                <TabsContent value="employees" className="space-y-6">
+                    <EmployeeSettingsTab />
+                </TabsContent>
+
+                {/* ── Bays Tab ── */}
+                <TabsContent value="bays" className="space-y-6">
+                    <BaySettingsTab />
                 </TabsContent>
 
                 {/* ── Labor Tab ── */}

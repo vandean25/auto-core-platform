@@ -3822,7 +3822,7 @@
   "servers": [],
   "components": {
     "securitySchemes": {
-      "bearer": {
+      "BearerAuth": {
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "type": "http"
@@ -6216,7 +6216,7 @@
   },
   "security": [
     {
-      "bearer": []
+      "BearerAuth": []
     }
   ]
 }

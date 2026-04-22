@@ -5,6 +5,7 @@ import { EmployeeService } from './employee.service';
 
 const mockPrisma = {
   employee: {
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
     findUnique: jest.fn(),
@@ -76,7 +77,7 @@ describe('EmployeeService', () => {
   });
 
   it('throws not found on update missing employee', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue(null);
+    mockPrisma.employee.findFirst.mockResolvedValue(null);
 
     await expect(service.update('missing', { name: 'New' })).rejects.toThrow(
       NotFoundException,
@@ -84,7 +85,7 @@ describe('EmployeeService', () => {
   });
 
   it('soft-disables employee on first delete when unreferenced', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue(baseEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.employee.update.mockResolvedValue({
       ...baseEmployee,
@@ -101,7 +102,7 @@ describe('EmployeeService', () => {
   });
 
   it('blocks delete when employee is referenced by workshop orders', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue(baseEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
     mockPrisma.workshopOrder.count.mockResolvedValue(1);
 
     await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
@@ -110,7 +111,7 @@ describe('EmployeeService', () => {
   });
 
   it('hard deletes only when already inactive and unreferenced', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue({
+    mockPrisma.employee.findFirst.mockResolvedValue({
       ...baseEmployee,
       is_active: false,
     });

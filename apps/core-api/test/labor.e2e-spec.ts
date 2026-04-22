@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 type CategoryNode = { id: string; name: string; children: CategoryNode[] };
 type OperationListItem = { id: string; isActive: boolean; categoryId?: string };
@@ -30,6 +31,9 @@ describe('Labor Module (e2e)', () => {
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+
+    const testTenant = await createTestTenant(prisma);
+    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
 
     // Clean up only records created by this suite (scoped by PREFIX)
     await prisma.laborFitment.deleteMany({

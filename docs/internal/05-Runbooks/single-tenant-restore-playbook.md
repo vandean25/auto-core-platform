@@ -1,97 +1,105 @@
-# Runbook: Single-Tenant Restore Strategy
+# Runbook: Single-Tenant Restore (PITR Clone + Selective Upsert)
 
-**Owner**: Engineering / SRE Team
-**Tag**: `DR` `Multi-Tenant`
-**Severity**: CRITICAL
-**Target Document**: `ADR-0013: Row-Level Multi-Tenancy`
+**Owner**: Engineering / SRE
+**Severity**: Critical
+**Related Issues**: AUT-72
+**Related ADR**: ADR-0013 (Row-Level Multi-Tenancy)
 
-## Context
-Auto Core Platform utilizes a shared-schema row-level multi-tenant database. RDS/Cloud SQL automated backups restore the *entire* database. If a single workshop (tenant) accidentally deletes critical data or suffers localized corruption, standard PITR cannot be applied directly to the primary database because it would overwrite data for all other unaffected tenants.
+## Why This Exists
+In a shared-schema multi-tenant database, restoring a full database backup would overwrite data for unaffected tenants. This runbook restores only one tenant by extracting tenant-scoped data from a point-in-time clone.
 
-This runbook defines the operational strategy for selectively extracting and restoring a single tenant's data from a snapshot backup.
+## Required Artifacts
+- `tools/tenant-restore/apply-tenant-rls.sql`
+- `tools/tenant-restore/export-tenant-data.sh`
+- `tools/tenant-restore/purge-tenant-data.sql`
+- `tools/tenant-restore/restore-tenant-data.sh`
 
----
+## Inputs
+- `TARGET_TENANT_ID`
+- `INCIDENT_TIMESTAMP_UTC` (corruption/deletion moment)
+- `CLONE_DATABASE_URL` (PITR clone)
+- `PRIMARY_DATABASE_URL` (production)
+- `TENANT_DUMP_FILE` (output SQL file path)
 
-## Strategy: Point-In-Time Extraction & Upsert
+## Phase 1: Create PITR Clone
+1. Create a clone to a safe timestamp just before the incident:
 
-### Prerequisites
-- Access to Google Cloud SQL (or equivalent RDS) console.
-- `pg_dump` and `psql` utilities installed and authenticated.
-- A secure jump host or Bastion to execute queries against the primary and clone instances.
-- The targeted `tenant_id`.
-- Target recovery timestamp (the Point-In-Time desired).
+```bash
+gcloud sql instances clone <primary-instance> <recovery-clone-instance> --point-in-time="<INCIDENT_TIMESTAMP_MINUS_1_MINUTE>"
+```
 
-### Phase 1: Clone the Backup
-Instead of restoring over the live database, you must clone a snapshot. 
+2. Validate clone access and schema parity.
 
-1. Create a Point-in-Time Clone in the Cloud SQL console corresponding to exactly 1 minute *before* the destructive event.
-2. Ensure the cloned instance has the same IP structure or proxy access as the primary production database.
-   ```bash
-   gcloud sql instances clone <primary-instance> <recovery-clone-instance> --point-in-time="2026-05-18T10:00:00.000Z"
-   ```
+## Phase 2: Apply Tenant RLS on Clone
+Apply dynamic RLS policies to all tenant-scoped tables:
 
-### Phase 2: Define Tenant Isolation Rules
-You need to extract only the SQL records belonging to `tenant_id`. 
+```bash
+psql "$CLONE_DATABASE_URL" -v target_tenant_id="$TARGET_TENANT_ID" -f tools/tenant-restore/apply-tenant-rls.sql
+```
 
-We will accomplish this using PostgreSQL Row-Level Security (RLS) applied temporarily on the cloned instance, or using a script that generates `COPY` lines per mapped table. Given Prisma's structure, the easiest method is to run a script against the clone that generates a partial dump.
+Notes:
+- Policies are created only for tables with a `tenant_id` column.
+- Extraction should use an account with row security enforced.
 
-### Phase 3: Logical Extraction
+## Phase 3: Export Tenant Data
+Run tenant-scoped logical dump:
 
-Option A: Utilize `pg_dump` with `--enable-row-security`
+```bash
+bash tools/tenant-restore/export-tenant-data.sh "$CLONE_DATABASE_URL" "$TARGET_TENANT_ID" "$TENANT_DUMP_FILE"
+```
 
-1. Connect to the cloned recovery instance as a superuser.
-2. Enable RLS on all domain tables:
-   ```sql
-   DO $$ DECLARE
-      r RECORD;
-   BEGIN
-      FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'Tenant') LOOP
-         EXECUTE 'ALTER TABLE ' || quote_ident(r.tablename) || ' ENABLE ROW LEVEL SECURITY;';
-         EXECUTE 'CREATE POLICY tenant_isolation_policy ON ' || quote_ident(r.tablename) || ' USING (tenant_id = ''<TARGET_TENANT_CUID>'');';
-      END LOOP;
-   END $$;
-   ```
-3. Create a restricted user and force RLS:
-   ```sql
-   CREATE USER tenant_extractor WITH PASSWORD 'secure_pass';
-   GRANT SELECT ON ALL TABLES IN SCHEMA public TO tenant_extractor;
-   ```
-4. Execute `pg_dump` as the restricted user:
-   ```bash
-   pg_dump -U tenant_extractor -h <recovery-instance-ip> -d autocoredb -a --enable-row-security --inserts > tenant_backup.sql
-   ```
-   *Note: Using `--inserts` ensures we can handle conflict resolution on restore.*
+This uses:
+- `pg_dump --data-only --inserts --column-inserts --enable-row-security`
 
-### Phase 4: Selective Restore to Primary
-The target tenant's subset of data is now in `tenant_backup.sql`. 
+## Phase 4: Prepare Primary for Restore
+Take an emergency snapshot of primary before any mutation.
 
-To restore, we cannot blindly run the script because existing records might collide, or we might need to purge the corrupted records first.
+Purge only target tenant rows (ordered delete script):
 
-1. **Safety First**: Take a snapshot of the *primary* production database right now.
-2. **Purge Corrupted Data**: Using a privileged Prisma client script or direct SQL, delete all records for `tenant_id` from the tables we are restoring (order dictates foreign keys must be respected - e.g., delete `InvoiceItem` before `Invoice`).
-   ```sql
-   DELETE FROM "InvoiceItem" WHERE tenant_id = '<TARGET_TENANT_CUID>';
-   DELETE FROM "Invoice" WHERE tenant_id = '<TARGET_TENANT_CUID>';
-   -- ... etc.
-   ```
-3. **Import Clean Data**: 
-   ```bash
-   psql -U admin -h <primary-instance-ip> -d autocoredb -f tenant_backup.sql
-   ```
+```bash
+psql "$PRIMARY_DATABASE_URL" -v target_tenant_id="$TARGET_TENANT_ID" -f tools/tenant-restore/purge-tenant-data.sql
+```
 
-### Phase 5: Verification and Cleanup
-1. The tenant must log in and confirm their data is accurate up to the requested timestamp.
-2. Delete the cloned recovery instance to save costs:
-   ```bash
-   gcloud sql instances delete <recovery-clone-instance>
-   ```
-3. Remove the localized `tenant_backup.sql` from your machine.
+## Phase 5: Restore Tenant Dump
+Apply selective restore:
 
----
+```bash
+bash tools/tenant-restore/restore-tenant-data.sh "$PRIMARY_DATABASE_URL" "$TARGET_TENANT_ID" "$TENANT_DUMP_FILE"
+```
+
+The restore script:
+1. Purges tenant data using `purge-tenant-data.sql`
+2. Imports tenant dump SQL
+3. Prints tenant row-count checks for key tables
+
+## Staging Validation (Mandatory)
+Before production use, execute full drill in staging:
+1. Create synthetic tenant with known fixture set.
+2. Corrupt/delete subset of fixture data.
+3. Run full clone -> export -> purge -> restore workflow.
+4. Verify restored counts and business-level checks:
+   - inventory totals
+   - invoices and invoice items parity
+   - customer/vehicle/workshop linkage
+
+Record evidence in incident docs:
+- command transcript
+- row count before/after
+- API smoke results for the target tenant
+
+## Verification Checklist
+- [ ] Target tenant data restored to requested timestamp
+- [ ] Non-target tenants unchanged
+- [ ] Core integrity checks pass (FK consistency, counts)
+- [ ] Clone instance deleted after completion
+- [ ] Dump file removed from local machine / bastion
+
+## Rollback
+If restore quality is invalid:
+1. Stop tenant traffic.
+2. Restore production from pre-restore emergency snapshot.
+3. Re-run extraction with corrected timestamp/filters.
 
 ## Known Limitations
-- Foreign keys that traverse generic system tables (tables *without* a `tenant_id`) might require manual reconciliation. Ensure `pg_dump` does not export the generalized tables (`Tenant` definition, cross-tenant lookup dictionaries) if they exist.
-- Restore time is not instantaneous. Cloning an instance takes several minutes. 
-
-## Automated Tooling Future State 
-In the short-term, a Node.js CLI script should be written that automates Phase 3 and Phase 4 by sequentially querying `findAll({ where: { tenant_id } })` across all mapped Prisma models and upserting them, eliminating the need for manual PostgreSQL RLS policies during emergencies.
+- Cross-tenant global lookup tables are intentionally excluded from tenant-specific restore.
+- Schema drift between clone and primary must be resolved before import.

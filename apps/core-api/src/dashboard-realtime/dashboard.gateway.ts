@@ -76,6 +76,7 @@ const allowedOrigins = resolveCorsOrigins();
 })
 export class DashboardGateway implements OnGatewayConnection {
   private readonly logger = new Logger(DashboardGateway.name);
+  private static readonly TENANT_ROOM_PREFIX = 'tenant_';
 
   constructor(
     @Inject(forwardRef(() => AuthService))
@@ -93,7 +94,7 @@ export class DashboardGateway implements OnGatewayConnection {
         this.logger.debug(
           `Unauthorized: No token provided (Socket ID: ${client.id})`,
         );
-        client.disconnect();
+        client.disconnect(true);
         return;
       }
 
@@ -105,32 +106,38 @@ export class DashboardGateway implements OnGatewayConnection {
         : `Bearer ${normalizedToken}`;
       const user = await this.authService.authenticateBearerToken(authHeader);
 
-      await client.join(user.tenantId);
+      const room = `${DashboardGateway.TENANT_ROOM_PREFIX}${user.tenantId}`;
+      client.data.tenantId = user.tenantId;
+      await client.join(room);
       this.logger.debug(
-        `Client authenticated and joined room: ${user.tenantId} (Socket ID: ${client.id})`,
+        `Client authenticated and joined room: ${room} (Socket ID: ${client.id})`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.debug(
         `Unauthorized: Invalid token (Socket ID: ${client.id}): ${message}`,
       );
-      client.disconnect();
+      client.disconnect(true);
     }
   }
 
-  emitEntityUpdated(payload: DashboardEntityUpdatedPayload): void {
+  emitEntityUpdated(
+    tenantId: string,
+    payload: DashboardEntityUpdatedPayload,
+  ): void {
     if (!this.server) {
       this.logger.debug(
         `Skipped emitting ${DASHBOARD_ENTITY_UPDATED_EVENT}: ${payload.type}/${payload.action} (No server connected)`.trim(),
       );
       return;
     }
+    const room = `${DashboardGateway.TENANT_ROOM_PREFIX}${tenantId}`;
     // Emit only to the specific tenant's room
     this.server
-      .to(payload.tenantId)
+      .to(room)
       .emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
-      `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${payload.tenantId}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
+      `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${room}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
     );
   }
 }

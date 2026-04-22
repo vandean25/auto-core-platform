@@ -3,6 +3,9 @@ ALTER TABLE "finance_settings"
 ADD COLUMN "next_workshop_order_number" INTEGER NOT NULL DEFAULT 1,
 ADD COLUMN "workshop_order_prefix" TEXT NOT NULL DEFAULT '';
 
+-- Add order_number column as nullable so the backfill below can populate it
+ALTER TABLE "workshop_orders" ADD COLUMN "order_number" TEXT;
+
 -- Backfill order numbers for existing rows using year-scoped sequence by createdAt
 WITH numbered AS (
   SELECT
