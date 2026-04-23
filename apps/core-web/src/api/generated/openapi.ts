@@ -1429,7 +1429,8 @@ export interface components {
         };
         BoardLineItemDto: {
             id: string;
-            type: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
             itemNo: string;
             description: string;
             quantity: number;
@@ -1439,7 +1440,8 @@ export interface components {
         BoardTaskDto: {
             id: string;
             title: string;
-            status: string;
+            /** @enum {string} */
+            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "DONE";
             lineItems: components["schemas"]["BoardLineItemDto"][];
         };
         BoardOrderDto: {
@@ -1452,8 +1454,8 @@ export interface components {
             mechanicId?: string | null;
             bayId?: string | null;
             stagingLocationId?: string | null;
-            /** @description Parts readiness status */
-            partsStatus: string;
+            /** @enum {string} */
+            partsStatus: "READY" | "SHORTAGE" | "WAITING" | "NO_PARTS";
             tasks: components["schemas"]["BoardTaskDto"][];
             /** Format: date-time */
             createdAt: string;

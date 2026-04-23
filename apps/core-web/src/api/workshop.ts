@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
+import type { components } from './generated/openapi'
 import type {
   CatalogSearchResponse,
   CreateWorkshopOrderPayload,
@@ -584,90 +585,20 @@ export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
 
 // ─── Board API ────────────────────────────────────────────────────────────────
 
-export type PartsStatus = 'READY' | 'SHORTAGE' | 'WAITING' | 'NO_PARTS'
+export type WorkshopMechanic = components['schemas']['WorkshopMechanicDto']
+export type WorkshopBay = components['schemas']['WorkshopBayDto']
+export type WorkshopResourcesResponse = components['schemas']['WorkshopResourcesResponseDto']
+export type BoardOrder = components['schemas']['BoardOrderDto']
+export type BoardActiveResponse = components['schemas']['BoardActiveResponseDto']
+export type AssignBoardPayload = components['schemas']['AssignBoardDto']
 
-export type WorkshopMechanic = {
-  id: string
-  name: string
-  role: string
-  isActive: boolean
-  sortOrder: number
-}
-
-export type WorkshopBay = {
-  id: string
-  name: string
-  isActive: boolean
-  sortOrder: number
-}
-
-export type WorkshopResourcesResponse = {
-  mechanics: WorkshopMechanic[]
-  bays: WorkshopBay[]
-}
-
-export type BoardLineItem = {
-  id: string
-  type: WorkshopLineItemType
-  itemNo: string
-  description: string
-  quantity: number
-  unitPrice: number
-  catalogItemId: string | null
-}
-
-export type BoardTask = {
-  id: string
-  title: string
-  status: WorkshopTaskStatus
-  lineItems: BoardLineItem[]
-}
-
-export type BoardCustomer = {
-  id: string
-  type: string
-  firstName: string
-  lastName: string
-  companyName: string | null
-}
-
-export type BoardVehicle = {
-  id: string
-  make: string
-  model: string
-  year: number
-  plate: string | null
-}
+// Derived union type from the generated enum so consumers can reference it directly
+export type PartsStatus = BoardOrder['partsStatus']
 
 export type BoardAssignmentTarget = {
   kind: 'mechanic' | 'bay'
   id: string
   label: string
-}
-
-export type BoardOrder = {
-  id: string
-  orderNumber: string
-  status: string
-  customer: BoardCustomer
-  vehicle: BoardVehicle
-  mechanicId: string | null
-  bayId: string | null
-  stagingLocationId: string | null
-  partsStatus: PartsStatus
-  tasks: BoardTask[]
-  createdAt: string
-  updatedAt: string
-}
-
-export type BoardActiveResponse = {
-  data: BoardOrder[]
-}
-
-export type AssignBoardPayload = {
-  orderId: string
-  mechanicId?: string | null
-  bayId?: string | null
 }
 
 export const boardKeys = {

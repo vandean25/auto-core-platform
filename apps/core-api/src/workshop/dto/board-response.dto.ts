@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { CustomerType, EmployeeRole, WorkshopOrderStatus } from '@prisma/client';
+import {
+  CustomerType,
+  EmployeeRole,
+  WorkshopLineItemType,
+  WorkshopOrderStatus,
+  WorkshopTaskStatus,
+} from '@prisma/client';
 
 // ─── Resources Endpoint DTOs ─────────────────────────────────────────────────
 
@@ -44,14 +50,19 @@ export class WorkshopResourcesResponseDto {
 
 // ─── Board Active Endpoint DTOs ───────────────────────────────────────────────
 
-export type PartsStatus = 'READY' | 'SHORTAGE' | 'WAITING' | 'NO_PARTS';
+export enum PartsStatus {
+  READY = 'READY',
+  SHORTAGE = 'SHORTAGE',
+  WAITING = 'WAITING',
+  NO_PARTS = 'NO_PARTS',
+}
 
 export class BoardLineItemDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
-  type!: string;
+  @ApiProperty({ enum: WorkshopLineItemType })
+  type!: WorkshopLineItemType;
 
   @ApiProperty()
   itemNo!: string;
@@ -76,8 +87,8 @@ export class BoardTaskDto {
   @ApiProperty()
   title!: string;
 
-  @ApiProperty()
-  status!: string;
+  @ApiProperty({ enum: WorkshopTaskStatus })
+  status!: WorkshopTaskStatus;
 
   @ApiProperty({ type: [BoardLineItemDto] })
   lineItems!: BoardLineItemDto[];
@@ -142,7 +153,7 @@ export class BoardOrderDto {
   @ApiProperty({ type: String, nullable: true, required: false })
   stagingLocationId?: string | null;
 
-  @ApiProperty({ description: 'Parts readiness status', type: String })
+  @ApiProperty({ enum: PartsStatus })
   partsStatus!: PartsStatus;
 
   @ApiProperty({ type: [BoardTaskDto] })

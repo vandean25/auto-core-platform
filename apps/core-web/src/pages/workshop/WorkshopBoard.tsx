@@ -31,12 +31,6 @@ import {
 // ─── Local-storage helpers ───────────────────────────────────────────────────
 
 const VIEW_MODE_KEY = 'workshop-board-view-mode'
-const FILTERS_KEY = 'workshop-board-filters'
-
-type BoardFilters = {
-  statuses: string[]
-  partStatuses: string[]
-}
 
 function readViewMode(): BoardViewMode {
   try {
@@ -46,18 +40,6 @@ function readViewMode(): BoardViewMode {
     // ignore
   }
   return 'mechanic'
-}
-
-function readFilters(): BoardFilters {
-  try {
-    const stored = window.localStorage.getItem(FILTERS_KEY)
-    if (stored) {
-      return JSON.parse(stored) as BoardFilters
-    }
-  } catch {
-    // ignore
-  }
-  return { statuses: [], partStatuses: [] }
 }
 
 // ─── Droppable Column ─────────────────────────────────────────────────────────
@@ -79,6 +61,8 @@ function DroppableColumn({
 }) {
   const { isOver, setNodeRef } = useDroppable({ id })
 
+  const visibleOrders = orders.filter((o) => o.id !== activeId)
+
   return (
     <div
       ref={setNodeRef}
@@ -91,23 +75,21 @@ function DroppableColumn({
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200">
         <span className="text-sm font-semibold text-slate-700">{label}</span>
         <span className="text-xs font-medium rounded-full bg-slate-200 text-slate-600 px-2 py-0.5 tabular-nums">
-          {orders.length}
+          {visibleOrders.length}
         </span>
       </div>
 
       {/* Cards */}
       <div className="flex flex-col gap-2 p-2 min-h-24">
-        {orders
-          .filter((o) => o.id !== activeId)
-          .map((order) => (
-            <WorkshopOrderCard
-              key={order.id}
-              order={order}
-              quickAssignTargets={quickAssignTargets}
-              onQuickAssign={(target) => onQuickAssign(order.id, target)}
-            />
-          ))}
-        {orders.length === 0 && (
+        {visibleOrders.map((order) => (
+          <WorkshopOrderCard
+            key={order.id}
+            order={order}
+            quickAssignTargets={quickAssignTargets}
+            onQuickAssign={(target) => onQuickAssign(order.id, target)}
+          />
+        ))}
+        {visibleOrders.length === 0 && (
           <p className="text-xs text-slate-400 text-center mt-4">No orders</p>
         )}
       </div>
@@ -151,7 +133,6 @@ function EmptyResourcesCard({ mode }: { mode: BoardViewMode }) {
 export default function WorkshopBoard() {
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = React.useState<BoardViewMode>(readViewMode)
-  const [filters] = React.useState<BoardFilters>(readFilters)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
   // Persist view mode
@@ -162,15 +143,6 @@ export default function WorkshopBoard() {
       // ignore
     }
   }, [viewMode])
-
-  // Persist filters
-  React.useEffect(() => {
-    try {
-      window.localStorage.setItem(FILTERS_KEY, JSON.stringify(filters))
-    } catch {
-      // ignore
-    }
-  }, [filters])
 
   const { data: resourcesData, isLoading: resourcesLoading } = useWorkshopResources()
   const { data: boardData, isLoading: boardLoading } = useBoardActive()

@@ -7,7 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { AssignBoardDto } from './dto/assign-board.dto';
-import type { PartsStatus } from './dto/board-response.dto';
+import { PartsStatus } from './dto/board-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
@@ -1297,9 +1297,9 @@ export class WorkshopService {
 
       let partsStatus: PartsStatus;
       if (partLineItems.length === 0) {
-        partsStatus = 'NO_PARTS';
+        partsStatus = PartsStatus.NO_PARTS;
       } else if (!order.staging_location_id) {
-        partsStatus = 'WAITING';
+        partsStatus = PartsStatus.WAITING;
       } else {
         const hasShortage = partLineItems.some((li) => {
           const catalogItemId = catalogIdBySku.get(li.item_no);
@@ -1308,7 +1308,7 @@ export class WorkshopService {
           const qty = stockMap.get(key) ?? 0;
           return qty < Number(li.quantity);
         });
-        partsStatus = hasShortage ? 'SHORTAGE' : 'READY';
+        partsStatus = hasShortage ? PartsStatus.SHORTAGE : PartsStatus.READY;
       }
 
       return {

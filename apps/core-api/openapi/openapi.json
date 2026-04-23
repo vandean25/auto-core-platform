@@ -5369,7 +5369,11 @@
             "type": "string"
           },
           "type": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
           },
           "itemNo": {
             "type": "string"
@@ -5407,7 +5411,13 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS",
+              "WAITING_PARTS",
+              "DONE"
+            ]
           },
           "lineItems": {
             "type": "array",
@@ -5462,7 +5472,12 @@
           },
           "partsStatus": {
             "type": "string",
-            "description": "Parts readiness status"
+            "enum": [
+              "READY",
+              "SHORTAGE",
+              "WAITING",
+              "NO_PARTS"
+            ]
           },
           "tasks": {
             "type": "array",
