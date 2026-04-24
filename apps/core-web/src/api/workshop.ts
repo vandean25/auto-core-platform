@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
+import type { components } from './generated/openapi'
 import type {
   CatalogSearchResponse,
   CreateWorkshopOrderPayload,
@@ -41,6 +42,8 @@ export const workshopKeys = {
   detail: (id: string) => workshopOrderDetailKey(id),
   order: (id: string) => workshopOrderDetailKey(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
+  boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
+  boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
 }
 
 export const laborKeys = {
@@ -579,3 +582,71 @@ export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
   }
   return response.blob()
 }
+
+// ─── Board API ────────────────────────────────────────────────────────────────
+
+export type WorkshopMechanic = components['schemas']['WorkshopMechanicDto']
+export type WorkshopBay = components['schemas']['WorkshopBayDto']
+export type WorkshopResourcesResponse = components['schemas']['WorkshopResourcesResponseDto']
+export type BoardOrder = components['schemas']['BoardOrderDto']
+export type BoardActiveResponse = components['schemas']['BoardActiveResponseDto']
+export type AssignBoardPayload = components['schemas']['AssignBoardDto']
+
+// Derived union type from the generated enum so consumers can reference it directly
+export type PartsStatus = BoardOrder['partsStatus']
+
+export type BoardAssignmentTarget = {
+  kind: 'mechanic' | 'bay'
+  id: string
+  label: string
+}
+
+export const boardKeys = {
+  all: ['workshop'] as const,
+  resources: () => workshopKeys.boardResources(),
+  active: () => workshopKeys.boardActive(),
+}
+
+export function useWorkshopResources() {
+  return useQuery<WorkshopResourcesResponse>({
+    queryKey: boardKeys.resources(),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/resources`)
+      if (!response.ok) throw new Error('Failed to fetch workshop resources')
+      return response.json()
+    },
+  })
+}
+
+export function useBoardActive() {
+  return useQuery<BoardActiveResponse>({
+    queryKey: boardKeys.active(),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/board/active`)
+      if (!response.ok) throw new Error('Failed to fetch active board')
+      return response.json()
+    },
+  })
+}
+
+export function useAssignBoard() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: AssignBoardPayload) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/board/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { message?: string }
+        throw new Error(body.message ?? 'Failed to assign board')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: boardKeys.active() })
+    },
+  })
+}
+

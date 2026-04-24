@@ -34,6 +34,7 @@ const IntakeDashboard = React.lazy(() => import('./pages/workshop/IntakeDashboar
 const WorkshopOrderDetails = React.lazy(() => import('./pages/workshop/WorkshopOrderDetails'))
 const WorkshopOrderList = React.lazy(() => import('./pages/workshop/WorkshopOrderList'))
 const WorkshopPickList = React.lazy(() => import('./pages/workshop/WorkshopPickList'))
+const WorkshopBoard = React.lazy(() => import('./pages/workshop/WorkshopBoard'))
 const CustomerList = React.lazy(() => import('./pages/customers/CustomerList'))
 const CustomerDetail = React.lazy(() => import('./pages/customers/CustomerDetail'))
 const VehicleDetail = React.lazy(() => import('./pages/vehicles/VehicleDetail'))
@@ -85,6 +86,7 @@ function AppRoutes() {
               <Route path="/workshop/intake" element={<IntakeDashboard />} />
               <Route path="/workshop/orders" element={<WorkshopOrderList />} />
               <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
+              <Route path="/workshop/board" element={<WorkshopBoard />} />
               <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
             </Routes>
           </React.Suspense>
