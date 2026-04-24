@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {
   GoogleAuthProvider,
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -25,8 +25,21 @@ function assertAllowedUser(user: User) {
   }
 }
 
+type AuthTokenResult = {
+  claims: Record<string, unknown>
+}
+
+type AuthenticatedUser = {
+  uid: string
+  email: string | null
+  displayName: string | null
+  getIdToken: (forceRefresh?: boolean) => Promise<string>
+  getIdTokenResult: (forceRefresh?: boolean) => Promise<AuthTokenResult>
+}
+
 type AuthContextValue = {
-  user: User | null
+  user: AuthenticatedUser | null
+  claims: AuthClaims | null
   loading: boolean
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<void>
@@ -34,10 +47,17 @@ type AuthContextValue = {
   signOutUser: () => Promise<void>
 }
 
+type AuthClaims = {
+  tenantId?: string
+  role?: string
+  platformRole?: string
+}
+
 const AuthContext = React.createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null)
+  const [user, setUser] = React.useState<AuthenticatedUser | null>(null)
+  const [claims, setClaims] = React.useState<AuthClaims | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -47,22 +67,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: 'testauto@auto.core.at',
         displayName: 'E2E Tester',
         getIdToken: async () => 'e2e-test-token',
-      } as User)
+        getIdTokenResult: async () => ({
+          claims: {
+            tenantId: 'e2e-tenant-id',
+            role: 'ADMIN',
+          },
+        }),
+      })
+      setClaims({ tenantId: 'e2e-tenant-id', role: 'ADMIN' })
       setLoading(false)
       return
     }
 
     if (!firebaseAuth) {
+      setClaims(null)
       setLoading(false)
       return
     }
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
-      setUser(nextUser)
-      setLoading(false)
+    let active = true
+
+    const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
+      void (async () => {
+        if (!active) return
+
+        setUser(nextUser)
+
+        if (!nextUser) {
+          setClaims(null)
+          setLoading(false)
+          return
+        }
+
+        const tokenResult = await nextUser.getIdTokenResult()
+        if (!active) return
+
+        setClaims(extractAuthClaims(tokenResult.claims))
+        setLoading(false)
+      })()
     })
 
-    return unsubscribe
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [])
 
   const signIn = React.useCallback(async (email: string, password: string) => {
@@ -106,12 +154,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<AuthContextValue>(() => ({
     user,
+    claims,
     loading,
     isConfigured: !firebaseConfigMissing,
     signIn,
     signInWithGoogle,
     signOutUser,
-  }), [user, loading, signIn, signInWithGoogle, signOutUser])
+  }), [user, claims, loading, signIn, signInWithGoogle, signOutUser])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -124,4 +173,13 @@ export function useAuth() {
   }
 
   return context
+}
+
+function extractAuthClaims(rawClaims: Record<string, unknown>): AuthClaims {
+  return {
+    tenantId: typeof rawClaims.tenantId === 'string' ? rawClaims.tenantId : undefined,
+    role: typeof rawClaims.role === 'string' ? rawClaims.role : undefined,
+    platformRole:
+      typeof rawClaims.platformRole === 'string' ? rawClaims.platformRole : undefined,
+  }
 }

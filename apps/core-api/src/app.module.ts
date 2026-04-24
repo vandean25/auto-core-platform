@@ -29,6 +29,8 @@ import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime
 import { EmployeeModule } from './employee/employee.module';
 import { BayModule } from './bay/bay.module';
 import { AuthModule } from './auth/auth.module';
+import { PlatformAdminModule } from './platform-admin/platform-admin.module';
+import { TenantMemberModule } from './tenant-member/tenant-member.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { AuthModule } from './auth/auth.module';
     EmployeeModule,
     BayModule,
     AuthModule,
+    PlatformAdminModule,
+    TenantMemberModule,
   ],
   controllers: [AppController],
   providers: [

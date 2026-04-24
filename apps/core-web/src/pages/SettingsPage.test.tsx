@@ -151,6 +151,14 @@ vi.mock('@/api/locations', () => ({
   useDeleteLocation: () => deleteLocationResult,
 }))
 
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    claims: {
+      role: 'ADMIN',
+    },
+  }),
+}))
+
 vi.mock('@/components/RevenueGroupTable', () => ({
   RevenueGroupTable: () => <div>Revenue groups table</div>,
 }))
@@ -179,6 +187,10 @@ vi.mock('@/components/settings/BaySettingsTab', () => ({
   BaySettingsTab: () => <div>Bays tab content</div>,
 }))
 
+vi.mock('@/components/settings/TeamSettingsTab', () => ({
+  TeamSettingsTab: () => <div>Team tab content</div>,
+}))
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid='location-search'>{location.search}</div>
@@ -204,6 +216,7 @@ describe('SettingsPage tab integration', () => {
 
     expect(screen.getByRole('tab', { name: 'Employees' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
     expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=employees')
 

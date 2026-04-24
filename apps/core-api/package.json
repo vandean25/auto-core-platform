@@ -25,6 +25,7 @@
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
+    "db:seed:platform-admin": "ts-node -r tsconfig-paths/register scripts/seed-platform-admin.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {

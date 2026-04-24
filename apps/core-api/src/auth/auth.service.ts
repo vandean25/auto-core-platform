@@ -7,23 +7,26 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
-  applicationDefault,
-  cert,
-  getApp,
-  getApps,
-  initializeApp,
 } from 'firebase-admin/app';
 import type { DecodedIdToken } from 'firebase-admin/auth';
-import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
-import type { AuthenticatedUser } from './types/authenticated-user';
+import { getFirebaseAdminAuth } from './firebase-admin';
+import type {
+  AuthenticatedUser,
+  TenantAuthenticatedUser,
+} from './types/authenticated-user';
 
 type AuthClaims = {
   sub: string;
   email: string;
-  tenantId: string;
-  role: string;
+  tenantId?: string;
+  role?: string;
+  platformRole?: string;
   iss?: string;
+};
+
+type AuthenticateBearerTokenOptions = {
+  allowPlatformAdmin?: boolean;
 };
 
 @Injectable()
@@ -38,9 +41,34 @@ export class AuthService {
 
   async authenticateBearerToken(
     authorizationHeader?: string,
+  ): Promise<TenantAuthenticatedUser>;
+  async authenticateBearerToken(
+    authorizationHeader: string | undefined,
+    options: { allowPlatformAdmin: true },
+  ): Promise<AuthenticatedUser>;
+  async authenticateBearerToken(
+    authorizationHeader?: string,
+    options: AuthenticateBearerTokenOptions = {},
   ): Promise<AuthenticatedUser> {
     const token = this.extractBearerToken(authorizationHeader);
-    const claims = await this.verifyToken(token);
+    const claims = await this.verifyToken(token, options);
+
+    if (
+      options.allowPlatformAdmin &&
+      typeof claims.platformRole === 'string'
+    ) {
+      return {
+        userId: claims.sub,
+        email: claims.email,
+        ...(typeof claims.tenantId === 'string'
+          ? { tenantId: claims.tenantId }
+          : {}),
+        ...(typeof claims.role === 'string' ? { role: claims.role } : {}),
+        platformRole: claims.platformRole,
+      };
+    }
+
+    this.assertTenantClaims(claims);
 
     if (
       process.env.NODE_ENV === 'test' &&
@@ -72,6 +100,9 @@ export class AuthService {
       email: claims.email,
       tenantId: claims.tenantId,
       role: claims.role,
+      ...(typeof claims.platformRole === 'string'
+        ? { platformRole: claims.platformRole }
+        : {}),
     };
   }
 
@@ -103,34 +134,53 @@ export class AuthService {
     return token;
   }
 
-  private async verifyToken(token: string): Promise<AuthClaims> {
+  private async verifyToken(
+    token: string,
+    options: AuthenticateBearerTokenOptions = {},
+  ): Promise<AuthClaims> {
     if (process.env.NODE_ENV === 'test') {
-      try {
-        const payload = await this.jwtService.verifyAsync<AuthClaims>(token, {
-          secret: this.testJwtSecret,
-        });
-        return this.assertClaims(payload);
-      } catch {
-        // Fall through to Firebase verification so auth-specific tests can still
-        // exercise rejection paths with non-fixture tokens.
+      const payload = await this.verifyTestToken(token);
+
+      if (payload) {
+        return this.assertClaims(payload, options);
       }
+
+      // Fall through to Firebase verification so auth-specific tests can still
+      // exercise rejection paths with non-fixture tokens.
     }
 
     try {
-      const decoded = await getAuth(this.getFirebaseApp()).verifyIdToken(token);
-      return this.assertClaims(this.mapFirebaseClaims(decoded));
+      const decoded = await getFirebaseAdminAuth().verifyIdToken(token);
+      return this.assertClaims(this.mapFirebaseClaims(decoded), options);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new UnauthorizedException(`Invalid or expired token: ${message}`);
     }
   }
 
-  private assertClaims(payload: Partial<AuthClaims>): AuthClaims {
+  private async verifyTestToken(token: string): Promise<AuthClaims | undefined> {
+    try {
+      return await this.jwtService.verifyAsync<AuthClaims>(token, {
+        secret: this.testJwtSecret,
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  private assertClaims(
+    payload: Partial<AuthClaims>,
+    options: AuthenticateBearerTokenOptions = {},
+  ): AuthClaims {
+    const hasTenantClaims =
+      typeof payload.tenantId === 'string' && typeof payload.role === 'string';
+    const hasPlatformClaims =
+      options.allowPlatformAdmin && typeof payload.platformRole === 'string';
+
     if (
       typeof payload.sub !== 'string' ||
       typeof payload.email !== 'string' ||
-      typeof payload.tenantId !== 'string' ||
-      typeof payload.role !== 'string'
+      (!hasTenantClaims && !hasPlatformClaims)
     ) {
       throw new UnauthorizedException(
         'Bearer token is missing one or more required claims.',
@@ -140,10 +190,28 @@ export class AuthService {
     return {
       sub: payload.sub,
       email: payload.email,
-      tenantId: payload.tenantId,
-      role: payload.role,
+      tenantId:
+        typeof payload.tenantId === 'string' ? payload.tenantId : undefined,
+      role: typeof payload.role === 'string' ? payload.role : undefined,
+      platformRole:
+        typeof payload.platformRole === 'string'
+          ? payload.platformRole
+          : undefined,
       iss: payload.iss,
     };
+  }
+
+  private assertTenantClaims(
+    claims: AuthClaims,
+  ): asserts claims is AuthClaims & {
+    tenantId: string;
+    role: string;
+  } {
+    if (typeof claims.tenantId !== 'string' || typeof claims.role !== 'string') {
+      throw new UnauthorizedException(
+        'Bearer token is missing one or more required claims.',
+      );
+    }
   }
 
   private mapFirebaseClaims(decoded: DecodedIdToken): Partial<AuthClaims> {
@@ -161,46 +229,20 @@ export class AuthService {
           ? decoded.roles
           : undefined;
 
+    const platformRole =
+      typeof decoded.platformRole === 'string'
+        ? decoded.platformRole
+        : typeof decoded.platform_role === 'string'
+          ? decoded.platform_role
+          : undefined;
+
     return {
       sub: decoded.uid,
       email: decoded.email,
       tenantId,
       role,
+      platformRole,
       iss: decoded.iss,
     };
-  }
-
-  private getFirebaseApp() {
-    if (getApps().length > 0) {
-      return getApp();
-    }
-
-    const projectId =
-      process.env.FIREBASE_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
-    const rawCredentials = process.env.GCP_CREDENTIALS;
-
-    if (rawCredentials) {
-      const parsed = JSON.parse(rawCredentials) as {
-        project_id?: string;
-        client_email?: string;
-        private_key?: string;
-      };
-
-      if (parsed.client_email && parsed.private_key) {
-        return initializeApp({
-          credential: cert({
-            projectId: parsed.project_id ?? projectId,
-            clientEmail: parsed.client_email,
-            privateKey: parsed.private_key,
-          }),
-          projectId: parsed.project_id ?? projectId,
-        });
-      }
-    }
-
-    return initializeApp({
-      credential: applicationDefault(),
-      projectId,
-    });
   }
 }

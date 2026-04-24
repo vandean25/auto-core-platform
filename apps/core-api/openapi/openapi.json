@@ -3810,6 +3810,265 @@
           "bays"
         ]
       }
+    },
+    "/api/platform/tenants": {
+      "get": {
+        "operationId": "PlatformAdminController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by tenant name or slug",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "description": "Include inactive tenants when true",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "platform-tenants"
+        ]
+      },
+      "post": {
+        "operationId": "PlatformAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlatformTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "platform-tenants"
+        ]
+      }
+    },
+    "/api/platform/tenants/{id}": {
+      "patch": {
+        "operationId": "PlatformAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "platform-tenants"
+        ]
+      }
+    },
+    "/api/tenant-members": {
+      "get": {
+        "operationId": "TenantMemberController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by email or user name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "description": "Include inactive memberships when true",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based)",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantMembersListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tenant-members"
+        ]
+      }
+    },
+    "/api/tenant-members/invite": {
+      "post": {
+        "operationId": "TenantMemberController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteTenantMemberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantMemberResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tenant-members"
+        ]
+      }
+    },
+    "/api/tenant-members/{id}": {
+      "patch": {
+        "operationId": "TenantMemberController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantMemberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantMemberResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tenant-members"
+        ]
+      }
     }
   },
   "info": {
@@ -6211,6 +6470,284 @@
         "required": [
           "id"
         ]
+      },
+      "TenantPlan": {
+        "type": "string",
+        "enum": [
+          "STANDARD",
+          "PREMIUM",
+          "ENTERPRISE"
+        ]
+      },
+      "PlatformTenantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "plan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantPlan"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "plan",
+          "isActive",
+          "memberCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PlatformTenantListMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "PlatformTenantListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformTenantResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PlatformTenantListMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CreatePlatformTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Lowercase slug used for tenant routing and lookup"
+          },
+          "plan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantPlan"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "plan"
+        ]
+      },
+      "UpdatePlatformTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "plan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantPlan"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TenantMemberRole": {
+        "type": "string",
+        "enum": [
+          "OWNER",
+          "ADMIN",
+          "TECH",
+          "SALES"
+        ]
+      },
+      "TenantMemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "object"
+          },
+          "lastName": {
+            "type": "object"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "userId",
+          "email",
+          "role",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "TenantMembersListMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "TenantMembersListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantMemberResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/TenantMembersListMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "InviteTenantMemberDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ]
+      },
+      "UpdateTenantMemberDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },

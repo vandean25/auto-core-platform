@@ -8,6 +8,8 @@ import { Server, Socket } from 'socket.io';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from '../auth/auth.service';
 import {
+  AUTH_CLAIMS_UPDATED_EVENT,
+  AuthClaimsUpdatedPayload,
   DASHBOARD_ENTITY_UPDATED_EVENT,
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
@@ -77,6 +79,7 @@ const allowedOrigins = resolveCorsOrigins();
 export class DashboardGateway implements OnGatewayConnection {
   private readonly logger = new Logger(DashboardGateway.name);
   private static readonly TENANT_ROOM_PREFIX = 'tenant_';
+  private static readonly USER_ROOM_PREFIX = 'user_';
 
   constructor(
     @Inject(forwardRef(() => AuthService))
@@ -106,11 +109,14 @@ export class DashboardGateway implements OnGatewayConnection {
         : `Bearer ${normalizedToken}`;
       const user = await this.authService.authenticateBearerToken(authHeader);
 
-      const room = `${DashboardGateway.TENANT_ROOM_PREFIX}${user.tenantId}`;
+      const tenantRoom = `${DashboardGateway.TENANT_ROOM_PREFIX}${user.tenantId}`;
+      const userRoom = `${DashboardGateway.USER_ROOM_PREFIX}${user.userId}`;
       client.data.tenantId = user.tenantId;
-      await client.join(room);
+      client.data.userId = user.userId;
+      await client.join(tenantRoom);
+      await client.join(userRoom);
       this.logger.debug(
-        `Client authenticated and joined room: ${room} (Socket ID: ${client.id})`,
+        `Client authenticated and joined rooms: ${tenantRoom}, ${userRoom} (Socket ID: ${client.id})`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -138,6 +144,21 @@ export class DashboardGateway implements OnGatewayConnection {
       .emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
       `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${room}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
+    );
+  }
+
+  emitClaimsUpdated(userId: string, payload: AuthClaimsUpdatedPayload): void {
+    if (!this.server) {
+      this.logger.debug(
+        `Skipped emitting ${AUTH_CLAIMS_UPDATED_EVENT}: ${payload.reason} (No server connected)`.trim(),
+      );
+      return;
+    }
+
+    const room = `${DashboardGateway.USER_ROOM_PREFIX}${userId}`;
+    this.server.to(room).emit(AUTH_CLAIMS_UPDATED_EVENT, payload);
+    this.logger.debug(
+      `Emitted ${AUTH_CLAIMS_UPDATED_EVENT} to room ${room}: ${payload.reason}`.trim(),
     );
   }
 }

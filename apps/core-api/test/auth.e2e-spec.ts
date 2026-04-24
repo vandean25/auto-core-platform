@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -6,6 +6,8 @@ import request from 'supertest';
 import { AuthModule } from '../src/auth/auth.module';
 import { AuthService } from '../src/auth/auth.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
+import { SuperAdminGuard } from '../src/auth/super-admin.guard';
+import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admin.decorator';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 @Controller('protected')
@@ -13,6 +15,16 @@ class ProtectedController {
   @Get()
   getProtected() {
     return { ok: true };
+  }
+}
+
+@Controller('platform/probe')
+class PlatformProbeController {
+  @AllowPlatformAdmin()
+  @Get()
+  @UseGuards(SuperAdminGuard)
+  getPlatformProtected() {
+    return { ok: true, scope: 'platform' };
   }
 }
 
@@ -31,7 +43,7 @@ describe('Bearer auth (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AuthModule],
-      controllers: [ProtectedController],
+      controllers: [ProtectedController, PlatformProbeController],
       providers: [
         {
           provide: APP_GUARD,
@@ -95,5 +107,31 @@ describe('Bearer auth (e2e)', () => {
       .get('/protected')
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
+  });
+
+  it('accepts platform-admin tokens on routes marked for platform access without tenantId', async () => {
+    const token = authService.createTestToken({
+      tenantId: undefined,
+      role: undefined,
+      platformRole: 'SUPER_ADMIN',
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/platform/probe')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200, { ok: true, scope: 'platform' });
+  });
+
+  it('still rejects normal tenant routes without tenantId and role claims', async () => {
+    const token = authService.createTestToken({
+      tenantId: undefined,
+      role: undefined,
+      platformRole: 'SUPER_ADMIN',
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
   });
 });

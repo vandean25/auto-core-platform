@@ -31,6 +31,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
 | PurchaseInvoice | No | Financial document; use status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
+| User | No direct delete | Identity record persists for auditability; deactivate memberships instead of deleting the user. |
+| TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
+| PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
 | Employee | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.mechanic_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |

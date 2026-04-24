@@ -1,4 +1,5 @@
 export const ENTITY_UPDATED_EVENT = 'entity_updated'
+export const AUTH_CLAIMS_UPDATED_EVENT = 'auth:claims_updated'
 
 export type RealtimeEntityType =
   | 'PURCHASE_ORDER'
@@ -17,4 +18,17 @@ export interface EntityUpdatedPayload {
   action: RealtimeEntityAction
   entityId?: string
   timestamp: string
+}
+
+export interface ClaimsUpdatedPayload {
+  reason: 'membership-updated'
+  timestamp: string
+}
+
+export function isClaimsUpdatedPayload(payload: unknown): payload is ClaimsUpdatedPayload {
+  if (!payload || typeof payload !== 'object') return false
+
+  const value = payload as Partial<ClaimsUpdatedPayload>
+
+  return value.reason === 'membership-updated' && typeof value.timestamp === 'string'
 }

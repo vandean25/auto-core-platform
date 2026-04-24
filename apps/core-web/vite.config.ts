@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => {
     ],
     build: {
       sourcemap: 'hidden',
+      chunkSizeWarningLimit: 750,
     },
     resolve: {
       alias: {
