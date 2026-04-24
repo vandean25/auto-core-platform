@@ -2747,6 +2747,72 @@
         ]
       }
     },
+    "/api/workshop/resources": {
+      "get": {
+        "operationId": "WorkshopController_getBoardResources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopResourcesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/board/active": {
+      "get": {
+        "operationId": "WorkshopController_getBoardActive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardActiveResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/board/assign": {
+      "patch": {
+        "operationId": "WorkshopController_assignBoard",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignBoardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated workshop order assignment."
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/invoices/drafts": {
       "post": {
         "operationId": "InvoicesController_createDraft",
@@ -5160,6 +5226,320 @@
         "required": [
           "message",
           "enqueued"
+        ]
+      },
+      "WorkshopMechanicDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "MECHANIC",
+              "SERVICE_ADVISOR",
+              "PARTS_CLERK"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "isActive",
+          "sortOrder"
+        ]
+      },
+      "WorkshopBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "sortOrder"
+        ]
+      },
+      "WorkshopResourcesResponseDto": {
+        "type": "object",
+        "properties": {
+          "mechanics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicDto"
+            }
+          },
+          "bays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopBayDto"
+            }
+          }
+        },
+        "required": [
+          "mechanics",
+          "bays"
+        ]
+      },
+      "BoardCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "COMPANY"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "firstName",
+          "lastName"
+        ]
+      },
+      "BoardVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "BoardLineItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "catalogItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "itemNo",
+          "description",
+          "quantity",
+          "unitPrice"
+        ]
+      },
+      "BoardTaskDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS",
+              "WAITING_PARTS",
+              "DONE"
+            ]
+          },
+          "lineItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardLineItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "lineItems"
+        ]
+      },
+      "BoardOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "INTAKE",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "INVOICED"
+            ]
+          },
+          "customer": {
+            "$ref": "#/components/schemas/BoardCustomerDto"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/BoardVehicleDto"
+          },
+          "mechanicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "bayId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stagingLocationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "partsStatus": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "SHORTAGE",
+              "WAITING",
+              "NO_PARTS"
+            ]
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardTaskDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "status",
+          "customer",
+          "vehicle",
+          "partsStatus",
+          "tasks",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "BoardActiveResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardOrderDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AssignBoardDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Workshop order ID to assign"
+          },
+          "mechanicId": {
+            "type": "string",
+            "description": "Mechanic (employee) ID to assign, or null to unassign",
+            "nullable": true
+          },
+          "bayId": {
+            "type": "string",
+            "description": "Bay ID to assign, or null to unassign",
+            "nullable": true
+          }
+        },
+        "required": [
+          "orderId"
         ]
       },
       "CreateDraftInvoiceDto": {

@@ -39,6 +39,11 @@ import {
   WorkshopOrderResponseDto,
   WorkshopTaskResponseDto,
 } from './dto/workshop-response.dto';
+import { AssignBoardDto } from './dto/assign-board.dto';
+import {
+  BoardActiveResponseDto,
+  WorkshopResourcesResponseDto,
+} from './dto/board-response.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
@@ -282,5 +287,25 @@ export class WorkshopController {
     }
 
     await pipeline(stream, res);
+  }
+
+  // ─── Board Endpoints ───────────────────────────────────────────────────────
+
+  @Get('resources')
+  @ApiOkResponse({ type: WorkshopResourcesResponseDto })
+  getBoardResources() {
+    return this.workshopService.getBoardResources();
+  }
+
+  @Get('board/active')
+  @ApiOkResponse({ type: BoardActiveResponseDto })
+  getBoardActive() {
+    return this.workshopService.getBoardActive();
+  }
+
+  @Patch('board/assign')
+  @ApiOkResponse({ description: 'Updated workshop order assignment.' })
+  assignBoard(@Body() dto: AssignBoardDto) {
+    return this.workshopService.assignBoard(dto);
   }
 }

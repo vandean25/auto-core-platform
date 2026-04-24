@@ -30,6 +30,7 @@ import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
 import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
 import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
 import WorkshopPickList from './pages/workshop/WorkshopPickList'
+import WorkshopBoard from './pages/workshop/WorkshopBoard'
 import CustomerList from './pages/customers/CustomerList'
 import CustomerDetail from './pages/customers/CustomerDetail'
 import VehicleDetail from './pages/vehicles/VehicleDetail'
@@ -79,6 +80,7 @@ function AppRoutes() {
             <Route path="/workshop/intake" element={<IntakeDashboard />} />
             <Route path="/workshop/orders" element={<WorkshopOrderList />} />
             <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
+            <Route path="/workshop/board" element={<WorkshopBoard />} />
             <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
           </Routes>
         </motion.div>
