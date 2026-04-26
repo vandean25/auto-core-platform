@@ -201,7 +201,7 @@ describe('TenantMemberService', () => {
       },
     );
     expect(mockDashboardRealtime.emitClaimsUpdated).toHaveBeenCalledWith(
-      'user-1',
+      'firebase-uid-1',
     );
     expect(result).toMatchObject({
       id: 'membership-1',
@@ -288,7 +288,7 @@ describe('TenantMemberService', () => {
       'firebase-uid-1',
     );
     expect(mockDashboardRealtime.emitClaimsUpdated).toHaveBeenCalledWith(
-      'user-1',
+      'firebase-uid-1',
     );
     expect(result).toMatchObject({
       id: 'membership-1',
