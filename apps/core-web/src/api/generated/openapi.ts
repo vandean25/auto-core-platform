@@ -1932,8 +1932,8 @@ export interface components {
             /** Format: uuid */
             userId: string;
             email: string;
-            firstName?: Record<string, never>;
-            lastName?: Record<string, never>;
+            firstName?: string | null;
+            lastName?: string | null;
             role: components["schemas"]["TenantMemberRole"];
             isActive: boolean;
             /** Format: date-time */

@@ -7019,10 +7019,12 @@
             "type": "string"
           },
           "firstName": {
-            "type": "object"
+            "type": "string",
+            "nullable": true
           },
           "lastName": {
-            "type": "object"
+            "type": "string",
+            "nullable": true
           },
           "role": {
             "allOf": [

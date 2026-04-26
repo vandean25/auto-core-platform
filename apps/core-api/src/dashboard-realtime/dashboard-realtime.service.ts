@@ -21,12 +21,12 @@ export class DashboardRealtimeService {
     this.dashboardGateway.emitEntityUpdated(tenantId, payload);
   }
 
-  emitClaimsUpdated(userId: string): void {
+  emitClaimsUpdated(firebaseUid: string): void {
     const payload: AuthClaimsUpdatedPayload = {
       reason: 'membership-updated',
       timestamp: new Date().toISOString(),
     };
 
-    this.dashboardGateway.emitClaimsUpdated(userId, payload);
+    this.dashboardGateway.emitClaimsUpdated(firebaseUid, payload);
   }
 }

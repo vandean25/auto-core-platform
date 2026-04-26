@@ -99,11 +99,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        const tokenResult = await nextUser.getIdTokenResult()
-        if (!active) return
-
-        setClaims(extractAuthClaims(tokenResult.claims))
-        setLoading(false)
+        try {
+          const tokenResult = await nextUser.getIdTokenResult()
+          if (!active) return
+          setClaims(extractAuthClaims(tokenResult.claims))
+          setLoading(false)
+        } catch {
+          if (!active) return
+          setClaims(null)
+          setUser(null)
+          setLoading(false)
+        }
       })()
     })
 

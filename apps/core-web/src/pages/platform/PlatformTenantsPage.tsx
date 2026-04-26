@@ -158,10 +158,6 @@ export default function PlatformTenantsPage() {
   const pageStart = (currentPage - 1) * pageSize
   const pagedTenants = sortedTenants.slice(pageStart, pageStart + pageSize)
 
-  if (claims?.platformRole !== 'SUPER_ADMIN') {
-    return <Navigate to='/dashboard' replace />
-  }
-
   const columns = React.useMemo<ColumnDef<PlatformTenant>[]>(
     () => [
       {
@@ -192,6 +188,10 @@ export default function PlatformTenantsPage() {
     ],
     [],
   )
+
+  if (claims?.platformRole !== 'SUPER_ADMIN') {
+    return <Navigate to='/dashboard' replace />
+  }
 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault()

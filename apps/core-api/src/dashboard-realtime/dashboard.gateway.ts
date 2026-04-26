@@ -147,7 +147,7 @@ export class DashboardGateway implements OnGatewayConnection {
     );
   }
 
-  emitClaimsUpdated(userId: string, payload: AuthClaimsUpdatedPayload): void {
+  emitClaimsUpdated(firebaseUid: string, payload: AuthClaimsUpdatedPayload): void {
     if (!this.server) {
       this.logger.debug(
         `Skipped emitting ${AUTH_CLAIMS_UPDATED_EVENT}: ${payload.reason} (No server connected)`.trim(),
@@ -155,7 +155,7 @@ export class DashboardGateway implements OnGatewayConnection {
       return;
     }
 
-    const room = `${DashboardGateway.USER_ROOM_PREFIX}${userId}`;
+    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
     this.server.to(room).emit(AUTH_CLAIMS_UPDATED_EVENT, payload);
     this.logger.debug(
       `Emitted ${AUTH_CLAIMS_UPDATED_EVENT} to room ${room}: ${payload.reason}`.trim(),

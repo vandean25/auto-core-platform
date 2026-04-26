@@ -92,10 +92,10 @@ export class TenantMemberResponseDto {
   @ApiProperty()
   email!: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String, nullable: true })
   firstName?: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String, nullable: true })
   lastName?: string | null;
 
   @ApiProperty({ enum: TenantMemberRole, enumName: 'TenantMemberRole' })

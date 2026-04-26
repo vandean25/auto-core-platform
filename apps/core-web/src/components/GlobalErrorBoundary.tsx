@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 function ErrorFallback({ error }: FallbackProps) {
-  const err = error as any
+  const err = error as { name?: string; message?: string }
   const isChunkLoadError = 
     err?.name === 'ChunkLoadError' || 
     err?.message?.includes('Failed to fetch dynamically imported module') ||

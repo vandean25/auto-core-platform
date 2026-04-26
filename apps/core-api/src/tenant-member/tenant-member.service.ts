@@ -138,7 +138,7 @@ export class TenantMemberService {
     });
 
     await this.syncUserClaims(userId);
-    this.dashboardRealtime.emitClaimsUpdated(userId);
+    this.dashboardRealtime.emitClaimsUpdated(firebaseUser.uid);
 
     return this.mapTenantMember(membership);
   }
@@ -174,18 +174,18 @@ export class TenantMemberService {
 
     await this.syncUserClaims(updatedMembership.user_id);
 
-    if (securitySensitiveChange) {
-      const user = await this.systemPrisma.user.findFirst({
-        where: { id: updatedMembership.user_id },
-        select: { firebaseUid: true },
-      });
+    const updatedUser = await this.systemPrisma.user.findFirst({
+      where: { id: updatedMembership.user_id },
+      select: { firebaseUid: true },
+    });
 
-      if (user?.firebaseUid) {
-        await this.getFirebaseAuth().revokeRefreshTokens(user.firebaseUid);
-      }
+    if (securitySensitiveChange && updatedUser?.firebaseUid) {
+      await this.getFirebaseAuth().revokeRefreshTokens(updatedUser.firebaseUid);
     }
 
-    this.dashboardRealtime.emitClaimsUpdated(updatedMembership.user_id);
+    if (updatedUser?.firebaseUid) {
+      this.dashboardRealtime.emitClaimsUpdated(updatedUser.firebaseUid);
+    }
 
     return this.mapTenantMember(updatedMembership);
   }
