@@ -286,6 +286,10 @@ export type WorkshopOrder = Omit<
     OpenApiSchemas['WorkshopOrderResponseDto'],
     'tasks' | 'invoice' | 'updatedAt'
 > & {
+    mechanic_id?: string | null
+    mechanicId?: string | null
+    bay_id?: string | null
+    bayId?: string | null
     tasks?: WorkshopTask[]
     invoice?: OpenApiSchemas['WorkshopInvoiceSummaryDto'] | null
     updatedAt?: string
