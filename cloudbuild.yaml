@@ -1,13 +1,14 @@
 substitutions:
   _BACKEND_PROJECT: auto-core-platform
-  _FRONTEND_PROJECT: auto-core-platform-vande
+  _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform
+  _FRONTEND_PROJECT: auto-core-platform
   _REGION: europe-west3
   _RUN_SERVICE: core-api
   _AR_REPO: core-services
-  _FRONTEND_URL: https://auto-core-platform-vande.web.app
-  _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform-vande.firebaseapp.com
-  _VITE_FIREBASE_PROJECT_ID: auto-core-platform-vande
-  _VITE_FIREBASE_APP_ID: 1:895976476759:web:d69c51386996793445d312
+  _FRONTEND_URL: https://auto-core-platform.web.app
+  _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform.firebaseapp.com
+  _VITE_FIREBASE_PROJECT_ID: auto-core-platform
+  _VITE_FIREBASE_APP_ID: 1:430221429044:web:491f90e576a792fc9b3d61
   _VITE_ALLOWED_LOGIN_EMAILS: "van.dean25@gmail.com"
 
 options:
@@ -82,7 +83,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME}" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
           --set-secrets "DATABASE_URL=DATABASE_URL:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest" \
           --cpu 1 \
           --memory 512Mi \

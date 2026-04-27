@@ -1415,7 +1415,12 @@ export class WorkshopService {
 
     // Single-row update — last-write-wins (per ADR-0013)
     const updated = await this.prisma.workshopOrder.update({
-      where: { id: dto.orderId },
+      where: {
+        tenant_id_id: {
+          tenant_id: tenantId,
+          id: dto.orderId,
+        },
+      },
       data: {
         ...(dto.mechanicId !== undefined && { mechanic_id: dto.mechanicId }),
         ...(dto.bayId !== undefined && { bay_id: dto.bayId }),

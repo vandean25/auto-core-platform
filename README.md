@@ -115,7 +115,7 @@ Use GSM so all machines/agents pull the same credentials without committing secr
 
 ```bash
 gcloud auth login
-gcloud config set project auto-core-platform-vande
+gcloud config set project auto-core-platform
 ```
 
 2. Create local mapping file from template:
@@ -198,12 +198,11 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 ## Production Hosting & Auth
 
-### Project Split
+### Firebase Project
 
-- **Backend + Cloud Build Project**: `auto-core-platform`
-- **Frontend Hosting + Firebase Auth Project**: `auto-core-platform-vande`
+- **Backend + Cloud Build + Hosting + Firebase Auth Project**: `auto-core-platform`
 
-This split is supported. Deploys run from Cloud Build in `auto-core-platform` and deploy hosting to `auto-core-platform-vande`.
+The application now uses a single Firebase/GCP project for backend deployment, frontend hosting, and Firebase Authentication.
 
 ### Firebase Auth (Frontend)
 
@@ -257,7 +256,7 @@ Authentication -> Users -> Add user.
 
 ### Firebase Console Requirements
 
-In Firebase project `auto-core-platform-vande`:
+In Firebase project `auto-core-platform`:
 
 1. Enable Authentication providers you use (`Email/Password`, `Google`).
 2. Ensure authorized domains include your hosting domains.
@@ -270,24 +269,21 @@ In Firebase project `auto-core-platform-vande`:
 The release trigger deploys on tags matching `^v.*$`.
 
 - Build file: `cloudbuild.yaml`
-- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
+- Hosting config: `firebase.json` (site set to `auto-core-platform`)
 
 ### Required APIs
 
-In **build project** (`auto-core-platform`):
+In project `auto-core-platform`:
 
 - `cloudbuild.googleapis.com`
 - `firebase.googleapis.com` (Firebase Management API)
 - `firebasehosting.googleapis.com` (Firebase Hosting API)
-
-In **Firebase project** (`auto-core-platform-vande`):
-
 - `identitytoolkit.googleapis.com`
-- `firebase.googleapis.com`
+
 
 ### Required IAM for build service account
 
-Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
+Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform`:
 
 - `roles/firebase.admin`
 - `roles/firebasehosting.admin`
@@ -516,7 +512,7 @@ If Cloud Build fails on hosting deploy with errors like:
 Check:
 
 1. `firebase.googleapis.com` and `firebasehosting.googleapis.com` are enabled in **build project** (`auto-core-platform`).
-2. Build service account has Firebase roles on **hosting project** (`auto-core-platform-vande`).
+2. Build service account has Firebase roles on `auto-core-platform`.
 3. `firebase.json` contains the correct hosting site name.
 
 ---
