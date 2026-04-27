@@ -226,6 +226,8 @@ describe('Bearer auth (e2e)', () => {
           is_active: true,
           tenant: {
             id: 'tenant-db',
+            name: 'Auto Core HQ',
+            slug: 'hq',
             is_active: true,
           },
         },
@@ -397,7 +399,7 @@ describe('Bearer auth (e2e)', () => {
       .post('/auth/switch-tenant')
       .set('Authorization', `Bearer ${token}`)
       .send({ tenantId: 'tenant-b' })
-      .expect(201)
+      .expect(200)
       .expect(({ body }) => {
         expect(body.activeTenant).toEqual({
           id: 'tenant-b',

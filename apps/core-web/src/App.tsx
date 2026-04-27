@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
+import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
 import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
 import { Toaster } from '@/components/ui/sonner'
@@ -244,7 +245,9 @@ function App() {
         memberships={sessionQuery.data.memberships}
         isSwitchingTenant={switchTenantMutation.isPending}
         onSwitchTenant={(tenantId) => {
-          void switchTenantMutation.mutateAsync(tenantId)
+          switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
+          })
         }}
         onSignOut={() => void signOutUser()}
       />

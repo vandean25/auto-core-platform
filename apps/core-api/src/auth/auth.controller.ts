@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import { ApiOkResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthSessionService, type AuthSession } from './auth-session.service';
 import {
@@ -23,7 +23,8 @@ export class AuthController {
   }
 
   @Post('switch-tenant')
-  @ApiCreatedResponse({ type: AuthSessionResponseDto })
+  @HttpCode(200)
+  @ApiOkResponse({ type: AuthSessionResponseDto })
   switchTenant(
     @Req() request: Request & { user: AuthenticatedUser },
     @Body() dto: SwitchTenantDto,

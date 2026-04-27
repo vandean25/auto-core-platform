@@ -56,10 +56,7 @@ export class AuthService {
 
     if (options.allowPlatformAdmin && typeof claims.platformRole === 'string') {
       if (tenantUser) {
-        return {
-          ...tenantUser,
-          platformRole: claims.platformRole,
-        };
+        return tenantUser;
       }
 
       return {
@@ -74,12 +71,7 @@ export class AuthService {
     }
 
     if (tenantUser) {
-      return typeof claims.platformRole === 'string'
-        ? {
-            ...tenantUser,
-            platformRole: claims.platformRole,
-          }
-        : tenantUser;
+      return tenantUser;
     }
 
     if (
