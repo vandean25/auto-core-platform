@@ -320,12 +320,17 @@ export function TeamSettingsTab() {
                   ariaLabel='Tenant member role'
                   onSave={async (nextRole) => {
                     const normalizedRole = nextRole.trim().toUpperCase() as TenantMemberRole
-                    const updatedMember = await updateMutation.mutateAsync({
-                      id: selectedMember.id,
-                      data: { role: normalizedRole },
-                    })
-                    setSelectedMember(updatedMember)
-                    toast.success('Member role updated')
+                    try {
+                      const updatedMember = await updateMutation.mutateAsync({
+                        id: selectedMember.id,
+                        data: { role: normalizedRole },
+                      })
+                      setSelectedMember(updatedMember)
+                      toast.success('Member role updated')
+                    } catch (updateError: unknown) {
+                      toast.error(getErrorMessage(updateError, 'Failed to update member role'))
+                      throw updateError
+                    }
                   }}
                 />
                 <p className='text-xs text-slate-500'>Allowed values: OWNER, ADMIN, TECH, SALES.</p>

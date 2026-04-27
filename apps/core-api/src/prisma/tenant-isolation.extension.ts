@@ -101,6 +101,15 @@ function scopeUpsertWhere(
   return scopedWhere;
 }
 
+function buildTenantOwnershipWhere(
+  where: Record<string, unknown>,
+  tenantId: string,
+): Record<string, unknown> {
+  return {
+    AND: [where, { tenant_id: tenantId }],
+  };
+}
+
 /**
  * The core $allOperations handler logic — extracted for unit testability.
  * Applies tenant isolation rules to a single Prisma operation.
@@ -184,7 +193,7 @@ export function applyTenantIsolation(
       }
 
       const existing = await modelDelegate.findFirst({
-        where,
+        where: buildTenantOwnershipWhere(where, tenantId),
         select: { id: true },
       });
 

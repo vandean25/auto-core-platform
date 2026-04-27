@@ -162,7 +162,7 @@ describe('applyTenantIsolation', () => {
       });
     });
 
-    it('falls back to PascalCase model delegates when lower-camel delegates are unavailable', async () => {
+    it('tenant-scopes the ownership pre-check when lower-camel delegates are unavailable', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const findFirst = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const getExtensionContextSpy = jest
@@ -189,7 +189,9 @@ describe('applyTenantIsolation', () => {
       }
 
       expect(findFirst).toHaveBeenCalledWith({
-        where: { id: 'settings-1' },
+        where: {
+          AND: [{ id: 'settings-1' }, { tenant_id: TENANT_ID }],
+        },
         select: { id: true },
       });
       expect(query).toHaveBeenCalledWith({

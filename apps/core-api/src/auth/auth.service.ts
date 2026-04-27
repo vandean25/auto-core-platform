@@ -6,8 +6,6 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import {
-} from 'firebase-admin/app';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
@@ -28,6 +26,13 @@ type AuthClaims = {
 
 type AuthenticateBearerTokenOptions = {
   allowPlatformAdmin?: boolean;
+};
+
+type MembershipLookupWhere = {
+  OR: Array<{
+    firebaseUid?: string;
+    email?: string;
+  }>;
 };
 
 @Injectable()
@@ -221,10 +226,16 @@ export class AuthService {
   private async resolveTenantClaimsFromDatabase(
     claims: AuthClaims,
   ): Promise<TenantAuthenticatedUser | null> {
+    const lookupWhere: MembershipLookupWhere = {
+      OR: [{ email: claims.email }],
+    };
+
+    if (claims.sub) {
+      lookupWhere.OR.unshift({ firebaseUid: claims.sub });
+    }
+
     const user = await this.systemPrisma.user.findFirst({
-      where: {
-        OR: [{ firebaseUid: claims.sub }, { email: claims.email }],
-      },
+      where: lookupWhere,
       select: {
         active_tenant_id: true,
         platformAdmin: {
