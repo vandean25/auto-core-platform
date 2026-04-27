@@ -80,6 +80,10 @@ type RawWorkshopOrder = Omit<WorkshopOrder, 'tasks'> & {
   orderNumber?: string
   reportedIssue?: string
   reported_issue?: string
+  mechanicId?: string | null
+  mechanic_id?: string | null
+  bayId?: string | null
+  bay_id?: string | null
   stagingLocationId?: string | null
   staging_location_id?: string | null
 }
@@ -97,6 +101,10 @@ function normalizeOrder(order: RawWorkshopOrder): WorkshopOrder {
     ...order,
     order_number: order.order_number ?? order.orderNumber ?? order.id,
     reportedIssue: order.reportedIssue ?? order.reported_issue ?? '',
+    mechanicId: order.mechanicId ?? order.mechanic_id ?? null,
+    mechanic_id: order.mechanic_id ?? order.mechanicId ?? null,
+    bayId: order.bayId ?? order.bay_id ?? null,
+    bay_id: order.bay_id ?? order.bayId ?? null,
     stagingLocationId: order.stagingLocationId ?? order.staging_location_id ?? null,
     staging_location_id: order.staging_location_id ?? order.stagingLocationId ?? null,
     tasks: (order.tasks ?? []).map(normalizeTask),
@@ -644,8 +652,10 @@ export function useAssignBoard() {
       }
       return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (_response, payload) => {
       queryClient.invalidateQueries({ queryKey: boardKeys.active() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.detail(payload.orderId) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
     },
   })
 }

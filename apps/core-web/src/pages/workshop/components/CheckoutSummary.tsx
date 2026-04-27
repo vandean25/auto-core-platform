@@ -130,13 +130,13 @@ export function CheckoutSummary({
                   </TableCell>
                 </TableRow>
               )}
-              {groupedCheckoutTasks.map(({ task, lines, discountTotal, netTotal }) => {
+              {groupedCheckoutTasks.map(({ task, lines, netTotal }) => {
                 const taskDiscountPercent = taskDiscountOverrides[task.id] ?? ''
                 const isExpanded = expandedTaskGroups[task.id] === true
                 return (
                   <Fragment key={task.id}>
                     <TableRow className='bg-muted/40'>
-                      <TableCell colSpan={2}>
+                      <TableCell colSpan={3}>
                         <div className='flex items-center justify-between gap-2'>
                           <button
                             type='button'
@@ -162,9 +162,6 @@ export function CheckoutSummary({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className='text-right font-semibold'>
-                        {formatCurrency(netTotal)}
-                      </TableCell>
                       <TableCell>
                         <div className='flex justify-end'>
                           <div className='flex items-center gap-2'>
@@ -180,8 +177,8 @@ export function CheckoutSummary({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className='text-right text-sm font-medium text-muted-foreground'>
-                        -{formatCurrency(discountTotal)}
+                      <TableCell className='text-right font-semibold'>
+                        {formatCurrency(netTotal)}
                       </TableCell>
                     </TableRow>
 

@@ -8,7 +8,7 @@ This project supports pulling local `.env` files from Google Secret Manager (GSM
 2. Login:
    - `gcloud auth login`
 3. Set default project:
-   - `gcloud config set project auto-core-platform-vande`
+   - `gcloud config set project auto-core-platform`
 4. Ensure your account can access the required secrets:
    - IAM role typically needed: `Secret Manager Secret Accessor`
 

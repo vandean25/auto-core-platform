@@ -70,6 +70,6 @@ import { TenantMemberModule } from './tenant-member/tenant-member.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantContextMiddleware).forRoutes('*');
+    consumer.apply(TenantContextMiddleware).forRoutes('{*path}');
   }
 }

@@ -1,0 +1,121 @@
+- generic [ref=e3]:
+  - link "Skip to main content" [ref=e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e9]: ACP
+      - navigation "Core modules" [ref=e12]:
+        - link "Dashboard" [ref=e13] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e14]
+          - generic [ref=e19]: Dashboard
+        - link "Customers" [ref=e20] [cursor=pointer]:
+          - /url: /customers
+          - img [ref=e21]
+          - generic [ref=e24]: Customers
+        - link "Vehicles" [ref=e25] [cursor=pointer]:
+          - /url: /vehicles
+          - img [ref=e26]
+          - generic [ref=e30]: Vehicles
+        - link "Sales Orders" [ref=e31] [cursor=pointer]:
+          - /url: /sales-orders
+          - img [ref=e32]
+          - generic [ref=e35]: Sales Orders
+        - link "Workshop Orders" [ref=e36] [cursor=pointer]:
+          - /url: /workshop/orders
+          - img [ref=e37]
+          - generic [ref=e39]: Workshop Orders
+        - link "Workshop Board" [ref=e40] [cursor=pointer]:
+          - /url: /workshop/board
+          - img [ref=e41]
+          - generic [ref=e46]: Workshop Board
+        - link "Inventory" [ref=e47] [cursor=pointer]:
+          - /url: /inventory
+          - img [ref=e48]
+          - generic [ref=e52]: Inventory
+        - link "Vendors" [ref=e53] [cursor=pointer]:
+          - /url: /vendors
+          - img [ref=e54]
+          - generic [ref=e59]: Vendors
+        - link "Purchase Orders" [ref=e60] [cursor=pointer]:
+          - /url: /purchase-orders
+          - img [ref=e61]
+          - generic [ref=e64]: Purchase Orders
+        - link "Purchase Bills" [ref=e65] [cursor=pointer]:
+          - /url: /purchase-bills
+          - img [ref=e66]
+          - generic [ref=e68]: Purchase Bills
+        - link "Finance" [ref=e69] [cursor=pointer]:
+          - /url: /settings?tab=finance
+          - img [ref=e70]
+          - generic [ref=e73]: Finance
+      - generic [ref=e75]:
+        - button "Open search" [ref=e76]:
+          - img [ref=e77]
+          - generic [ref=e80]: Search
+        - link "Settings" [ref=e81] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e82]
+          - generic [ref=e85]: Settings
+        - button "Sign out" [ref=e86]:
+          - img
+          - generic [ref=e87]: Sign out
+        - button "Expand sidebar" [active] [ref=e88]:
+          - img [ref=e89]
+          - generic [ref=e92]: Expand sidebar
+  - main [ref=e93]:
+    - generic [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - heading "Sales Orders" [level=1] [ref=e99]
+          - paragraph [ref=e100]: Manage your sales pipeline and job cards.
+        - link "Order" [ref=e101] [cursor=pointer]:
+          - /url: /sales-orders/new
+          - img
+          - text: Order
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - textbox "Search orders..." [ref=e105]
+          - generic [ref=e106]:
+            - button "Add to Dashboard" [ref=e107]:
+              - img
+              - text: Add to Dashboard
+            - button "View" [ref=e108]:
+              - img
+              - text: View
+        - table [ref=e111]:
+          - rowgroup [ref=e112]:
+            - 'row "Order # Date Customer Vehicle Status Total" [ref=e113]':
+              - 'columnheader "Order #" [ref=e114]':
+                - 'button "Order #" [ref=e145]':
+                  - generic [ref=e146]: "Order #"
+                  - img
+              - columnheader "Date" [ref=e118]:
+                - button "Date" [ref=e148]:
+                  - generic [ref=e149]: Date
+                  - img
+              - columnheader "Customer" [ref=e122]:
+                - button "Customer" [ref=e151]:
+                  - generic [ref=e152]: Customer
+                  - img
+              - columnheader "Vehicle" [ref=e126]
+              - columnheader "Status" [ref=e127]:
+                - button "Status" [ref=e154]:
+                  - generic [ref=e155]: Status
+                  - img
+              - columnheader "Total" [ref=e131]:
+                - button "Total" [ref=e157]:
+                  - generic [ref=e158]: Total
+                  - img
+          - rowgroup [ref=e135]:
+            - row "No results." [ref=e159]:
+              - cell "No results." [ref=e160]
+        - generic [ref=e138]:
+          - button "Previous" [disabled]
+          - generic [ref=e139]:
+            - generic [ref=e140]: Page
+            - generic [ref=e141]: "1"
+            - generic [ref=e142]: of
+            - generic [ref=e143]: "1"
+          - button "Next" [disabled]
+    - region "Notifications alt+T"

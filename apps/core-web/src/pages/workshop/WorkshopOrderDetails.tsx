@@ -27,6 +27,7 @@ import {
   useWorkshopOrder,
   useGenerateWorkshopPdf,
   downloadWorkshopPdf,
+  useWorkshopResources,
 } from '@/api/workshop'
 import type {
   DiscountType,
@@ -65,6 +66,8 @@ export function WorkshopOrderDetails() {
   const navigate = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const { data: order, isLoading } = useWorkshopOrder(id)
+  const workshopResourcesQuery = useWorkshopResources()
+  const workshopResources = workshopResourcesQuery?.data
 
   const updateOrder = useUpdateWorkshopOrder()
   const createTask = useCreateWorkshopTask()
@@ -513,6 +516,13 @@ export function WorkshopOrderDetails() {
       mechanicNotes: activeTask.mechanicNotes ?? '',
     }
     : null
+  const assignedTechName =
+    workshopResources?.mechanics.find(
+      (mechanic) => mechanic.id === (order.mechanicId ?? order.mechanic_id),
+    )?.name ?? null
+  const assignedBayName =
+    workshopResources?.bays.find((bay) => bay.id === (order.bayId ?? order.bay_id))
+      ?.name ?? null
 
   const handleReopenTask = (taskId: string) => {
     setIsCheckoutView(false)
@@ -556,7 +566,11 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
               >
-                <CustomerVehicleInfo order={order} />
+                <CustomerVehicleInfo
+                  order={order}
+                  assignedTechName={assignedTechName}
+                  bayName={assignedBayName}
+                />
               </motion.div>
 
               <motion.div
@@ -588,7 +602,11 @@ export function WorkshopOrderDetails() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
               >
-                <CustomerVehicleInfo order={order} />
+                <CustomerVehicleInfo
+                  order={order}
+                  assignedTechName={assignedTechName}
+                  bayName={assignedBayName}
+                />
               </motion.div>
 
               <motion.div

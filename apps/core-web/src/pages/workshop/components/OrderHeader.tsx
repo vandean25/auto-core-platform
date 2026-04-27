@@ -141,7 +141,15 @@ export function OrderTopBar({
   )
 }
 
-export function CustomerVehicleInfo({ order }: { order: WorkshopOrder }) {
+export function CustomerVehicleInfo({
+  order,
+  assignedTechName,
+  bayName,
+}: {
+  order: WorkshopOrder
+  assignedTechName?: string | null
+  bayName?: string | null
+}) {
   const customerName = getCustomerName(order)
   const customerPhone = order.customer.phone ?? ''
 
@@ -157,28 +165,28 @@ export function CustomerVehicleInfo({ order }: { order: WorkshopOrder }) {
               <div className='text-muted-foreground mb-1'>Assigned Tech</div>
               <div className='font-medium flex items-center'>
                 <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                John Doe
+                {assignedTechName ?? 'Unassigned'}
               </div>
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>Bay / Location</div>
               <div className='font-medium flex items-center'>
                 <MapPin className='w-4 h-4 mr-1.5 text-slate-500' />
-                Bay 4
+                {bayName ?? 'Unassigned'}
               </div>
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>Promised Time</div>
               <div className='font-medium flex items-center'>
                 <Clock className='w-4 h-4 mr-1.5 text-slate-500' />
-                04/17/2026, 17:00
+                Not set
               </div>
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>Key Tag</div>
               <div className='font-medium flex items-center'>
                 <Key className='w-4 h-4 mr-1.5 text-slate-500' />
-                #42
+                Not set
               </div>
             </div>
           </div>
