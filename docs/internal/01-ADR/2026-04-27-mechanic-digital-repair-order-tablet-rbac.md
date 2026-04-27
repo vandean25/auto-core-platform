@@ -45,7 +45,7 @@ Existing related decisions:
 - [ADR-0006: Form Auto-Save Patterns](2026-04-12-form-auto-save-patterns.md)
 - [ADR-0012: Parts Kitting and Tote Staging End-to-End Workflow](2026-04-15-parts-kitting-and-tote-staging.md)
 - [ADR-0013: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
-- [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
+- [Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md) *(linked document title: ADR-0013; use the filename/title as the stable reference until numbering is reconciled)*
 - [Database State Machines](../04-Database/state-machines.md)
 
 ## Decision
@@ -78,7 +78,7 @@ To support multiple mechanics on a single repair order, `WorkshopTask` will gain
 - `mechanic_id` — nullable FK to `Employee` where `role = MECHANIC`.
 - `bay_id` — nullable FK to `Bay`.
 - `scheduled_date` — nullable date used by the current-day mechanic queue.
-- `priority` or `sequence` — deterministic ordering within the mechanic queue.
+- `sequence` — deterministic ordering within the mechanic queue.
 
 Resolution rule for queue visibility:
 
@@ -178,7 +178,8 @@ Minimum fields:
 Rules:
 
 - Only one open `LaborEntry` (`ended_at = null`) is allowed per mechanic at a time.
-- Starting a new task must either fail with `409` if another entry is active, or require an explicit switch action that closes the previous entry.
+- `POST /api/mechanic/tasks/:taskId/start` must return `409 Conflict` if the mechanic already has an open `LaborEntry`.
+- If the mechanic needs to move from one task to another while an open entry exists, they must use the explicit switch flow defined below.
 - `LaborEntry` records are audit records. They are not hard-deleted in normal operations.
 - Sell rates and internal cost rates are not returned to mechanic endpoints.
 
@@ -208,6 +209,39 @@ When a mechanic taps **Start Task**:
 4. Backend ensures the parent `WorkshopOrder.status` is `IN_PROGRESS` when work begins.
 5. Prisma `$extends` emits real-time updates so the Service Advisor board reflects the task/order as in progress.
 
+#### 4.2.1 Switch Task
+
+When a mechanic taps **Switch Task** on a different task while an open `LaborEntry` exists:
+
+1. The client calls `POST /api/mechanic/tasks/:taskId/switch` with `{ previous_pause_reason }`.
+2. The backend closes the currently open `LaborEntry` for that mechanic.
+3. The backend transitions the previous task out of `IN_PROGRESS` in the same transaction, using the supplied pause reason.
+4. The backend opens a new `LaborEntry` for the target task in the same transaction.
+5. The backend transitions the target task to `IN_PROGRESS` using the same atomic guard rules as `Start Task`.
+6. The backend returns the updated target task projection.
+
+Required payload field:
+
+- `previous_pause_reason` — enum with values `WAITING_PARTS`, `WAITING_CUSTOMER`, and `SWITCHED_TO_HIGHER_PRIORITY`.
+
+Task state mapping for the previous task:
+
+- `WAITING_PARTS` → `WorkshopTask.status = WAITING_PARTS`
+- `WAITING_CUSTOMER` → `WorkshopTask.status = WAITING_CUSTOMER`
+- `SWITCHED_TO_HIGHER_PRIORITY` → `WorkshopTask.status = PAUSED`
+
+Expected status codes:
+
+- `200` or `201` on success, depending on the response shape used by the implementation.
+- `404` if the target task does not exist or is not assigned to the mechanic.
+- `409` if the mechanic does not have an open labor entry to switch from, or if a concurrent request already closed it.
+- `422` if the target task is not eligible to start.
+
+Client fallback behavior:
+
+- If `POST /api/mechanic/tasks/:taskId/switch` returns `409 Conflict` because no open `LaborEntry` exists, the frontend mutation handler must refetch the task projection and retry the action as `POST /api/mechanic/tasks/:taskId/start`.
+- If the retry also returns `409`, the client should surface the conflict and stop retrying.
+
 #### 4.3 Pause
 
 When a mechanic taps **Pause**:
@@ -215,12 +249,14 @@ When a mechanic taps **Pause**:
 1. Backend closes the active `LaborEntry` by setting `ended_at = now()`.
 2. Backend records `pause_reason`.
 3. Backend transitions task status based on reason:
-   - `WAITING_PARTS` → `WorkshopTask.status = WAITING_PARTS`.
-   - `WAITING_CUSTOMER` → add `WAITING_CUSTOMER` to `WorkshopTaskStatus` and transition to it.
-   - `OTHER` → remain `IN_PROGRESS` but with no active labor entry, unless a future `PAUSED` state is approved.
+  - `WAITING_PARTS` → `WorkshopTask.status = WAITING_PARTS`.
+  - `WAITING_CUSTOMER` → add `WAITING_CUSTOMER` to `WorkshopTaskStatus` and transition to it.
+  - `OTHER` → remain `IN_PROGRESS` but with no active labor entry, unless a future `PAUSED` state is approved.
 4. Real-time events refresh the Service Advisor board and dashboard.
 
 When a task transitions to `WAITING_CUSTOMER`, the backend must also publish a domain event onto the platform notification/event bus so the responsible Service Advisor receives the standard outbound contact notification flow (email and/or SMS). The workshop service must not send SMTP/SMS messages directly from the mutation handler.
+
+This ADR also introduces `PAUSED` as the status for mechanic-initiated switch-outs where the previous task is intentionally shelved for a higher-priority job.
 
 This ADR therefore proposes extending the task state machine with `WAITING_CUSTOMER` for customer-blocked work. The state machine documentation must be updated during implementation.
 
@@ -391,6 +427,7 @@ Minimum endpoints:
 | `GET` | `/api/mechanic/queue` | Current mechanic's active task queue. |
 | `GET` | `/api/mechanic/tasks/:taskId` | Digital Repair Order task detail projection. |
 | `POST` | `/api/mechanic/tasks/:taskId/start` | Punch in and create active `LaborEntry`. |
+| `POST` | `/api/mechanic/tasks/:taskId/switch` | Composite state transition: close the current open `LaborEntry`, update the previous task status, and start a different task in one atomic operation. |
 | `POST` | `/api/mechanic/tasks/:taskId/pause` | Punch out current interval with pause reason. |
 | `POST` | `/api/mechanic/tasks/:taskId/complete` | Complete task and close active labor. |
 | `PATCH` | `/api/mechanic/tasks/:taskId/diagnostics` | Debounced auto-save notes/checklist payload. |
@@ -426,6 +463,7 @@ Backend changes must update the Prisma realtime supported entity list. Frontend 
 - Punch in updates task/order state to in progress.
 - Pause updates task blocked state.
 - `WAITING_CUSTOMER` publishes a notification domain event for Service Advisor outreach.
+- Switch task emits two `WORKSHOP_TASK` updates in the same transaction: the previous task moves to `WAITING_PARTS`, `WAITING_CUSTOMER`, or `PAUSED`, and the new task moves to `IN_PROGRESS`.
 - Part requisition updates parts department queues.
 - Part staging updates mechanic tablet parts readiness.
 - Media upload updates order evidence count.
@@ -553,7 +591,7 @@ Required policy decisions:
 - [ADR-0006: Form Auto-Save Patterns](2026-04-12-form-auto-save-patterns.md)
 - [ADR-0012: Parts Kitting and Tote Staging End-to-End Workflow](2026-04-15-parts-kitting-and-tote-staging.md)
 - [ADR-0013: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
-- [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
+- [Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md) *(linked document title: ADR-0013; stable reference by filename/title)*
 - [Database State Machines](../04-Database/state-machines.md)
 - [Deletion Policy](../../deletion-policy.md)
 - [Shared Promise Utilities](../../../apps/core-api/src/common/utils/promise.util.ts)
