@@ -11,6 +11,7 @@ const hasSentryUploadCredentials = Boolean(
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '')
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
 
   return {
     plugins: [
@@ -41,8 +42,13 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        '/socket.io': {
+          target: apiProxyTarget,
+          ws: true,
+          rewrite: (socketPath) => socketPath.replace(/^\/socket\.io/, '/api/socket.io'),
+        },
         '/api': {
-          target: env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000',
+          target: apiProxyTarget,
           changeOrigin: true,
           ws: true,
         },

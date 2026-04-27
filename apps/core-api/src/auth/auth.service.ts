@@ -10,6 +10,7 @@ import {
 } from 'firebase-admin/app';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { getFirebaseAdminAuth } from './firebase-admin';
 import type {
   AuthenticatedUser,
@@ -36,6 +37,7 @@ export class AuthService {
   constructor(
     @Inject(forwardRef(() => PrismaService))
     private readonly prisma: PrismaService,
+    private readonly systemPrisma: SystemPrismaService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -53,10 +55,7 @@ export class AuthService {
     const token = this.extractBearerToken(authorizationHeader);
     const claims = await this.verifyToken(token, options);
 
-    if (
-      options.allowPlatformAdmin &&
-      typeof claims.platformRole === 'string'
-    ) {
+    if (options.allowPlatformAdmin && typeof claims.platformRole === 'string') {
       return {
         userId: claims.sub,
         email: claims.email,
@@ -68,22 +67,49 @@ export class AuthService {
       };
     }
 
-    this.assertTenantClaims(claims);
-
     if (
-      process.env.NODE_ENV === 'test' &&
-      claims.iss === 'local-test-fixture'
+      typeof claims.tenantId === 'string' &&
+      typeof claims.role === 'string'
     ) {
-      return {
-        userId: claims.sub,
-        email: claims.email,
-        tenantId: claims.tenantId,
-        role: claims.role,
-      };
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { id: claims.tenantId },
+        select: { id: true, is_active: true },
+      });
+
+      if (!tenant) {
+        throw new UnauthorizedException('Invalid tenant.');
+      }
+
+      if (!tenant.is_active) {
+        throw new ForbiddenException('Tenant is inactive.');
+      }
+
+      return typeof claims.platformRole === 'string'
+        ? {
+            userId: claims.sub,
+            email: claims.email,
+            tenantId: claims.tenantId,
+            role: claims.role,
+            platformRole: claims.platformRole,
+          }
+        : {
+            userId: claims.sub,
+            email: claims.email,
+            tenantId: claims.tenantId,
+            role: claims.role,
+          };
+    }
+
+    const tenantClaims = await this.resolveTenantClaimsFromDatabase(claims);
+
+    if (!tenantClaims) {
+      throw new UnauthorizedException(
+        'Bearer token is missing one or more required claims.',
+      );
     }
 
     const tenant = await this.prisma.tenant.findFirst({
-      where: { id: claims.tenantId },
+      where: { id: tenantClaims.tenantId },
       select: { id: true, is_active: true },
     });
 
@@ -95,15 +121,12 @@ export class AuthService {
       throw new ForbiddenException('Tenant is inactive.');
     }
 
-    return {
-      userId: claims.sub,
-      email: claims.email,
-      tenantId: claims.tenantId,
-      role: claims.role,
-      ...(typeof claims.platformRole === 'string'
-        ? { platformRole: claims.platformRole }
-        : {}),
-    };
+    return typeof claims.platformRole === 'string'
+      ? {
+          ...tenantClaims,
+          platformRole: claims.platformRole,
+        }
+      : tenantClaims;
   }
 
   createTestToken(overrides: Partial<AuthClaims> = {}): string {
@@ -172,15 +195,9 @@ export class AuthService {
     payload: Partial<AuthClaims>,
     options: AuthenticateBearerTokenOptions = {},
   ): AuthClaims {
-    const hasTenantClaims =
-      typeof payload.tenantId === 'string' && typeof payload.role === 'string';
-    const hasPlatformClaims =
-      options.allowPlatformAdmin && typeof payload.platformRole === 'string';
-
     if (
       typeof payload.sub !== 'string' ||
-      typeof payload.email !== 'string' ||
-      (!hasTenantClaims && !hasPlatformClaims)
+      typeof payload.email !== 'string'
     ) {
       throw new UnauthorizedException(
         'Bearer token is missing one or more required claims.',
@@ -201,17 +218,68 @@ export class AuthService {
     };
   }
 
-  private assertTenantClaims(
+  private async resolveTenantClaimsFromDatabase(
     claims: AuthClaims,
-  ): asserts claims is AuthClaims & {
-    tenantId: string;
-    role: string;
-  } {
-    if (typeof claims.tenantId !== 'string' || typeof claims.role !== 'string') {
-      throw new UnauthorizedException(
-        'Bearer token is missing one or more required claims.',
-      );
+  ): Promise<TenantAuthenticatedUser | null> {
+    const user = await this.systemPrisma.user.findFirst({
+      where: {
+        OR: [{ firebaseUid: claims.sub }, { email: claims.email }],
+      },
+      select: {
+        active_tenant_id: true,
+        platformAdmin: {
+          select: {
+            is_active: true,
+            role: true,
+          },
+        },
+        memberships: {
+          where: {
+            is_active: true,
+            tenant: {
+              is_active: true,
+            },
+          },
+          orderBy: [{ createdAt: 'asc' }],
+          select: {
+            tenant_id: true,
+            role: true,
+            tenant: {
+              select: {
+                id: true,
+                is_active: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
     }
+
+    const activeMembership =
+      user.memberships.find(
+        (membership) => membership.tenant_id === user.active_tenant_id,
+      ) ?? user.memberships[0];
+
+    if (!activeMembership) {
+      return null;
+    }
+
+    const nextUser: TenantAuthenticatedUser = {
+      userId: claims.sub,
+      email: claims.email,
+      tenantId: activeMembership.tenant_id,
+      role: activeMembership.role,
+    };
+
+    if (user.platformAdmin?.is_active) {
+      nextUser.platformRole = user.platformAdmin.role;
+    }
+
+    return nextUser;
   }
 
   private mapFirebaseClaims(decoded: DecodedIdToken): Partial<AuthClaims> {

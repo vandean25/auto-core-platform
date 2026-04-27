@@ -12,9 +12,36 @@ import {
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
 
-function resolveRealtimeBaseUrl(): string | undefined {
-  if (API_BASE_URL) return API_BASE_URL
-  if (typeof window !== 'undefined' && window.location.origin) return window.location.origin
+type RealtimeConnection = {
+  url: string
+  path: string
+}
+
+type ResolveRealtimeConnectionOptions = {
+  apiBaseUrl?: string
+  currentOrigin?: string
+  isDev?: boolean
+}
+
+export function resolveRealtimeConnection({
+  apiBaseUrl = API_BASE_URL,
+  currentOrigin = typeof window !== 'undefined' ? window.location.origin : undefined,
+  isDev = import.meta.env.DEV,
+}: ResolveRealtimeConnectionOptions = {}): RealtimeConnection | undefined {
+  if (apiBaseUrl) {
+    return {
+      url: `${apiBaseUrl}/dashboard-realtime`,
+      path: '/api/socket.io',
+    }
+  }
+
+  if (currentOrigin) {
+    return {
+      url: `${currentOrigin}/dashboard-realtime`,
+      path: isDev ? '/socket.io' : '/api/socket.io',
+    }
+  }
+
   console.warn('Unable to resolve realtime base URL: neither API_BASE_URL nor window.location.origin are available.')
   return undefined
 }
@@ -54,11 +81,11 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   }, [user])
 
   React.useEffect(() => {
-    const baseUrl = resolveRealtimeBaseUrl()
-    if (!baseUrl || !token) return
+    const connection = resolveRealtimeConnection()
+    if (!connection || !token) return
 
-    const socket: Socket = io(`${baseUrl}/dashboard-realtime`, {
-      path: '/api/socket.io',
+    const socket: Socket = io(connection.url, {
+      path: connection.path,
       transports: ['websocket', 'polling'],
       withCredentials: true,
       auth: { token },

@@ -20,14 +20,20 @@ import {
 
 @Injectable()
 export class BrandService {
-  private readonly brandRepository: PrismaRepository<Brand>;
+  private brandRepository?: PrismaRepository<Brand>;
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
-  ) {
-    this.brandRepository = new PrismaRepository<Brand>(prisma.brand);
+  ) {}
+
+  private getBrandRepository(): PrismaRepository<Brand> {
+    if (!this.brandRepository) {
+      this.brandRepository = new PrismaRepository<Brand>(this.prisma.brand);
+    }
+
+    return this.brandRepository;
   }
 
   async findAll(filters?: {
@@ -49,7 +55,7 @@ export class BrandService {
 
     // When page/limit are explicitly provided, return standard paginated result
     if (filters?.page !== undefined || filters?.limit !== undefined) {
-      return this.brandRepository.findManyPaginated({
+      return this.getBrandRepository().findManyPaginated({
         where,
         orderBy: { name: 'asc' },
         page: filters.page,
@@ -58,7 +64,7 @@ export class BrandService {
     }
 
     // Non-paginated: fetch all via repository, wrap in standard shape
-    const brands = await this.brandRepository.findMany({
+    const brands = await this.getBrandRepository().findMany({
       where,
       orderBy: { name: 'asc' },
     });
@@ -95,7 +101,7 @@ export class BrandService {
     );
 
     try {
-      return await this.brandRepository.create({
+      return await this.getBrandRepository().create({
         ...createBrandDto,
         tenant_id: tenantId,
       } as unknown as Record<string, unknown>);
@@ -117,7 +123,7 @@ export class BrandService {
     await this.validateUpdateFlags(brandId, updateBrandDto);
 
     try {
-      return await this.brandRepository.update(
+      return await this.getBrandRepository().update(
         brandId,
         updateBrandDto as unknown as Record<string, unknown>,
       );
@@ -137,7 +143,7 @@ export class BrandService {
     await this.ensureNoDependencies(brandId);
 
     try {
-      return await this.brandRepository.delete(brandId);
+      return await this.getBrandRepository().delete(brandId);
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw new NotFoundException(`Brand with ID ${brandId} not found`);

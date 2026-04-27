@@ -4,7 +4,13 @@ import { useCreateWorkshopOrder, useRegisterIntake, useWorkshopSearch } from '@/
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -135,13 +141,13 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
           return
         }
 
-      const order = await createOrder.mutateAsync({
-        customerId: selectedVehicle.customer.id,
-        vehicleId: selectedVehicle.id,
-        odometer: Number(odometer),
-        fuelLevel: Number(fuelLevel),
-        reportedIssue: notes || undefined,
-      })
+        const order = await createOrder.mutateAsync({
+          customerId: selectedVehicle.customer.id,
+          vehicleId: selectedVehicle.id,
+          odometer: Number(odometer),
+          fuelLevel: Number(fuelLevel),
+          reportedIssue: notes || undefined,
+        })
 
         toast.success('Workshop order created')
         handleDialogOpenChange(false)
@@ -187,8 +193,8 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
       toast.success('Workshop order created')
       handleDialogOpenChange(false)
       navigate(`/workshop/orders/${order.id}`)
-    } catch {
-      toast.error('Failed to create workshop order')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create workshop order')
     }
   }
 
@@ -197,6 +203,9 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Create Workshop Order</DialogTitle>
+          <DialogDescription>
+            Search for an existing vehicle or register a new vehicle before creating the workshop order.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
