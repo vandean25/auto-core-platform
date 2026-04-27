@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 
-import { useAuth } from '@/auth/AuthProvider'
+import { useAuthSession } from '@/api/auth-session'
 import {
   type PlatformTenant,
   type TenantPlan,
@@ -34,6 +34,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -115,7 +116,7 @@ function toEditFormState(tenant: PlatformTenant): TenantFormState {
 }
 
 export default function PlatformTenantsPage() {
-  const { claims } = useAuth()
+  const sessionQuery = useAuthSession()
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const { data: responseData, error, isLoading, refetch } = usePlatformTenants({
     includeInactive: true,
@@ -189,7 +190,11 @@ export default function PlatformTenantsPage() {
     [],
   )
 
-  if (claims?.platformRole !== 'SUPER_ADMIN') {
+  if (sessionQuery.isLoading) {
+    return <PageLoader />
+  }
+
+  if (sessionQuery.data?.platformRole !== 'SUPER_ADMIN') {
     return <Navigate to='/dashboard' replace />
   }
 

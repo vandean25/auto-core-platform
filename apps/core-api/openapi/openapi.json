@@ -49,31 +49,42 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Returns the authenticated user.",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "userId": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "tenantId": {
-                      "type": "string"
-                    },
-                    "role": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "userId",
-                    "email",
-                    "tenantId",
-                    "role"
-                  ]
+                  "$ref": "#/components/schemas/AuthSessionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/switch-tenant": {
+      "post": {
+        "operationId": "AuthController_switchTenant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponseDto"
                 }
               }
             }
@@ -4154,6 +4165,123 @@
       }
     },
     "schemas": {
+      "AuthSessionTenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ]
+      },
+      "TenantMemberRole": {
+        "type": "string",
+        "enum": [
+          "OWNER",
+          "ADMIN",
+          "TECH",
+          "SALES"
+        ]
+      },
+      "AuthSessionMembershipDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "tenantSlug": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tenantId",
+          "tenantName",
+          "tenantSlug",
+          "role",
+          "isActive"
+        ]
+      },
+      "PlatformAdminRole": {
+        "type": "string",
+        "enum": [
+          "SUPER_ADMIN"
+        ]
+      },
+      "AuthSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "activeTenant": {
+            "$ref": "#/components/schemas/AuthSessionTenantDto"
+          },
+          "activeRole": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthSessionMembershipDto"
+            }
+          },
+          "platformRole": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformAdminRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "activeTenant",
+          "activeRole",
+          "memberships"
+        ]
+      },
+      "SwitchTenantDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId"
+        ]
+      },
       "AvailabilityCheckResultDto": {
         "type": "object",
         "properties": {
@@ -6990,15 +7118,6 @@
             "type": "boolean"
           }
         }
-      },
-      "TenantMemberRole": {
-        "type": "string",
-        "enum": [
-          "OWNER",
-          "ADMIN",
-          "TECH",
-          "SALES"
-        ]
       },
       "TenantMemberResponseDto": {
         "type": "object",

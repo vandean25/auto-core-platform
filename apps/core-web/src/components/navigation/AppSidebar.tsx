@@ -1,5 +1,8 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import type { components } from '@/api/generated/openapi'
+import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
+import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
 import {
   Building2,
   Car,
@@ -139,9 +142,14 @@ const coreModules: SidebarModule[] = [
 type AppSidebarProps = {
   userEmail: string | null
   platformRole: string | null
+  activeTenant: AuthSessionTenant | null
+  activeRole: components['schemas']['TenantMemberRole'] | null
+  memberships: AuthSessionMembership[]
   collapsed: boolean
+  isSwitchingTenant: boolean
   onToggleCollapsed: () => void
   onOpenSearch: () => void
+  onSwitchTenant: (tenantId: string) => void
   onSignOut: () => void
 }
 
@@ -158,9 +166,14 @@ function normalizePathWithQuery(pathname: string, search: string): string {
 export function AppSidebar({
   userEmail,
   platformRole,
+  activeTenant,
+  activeRole,
+  memberships,
   collapsed,
+  isSwitchingTenant,
   onToggleCollapsed,
   onOpenSearch,
+  onSwitchTenant,
   onSignOut,
 }: AppSidebarProps) {
   const location = useLocation()
@@ -190,6 +203,15 @@ export function AppSidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto">
+          <TenantSwitcher
+            activeTenant={activeTenant}
+            activeRole={activeRole}
+            memberships={memberships}
+            onSwitch={onSwitchTenant}
+            isSwitching={isSwitchingTenant}
+            collapsed={collapsed}
+          />
+
           <section className={cn('pt-4', collapsed ? 'px-2' : 'px-3')}>
             {!collapsed ? (
               <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Core Modules</p>

@@ -4,7 +4,7 @@ import { format } from "date-fns"
 import { Loader2, Save, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
-import { useAuth } from "@/auth/AuthProvider"
+import { useAuthSession } from "@/api/auth-session"
 import { useFinanceSettings, useUpdateFinanceSettings, useRevenueGroups } from "@/api/useFinance"
 import { useBrands } from "@/api/brands"
 import { useLocationTree, useCreateLocation, useDeleteLocation, type StorageLocation, type LocationType } from "@/api/locations"
@@ -30,6 +30,7 @@ import { AddRevenueGroupDialog } from "@/components/AddRevenueGroupDialog"
 import { BrandTable } from "@/components/BrandTable"
 import { AddBrandDialog } from "@/components/AddBrandDialog"
 import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
+import { PageLoader } from "@/components/ui/PageLoader"
 import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
@@ -265,12 +266,16 @@ const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "employe
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
-    const { claims } = useAuth()
+    const sessionQuery = useAuthSession()
     const [searchParams, setSearchParams] = useSearchParams()
     const rawTab = searchParams.get("tab")
-    const canManageTeam = claims?.role === 'ADMIN' || claims?.role === 'OWNER'
+    const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
     const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
     const activeTab: SettingsTab = requestedTab === 'team' && !canManageTeam ? 'finance' : requestedTab
+
+    if (sessionQuery.isLoading) {
+        return <PageLoader />
+    }
 
     // ── Finance state ──
     const { data: settings, isLoading } = useFinanceSettings()

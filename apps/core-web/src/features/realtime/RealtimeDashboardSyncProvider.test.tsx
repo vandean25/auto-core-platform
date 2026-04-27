@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { authSessionKeys } from '@/api/auth-session'
 import {
   RealtimeDashboardSyncProvider,
   resolveRealtimeConnection,
@@ -110,6 +111,7 @@ describe('RealtimeDashboardSyncProvider', () => {
 
   it('refreshes claims and invalidates active queries when auth claims change', async () => {
     const queryClient = createQueryClient()
+    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
     const invalidateQueries = vi
       .spyOn(queryClient, 'invalidateQueries')
       .mockResolvedValue(undefined)
@@ -141,6 +143,16 @@ describe('RealtimeDashboardSyncProvider', () => {
 
     await waitFor(() => {
       expect(mocks.currentUser.getIdToken).toHaveBeenCalledWith(true)
+      expect(removeQueries).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'inactive',
+          predicate: expect.any(Function),
+        }),
+      )
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: authSessionKeys.all,
+        refetchType: 'active',
+      })
       expect(invalidateQueries).toHaveBeenCalledWith({ refetchType: 'active' })
     })
   })

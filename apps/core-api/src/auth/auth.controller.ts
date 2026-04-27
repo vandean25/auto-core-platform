@@ -1,27 +1,33 @@
-import { Controller, Get, Req } from '@nestjs/common';
-import { ApiOkResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { AuthSessionService, type AuthSession } from './auth-session.service';
+import {
+  AuthSessionResponseDto,
+  SwitchTenantDto,
+} from './dto/auth-session.dto';
 import type { AuthenticatedUser } from './types/authenticated-user';
 
 @Controller('auth')
 export class AuthController {
+  constructor(private readonly authSessionService: AuthSessionService) {}
+
   @Get('me')
-  @ApiOkResponse({
-    description: 'Returns the authenticated user.',
-    schema: {
-      type: 'object',
-      properties: {
-        userId: { type: 'string' },
-        email: { type: 'string' },
-        tenantId: { type: 'string' },
-        role: { type: 'string' },
-      },
-      required: ['userId', 'email', 'tenantId', 'role'],
-    },
-  })
+  @ApiOkResponse({ type: AuthSessionResponseDto })
   getMe(
     @Req() request: Request & { user: AuthenticatedUser },
-  ): AuthenticatedUser {
-    return request.user;
+  ): Promise<AuthSession> {
+    return this.authSessionService.getSessionForAuthenticatedUser(
+      request.user,
+    );
+  }
+
+  @Post('switch-tenant')
+  @ApiCreatedResponse({ type: AuthSessionResponseDto })
+  switchTenant(
+    @Req() request: Request & { user: AuthenticatedUser },
+    @Body() dto: SwitchTenantDto,
+  ): Promise<AuthSession> {
+    return this.authSessionService.switchTenant(request.user, dto.tenantId);
   }
 }

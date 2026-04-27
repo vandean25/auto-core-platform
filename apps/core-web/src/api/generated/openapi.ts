@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/switch-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_switchTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory/availability/{sku}": {
         parameters: {
             query?: never;
@@ -1128,6 +1144,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AuthSessionTenantDto: {
+            id: string;
+            name: string;
+            slug: string;
+        };
+        /** @enum {string} */
+        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES";
+        AuthSessionMembershipDto: {
+            tenantId: string;
+            tenantName: string;
+            tenantSlug: string;
+            role: components["schemas"]["TenantMemberRole"];
+            isActive: boolean;
+        };
+        /** @enum {string} */
+        PlatformAdminRole: "SUPER_ADMIN";
+        AuthSessionResponseDto: {
+            userId: string;
+            email: string;
+            activeTenant: components["schemas"]["AuthSessionTenantDto"];
+            activeRole: components["schemas"]["TenantMemberRole"];
+            memberships: components["schemas"]["AuthSessionMembershipDto"][];
+            platformRole?: components["schemas"]["PlatformAdminRole"];
+        };
+        SwitchTenantDto: {
+            tenantId: string;
+        };
         AvailabilityCheckResultDto: {
             sku: string;
             name: string;
@@ -1922,8 +1965,6 @@ export interface components {
             plan?: components["schemas"]["TenantPlan"];
             isActive?: boolean;
         };
-        /** @enum {string} */
-        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES";
         TenantMemberResponseDto: {
             /** Format: uuid */
             id: string;
@@ -2015,18 +2056,35 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Returns the authenticated user. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        userId: string;
-                        email: string;
-                        tenantId: string;
-                        role: string;
-                    };
+                    "application/json": components["schemas"]["AuthSessionResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_switchTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchTenantDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponseDto"];
                 };
             };
         };

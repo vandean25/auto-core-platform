@@ -8,8 +8,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { getFirebaseAdminAuth } from './firebase-admin';
+import { AuthSessionService } from './auth-session.service';
 import type {
   AuthenticatedUser,
   TenantAuthenticatedUser,
@@ -28,13 +28,6 @@ type AuthenticateBearerTokenOptions = {
   allowPlatformAdmin?: boolean;
 };
 
-type MembershipLookupWhere = {
-  OR: Array<{
-    firebaseUid?: string;
-    email?: string;
-  }>;
-};
-
 @Injectable()
 export class AuthService {
   private readonly testJwtSecret = 'test-jwt-secret';
@@ -42,7 +35,7 @@ export class AuthService {
   constructor(
     @Inject(forwardRef(() => PrismaService))
     private readonly prisma: PrismaService,
-    private readonly systemPrisma: SystemPrismaService,
+    private readonly authSessionService: AuthSessionService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -59,8 +52,16 @@ export class AuthService {
   ): Promise<AuthenticatedUser> {
     const token = this.extractBearerToken(authorizationHeader);
     const claims = await this.verifyToken(token, options);
+    const tenantUser = await this.authSessionService.resolveTenantUser(claims);
 
     if (options.allowPlatformAdmin && typeof claims.platformRole === 'string') {
+      if (tenantUser) {
+        return {
+          ...tenantUser,
+          platformRole: claims.platformRole,
+        };
+      }
+
       return {
         userId: claims.sub,
         email: claims.email,
@@ -70,6 +71,15 @@ export class AuthService {
         ...(typeof claims.role === 'string' ? { role: claims.role } : {}),
         platformRole: claims.platformRole,
       };
+    }
+
+    if (tenantUser) {
+      return typeof claims.platformRole === 'string'
+        ? {
+            ...tenantUser,
+            platformRole: claims.platformRole,
+          }
+        : tenantUser;
     }
 
     if (
@@ -105,33 +115,9 @@ export class AuthService {
           };
     }
 
-    const tenantClaims = await this.resolveTenantClaimsFromDatabase(claims);
-
-    if (!tenantClaims) {
       throw new UnauthorizedException(
         'Bearer token is missing one or more required claims.',
       );
-    }
-
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantClaims.tenantId },
-      select: { id: true, is_active: true },
-    });
-
-    if (!tenant) {
-      throw new UnauthorizedException('Invalid tenant.');
-    }
-
-    if (!tenant.is_active) {
-      throw new ForbiddenException('Tenant is inactive.');
-    }
-
-    return typeof claims.platformRole === 'string'
-      ? {
-          ...tenantClaims,
-          platformRole: claims.platformRole,
-        }
-      : tenantClaims;
   }
 
   createTestToken(overrides: Partial<AuthClaims> = {}): string {
@@ -221,76 +207,6 @@ export class AuthService {
           : undefined,
       iss: payload.iss,
     };
-  }
-
-  private async resolveTenantClaimsFromDatabase(
-    claims: AuthClaims,
-  ): Promise<TenantAuthenticatedUser | null> {
-    const lookupWhere: MembershipLookupWhere = {
-      OR: [{ email: claims.email }],
-    };
-
-    if (claims.sub) {
-      lookupWhere.OR.unshift({ firebaseUid: claims.sub });
-    }
-
-    const user = await this.systemPrisma.user.findFirst({
-      where: lookupWhere,
-      select: {
-        active_tenant_id: true,
-        platformAdmin: {
-          select: {
-            is_active: true,
-            role: true,
-          },
-        },
-        memberships: {
-          where: {
-            is_active: true,
-            tenant: {
-              is_active: true,
-            },
-          },
-          orderBy: [{ createdAt: 'asc' }],
-          select: {
-            tenant_id: true,
-            role: true,
-            tenant: {
-              select: {
-                id: true,
-                is_active: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      return null;
-    }
-
-    const activeMembership =
-      user.memberships.find(
-        (membership) => membership.tenant_id === user.active_tenant_id,
-      ) ?? user.memberships[0];
-
-    if (!activeMembership) {
-      return null;
-    }
-
-    const nextUser: TenantAuthenticatedUser = {
-      userId: claims.sub,
-      email: claims.email,
-      tenantId: activeMembership.tenant_id,
-      role: activeMembership.role,
-    };
-
-    if (user.platformAdmin?.is_active) {
-      nextUser.platformRole = user.platformAdmin.role;
-    }
-
-    return nextUser;
   }
 
   private mapFirebaseClaims(decoded: DecodedIdToken): Partial<AuthClaims> {
