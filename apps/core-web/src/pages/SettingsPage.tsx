@@ -273,10 +273,6 @@ export default function SettingsPage() {
     const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
     const activeTab: SettingsTab = requestedTab === 'team' && !canManageTeam ? 'finance' : requestedTab
 
-    if (sessionQuery.isLoading) {
-        return <PageLoader />
-    }
-
     // ── Finance state ──
     const { data: settings, isLoading } = useFinanceSettings()
     const { data: groups, isLoading: isLoadingGroups } = useRevenueGroups()
@@ -326,6 +322,10 @@ export default function SettingsPage() {
 
     const handleTabChange = (value: string) => {
         setSearchParams({ tab: value })
+    }
+
+    if (sessionQuery.isLoading) {
+        return <PageLoader />
     }
 
     if (isLoading) {
