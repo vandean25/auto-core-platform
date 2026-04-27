@@ -1,6 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { vi, describe, it, expect } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
 
 describe('DataTable Characterization', () => {
   const columns = [
@@ -10,13 +15,14 @@ describe('DataTable Characterization', () => {
     },
   ]
   const data = [{ name: 'Test Item' }]
+  const mockSetColumnFilters = vi.fn()
   const mockSetGlobalFilter = vi.fn()
 
   const defaultProps = {
     columns,
     data,
     columnFilters: [],
-    setColumnFilters: vi.fn(),
+    setColumnFilters: mockSetColumnFilters,
     sorting: [],
     setSorting: vi.fn(),
     pagination: { pageIndex: 0, pageSize: 10 },
@@ -27,17 +33,18 @@ describe('DataTable Characterization', () => {
     searchPlaceholder: 'Search items...',
   }
 
-  it('calls setGlobalFilter when search input changes', () => {
+  it('calls setColumnFilters when column search input changes', () => {
     render(<DataTable {...defaultProps} />)
-    
+
     const input = screen.getByPlaceholderText('Search items...')
     fireEvent.change(input, { target: { value: 'test' } })
-    
-    expect(mockSetGlobalFilter).toHaveBeenCalled()
+
+    expect(mockSetColumnFilters).toHaveBeenCalled()
+    expect(mockSetGlobalFilter).not.toHaveBeenCalled()
   })
 
   it('renders data correctly', () => {
     render(<DataTable {...defaultProps} />)
-    expect(screen.getByText('Test Item')).toBeInTheDocument()
+    expect(screen.getAllByText('Test Item')).toHaveLength(1)
   })
 })

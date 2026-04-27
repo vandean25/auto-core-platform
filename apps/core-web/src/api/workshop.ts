@@ -335,7 +335,7 @@ export const useCreateWorkshopOrder = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!response.ok) throw new Error('Failed to create workshop order')
+      if (!response.ok) throw await parseErrorResponse(response, 'Failed to create workshop order')
       const json = await response.json()
       return normalizeOrder(json)
     },

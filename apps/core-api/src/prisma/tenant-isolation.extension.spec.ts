@@ -1,4 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { applyTenantIsolation } from './tenant-isolation.extension';
 import { TenantContextStorage } from '../common/services/tenant-context.storage';
 
@@ -26,12 +27,29 @@ function call(
 }
 
 describe('applyTenantIsolation', () => {
-  describe('GLOBAL_MODELS (Tenant only)', () => {
+  describe('GLOBAL_MODELS', () => {
     it('passes through Tenant queries without injecting tenant_id', async () => {
       const query = jest.fn().mockResolvedValue([]);
       const args = { where: { slug: 'acme' } };
 
       await runWithTenant(() => call('Tenant', 'findMany', args, query));
+
+      expect(query).toHaveBeenCalledWith(args);
+      expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
+    });
+
+    it('passes through MasterPart queries without injecting tenant_id', async () => {
+      const query = jest.fn().mockResolvedValue([]);
+      const args = {
+        where: {
+          supplier_part_number: {
+            contains: 'test',
+            mode: 'insensitive',
+          },
+        },
+      };
+
+      await runWithTenant(() => call('MasterPart', 'findMany', args, query));
 
       expect(query).toHaveBeenCalledWith(args);
       expect(query.mock.calls[0][0]).not.toHaveProperty('where.tenant_id');
@@ -110,6 +128,75 @@ describe('applyTenantIsolation', () => {
 
       expect(query).toHaveBeenCalledWith({
         where: { status: 'DRAFT', tenant_id: TENANT_ID },
+      });
+    });
+  });
+
+  describe('update() — must verify tenant ownership', () => {
+    it('executes tenant-scoped unique updates without resolving a delegate', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
+      const getExtensionContextSpy = jest
+        .spyOn(Prisma, 'getExtensionContext')
+        .mockReturnValue({} as never);
+
+      try {
+        await runWithTenant(() =>
+          applyTenantIsolation.call(
+            {},
+            'FinanceSettings',
+            'update',
+            {
+              where: { tenant_id: 'wrong-tenant' },
+              data: { workshop_order_prefix: 'WO-2026-' },
+            },
+            query,
+          ),
+        );
+      } finally {
+        getExtensionContextSpy.mockRestore();
+      }
+
+      expect(query).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+        data: { workshop_order_prefix: 'WO-2026-' },
+      });
+    });
+
+    it('tenant-scopes the ownership pre-check when lower-camel delegates are unavailable', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
+      const findFirst = jest.fn().mockResolvedValue({ id: 'settings-1' });
+      const getExtensionContextSpy = jest
+        .spyOn(Prisma, 'getExtensionContext')
+        .mockReturnValue({
+          FinanceSettings: { findFirst },
+        } as never);
+
+      try {
+        await runWithTenant(() =>
+          applyTenantIsolation.call(
+            {},
+            'FinanceSettings',
+            'update',
+            {
+              where: { id: 'settings-1' },
+              data: { workshop_order_prefix: 'WO-2026-' },
+            },
+            query,
+          ),
+        );
+      } finally {
+        getExtensionContextSpy.mockRestore();
+      }
+
+      expect(findFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [{ id: 'settings-1' }, { tenant_id: TENANT_ID }],
+        },
+        select: { id: true },
+      });
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'settings-1' },
+        data: { workshop_order_prefix: 'WO-2026-' },
       });
     });
   });

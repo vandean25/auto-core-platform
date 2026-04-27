@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DashboardGateway } from './dashboard.gateway';
 import type {
+  AuthClaimsUpdatedPayload,
   DashboardEntityUpdatedPayload,
   EmitDashboardEntityUpdatedInput,
 } from './dashboard-events.types';
@@ -18,5 +19,14 @@ export class DashboardRealtimeService {
       timestamp: new Date().toISOString(),
     };
     this.dashboardGateway.emitEntityUpdated(tenantId, payload);
+  }
+
+  emitClaimsUpdated(firebaseUid: string): void {
+    const payload: AuthClaimsUpdatedPayload = {
+      reason: 'membership-updated',
+      timestamp: new Date().toISOString(),
+    };
+
+    this.dashboardGateway.emitClaimsUpdated(firebaseUid, payload);
   }
 }

@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
+  Building2,
   Car,
   ChevronsLeft,
   ChevronsRight,
@@ -24,6 +25,7 @@ import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
 type SidebarAccessContext = {
   userEmail: string | null
+  platformRole: string | null
 }
 
 type SidebarModule = {
@@ -43,6 +45,14 @@ const coreModules: SidebarModule[] = [
     icon: LayoutDashboard,
     isVisible: () => true,
     isActive: (pathname) => pathname === '/' || pathname.startsWith('/dashboard'),
+  },
+  {
+    id: 'platform-tenants',
+    label: 'Tenants',
+    to: '/platform/tenants',
+    icon: Building2,
+    isVisible: (context) => context.platformRole === 'SUPER_ADMIN',
+    isActive: (pathname) => pathname.startsWith('/platform/tenants'),
   },
   {
     id: 'customers',
@@ -128,6 +138,7 @@ const coreModules: SidebarModule[] = [
 
 type AppSidebarProps = {
   userEmail: string | null
+  platformRole: string | null
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSearch: () => void
@@ -146,6 +157,7 @@ function normalizePathWithQuery(pathname: string, search: string): string {
 
 export function AppSidebar({
   userEmail,
+  platformRole,
   collapsed,
   onToggleCollapsed,
   onOpenSearch,
@@ -155,7 +167,7 @@ export function AppSidebar({
   const navigate = useNavigate()
   const { savedViews, removeSavedView } = useSavedViews()
 
-  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail }))
+  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole }))
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
   return (

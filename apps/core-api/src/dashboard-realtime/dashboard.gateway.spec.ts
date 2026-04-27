@@ -1,10 +1,27 @@
 import type { Socket } from 'socket.io';
 import type { AuthService } from '../auth/auth.service';
 import {
+  AUTH_CLAIMS_UPDATED_EVENT,
   DASHBOARD_ENTITY_UPDATED_EVENT,
+  type AuthClaimsUpdatedPayload,
   type DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
-import { DashboardGateway } from './dashboard.gateway';
+import { DashboardGateway, resolveCorsOrigins } from './dashboard.gateway';
+
+describe('resolveCorsOrigins', () => {
+  it('falls back to localhost dev origins when FRONTEND_URL is unset outside production', () => {
+    expect(resolveCorsOrigins(undefined, 'development')).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ]);
+  });
+
+  it('uses configured origins when FRONTEND_URL is provided', () => {
+    expect(
+      resolveCorsOrigins('http://localhost:5173,https://app.example.com', 'development'),
+    ).toEqual(['http://localhost:5173', 'https://app.example.com']);
+  });
+});
 
 type MockSocket = {
   id: string;
@@ -75,7 +92,9 @@ describe('DashboardGateway', () => {
       'Bearer jwt-token',
     );
     expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
+    expect(client.join).toHaveBeenCalledWith('user_user-1');
     expect(client.data.tenantId).toBe('tenant-a');
+    expect(client.data.userId).toBe('user-1');
     expect(client.disconnect).not.toHaveBeenCalled();
   });
 
@@ -97,5 +116,21 @@ describe('DashboardGateway', () => {
     expect(emit).toHaveBeenCalledWith(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     const emittedPayload = emit.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(emittedPayload.tenantId).toBeUndefined();
+  });
+
+  it('emits claims refresh events only to the affected user room', () => {
+    const emit = jest.fn();
+    const to = jest.fn().mockReturnValue({ emit });
+    gateway.server = { to } as unknown as DashboardGateway['server'];
+
+    const payload: AuthClaimsUpdatedPayload = {
+      reason: 'membership-updated',
+      timestamp: new Date().toISOString(),
+    };
+
+    gateway.emitClaimsUpdated('user-1', payload);
+
+    expect(to).toHaveBeenCalledWith('user_user-1');
+    expect(emit).toHaveBeenCalledWith(AUTH_CLAIMS_UPDATED_EVENT, payload);
   });
 });

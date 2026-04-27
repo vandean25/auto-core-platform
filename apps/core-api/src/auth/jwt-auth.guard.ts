@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
+import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { AuthService } from './auth.service';
@@ -24,13 +25,27 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
+    const allowPlatformAdmin =
+      this.reflector.getAllAndOverride<boolean>(ALLOW_PLATFORM_ADMIN_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? false;
+
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: AuthenticatedUser }>();
-    request.user = await this.authService.authenticateBearerToken(
-      request.headers.authorization,
-    );
-    this.tenantContext.setAuthenticatedUser(request.user);
+    request.user = allowPlatformAdmin
+      ? await this.authService.authenticateBearerToken(
+          request.headers.authorization,
+          { allowPlatformAdmin: true },
+        )
+      : await this.authService.authenticateBearerToken(
+          request.headers.authorization,
+        );
+
+    if (request.user.tenantId) {
+      this.tenantContext.setAuthenticatedUser(request.user);
+    }
 
     return true;
   }

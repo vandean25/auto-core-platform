@@ -10,34 +10,38 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
-import LoginPage from '@/pages/LoginPage'
-import InventoryList from './pages/InventoryList'
-import InventoryLedgerPage from './pages/inventory/InventoryLedgerPage'
-import VendorList from './pages/vendors/VendorList'
-import VendorDetail from './pages/vendors/VendorDetail'
-import PurchaseOrderList from './pages/purchase-orders/PurchaseOrderList'
-import PurchaseOrderCreate from './pages/purchase-orders/PurchaseOrderCreate'
-import PurchaseOrderDetail from './pages/purchase-orders/PurchaseOrderDetail'
-import InvoiceCreatePage from './pages/sales/InvoiceCreatePage'
-import InvoiceDetailPage from './pages/sales/InvoiceDetailPage'
-import PurchaseInvoiceCreatePage from './pages/purchase-invoices/PurchaseInvoiceCreatePage'
-import PurchaseBillsPage from './pages/purchase-bills/PurchaseBillsPage'
-import PurchaseBillDetailPage from './pages/purchase-bills/PurchaseBillDetailPage'
-import PurchaseBillCreatePage from './pages/purchase-bills/PurchaseBillCreatePage'
-import SettingsPage from './pages/SettingsPage'
-import DashboardPage from './pages/DashboardPage'
-import { IntakeDashboard } from './pages/workshop/IntakeDashboard'
-import WorkshopOrderDetails from './pages/workshop/WorkshopOrderDetails'
-import WorkshopOrderList from './pages/workshop/WorkshopOrderList'
-import WorkshopPickList from './pages/workshop/WorkshopPickList'
-import WorkshopBoard from './pages/workshop/WorkshopBoard'
-import CustomerList from './pages/customers/CustomerList'
-import CustomerDetail from './pages/customers/CustomerDetail'
-import VehicleDetail from './pages/vehicles/VehicleDetail'
-import VehicleList from './pages/vehicles/VehicleList'
-import SalesOrderList from './pages/sales-orders/SalesOrderList'
-import SalesOrderCreate from './pages/sales-orders/SalesOrderCreate'
-import SalesOrderDetail from './pages/sales-orders/SalesOrderDetail'
+import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
+import { PageLoader } from '@/components/ui/PageLoader'
+
+const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
+const InventoryList = React.lazy(() => import('./pages/InventoryList'))
+const InventoryLedgerPage = React.lazy(() => import('./pages/inventory/InventoryLedgerPage'))
+const VendorList = React.lazy(() => import('./pages/vendors/VendorList'))
+const VendorDetail = React.lazy(() => import('./pages/vendors/VendorDetail'))
+const PurchaseOrderList = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderList'))
+const PurchaseOrderCreate = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderCreate'))
+const PurchaseOrderDetail = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderDetail'))
+const InvoiceCreatePage = React.lazy(() => import('./pages/sales/InvoiceCreatePage'))
+const InvoiceDetailPage = React.lazy(() => import('./pages/sales/InvoiceDetailPage'))
+const PurchaseInvoiceCreatePage = React.lazy(() => import('./pages/purchase-invoices/PurchaseInvoiceCreatePage'))
+const PurchaseBillsPage = React.lazy(() => import('./pages/purchase-bills/PurchaseBillsPage'))
+const PurchaseBillDetailPage = React.lazy(() => import('./pages/purchase-bills/PurchaseBillDetailPage'))
+const PurchaseBillCreatePage = React.lazy(() => import('./pages/purchase-bills/PurchaseBillCreatePage'))
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'))
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage'))
+const PlatformTenantsPage = React.lazy(() => import('./pages/platform/PlatformTenantsPage'))
+const IntakeDashboard = React.lazy(() => import('./pages/workshop/IntakeDashboard').then(m => ({ default: m.IntakeDashboard })))
+const WorkshopOrderDetails = React.lazy(() => import('./pages/workshop/WorkshopOrderDetails'))
+const WorkshopOrderList = React.lazy(() => import('./pages/workshop/WorkshopOrderList'))
+const WorkshopPickList = React.lazy(() => import('./pages/workshop/WorkshopPickList'))
+const WorkshopBoard = React.lazy(() => import('./pages/workshop/WorkshopBoard'))
+const CustomerList = React.lazy(() => import('./pages/customers/CustomerList'))
+const CustomerDetail = React.lazy(() => import('./pages/customers/CustomerDetail'))
+const VehicleDetail = React.lazy(() => import('./pages/vehicles/VehicleDetail'))
+const VehicleList = React.lazy(() => import('./pages/vehicles/VehicleList'))
+const SalesOrderList = React.lazy(() => import('./pages/sales-orders/SalesOrderList'))
+const SalesOrderCreate = React.lazy(() => import('./pages/sales-orders/SalesOrderCreate'))
+const SalesOrderDetail = React.lazy(() => import('./pages/sales-orders/SalesOrderDetail'))
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
@@ -53,36 +57,39 @@ function AppRoutes() {
           animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } }}
           exit={{ opacity: 0, y: -6, transition: { duration: 0.16, ease: 'easeIn' } }}
         >
-          <Routes location={location}>
-            <Route path="/" element={<Navigate to="/inventory" replace />} />
-            <Route path="/inventory" element={<InventoryList />} />
-            <Route path="/inventory/:itemId/ledger" element={<InventoryLedgerPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/customers" element={<CustomerList />} />
-            <Route path="/customers/:id" element={<CustomerDetail />} />
-            <Route path="/vehicles" element={<VehicleList />} />
-            <Route path="/vehicles/:id" element={<VehicleDetail />} />
-            <Route path="/sales-orders" element={<SalesOrderList />} />
-            <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
-            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
-            <Route path="/vendors" element={<VendorList />} />
-            <Route path="/vendors/:id" element={<VendorDetail />} />
-            <Route path="/purchase-orders" element={<PurchaseOrderList />} />
-            <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
-            <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
-            <Route path="/purchase-bills" element={<PurchaseBillsPage />} />
-            <Route path="/purchase-bills/new" element={<PurchaseBillCreatePage />} />
-            <Route path="/purchase-bills/:id" element={<PurchaseBillDetailPage />} />
-            <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
-            <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
-            <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/workshop/intake" element={<IntakeDashboard />} />
-            <Route path="/workshop/orders" element={<WorkshopOrderList />} />
-            <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
-            <Route path="/workshop/board" element={<WorkshopBoard />} />
-            <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
-          </Routes>
+          <React.Suspense fallback={<PageLoader />}>
+            <Routes location={location}>
+              <Route path="/" element={<Navigate to="/inventory" replace />} />
+              <Route path="/inventory" element={<InventoryList />} />
+              <Route path="/inventory/:itemId/ledger" element={<InventoryLedgerPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/customers" element={<CustomerList />} />
+              <Route path="/customers/:id" element={<CustomerDetail />} />
+              <Route path="/vehicles" element={<VehicleList />} />
+              <Route path="/vehicles/:id" element={<VehicleDetail />} />
+              <Route path="/sales-orders" element={<SalesOrderList />} />
+              <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
+              <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+              <Route path="/vendors" element={<VendorList />} />
+              <Route path="/vendors/:id" element={<VendorDetail />} />
+              <Route path="/purchase-orders" element={<PurchaseOrderList />} />
+              <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
+              <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+              <Route path="/purchase-bills" element={<PurchaseBillsPage />} />
+              <Route path="/purchase-bills/new" element={<PurchaseBillCreatePage />} />
+              <Route path="/purchase-bills/:id" element={<PurchaseBillDetailPage />} />
+              <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
+              <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
+              <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/platform/tenants" element={<PlatformTenantsPage />} />
+              <Route path="/workshop/intake" element={<IntakeDashboard />} />
+              <Route path="/workshop/orders" element={<WorkshopOrderList />} />
+              <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
+              <Route path="/workshop/board" element={<WorkshopBoard />} />
+              <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
+            </Routes>
+          </React.Suspense>
         </motion.div>
       </AnimatePresence>
     </LayoutGroup>
@@ -104,7 +111,9 @@ function AppMain({ sidebarCollapsed }: AppMainProps) {
       tabIndex={-1}
     >
       <div className={isWorkshopOrderDetails ? 'w-full py-8 px-0' : 'w-full py-8 px-4'}>
-        <AppRoutes />
+        <GlobalErrorBoundary>
+          <AppRoutes />
+        </GlobalErrorBoundary>
       </div>
       <Toaster />
     </main>
@@ -114,10 +123,11 @@ function AppMain({ sidebarCollapsed }: AppMainProps) {
 type AppShellProps = {
   userId?: string
   userEmail: string | null
+  platformRole: string | null
   onSignOut: () => void
 }
 
-function AppShell({ userId, userEmail, onSignOut }: AppShellProps) {
+function AppShell({ userId, userEmail, platformRole, onSignOut }: AppShellProps) {
   const [deviceId] = React.useState(() => {
     if (typeof window === 'undefined') return 'server'
     const stored = window.localStorage.getItem('deviceId')
@@ -164,6 +174,7 @@ function AppShell({ userId, userEmail, onSignOut }: AppShellProps) {
 
             <AppSidebar
               userEmail={userEmail}
+              platformRole={platformRole}
               collapsed={sidebarCollapsed}
               onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
               onOpenSearch={() => setSearchOpen(true)}
@@ -180,19 +191,28 @@ function AppShell({ userId, userEmail, onSignOut }: AppShellProps) {
 }
 
 function App() {
-  const { user, loading, signOutUser } = useAuth()
+  const { user, claims, loading, signOutUser } = useAuth()
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
   }
 
   if (!user) {
-    return <LoginPage />
+    return (
+      <React.Suspense fallback={<PageLoader />}>
+        <LoginPage />
+      </React.Suspense>
+    )
   }
 
   return (
     <Router>
-      <AppShell userEmail={user.email ?? null} onSignOut={() => void signOutUser()} />
+      <AppShell
+        userId={user.uid}
+        userEmail={user.email ?? null}
+        platformRole={claims?.platformRole ?? null}
+        onSignOut={() => void signOutUser()}
+      />
     </Router>
   )
 }

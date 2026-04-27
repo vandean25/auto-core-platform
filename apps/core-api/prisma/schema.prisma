@@ -20,6 +20,17 @@ enum TenantPlan {
   ENTERPRISE
 }
 
+enum TenantMemberRole {
+  OWNER
+  ADMIN
+  TECH
+  SALES
+}
+
+enum PlatformAdminRole {
+  SUPER_ADMIN
+}
+
 model Tenant {
   id         String     @id @default(uuid())
   name       String
@@ -55,8 +66,56 @@ model Tenant {
   bays                 Bay[]
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
+  memberships          TenantMember[]
+  activeUsers          User[]         @relation("UserActiveTenant")
 
   @@map("tenants")
+}
+
+model User {
+  id               String         @id @default(uuid())
+  firebaseUid      String         @unique @map("firebase_uid")
+  email            String         @unique
+  firstName        String?        @map("first_name")
+  lastName         String?        @map("last_name")
+  active_tenant_id String?
+  activeTenant     Tenant?        @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  memberships      TenantMember[]
+  platformAdmin    PlatformAdmin?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([active_tenant_id])
+  @@map("users")
+}
+
+model TenantMember {
+  id        String           @id @default(uuid())
+  tenant_id String
+  tenant    Tenant           @relation(fields: [tenant_id], references: [id])
+  user_id   String
+  user      User             @relation(fields: [user_id], references: [id])
+  role      TenantMemberRole
+  is_active Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@unique([tenant_id, user_id])
+  @@map("tenant_members")
+}
+
+model PlatformAdmin {
+  id        String            @id @default(uuid())
+  user_id   String            @unique
+  user      User              @relation(fields: [user_id], references: [id])
+  role      PlatformAdminRole @default(SUPER_ADMIN)
+  is_active Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@map("platform_admins")
 }
 
 // ============================================================================

@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import { Loader2, Save, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
+import { useAuth } from "@/auth/AuthProvider"
 import { useFinanceSettings, useUpdateFinanceSettings, useRevenueGroups } from "@/api/useFinance"
 import { useBrands } from "@/api/brands"
 import { useLocationTree, useCreateLocation, useDeleteLocation, type StorageLocation, type LocationType } from "@/api/locations"
@@ -31,6 +32,7 @@ import { AddBrandDialog } from "@/components/AddBrandDialog"
 import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
 import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
+import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -259,13 +261,16 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "employees", "bays", "labor"] as const
+const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
+    const { claims } = useAuth()
     const [searchParams, setSearchParams] = useSearchParams()
     const rawTab = searchParams.get("tab")
-    const activeTab: SettingsTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
+    const canManageTeam = claims?.role === 'ADMIN' || claims?.role === 'OWNER'
+    const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
+    const activeTab: SettingsTab = requestedTab === 'team' && !canManageTeam ? 'finance' : requestedTab
 
     // ── Finance state ──
     const { data: settings, isLoading } = useFinanceSettings()
@@ -336,7 +341,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-7 max-w-[1100px]">
+                <TabsList className={cn("grid w-full max-w-[1100px]", canManageTeam ? 'grid-cols-8' : 'grid-cols-7')}>
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
                     <TabsTrigger value="brands">Brands</TabsTrigger>
@@ -344,6 +349,7 @@ export default function SettingsPage() {
                     <TabsTrigger value="employees">Employees</TabsTrigger>
                     <TabsTrigger value="bays">Bays</TabsTrigger>
                     <TabsTrigger value="labor">Labor</TabsTrigger>
+                    {canManageTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
                 </TabsList>
 
                 {/* ── Finance Tab ── */}
@@ -464,6 +470,13 @@ export default function SettingsPage() {
                 <TabsContent value="labor" className="space-y-6">
                     <LaborCategoriesTab />
                 </TabsContent>
+
+                {/* ── Team Tab ── */}
+                {canManageTeam ? (
+                    <TabsContent value="team" className="space-y-6">
+                        <TeamSettingsTab />
+                    </TabsContent>
+                ) : null}
             </Tabs>
 
             {/* Lock Date Alert Dialog */}

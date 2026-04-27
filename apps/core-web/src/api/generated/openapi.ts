@@ -1044,6 +1044,86 @@ export interface paths {
         patch: operations["BayController_update"];
         trace?: never;
     };
+    "/api/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PlatformAdminController_findAll"];
+        put?: never;
+        post: operations["PlatformAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["PlatformAdminController_update"];
+        trace?: never;
+    };
+    "/api/tenant-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TenantMemberController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-members/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TenantMemberController_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["TenantMemberController_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1804,6 +1884,80 @@ export interface components {
             id: string;
             isActive?: boolean;
             deleted?: boolean;
+        };
+        /** @enum {string} */
+        TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
+        PlatformTenantResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            plan: components["schemas"]["TenantPlan"];
+            isActive: boolean;
+            memberCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PlatformTenantListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        PlatformTenantListResponseDto: {
+            data: components["schemas"]["PlatformTenantResponseDto"][];
+            meta: components["schemas"]["PlatformTenantListMetaDto"];
+        };
+        CreatePlatformTenantDto: {
+            name: string;
+            /** @description Lowercase slug used for tenant routing and lookup */
+            slug: string;
+            plan: components["schemas"]["TenantPlan"];
+        };
+        UpdatePlatformTenantDto: {
+            name?: string;
+            slug?: string;
+            plan?: components["schemas"]["TenantPlan"];
+            isActive?: boolean;
+        };
+        /** @enum {string} */
+        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES";
+        TenantMemberResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            userId: string;
+            email: string;
+            firstName?: string | null;
+            lastName?: string | null;
+            role: components["schemas"]["TenantMemberRole"];
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TenantMembersListMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        TenantMembersListResponseDto: {
+            data: components["schemas"]["TenantMemberResponseDto"][];
+            meta: components["schemas"]["TenantMembersListMetaDto"];
+        };
+        InviteTenantMemberDto: {
+            email: string;
+            role: components["schemas"]["TenantMemberRole"];
+        };
+        UpdateTenantMemberDto: {
+            role?: components["schemas"]["TenantMemberRole"];
+            isActive?: boolean;
         };
     };
     responses: never;
@@ -4289,6 +4443,155 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PlatformAdminController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Search by tenant name or slug */
+                search?: string;
+                /** @description Include inactive tenants when true */
+                includeInactive?: boolean;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformTenantListResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlatformTenantDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformTenantResponseDto"];
+                };
+            };
+        };
+    };
+    PlatformAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlatformTenantDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformTenantResponseDto"];
+                };
+            };
+        };
+    };
+    TenantMemberController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Search by email or user name */
+                search?: string;
+                /** @description Include inactive memberships when true */
+                includeInactive?: boolean;
+                /** @description Page number (1-based) */
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMembersListResponseDto"];
+                };
+            };
+        };
+    };
+    TenantMemberController_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteTenantMemberDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberResponseDto"];
+                };
+            };
+        };
+    };
+    TenantMemberController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTenantMemberDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberResponseDto"];
+                };
             };
         };
     };
