@@ -215,7 +215,7 @@ function AppShell({
 
 function App() {
   const { user, loading, signOutUser } = useAuth()
-  const sessionQuery = useAuthSession(Boolean(user))
+  const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
 
   if (loading || (user && sessionQuery.isLoading)) {

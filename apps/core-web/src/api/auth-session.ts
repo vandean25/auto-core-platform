@@ -10,6 +10,15 @@ export type SwitchTenantPayload = components['schemas']['SwitchTenantDto']
 
 export const authSessionKeys = {
   all: ['auth-session'] as const,
+  user: (userKey: string | null) => [...authSessionKeys.all, userKey ?? 'anonymous'] as const,
+}
+
+function getCurrentUserKey(explicitUserKey?: string | null) {
+  if (explicitUserKey) {
+    return explicitUserKey
+  }
+
+  return firebaseAuth?.currentUser?.uid ?? firebaseAuth?.currentUser?.email ?? null
 }
 
 async function getErrorMessage(response: Response, fallbackMessage: string) {
@@ -17,10 +26,12 @@ async function getErrorMessage(response: Response, fallbackMessage: string) {
   return payload?.message || fallbackMessage
 }
 
-export function useAuthSession(enabled = true) {
+export function useAuthSession(userKey?: string | null, enabled = true) {
+  const resolvedUserKey = getCurrentUserKey(userKey)
+
   return useQuery<AuthSession>({
-    queryKey: authSessionKeys.all,
-    enabled,
+    queryKey: authSessionKeys.user(resolvedUserKey),
+    enabled: enabled && Boolean(resolvedUserKey),
     queryFn: async () => {
       const response = await fetchWithAuth('/api/auth/me')
 

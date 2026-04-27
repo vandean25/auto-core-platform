@@ -1,0 +1,115 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, render, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { authSessionKeys } from '@/api/auth-session'
+import { AuthProvider } from '@/auth/AuthProvider'
+
+type MockAuthUser = {
+  uid: string
+  email: string | null
+  displayName: string | null
+  getIdToken: ReturnType<typeof vi.fn>
+  getIdTokenResult: ReturnType<typeof vi.fn>
+}
+
+const mocks = vi.hoisted(() => ({
+  authListener: null as ((user: MockAuthUser | null) => void) | null,
+  unsubscribe: vi.fn(),
+  signInWithEmailAndPassword: vi.fn(),
+  signInWithPopup: vi.fn(),
+  signOut: vi.fn(),
+}))
+
+vi.mock('firebase/auth', () => ({
+  GoogleAuthProvider: vi.fn(),
+  onIdTokenChanged: vi.fn((_auth: unknown, callback: (user: MockAuthUser | null) => void) => {
+    mocks.authListener = callback
+    return mocks.unsubscribe
+  }),
+  signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
+  signInWithPopup: mocks.signInWithPopup,
+  signOut: mocks.signOut,
+}))
+
+vi.mock('@/lib/firebase', () => ({
+  firebaseAuth: {},
+  firebaseConfigMissing: false,
+}))
+
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+}
+
+function createUser(uid: string, email: string): MockAuthUser {
+  return {
+    uid,
+    email,
+    displayName: null,
+    getIdToken: vi.fn(),
+    getIdTokenResult: vi.fn().mockResolvedValue({
+      claims: {
+        tenantId: 'tenant-a',
+        role: 'ADMIN',
+      },
+    }),
+  }
+}
+
+describe('AuthProvider', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.authListener = null
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('clears cached auth-session queries whenever the Firebase auth user changes', async () => {
+    const queryClient = createQueryClient()
+    const removeQueries = vi.spyOn(queryClient, 'removeQueries')
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <div>ready</div>
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    await act(async () => {
+      mocks.authListener?.(createUser('user-1', 'testauto@auto.core.at'))
+    })
+
+    await waitFor(() => {
+      expect(removeQueries).toHaveBeenCalledWith({
+        queryKey: authSessionKeys.all,
+      })
+    })
+
+    queryClient.setQueryData(authSessionKeys.all, {
+      userId: 'user-1',
+      email: 'testauto@auto.core.at',
+      activeTenant: {
+        id: 'tenant-a',
+        name: 'Auto Core Vienna',
+        slug: 'vienna',
+      },
+      activeRole: 'ADMIN',
+      memberships: [],
+    })
+
+    await act(async () => {
+      mocks.authListener?.(null)
+    })
+
+    await waitFor(() => {
+      expect(removeQueries).toHaveBeenCalledTimes(2)
+    })
+  })
+})

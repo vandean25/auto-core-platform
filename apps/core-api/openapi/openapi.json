@@ -4275,7 +4275,8 @@
         "type": "object",
         "properties": {
           "tenantId": {
-            "type": "string"
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [

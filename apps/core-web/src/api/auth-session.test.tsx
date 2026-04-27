@@ -2,11 +2,18 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { authSessionKeys, useSwitchTenant } from '@/api/auth-session'
+import { authSessionKeys, useAuthSession, useSwitchTenant } from '@/api/auth-session'
 
 const mocks = vi.hoisted(() => ({
   fetchWithAuth: vi.fn(),
   getIdToken: vi.fn(),
+  firebaseAuth: {
+    currentUser: {
+      uid: 'user-1',
+      email: 'testauto@auto.core.at',
+      getIdToken: vi.fn(),
+    },
+  },
 }))
 
 vi.mock('@/api/client', () => ({
@@ -14,11 +21,7 @@ vi.mock('@/api/client', () => ({
 }))
 
 vi.mock('@/lib/firebase', () => ({
-  firebaseAuth: {
-    currentUser: {
-      getIdToken: mocks.getIdToken,
-    },
-  },
+  firebaseAuth: mocks.firebaseAuth,
   firebaseConfigMissing: false,
 }))
 
@@ -37,6 +40,16 @@ function createWrapper(queryClient: QueryClient) {
   )
 }
 
+function SessionProbe() {
+  const sessionQuery = useAuthSession()
+
+  if (sessionQuery.isLoading) {
+    return <div>Loading session</div>
+  }
+
+  return <div>{sessionQuery.data?.activeTenant.name ?? 'No session'}</div>
+}
+
 function MutationProbe() {
   const switchTenant = useSwitchTenant()
 
@@ -50,6 +63,11 @@ function MutationProbe() {
 describe('useSwitchTenant', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.firebaseAuth.currentUser = {
+      uid: 'user-1',
+      email: 'testauto@auto.core.at',
+      getIdToken: mocks.getIdToken,
+    }
 
     mocks.fetchWithAuth.mockResolvedValue({
       ok: true,
@@ -70,6 +88,60 @@ describe('useSwitchTenant', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('does not reuse a cached auth session from a different user', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          staleTime: 1000 * 60 * 5,
+        },
+        mutations: {
+          retry: false,
+        },
+      },
+    })
+
+    queryClient.setQueryData(authSessionKeys.all, {
+      userId: 'user-1',
+      email: 'testauto@auto.core.at',
+      activeTenant: {
+        id: 'tenant-a',
+        name: 'Auto Core Vienna',
+        slug: 'vienna',
+      },
+      activeRole: 'ADMIN',
+      memberships: [],
+    })
+
+    mocks.firebaseAuth.currentUser = {
+      uid: 'user-2',
+      email: 'second@auto.core.at',
+      getIdToken: mocks.getIdToken,
+    }
+    mocks.fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        userId: 'user-2',
+        email: 'second@auto.core.at',
+        activeTenant: {
+          id: 'tenant-b',
+          name: 'Auto Core Graz',
+          slug: 'graz',
+        },
+        activeRole: 'SALES',
+        memberships: [],
+      }),
+    })
+
+    render(<SessionProbe />, { wrapper: createWrapper(queryClient) })
+
+    expect(screen.queryByText('Auto Core Vienna')).not.toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText('Auto Core Graz')).toBeInTheDocument()
+    })
   })
 
   it('refreshes the token and clears tenant-scoped queries after a successful switch', async () => {

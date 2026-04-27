@@ -107,9 +107,9 @@ export class AuthService {
           };
     }
 
-      throw new UnauthorizedException(
-        'Bearer token is missing one or more required claims.',
-      );
+    throw new UnauthorizedException(
+      'Bearer token is missing one or more required claims.',
+    );
   }
 
   createTestToken(overrides: Partial<AuthClaims> = {}): string {

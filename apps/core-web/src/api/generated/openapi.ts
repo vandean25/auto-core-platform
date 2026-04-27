@@ -1169,6 +1169,7 @@ export interface components {
             platformRole?: components["schemas"]["PlatformAdminRole"];
         };
         SwitchTenantDto: {
+            /** Format: uuid */
             tenantId: string;
         };
         AvailabilityCheckResultDto: {

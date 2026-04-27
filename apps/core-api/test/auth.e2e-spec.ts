@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -19,6 +19,9 @@ const firebaseAuthMock = {
   getUserByEmail: jest.fn(),
   createUser: jest.fn(),
 };
+
+const TENANT_A_ID = '11111111-1111-4111-8111-111111111111';
+const TENANT_B_ID = '22222222-2222-4222-8222-222222222222';
 
 jest.mock('../src/auth/firebase-admin', () => ({
   getFirebaseAdminAuth: () => firebaseAuthMock,
@@ -84,6 +87,7 @@ describe('Bearer auth (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
     await app.init();
 
     authService = app.get(AuthService);
@@ -155,6 +159,46 @@ describe('Bearer auth (e2e)', () => {
       .get('/platform/probe')
       .set('Authorization', `Bearer ${token}`)
       .expect(200, { ok: true, scope: 'platform' });
+  });
+
+  it('rejects stale platform-admin claims when the database no longer grants platform access', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_A_ID,
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: TENANT_A_ID,
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: TENANT_A_ID,
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: TENANT_A_ID,
+            name: 'Auto Core Vienna',
+            slug: 'vienna',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+      platformRole: 'SUPER_ADMIN',
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/platform/probe')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
   });
 
   it('still rejects normal tenant routes without tenantId and role claims', async () => {
@@ -315,7 +359,7 @@ describe('Bearer auth (e2e)', () => {
 
   it('switches the active tenant when the membership exists', async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({
-      id: 'tenant-a',
+      id: TENANT_A_ID,
       is_active: true,
     });
 
@@ -324,26 +368,26 @@ describe('Bearer auth (e2e)', () => {
         id: 'user-1',
         firebaseUid: 'e2e-user-id',
         email: 'testauto@auto.core.at',
-        active_tenant_id: 'tenant-a',
+        active_tenant_id: TENANT_A_ID,
         platformAdmin: null,
         memberships: [
           {
-            tenant_id: 'tenant-a',
+            tenant_id: TENANT_A_ID,
             role: 'ADMIN',
             is_active: true,
             tenant: {
-              id: 'tenant-a',
+              id: TENANT_A_ID,
               name: 'Auto Core Vienna',
               slug: 'vienna',
               is_active: true,
             },
           },
           {
-            tenant_id: 'tenant-b',
+            tenant_id: TENANT_B_ID,
             role: 'SALES',
             is_active: true,
             tenant: {
-              id: 'tenant-b',
+              id: TENANT_B_ID,
               name: 'Auto Core Graz',
               slug: 'graz',
               is_active: true,
@@ -355,26 +399,26 @@ describe('Bearer auth (e2e)', () => {
         id: 'user-1',
         firebaseUid: 'e2e-user-id',
         email: 'testauto@auto.core.at',
-        active_tenant_id: 'tenant-b',
+        active_tenant_id: TENANT_B_ID,
         platformAdmin: null,
         memberships: [
           {
-            tenant_id: 'tenant-a',
+            tenant_id: TENANT_A_ID,
             role: 'ADMIN',
             is_active: true,
             tenant: {
-              id: 'tenant-a',
+              id: TENANT_A_ID,
               name: 'Auto Core Vienna',
               slug: 'vienna',
               is_active: true,
             },
           },
           {
-            tenant_id: 'tenant-b',
+            tenant_id: TENANT_B_ID,
             role: 'SALES',
             is_active: true,
             tenant: {
-              id: 'tenant-b',
+              id: TENANT_B_ID,
               name: 'Auto Core Graz',
               slug: 'graz',
               is_active: true,
@@ -398,15 +442,57 @@ describe('Bearer auth (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/switch-tenant')
       .set('Authorization', `Bearer ${token}`)
-      .send({ tenantId: 'tenant-b' })
+      .send({ tenantId: TENANT_B_ID })
       .expect(200)
       .expect(({ body }) => {
         expect(body.activeTenant).toEqual({
-          id: 'tenant-b',
+          id: TENANT_B_ID,
           name: 'Auto Core Graz',
           slug: 'graz',
         });
         expect(body.activeRole).toBe('SALES');
       });
+  });
+
+  it('rejects malformed tenant ids when switching tenants', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_A_ID,
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: TENANT_A_ID,
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: TENANT_A_ID,
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: TENANT_A_ID,
+            name: 'Auto Core Vienna',
+            slug: 'vienna',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+    } as never);
+
+    await request(app.getHttpServer())
+      .post('/auth/switch-tenant')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tenantId: 'tenant-b' })
+      .expect(400);
+
+    expect(systemPrismaMock.user.update).not.toHaveBeenCalled();
   });
 });

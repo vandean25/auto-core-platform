@@ -1,11 +1,11 @@
 import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 
 export class SwitchTenantDto {
-  @ApiProperty()
-  @IsString()
+  @ApiProperty({ format: 'uuid' })
   @IsNotEmpty()
+  @IsUUID()
   tenantId!: string;
 }
 
