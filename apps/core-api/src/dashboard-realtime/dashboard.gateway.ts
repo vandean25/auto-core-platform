@@ -16,22 +16,30 @@ import {
 import type { IncomingHttpHeaders } from 'node:http';
 
 const setupLogger = new Logger('DashboardGatewaySetup');
+const DEVELOPMENT_DEFAULT_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
 
-function resolveCorsOrigins(): string[] {
-  const configuredOrigins = process.env.FRONTEND_URL?.split(',')
+export function resolveCorsOrigins(
+  frontendUrl = process.env.FRONTEND_URL,
+  nodeEnv = process.env.NODE_ENV,
+): string[] {
+  const configuredOrigins = frontendUrl?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
   if (!configuredOrigins || configuredOrigins.length === 0) {
-    if (process.env.NODE_ENV === 'production') {
+    if (nodeEnv === 'production') {
       throw new Error(
         'CRITICAL: Starting the server without FRONTEND_URL is a critical misconfiguration. It must contain the allowed frontend origin(s) for the dashboard-realtime gateway.',
       );
     }
+
     setupLogger.warn(
-      'WARNING: CORS origins are empty because FRONTEND_URL is not set. No browser origins will be allowed to connect via WebSocket.',
+      `WARNING: CORS origins are empty because FRONTEND_URL is not set. Falling back to development origins: ${DEVELOPMENT_DEFAULT_ORIGINS.join(', ')}`,
     );
-    return [];
+    return DEVELOPMENT_DEFAULT_ORIGINS;
   }
 
   return configuredOrigins;

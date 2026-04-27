@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useWorkshopPickList } from './workshop'
+import { useCreateWorkshopOrder, useWorkshopPickList } from './workshop'
 import { fetchWithAuth } from './client'
 import type { WorkshopOrder } from './types'
 import type { ReactNode } from 'react'
@@ -14,6 +14,9 @@ function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        retry: false,
+      },
+      mutations: {
         retry: false,
       },
     },
@@ -65,9 +68,10 @@ function createWorkshopOrder(overrides: Partial<WorkshopOrder> = {}): WorkshopOr
   }
 }
 
-function createJsonResponse(body: unknown): Response {
+function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return {
-    ok: true,
+    ok,
+    status,
     json: async () => body,
   } as Response
 }
@@ -122,5 +126,28 @@ describe('useWorkshopPickList', () => {
     expect(fetchWithAuth).toHaveBeenCalledTimes(2)
     expect(result.current.data?.data.map((order) => order.id)).toEqual(['eligible-order'])
     expect(result.current.data?.meta.total).toBe(1)
+  })
+
+  it('surfaces backend error messages when creating workshop orders', async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue(
+      createJsonResponse({ message: 'Finance settings update failed' }, false, 500),
+    )
+
+    const queryClient = createQueryClient()
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    const { result } = renderHook(() => useCreateWorkshopOrder(), { wrapper })
+
+    await expect(result.current.mutateAsync({
+      customerId: 'customer-1',
+      vehicleId: 'vehicle-1',
+      odometer: 0,
+      fuelLevel: 50,
+    })).rejects.toMatchObject({
+      message: 'Finance settings update failed',
+      status: 500,
+    })
   })
 })

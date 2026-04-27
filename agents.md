@@ -6,10 +6,10 @@ trigger: always_on
 You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/superpowers/skills/` directory.
 
 ### Mandatory Workflows:
-1. **Planning:** Before writing code or modifying architecture, read `.agents/superpowers/skills/writing-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
-2. **Test-Driven Development (TDD):** When writing code, you MUST follow the Red-Green-Refactor cycle defined in `.agents/superpowers/skills/test-driven-development/SKILL.md`.
-3. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/superpowers/skills/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
-4. **Brainstorming:** If a user request is vague or open-ended, read `.agents/superpowers/skills/brainstorming/SKILL.md` first.
+1. **Planning:** Before writing code or modifying architecture, read `agents\skills\superpowerswriting-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
+2. **Test-Driven Development (TDD):** When writing code, you MUST follow the Red-Green-Refactor cycle defined in `agents\skills\superpowerstest-driven-development/SKILL.md`.
+3. **Debugging:** If a test fails or a build error occurs, do not guess. Read `agents\skills\superpowerssystematic-debugging/SKILL.md` and execute the formal root cause analysis.
+4. **Brainstorming:** If a user request is vague or open-ended, read `agents\skills\superpowersbrainstorming/SKILL.md` first.
 
 Do not bypass these rules under any circumstances.
 

@@ -61,6 +61,33 @@ describe('BrandService', () => {
     mockTenantContext.getTenantId.mockResolvedValue('test-tenant-id');
   });
 
+  it('resolves the brand delegate lazily after construction', async () => {
+    const delayedPrisma = {
+      brand: undefined,
+      catalogItem: { count: jest.fn() },
+      vendor: { count: jest.fn() },
+    };
+
+    const delayedService = new BrandService(
+      delayedPrisma as unknown as PrismaService,
+      mockTenantContext as unknown as TenantContextService,
+    );
+
+    delayedPrisma.brand = {
+      findMany: jest.fn().mockResolvedValue([{ id: 1, name: 'Audi' }]),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    };
+
+    const result = await delayedService.findAll();
+
+    expect(result.data).toEqual([{ id: 1, name: 'Audi' }]);
+  });
+
   // ── findAll ───────────────────────────────────────────────────────────
 
   describe('findAll', () => {

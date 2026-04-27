@@ -5,9 +5,15 @@ import { toPrismaDelegateKey } from './prisma-delegate';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
- * Only the root Tenant entity itself is global.
+ * These are currently global/shared reference tables.
  */
-const GLOBAL_MODELS = new Set(['Tenant']);
+const GLOBAL_MODELS = new Set([
+  'Tenant',
+  'MasterPart',
+  'PartFitment',
+  'LocalInventory',
+  'LaborFitment',
+]);
 
 /**
  * Operations where tenant_id is injected into args.where.
@@ -51,11 +57,10 @@ function normalizeRecord(value: unknown): Record<string, unknown> {
   return { ...(value as Record<string, unknown>) };
 }
 
-function scopeUpsertWhere(
-  model: string,
+function injectTenantIntoWhere(
   where: Record<string, unknown> | undefined,
   tenantId: string,
-): Record<string, unknown> {
+): { scopedWhere: Record<string, unknown>; injected: boolean } {
   const scopedWhere = normalizeRecord(where);
   let injected = false;
 
@@ -76,6 +81,16 @@ function scopeUpsertWhere(
       injected = true;
     }
   }
+
+  return { scopedWhere, injected };
+}
+
+function scopeUpsertWhere(
+  model: string,
+  where: Record<string, unknown> | undefined,
+  tenantId: string,
+): Record<string, unknown> {
+  const { scopedWhere, injected } = injectTenantIntoWhere(where, tenantId);
 
   if (!injected) {
     throw new Error(
@@ -133,16 +148,27 @@ export function applyTenantIsolation(
     // Targeted single-row mutations: pre-check against the current tenant and
     // then execute the write with the caller's unique selector.
     if (operation === 'update' || operation === 'delete') {
-      const where = normalizeRecord(nextArgs.where);
+      const { scopedWhere, injected } = injectTenantIntoWhere(
+        nextArgs.where as Record<string, unknown> | undefined,
+        tenantId,
+      );
+      const where = scopedWhere;
+
       if (Object.keys(where).length === 0) {
         throw new Error(
           `[TenantIsolation] ${operation}() on model '${model}' requires a where clause.`,
         );
       }
 
+      if (injected) {
+        nextArgs.where = where;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        return query(nextArgs);
+      }
+
       const ctx = Prisma.getExtensionContext(this) as Record<string, unknown>;
       const delegateKey = toPrismaDelegateKey(model);
-      const modelDelegate = ctx[delegateKey] as
+      const modelDelegate = (ctx[delegateKey] ?? ctx[model]) as
         | {
             findFirst?: (findArgs: {
               where: Record<string, unknown>;

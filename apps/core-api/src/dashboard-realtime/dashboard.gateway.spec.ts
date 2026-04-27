@@ -6,7 +6,22 @@ import {
   type AuthClaimsUpdatedPayload,
   type DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
-import { DashboardGateway } from './dashboard.gateway';
+import { DashboardGateway, resolveCorsOrigins } from './dashboard.gateway';
+
+describe('resolveCorsOrigins', () => {
+  it('falls back to localhost dev origins when FRONTEND_URL is unset outside production', () => {
+    expect(resolveCorsOrigins(undefined, 'development')).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ]);
+  });
+
+  it('uses configured origins when FRONTEND_URL is provided', () => {
+    expect(
+      resolveCorsOrigins('http://localhost:5173,https://app.example.com', 'development'),
+    ).toEqual(['http://localhost:5173', 'https://app.example.com']);
+  });
+});
 
 type MockSocket = {
   id: string;

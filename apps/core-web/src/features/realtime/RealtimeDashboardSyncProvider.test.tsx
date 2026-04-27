@@ -2,7 +2,10 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RealtimeDashboardSyncProvider } from './RealtimeDashboardSyncProvider'
+import {
+  RealtimeDashboardSyncProvider,
+  resolveRealtimeConnection,
+} from './RealtimeDashboardSyncProvider'
 import { AUTH_CLAIMS_UPDATED_EVENT } from './types'
 
 const mocks = vi.hoisted(() => {
@@ -81,6 +84,30 @@ describe('RealtimeDashboardSyncProvider', () => {
     vi.clearAllMocks()
   })
 
+  it('uses the dedicated dev socket proxy path when only the browser origin is available', () => {
+    expect(
+      resolveRealtimeConnection({
+        apiBaseUrl: '',
+        currentOrigin: 'http://localhost:5173',
+      }),
+    ).toEqual({
+      url: 'http://localhost:5173/dashboard-realtime',
+      path: '/socket.io',
+    })
+  })
+
+  it('uses the backend socket path when an API base URL is configured', () => {
+    expect(
+      resolveRealtimeConnection({
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        currentOrigin: 'http://localhost:5173',
+      }),
+    ).toEqual({
+      url: 'http://127.0.0.1:3000/dashboard-realtime',
+      path: '/api/socket.io',
+    })
+  })
+
   it('refreshes claims and invalidates active queries when auth claims change', async () => {
     const queryClient = createQueryClient()
     const invalidateQueries = vi
@@ -94,6 +121,7 @@ describe('RealtimeDashboardSyncProvider', () => {
         'http://127.0.0.1:3000/dashboard-realtime',
         expect.objectContaining({
           auth: { token: 'initial-token' },
+          path: '/api/socket.io',
         }),
       )
     })

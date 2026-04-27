@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../src/auth/super-admin.guard';
 import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admin.decorator';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service';
 
 @Controller('protected')
 class ProtectedController {
@@ -38,6 +39,12 @@ describe('Bearer auth (e2e)', () => {
     },
   };
 
+  const systemPrismaMock = {
+    user: {
+      findFirst: jest.fn(),
+    },
+  };
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
 
@@ -53,6 +60,8 @@ describe('Bearer auth (e2e)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(SystemPrismaService)
+      .useValue(systemPrismaMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -67,6 +76,7 @@ describe('Bearer auth (e2e)', () => {
 
   beforeEach(() => {
     prismaMock.tenant.findFirst.mockReset();
+    systemPrismaMock.user.findFirst.mockReset();
   });
 
   it('rejects requests without bearer auth', async () => {
@@ -133,5 +143,42 @@ describe('Bearer auth (e2e)', () => {
       .get('/protected')
       .set('Authorization', `Bearer ${token}`)
       .expect(401);
+  });
+
+  it('projects tenant claims from the database when token claims are missing', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: 'tenant-active',
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: 'tenant-active',
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: 'tenant-active',
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: 'tenant-active',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200, { ok: true });
   });
 });
