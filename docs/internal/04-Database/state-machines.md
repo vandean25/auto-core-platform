@@ -47,17 +47,42 @@ A sub-workflow operating inside the `WorkshopOrder`.
 ```mermaid
 stateDiagram-v2
     [*] --> NOT_STARTED: Task defined
-    NOT_STARTED --> IN_PROGRESS: Mechanic starts
-    IN_PROGRESS --> WAITING_PARTS: Required parts missing
-    WAITING_PARTS --> IN_PROGRESS: Parts arrived
+    NOT_STARTED --> IN_PROGRESS: Mechanic starts (punch-in)
+    IN_PROGRESS --> WAITING_PARTS: Parts missing (pause)
+    IN_PROGRESS --> WAITING_CUSTOMER: Awaiting customer decision (pause)
+    IN_PROGRESS --> PAUSED: Mechanic switches to higher-priority task
+    WAITING_PARTS --> IN_PROGRESS: Parts arrived (resume)
+    WAITING_CUSTOMER --> IN_PROGRESS: Customer responds (resume)
+    PAUSED --> IN_PROGRESS: Mechanic returns to task
     IN_PROGRESS --> DONE: Work finished
+
     DONE --> [*]
 
     note right of DONE
       All Tasks must be DONE
       for Order to be COMPLETED
     end note
+
+    note right of WAITING_CUSTOMER
+      Triggers a Service Advisor
+      notification (email/SMS)
+      via the platform event bus.
+    end note
 ```
+
+#### Pause-Reason Mapping
+
+When a mechanic pauses via the **Pause** or **Switch Task** flows, the `LaborEntry.pause_reason` and the resulting task status are set atomically according to this table:
+
+| `LaborPauseReason`            | Resulting `WorkshopTaskStatus` |
+|-------------------------------|-------------------------------|
+| `WAITING_PARTS`               | `WAITING_PARTS`               |
+| `WAITING_CUSTOMER`            | `WAITING_CUSTOMER`            |
+| `SWITCHED_TO_HIGHER_PRIORITY` | `PAUSED`                      |
+| `OTHER`                       | remains `IN_PROGRESS`         |
+| `AUTO_SHIFT_CLOSE`            | no task status change (timer-only close) |
+
+`AUTO_SHIFT_CLOSE` is set exclusively by the nightly scheduled job that force-closes orphaned `LaborEntry` records where `ended_at IS NULL`. It does not alter the task status so the job remains resumable the following shift.
 
 ## Sales Workflow
 

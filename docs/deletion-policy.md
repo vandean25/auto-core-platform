@@ -37,7 +37,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | Employee | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.mechanic_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |
-| WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED` and no linked invoice exists yet on the order. |
+| WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, and no `LaborEntry` records exist for the task. |
+| LaborEntry | No | Immutable audit trail of mechanic time intervals; never hard-deleted through the API. The nightly close-out job may set `ended_at` and `pause_reason = AUTO_SHIFT_CLOSE` on open entries, but does not delete records. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |

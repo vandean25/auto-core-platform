@@ -66,6 +66,7 @@ model Tenant {
   bays                 Bay[]
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
+  laborEntries         LaborEntry[]
   memberships          TenantMember[]
   activeUsers          User[]         @relation("UserActiveTenant")
 
@@ -656,6 +657,8 @@ model Employee {
   is_active               Boolean         @default(true)
   sort_order              Int             @default(0)
   workshopOrdersAsMechanic WorkshopOrder[] @relation("WorkshopOrderMechanic")
+  workshopTasksAsMechanic  WorkshopTask[]  @relation("WorkshopTaskMechanic")
+  laborEntries             LaborEntry[]    @relation("EmployeeLaborEntries")
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -672,6 +675,7 @@ model Bay {
   is_active      Boolean         @default(true)
   sort_order     Int             @default(0)
   workshopOrders WorkshopOrder[]
+  workshopTasks  WorkshopTask[]  @relation("WorkshopTaskBay")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -727,7 +731,17 @@ enum WorkshopTaskStatus {
   NOT_STARTED
   IN_PROGRESS
   WAITING_PARTS
+  WAITING_CUSTOMER
+  PAUSED
   DONE
+}
+
+enum LaborPauseReason {
+  WAITING_PARTS
+  WAITING_CUSTOMER
+  AUTO_SHIFT_CLOSE
+  SWITCHED_TO_HIGHER_PRIORITY
+  OTHER
 }
 
 enum WorkshopLineItemType {
@@ -746,13 +760,29 @@ model WorkshopTask {
   status            WorkshopTaskStatus @default(NOT_STARTED)
   mechanic_notes    String?
 
+  // Task-level assignment (overrides order-level when set).
+  // Resolution rule: task.mechanic_id > task.bay_id > order.mechanic_id > order.bay_id.
+  // See ADR-0014 §2.2 for full precedence and queue-visibility rules.
+  mechanic_id       String?
+  mechanic          Employee?          @relation("WorkshopTaskMechanic", fields: [mechanic_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  bay_id            String?
+  bay               Bay?               @relation("WorkshopTaskBay", fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  // Scheduling and queue ordering
+  scheduled_date    DateTime?          @db.Date
+  sequence          Int                @default(0)
+
   line_items        WorkshopTaskLineItem[]
+  labor_entries     LaborEntry[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
+  @@index([mechanic_id], map: "idx_workshop_tasks_mechanic_id")
+  @@index([bay_id], map: "idx_workshop_tasks_bay_id")
+  @@index([scheduled_date], map: "idx_workshop_tasks_scheduled_date")
   @@map("workshop_tasks")
 }
 
@@ -781,6 +811,34 @@ model WorkshopTaskLineItem {
   @@map("workshop_task_line_items")
   @@index([tenant_id])
   @@index([labor_operation_id])
+}
+
+// ============================================================================
+// Labor Time Tracking
+// ============================================================================
+
+model LaborEntry {
+  id               String            @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant            @relation(fields: [tenant_id], references: [id])
+  workshop_task_id String
+  workshop_task    WorkshopTask      @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Restrict)
+  employee_id      String
+  employee         Employee          @relation("EmployeeLaborEntries", fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+
+  started_at       DateTime
+  ended_at         DateTime?
+  pause_reason     LaborPauseReason?
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([workshop_task_id])
+  @@index([employee_id])
+  @@index([ended_at], map: "labor_entries_ended_at_idx")
+  @@map("labor_entries")
 }
 
 model LaborCategory {
