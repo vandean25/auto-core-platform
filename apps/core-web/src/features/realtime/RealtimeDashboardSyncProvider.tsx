@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
+import { authSessionKeys } from '@/api/auth-session'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getDashboardSourceKeysForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
@@ -113,6 +114,14 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
         try {
           const refreshedToken = await currentUser.getIdToken(true)
           setToken(refreshedToken)
+          queryClient.removeQueries({
+            type: 'inactive',
+            predicate: (query) => query.queryKey[0] !== authSessionKeys.all[0],
+          })
+          await queryClient.invalidateQueries({
+            queryKey: authSessionKeys.all,
+            refetchType: 'active',
+          })
           await queryClient.invalidateQueries({ refetchType: 'active' })
         } catch (error) {
           console.error('Failed to refresh claims after realtime auth update event.', error)

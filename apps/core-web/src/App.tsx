@@ -1,6 +1,9 @@
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
+import { toast } from 'sonner'
+import type { components } from '@/api/generated/openapi'
+import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthProvider'
@@ -124,10 +127,25 @@ type AppShellProps = {
   userId?: string
   userEmail: string | null
   platformRole: string | null
+  activeTenant: AuthSessionTenant | null
+  activeRole: components['schemas']['TenantMemberRole'] | null
+  memberships: AuthSessionMembership[]
+  isSwitchingTenant: boolean
+  onSwitchTenant: (tenantId: string) => void
   onSignOut: () => void
 }
 
-function AppShell({ userId, userEmail, platformRole, onSignOut }: AppShellProps) {
+function AppShell({
+  userId,
+  userEmail,
+  platformRole,
+  activeTenant,
+  activeRole,
+  memberships,
+  isSwitchingTenant,
+  onSwitchTenant,
+  onSignOut,
+}: AppShellProps) {
   const [deviceId] = React.useState(() => {
     if (typeof window === 'undefined') return 'server'
     const stored = window.localStorage.getItem('deviceId')
@@ -175,9 +193,14 @@ function AppShell({ userId, userEmail, platformRole, onSignOut }: AppShellProps)
             <AppSidebar
               userEmail={userEmail}
               platformRole={platformRole}
+              activeTenant={activeTenant}
+              activeRole={activeRole}
+              memberships={memberships}
               collapsed={sidebarCollapsed}
+              isSwitchingTenant={isSwitchingTenant}
               onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
               onOpenSearch={() => setSearchOpen(true)}
+              onSwitchTenant={onSwitchTenant}
               onSignOut={onSignOut}
             />
 
@@ -191,9 +214,11 @@ function AppShell({ userId, userEmail, platformRole, onSignOut }: AppShellProps)
 }
 
 function App() {
-  const { user, claims, loading, signOutUser } = useAuth()
+  const { user, loading, signOutUser } = useAuth()
+  const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
+  const switchTenantMutation = useSwitchTenant()
 
-  if (loading) {
+  if (loading || (user && sessionQuery.isLoading)) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
   }
 
@@ -205,12 +230,25 @@ function App() {
     )
   }
 
+  if (!sessionQuery.data) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Unable to load your tenant session.</div>
+  }
+
   return (
     <Router>
       <AppShell
         userId={user.uid}
         userEmail={user.email ?? null}
-        platformRole={claims?.platformRole ?? null}
+        platformRole={sessionQuery.data.platformRole ?? null}
+        activeTenant={sessionQuery.data.activeTenant}
+        activeRole={sessionQuery.data.activeRole}
+        memberships={sessionQuery.data.memberships}
+        isSwitchingTenant={switchTenantMutation.isPending}
+        onSwitchTenant={(tenantId) => {
+          switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
+          })
+        }}
         onSignOut={() => void signOutUser()}
       />
     </Router>

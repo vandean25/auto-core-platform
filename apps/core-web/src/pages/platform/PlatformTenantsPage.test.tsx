@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { useAuthSession } from '@/api/auth-session'
 import { usePlatformTenants } from '@/api/platform-tenants'
-import { useAuth } from '@/auth/AuthProvider'
 import PlatformTenantsPage from './PlatformTenantsPage'
 
 const platformTenantsResult = {
@@ -26,8 +26,8 @@ const platformTenantsResult = {
   refetch: vi.fn(),
 }
 
-vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: vi.fn(),
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: vi.fn(),
 }))
 
 vi.mock('@/api/platform-tenants', () => ({
@@ -38,9 +38,12 @@ vi.mock('@/api/platform-tenants', () => ({
 
 describe('PlatformTenantsPage', () => {
   it('renders title, data, and top-right + Tenant action for super admins', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      claims: { platformRole: 'SUPER_ADMIN' },
-    } as ReturnType<typeof useAuth>)
+    vi.mocked(useAuthSession).mockReturnValue({
+      data: {
+        platformRole: 'SUPER_ADMIN',
+      },
+      isLoading: false,
+    } as ReturnType<typeof useAuthSession>)
 
     render(
       <MemoryRouter initialEntries={['/platform/tenants']}>
@@ -60,9 +63,12 @@ describe('PlatformTenantsPage', () => {
   })
 
   it('redirects non-super-admin users to the dashboard', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      claims: { role: 'ADMIN' },
-    } as ReturnType<typeof useAuth>)
+    vi.mocked(useAuthSession).mockReturnValue({
+      data: {
+        activeRole: 'ADMIN',
+      },
+      isLoading: false,
+    } as ReturnType<typeof useAuthSession>)
 
     render(
       <MemoryRouter initialEntries={['/platform/tenants']}>

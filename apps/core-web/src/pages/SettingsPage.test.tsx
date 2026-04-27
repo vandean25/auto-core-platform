@@ -151,11 +151,12 @@ vi.mock('@/api/locations', () => ({
   useDeleteLocation: () => deleteLocationResult,
 }))
 
-vi.mock('@/auth/AuthProvider', () => ({
-  useAuth: () => ({
-    claims: {
-      role: 'ADMIN',
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({
+    data: {
+      activeRole: 'ADMIN',
     },
+    isLoading: false,
   }),
 }))
 

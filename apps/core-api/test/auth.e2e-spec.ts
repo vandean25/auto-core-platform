@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -8,14 +8,35 @@ import { AuthService } from '../src/auth/auth.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../src/auth/super-admin.guard';
 import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admin.decorator';
+import type { AuthenticatedUser } from '../src/auth/types/authenticated-user';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service';
+
+const firebaseAuthMock = {
+  getUser: jest.fn(),
+  setCustomUserClaims: jest.fn(),
+  revokeRefreshTokens: jest.fn(),
+  getUserByEmail: jest.fn(),
+  createUser: jest.fn(),
+};
+
+const TENANT_A_ID = '11111111-1111-4111-8111-111111111111';
+const TENANT_B_ID = '22222222-2222-4222-8222-222222222222';
+
+jest.mock('../src/auth/firebase-admin', () => ({
+  getFirebaseAdminAuth: () => firebaseAuthMock,
+}));
 
 @Controller('protected')
 class ProtectedController {
   @Get()
   getProtected() {
     return { ok: true };
+  }
+
+  @Get('me')
+  getProtectedUser(@Req() request: { user: AuthenticatedUser }) {
+    return request.user;
   }
 }
 
@@ -42,6 +63,7 @@ describe('Bearer auth (e2e)', () => {
   const systemPrismaMock = {
     user: {
       findFirst: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -65,6 +87,7 @@ describe('Bearer auth (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
     await app.init();
 
     authService = app.get(AuthService);
@@ -77,6 +100,12 @@ describe('Bearer auth (e2e)', () => {
   beforeEach(() => {
     prismaMock.tenant.findFirst.mockReset();
     systemPrismaMock.user.findFirst.mockReset();
+    systemPrismaMock.user.update.mockReset();
+    firebaseAuthMock.getUser.mockReset();
+    firebaseAuthMock.setCustomUserClaims.mockReset();
+    firebaseAuthMock.revokeRefreshTokens.mockReset();
+    firebaseAuthMock.getUserByEmail.mockReset();
+    firebaseAuthMock.createUser.mockReset();
   });
 
   it('rejects requests without bearer auth', async () => {
@@ -132,6 +161,46 @@ describe('Bearer auth (e2e)', () => {
       .expect(200, { ok: true, scope: 'platform' });
   });
 
+  it('rejects stale platform-admin claims when the database no longer grants platform access', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_A_ID,
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: TENANT_A_ID,
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: TENANT_A_ID,
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: TENANT_A_ID,
+            name: 'Auto Core Vienna',
+            slug: 'vienna',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+      platformRole: 'SUPER_ADMIN',
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/platform/probe')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+  });
+
   it('still rejects normal tenant routes without tenantId and role claims', async () => {
     const token = authService.createTestToken({
       tenantId: undefined,
@@ -180,5 +249,250 @@ describe('Bearer auth (e2e)', () => {
       .get('/protected')
       .set('Authorization', `Bearer ${token}`)
       .expect(200, { ok: true });
+  });
+
+  it('uses the database active tenant instead of stale token tenant claims', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: 'tenant-db',
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: 'tenant-db',
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: 'tenant-db',
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: 'tenant-db',
+            name: 'Auto Core HQ',
+            slug: 'hq',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: 'tenant-stale',
+      role: 'SALES',
+    });
+
+    await request(app.getHttpServer())
+      .get('/protected/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.tenantId).toBe('tenant-db');
+        expect(body.role).toBe('ADMIN');
+      });
+  });
+
+  it('returns the active tenant and memberships from GET /auth/me', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: 'tenant-a',
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: 'tenant-a',
+      platformAdmin: {
+        is_active: true,
+        role: 'SUPER_ADMIN',
+      },
+      memberships: [
+        {
+          tenant_id: 'tenant-a',
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: 'tenant-a',
+            name: 'Auto Core Vienna',
+            slug: 'vienna',
+            is_active: true,
+          },
+        },
+        {
+          tenant_id: 'tenant-b',
+          role: 'SALES',
+          is_active: true,
+          tenant: {
+            id: 'tenant-b',
+            name: 'Auto Core Graz',
+            slug: 'graz',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+    } as never);
+
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.activeTenant).toEqual({
+          id: 'tenant-a',
+          name: 'Auto Core Vienna',
+          slug: 'vienna',
+        });
+        expect(body.activeRole).toBe('ADMIN');
+        expect(body.platformRole).toBe('SUPER_ADMIN');
+        expect(body.memberships).toHaveLength(2);
+      });
+  });
+
+  it('switches the active tenant when the membership exists', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_A_ID,
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        firebaseUid: 'e2e-user-id',
+        email: 'testauto@auto.core.at',
+        active_tenant_id: TENANT_A_ID,
+        platformAdmin: null,
+        memberships: [
+          {
+            tenant_id: TENANT_A_ID,
+            role: 'ADMIN',
+            is_active: true,
+            tenant: {
+              id: TENANT_A_ID,
+              name: 'Auto Core Vienna',
+              slug: 'vienna',
+              is_active: true,
+            },
+          },
+          {
+            tenant_id: TENANT_B_ID,
+            role: 'SALES',
+            is_active: true,
+            tenant: {
+              id: TENANT_B_ID,
+              name: 'Auto Core Graz',
+              slug: 'graz',
+              is_active: true,
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        firebaseUid: 'e2e-user-id',
+        email: 'testauto@auto.core.at',
+        active_tenant_id: TENANT_B_ID,
+        platformAdmin: null,
+        memberships: [
+          {
+            tenant_id: TENANT_A_ID,
+            role: 'ADMIN',
+            is_active: true,
+            tenant: {
+              id: TENANT_A_ID,
+              name: 'Auto Core Vienna',
+              slug: 'vienna',
+              is_active: true,
+            },
+          },
+          {
+            tenant_id: TENANT_B_ID,
+            role: 'SALES',
+            is_active: true,
+            tenant: {
+              id: TENANT_B_ID,
+              name: 'Auto Core Graz',
+              slug: 'graz',
+              is_active: true,
+            },
+          },
+        ],
+      });
+    systemPrismaMock.user.update.mockResolvedValue({ id: 'user-1' });
+    firebaseAuthMock.getUser.mockResolvedValue({
+      uid: 'e2e-user-id',
+      customClaims: {},
+    });
+    firebaseAuthMock.setCustomUserClaims.mockResolvedValue(undefined);
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+    } as never);
+
+    await request(app.getHttpServer())
+      .post('/auth/switch-tenant')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tenantId: TENANT_B_ID })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.activeTenant).toEqual({
+          id: TENANT_B_ID,
+          name: 'Auto Core Graz',
+          slug: 'graz',
+        });
+        expect(body.activeRole).toBe('SALES');
+      });
+  });
+
+  it('rejects malformed tenant ids when switching tenants', async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_A_ID,
+      is_active: true,
+    });
+
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'testauto@auto.core.at',
+      active_tenant_id: TENANT_A_ID,
+      platformAdmin: null,
+      memberships: [
+        {
+          tenant_id: TENANT_A_ID,
+          role: 'ADMIN',
+          is_active: true,
+          tenant: {
+            id: TENANT_A_ID,
+            name: 'Auto Core Vienna',
+            slug: 'vienna',
+            is_active: true,
+          },
+        },
+      ],
+    });
+
+    const token = authService.createTestToken({
+      email: 'testauto@auto.core.at',
+      tenantId: undefined,
+      role: undefined,
+    } as never);
+
+    await request(app.getHttpServer())
+      .post('/auth/switch-tenant')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tenantId: 'tenant-b' })
+      .expect(400);
+
+    expect(systemPrismaMock.user.update).not.toHaveBeenCalled();
   });
 });

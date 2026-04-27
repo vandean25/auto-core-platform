@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   GoogleAuthProvider,
   onIdTokenChanged,
@@ -7,6 +8,7 @@ import {
   signOut,
 } from 'firebase/auth'
 import type { User } from 'firebase/auth'
+import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 
 const allowedEmails = (import.meta.env.VITE_ALLOWED_LOGIN_EMAILS ?? '')
@@ -56,6 +58,7 @@ type AuthClaims = {
 const AuthContext = React.createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = React.useState<AuthenticatedUser | null>(null)
   const [claims, setClaims] = React.useState<AuthClaims | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -91,6 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void (async () => {
         if (!active) return
 
+        queryClient.removeQueries({ queryKey: authSessionKeys.all })
+
         setUser(nextUser)
 
         if (!nextUser) {
@@ -117,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false
       unsubscribe()
     }
-  }, [])
+  }, [queryClient])
 
   const signIn = React.useCallback(async (email: string, password: string) => {
     if (!firebaseAuth) {
