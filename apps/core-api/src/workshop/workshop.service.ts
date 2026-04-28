@@ -942,6 +942,7 @@ export class WorkshopService {
       const requestedLineItemIds = Array.from(aggregatedItems.keys());
       const lineItems = await tx.workshopTaskLineItem.findMany({
         where: {
+          tenant_id: tenantId,
           id: { in: requestedLineItemIds },
           type: WorkshopLineItemType.PART,
           workshop_task: {
@@ -1011,7 +1012,14 @@ export class WorkshopService {
           );
         }
 
-        if (requestedItem.quantity >= Number(lineItem.quantity)) {
+        const lineItemQuantity = Number(lineItem.quantity);
+        if (requestedItem.quantity > lineItemQuantity) {
+          throw new BadRequestException(
+            `Requested quantity ${requestedItem.quantity} exceeds required quantity ${lineItemQuantity} for line item ${lineItem.id}`,
+          );
+        }
+
+        if (requestedItem.quantity >= lineItemQuantity) {
           fullyStagedLineIds.add(lineItem.id);
         }
 
@@ -1095,6 +1103,8 @@ export class WorkshopService {
             tenant_id: tenantId,
             id: { in: Array.from(fullyStagedLineIds) },
             type: WorkshopLineItemType.PART,
+            part_execution_status:
+              WorkshopPartLineExecutionStatus.PENDING_PICK,
           },
           data: {
             part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
@@ -1104,6 +1114,7 @@ export class WorkshopService {
 
       const orderUpdateResult = await tx.workshopOrder.updateMany({
         where: {
+          tenant_id: tenantId,
           id: orderId,
           status: {
             in: PICK_ELIGIBLE_ORDER_STATUSES,

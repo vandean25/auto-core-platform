@@ -900,7 +900,7 @@ model WorkshopInspection {
   workshop_order_id      String
   workshop_order         WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   workshop_task_id       String?
-  workshop_task          WorkshopTask?            @relation(fields: [workshop_task_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  workshop_task          WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
   inspection_template_id String?
   inspection_template    InspectionTemplate?      @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   title                  String
@@ -947,7 +947,7 @@ model WorkshopMedia {
   workshop_order_id       String
   workshop_order          WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   workshop_task_id        String?
-  workshop_task           WorkshopTask?            @relation(fields: [workshop_task_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  workshop_task           WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
   uploaded_by_employee_id String
   uploaded_by_employee    Employee                 @relation("WorkshopMediaUploadedByEmployee", fields: [tenant_id, uploaded_by_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   storage_bucket          String

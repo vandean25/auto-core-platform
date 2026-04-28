@@ -173,8 +173,8 @@ ALTER TABLE "workshop_inspections" ADD CONSTRAINT "workshop_inspections_tenant_i
 ALTER TABLE "workshop_inspections" ADD CONSTRAINT "workshop_inspections_tenant_id_workshop_order_id_fkey"
   FOREIGN KEY ("tenant_id", "workshop_order_id") REFERENCES "workshop_orders"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "workshop_inspections" ADD CONSTRAINT "workshop_inspections_workshop_task_id_fkey"
-  FOREIGN KEY ("workshop_task_id") REFERENCES "workshop_tasks"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "workshop_inspections" ADD CONSTRAINT "workshop_inspections_tenant_id_workshop_task_id_fkey"
+  FOREIGN KEY ("tenant_id", "workshop_task_id") REFERENCES "workshop_tasks"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "workshop_inspections" ADD CONSTRAINT "workshop_inspections_tenant_id_inspection_template_id_fkey"
   FOREIGN KEY ("tenant_id", "inspection_template_id") REFERENCES "inspection_templates"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -194,8 +194,8 @@ ALTER TABLE "workshop_media" ADD CONSTRAINT "workshop_media_tenant_id_fkey"
 ALTER TABLE "workshop_media" ADD CONSTRAINT "workshop_media_tenant_id_workshop_order_id_fkey"
   FOREIGN KEY ("tenant_id", "workshop_order_id") REFERENCES "workshop_orders"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "workshop_media" ADD CONSTRAINT "workshop_media_workshop_task_id_fkey"
-  FOREIGN KEY ("workshop_task_id") REFERENCES "workshop_tasks"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "workshop_media" ADD CONSTRAINT "workshop_media_tenant_id_workshop_task_id_fkey"
+  FOREIGN KEY ("tenant_id", "workshop_task_id") REFERENCES "workshop_tasks"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "workshop_media" ADD CONSTRAINT "workshop_media_tenant_id_uploaded_by_employee_id_fkey"
   FOREIGN KEY ("tenant_id", "uploaded_by_employee_id") REFERENCES "employees"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
