@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
@@ -34,6 +35,29 @@ const VISIBLE_PART_LINE_STATUSES: WorkshopPartLineExecutionStatus[] = [
   WorkshopPartLineExecutionStatus.CANCELLED,
 ];
 
+/**
+ * Builds the scheduled-date OR filter for the mechanic queue (ADR-0014 §3.1):
+ *  - Unscheduled tasks are always included.
+ *  - Today's scheduled tasks are always included.
+ *  - Tasks scheduled for a previous day are only included when still
+ *    active or blocked (carry-forward).
+ */
+function buildScheduledDateFilter(
+  today: Date,
+  activeStatuses: WorkshopTaskStatus[],
+): Prisma.WorkshopTaskWhereInput {
+  return {
+    OR: [
+      { scheduled_date: null },
+      { scheduled_date: today },
+      {
+        scheduled_date: { lt: today },
+        status: { in: activeStatuses },
+      },
+    ],
+  };
+}
+
 @Injectable()
 export class MechanicService {
   constructor(
@@ -57,7 +81,7 @@ export class MechanicService {
       );
     }
 
-    const tenantId = this.tenantContext.getRequiredTenantId();
+    const tenantId = await this.tenantContext.getTenantId();
 
     const employee = await this.prisma.employee.findFirst({
       where: {
@@ -84,7 +108,7 @@ export class MechanicService {
    * Returned projection excludes all customer PII and financial fields.
    */
   async getMechanicQueue(mechanicId: string): Promise<MechanicQueueItemDto[]> {
-    const tenantId = this.tenantContext.getRequiredTenantId();
+    const tenantId = await this.tenantContext.getTenantId();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -99,27 +123,16 @@ export class MechanicService {
         },
         // Scheduled-date filter: today's tasks, unscheduled tasks, or
         // carry-forward tasks that are still active/blocked.
-        OR: [
-          { scheduled_date: null },
-          { scheduled_date: today },
-          {
-            scheduled_date: { lt: today },
-            status: { in: ACTIVE_OR_BLOCKED_STATUSES },
-          },
-        ],
+        ...buildScheduledDateFilter(today, ACTIVE_OR_BLOCKED_STATUSES),
         // Assignment-inheritance filter (ADR-0014 §2.2):
         //   Rule 1: task.mechanic_id = mechanicId
         //   Rule 3 fallback: task has no mechanic override,
         //                    parent order is assigned to this mechanic
-        AND: [
+        OR: [
+          { mechanic_id: mechanicId },
           {
-            OR: [
-              { mechanic_id: mechanicId },
-              {
-                mechanic_id: null,
-                workshop_order: { mechanic_id: mechanicId },
-              },
-            ],
+            mechanic_id: null,
+            workshop_order: { mechanic_id: mechanicId },
           },
         ],
       },
@@ -194,7 +207,7 @@ export class MechanicService {
     mechanicId: string,
     taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    const tenantId = this.tenantContext.getRequiredTenantId();
+    const tenantId = await this.tenantContext.getTenantId();
 
     const task = await this.prisma.workshopTask.findFirst({
       where: {

@@ -16,7 +16,7 @@ const mockPrisma = {
 
 const mockTenantContext = {
   getAuthenticatedUser: jest.fn(),
-  getRequiredTenantId: jest.fn().mockReturnValue(TENANT_ID),
+  getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
 } as unknown as TenantContextService;
 
 describe('MechanicService', () => {
@@ -31,9 +31,7 @@ describe('MechanicService', () => {
       tenantId: TENANT_ID,
       role: 'TECH',
     });
-    (mockTenantContext.getRequiredTenantId as jest.Mock).mockReturnValue(
-      TENANT_ID,
-    );
+    (mockTenantContext.getTenantId as jest.Mock).mockResolvedValue(TENANT_ID);
   });
 
   // ─── assertMechanicAccess ────────────────────────────────────────────────
