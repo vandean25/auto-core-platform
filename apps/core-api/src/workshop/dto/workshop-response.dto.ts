@@ -3,6 +3,7 @@ import {
   CustomerType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
@@ -76,6 +77,13 @@ export class WorkshopTaskLineItemResponseDto {
 
   @ApiProperty()
   unitPrice!: number;
+
+  @ApiProperty({
+    enum: WorkshopPartLineExecutionStatus,
+    required: false,
+    nullable: true,
+  })
+  partExecutionStatus?: WorkshopPartLineExecutionStatus | null;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   laborOperationId?: string | null;

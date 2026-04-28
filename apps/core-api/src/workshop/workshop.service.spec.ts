@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   Prisma,
   TransactionType,
+  WorkshopPartLineExecutionStatus,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopTaskStatus,
@@ -65,6 +66,7 @@ describe('WorkshopService', () => {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     laborOperation: {
       count: jest.fn(),
@@ -323,6 +325,9 @@ describe('WorkshopService', () => {
     expect(secondLineItem.standard_aw).toBeNull();
     expect(secondLineItem.actual_hours).toBeNull();
     expect(secondLineItem.internal_cost_rate).toBeNull();
+    expect(secondLineItem.part_execution_status).toBe(
+      WorkshopPartLineExecutionStatus.PENDING_PICK,
+    );
   });
 
   it('returns a bad request error for invalid laborOperationId', async () => {
@@ -374,6 +379,7 @@ describe('WorkshopService', () => {
               description: 'Brake labor',
               quantity: new Prisma.Decimal(1),
               unit_price: new Prisma.Decimal(100),
+              part_execution_status: null,
               labor_operation_id: '550e8400-e29b-41d4-a716-446655440000',
               standard_aw: new Prisma.Decimal(0),
               actual_hours: new Prisma.Decimal(1.25),
@@ -386,6 +392,8 @@ describe('WorkshopService', () => {
               description: 'Pad',
               quantity: new Prisma.Decimal(1),
               unit_price: new Prisma.Decimal(90),
+              part_execution_status:
+                WorkshopPartLineExecutionStatus.PENDING_PICK,
               labor_operation_id: null,
               standard_aw: null,
               actual_hours: null,
@@ -410,6 +418,9 @@ describe('WorkshopService', () => {
     expect(partLineItem.standardAw).toBeNull();
     expect(partLineItem.actualHours).toBeNull();
     expect(partLineItem.internalCostRate).toBeNull();
+    expect(partLineItem.partExecutionStatus).toBe(
+      WorkshopPartLineExecutionStatus.PENDING_PICK,
+    );
   });
 
   it('rejects pick-parts when workshop order status is not eligible', async () => {

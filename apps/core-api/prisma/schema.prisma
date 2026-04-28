@@ -59,6 +59,11 @@ model Tenant {
   invoiceItems         InvoiceItem[]
   purchaseInvoices     PurchaseInvoice[]
   purchaseInvoiceLines PurchaseInvoiceLine[]
+  inspectionTemplates  InspectionTemplate[]
+  inspectionTemplateItems InspectionTemplateItem[]
+  workshopInspections  WorkshopInspection[]
+  workshopInspectionItems WorkshopInspectionItem[]
+  workshopMedia        WorkshopMedia[]
   workshopOrders       WorkshopOrder[]
   workshopTasks        WorkshopTask[]
   workshopTaskLineItems WorkshopTaskLineItem[]
@@ -659,6 +664,7 @@ model Employee {
   workshopOrdersAsMechanic WorkshopOrder[] @relation("WorkshopOrderMechanic")
   workshopTasksAsMechanic  WorkshopTask[]  @relation("WorkshopTaskMechanic")
   laborEntries             LaborEntry[]    @relation("EmployeeLaborEntries")
+  uploadedWorkshopMedia    WorkshopMedia[] @relation("WorkshopMediaUploadedByEmployee")
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -707,6 +713,8 @@ model WorkshopOrder {
   fuel_level   Int                 // 0-100
   reported_issue String?
   notes        String?
+  inspections  WorkshopInspection[]
+  media        WorkshopMedia[]
   tasks        WorkshopTask[]
   invoice      Invoice?
 
@@ -749,6 +757,30 @@ enum WorkshopLineItemType {
   PART
 }
 
+enum WorkshopPartLineExecutionStatus {
+  PENDING_PICK
+  STAGED
+  CONSUMED
+  CANCELLED
+}
+
+enum InspectionTemplateItemResponseType {
+  PASS_FAIL
+  NUMERIC
+  TEXT
+}
+
+enum WorkshopInspectionSeverity {
+  OK
+  ADVISORY
+  REQUIRED
+}
+
+enum WorkshopMediaUrlStrategy {
+  SIGNED
+  PUBLIC
+}
+
 model WorkshopTask {
   id                String             @id @default(uuid())
   tenant_id         String
@@ -773,8 +805,10 @@ model WorkshopTask {
   scheduled_date    DateTime?          @db.Date
   sequence          Int                @default(0)
 
+  inspections       WorkshopInspection[]
   line_items        WorkshopTaskLineItem[]
   labor_entries     LaborEntry[]
+  media             WorkshopMedia[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -795,6 +829,7 @@ model WorkshopTaskLineItem {
   workshop_task     WorkshopTask         @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
 
   type              WorkshopLineItemType
+  part_execution_status WorkshopPartLineExecutionStatus?
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
   item_no           String
   description       String
@@ -812,6 +847,125 @@ model WorkshopTaskLineItem {
   @@map("workshop_task_line_items")
   @@index([tenant_id])
   @@index([labor_operation_id])
+  @@index([tenant_id, type, part_execution_status], map: "idx_workshop_task_line_items_part_status")
+}
+
+model InspectionTemplate {
+  id          String                   @id @default(uuid())
+  tenant_id   String
+  tenant      Tenant                   @relation(fields: [tenant_id], references: [id])
+  code        String
+  title       String
+  version     Int
+  is_active   Boolean                  @default(true)
+  items       InspectionTemplateItem[]
+  inspections WorkshopInspection[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, code, version])
+  @@map("inspection_templates")
+}
+
+model InspectionTemplateItem {
+  id                     String                             @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant                             @relation(fields: [tenant_id], references: [id])
+  inspection_template_id String
+  inspection_template    InspectionTemplate                 @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  code                   String
+  label                  String
+  response_type          InspectionTemplateItemResponseType
+  unit                   String?
+  sort_order             Int                                @default(0)
+  is_required            Boolean                            @default(false)
+  is_active              Boolean                            @default(true)
+  responses              WorkshopInspectionItem[]
+  createdAt              DateTime                           @default(now())
+  updatedAt              DateTime                           @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, inspection_template_id, code])
+  @@index([tenant_id, inspection_template_id], map: "idx_inspection_template_items_template")
+  @@map("inspection_template_items")
+}
+
+model WorkshopInspection {
+  id                     String                   @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant                   @relation(fields: [tenant_id], references: [id])
+  workshop_order_id      String
+  workshop_order         WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  workshop_task_id       String?
+  workshop_task          WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  inspection_template_id String?
+  inspection_template    InspectionTemplate?      @relation(fields: [tenant_id, inspection_template_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  title                  String
+  items                  WorkshopInspectionItem[]
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, workshop_order_id], map: "idx_workshop_inspections_order")
+  @@index([tenant_id, workshop_task_id], map: "idx_workshop_inspections_task")
+  @@index([tenant_id, inspection_template_id], map: "idx_workshop_inspections_template")
+  @@map("workshop_inspections")
+}
+
+model WorkshopInspectionItem {
+  id                          String                     @id @default(uuid())
+  tenant_id                   String
+  tenant                      Tenant                     @relation(fields: [tenant_id], references: [id])
+  workshop_inspection_id      String
+  workshop_inspection         WorkshopInspection         @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  inspection_template_item_id String?
+  inspection_template_item    InspectionTemplateItem?    @relation(fields: [tenant_id, inspection_template_item_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  label_snapshot              String
+  response_value              String?
+  unit                        String?
+  passed                      Boolean?
+  severity                    WorkshopInspectionSeverity?
+  notes                       String?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, workshop_inspection_id], map: "idx_workshop_inspection_items_inspection")
+  @@index([tenant_id, inspection_template_item_id], map: "idx_workshop_inspection_items_template_item")
+  @@map("workshop_inspection_items")
+}
+
+model WorkshopMedia {
+  id                      String                   @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                   @relation(fields: [tenant_id], references: [id])
+  workshop_order_id       String
+  workshop_order          WorkshopOrder            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  workshop_task_id        String?
+  workshop_task           WorkshopTask?            @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  uploaded_by_employee_id String
+  uploaded_by_employee    Employee                 @relation("WorkshopMediaUploadedByEmployee", fields: [tenant_id, uploaded_by_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  storage_bucket          String
+  storage_key             String
+  url_strategy            WorkshopMediaUrlStrategy
+  mime_type               String
+  size_bytes              Int
+  duration_seconds        Decimal?                 @db.Decimal(10, 2)
+  caption                 String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, workshop_order_id], map: "idx_workshop_media_order")
+  @@index([tenant_id, workshop_task_id], map: "idx_workshop_media_task")
+  @@index([tenant_id, uploaded_by_employee_id], map: "idx_workshop_media_employee")
+  @@map("workshop_media")
 }
 
 // ============================================================================

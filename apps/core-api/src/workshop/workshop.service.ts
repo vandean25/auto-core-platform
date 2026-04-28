@@ -21,6 +21,7 @@ import {
   TransactionType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -283,6 +284,7 @@ export class WorkshopService {
               description: line.description,
               qty: Number(line.quantity),
               unitPrice: Number(line.unit_price),
+              partExecutionStatus: line.part_execution_status,
               laborOperationId: line.labor_operation_id,
               standardAw:
                 line.standard_aw != null ? Number(line.standard_aw) : null,
@@ -800,6 +802,10 @@ export class WorkshopService {
                 item.type === WorkshopLineItemType.LABOR
                   ? WorkshopLineItemType.LABOR
                   : WorkshopLineItemType.PART,
+              part_execution_status:
+                item.type === WorkshopLineItemType.PART
+                  ? WorkshopPartLineExecutionStatus.PENDING_PICK
+                  : null,
               item_no: item.itemNo,
               description: item.description,
               quantity: new Prisma.Decimal(item.qty),
@@ -936,6 +942,7 @@ export class WorkshopService {
       const requestedLineItemIds = Array.from(aggregatedItems.keys());
       const lineItems = await tx.workshopTaskLineItem.findMany({
         where: {
+          tenant_id: tenantId,
           id: { in: requestedLineItemIds },
           type: WorkshopLineItemType.PART,
           workshop_task: {
@@ -945,6 +952,7 @@ export class WorkshopService {
         select: {
           id: true,
           item_no: true,
+          quantity: true,
         },
       });
 
@@ -985,6 +993,7 @@ export class WorkshopService {
       const transferGroupId = `WO-PICK-${order.id}-${Date.now()}`;
       const ledgerTransactions: RecordTransactionParams[] = [];
       const reservations: AllocationReservationMap = new Map();
+      const fullyStagedLineIds = new Set<string>();
       const movedLines: Array<{
         workshopTaskLineItemId: string;
         movedQuantity: number;
@@ -1001,6 +1010,17 @@ export class WorkshopService {
           throw new NotFoundException(
             `Line item ${requestedItem.workshopTaskLineItemId} not found`,
           );
+        }
+
+        const lineItemQuantity = Number(lineItem.quantity);
+        if (requestedItem.quantity > lineItemQuantity) {
+          throw new BadRequestException(
+            `Requested quantity ${requestedItem.quantity} exceeds required quantity ${lineItemQuantity} for line item ${lineItem.id}`,
+          );
+        }
+
+        if (requestedItem.quantity >= lineItemQuantity) {
+          fullyStagedLineIds.add(lineItem.id);
         }
 
         const catalogItem = catalogItemBySku.get(lineItem.item_no);
@@ -1077,8 +1097,24 @@ export class WorkshopService {
 
       await this.ledgerService.recordTransactions(ledgerTransactions, tx);
 
+      if (fullyStagedLineIds.size > 0) {
+        await tx.workshopTaskLineItem.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: Array.from(fullyStagedLineIds) },
+            type: WorkshopLineItemType.PART,
+            part_execution_status:
+              WorkshopPartLineExecutionStatus.PENDING_PICK,
+          },
+          data: {
+            part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+          },
+        });
+      }
+
       const orderUpdateResult = await tx.workshopOrder.updateMany({
         where: {
+          tenant_id: tenantId,
           id: orderId,
           status: {
             in: PICK_ELIGIBLE_ORDER_STATUSES,
@@ -1344,6 +1380,7 @@ export class WorkshopService {
             description: li.description,
             quantity: Number(li.quantity),
             unitPrice: Number(li.unit_price),
+            partExecutionStatus: li.part_execution_status,
             catalogItemId: catalogIdBySku.get(li.item_no) ?? null,
           })),
         })),

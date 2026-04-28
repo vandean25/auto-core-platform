@@ -318,6 +318,8 @@ When a mechanic adds a required part:
 
 `WorkshopTaskLineItem` needs a part-line lifecycle for `type = PART` rows:
 
+Implementation note: this lifecycle is modeled as a dedicated enum named `WorkshopPartLineExecutionStatus` so it cannot be conflated with `WorkshopTaskStatus`.
+
 - `PENDING_PICK` — mechanic requested or advisor added; parts department has not staged it.
 - `STAGED` — parts were picked into the order's staging tote.
 - `CONSUMED` — part was installed/used on the job.

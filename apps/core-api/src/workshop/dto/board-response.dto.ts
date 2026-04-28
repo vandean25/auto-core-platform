@@ -4,6 +4,7 @@ import {
   EmployeeRole,
   WorkshopLineItemType,
   WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 
@@ -75,6 +76,13 @@ export class BoardLineItemDto {
 
   @ApiProperty()
   unitPrice!: number;
+
+  @ApiProperty({
+    enum: WorkshopPartLineExecutionStatus,
+    required: false,
+    nullable: true,
+  })
+  partExecutionStatus?: WorkshopPartLineExecutionStatus | null;
 
   @ApiProperty({ type: String, nullable: true, required: false })
   catalogItemId?: string | null;
