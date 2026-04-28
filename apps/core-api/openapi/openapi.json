@@ -6550,7 +6550,7 @@
       "SwitchTaskDto": {
         "type": "object",
         "properties": {
-          "previous_pause_reason": {
+          "previousPauseReason": {
             "type": "string",
             "enum": [
               "WAITING_PARTS",
@@ -6561,13 +6561,13 @@
           }
         },
         "required": [
-          "previous_pause_reason"
+          "previousPauseReason"
         ]
       },
       "PauseTaskDto": {
         "type": "object",
         "properties": {
-          "pause_reason": {
+          "pauseReason": {
             "type": "string",
             "enum": [
               "WAITING_PARTS",
@@ -6578,7 +6578,7 @@
           }
         },
         "required": [
-          "pause_reason"
+          "pauseReason"
         ]
       },
       "LaborOperationSearchItemDto": {

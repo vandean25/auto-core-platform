@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LaborPauseReason } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 
 /**
@@ -10,25 +10,24 @@ import { chunkedPromiseAll } from '../common/utils/promise.util';
  * Runs at 23:59 every day (ADR-0014 §4.1.1).
  * Sets `ended_at = now()` and `pause_reason = AUTO_SHIFT_CLOSE`.
  * Does NOT alter task or order status — tasks remain resumable the next shift.
+ *
+ * Uses `SystemPrismaService` (plain PrismaClient without the tenant-isolation
+ * extension) because cron jobs run outside request context where
+ * `TenantContextStorage` is unset, and this is an intentional cross-tenant
+ * maintenance operation.
  */
 @Injectable()
 export class MechanicSchedulerService {
   private readonly logger = new Logger(MechanicSchedulerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly systemPrisma: SystemPrismaService) {}
 
   @Cron('59 23 * * *', { name: 'mechanic-shift-close' })
   async closeOrphanedLaborEntries(): Promise<void> {
     this.logger.log('Shift-close job started: closing orphaned labor entries.');
 
-    // This is an intentional system-level cross-tenant operation. Unlike
-    // request-scoped service methods (which must always filter by tenant_id),
-    // this nightly scheduler is a privileged background maintenance job that
-    // closes ALL dangling open labor entries regardless of tenant, analogous to
-    // a DBA running a global maintenance query. It does not read, return, or
-    // expose any per-tenant data — it only sets ended_at and pause_reason.
-    // ADR-0014 §4.1.1: "force-closes any LaborEntry records where ended_at IS NULL".
-    const openEntries = await this.prisma.laborEntry.findMany({
+    // Pre-fetch all open entries so we can batch writes without an N+1 loop.
+    const openEntries = await this.systemPrisma.laborEntry.findMany({
       where: { ended_at: null },
       select: { id: true },
     });
@@ -47,7 +46,7 @@ export class MechanicSchedulerService {
     // Use chunkedPromiseAll to close entries concurrently in bounded batches
     // rather than one unbounded Promise.all (ADR-0014 §4.1.1 + performance rule).
     const results = await chunkedPromiseAll(openEntries, (entry) =>
-      this.prisma.laborEntry.update({
+      this.systemPrisma.laborEntry.update({
         where: { id: entry.id },
         data: {
           ended_at: now,

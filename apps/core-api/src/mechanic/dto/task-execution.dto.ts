@@ -33,7 +33,7 @@ export class PauseTaskDto {
       'Reason for pausing the task. AUTO_SHIFT_CLOSE is reserved for the scheduler.',
   })
   @IsEnum(PAUSE_REASONS)
-  pause_reason!: MechanicPauseReason;
+  pauseReason!: MechanicPauseReason;
 }
 
 export class SwitchTaskDto {
@@ -43,5 +43,5 @@ export class SwitchTaskDto {
       'Pause reason applied to the task being vacated. Determines the resulting status of the previous task.',
   })
   @IsEnum(SWITCH_PAUSE_REASONS)
-  previous_pause_reason!: MechanicSwitchPreviousPauseReason;
+  previousPauseReason!: MechanicSwitchPreviousPauseReason;
 }

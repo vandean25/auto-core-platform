@@ -1788,14 +1788,14 @@ export interface components {
              * @description Pause reason applied to the task being vacated. Determines the resulting status of the previous task.
              * @enum {string}
              */
-            previous_pause_reason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "SWITCHED_TO_HIGHER_PRIORITY";
+            previousPauseReason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "SWITCHED_TO_HIGHER_PRIORITY";
         };
         PauseTaskDto: {
             /**
              * @description Reason for pausing the task. AUTO_SHIFT_CLOSE is reserved for the scheduler.
              * @enum {string}
              */
-            pause_reason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "OTHER";
+            pauseReason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "OTHER";
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */

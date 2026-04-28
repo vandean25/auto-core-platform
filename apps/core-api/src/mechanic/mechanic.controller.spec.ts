@@ -93,7 +93,7 @@ describe('MechanicController', () => {
 
   it('switchTask calls assertMechanicAccess then switchTask with dto', async () => {
     mockMechanicService.switchTask.mockResolvedValue(baseDetail);
-    const dto = { previous_pause_reason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY };
+    const dto = { previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY };
 
     const result = await controller.switchTask(MECHANIC_ID, TASK_ID, dto);
 
@@ -104,7 +104,7 @@ describe('MechanicController', () => {
 
   it('pauseTask calls assertMechanicAccess then pauseTask with dto', async () => {
     mockMechanicService.pauseTask.mockResolvedValue(baseDetail);
-    const dto = { pause_reason: LaborPauseReason.WAITING_PARTS };
+    const dto = { pauseReason: LaborPauseReason.WAITING_PARTS };
 
     const result = await controller.pauseTask(MECHANIC_ID, TASK_ID, dto);
 

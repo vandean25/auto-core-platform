@@ -318,7 +318,8 @@ export class MechanicService {
   /**
    * Punch in: creates a `LaborEntry` and transitions the task to `IN_PROGRESS`.
    *
-   * Returns `409 Conflict` if the mechanic already has an open `LaborEntry`.
+   * Returns `409 Conflict` if the mechanic already has an open `LaborEntry`
+   * on a *different* task (use the switch endpoint instead).
    * ADR-0014 §4.2
    */
   async startTask(
@@ -331,18 +332,9 @@ export class MechanicService {
       where: { id: taskId, tenant_id: tenantId },
       include: {
         workshop_order: {
-          include: { vehicle: true },
+          select: { mechanic_id: true, bay_id: true },
         },
         bay: { select: { id: true, name: true } },
-        line_items: {
-          select: {
-            id: true,
-            type: true,
-            description: true,
-            qty: true,
-            part_execution_status: true,
-          },
-        },
       },
     });
 
@@ -352,27 +344,64 @@ export class MechanicService {
 
     this.assertTaskAssignedToMechanic(task, mechanicId);
 
-    if (
-      task.status === WorkshopTaskStatus.DONE ||
-      task.status === WorkshopTaskStatus.IN_PROGRESS
-    ) {
+    if (task.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
-        `Task ${taskId} is not eligible to start (status: ${task.status}).`,
+        `Task ${taskId} is already completed.`,
       );
     }
 
-    const openEntry = await this.prisma.laborEntry.findFirst({
+    // Reject if this task already has an active labor entry (already being worked on).
+    const openEntryForTask = await this.prisma.laborEntry.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        ended_at: null,
+      },
+      select: { id: true },
+    });
+
+    if (openEntryForTask) {
+      throw new UnprocessableEntityException(
+        `Task ${taskId} already has an active labor entry.`,
+      );
+    }
+
+    // Reject if the mechanic has an open entry on a *different* task; they must switch.
+    const openEntryElsewhere = await this.prisma.laborEntry.findFirst({
       where: { tenant_id: tenantId, employee_id: mechanicId, ended_at: null },
       select: { id: true },
     });
 
-    if (openEntry) {
+    if (openEntryElsewhere) {
       throw new ConflictException(
         `Mechanic ${mechanicId} already has an open labor entry. Use the switch endpoint to change tasks.`,
       );
     }
 
+    const taskWasAlreadyInProgress =
+      task.status === WorkshopTaskStatus.IN_PROGRESS;
+
     await this.prisma.$transaction(async (tx) => {
+      // Guard the task transition first so a concurrent change fails the transaction.
+      if (!taskWasAlreadyInProgress) {
+        const taskUpdate = await tx.workshopTask.updateMany({
+          where: {
+            id: taskId,
+            tenant_id: tenantId,
+            status: {
+              notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
+            },
+          },
+          data: { status: WorkshopTaskStatus.IN_PROGRESS },
+        });
+
+        if (taskUpdate.count === 0) {
+          throw new ConflictException(
+            `Task ${taskId} status changed concurrently. Please refresh and try again.`,
+          );
+        }
+      }
+
       await tx.laborEntry.create({
         data: {
           tenant_id: tenantId,
@@ -382,27 +411,18 @@ export class MechanicService {
         },
       });
 
-      await tx.workshopTask.updateMany({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          status: {
-            notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
-          },
-        },
-        data: { status: WorkshopTaskStatus.IN_PROGRESS },
-      });
-
       // Ensure the parent order is IN_PROGRESS when work begins.
       await tx.workshopOrder.updateMany({
         where: {
           id: task.workshop_order_id,
           tenant_id: tenantId,
-          status: { not: WorkshopOrderStatus.IN_PROGRESS },
-          // Guard: do not downgrade a COMPLETED or INVOICED order.
           NOT: {
             status: {
-              in: [WorkshopOrderStatus.COMPLETED, WorkshopOrderStatus.INVOICED],
+              in: [
+                WorkshopOrderStatus.IN_PROGRESS,
+                WorkshopOrderStatus.COMPLETED,
+                WorkshopOrderStatus.INVOICED,
+              ],
             },
           },
         },
@@ -437,17 +457,10 @@ export class MechanicService {
     const targetTask = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
       include: {
-        workshop_order: { include: { vehicle: true } },
-        bay: { select: { id: true, name: true } },
-        line_items: {
-          select: {
-            id: true,
-            type: true,
-            description: true,
-            qty: true,
-            part_execution_status: true,
-          },
+        workshop_order: {
+          select: { mechanic_id: true, bay_id: true },
         },
+        bay: { select: { id: true, name: true } },
       },
     });
 
@@ -457,12 +470,26 @@ export class MechanicService {
 
     this.assertTaskAssignedToMechanic(targetTask, mechanicId);
 
-    if (
-      targetTask.status === WorkshopTaskStatus.DONE ||
-      targetTask.status === WorkshopTaskStatus.IN_PROGRESS
-    ) {
+    if (targetTask.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
-        `Target task ${taskId} is not eligible to start (status: ${targetTask.status}).`,
+        `Target task ${taskId} is already completed.`,
+      );
+    }
+
+    // Reject if the target task already has an active labor entry
+    // (someone else is working it or a duplicate switch was issued).
+    const openEntryForTarget = await this.prisma.laborEntry.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        ended_at: null,
+      },
+      select: { id: true },
+    });
+
+    if (openEntryForTarget) {
+      throw new UnprocessableEntityException(
+        `Target task ${taskId} already has an active labor entry.`,
       );
     }
 
@@ -484,8 +511,11 @@ export class MechanicService {
     const previousTaskId = openEntry.workshop_task_id;
     const previousOrderId = openEntry.workshop_task.workshop_order_id;
     const previousTaskNextStatus = pauseReasonToTaskStatus(
-      dto.previous_pause_reason,
+      dto.previousPauseReason,
     );
+
+    const targetWasAlreadyInProgress =
+      targetTask.status === WorkshopTaskStatus.IN_PROGRESS;
 
     await this.prisma.$transaction(async (tx) => {
       // Close the existing labor entry.
@@ -493,13 +523,13 @@ export class MechanicService {
         where: { id: openEntry.id },
         data: {
           ended_at: new Date(),
-          pause_reason: dto.previous_pause_reason,
+          pause_reason: dto.previousPauseReason,
         },
       });
 
       // Transition the previous task using an atomic guard.
       if (previousTaskNextStatus !== null) {
-        await tx.workshopTask.updateMany({
+        const prevUpdate = await tx.workshopTask.updateMany({
           where: {
             id: previousTaskId,
             tenant_id: tenantId,
@@ -507,6 +537,12 @@ export class MechanicService {
           },
           data: { status: previousTaskNextStatus },
         });
+
+        if (prevUpdate.count === 0) {
+          throw new ConflictException(
+            `Previous task ${previousTaskId} status changed concurrently. Please refresh and try again.`,
+          );
+        }
       }
 
       // Open a new labor entry for the target task.
@@ -520,16 +556,25 @@ export class MechanicService {
       });
 
       // Transition the target task to IN_PROGRESS (atomic guard).
-      await tx.workshopTask.updateMany({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          status: {
-            notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
+      // If target was already IN_PROGRESS (resumed task), count=0 is expected.
+      if (!targetWasAlreadyInProgress) {
+        const targetUpdate = await tx.workshopTask.updateMany({
+          where: {
+            id: taskId,
+            tenant_id: tenantId,
+            status: {
+              notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
+            },
           },
-        },
-        data: { status: WorkshopTaskStatus.IN_PROGRESS },
-      });
+          data: { status: WorkshopTaskStatus.IN_PROGRESS },
+        });
+
+        if (targetUpdate.count === 0) {
+          throw new ConflictException(
+            `Target task ${taskId} status changed concurrently. Please refresh and try again.`,
+          );
+        }
+      }
 
       // Ensure the parent order is IN_PROGRESS.
       await tx.workshopOrder.updateMany({
@@ -538,7 +583,11 @@ export class MechanicService {
           tenant_id: tenantId,
           NOT: {
             status: {
-              in: [WorkshopOrderStatus.COMPLETED, WorkshopOrderStatus.INVOICED],
+              in: [
+                WorkshopOrderStatus.IN_PROGRESS,
+                WorkshopOrderStatus.COMPLETED,
+                WorkshopOrderStatus.INVOICED,
+              ],
             },
           },
         },
@@ -561,7 +610,7 @@ export class MechanicService {
     // If the previous task moved to WAITING_CUSTOMER, emit the notification event.
     // Use the previous task's own order ID (fetched via the open-entry join above),
     // not the target task's order ID, since the tasks may belong to different orders.
-    if (dto.previous_pause_reason === LaborPauseReason.WAITING_CUSTOMER) {
+    if (dto.previousPauseReason === LaborPauseReason.WAITING_CUSTOMER) {
       this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
         tenantId,
         taskId: previousTaskId,
@@ -591,17 +640,10 @@ export class MechanicService {
     const task = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
       include: {
-        workshop_order: { include: { vehicle: true } },
-        bay: { select: { id: true, name: true } },
-        line_items: {
-          select: {
-            id: true,
-            type: true,
-            description: true,
-            qty: true,
-            part_execution_status: true,
-          },
+        workshop_order: {
+          select: { mechanic_id: true, bay_id: true },
         },
+        bay: { select: { id: true, name: true } },
       },
     });
 
@@ -627,16 +669,16 @@ export class MechanicService {
       );
     }
 
-    const nextTaskStatus = pauseReasonToTaskStatus(dto.pause_reason);
+    const nextTaskStatus = pauseReasonToTaskStatus(dto.pauseReason);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.laborEntry.update({
         where: { id: openEntry.id },
-        data: { ended_at: new Date(), pause_reason: dto.pause_reason },
+        data: { ended_at: new Date(), pause_reason: dto.pauseReason },
       });
 
       if (nextTaskStatus !== null) {
-        await tx.workshopTask.updateMany({
+        const taskUpdate = await tx.workshopTask.updateMany({
           where: {
             id: taskId,
             tenant_id: tenantId,
@@ -644,6 +686,12 @@ export class MechanicService {
           },
           data: { status: nextTaskStatus },
         });
+
+        if (taskUpdate.count === 0) {
+          throw new ConflictException(
+            `Task ${taskId} status changed concurrently. Please refresh and try again.`,
+          );
+        }
       }
     });
 
@@ -653,7 +701,7 @@ export class MechanicService {
       entityId: taskId,
     });
 
-    if (dto.pause_reason === LaborPauseReason.WAITING_CUSTOMER) {
+    if (dto.pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
       this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
         tenantId,
         taskId,
@@ -680,21 +728,13 @@ export class MechanicService {
       where: { id: taskId, tenant_id: tenantId },
       include: {
         workshop_order: {
-          include: {
-            vehicle: true,
+          select: {
+            mechanic_id: true,
+            bay_id: true,
             tasks: { select: { id: true, status: true } },
           },
         },
         bay: { select: { id: true, name: true } },
-        line_items: {
-          select: {
-            id: true,
-            type: true,
-            description: true,
-            qty: true,
-            part_execution_status: true,
-          },
-        },
       },
     });
 
@@ -734,7 +774,7 @@ export class MechanicService {
         });
       }
 
-      await tx.workshopTask.updateMany({
+      const taskUpdate = await tx.workshopTask.updateMany({
         where: {
           id: taskId,
           tenant_id: tenantId,
@@ -742,6 +782,12 @@ export class MechanicService {
         },
         data: { status: WorkshopTaskStatus.DONE },
       });
+
+      if (taskUpdate.count === 0) {
+        throw new ConflictException(
+          `Task ${taskId} status changed concurrently. Please refresh and try again.`,
+        );
+      }
 
       if (allOtherTasksDone) {
         await tx.workshopOrder.updateMany({
