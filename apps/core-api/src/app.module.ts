@@ -21,6 +21,7 @@ import { FinanceModule } from './finance/finance.module';
 import { BrandModule } from './brand/brand.module';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module';
 import { WorkshopModule } from './workshop/workshop.module';
+import { MechanicModule } from './mechanic/mechanic.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { LaborModule } from './labor/labor.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -44,6 +45,7 @@ import { TenantMemberModule } from './tenant-member/tenant-member.module';
     BrandModule,
     SalesOrderModule,
     WorkshopModule,
+    MechanicModule,
     InvoicesModule,
     LaborModule,
     CatalogModule,

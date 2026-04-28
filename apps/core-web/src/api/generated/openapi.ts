@@ -868,6 +868,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mechanic/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MechanicController_getQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MechanicController_getTaskDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labor/search": {
         parameters: {
             query?: never;
@@ -1604,6 +1636,84 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        MechanicVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            plate?: string | null;
+        };
+        MechanicBayDto: {
+            id: string;
+            name: string;
+        };
+        MechanicPartLineDto: {
+            id: string;
+            description: string;
+            qty: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
+        };
+        MechanicQueueItemDto: {
+            taskId: string;
+            taskTitle: string;
+            /** @enum {string} */
+            taskStatus: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
+            orderId: string;
+            orderNumber: string;
+            reportedComplaint?: string | null;
+            vehicle: components["schemas"]["MechanicVehicleDto"];
+            bay?: components["schemas"]["MechanicBayDto"] | null;
+            sequence: number;
+            scheduledDate?: string | null;
+            partLines: components["schemas"]["MechanicPartLineDto"][];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MechanicQueueResponseDto: {
+            data: components["schemas"]["MechanicQueueItemDto"][];
+        };
+        MechanicTaskVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin?: string | null;
+            plate?: string | null;
+        };
+        MechanicTaskBayDto: {
+            id: string;
+            name: string;
+        };
+        MechanicTaskLineItemDto: {
+            id: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
+            description: string;
+            qty: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
+        };
+        MechanicTaskDetailDto: {
+            taskId: string;
+            taskTitle: string;
+            /** @enum {string} */
+            taskStatus: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
+            mechanicNotes?: string | null;
+            orderId: string;
+            orderNumber: string;
+            reportedComplaint?: string | null;
+            odometer: number;
+            vehicle: components["schemas"]["MechanicTaskVehicleDto"];
+            bay?: components["schemas"]["MechanicTaskBayDto"] | null;
+            sequence: number;
+            scheduledDate?: string | null;
+            lineItems: components["schemas"]["MechanicTaskLineItemDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -3898,6 +4008,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    MechanicController_getQueue: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicQueueResponseDto"];
+                };
+            };
+        };
+    };
+    MechanicController_getTaskDetail: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicTaskDetailDto"];
                 };
             };
         };
