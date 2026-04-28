@@ -468,7 +468,11 @@ export class MechanicService {
 
     const openEntry = await this.prisma.laborEntry.findFirst({
       where: { tenant_id: tenantId, employee_id: mechanicId, ended_at: null },
-      select: { id: true, workshop_task_id: true },
+      select: {
+        id: true,
+        workshop_task_id: true,
+        workshop_task: { select: { workshop_order_id: true } },
+      },
     });
 
     if (!openEntry) {
@@ -478,6 +482,7 @@ export class MechanicService {
     }
 
     const previousTaskId = openEntry.workshop_task_id;
+    const previousOrderId = openEntry.workshop_task.workshop_order_id;
     const previousTaskNextStatus = pauseReasonToTaskStatus(
       dto.previous_pause_reason,
     );
@@ -554,11 +559,13 @@ export class MechanicService {
     });
 
     // If the previous task moved to WAITING_CUSTOMER, emit the notification event.
+    // Use the previous task's own order ID (fetched via the open-entry join above),
+    // not the target task's order ID, since the tasks may belong to different orders.
     if (dto.previous_pause_reason === LaborPauseReason.WAITING_CUSTOMER) {
       this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
         tenantId,
         taskId: previousTaskId,
-        orderId: targetTask.workshop_order_id,
+        orderId: previousOrderId,
         mechanicId,
       } satisfies TaskWaitingCustomerPayload);
     }

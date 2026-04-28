@@ -576,6 +576,7 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
         id: 'open-entry-1',
         workshop_task_id: PREV_TASK_ID,
+        workshop_task: { workshop_order_id: 'prev-order-1' },
       });
       (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
@@ -596,6 +597,7 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
         id: 'open-entry-1',
         workshop_task_id: PREV_TASK_ID,
+        workshop_task: { workshop_order_id: 'prev-order-1' },
       });
       (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
@@ -624,6 +626,7 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
         id: 'open-entry-1',
         workshop_task_id: PREV_TASK_ID,
+        workshop_task: { workshop_order_id: 'prev-order-1' },
       });
       (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
@@ -636,7 +639,11 @@ describe('MechanicService', () => {
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         TASK_WAITING_CUSTOMER_EVENT,
-        expect.objectContaining({ tenantId: TENANT_ID, taskId: PREV_TASK_ID }),
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          taskId: PREV_TASK_ID,
+          orderId: 'prev-order-1',
+        }),
       );
     });
   });

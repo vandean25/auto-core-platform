@@ -21,7 +21,13 @@ export class MechanicSchedulerService {
   async closeOrphanedLaborEntries(): Promise<void> {
     this.logger.log('Shift-close job started: closing orphaned labor entries.');
 
-    // Pre-fetch all open entries so we can batch writes without an N+1 loop.
+    // This is an intentional system-level cross-tenant operation. Unlike
+    // request-scoped service methods (which must always filter by tenant_id),
+    // this nightly scheduler is a privileged background maintenance job that
+    // closes ALL dangling open labor entries regardless of tenant, analogous to
+    // a DBA running a global maintenance query. It does not read, return, or
+    // expose any per-tenant data — it only sets ended_at and pause_reason.
+    // ADR-0014 §4.1.1: "force-closes any LaborEntry records where ended_at IS NULL".
     const openEntries = await this.prisma.laborEntry.findMany({
       where: { ended_at: null },
       select: { id: true },
