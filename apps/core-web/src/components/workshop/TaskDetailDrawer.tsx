@@ -4,7 +4,11 @@ import { motion } from 'framer-motion'
 import { CircleDollarSign, Clock3, Package, Trash2, X } from 'lucide-react'
 import { useLaborOperation } from '@/api/labor'
 import { useCatalogSearch } from '@/api/workshop'
-import type { CatalogPartSearchItem, LaborOperationSearchItem } from '@/api/types'
+import type {
+  CatalogPartSearchItem,
+  LaborOperationSearchItem,
+  WorkshopTaskStatus,
+} from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -38,7 +42,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'WAITING_PARTS' | 'DONE'
+type TaskStatus = WorkshopTaskStatus
 type LineItemType = 'LABOR' | 'PART'
 
 interface TaskLineItem {
@@ -404,6 +408,8 @@ export function TaskDetailDrawer({
                     <SelectItem value="NOT_STARTED">Not Started</SelectItem>
                     <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                     <SelectItem value="WAITING_PARTS">Waiting Parts</SelectItem>
+                    <SelectItem value="WAITING_CUSTOMER">Waiting Customer</SelectItem>
+                    <SelectItem value="PAUSED">Paused</SelectItem>
                     <SelectItem value="DONE">Done</SelectItem>
                   </SelectContent>
                 </Select>

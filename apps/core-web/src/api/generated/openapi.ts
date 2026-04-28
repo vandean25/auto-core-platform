@@ -1435,7 +1435,7 @@ export interface components {
             id: string;
             title: string;
             /** @enum {string} */
-            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "DONE";
+            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
             mechanic_notes?: string | null;
             mechanicNotes?: string | null;
             done: boolean;
@@ -1565,7 +1565,7 @@ export interface components {
             id: string;
             title: string;
             /** @enum {string} */
-            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "DONE";
+            status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
             lineItems: components["schemas"]["BoardLineItemDto"][];
         };
         BoardOrderDto: {
