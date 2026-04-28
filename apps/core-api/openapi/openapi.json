@@ -5274,6 +5274,16 @@
           "unitPrice": {
             "type": "number"
           },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
+          },
           "laborOperationId": {
             "type": "string",
             "nullable": true
@@ -5776,6 +5786,16 @@
           },
           "unitPrice": {
             "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
           },
           "catalogItemId": {
             "type": "string",

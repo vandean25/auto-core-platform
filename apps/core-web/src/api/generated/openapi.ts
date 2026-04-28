@@ -1426,6 +1426,8 @@ export interface components {
             description: string;
             qty: number;
             unitPrice: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
             laborOperationId?: string | null;
             standardAw?: number | null;
             actualHours?: number | null;
@@ -1559,6 +1561,8 @@ export interface components {
             description: string;
             quantity: number;
             unitPrice: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
             catalogItemId?: string | null;
         };
         BoardTaskDto: {

@@ -21,6 +21,7 @@ import {
   TransactionType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -283,6 +284,7 @@ export class WorkshopService {
               description: line.description,
               qty: Number(line.quantity),
               unitPrice: Number(line.unit_price),
+              partExecutionStatus: line.part_execution_status,
               laborOperationId: line.labor_operation_id,
               standardAw:
                 line.standard_aw != null ? Number(line.standard_aw) : null,
@@ -800,6 +802,10 @@ export class WorkshopService {
                 item.type === WorkshopLineItemType.LABOR
                   ? WorkshopLineItemType.LABOR
                   : WorkshopLineItemType.PART,
+              part_execution_status:
+                item.type === WorkshopLineItemType.PART
+                  ? WorkshopPartLineExecutionStatus.PENDING_PICK
+                  : null,
               item_no: item.itemNo,
               description: item.description,
               quantity: new Prisma.Decimal(item.qty),
@@ -945,6 +951,7 @@ export class WorkshopService {
         select: {
           id: true,
           item_no: true,
+          quantity: true,
         },
       });
 
@@ -985,6 +992,7 @@ export class WorkshopService {
       const transferGroupId = `WO-PICK-${order.id}-${Date.now()}`;
       const ledgerTransactions: RecordTransactionParams[] = [];
       const reservations: AllocationReservationMap = new Map();
+      const fullyStagedLineIds = new Set<string>();
       const movedLines: Array<{
         workshopTaskLineItemId: string;
         movedQuantity: number;
@@ -1001,6 +1009,10 @@ export class WorkshopService {
           throw new NotFoundException(
             `Line item ${requestedItem.workshopTaskLineItemId} not found`,
           );
+        }
+
+        if (requestedItem.quantity >= Number(lineItem.quantity)) {
+          fullyStagedLineIds.add(lineItem.id);
         }
 
         const catalogItem = catalogItemBySku.get(lineItem.item_no);
@@ -1076,6 +1088,19 @@ export class WorkshopService {
       }
 
       await this.ledgerService.recordTransactions(ledgerTransactions, tx);
+
+      if (fullyStagedLineIds.size > 0) {
+        await tx.workshopTaskLineItem.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: Array.from(fullyStagedLineIds) },
+            type: WorkshopLineItemType.PART,
+          },
+          data: {
+            part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+          },
+        });
+      }
 
       const orderUpdateResult = await tx.workshopOrder.updateMany({
         where: {
@@ -1344,6 +1369,7 @@ export class WorkshopService {
             description: li.description,
             quantity: Number(li.quantity),
             unitPrice: Number(li.unit_price),
+            partExecutionStatus: li.part_execution_status,
             catalogItemId: catalogIdBySku.get(li.item_no) ?? null,
           })),
         })),
