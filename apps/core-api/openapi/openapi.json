@@ -5315,6 +5315,8 @@
               "NOT_STARTED",
               "IN_PROGRESS",
               "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "PAUSED",
               "DONE"
             ]
           },
@@ -5804,6 +5806,8 @@
               "NOT_STARTED",
               "IN_PROGRESS",
               "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "PAUSED",
               "DONE"
             ]
           },
