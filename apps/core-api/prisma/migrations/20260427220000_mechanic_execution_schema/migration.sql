@@ -19,17 +19,17 @@ ALTER TABLE "workshop_tasks"
   ADD COLUMN "sequence" INTEGER NOT NULL DEFAULT 0;
 
 -- CreateIndex: workshop_tasks assignment and scheduling
-CREATE INDEX "idx_workshop_tasks_mechanic_id" ON "workshop_tasks"("mechanic_id");
-CREATE INDEX "idx_workshop_tasks_bay_id" ON "workshop_tasks"("bay_id");
+CREATE INDEX "idx_workshop_tasks_tenant_id_mechanic_id" ON "workshop_tasks"("tenant_id", "mechanic_id");
+CREATE INDEX "idx_workshop_tasks_tenant_id_bay_id" ON "workshop_tasks"("tenant_id", "bay_id");
 CREATE INDEX "idx_workshop_tasks_scheduled_date" ON "workshop_tasks"("scheduled_date");
 
--- AddForeignKey: workshop_tasks.mechanic_id -> employees.id
-ALTER TABLE "workshop_tasks" ADD CONSTRAINT "workshop_tasks_mechanic_id_fkey"
-  FOREIGN KEY ("mechanic_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey: workshop_tasks.(tenant_id, mechanic_id) -> employees.(tenant_id, id)
+ALTER TABLE "workshop_tasks" ADD CONSTRAINT "workshop_tasks_tenant_id_mechanic_id_fkey"
+  FOREIGN KEY ("tenant_id", "mechanic_id") REFERENCES "employees"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey: workshop_tasks.bay_id -> bays.id
-ALTER TABLE "workshop_tasks" ADD CONSTRAINT "workshop_tasks_bay_id_fkey"
-  FOREIGN KEY ("bay_id") REFERENCES "bays"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey: workshop_tasks.(tenant_id, bay_id) -> bays.(tenant_id, id)
+ALTER TABLE "workshop_tasks" ADD CONSTRAINT "workshop_tasks_tenant_id_bay_id_fkey"
+  FOREIGN KEY ("tenant_id", "bay_id") REFERENCES "bays"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- CreateTable: labor_entries
 CREATE TABLE "labor_entries" (

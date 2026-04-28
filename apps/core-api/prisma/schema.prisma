@@ -760,13 +760,14 @@ model WorkshopTask {
   status            WorkshopTaskStatus @default(NOT_STARTED)
   mechanic_notes    String?
 
-  // Task-level assignment (overrides order-level when set).
-  // Resolution rule: task.mechanic_id > task.bay_id > order.mechanic_id > order.bay_id.
-  // See ADR-0014 §2.2 for full precedence and queue-visibility rules.
+  // Task-level assignments override order-level assignments independently when set.
+  // Mechanic precedence: task.mechanic_id > order.mechanic_id.
+  // Bay precedence: task.bay_id > order.bay_id.
+  // See ADR-0014 §2.2 for full queue-visibility rules.
   mechanic_id       String?
-  mechanic          Employee?          @relation("WorkshopTaskMechanic", fields: [mechanic_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  mechanic          Employee?          @relation("WorkshopTaskMechanic", fields: [tenant_id, mechanic_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   bay_id            String?
-  bay               Bay?               @relation("WorkshopTaskBay", fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  bay               Bay?               @relation("WorkshopTaskBay", fields: [tenant_id, bay_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
 
   // Scheduling and queue ordering
   scheduled_date    DateTime?          @db.Date
@@ -780,8 +781,8 @@ model WorkshopTask {
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
-  @@index([mechanic_id], map: "idx_workshop_tasks_mechanic_id")
-  @@index([bay_id], map: "idx_workshop_tasks_bay_id")
+  @@index([tenant_id, mechanic_id], map: "idx_workshop_tasks_tenant_id_mechanic_id")
+  @@index([tenant_id, bay_id], map: "idx_workshop_tasks_tenant_id_bay_id")
   @@index([scheduled_date], map: "idx_workshop_tasks_scheduled_date")
   @@map("workshop_tasks")
 }
