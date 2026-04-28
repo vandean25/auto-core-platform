@@ -2944,6 +2944,78 @@
         ]
       }
     },
+    "/api/mechanic/queue": {
+      "get": {
+        "operationId": "MechanicController_getQueue",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicQueueResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}": {
+      "get": {
+        "operationId": "MechanicController_getTaskDetail",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicTaskDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -5964,6 +6036,331 @@
         },
         "required": [
           "workshopOrderId"
+        ]
+      },
+      "MechanicVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "MechanicBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MechanicPartLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "qty"
+        ]
+      },
+      "MechanicQueueItemDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "taskTitle": {
+            "type": "string"
+          },
+          "taskStatus": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS",
+              "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "PAUSED",
+              "DONE"
+            ]
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "reportedComplaint": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/MechanicVehicleDto"
+          },
+          "bay": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MechanicBayDto"
+              }
+            ]
+          },
+          "sequence": {
+            "type": "number"
+          },
+          "scheduledDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "partLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MechanicPartLineDto"
+            }
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "taskTitle",
+          "taskStatus",
+          "orderId",
+          "orderNumber",
+          "vehicle",
+          "sequence",
+          "partLines",
+          "updatedAt"
+        ]
+      },
+      "MechanicQueueResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MechanicQueueItemDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MechanicTaskVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "MechanicTaskBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MechanicTaskLineItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "description",
+          "qty"
+        ]
+      },
+      "MechanicTaskDetailDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "taskTitle": {
+            "type": "string"
+          },
+          "taskStatus": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "IN_PROGRESS",
+              "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "PAUSED",
+              "DONE"
+            ]
+          },
+          "mechanicNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "reportedComplaint": {
+            "type": "string",
+            "nullable": true
+          },
+          "odometer": {
+            "type": "number"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/MechanicTaskVehicleDto"
+          },
+          "bay": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MechanicTaskBayDto"
+              }
+            ]
+          },
+          "sequence": {
+            "type": "number"
+          },
+          "scheduledDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "lineItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MechanicTaskLineItemDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "taskTitle",
+          "taskStatus",
+          "orderId",
+          "orderNumber",
+          "odometer",
+          "vehicle",
+          "sequence",
+          "lineItems",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "LaborOperationSearchItemDto": {
