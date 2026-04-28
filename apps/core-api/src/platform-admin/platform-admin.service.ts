@@ -1,7 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import {
@@ -90,7 +87,9 @@ export class PlatformAdminService {
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.slug !== undefined && { slug: dto.slug.trim().toLowerCase() }),
+          ...(dto.slug !== undefined && {
+            slug: dto.slug.trim().toLowerCase(),
+          }),
           ...(dto.plan !== undefined && { plan: dto.plan }),
           ...(dto.isActive !== undefined && { is_active: dto.isActive }),
         },

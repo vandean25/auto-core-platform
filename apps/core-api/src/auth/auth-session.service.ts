@@ -152,7 +152,10 @@ export class AuthSessionService {
       throw new ForbiddenException('You do not have access to that tenant.');
     }
 
-    if (!requestedMembership.is_active || !requestedMembership.tenant.is_active) {
+    if (
+      !requestedMembership.is_active ||
+      !requestedMembership.tenant.is_active
+    ) {
       throw new ForbiddenException('Requested tenant is inactive.');
     }
 
@@ -220,7 +223,9 @@ export class AuthSessionService {
     const activeMembership =
       user.memberships.find(
         (membership) => membership.tenant_id === user.active_tenant_id,
-      ) ?? user.memberships[0] ?? null;
+      ) ??
+      user.memberships[0] ??
+      null;
 
     if (!activeMembership) {
       return null;

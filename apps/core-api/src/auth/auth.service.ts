@@ -164,7 +164,9 @@ export class AuthService {
     }
   }
 
-  private async verifyTestToken(token: string): Promise<AuthClaims | undefined> {
+  private async verifyTestToken(
+    token: string,
+  ): Promise<AuthClaims | undefined> {
     try {
       return await this.jwtService.verifyAsync<AuthClaims>(token, {
         secret: this.testJwtSecret,
@@ -178,10 +180,7 @@ export class AuthService {
     payload: Partial<AuthClaims>,
     options: AuthenticateBearerTokenOptions = {},
   ): AuthClaims {
-    if (
-      typeof payload.sub !== 'string' ||
-      typeof payload.email !== 'string'
-    ) {
+    if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new UnauthorizedException(
         'Bearer token is missing one or more required claims.',
       );

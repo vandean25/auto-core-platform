@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkshopTaskStatus } from '@prisma/client';
+import { LaborPauseReason, WorkshopTaskStatus } from '@prisma/client';
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import { MechanicController } from './mechanic.controller';
@@ -15,6 +15,28 @@ describe('MechanicController', () => {
     assertMechanicAccess: jest.fn().mockResolvedValue(undefined),
     getMechanicQueue: jest.fn().mockResolvedValue([]),
     getMechanicTaskDetail: jest.fn(),
+    startTask: jest.fn(),
+    switchTask: jest.fn(),
+    pauseTask: jest.fn(),
+    completeTask: jest.fn(),
+  };
+
+  const baseDetail: MechanicTaskDetailDto = {
+    taskId: TASK_ID,
+    taskTitle: 'Oil change',
+    taskStatus: WorkshopTaskStatus.IN_PROGRESS,
+    mechanicNotes: null,
+    orderId: 'order-1',
+    orderNumber: 'WO-2026-0001',
+    reportedComplaint: null,
+    odometer: 50000,
+    vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020 },
+    bay: null,
+    sequence: 1,
+    scheduledDate: null,
+    lineItems: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   beforeEach(async () => {
@@ -45,24 +67,7 @@ describe('MechanicController', () => {
   });
 
   it('getTaskDetail calls assertMechanicAccess then getMechanicTaskDetail', async () => {
-    const detail: MechanicTaskDetailDto = {
-      taskId: TASK_ID,
-      taskTitle: 'Oil change',
-      taskStatus: WorkshopTaskStatus.IN_PROGRESS,
-      mechanicNotes: null,
-      orderId: 'order-1',
-      orderNumber: 'WO-2026-0001',
-      reportedComplaint: null,
-      odometer: 50000,
-      vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020 },
-      bay: null,
-      sequence: 1,
-      scheduledDate: null,
-      lineItems: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockMechanicService.getMechanicTaskDetail.mockResolvedValue(detail);
+    mockMechanicService.getMechanicTaskDetail.mockResolvedValue(baseDetail);
 
     const result = await controller.getTaskDetail(MECHANIC_ID, TASK_ID);
 
@@ -73,6 +78,49 @@ describe('MechanicController', () => {
       MECHANIC_ID,
       TASK_ID,
     );
-    expect(result).toBe(detail);
+    expect(result).toBe(baseDetail);
+  });
+
+  it('startTask calls assertMechanicAccess then startTask', async () => {
+    mockMechanicService.startTask.mockResolvedValue(baseDetail);
+
+    const result = await controller.startTask(MECHANIC_ID, TASK_ID);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.startTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
+    expect(result).toBe(baseDetail);
+  });
+
+  it('switchTask calls assertMechanicAccess then switchTask with dto', async () => {
+    mockMechanicService.switchTask.mockResolvedValue(baseDetail);
+    const dto = { previous_pause_reason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY };
+
+    const result = await controller.switchTask(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.switchTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
+    expect(result).toBe(baseDetail);
+  });
+
+  it('pauseTask calls assertMechanicAccess then pauseTask with dto', async () => {
+    mockMechanicService.pauseTask.mockResolvedValue(baseDetail);
+    const dto = { pause_reason: LaborPauseReason.WAITING_PARTS };
+
+    const result = await controller.pauseTask(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.pauseTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
+    expect(result).toBe(baseDetail);
+  });
+
+  it('completeTask calls assertMechanicAccess then completeTask', async () => {
+    mockMechanicService.completeTask.mockResolvedValue(baseDetail);
+
+    const result = await controller.completeTask(MECHANIC_ID, TASK_ID);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.completeTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
+    expect(result).toBe(baseDetail);
   });
 });
+

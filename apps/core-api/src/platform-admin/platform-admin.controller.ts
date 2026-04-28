@@ -8,11 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/super-admin.guard';
 import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator';
 import {

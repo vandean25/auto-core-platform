@@ -58,7 +58,9 @@ export class ListTenantMembersQueryDto {
   @Transform(({ value }) => trimIfString(value as unknown))
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Include inactive memberships when true' })
+  @ApiPropertyOptional({
+    description: 'Include inactive memberships when true',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalBoolean(value as unknown))
   includeInactive?: boolean;

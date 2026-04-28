@@ -119,5 +119,5 @@ export function createTenantAwarePrisma<T extends object>(
 
       return value;
     },
-  }) as T;
+  });
 }

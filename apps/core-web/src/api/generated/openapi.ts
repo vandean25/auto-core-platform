@@ -900,6 +900,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a task (punch in) */
+        post: operations["MechanicController_startTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Switch to a different task */
+        post: operations["MechanicController_switchTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause the active task */
+        post: operations["MechanicController_pauseTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete the task */
+        post: operations["MechanicController_completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labor/search": {
         parameters: {
             query?: never;
@@ -1714,6 +1782,20 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        SwitchTaskDto: {
+            /**
+             * @description Pause reason applied to the task being vacated. Determines the resulting status of the previous task.
+             * @enum {string}
+             */
+            previous_pause_reason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "SWITCHED_TO_HIGHER_PRIORITY";
+        };
+        PauseTaskDto: {
+            /**
+             * @description Reason for pausing the task. AUTO_SHIFT_CLOSE is reserved for the scheduler.
+             * @enum {string}
+             */
+            pause_reason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "OTHER";
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -4035,6 +4117,110 @@ export interface operations {
         };
     };
     MechanicController_getTaskDetail: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicTaskDetailDto"];
+                };
+            };
+        };
+    };
+    MechanicController_startTask: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicTaskDetailDto"];
+                };
+            };
+        };
+    };
+    MechanicController_switchTask: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchTaskDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicTaskDetailDto"];
+                };
+            };
+        };
+    };
+    MechanicController_pauseTask: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseTaskDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MechanicTaskDetailDto"];
+                };
+            };
+        };
+    };
+    MechanicController_completeTask: {
         parameters: {
             query: {
                 /** @description UUID of the mechanic (Employee with role MECHANIC) */
