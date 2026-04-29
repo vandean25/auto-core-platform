@@ -53,6 +53,9 @@ export class AuthSessionResponseDto {
   @ApiProperty({ type: [AuthSessionMembershipDto] })
   memberships!: AuthSessionMembershipDto[];
 
-  @ApiPropertyOptional({ enum: PlatformAdminRole, enumName: 'PlatformAdminRole' })
+  @ApiPropertyOptional({
+    enum: PlatformAdminRole,
+    enumName: 'PlatformAdminRole',
+  })
   platformRole?: PlatformAdminRole;
 }

@@ -77,10 +77,7 @@ export class TenantMemberService {
 
     const existingUser = await this.systemPrisma.user.findFirst({
       where: {
-        OR: [
-          { firebaseUid: firebaseUser.uid },
-          { email: resolvedEmail },
-        ],
+        OR: [{ firebaseUid: firebaseUser.uid }, { email: resolvedEmail }],
       },
     });
 
@@ -235,9 +232,13 @@ export class TenantMemberService {
     const activeMembership =
       user.memberships.find(
         (membership) => membership.tenant_id === user.active_tenant_id,
-      ) ?? user.memberships[0] ?? null;
+      ) ??
+      user.memberships[0] ??
+      null;
 
-    if ((user.active_tenant_id ?? null) !== (activeMembership?.tenant_id ?? null)) {
+    if (
+      (user.active_tenant_id ?? null) !== (activeMembership?.tenant_id ?? null)
+    ) {
       await this.systemPrisma.user.update({
         where: { id: user.id },
         data: { active_tenant_id: activeMembership?.tenant_id ?? null },

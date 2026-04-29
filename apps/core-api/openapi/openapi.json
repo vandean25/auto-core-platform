@@ -3016,6 +3016,190 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/start": {
+      "post": {
+        "operationId": "MechanicController_startTask",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicTaskDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start a task (punch in)",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/switch": {
+      "post": {
+        "operationId": "MechanicController_switchTask",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicTaskDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Switch to a different task",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/pause": {
+      "post": {
+        "operationId": "MechanicController_pauseTask",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicTaskDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Pause the active task",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/complete": {
+      "post": {
+        "operationId": "MechanicController_completeTask",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MechanicTaskDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Complete the task",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -6361,6 +6545,40 @@
           "lineItems",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "SwitchTaskDto": {
+        "type": "object",
+        "properties": {
+          "previousPauseReason": {
+            "type": "string",
+            "enum": [
+              "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "SWITCHED_TO_HIGHER_PRIORITY"
+            ],
+            "description": "Pause reason applied to the task being vacated. Determines the resulting status of the previous task."
+          }
+        },
+        "required": [
+          "previousPauseReason"
+        ]
+      },
+      "PauseTaskDto": {
+        "type": "object",
+        "properties": {
+          "pauseReason": {
+            "type": "string",
+            "enum": [
+              "WAITING_PARTS",
+              "WAITING_CUSTOMER",
+              "OTHER"
+            ],
+            "description": "Reason for pausing the task. AUTO_SHIFT_CLOSE is reserved for the scheduler."
+          }
+        },
+        "required": [
+          "pauseReason"
         ]
       },
       "LaborOperationSearchItemDto": {

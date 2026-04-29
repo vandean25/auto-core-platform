@@ -5,6 +5,7 @@ export type DashboardEntityType =
   | 'PURCHASE_ORDER'
   | 'PURCHASE_INVOICE'
   | 'WORKSHOP_ORDER'
+  | 'WORKSHOP_TASK'
   | 'SALES_ORDER'
   | 'CATALOG_ITEM'
   | 'CUSTOMER'

@@ -5,6 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -36,6 +37,7 @@ import { TenantMemberModule } from './tenant-member/tenant-member.module';
 @Module({
   imports: [
     forwardRef(() => PrismaModule),
+    EventEmitterModule.forRoot(),
     InventoryModule,
     PurchaseModule,
     VendorModule,

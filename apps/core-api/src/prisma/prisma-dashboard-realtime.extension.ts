@@ -11,6 +11,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,
   PURCHASE_INVOICE: true,
   WORKSHOP_ORDER: true,
+  WORKSHOP_TASK: true,
   SALES_ORDER: true,
   CATALOG_ITEM: true,
   CUSTOMER: true,
@@ -99,12 +100,22 @@ export function createDashboardRealtimeExtension(
         },
         async updateMany({ model, args, query }) {
           const result = await query(args);
-          emitRealtimeForOperation(dashboardRealtime, model, 'updateMany', result);
+          emitRealtimeForOperation(
+            dashboardRealtime,
+            model,
+            'updateMany',
+            result,
+          );
           return result;
         },
         async deleteMany({ model, args, query }) {
           const result = await query(args);
-          emitRealtimeForOperation(dashboardRealtime, model, 'deleteMany', result);
+          emitRealtimeForOperation(
+            dashboardRealtime,
+            model,
+            'deleteMany',
+            result,
+          );
           return result;
         },
         async upsert({ model, args, query }) {

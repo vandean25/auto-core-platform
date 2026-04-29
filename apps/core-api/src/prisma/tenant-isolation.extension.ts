@@ -1,4 +1,7 @@
-import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage';
 import { toPrismaDelegateKey } from './prisma-delegate';
@@ -128,7 +131,6 @@ export function applyTenantIsolation(
 
     // Pass through for models without a tenant_id column
     if (GLOBAL_MODELS.has(model)) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return query(nextArgs);
     }
 
@@ -150,7 +152,7 @@ export function applyTenantIsolation(
         ...normalizeRecord(nextArgs.where),
         tenant_id: tenantId,
       };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+
       return query(nextArgs);
     }
 
@@ -171,7 +173,7 @@ export function applyTenantIsolation(
 
       if (injected) {
         nextArgs.where = where;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+
         return query(nextArgs);
       }
 
@@ -203,7 +205,6 @@ export function applyTenantIsolation(
         );
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
       return query(nextArgs);
     }
 
@@ -213,7 +214,7 @@ export function applyTenantIsolation(
         ...normalizeRecord(nextArgs.data),
         tenant_id: tenantId,
       };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+
       return query(nextArgs);
     }
 
@@ -228,12 +229,12 @@ export function applyTenantIsolation(
         ...normalizeRecord(nextArgs.create),
         tenant_id: tenantId,
       };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+
       return query(nextArgs);
     }
 
     // Passthrough for any unhandled operations (createMany, etc.)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+
     return query(nextArgs);
   })();
 }

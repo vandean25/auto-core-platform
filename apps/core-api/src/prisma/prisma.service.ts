@@ -36,11 +36,9 @@ export class PrismaService
     });
 
     this.pool = pool;
-    this.client = this
-      .$extends(createTenantIsolationExtension())
-      .$extends(
-        createDashboardRealtimeExtension(dashboardRealtime),
-      ) as PrismaClient;
+    this.client = this.$extends(createTenantIsolationExtension()).$extends(
+      createDashboardRealtimeExtension(dashboardRealtime),
+    ) as PrismaClient;
 
     const serviceProxy = new Proxy(this, {
       get(target, property, receiver) {

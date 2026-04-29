@@ -1103,8 +1103,7 @@ export class WorkshopService {
             tenant_id: tenantId,
             id: { in: Array.from(fullyStagedLineIds) },
             type: WorkshopLineItemType.PART,
-            part_execution_status:
-              WorkshopPartLineExecutionStatus.PENDING_PICK,
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
           },
           data: {
             part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
@@ -1222,7 +1221,13 @@ export class WorkshopService {
       this.prisma.employee.findMany({
         where: { tenant_id: tenantId, role: 'MECHANIC', is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-        select: { id: true, name: true, role: true, is_active: true, sort_order: true },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          is_active: true,
+          sort_order: true,
+        },
       }),
       this.prisma.bay.findMany({
         where: { tenant_id: tenantId, is_active: true },
@@ -1417,9 +1422,7 @@ export class WorkshopService {
       });
 
       if (!mechanic) {
-        throw new NotFoundException(
-          `Employee ${dto.mechanicId} not found`,
-        );
+        throw new NotFoundException(`Employee ${dto.mechanicId} not found`);
       }
 
       if (mechanic.role !== 'MECHANIC') {
@@ -1429,9 +1432,7 @@ export class WorkshopService {
       }
 
       if (!mechanic.is_active) {
-        throw new NotFoundException(
-          `Employee ${dto.mechanicId} is inactive`,
-        );
+        throw new NotFoundException(`Employee ${dto.mechanicId} is inactive`);
       }
     }
 

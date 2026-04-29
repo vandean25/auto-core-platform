@@ -17,9 +17,7 @@ export class AuthController {
   getMe(
     @Req() request: Request & { user: AuthenticatedUser },
   ): Promise<AuthSession> {
-    return this.authSessionService.getSessionForAuthenticatedUser(
-      request.user,
-    );
+    return this.authSessionService.getSessionForAuthenticatedUser(request.user);
   }
 
   @Post('switch-tenant')

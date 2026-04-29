@@ -66,7 +66,9 @@ export class CreatePlatformTenantDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ description: 'Lowercase slug used for tenant routing and lookup' })
+  @ApiProperty({
+    description: 'Lowercase slug used for tenant routing and lookup',
+  })
   @Transform(({ value }) => trimIfString(value as unknown))
   @IsString()
   @IsNotEmpty()

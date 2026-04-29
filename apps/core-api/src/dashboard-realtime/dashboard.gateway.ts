@@ -25,7 +25,8 @@ export function resolveCorsOrigins(
   frontendUrl = process.env.FRONTEND_URL,
   nodeEnv = process.env.NODE_ENV,
 ): string[] {
-  const configuredOrigins = frontendUrl?.split(',')
+  const configuredOrigins = frontendUrl
+    ?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
@@ -147,15 +148,16 @@ export class DashboardGateway implements OnGatewayConnection {
     }
     const room = `${DashboardGateway.TENANT_ROOM_PREFIX}${tenantId}`;
     // Emit only to the specific tenant's room
-    this.server
-      .to(room)
-      .emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
+    this.server.to(room).emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
       `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${room}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
     );
   }
 
-  emitClaimsUpdated(firebaseUid: string, payload: AuthClaimsUpdatedPayload): void {
+  emitClaimsUpdated(
+    firebaseUid: string,
+    payload: AuthClaimsUpdatedPayload,
+  ): void {
     if (!this.server) {
       this.logger.debug(
         `Skipped emitting ${AUTH_CLAIMS_UPDATED_EVENT}: ${payload.reason} (No server connected)`.trim(),
