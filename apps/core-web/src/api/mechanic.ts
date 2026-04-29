@@ -1,12 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { createHttpError } from '@/lib/error-utils'
 
 export type MechanicQueueItem = components['schemas']['MechanicQueueItemDto']
 export type MechanicQueueResponse = components['schemas']['MechanicQueueResponseDto']
 export type MechanicTaskDetail = components['schemas']['MechanicTaskDetailDto']
 export type SwitchTaskPayload = components['schemas']['SwitchTaskDto']
 export type PauseTaskPayload = components['schemas']['PauseTaskDto']
+export type SaveDiagnosticsPayload = components['schemas']['SaveDiagnosticsDto']
+export type SaveDiagnosticsResponse = components['schemas']['SaveDiagnosticsResponseDto']
+export type RequestPartPayload = components['schemas']['RequestPartDto']
+export type RequestPartResponse = components['schemas']['RequestPartResponseDto']
+export type RequestMediaUploadPayload = components['schemas']['RequestMediaUploadDto']
+export type MediaUploadPolicy = components['schemas']['MediaUploadPolicyDto']
+export type CreateMediaPayload = components['schemas']['CreateMediaDto']
+export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
 
 export const mechanicQueueKeys = {
   all: ['mechanic'] as const,
@@ -15,11 +24,22 @@ export const mechanicQueueKeys = {
     [...mechanicQueueKeys.all, 'task', mechanicId, taskId] as const,
 }
 
+/** Reads error message from a failed HTTP Response body. */
 async function getErrorMessage(response: Response, fallback: string): Promise<string> {
   const payload = (await response.json().catch(() => undefined)) as
     | { message?: string }
     | undefined
   return payload?.message ?? fallback
+}
+
+/**
+ * Reads the error message from the response body and throws an error with the
+ * HTTP status attached. Callers can use `getErrorStatus()` from `@/lib/error-utils`
+ * to extract the status and branch on specific codes (e.g. 409 Conflict).
+ */
+async function throwHttpError(response: Response, fallback: string): Promise<never> {
+  const message = await getErrorMessage(response, fallback)
+  throw createHttpError(message, response.status)
 }
 
 export function useMechanicQueue(mechanicId: string) {
@@ -63,7 +83,7 @@ export function useStartTask() {
         { method: 'POST' },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to start task'))
+        return throwHttpError(response, 'Failed to start task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -97,7 +117,8 @@ export function useSwitchTask() {
         },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to switch task'))
+        // Expose HTTP status so callers can implement 409 → start fallback
+        return throwHttpError(response, 'Failed to switch task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -131,7 +152,7 @@ export function usePauseTask() {
         },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to pause task'))
+        return throwHttpError(response, 'Failed to pause task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -153,7 +174,7 @@ export function useCompleteTask() {
         { method: 'POST' },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to complete task'))
+        return throwHttpError(response, 'Failed to complete task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -162,6 +183,126 @@ export function useCompleteTask() {
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
       })
+    },
+  })
+}
+
+export function useSaveDiagnostics() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: SaveDiagnosticsPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to save diagnostics')
+      }
+      return response.json() as Promise<SaveDiagnosticsResponse>
+    },
+    onSuccess: (_data, { mechanicId, taskId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+      })
+    },
+  })
+}
+
+export function useRequestPart() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: RequestPartPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/parts?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to request part')
+      }
+      return response.json() as Promise<RequestPartResponse>
+    },
+    onSuccess: (_data, { mechanicId, taskId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+      })
+    },
+  })
+}
+
+export function useCreateMediaUploadPolicy() {
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: RequestMediaUploadPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media/uploads?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to get upload policy')
+      }
+      return response.json() as Promise<MediaUploadPolicy>
+    },
+  })
+}
+
+export function useSaveMediaMetadata() {
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: CreateMediaPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to save media metadata')
+      }
+      return response.json() as Promise<WorkshopMedia>
     },
   })
 }

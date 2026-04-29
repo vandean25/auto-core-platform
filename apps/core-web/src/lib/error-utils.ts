@@ -48,3 +48,17 @@ export function isAbortError(error: unknown): boolean {
     const apiError = error as ApiErrorLike
     return apiError.name === 'AbortError'
 }
+
+/**
+ * Creates an Error instance with an attached `.status` property so callers
+ * can detect specific HTTP error codes (e.g. 409 Conflict) without parsing
+ * the message string.
+ *
+ * Usage:
+ *   throw createHttpError('Task already locked', 409)
+ */
+export function createHttpError(message: string, status: number): Error & { status: number } {
+    const err = new Error(message) as Error & { status: number }
+    err.status = status
+    return err
+}
