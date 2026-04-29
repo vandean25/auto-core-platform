@@ -968,6 +968,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Debounced auto-save of mechanic notes and checklist values */
+        patch: operations["MechanicController_saveDiagnostics"];
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a part (marks PENDING_PICK, no stock deduction) */
+        post: operations["MechanicController_requestPart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/media/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate presigned POST upload policy for direct-to-storage upload */
+        post: operations["MechanicController_createMediaUploadPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mechanic/tasks/{taskId}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Persist uploaded media metadata */
+        post: operations["MechanicController_saveMediaMetadata"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labor/search": {
         parameters: {
             query?: never;
@@ -1796,6 +1864,103 @@ export interface components {
              * @enum {string}
              */
             pauseReason: "WAITING_PARTS" | "WAITING_CUSTOMER" | "OTHER";
+        };
+        InspectionItemValueDto: {
+            /** @description WorkshopInspectionItem.id to update */
+            itemId: string;
+            responseValue?: Record<string, never> | null;
+            passed?: Record<string, never> | null;
+            /** @enum {string|null} */
+            severity?: "OK" | "ADVISORY" | "REQUIRED" | null;
+            notes?: Record<string, never> | null;
+        };
+        SaveDiagnosticsDto: {
+            /** @description Free-text mechanic diagnostic notes saved to the task. */
+            mechanicNotes?: Record<string, never> | null;
+            /** @description ID of the WorkshopInspection instance to update checklist items for. */
+            inspectionId?: Record<string, never> | null;
+            /** @description Inspection item values to upsert. */
+            inspectionItems?: components["schemas"]["InspectionItemValueDto"][];
+        };
+        SaveDiagnosticsResponseDto: {
+            taskId: string;
+            mechanicNotes?: string | null;
+        };
+        RequestPartDto: {
+            /** @description SKU / part number */
+            itemNo: string;
+            /** @description Part description */
+            description: string;
+            /** @description Quantity requested */
+            qty: number;
+        };
+        RequestPartResponseDto: {
+            id: string;
+            itemNo: string;
+            description: string;
+            qty: number;
+            /** @enum {string} */
+            partExecutionStatus: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED";
+        };
+        RequestMediaUploadDto: {
+            /**
+             * @description MIME type of the file to upload.
+             * @enum {string}
+             */
+            mimeType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/quicktime";
+            /** @description Declared file size in bytes (used for content-length-range constraint). */
+            sizeBytes: number;
+            /** @description Optional original filename hint (used to derive the storage object extension). */
+            filename?: string;
+        };
+        MediaUploadPolicyDto: {
+            /** @description POST URL for the multipart form upload. */
+            uploadUrl: string;
+            /** @description Form fields that must be submitted together with the file in the multipart upload. */
+            formFields: {
+                [key: string]: string;
+            };
+            /** @description Storage bucket name. */
+            storageBucket: string;
+            /** @description Storage object key. Pass this to `POST /media` after upload completes. */
+            storageKey: string;
+            /** @description ISO-8601 expiry timestamp for the upload policy. */
+            expiresAt: string;
+        };
+        CreateMediaDto: {
+            /** @description Storage object key returned by the upload policy endpoint. */
+            storageKey: string;
+            /** @description Storage bucket returned by the upload policy endpoint. */
+            storageBucket: string;
+            /**
+             * @description MIME type of the uploaded file.
+             * @enum {string}
+             */
+            mimeType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/quicktime";
+            /** @description File size in bytes. */
+            sizeBytes: number;
+            /** @description Optional caption for the media. */
+            caption?: Record<string, never> | null;
+            /** @description Duration in seconds for video uploads. */
+            durationSeconds?: Record<string, never> | null;
+        };
+        WorkshopMediaDto: {
+            id: string;
+            workshopOrderId: string;
+            workshopTaskId?: string | null;
+            uploadedByEmployeeId: string;
+            storageBucket: string;
+            storageKey: string;
+            /** @enum {string} */
+            urlStrategy: "SIGNED" | "PUBLIC";
+            mimeType: string;
+            sizeBytes: number;
+            durationSeconds?: number | null;
+            caption?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -4240,6 +4405,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MechanicTaskDetailDto"];
+                };
+            };
+        };
+    };
+    MechanicController_saveDiagnostics: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDiagnosticsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveDiagnosticsResponseDto"];
+                };
+            };
+        };
+    };
+    MechanicController_requestPart: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestPartDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestPartResponseDto"];
+                };
+            };
+        };
+    };
+    MechanicController_createMediaUploadPolicy: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestMediaUploadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUploadPolicyDto"];
+                };
+            };
+        };
+    };
+    MechanicController_saveMediaMetadata: {
+        parameters: {
+            query: {
+                /** @description UUID of the mechanic (Employee with role MECHANIC) */
+                mechanicId: string;
+            };
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMediaDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopMediaDto"];
                 };
             };
         };

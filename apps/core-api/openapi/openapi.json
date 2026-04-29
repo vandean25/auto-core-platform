@@ -3200,6 +3200,210 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/diagnostics": {
+      "patch": {
+        "operationId": "MechanicController_saveDiagnostics",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDiagnosticsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveDiagnosticsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Debounced auto-save of mechanic notes and checklist values",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/parts": {
+      "post": {
+        "operationId": "MechanicController_requestPart",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestPartResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Request a part (marks PENDING_PICK, no stock deduction)",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/media/uploads": {
+      "post": {
+        "operationId": "MechanicController_createMediaUploadPolicy",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestMediaUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadPolicyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Generate presigned POST upload policy for direct-to-storage upload",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/media": {
+      "post": {
+        "operationId": "MechanicController_saveMediaMetadata",
+        "parameters": [
+          {
+            "name": "mechanicId",
+            "required": true,
+            "in": "query",
+            "description": "UUID of the mechanic (Employee with role MECHANIC)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMediaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopMediaDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Persist uploaded media metadata",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -6579,6 +6783,306 @@
         },
         "required": [
           "pauseReason"
+        ]
+      },
+      "InspectionItemValueDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "WorkshopInspectionItem.id to update"
+          },
+          "responseValue": {
+            "type": "object",
+            "nullable": true
+          },
+          "passed": {
+            "type": "object",
+            "nullable": true
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "ADVISORY",
+              "REQUIRED"
+            ],
+            "nullable": true
+          },
+          "notes": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "itemId"
+        ]
+      },
+      "SaveDiagnosticsDto": {
+        "type": "object",
+        "properties": {
+          "mechanicNotes": {
+            "type": "object",
+            "nullable": true,
+            "description": "Free-text mechanic diagnostic notes saved to the task."
+          },
+          "inspectionId": {
+            "type": "object",
+            "nullable": true,
+            "description": "ID of the WorkshopInspection instance to update checklist items for."
+          },
+          "inspectionItems": {
+            "description": "Inspection item values to upsert.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionItemValueDto"
+            }
+          }
+        }
+      },
+      "SaveDiagnosticsResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "mechanicNotes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "taskId"
+        ]
+      },
+      "RequestPartDto": {
+        "type": "object",
+        "properties": {
+          "itemNo": {
+            "type": "string",
+            "description": "SKU / part number"
+          },
+          "description": {
+            "type": "string",
+            "description": "Part description"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Quantity requested",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "itemNo",
+          "description",
+          "qty"
+        ]
+      },
+      "RequestPartResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "itemNo",
+          "description",
+          "qty",
+          "partExecutionStatus"
+        ]
+      },
+      "RequestMediaUploadDto": {
+        "type": "object",
+        "properties": {
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the file to upload.",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "video/mp4",
+              "video/quicktime"
+            ]
+          },
+          "sizeBytes": {
+            "type": "number",
+            "description": "Declared file size in bytes (used for content-length-range constraint).",
+            "minimum": 1
+          },
+          "filename": {
+            "type": "string",
+            "description": "Optional original filename hint (used to derive the storage object extension)."
+          }
+        },
+        "required": [
+          "mimeType",
+          "sizeBytes"
+        ]
+      },
+      "MediaUploadPolicyDto": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string",
+            "description": "POST URL for the multipart form upload."
+          },
+          "formFields": {
+            "type": "object",
+            "description": "Form fields that must be submitted together with the file in the multipart upload.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "storageBucket": {
+            "type": "string",
+            "description": "Storage bucket name."
+          },
+          "storageKey": {
+            "type": "string",
+            "description": "Storage object key. Pass this to `POST /media` after upload completes."
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "ISO-8601 expiry timestamp for the upload policy."
+          }
+        },
+        "required": [
+          "uploadUrl",
+          "formFields",
+          "storageBucket",
+          "storageKey",
+          "expiresAt"
+        ]
+      },
+      "CreateMediaDto": {
+        "type": "object",
+        "properties": {
+          "storageKey": {
+            "type": "string",
+            "description": "Storage object key returned by the upload policy endpoint."
+          },
+          "storageBucket": {
+            "type": "string",
+            "description": "Storage bucket returned by the upload policy endpoint."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the uploaded file.",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "video/mp4",
+              "video/quicktime"
+            ]
+          },
+          "sizeBytes": {
+            "type": "number",
+            "description": "File size in bytes.",
+            "minimum": 1
+          },
+          "caption": {
+            "type": "object",
+            "description": "Optional caption for the media.",
+            "nullable": true
+          },
+          "durationSeconds": {
+            "type": "object",
+            "description": "Duration in seconds for video uploads.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "storageKey",
+          "storageBucket",
+          "mimeType",
+          "sizeBytes"
+        ]
+      },
+      "WorkshopMediaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string"
+          },
+          "workshopTaskId": {
+            "type": "string",
+            "nullable": true
+          },
+          "uploadedByEmployeeId": {
+            "type": "string"
+          },
+          "storageBucket": {
+            "type": "string"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "urlStrategy": {
+            "type": "string",
+            "enum": [
+              "SIGNED",
+              "PUBLIC"
+            ]
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workshopOrderId",
+          "uploadedByEmployeeId",
+          "storageBucket",
+          "storageKey",
+          "urlStrategy",
+          "mimeType",
+          "sizeBytes",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "LaborOperationSearchItemDto": {
