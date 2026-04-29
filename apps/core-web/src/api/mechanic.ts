@@ -7,6 +7,14 @@ export type MechanicQueueResponse = components['schemas']['MechanicQueueResponse
 export type MechanicTaskDetail = components['schemas']['MechanicTaskDetailDto']
 export type SwitchTaskPayload = components['schemas']['SwitchTaskDto']
 export type PauseTaskPayload = components['schemas']['PauseTaskDto']
+export type SaveDiagnosticsPayload = components['schemas']['SaveDiagnosticsDto']
+export type SaveDiagnosticsResponse = components['schemas']['SaveDiagnosticsResponseDto']
+export type RequestPartPayload = components['schemas']['RequestPartDto']
+export type RequestPartResponse = components['schemas']['RequestPartResponseDto']
+export type RequestMediaUploadPayload = components['schemas']['RequestMediaUploadDto']
+export type MediaUploadPolicy = components['schemas']['MediaUploadPolicyDto']
+export type CreateMediaPayload = components['schemas']['CreateMediaDto']
+export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
 
 export const mechanicQueueKeys = {
   all: ['mechanic'] as const,
@@ -20,6 +28,14 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
     | { message?: string }
     | undefined
   return payload?.message ?? fallback
+}
+
+/** Throws an Error with an attached `.status` so callers can detect HTTP 409 / etc. */
+async function throwHttpError(response: Response, fallback: string): Promise<never> {
+  const message = await getErrorMessage(response, fallback)
+  const err = new Error(message) as Error & { status: number }
+  err.status = response.status
+  throw err
 }
 
 export function useMechanicQueue(mechanicId: string) {
@@ -63,7 +79,7 @@ export function useStartTask() {
         { method: 'POST' },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to start task'))
+        return throwHttpError(response, 'Failed to start task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -97,7 +113,8 @@ export function useSwitchTask() {
         },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to switch task'))
+        // Expose HTTP status so callers can implement 409 → start fallback
+        return throwHttpError(response, 'Failed to switch task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -131,7 +148,7 @@ export function usePauseTask() {
         },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to pause task'))
+        return throwHttpError(response, 'Failed to pause task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -153,7 +170,7 @@ export function useCompleteTask() {
         { method: 'POST' },
       )
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to complete task'))
+        return throwHttpError(response, 'Failed to complete task')
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
@@ -162,6 +179,120 @@ export function useCompleteTask() {
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
       })
+    },
+  })
+}
+
+export function useSaveDiagnostics() {
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: SaveDiagnosticsPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to save diagnostics')
+      }
+      return response.json() as Promise<SaveDiagnosticsResponse>
+    },
+  })
+}
+
+export function useRequestPart() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: RequestPartPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/parts?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to request part')
+      }
+      return response.json() as Promise<RequestPartResponse>
+    },
+    onSuccess: (_data, { mechanicId, taskId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+      })
+    },
+  })
+}
+
+export function useCreateMediaUploadPolicy() {
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: RequestMediaUploadPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media/uploads?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to get upload policy')
+      }
+      return response.json() as Promise<MediaUploadPolicy>
+    },
+  })
+}
+
+export function useSaveMediaMetadata() {
+  return useMutation({
+    mutationFn: async ({
+      mechanicId,
+      taskId,
+      payload,
+    }: {
+      mechanicId: string
+      taskId: string
+      payload: CreateMediaPayload
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media?mechanicId=${encodeURIComponent(mechanicId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to save media metadata')
+      }
+      return response.json() as Promise<WorkshopMedia>
     },
   })
 }
