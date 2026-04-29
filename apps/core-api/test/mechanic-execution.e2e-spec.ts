@@ -30,7 +30,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
   let taskBId: string;
   let authToken: string;
 
-  const mockMediaStorage = {
+  const mockMediaStorage: Partial<MechanicMediaStorage> & {
+    generateUploadPolicy: jest.Mock;
+  } = {
     generateUploadPolicy: jest.fn(),
   };
 
@@ -296,9 +298,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
     expect(res.body.taskStatus).toBe('WAITING_PARTS');
   });
 
-  it('POST /tasks/:taskId/pause rejects invalid pauseReason with 400', async () => {
-    // Task is now paused — start it again first for this test to make sense
-    // but since we can't change the flow, we just verify DTO validation
+  it('POST /tasks/:taskId/pause rejects AUTO_SHIFT_CLOSE with 400 (DTO validation)', async () => {
+    // AUTO_SHIFT_CLOSE is reserved for the scheduler and must be rejected regardless of task state.
+    // This tests DTO-level validation before any business logic runs.
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/pause?mechanicId=${mechanicId}`)
       .set('Authorization', `Bearer ${authToken}`)

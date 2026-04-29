@@ -160,21 +160,18 @@ export default function MechanicTaskDetailPage() {
     }
   }, [task, notesInitialized])
 
-  // Cancel pending auto-save on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current !== null) {
-        clearTimeout(autoSaveTimerRef.current)
-      }
-    }
-  }, [])
-
   const cancelPendingSave = () => {
     if (autoSaveTimerRef.current !== null) {
       clearTimeout(autoSaveTimerRef.current)
       autoSaveTimerRef.current = null
     }
   }
+
+  // Cancel pending auto-save on unmount
+  useEffect(() => {
+    return cancelPendingSave
+  }, [])
+
 
   const isActive = task?.taskStatus === 'IN_PROGRESS'
   const isNotStarted = task?.taskStatus === 'NOT_STARTED'
@@ -198,7 +195,10 @@ export default function MechanicTaskDetailPage() {
       void saveDiagnostics
         .mutateAsync({ mechanicId, taskId, payload: { mechanicNotes: value } })
         .then(() => setSaveState('saved'))
-        .catch(() => setSaveState('error'))
+        .catch((err: unknown) => {
+          console.error('[MechanicTaskDetail] Auto-save diagnostics failed:', err)
+          setSaveState('error')
+        })
     }, DEBOUNCE_MS)
   }
 
@@ -307,6 +307,8 @@ export default function MechanicTaskDetailPage() {
   }
 
   // ── Media Upload ──
+  // NOTE: ALLOWED_MEDIA_TYPES must stay in sync with backend RequestMediaUploadDto.mimeType enum
+  // (apps/core-api/src/mechanic/dto/media.dto.ts). Update both locations when MIME types change.
   const handleFileSelected = async (file: File) => {
     if (!ALLOWED_MEDIA_TYPES.has(file.type)) {
       toast.error('Unsupported file type. Use JPEG, PNG, WebP, MP4, or MOV.')
@@ -330,7 +332,9 @@ export default function MechanicTaskDetailPage() {
       formData.append('file', file)
       const uploadRes = await fetch(policy.uploadUrl, { method: 'POST', body: formData })
       if (!uploadRes.ok) {
-        throw new Error('Upload to storage failed')
+        throw new Error(
+          `Upload to storage failed: ${uploadRes.status.toString()} ${uploadRes.statusText}`,
+        )
       }
 
       // 3. Persist metadata in backend
@@ -347,6 +351,8 @@ export default function MechanicTaskDetailPage() {
 
       setUploadState('done')
       toast.success('Media uploaded successfully')
+      // Auto-reset the success indicator after 4 s so subsequent uploads render correctly
+      setTimeout(() => setUploadState('idle'), 4000)
     } catch (error: unknown) {
       setUploadState('error')
       toast.error(getErrorMessage(error, 'Upload failed'))
