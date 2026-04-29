@@ -24,6 +24,8 @@ function readStoredMechanicId(): string {
 
 function writeStoredMechanicId(id: string): void {
   try {
+    // Validate UUID format before storing to prevent persisting unexpected values
+    if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id)) return
     window.localStorage.setItem(MECHANIC_ID_KEY, id)
   } catch {
     // ignore storage errors
@@ -106,7 +108,7 @@ export default function MechanicQueuePage() {
         })
       : items
 
-    return filtered.map((item) => ({
+    const mapped: QueueRow[] = filtered.map((item) => ({
       taskId: item.taskId,
       seq: item.sequence,
       title: item.taskTitle,
@@ -114,7 +116,17 @@ export default function MechanicQueuePage() {
       status: item.taskStatus,
       scheduledDate: item.scheduledDate ?? null,
     }))
-  }, [queueResponse, queryParams.search])
+
+    const { sortField, sortDirection } = queryParams
+    if (!sortField) return mapped
+
+    return [...mapped].sort((a, b) => {
+      const aVal = a[sortField as keyof QueueRow] ?? ''
+      const bVal = b[sortField as keyof QueueRow] ?? ''
+      const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
+      return sortDirection === 'desc' ? -cmp : cmp
+    })
+  }, [queueResponse, queryParams])
 
   const columns: ColumnDef<QueueRow>[] = [
     {

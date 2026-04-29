@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -358,12 +357,12 @@ export default function MechanicTaskDetailPage() {
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               onClick={() => void handlePauseConfirm()}
               disabled={pauseTask.isPending}
             >
               Confirm Pause
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
