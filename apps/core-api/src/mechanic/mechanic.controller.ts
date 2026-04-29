@@ -6,11 +6,13 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import {
   ApiBody,
+  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -19,6 +21,17 @@ import {
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
 import { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
+import {
+  SaveDiagnosticsDto,
+  SaveDiagnosticsResponseDto,
+} from './dto/save-diagnostics.dto';
+import { RequestPartDto, RequestPartResponseDto } from './dto/request-part.dto';
+import {
+  CreateMediaDto,
+  MediaUploadPolicyDto,
+  RequestMediaUploadDto,
+  WorkshopMediaDto,
+} from './dto/media.dto';
 import { MechanicService } from './mechanic.service';
 
 @ApiTags('mechanic')
@@ -174,5 +187,123 @@ export class MechanicController {
   ): Promise<MechanicTaskDetailDto> {
     await this.mechanicService.assertMechanicAccess(mechanicId);
     return this.mechanicService.completeTask(mechanicId, taskId);
+  }
+
+  /**
+   * Debounced auto-save for mechanic notes and inspection checklist values.
+   *
+   * All payload fields are optional; the client sends whatever changed since
+   * the last debounce interval (ADR-0014 §5.1, ADR-0006).
+   */
+  @Patch('tasks/:taskId/diagnostics')
+  @HttpCode(HttpStatus.OK)
+  @ApiQuery({
+    name: 'mechanicId',
+    required: true,
+    description: 'UUID of the mechanic (Employee with role MECHANIC)',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOperation({
+    summary: 'Debounced auto-save of mechanic notes and checklist values',
+  })
+  @ApiBody({ type: SaveDiagnosticsDto })
+  @ApiOkResponse({ type: SaveDiagnosticsResponseDto })
+  async saveDiagnostics(
+    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: SaveDiagnosticsDto,
+  ): Promise<SaveDiagnosticsResponseDto> {
+    await this.mechanicService.assertMechanicAccess(mechanicId);
+    return this.mechanicService.saveDiagnostics(mechanicId, taskId, dto);
+  }
+
+  /**
+   * Add a part request to the task.
+   *
+   * Creates a new `WorkshopTaskLineItem` (type=PART) with
+   * `part_execution_status=PENDING_PICK`.  Stock is NOT deducted.
+   * ADR-0014 §6.1
+   */
+  @Post('tasks/:taskId/parts')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiQuery({
+    name: 'mechanicId',
+    required: true,
+    description: 'UUID of the mechanic (Employee with role MECHANIC)',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOperation({
+    summary: 'Request a part (marks PENDING_PICK, no stock deduction)',
+  })
+  @ApiBody({ type: RequestPartDto })
+  @ApiCreatedResponse({ type: RequestPartResponseDto })
+  async requestPart(
+    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: RequestPartDto,
+  ): Promise<RequestPartResponseDto> {
+    await this.mechanicService.assertMechanicAccess(mechanicId);
+    return this.mechanicService.requestPart(mechanicId, taskId, dto);
+  }
+
+  /**
+   * Create a presigned POST upload policy for direct-to-storage file upload.
+   *
+   * The client uses the returned policy to upload the file directly to cloud
+   * storage without routing the binary through the backend.
+   * After upload, the client must call `POST /media` to persist metadata.
+   * ADR-0014 §7.1
+   */
+  @Post('tasks/:taskId/media/uploads')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiQuery({
+    name: 'mechanicId',
+    required: true,
+    description: 'UUID of the mechanic (Employee with role MECHANIC)',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOperation({
+    summary:
+      'Generate presigned POST upload policy for direct-to-storage upload',
+  })
+  @ApiBody({ type: RequestMediaUploadDto })
+  @ApiCreatedResponse({ type: MediaUploadPolicyDto })
+  async createMediaUploadPolicy(
+    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: RequestMediaUploadDto,
+  ): Promise<MediaUploadPolicyDto> {
+    await this.mechanicService.assertMechanicAccess(mechanicId);
+    return this.mechanicService.createMediaUploadPolicy(
+      mechanicId,
+      taskId,
+      dto,
+    );
+  }
+
+  /**
+   * Persist media metadata after a successful direct upload.
+   *
+   * Media metadata is stored only after the upload completes successfully.
+   * File blobs are never written to Postgres (ADR-0014 §7.2).
+   */
+  @Post('tasks/:taskId/media')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiQuery({
+    name: 'mechanicId',
+    required: true,
+    description: 'UUID of the mechanic (Employee with role MECHANIC)',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOperation({ summary: 'Persist uploaded media metadata' })
+  @ApiBody({ type: CreateMediaDto })
+  @ApiCreatedResponse({ type: WorkshopMediaDto })
+  async saveMediaMetadata(
+    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: CreateMediaDto,
+  ): Promise<WorkshopMediaDto> {
+    await this.mechanicService.assertMechanicAccess(mechanicId);
+    return this.mechanicService.saveMediaMetadata(mechanicId, taskId, dto);
   }
 }

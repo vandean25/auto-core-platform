@@ -1,15 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LaborPauseReason, WorkshopOrderStatus, WorkshopTaskStatus } from '@prisma/client';
+import {
+  LaborPauseReason,
+  WorkshopLineItemType,
+  WorkshopMediaUrlStrategy,
+  WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
+  WorkshopTaskStatus,
+} from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MechanicService } from './mechanic.service';
+import { MechanicMediaStorage } from './mechanic-media.storage';
 import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
 
 const TENANT_ID = 'tenant-1';
@@ -19,7 +28,11 @@ const ORDER_ID = 'order-1';
 
 const mockPrisma = {
   employee: { findFirst: jest.fn() },
-  workshopTask: { findFirst: jest.fn(), findMany: jest.fn() },
+  workshopTask: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+  workshopTaskLineItem: { create: jest.fn() },
+  workshopInspection: { findFirst: jest.fn() },
+  workshopInspectionItem: { updateMany: jest.fn() },
+  workshopMedia: { create: jest.fn() },
   laborEntry: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
   workshopOrder: { updateMany: jest.fn() },
   $transaction: jest.fn(),
@@ -38,15 +51,22 @@ const mockEventEmitter = {
   emit: jest.fn(),
 } as unknown as EventEmitter2;
 
+const mockMediaStorage = {
+  generateUploadPolicy: jest.fn(),
+} as unknown as MechanicMediaStorage;
+
 describe('MechanicService', () => {
   let service: MechanicService;
 
   beforeEach(() => {
+    // Set bucket so saveMediaMetadata tests have it available at call time.
+    process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
     service = new MechanicService(
       mockPrisma,
       mockTenantContext,
       mockRealtimeService,
       mockEventEmitter,
+      mockMediaStorage,
     );
     jest.clearAllMocks();
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
@@ -891,5 +911,361 @@ describe('MechanicService', () => {
       );
     });
   });
-});
 
+  // ─── saveDiagnostics ───────────────────────────────────────────────────────
+
+  describe('saveDiagnostics()', () => {
+    const makeTaskForDiagnostics = (overrides = {}) => ({
+      id: TASK_ID,
+      mechanic_id: MECHANIC_ID,
+      mechanic_notes: null,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    it('throws NotFoundException when task is not found', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.saveDiagnostics(MECHANIC_ID, TASK_ID, { mechanicNotes: 'note' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('saves mechanicNotes when provided', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock)
+        .mockResolvedValueOnce(makeTaskForDiagnostics())
+        .mockResolvedValueOnce({ id: TASK_ID, mechanic_notes: 'Oil leak.' });
+      (mockPrisma.workshopTask.update as jest.Mock).mockResolvedValue({ id: TASK_ID });
+
+      const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
+        mechanicNotes: 'Oil leak.',
+      });
+
+      expect(mockPrisma.workshopTask.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TASK_ID },
+          data: { mechanic_notes: 'Oil leak.' },
+        }),
+      );
+      expect(result.mechanicNotes).toBe('Oil leak.');
+    });
+
+    it('does not update mechanicNotes when field is absent from dto', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock)
+        .mockResolvedValueOnce(makeTaskForDiagnostics())
+        .mockResolvedValueOnce({ id: TASK_ID, mechanic_notes: null });
+
+      await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {});
+
+      expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when inspectionId not found for task', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForDiagnostics(),
+      );
+      (mockPrisma.workshopInspection.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
+          inspectionId: 'insp-1',
+          inspectionItems: [
+            { itemId: 'item-1', passed: true },
+          ],
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── requestPart ──────────────────────────────────────────────────────────
+
+  describe('requestPart()', () => {
+    const makeTaskForPart = (overrides = {}) => ({
+      id: TASK_ID,
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      mechanic_id: MECHANIC_ID,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    it('throws NotFoundException when task not found', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.requestPart(MECHANIC_ID, TASK_ID, {
+          itemNo: 'SKU-1',
+          description: 'Part A',
+          qty: 1,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws UnprocessableEntityException when task is DONE', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForPart({ status: WorkshopTaskStatus.DONE }),
+      );
+
+      await expect(
+        service.requestPart(MECHANIC_ID, TASK_ID, {
+          itemNo: 'SKU-1',
+          description: 'Part A',
+          qty: 1,
+        }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('creates PENDING_PICK line item and emits realtime event', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForPart(),
+      );
+      (mockPrisma.workshopTaskLineItem.create as jest.Mock).mockResolvedValue({
+        id: 'line-1',
+        item_no: 'OIL-5W30',
+        description: '5W-30 Engine Oil',
+        quantity: { toNumber: () => 2, toString: () => '2' },
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+      });
+
+      const result = await service.requestPart(MECHANIC_ID, TASK_ID, {
+        itemNo: 'OIL-5W30',
+        description: '5W-30 Engine Oil',
+        qty: 2,
+      });
+
+      expect(mockPrisma.workshopTaskLineItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            workshop_task_id: TASK_ID,
+            type: WorkshopLineItemType.PART,
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+            item_no: 'OIL-5W30',
+          }),
+        }),
+      );
+      expect(result.partExecutionStatus).toBe(WorkshopPartLineExecutionStatus.PENDING_PICK);
+      // The Prisma realtime extension emits the event; service no longer calls manually.
+      expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ type: 'WORKSHOP_TASK_LINE_ITEM', action: 'CREATED' }),
+      );
+    });
+
+    it('does not include vendor cost or part cost in created line item', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForPart(),
+      );
+      (mockPrisma.workshopTaskLineItem.create as jest.Mock).mockResolvedValue({
+        id: 'line-1',
+        item_no: 'SKU-1',
+        description: 'Part A',
+        quantity: { toNumber: () => 1, toString: () => '1' },
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+      });
+
+      await service.requestPart(MECHANIC_ID, TASK_ID, {
+        itemNo: 'SKU-1',
+        description: 'Part A',
+        qty: 1,
+      });
+
+      const createCall = (mockPrisma.workshopTaskLineItem.create as jest.Mock).mock.calls[0][0];
+      // Guardrail: internal_cost_rate and standard_aw must not be set by mechanic
+      expect(createCall.data).not.toHaveProperty('internal_cost_rate');
+      expect(createCall.data).not.toHaveProperty('standard_aw');
+    });
+  });
+
+  // ─── createMediaUploadPolicy ───────────────────────────────────────────────
+
+  describe('createMediaUploadPolicy()', () => {
+    const makeTaskForMedia = (overrides = {}) => ({
+      id: TASK_ID,
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      mechanic_id: MECHANIC_ID,
+      workshop_order_id: ORDER_ID,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    it('throws NotFoundException when task not found', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws UnprocessableEntityException when task is DONE', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia({ status: WorkshopTaskStatus.DONE }),
+      );
+
+      await expect(
+        service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('calls mediaStorage.generateUploadPolicy with tenant-scoped params', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+      const expiresAt = new Date(Date.now() + 900_000);
+      (mockMediaStorage.generateUploadPolicy as jest.Mock).mockResolvedValue({
+        uploadUrl: 'https://storage.googleapis.com/bucket',
+        formFields: { key: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg' },
+        storageBucket: 'workshop-media',
+        storageKey: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg',
+        expiresAt,
+      });
+
+      const result = await service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
+        mimeType: 'image/jpeg',
+        sizeBytes: 1024,
+      });
+
+      expect(mockMediaStorage.generateUploadPolicy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          orderId: ORDER_ID,
+          taskId: TASK_ID,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      );
+      expect(result.expiresAt).toBe(expiresAt.toISOString());
+    });
+  });
+
+  describe('saveMediaMetadata()', () => {
+    const MEDIA_BUCKET = 'workshop-media-bucket';
+    const validStorageKey = `tenants/${TENANT_ID}/orders/${ORDER_ID}/tasks/${TASK_ID}/uuid.jpg`;
+
+    const makeTaskForMedia = (overrides = {}) => ({
+      id: TASK_ID,
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      mechanic_id: MECHANIC_ID,
+      bay_id: null,
+      workshop_order_id: ORDER_ID,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    // Note: WORKSHOP_MEDIA_BUCKET is set by the outer beforeEach so the service
+    // constructor succeeds; no additional setup is needed here.
+
+    it('throws NotFoundException when task not found', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: validStorageKey,
+          storageBucket: MEDIA_BUCKET,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws UnprocessableEntityException when task is DONE', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia({ status: WorkshopTaskStatus.DONE }),
+      );
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: validStorageKey,
+          storageBucket: MEDIA_BUCKET,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws BadRequestException when storageBucket does not match configured bucket', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: validStorageKey,
+          storageBucket: 'some-other-bucket',
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when storageKey does not start with expected tenant prefix', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: 'arbitrary/path/file.jpg',
+          storageBucket: MEDIA_BUCKET,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('persists WorkshopMedia without manual realtime emit (extension handles it)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+      const now = new Date();
+      (mockPrisma.workshopMedia.create as jest.Mock).mockResolvedValue({
+        id: 'media-1',
+        workshop_order_id: ORDER_ID,
+        workshop_task_id: TASK_ID,
+        uploaded_by_employee_id: MECHANIC_ID,
+        storage_bucket: MEDIA_BUCKET,
+        storage_key: validStorageKey,
+        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
+        mime_type: 'image/jpeg',
+        size_bytes: 102400,
+        duration_seconds: null,
+        caption: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+        storageKey: validStorageKey,
+        storageBucket: MEDIA_BUCKET,
+        mimeType: 'image/jpeg',
+        sizeBytes: 102400,
+      });
+
+      expect(mockPrisma.workshopMedia.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            workshop_order_id: ORDER_ID,
+            workshop_task_id: TASK_ID,
+            uploaded_by_employee_id: MECHANIC_ID,
+            url_strategy: WorkshopMediaUrlStrategy.SIGNED,
+            mime_type: 'image/jpeg',
+            size_bytes: 102400,
+          }),
+        }),
+      );
+      expect(result.id).toBe('media-1');
+      // The Prisma realtime extension emits the event; service no longer calls manually.
+      expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ type: 'WORKSHOP_MEDIA', action: 'CREATED' }),
+      );
+    });
+  });
+
+});

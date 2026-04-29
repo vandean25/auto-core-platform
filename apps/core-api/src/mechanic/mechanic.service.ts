@@ -1,14 +1,18 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { Prisma } from '@prisma/client';
 import {
   LaborPauseReason,
+  Prisma,
+  WorkshopLineItemType,
+  WorkshopMediaUrlStrategy,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
@@ -19,6 +23,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
+import type { SaveDiagnosticsDto } from './dto/save-diagnostics.dto';
+import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
+import type { RequestPartDto } from './dto/request-part.dto';
+import type { RequestPartResponseDto } from './dto/request-part.dto';
+import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
+import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
+import {
+  IMAGE_MIME_TYPES,
+  MechanicMediaStorage,
+} from './mechanic-media.storage';
 import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
@@ -94,12 +109,33 @@ function pauseReasonToTaskStatus(
 
 @Injectable()
 export class MechanicService {
+  /**
+   * Cached on first use; undefined when the env var is absent (e.g. during
+   * OpenAPI generation).  Methods that actually need the bucket call
+   * `getWorkshopMediaBucket()` which throws lazily so the app can still start
+   * without this var set.
+   */
+  private readonly workshopMediaBucket: string | undefined;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+    private readonly mediaStorage: MechanicMediaStorage,
+  ) {
+    this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
+  }
+
+  /** Returns the configured bucket name or throws at call time (not startup). */
+  private getWorkshopMediaBucket(): string {
+    if (!this.workshopMediaBucket) {
+      throw new InternalServerErrorException(
+        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
+      );
+    }
+    return this.workshopMediaBucket;
+  }
 
   /**
    * Resolves and validates the current authenticated user as a MECHANIC
@@ -808,6 +844,369 @@ export class MechanicService {
     });
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
+  }
+
+  // ─── Diagnostics ──────────────────────────────────────────────────────────
+
+  /**
+   * Debounced auto-save for mechanic notes and inspection checklist values.
+   *
+   * All payload fields are optional; the client sends whatever changed during
+   * the 750 ms debounce window (ADR-0014 §5.1).
+   *
+   * - `mechanicNotes` is persisted to `WorkshopTask.mechanic_notes`.
+   * - `inspectionItems` are upserted into the specified `WorkshopInspection`.
+   */
+  async saveDiagnostics(
+    mechanicId: string,
+    taskId: string,
+    dto: SaveDiagnosticsDto,
+  ): Promise<SaveDiagnosticsResponseDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        mechanic_id: true,
+        mechanic_notes: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Persist mechanic notes when provided.
+      if (dto.mechanicNotes !== undefined) {
+        await tx.workshopTask.update({
+          where: { id: taskId },
+          data: { mechanic_notes: dto.mechanicNotes },
+        });
+      }
+
+      // Upsert inspection item values when provided.
+      if (
+        dto.inspectionId &&
+        dto.inspectionItems &&
+        dto.inspectionItems.length > 0
+      ) {
+        // Validate that the inspection belongs to this task/tenant.
+        const inspection = await tx.workshopInspection.findFirst({
+          where: {
+            id: dto.inspectionId,
+            tenant_id: tenantId,
+            workshop_task_id: taskId,
+          },
+          select: { id: true },
+        });
+
+        if (!inspection) {
+          throw new NotFoundException(
+            `Inspection ${dto.inspectionId} not found for task ${taskId}.`,
+          );
+        }
+
+        // Batch update: map each item value to an update query and resolve concurrently.
+        // Each update is scoped to tenant + inspection + item; we verify the count so
+        // that stale or wrong item IDs fail loudly rather than silently (ADR-0014 §5.1).
+        const updateResults = await Promise.all(
+          dto.inspectionItems.map((item) =>
+            tx.workshopInspectionItem.updateMany({
+              where: {
+                id: item.itemId,
+                tenant_id: tenantId,
+                workshop_inspection_id: dto.inspectionId!,
+              },
+              data: {
+                ...(item.responseValue !== undefined
+                  ? { response_value: item.responseValue }
+                  : {}),
+                ...(item.passed !== undefined ? { passed: item.passed } : {}),
+                ...(item.severity !== undefined
+                  ? { severity: item.severity }
+                  : {}),
+                ...(item.notes !== undefined ? { notes: item.notes } : {}),
+              },
+            }),
+          ),
+        );
+
+        const notFound = dto.inspectionItems.filter(
+          (_, i) => updateResults[i].count === 0,
+        );
+        if (notFound.length > 0) {
+          throw new NotFoundException(
+            `Inspection item(s) not found: ${notFound.map((i) => i.itemId).join(', ')}.`,
+          );
+        }
+      }
+    });
+
+    this.realtimeService.emitEntityUpdated(tenantId, {
+      type: 'WORKSHOP_TASK',
+      action: 'UPDATED',
+      entityId: taskId,
+    });
+
+    // Re-fetch the latest notes for the response.
+    const updated = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: { id: true, mechanic_notes: true },
+    });
+
+    return {
+      taskId,
+      mechanicNotes: updated?.mechanic_notes ?? null,
+    } satisfies SaveDiagnosticsResponseDto;
+  }
+
+  // ─── Parts Requisition ─────────────────────────────────────────────────────
+
+  /**
+   * Creates a new part request line (`WorkshopTaskLineItem` of type PART) with
+   * `part_execution_status = PENDING_PICK`.
+   *
+   * Stock is NOT deducted by this operation.  The parts department picks and
+   * stages the part through the kitting/tote workflow (ADR-0014 §6.1,
+   * ADR-0012).
+   *
+   * Cost and pricing fields are intentionally excluded from the DTO;
+   * mechanics must not see or set financial data (ADR-0014 §6.3, §8.2).
+   */
+  async requestPart(
+    mechanicId: string,
+    taskId: string,
+    dto: RequestPartDto,
+  ): Promise<RequestPartResponseDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        status: true,
+        mechanic_id: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    if (task.status === WorkshopTaskStatus.DONE) {
+      throw new UnprocessableEntityException(
+        `Cannot add parts to completed task ${taskId}.`,
+      );
+    }
+
+    const lineItem = await this.prisma.workshopTaskLineItem.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        type: WorkshopLineItemType.PART,
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        item_no: dto.itemNo,
+        description: dto.description,
+        quantity: new Prisma.Decimal(dto.qty),
+        // Mechanics do not set cost/price — defaults to zero; financial
+        // staff update pricing through the back-office workshop service.
+        unit_price: new Prisma.Decimal(0),
+      },
+      select: {
+        id: true,
+        item_no: true,
+        description: true,
+        quantity: true,
+        part_execution_status: true,
+      },
+    });
+
+    // The Prisma dashboard-realtime extension emits WORKSHOP_TASK_LINE_ITEM CREATED
+    // automatically for this create; no manual emit is needed.
+
+    return {
+      id: lineItem.id,
+      itemNo: lineItem.item_no,
+      description: lineItem.description,
+      qty: Number(lineItem.quantity),
+      partExecutionStatus:
+        lineItem.part_execution_status ??
+        WorkshopPartLineExecutionStatus.PENDING_PICK,
+    } satisfies RequestPartResponseDto;
+  }
+
+  // ─── Media Upload Policy ───────────────────────────────────────────────────
+
+  /**
+   * Generates a short-lived GCS presigned POST upload policy for direct-to-
+   * storage upload (ADR-0014 §7.1).
+   *
+   * The client must call `POST /media` after successfully uploading to
+   * persist the metadata (ADR-0014 §7.2).
+   */
+  async createMediaUploadPolicy(
+    mechanicId: string,
+    taskId: string,
+    dto: RequestMediaUploadDto,
+  ): Promise<MediaUploadPolicyDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        status: true,
+        mechanic_id: true,
+        workshop_order_id: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    if (task.status === WorkshopTaskStatus.DONE) {
+      throw new UnprocessableEntityException(
+        `Cannot upload media for completed task ${taskId}.`,
+      );
+    }
+
+    const policy = await this.mediaStorage.generateUploadPolicy({
+      tenantId,
+      orderId: task.workshop_order_id,
+      taskId,
+      mimeType: dto.mimeType,
+      sizeBytes: dto.sizeBytes,
+      filename: dto.filename,
+    });
+
+    return {
+      uploadUrl: policy.uploadUrl,
+      formFields: policy.formFields,
+      storageBucket: policy.storageBucket,
+      storageKey: policy.storageKey,
+      expiresAt: policy.expiresAt.toISOString(),
+    } satisfies MediaUploadPolicyDto;
+  }
+
+  // ─── Media Metadata Persist ────────────────────────────────────────────────
+
+  /**
+   * Persists `WorkshopMedia` metadata after a successful direct upload.
+   *
+   * Media metadata is stored only after the upload policy was successfully
+   * used and the client confirms the upload.  File blobs are never written
+   * to Postgres (ADR-0014 §7.1).
+   */
+  async saveMediaMetadata(
+    mechanicId: string,
+    taskId: string,
+    dto: CreateMediaDto,
+  ): Promise<WorkshopMediaDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        status: true,
+        mechanic_id: true,
+        workshop_order_id: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    if (task.status === WorkshopTaskStatus.DONE) {
+      throw new UnprocessableEntityException(
+        `Cannot persist media for completed task ${taskId}.`,
+      );
+    }
+
+    // Validate that the client-supplied bucket and key refer to the expected
+    // tenant/order/task-scoped location.  This prevents callers from pointing
+    // WorkshopMedia records at arbitrary buckets or objects outside their scope
+    // (ADR-0014 §7.2 security).
+    if (dto.storageBucket !== this.getWorkshopMediaBucket()) {
+      throw new BadRequestException(
+        `Invalid storage bucket. Expected "${this.getWorkshopMediaBucket()}".`,
+      );
+    }
+    const expectedKeyPrefix = `tenants/${tenantId}/orders/${task.workshop_order_id}/tasks/${taskId}/`;
+    if (!dto.storageKey.startsWith(expectedKeyPrefix)) {
+      throw new BadRequestException(
+        `Invalid storage key. Key must start with "${expectedKeyPrefix}".`,
+      );
+    }
+
+    // Enforce the same per-MIME-type size caps used by the upload policy endpoint.
+    const isImage = IMAGE_MIME_TYPES.has(dto.mimeType);
+    const hardCap = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+    if (dto.sizeBytes > hardCap) {
+      throw new BadRequestException(
+        `Reported file size ${dto.sizeBytes} bytes exceeds the maximum allowed for ${dto.mimeType} (${hardCap} bytes).`,
+      );
+    }
+
+    const media = await this.prisma.workshopMedia.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_order_id: task.workshop_order_id,
+        workshop_task_id: taskId,
+        uploaded_by_employee_id: mechanicId,
+        storage_bucket: dto.storageBucket,
+        storage_key: dto.storageKey,
+        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
+        mime_type: dto.mimeType,
+        size_bytes: dto.sizeBytes,
+        duration_seconds:
+          dto.durationSeconds != null
+            ? new Prisma.Decimal(dto.durationSeconds)
+            : null,
+        caption: dto.caption ?? null,
+      },
+    });
+
+    // The Prisma dashboard-realtime extension emits WORKSHOP_MEDIA CREATED
+    // automatically for this create; no manual emit is needed.
+
+    return {
+      id: media.id,
+      workshopOrderId: media.workshop_order_id,
+      workshopTaskId: media.workshop_task_id,
+      uploadedByEmployeeId: media.uploaded_by_employee_id,
+      storageBucket: media.storage_bucket,
+      storageKey: media.storage_key,
+      urlStrategy: media.url_strategy,
+      mimeType: media.mime_type,
+      sizeBytes: media.size_bytes,
+      durationSeconds: media.duration_seconds
+        ? Number(media.duration_seconds)
+        : null,
+      caption: media.caption,
+      createdAt: media.createdAt,
+      updatedAt: media.updatedAt,
+    } satisfies WorkshopMediaDto;
   }
 
   /**

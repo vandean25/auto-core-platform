@@ -1,7 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LaborPauseReason, WorkshopTaskStatus } from '@prisma/client';
+import {
+  LaborPauseReason,
+  WorkshopMediaUrlStrategy,
+  WorkshopPartLineExecutionStatus,
+  WorkshopTaskStatus,
+} from '@prisma/client';
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
+import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
+import type { RequestPartResponseDto } from './dto/request-part.dto';
+import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
 import { MechanicController } from './mechanic.controller';
 import { MechanicService } from './mechanic.service';
 
@@ -19,6 +27,10 @@ describe('MechanicController', () => {
     switchTask: jest.fn(),
     pauseTask: jest.fn(),
     completeTask: jest.fn(),
+    saveDiagnostics: jest.fn(),
+    requestPart: jest.fn(),
+    createMediaUploadPolicy: jest.fn(),
+    saveMediaMetadata: jest.fn(),
   };
 
   const baseDetail: MechanicTaskDetailDto = {
@@ -121,6 +133,104 @@ describe('MechanicController', () => {
     expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
     expect(mockMechanicService.completeTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
     expect(result).toBe(baseDetail);
+  });
+
+  it('saveDiagnostics calls assertMechanicAccess then saveDiagnostics with dto', async () => {
+    const expected: SaveDiagnosticsResponseDto = {
+      taskId: TASK_ID,
+      mechanicNotes: 'Oil leak near valve cover.',
+    };
+    mockMechanicService.saveDiagnostics.mockResolvedValue(expected);
+    const dto = { mechanicNotes: 'Oil leak near valve cover.' };
+
+    const result = await controller.saveDiagnostics(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.saveDiagnostics).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
+    expect(result).toBe(expected);
+  });
+
+  it('requestPart calls assertMechanicAccess then requestPart with dto', async () => {
+    const expected: RequestPartResponseDto = {
+      id: 'line-1',
+      itemNo: 'OIL-5W30',
+      description: '5W-30 Engine Oil 5L',
+      qty: 2,
+      partExecutionStatus: WorkshopPartLineExecutionStatus.PENDING_PICK,
+    };
+    mockMechanicService.requestPart.mockResolvedValue(expected);
+    const dto = { itemNo: 'OIL-5W30', description: '5W-30 Engine Oil 5L', qty: 2 };
+
+    const result = await controller.requestPart(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.requestPart).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
+    expect(result).toBe(expected);
+  });
+
+  it('createMediaUploadPolicy calls assertMechanicAccess then createMediaUploadPolicy', async () => {
+    const expected: MediaUploadPolicyDto = {
+      uploadUrl: 'https://storage.googleapis.com/bucket',
+      formFields: { key: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg' },
+      storageBucket: 'workshop-media',
+      storageKey: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg',
+      expiresAt: new Date(Date.now() + 900_000).toISOString(),
+    };
+    mockMechanicService.createMediaUploadPolicy.mockResolvedValue(expected);
+    const dto = { mimeType: 'image/jpeg' as const, sizeBytes: 1024 * 100 };
+
+    const result = await controller.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.createMediaUploadPolicy).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
+    expect(result).toBe(expected);
+  });
+
+  it('saveMediaMetadata calls assertMechanicAccess then saveMediaMetadata', async () => {
+    const expected: WorkshopMediaDto = {
+      id: 'media-1',
+      workshopOrderId: 'order-1',
+      workshopTaskId: TASK_ID,
+      uploadedByEmployeeId: MECHANIC_ID,
+      storageBucket: 'workshop-media',
+      storageKey: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg',
+      urlStrategy: WorkshopMediaUrlStrategy.SIGNED,
+      mimeType: 'image/jpeg',
+      sizeBytes: 102400,
+      durationSeconds: null,
+      caption: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockMechanicService.saveMediaMetadata.mockResolvedValue(expected);
+    const dto = {
+      storageKey: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg',
+      storageBucket: 'workshop-media',
+      mimeType: 'image/jpeg' as const,
+      sizeBytes: 102400,
+    };
+
+    const result = await controller.saveMediaMetadata(MECHANIC_ID, TASK_ID, dto);
+
+    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.saveMediaMetadata).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
+    expect(result).toBe(expected);
   });
 });
 
