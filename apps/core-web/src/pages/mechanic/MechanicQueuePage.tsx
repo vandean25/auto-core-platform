@@ -79,7 +79,6 @@ interface QueueRow {
   vehicle: string
   status: MechanicQueueItem['taskStatus']
   scheduledDate: string | null
-  partsPending: boolean
 }
 
 // ─── Queue Page ───────────────────────────────────────────────────────────────
@@ -114,7 +113,6 @@ export default function MechanicQueuePage() {
       vehicle: `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`,
       status: item.taskStatus,
       scheduledDate: item.scheduledDate ?? null,
-      partsPending: item.partLines.some((p) => p.partExecutionStatus === 'PENDING_PICK'),
     }))
   }, [queueResponse, queryParams.search])
 

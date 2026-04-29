@@ -24,6 +24,7 @@ import {
   useCompleteTask,
 } from '@/api/mechanic'
 import type { PauseTaskPayload } from '@/api/mechanic'
+import { getErrorMessage } from '@/lib/error-utils'
 
 const MECHANIC_ID_KEY = 'acp:mechanic-id'
 
@@ -33,11 +34,6 @@ function readStoredMechanicId(): string {
   } catch {
     return ''
   }
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) return error.message
-  return fallback
 }
 
 type PauseReason = PauseTaskPayload['pauseReason']

@@ -331,8 +331,6 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Unable to load your tenant session.</div>
   }
 
-  const onSignOut = () => void signOutUser()
-
   return (
     <Router>
       <ShellRouter
@@ -348,7 +346,7 @@ function App() {
             toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
           })
         }}
-        onSignOut={onSignOut}
+        onSignOut={() => void signOutUser()}
       />
     </Router>
   )
