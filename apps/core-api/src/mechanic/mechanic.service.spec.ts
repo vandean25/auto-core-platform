@@ -59,7 +59,7 @@ describe('MechanicService', () => {
   let service: MechanicService;
 
   beforeEach(() => {
-    // Constructor validates WORKSHOP_MEDIA_BUCKET at startup.
+    // Set bucket so saveMediaMetadata tests have it available at call time.
     process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
     service = new MechanicService(
       mockPrisma,

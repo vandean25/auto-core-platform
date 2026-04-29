@@ -109,8 +109,13 @@ function pauseReasonToTaskStatus(
 
 @Injectable()
 export class MechanicService {
-  /** Validated once at construction; prevents per-request env-var lookups. */
-  private readonly workshopMediaBucket: string;
+  /**
+   * Cached on first use; undefined when the env var is absent (e.g. during
+   * OpenAPI generation).  Methods that actually need the bucket call
+   * `getWorkshopMediaBucket()` which throws lazily so the app can still start
+   * without this var set.
+   */
+  private readonly workshopMediaBucket: string | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -119,13 +124,17 @@ export class MechanicService {
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
   ) {
-    const bucket = process.env.WORKSHOP_MEDIA_BUCKET;
-    if (!bucket) {
+    this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
+  }
+
+  /** Returns the configured bucket name or throws at call time (not startup). */
+  private getWorkshopMediaBucket(): string {
+    if (!this.workshopMediaBucket) {
       throw new InternalServerErrorException(
         'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
       );
     }
-    this.workshopMediaBucket = bucket;
+    return this.workshopMediaBucket;
   }
 
   /**
@@ -1138,9 +1147,9 @@ export class MechanicService {
     // tenant/order/task-scoped location.  This prevents callers from pointing
     // WorkshopMedia records at arbitrary buckets or objects outside their scope
     // (ADR-0014 §7.2 security).
-    if (dto.storageBucket !== this.workshopMediaBucket) {
+    if (dto.storageBucket !== this.getWorkshopMediaBucket()) {
       throw new BadRequestException(
-        `Invalid storage bucket. Expected "${this.workshopMediaBucket}".`,
+        `Invalid storage bucket. Expected "${this.getWorkshopMediaBucket()}".`,
       );
     }
     const expectedKeyPrefix = `tenants/${tenantId}/orders/${task.workshop_order_id}/tasks/${taskId}/`;
