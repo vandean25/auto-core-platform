@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -27,7 +29,11 @@ import type { RequestPartDto } from './dto/request-part.dto';
 import type { RequestPartResponseDto } from './dto/request-part.dto';
 import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
 import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
-import { MechanicMediaStorage } from './mechanic-media.storage';
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
+import {
+  IMAGE_MIME_TYPES,
+  MechanicMediaStorage,
+} from './mechanic-media.storage';
 import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
@@ -886,8 +892,10 @@ export class MechanicService {
           );
         }
 
-        // Batch upsert: map each item value to an update query and resolve concurrently.
-        await Promise.all(
+        // Batch update: map each item value to an update query and resolve concurrently.
+        // Each update is scoped to tenant + inspection + item; we verify the count so
+        // that stale or wrong item IDs fail loudly rather than silently (ADR-0014 §5.1).
+        const updateResults = await Promise.all(
           dto.inspectionItems.map((item) =>
             tx.workshopInspectionItem.updateMany({
               where: {
@@ -908,6 +916,15 @@ export class MechanicService {
             }),
           ),
         );
+
+        const notFound = dto.inspectionItems.filter(
+          (_, i) => updateResults[i].count === 0,
+        );
+        if (notFound.length > 0) {
+          throw new NotFoundException(
+            `Inspection item(s) not found: ${notFound.map((i) => i.itemId).join(', ')}.`,
+          );
+        }
       }
     });
 
@@ -994,11 +1011,8 @@ export class MechanicService {
       },
     });
 
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK_LINE_ITEM',
-      action: 'CREATED',
-      entityId: lineItem.id,
-    });
+    // The Prisma dashboard-realtime extension emits WORKSHOP_TASK_LINE_ITEM CREATED
+    // automatically for this create; no manual emit is needed.
 
     return {
       id: lineItem.id,
@@ -1109,6 +1123,37 @@ export class MechanicService {
       );
     }
 
+    // Validate that the client-supplied bucket and key refer to the expected
+    // tenant/order/task-scoped location.  This prevents callers from pointing
+    // WorkshopMedia records at arbitrary buckets or objects outside their scope
+    // (ADR-0014 §7.2 security).
+    const expectedBucket = process.env.WORKSHOP_MEDIA_BUCKET;
+    if (!expectedBucket) {
+      throw new InternalServerErrorException(
+        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
+      );
+    }
+    if (dto.storageBucket !== expectedBucket) {
+      throw new BadRequestException(
+        `Invalid storage bucket. Expected "${expectedBucket}".`,
+      );
+    }
+    const expectedKeyPrefix = `tenants/${tenantId}/orders/${task.workshop_order_id}/tasks/${taskId}/`;
+    if (!dto.storageKey.startsWith(expectedKeyPrefix)) {
+      throw new BadRequestException(
+        `Invalid storage key. Key must start with "${expectedKeyPrefix}".`,
+      );
+    }
+
+    // Enforce the same per-MIME-type size caps used by the upload policy endpoint.
+    const isImage = IMAGE_MIME_TYPES.has(dto.mimeType);
+    const hardCap = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+    if (dto.sizeBytes > hardCap) {
+      throw new BadRequestException(
+        `Reported file size ${dto.sizeBytes} bytes exceeds the maximum allowed for ${dto.mimeType} (${hardCap} bytes).`,
+      );
+    }
+
     const media = await this.prisma.workshopMedia.create({
       data: {
         tenant_id: tenantId,
@@ -1128,11 +1173,8 @@ export class MechanicService {
       },
     });
 
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_MEDIA',
-      action: 'CREATED',
-      entityId: media.id,
-    });
+    // The Prisma dashboard-realtime extension emits WORKSHOP_MEDIA CREATED
+    // automatically for this create; no manual emit is needed.
 
     return {
       id: media.id,

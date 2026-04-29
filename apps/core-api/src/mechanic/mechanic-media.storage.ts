@@ -32,7 +32,7 @@ export interface UploadPolicyResult {
   expiresAt: Date;
 }
 
-const IMAGE_MIME_TYPES = new Set<string>([
+export const IMAGE_MIME_TYPES = new Set<string>([
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -162,19 +162,29 @@ export class MechanicMediaStorage {
   }
 
   private getExtension(mimeType: string, filename?: string): string {
+    const mimeExtMap: Record<string, readonly string[]> = {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'video/mp4': ['.mp4'],
+      'video/quicktime': ['.mov'],
+    };
+
+    const allowedExtensions = mimeExtMap[mimeType];
+    if (!allowedExtensions || allowedExtensions.length === 0) {
+      return '';
+    }
+
     if (filename) {
       const dotIdx = filename.lastIndexOf('.');
       if (dotIdx !== -1) {
-        return filename.slice(dotIdx).toLowerCase();
+        const filenameExtension = filename.slice(dotIdx).toLowerCase();
+        if (allowedExtensions.includes(filenameExtension)) {
+          return filenameExtension;
+        }
       }
     }
-    const mimeExtMap: Record<string, string> = {
-      'image/jpeg': '.jpg',
-      'image/png': '.png',
-      'image/webp': '.webp',
-      'video/mp4': '.mp4',
-      'video/quicktime': '.mov',
-    };
-    return mimeExtMap[mimeType] ?? '';
+
+    return allowedExtensions[0];
   }
 }

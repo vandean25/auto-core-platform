@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -1041,7 +1042,8 @@ describe('MechanicService', () => {
         }),
       );
       expect(result.partExecutionStatus).toBe(WorkshopPartLineExecutionStatus.PENDING_PICK);
-      expect(mockRealtimeService.emitEntityUpdated).toHaveBeenCalledWith(
+      // The Prisma realtime extension emits the event; service no longer calls manually.
+      expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ type: 'WORKSHOP_TASK_LINE_ITEM', action: 'CREATED' }),
       );
@@ -1139,16 +1141,26 @@ describe('MechanicService', () => {
     });
   });
 
-  // ─── saveMediaMetadata ─────────────────────────────────────────────────────
-
   describe('saveMediaMetadata()', () => {
+    const MEDIA_BUCKET = 'workshop-media-bucket';
+    const validStorageKey = `tenants/${TENANT_ID}/orders/${ORDER_ID}/tasks/${TASK_ID}/uuid.jpg`;
+
     const makeTaskForMedia = (overrides = {}) => ({
       id: TASK_ID,
       status: WorkshopTaskStatus.IN_PROGRESS,
       mechanic_id: MECHANIC_ID,
+      bay_id: null,
       workshop_order_id: ORDER_ID,
       workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
       ...overrides,
+    });
+
+    beforeEach(() => {
+      process.env.WORKSHOP_MEDIA_BUCKET = MEDIA_BUCKET;
+    });
+
+    afterEach(() => {
+      delete process.env.WORKSHOP_MEDIA_BUCKET;
     });
 
     it('throws NotFoundException when task not found', async () => {
@@ -1156,8 +1168,8 @@ describe('MechanicService', () => {
 
       await expect(
         service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: 'key',
-          storageBucket: 'bucket',
+          storageKey: validStorageKey,
+          storageBucket: MEDIA_BUCKET,
           mimeType: 'image/jpeg',
           sizeBytes: 1024,
         }),
@@ -1171,15 +1183,45 @@ describe('MechanicService', () => {
 
       await expect(
         service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: 'key',
-          storageBucket: 'bucket',
+          storageKey: validStorageKey,
+          storageBucket: MEDIA_BUCKET,
           mimeType: 'image/jpeg',
           sizeBytes: 1024,
         }),
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('persists WorkshopMedia and emits realtime event', async () => {
+    it('throws BadRequestException when storageBucket does not match configured bucket', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: validStorageKey,
+          storageBucket: 'some-other-bucket',
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when storageKey does not start with expected tenant prefix', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTaskForMedia(),
+      );
+
+      await expect(
+        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
+          storageKey: 'arbitrary/path/file.jpg',
+          storageBucket: MEDIA_BUCKET,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('persists WorkshopMedia without manual realtime emit (extension handles it)', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForMedia(),
       );
@@ -1189,8 +1231,8 @@ describe('MechanicService', () => {
         workshop_order_id: ORDER_ID,
         workshop_task_id: TASK_ID,
         uploaded_by_employee_id: MECHANIC_ID,
-        storage_bucket: 'workshop-media',
-        storage_key: 'tenants/t1/key.jpg',
+        storage_bucket: MEDIA_BUCKET,
+        storage_key: validStorageKey,
         url_strategy: WorkshopMediaUrlStrategy.SIGNED,
         mime_type: 'image/jpeg',
         size_bytes: 102400,
@@ -1201,8 +1243,8 @@ describe('MechanicService', () => {
       });
 
       const result = await service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-        storageKey: 'tenants/t1/key.jpg',
-        storageBucket: 'workshop-media',
+        storageKey: validStorageKey,
+        storageBucket: MEDIA_BUCKET,
         mimeType: 'image/jpeg',
         sizeBytes: 102400,
       });
@@ -1221,11 +1263,12 @@ describe('MechanicService', () => {
         }),
       );
       expect(result.id).toBe('media-1');
-      expect(mockRealtimeService.emitEntityUpdated).toHaveBeenCalledWith(
+      // The Prisma realtime extension emits the event; service no longer calls manually.
+      expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ type: 'WORKSHOP_MEDIA', action: 'CREATED' }),
       );
     });
   });
-});
 
+});

@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  Min,
 } from 'class-validator';
 
 /**
@@ -149,8 +150,10 @@ export class CreateMediaDto {
     type: Number,
     required: false,
     nullable: true,
+    minimum: 0,
   })
   @IsNumber()
+  @Min(0)
   @IsOptional()
   durationSeconds?: number | null;
 }

@@ -6870,7 +6870,7 @@
           "qty": {
             "type": "number",
             "description": "Quantity requested",
-            "minimum": 1
+            "minimum": 0.01
           }
         },
         "required": [
@@ -7011,7 +7011,8 @@
           "durationSeconds": {
             "type": "number",
             "description": "Duration in seconds for video uploads.",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0
           }
         },
         "required": [

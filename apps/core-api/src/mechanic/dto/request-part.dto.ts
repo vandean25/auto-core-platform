@@ -21,9 +21,9 @@ export class RequestPartDto {
   @IsString()
   description!: string;
 
-  @ApiProperty({ description: 'Quantity requested', minimum: 1 })
+  @ApiProperty({ description: 'Quantity requested', minimum: 0.01 })
   @IsNumber()
-  @Min(1)
+  @Min(0.01)
   qty!: number;
 }
 
