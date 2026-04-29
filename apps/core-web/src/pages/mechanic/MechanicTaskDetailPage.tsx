@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
@@ -151,6 +151,7 @@ export default function MechanicTaskDetailPage() {
   // ── Media upload ──
   const [uploadState, setUploadState] = useState<UploadState>('idle')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Initialize mechanic notes once task data loads
   useEffect(() => {
@@ -160,18 +161,23 @@ export default function MechanicTaskDetailPage() {
     }
   }, [task, notesInitialized])
 
-  const cancelPendingSave = () => {
+  // Stable cancel function — autoSaveTimerRef is stable so no deps needed
+  const cancelPendingSave = useCallback(() => {
     if (autoSaveTimerRef.current !== null) {
       clearTimeout(autoSaveTimerRef.current)
       autoSaveTimerRef.current = null
     }
-  }
-
-  // Cancel pending auto-save on unmount
-  useEffect(() => {
-    return cancelPendingSave
   }, [])
 
+  // Cancel pending auto-save and upload done timer on unmount
+  useEffect(() => {
+    return () => {
+      cancelPendingSave()
+      if (uploadDoneTimerRef.current !== null) {
+        clearTimeout(uploadDoneTimerRef.current)
+      }
+    }
+  }, [cancelPendingSave])
 
   const isActive = task?.taskStatus === 'IN_PROGRESS'
   const isNotStarted = task?.taskStatus === 'NOT_STARTED'
@@ -351,8 +357,15 @@ export default function MechanicTaskDetailPage() {
 
       setUploadState('done')
       toast.success('Media uploaded successfully')
-      // Auto-reset the success indicator after 4 s so subsequent uploads render correctly
-      setTimeout(() => setUploadState('idle'), 4000)
+      // Auto-reset the success indicator after 4 s so subsequent uploads render correctly.
+      // Store the timer in a ref so it can be cleared on component unmount.
+      if (uploadDoneTimerRef.current !== null) {
+        clearTimeout(uploadDoneTimerRef.current)
+      }
+      uploadDoneTimerRef.current = setTimeout(() => {
+        setUploadState('idle')
+        uploadDoneTimerRef.current = null
+      }, 4000)
     } catch (error: unknown) {
       setUploadState('error')
       toast.error(getErrorMessage(error, 'Upload failed'))
@@ -426,7 +439,7 @@ export default function MechanicTaskDetailPage() {
 
         {/* ── Primary Actions (top-right) ── */}
         {!isDone && (
-          <div className="flex shrink-0 items-center gap-2 flex-wrap justify-end">
+          <div className="flex shrink-0 items-center gap-2 flex-wrap justify-end sm:flex-nowrap">
             {canStart && (
               <Button
                 onClick={() => void handleStart()}

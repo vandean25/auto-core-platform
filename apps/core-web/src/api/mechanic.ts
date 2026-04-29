@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
+import { createHttpError } from '@/lib/error-utils'
 
 export type MechanicQueueItem = components['schemas']['MechanicQueueItemDto']
 export type MechanicQueueResponse = components['schemas']['MechanicQueueResponseDto']
@@ -23,6 +24,7 @@ export const mechanicQueueKeys = {
     [...mechanicQueueKeys.all, 'task', mechanicId, taskId] as const,
 }
 
+/** Reads error message from a failed HTTP Response body. */
 async function getErrorMessage(response: Response, fallback: string): Promise<string> {
   const payload = (await response.json().catch(() => undefined)) as
     | { message?: string }
@@ -30,12 +32,14 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
   return payload?.message ?? fallback
 }
 
-/** Throws an Error with an attached `.status` so callers can detect HTTP 409 / etc. */
+/**
+ * Reads the error message from the response body and throws an error with the
+ * HTTP status attached. Callers can use `getErrorStatus()` from `@/lib/error-utils`
+ * to extract the status and branch on specific codes (e.g. 409 Conflict).
+ */
 async function throwHttpError(response: Response, fallback: string): Promise<never> {
   const message = await getErrorMessage(response, fallback)
-  const err = new Error(message) as Error & { status: number }
-  err.status = response.status
-  throw err
+  throw createHttpError(message, response.status)
 }
 
 export function useMechanicQueue(mechanicId: string) {

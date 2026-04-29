@@ -299,7 +299,10 @@ describe('Mechanic Execution Engine (e2e)', () => {
   });
 
   it('POST /tasks/:taskId/pause rejects AUTO_SHIFT_CLOSE with 400 (DTO validation)', async () => {
-    // AUTO_SHIFT_CLOSE is reserved for the scheduler and must be rejected regardless of task state.
+    // AUTO_SHIFT_CLOSE is reserved exclusively for the nightly scheduler
+    // (MechanicSchedulerService) to automatically close orphaned labor entries
+    // at shift-end. Mechanics must not be able to supply this value directly —
+    // it would bypass the scheduler's idempotency checks and corrupt labor history.
     // This tests DTO-level validation before any business logic runs.
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/pause?mechanicId=${mechanicId}`)
