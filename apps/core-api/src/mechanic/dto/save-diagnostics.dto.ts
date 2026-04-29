@@ -16,12 +16,12 @@ export class InspectionItemValueDto {
   @IsUUID()
   itemId!: string;
 
-  @ApiProperty({ required: false, nullable: true })
+  @ApiProperty({ type: String, required: false, nullable: true })
   @IsString()
   @IsOptional()
   responseValue?: string | null;
 
-  @ApiProperty({ required: false, nullable: true })
+  @ApiProperty({ type: Boolean, required: false, nullable: true })
   @IsBoolean()
   @IsOptional()
   passed?: boolean | null;
@@ -35,7 +35,7 @@ export class InspectionItemValueDto {
   @IsOptional()
   severity?: WorkshopInspectionSeverity | null;
 
-  @ApiProperty({ required: false, nullable: true })
+  @ApiProperty({ type: String, required: false, nullable: true })
   @IsString()
   @IsOptional()
   notes?: string | null;
@@ -48,6 +48,7 @@ export class InspectionItemValueDto {
  */
 export class SaveDiagnosticsDto {
   @ApiProperty({
+    type: String,
     required: false,
     nullable: true,
     description: 'Free-text mechanic diagnostic notes saved to the task.',
@@ -57,6 +58,8 @@ export class SaveDiagnosticsDto {
   mechanicNotes?: string | null;
 
   @ApiProperty({
+    type: String,
+    format: 'uuid',
     required: false,
     nullable: true,
     description:

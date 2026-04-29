@@ -6793,11 +6793,11 @@
             "description": "WorkshopInspectionItem.id to update"
           },
           "responseValue": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "passed": {
-            "type": "object",
+            "type": "boolean",
             "nullable": true
           },
           "severity": {
@@ -6810,7 +6810,7 @@
             "nullable": true
           },
           "notes": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },
@@ -6822,12 +6822,13 @@
         "type": "object",
         "properties": {
           "mechanicNotes": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "description": "Free-text mechanic diagnostic notes saved to the task."
           },
           "inspectionId": {
-            "type": "object",
+            "type": "string",
+            "format": "uuid",
             "nullable": true,
             "description": "ID of the WorkshopInspection instance to update checklist items for."
           },
@@ -7003,12 +7004,12 @@
             "minimum": 1
           },
           "caption": {
-            "type": "object",
+            "type": "string",
             "description": "Optional caption for the media.",
             "nullable": true
           },
           "durationSeconds": {
-            "type": "object",
+            "type": "number",
             "description": "Duration in seconds for video uploads.",
             "nullable": true
           }

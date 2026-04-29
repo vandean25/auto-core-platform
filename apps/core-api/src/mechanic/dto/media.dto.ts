@@ -136,6 +136,7 @@ export class CreateMediaDto {
 
   @ApiProperty({
     description: 'Optional caption for the media.',
+    type: String,
     required: false,
     nullable: true,
   })
@@ -145,6 +146,7 @@ export class CreateMediaDto {
 
   @ApiProperty({
     description: 'Duration in seconds for video uploads.',
+    type: Number,
     required: false,
     nullable: true,
   })
@@ -194,6 +196,5 @@ export class WorkshopMediaDto {
   createdAt!: Date;
 
   @ApiProperty()
-  @IsUUID()
   updatedAt!: Date;
 }

@@ -1868,17 +1868,20 @@ export interface components {
         InspectionItemValueDto: {
             /** @description WorkshopInspectionItem.id to update */
             itemId: string;
-            responseValue?: Record<string, never> | null;
-            passed?: Record<string, never> | null;
+            responseValue?: string | null;
+            passed?: boolean | null;
             /** @enum {string|null} */
             severity?: "OK" | "ADVISORY" | "REQUIRED" | null;
-            notes?: Record<string, never> | null;
+            notes?: string | null;
         };
         SaveDiagnosticsDto: {
             /** @description Free-text mechanic diagnostic notes saved to the task. */
-            mechanicNotes?: Record<string, never> | null;
-            /** @description ID of the WorkshopInspection instance to update checklist items for. */
-            inspectionId?: Record<string, never> | null;
+            mechanicNotes?: string | null;
+            /**
+             * Format: uuid
+             * @description ID of the WorkshopInspection instance to update checklist items for.
+             */
+            inspectionId?: string | null;
             /** @description Inspection item values to upsert. */
             inspectionItems?: components["schemas"]["InspectionItemValueDto"][];
         };
@@ -1940,9 +1943,9 @@ export interface components {
             /** @description File size in bytes. */
             sizeBytes: number;
             /** @description Optional caption for the media. */
-            caption?: Record<string, never> | null;
+            caption?: string | null;
             /** @description Duration in seconds for video uploads. */
-            durationSeconds?: Record<string, never> | null;
+            durationSeconds?: number | null;
         };
         WorkshopMediaDto: {
             id: string;
