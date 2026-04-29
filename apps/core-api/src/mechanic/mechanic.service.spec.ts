@@ -59,6 +59,8 @@ describe('MechanicService', () => {
   let service: MechanicService;
 
   beforeEach(() => {
+    // Constructor validates WORKSHOP_MEDIA_BUCKET at startup.
+    process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
     service = new MechanicService(
       mockPrisma,
       mockTenantContext,
@@ -1155,13 +1157,8 @@ describe('MechanicService', () => {
       ...overrides,
     });
 
-    beforeEach(() => {
-      process.env.WORKSHOP_MEDIA_BUCKET = MEDIA_BUCKET;
-    });
-
-    afterEach(() => {
-      delete process.env.WORKSHOP_MEDIA_BUCKET;
-    });
+    // Note: WORKSHOP_MEDIA_BUCKET is set by the outer beforeEach so the service
+    // constructor succeeds; no additional setup is needed here.
 
     it('throws NotFoundException when task not found', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);

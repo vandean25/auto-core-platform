@@ -109,13 +109,24 @@ function pauseReasonToTaskStatus(
 
 @Injectable()
 export class MechanicService {
+  /** Validated once at construction; prevents per-request env-var lookups. */
+  private readonly workshopMediaBucket: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
-  ) {}
+  ) {
+    const bucket = process.env.WORKSHOP_MEDIA_BUCKET;
+    if (!bucket) {
+      throw new InternalServerErrorException(
+        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
+      );
+    }
+    this.workshopMediaBucket = bucket;
+  }
 
   /**
    * Resolves and validates the current authenticated user as a MECHANIC
@@ -1127,15 +1138,9 @@ export class MechanicService {
     // tenant/order/task-scoped location.  This prevents callers from pointing
     // WorkshopMedia records at arbitrary buckets or objects outside their scope
     // (ADR-0014 §7.2 security).
-    const expectedBucket = process.env.WORKSHOP_MEDIA_BUCKET;
-    if (!expectedBucket) {
-      throw new InternalServerErrorException(
-        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
-      );
-    }
-    if (dto.storageBucket !== expectedBucket) {
+    if (dto.storageBucket !== this.workshopMediaBucket) {
       throw new BadRequestException(
-        `Invalid storage bucket. Expected "${expectedBucket}".`,
+        `Invalid storage bucket. Expected "${this.workshopMediaBucket}".`,
       );
     }
     const expectedKeyPrefix = `tenants/${tenantId}/orders/${task.workshop_order_id}/tasks/${taskId}/`;

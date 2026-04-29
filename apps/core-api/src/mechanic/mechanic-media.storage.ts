@@ -161,16 +161,16 @@ export class MechanicMediaStorage {
     return bucket;
   }
 
-  private getExtension(mimeType: string, filename?: string): string {
-    const mimeExtMap: Record<string, readonly string[]> = {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp'],
-      'video/mp4': ['.mp4'],
-      'video/quicktime': ['.mov'],
-    };
+  private static readonly MIME_EXT_MAP: Record<string, readonly string[]> = {
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/webp': ['.webp'],
+    'video/mp4': ['.mp4'],
+    'video/quicktime': ['.mov'],
+  };
 
-    const allowedExtensions = mimeExtMap[mimeType];
+  private getExtension(mimeType: string, filename?: string): string {
+    const allowedExtensions = MechanicMediaStorage.MIME_EXT_MAP[mimeType];
     if (!allowedExtensions || allowedExtensions.length === 0) {
       return '';
     }
