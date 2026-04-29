@@ -188,6 +188,7 @@ export function useCompleteTask() {
 }
 
 export function useSaveDiagnostics() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
       mechanicId,
@@ -210,6 +211,11 @@ export function useSaveDiagnostics() {
         return throwHttpError(response, 'Failed to save diagnostics')
       }
       return response.json() as Promise<SaveDiagnosticsResponse>
+    },
+    onSuccess: (_data, { mechanicId, taskId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+      })
     },
   })
 }

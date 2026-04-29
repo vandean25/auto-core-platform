@@ -153,7 +153,15 @@ export default function MechanicTaskDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Initialize mechanic notes once task data loads
+  // Reset notes state whenever the route navigates to a different task.
+  // Without this, notesInitialized stays true and the textarea would keep
+  // showing the previous task's notes until the new query resolves.
+  useEffect(() => {
+    setNotesInitialized(false)
+    setNotesValue('')
+  }, [taskId])
+
+  // Seed notes once the task query resolves (or re-resolves after a refetch).
   useEffect(() => {
     if (task && !notesInitialized) {
       setNotesValue(task.mechanicNotes ?? '')
@@ -293,8 +301,8 @@ export default function MechanicTaskDetailPage() {
       setPartFormError('Description is required.')
       return
     }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      setPartFormError('Quantity must be a positive number.')
+    if (!Number.isFinite(qty) || qty < 0.01) {
+      setPartFormError('Quantity must be at least 0.01.')
       return
     }
     setPartFormError('')
@@ -828,8 +836,8 @@ export default function MechanicTaskDetailPage() {
               <Input
                 id="part-qty"
                 type="number"
-                min="1"
-                step="1"
+                min="0.01"
+                step="0.01"
                 value={partForm.qty}
                 onChange={(e) => setPartForm((prev) => ({ ...prev, qty: e.target.value }))}
                 className="mt-1 min-h-[44px]"
