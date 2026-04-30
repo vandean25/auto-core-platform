@@ -2,6 +2,7 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { MechanicQueueItem } from '@/api/mechanic'
 import * as mechanicApi from '@/api/mechanic'
 import * as employeesApi from '@/api/employees'
 import MechanicQueuePage from './MechanicQueuePage'
@@ -13,10 +14,10 @@ const MECHANIC_ID = '11111111-1111-1111-1111-111111111111'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const baseItem = {
+const baseItem: MechanicQueueItem = {
   taskId: '22222222-2222-2222-2222-222222222222',
   taskTitle: 'Oil Change',
-  taskStatus: 'NOT_STARTED' as const,
+  taskStatus: 'NOT_STARTED',
   orderId: 'order-1',
   orderNumber: 'WO-2026-0001',
   reportedComplaint: null,
@@ -28,7 +29,7 @@ const baseItem = {
   updatedAt: '2026-04-28T10:00:00.000Z',
 }
 
-function makeQueueItem(overrides: Partial<typeof baseItem> = {}) {
+function makeQueueItem(overrides: Partial<MechanicQueueItem> = {}): MechanicQueueItem {
   return { ...baseItem, ...overrides }
 }
 
@@ -49,7 +50,7 @@ function createQueryMock<T>(data: T) {
   return { data, isLoading: false, refetch: vi.fn() }
 }
 
-function setupDefaultMocks(items: (typeof baseItem)[] = [makeQueueItem()]) {
+function setupDefaultMocks(items: MechanicQueueItem[] = [makeQueueItem()]) {
   asMock(mechanicApi.useMechanicQueue).mockReturnValue(
     createQueryMock({ data: items }),
   )

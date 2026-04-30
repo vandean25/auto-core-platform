@@ -2,6 +2,7 @@ import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-libra
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { MechanicTaskDetail } from '@/api/mechanic'
 import * as mechanicApi from '@/api/mechanic'
 import { toast } from 'sonner'
 import MechanicTaskDetailPage from './MechanicTaskDetailPage'
@@ -20,10 +21,10 @@ const ORDER_ID = 'order-1'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const baseTask = {
+const baseTask: MechanicTaskDetail = {
   taskId: TASK_ID,
   taskTitle: 'Oil Change',
-  taskStatus: 'NOT_STARTED' as const,
+  taskStatus: 'NOT_STARTED',
   mechanicNotes: null as string | null,
   orderId: ORDER_ID,
   orderNumber: 'WO-2026-0001',
@@ -33,18 +34,12 @@ const baseTask = {
   bay: null as { id: string; name: string } | null,
   sequence: 1,
   scheduledDate: null as string | null,
-  lineItems: [] as Array<{
-    id: string
-    type: 'LABOR' | 'PART'
-    description: string
-    qty: number
-    partExecutionStatus?: string | null
-  }>,
+  lineItems: [],
   createdAt: '2026-04-28T10:00:00.000Z',
   updatedAt: '2026-04-28T10:00:00.000Z',
 }
 
-function makeTask(overrides: Partial<typeof baseTask> = {}) {
+function makeTask(overrides: Partial<MechanicTaskDetail> = {}): MechanicTaskDetail {
   return { ...baseTask, ...overrides }
 }
 
@@ -664,7 +659,14 @@ describe('MechanicTaskDetailPage', () => {
 
       renderDetailPage()
 
-      expect(screen.getByText('80,000 km')).toBeInTheDocument()
+      const expectedOdometer = `${baseTask.odometer.toLocaleString()} km`.replace(/\s+/gu, ' ')
+
+      expect(
+        screen.getByText((_, element) => {
+          const text = element?.textContent?.replace(/\s+/gu, ' ')
+          return text === expectedOdometer
+        }),
+      ).toBeInTheDocument()
     })
 
     it('renders part line items with status badge and no unit price', () => {
