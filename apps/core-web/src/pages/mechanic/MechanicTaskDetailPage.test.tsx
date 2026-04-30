@@ -20,10 +20,6 @@ const ORDER_ID = 'order-1'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-function makeTask(overrides: Partial<typeof baseTask> = {}) {
-  return { ...baseTask, ...overrides }
-}
-
 const baseTask = {
   taskId: TASK_ID,
   taskTitle: 'Oil Change',
@@ -46,6 +42,10 @@ const baseTask = {
   }>,
   createdAt: '2026-04-28T10:00:00.000Z',
   updatedAt: '2026-04-28T10:00:00.000Z',
+}
+
+function makeTask(overrides: Partial<typeof baseTask> = {}) {
+  return { ...baseTask, ...overrides }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

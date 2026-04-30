@@ -13,10 +13,6 @@ const MECHANIC_ID = '11111111-1111-1111-1111-111111111111'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-function makeQueueItem(overrides: Partial<typeof baseItem> = {}) {
-  return { ...baseItem, ...overrides }
-}
-
 const baseItem = {
   taskId: '22222222-2222-2222-2222-222222222222',
   taskTitle: 'Oil Change',
@@ -30,6 +26,10 @@ const baseItem = {
   scheduledDate: null,
   partLines: [],
   updatedAt: '2026-04-28T10:00:00.000Z',
+}
+
+function makeQueueItem(overrides: Partial<typeof baseItem> = {}) {
+  return { ...baseItem, ...overrides }
 }
 
 const mockMechanic = {
@@ -49,7 +49,7 @@ function createQueryMock<T>(data: T) {
   return { data, isLoading: false, refetch: vi.fn() }
 }
 
-function setupDefaultMocks(items: typeof baseItem[] = [makeQueueItem()]) {
+function setupDefaultMocks(items: (typeof baseItem)[] = [makeQueueItem()]) {
   asMock(mechanicApi.useMechanicQueue).mockReturnValue(
     createQueryMock({ data: items }),
   )
