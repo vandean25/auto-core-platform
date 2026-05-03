@@ -63,8 +63,10 @@ We will introduce a **Mechanic Digital Repair Order** execution layer for tablet
   - In the current tenant membership model this may map to `TenantMemberRole.TECH`.
   - Renaming or splitting auth roles into a literal `MECHANIC` role is out of scope for this ADR unless handled by a separate auth migration ADR.
 - **Login entrypoint:** A mechanic user signs in through a dedicated mechanic/tablet entrypoint and lands directly in their own queue.
-  - The application must resolve the mechanic identity from the authenticated session; a mechanic must not pick or switch to another mechanic profile after login.
-  - The mechanic/tablet session must not expose or route into the core back-office application shell.
+  - This ADR defines the **target-state migration** away from the current shared-tablet pattern where the client can select/store a mechanic identity and send `mechanicId` on requests.
+  - Target-state mechanism: the backend resolves the active mechanic server-side from the authenticated user session plus active tenant context, matching that session to exactly one active `Employee` with `role = MECHANIC` for mechanic-mode access.
+  - A mechanic must not pick or switch to another mechanic profile after login; implementation must remove mechanic selector controls, stop persisting a client-chosen mechanic identity for queue access, and eliminate client-supplied `mechanicId` as the source of truth for authorization.
+  - The mechanic/tablet session must not expose or route into the core back-office application shell; access control must be enforced by route guards/session mode on the frontend and by backend authorization on non-mechanic endpoints.
 
 ### 2. Assignment Source of Truth
 
@@ -418,6 +420,12 @@ Mechanic endpoints must enforce permission boundaries server-side. The tablet UI
 - Override lock dates, workflow states, or assignment constraints.
 - Access tenant/team/platform administration.
 - Access or log into the core back-office application from the mechanic/tablet experience.
+
+Technical acceptance criteria for the core-app prohibition:
+
+1. A mechanic-mode session may load only the dedicated mechanic/tablet routes (for example `/mechanic/*`); navigation to the main back-office SPA routes must redirect away or require a separate non-mechanic sign-in flow.
+2. A mechanic-mode session may call only the dedicated mechanic API surface (for example `/api/mechanic/*`); non-mechanic/back-office endpoints must reject the request server-side even if the underlying tenant member still maps to `TenantMemberRole.TECH`.
+3. Tenant switching, role switching, app switching, or mechanic switching must not happen inside an active mechanic-mode session; changing to the core app requires ending mechanic mode and starting a separate authorized session.
 
 #### 8.3 Tenant Isolation
 
