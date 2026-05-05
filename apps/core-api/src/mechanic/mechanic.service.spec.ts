@@ -82,20 +82,18 @@ describe('MechanicService', () => {
     );
   });
 
-  // ─── assertMechanicAccess ────────────────────────────────────────────────
+  // ─── resolveMechanic ────────────────────────────────────────────────────
 
-  describe('assertMechanicAccess()', () => {
+  describe('resolveMechanic()', () => {
     it('throws ForbiddenException when authenticated user is not TECH', async () => {
       (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
-        userId: 'user-1',
+        userId: 'firebase-uid-1',
         email: 'advisor@workshop.at',
         tenantId: TENANT_ID,
         role: 'SALES',
       });
 
-      await expect(
-        service.assertMechanicAccess(MECHANIC_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ForbiddenException when there is no authenticated user', async () => {
@@ -103,42 +101,36 @@ describe('MechanicService', () => {
         undefined,
       );
 
-      await expect(
-        service.assertMechanicAccess(MECHANIC_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws NotFoundException when employee not found in tenant', async () => {
+    it('throws ForbiddenException when no linked MECHANIC employee is found', async () => {
       (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue(null);
 
-      await expect(
-        service.assertMechanicAccess(MECHANIC_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
     });
 
-    it('passes when user is TECH and employee exists', async () => {
+    it('returns the employee id when user is TECH and employee is linked', async () => {
       (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue({
         id: MECHANIC_ID,
       });
 
-      await expect(
-        service.assertMechanicAccess(MECHANIC_ID),
-      ).resolves.toBeUndefined();
+      await expect(service.resolveMechanic()).resolves.toBe(MECHANIC_ID);
     });
 
-    it('queries employee with tenant isolation and MECHANIC role filter', async () => {
+    it('queries employee by session userId (firebaseUid), tenant_id, MECHANIC role, and is_active', async () => {
       (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue({
         id: MECHANIC_ID,
       });
 
-      await service.assertMechanicAccess(MECHANIC_ID);
+      await service.resolveMechanic();
 
       expect(mockPrisma.employee.findFirst).toHaveBeenCalledWith({
         where: {
-          id: MECHANIC_ID,
           tenant_id: TENANT_ID,
           role: 'MECHANIC',
           is_active: true,
+          user: { firebaseUid: 'user-1' },
         },
         select: { id: true },
       });

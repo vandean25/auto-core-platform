@@ -138,14 +138,18 @@ export class MechanicService {
   }
 
   /**
-   * Resolves and validates the current authenticated user as a MECHANIC
-   * employee for the given tenant.
+   * Resolves the current authenticated user to their linked MECHANIC employee
+   * record for the active tenant and returns the employee ID.
+   *
+   * Server-side resolution: the mechanic identity is derived exclusively from
+   * the authenticated session (Firebase UID → Employee.user_id) and the active
+   * tenant context.  The client must not supply a mechanicId; ADR-0014 §1 target-state.
    *
    * Throws ForbiddenException if the user is not a TECH tenant member.
-   * Throws NotFoundException if no active MECHANIC employee exists for the
-   * given mechanicId within the tenant.
+   * Throws ForbiddenException if no active MECHANIC employee is linked to this
+   * user account within the tenant (prompt the user to contact their administrator).
    */
-  async assertMechanicAccess(mechanicId: string): Promise<void> {
+  async resolveMechanic(): Promise<string> {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user || user.role !== 'TECH') {
       throw new ForbiddenException(
@@ -157,19 +161,22 @@ export class MechanicService {
 
     const employee = await this.prisma.employee.findFirst({
       where: {
-        id: mechanicId,
         tenant_id: tenantId,
         role: 'MECHANIC',
         is_active: true,
+        user: { firebaseUid: user.userId },
       },
       select: { id: true },
     });
 
     if (!employee) {
-      throw new NotFoundException(
-        `Active mechanic employee ${mechanicId} not found in this tenant.`,
+      throw new ForbiddenException(
+        'No active mechanic profile is linked to your account in this tenant. ' +
+          'Contact your administrator.',
       );
     }
+
+    return employee.id;
   }
 
   /**

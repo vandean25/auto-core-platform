@@ -15,7 +15,6 @@ vi.mock('sonner', () => ({
   },
 }))
 
-const MECHANIC_ID = '11111111-1111-1111-1111-111111111111'
 const TASK_ID = '22222222-2222-2222-2222-222222222222'
 const ORDER_ID = 'order-1'
 
@@ -87,7 +86,7 @@ function setupDefaultMocks(task = makeTask()) {
 }
 
 function renderDetailPage(
-  path = `/mechanic/tasks/${TASK_ID}?mechanicId=${MECHANIC_ID}`,
+  path = `/mechanic/tasks/${TASK_ID}`,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -315,7 +314,6 @@ describe('MechanicTaskDetailPage', () => {
       })
 
       expect(mutateMock).toHaveBeenCalledWith({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { mechanicNotes: 'Oil dark.' },
       })
@@ -440,7 +438,6 @@ describe('MechanicTaskDetailPage', () => {
       await waitFor(() => {
         expect(switchMock).toHaveBeenCalledWith(
           expect.objectContaining({
-            mechanicId: MECHANIC_ID,
             taskId: TASK_ID,
           }),
         )
@@ -481,7 +478,6 @@ describe('MechanicTaskDetailPage', () => {
         expect(switchMock).toHaveBeenCalled()
         // Then start was called as fallback
         expect(startMock).toHaveBeenCalledWith({
-          mechanicId: MECHANIC_ID,
           taskId: TASK_ID,
         })
       })
@@ -599,30 +595,6 @@ describe('MechanicTaskDetailPage', () => {
       renderDetailPage()
 
       expect(screen.getByText('Task not found or access denied.')).toBeInTheDocument()
-    })
-
-    it('shows "No mechanic selected" when mechanicId is missing', () => {
-      // Path without mechanicId query param; localStorage is empty
-      asMock(mechanicApi.useMechanicTaskDetail).mockReturnValue({
-        data: undefined,
-        isLoading: false,
-        refetch: vi.fn(),
-      })
-      asMock(mechanicApi.useStartTask).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useSwitchTask).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.usePauseTask).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useCompleteTask).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useRequestPart).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useCreateMediaUploadPolicy).mockReturnValue(createMutationMock())
-      asMock(mechanicApi.useSaveMediaMetadata).mockReturnValue(createMutationMock())
-
-      // Use path without mechanicId; ensure localStorage is clear
-      window.localStorage.clear()
-
-      renderDetailPage(`/mechanic/tasks/${TASK_ID}`)
-
-      expect(screen.getByText('No mechanic selected.')).toBeInTheDocument()
     })
   })
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   ArrowLeft,
@@ -47,16 +47,7 @@ import type {
 } from '@/api/mechanic'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
-const MECHANIC_ID_KEY = 'acp:mechanic-id'
 const DEBOUNCE_MS = 750
-
-function readStoredMechanicId(): string {
-  try {
-    return window.localStorage.getItem(MECHANIC_ID_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
 
 type PauseReason = PauseTaskPayload['pauseReason']
 type SwitchReason = SwitchTaskPayload['previousPauseReason']
@@ -114,10 +105,8 @@ function SaveStateIndicator({ state }: { state: SaveState }) {
 export default function MechanicTaskDetailPage() {
   const navigate = useNavigate()
   const { taskId = '' } = useParams<{ taskId: string }>()
-  const [searchParams] = useSearchParams()
-  const mechanicId = searchParams.get('mechanicId') ?? readStoredMechanicId()
 
-  const { data: task, isLoading, refetch } = useMechanicTaskDetail(mechanicId, taskId)
+  const { data: task, isLoading, refetch } = useMechanicTaskDetail(taskId)
   const startTask = useStartTask()
   const switchTask = useSwitchTask()
   const pauseTask = usePauseTask()
@@ -207,7 +196,7 @@ export default function MechanicTaskDetailPage() {
     cancelPendingSave()
     autoSaveTimerRef.current = setTimeout(() => {
       void saveDiagnostics
-        .mutateAsync({ mechanicId, taskId, payload: { mechanicNotes: value } })
+        .mutateAsync({ taskId, payload: { mechanicNotes: value } })
         .then(() => setSaveState('saved'))
         .catch((err: unknown) => {
           console.error('[MechanicTaskDetail] Auto-save diagnostics failed:', err)
@@ -219,7 +208,7 @@ export default function MechanicTaskDetailPage() {
   // ── Start ──
   const handleStart = async () => {
     try {
-      await startTask.mutateAsync({ mechanicId, taskId })
+      await startTask.mutateAsync({ taskId })
       toast.success('Task started — punch-in recorded')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to start task'))
@@ -232,7 +221,6 @@ export default function MechanicTaskDetailPage() {
     setSwitchRetrying(false)
     try {
       await switchTask.mutateAsync({
-        mechanicId,
         taskId,
         payload: { previousPauseReason: selectedSwitchReason },
       })
@@ -244,7 +232,7 @@ export default function MechanicTaskDetailPage() {
         setSwitchRetrying(true)
         await refetch()
         try {
-          await startTask.mutateAsync({ mechanicId, taskId })
+          await startTask.mutateAsync({ taskId })
           toast.success('Task started — punch-in recorded')
           setSwitchDialogOpen(false)
         } catch (startError: unknown) {
@@ -267,7 +255,6 @@ export default function MechanicTaskDetailPage() {
     cancelPendingSave()
     try {
       await pauseTask.mutateAsync({
-        mechanicId,
         taskId,
         payload: { pauseReason: selectedPauseReason },
       })
@@ -282,9 +269,9 @@ export default function MechanicTaskDetailPage() {
   const handleComplete = async () => {
     cancelPendingSave()
     try {
-      await completeTask.mutateAsync({ mechanicId, taskId })
+      await completeTask.mutateAsync({ taskId })
       toast.success('Task marked as complete')
-      navigate(`/mechanic/queue?mechanicId=${encodeURIComponent(mechanicId)}`)
+      navigate('/mechanic/queue')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to complete task'))
     }
@@ -308,7 +295,6 @@ export default function MechanicTaskDetailPage() {
     setPartFormError('')
     try {
       await requestPart.mutateAsync({
-        mechanicId,
         taskId,
         payload: { itemNo: partForm.itemNo.trim(), description: partForm.description.trim(), qty },
       })
@@ -333,7 +319,6 @@ export default function MechanicTaskDetailPage() {
       const mimeType = file.type as RequestMediaUploadPayload['mimeType']
       // 1. Get presigned POST policy from backend
       const policy = await createUploadPolicy.mutateAsync({
-        mechanicId,
         taskId,
         payload: { mimeType, sizeBytes: file.size, filename: file.name },
       })
@@ -353,7 +338,6 @@ export default function MechanicTaskDetailPage() {
 
       // 3. Persist metadata in backend
       await saveMediaMeta.mutateAsync({
-        mechanicId,
         taskId,
         payload: {
           storageKey: policy.storageKey,
@@ -381,17 +365,6 @@ export default function MechanicTaskDetailPage() {
   }
 
   // ── Early returns ──
-  if (!mechanicId) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <p className="text-slate-500">No mechanic selected.</p>
-        <Button variant="outline" onClick={() => navigate('/mechanic/queue')}>
-          Go to Queue
-        </Button>
-      </div>
-    )
-  }
-
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -406,9 +379,7 @@ export default function MechanicTaskDetailPage() {
         <p className="text-slate-500">Task not found or access denied.</p>
         <Button
           variant="outline"
-          onClick={() =>
-            navigate(`/mechanic/queue?mechanicId=${encodeURIComponent(mechanicId)}`)
-          }
+          onClick={() => navigate('/mechanic/queue')}
         >
           Back to Queue
         </Button>
@@ -429,9 +400,7 @@ export default function MechanicTaskDetailPage() {
             variant="ghost"
             size="sm"
             className="mt-0.5 shrink-0"
-            onClick={() =>
-              navigate(`/mechanic/queue?mechanicId=${encodeURIComponent(mechanicId)}`)
-            }
+            onClick={() => navigate('/mechanic/queue')}
             aria-label="Back to queue"
           >
             <ArrowLeft className="h-4 w-4" />

@@ -1,16 +1,12 @@
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { MechanicQueueItem } from '@/api/mechanic'
 import * as mechanicApi from '@/api/mechanic'
-import * as employeesApi from '@/api/employees'
 import MechanicQueuePage from './MechanicQueuePage'
 
 vi.mock('@/api/mechanic')
-vi.mock('@/api/employees')
-
-const MECHANIC_ID = '11111111-1111-1111-1111-111111111111'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -33,14 +29,6 @@ function makeQueueItem(overrides: Partial<MechanicQueueItem> = {}): MechanicQueu
   return { ...baseItem, ...overrides }
 }
 
-const mockMechanic = {
-  id: MECHANIC_ID,
-  name: 'Max Mustermann',
-  role: 'MECHANIC' as const,
-  isActive: true,
-  sortOrder: 1,
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
@@ -53,9 +41,6 @@ function createQueryMock<T>(data: T) {
 function setupDefaultMocks(items: MechanicQueueItem[] = [makeQueueItem()]) {
   asMock(mechanicApi.useMechanicQueue).mockReturnValue(
     createQueryMock({ data: items }),
-  )
-  asMock(employeesApi.useEmployees).mockReturnValue(
-    createQueryMock({ data: [mockMechanic], meta: { total: 1, page: 1, limit: 100, totalPages: 1 } }),
   )
 }
 
@@ -80,19 +65,16 @@ function renderQueuePage(initialPath = '/mechanic/queue') {
 describe('MechanicQueuePage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Seed localStorage with a valid mechanicId so the queue page is shown
-    window.localStorage.setItem('acp:mechanic-id', MECHANIC_ID)
   })
 
   afterEach(() => {
     cleanup()
-    window.localStorage.clear()
   })
 
   // ─── Queue visibility ────────────────────────────────────────────────────────
 
   describe('queue visibility', () => {
-    it('renders the queue table with task rows when mechanicId is set', () => {
+    it('renders the queue table with task rows', () => {
       setupDefaultMocks()
 
       renderQueuePage()
@@ -144,12 +126,12 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('Oil Change')).toBeInTheDocument()
     })
 
-    it('calls useMechanicQueue with the stored mechanicId', () => {
+    it('calls useMechanicQueue without arguments', () => {
       setupDefaultMocks()
 
       renderQueuePage()
 
-      expect(mechanicApi.useMechanicQueue).toHaveBeenCalledWith(MECHANIC_ID)
+      expect(mechanicApi.useMechanicQueue).toHaveBeenCalledWith()
     })
 
     it('does not render customer PII fields in the queue table', () => {
@@ -158,78 +140,6 @@ describe('MechanicQueuePage', () => {
       renderQueuePage()
 
       expect(screen.queryByText('john@example.com')).not.toBeInTheDocument()
-      expect(screen.queryByText('Max Mustermann')).not.toBeInTheDocument() // mechanic name not in table
-    })
-  })
-
-  // ─── Mechanic picker ─────────────────────────────────────────────────────────
-
-  describe('mechanic picker', () => {
-    it('shows the picker when no mechanicId is stored', () => {
-      window.localStorage.clear()
-      setupDefaultMocks()
-
-      renderQueuePage()
-
-      expect(screen.getByText('Select Your Profile')).toBeInTheDocument()
-    })
-
-    it('shows active mechanic names in the picker', () => {
-      window.localStorage.clear()
-      setupDefaultMocks()
-
-      renderQueuePage()
-
-      expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
-    })
-
-    it('selecting a mechanic stores their id and shows the queue', async () => {
-      window.localStorage.clear()
-
-      // First render: show picker
-      asMock(mechanicApi.useMechanicQueue).mockReturnValue(
-        createQueryMock({ data: [] }),
-      )
-      asMock(employeesApi.useEmployees).mockReturnValue(
-        createQueryMock({
-          data: [mockMechanic],
-          meta: { total: 1, page: 1, limit: 100, totalPages: 1 },
-        }),
-      )
-
-      renderQueuePage()
-
-      expect(screen.getByText('Max Mustermann')).toBeInTheDocument()
-
-      fireEvent.click(screen.getByText('Max Mustermann'))
-
-      await waitFor(() => {
-        expect(window.localStorage.getItem('acp:mechanic-id')).toBe(MECHANIC_ID)
-      })
-    })
-
-    it('shows loading state while mechanics are loading', () => {
-      window.localStorage.clear()
-      asMock(employeesApi.useEmployees).mockReturnValue({ data: undefined, isLoading: true })
-      asMock(mechanicApi.useMechanicQueue).mockReturnValue(createQueryMock({ data: [] }))
-
-      renderQueuePage()
-
-      expect(screen.getByText('Loading mechanics…')).toBeInTheDocument()
-    })
-
-    it('shows fallback message when no active mechanics exist', () => {
-      window.localStorage.clear()
-      asMock(employeesApi.useEmployees).mockReturnValue(
-        createQueryMock({ data: [], meta: { total: 0, page: 1, limit: 100, totalPages: 1 } }),
-      )
-      asMock(mechanicApi.useMechanicQueue).mockReturnValue(createQueryMock({ data: [] }))
-
-      renderQueuePage()
-
-      expect(
-        screen.getByText('No active mechanics found for this tenant.'),
-      ).toBeInTheDocument()
     })
   })
 
@@ -244,25 +154,29 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByLabelText('Refresh queue')).toBeInTheDocument()
     })
 
-    it('renders a "Switch Mechanic" button to clear stored mechanicId', () => {
+    it('does not render a "Switch Mechanic" button', () => {
       setupDefaultMocks()
 
       renderQueuePage()
 
-      expect(screen.getByText('Switch Mechanic')).toBeInTheDocument()
+      expect(screen.queryByText('Switch Mechanic')).not.toBeInTheDocument()
     })
+  })
 
-    it('clicking "Switch Mechanic" clears mechanic state and shows the picker', () => {
+  // ─── Navigation ─────────────────────────────────────────────────────────────
+
+  describe('row navigation', () => {
+    it('clicking a task row navigates to task detail without mechanicId param', async () => {
       setupDefaultMocks()
+      const { container } = renderQueuePage()
 
-      renderQueuePage()
+      const row = container.querySelector('tbody tr')
+      expect(row).not.toBeNull()
+      row!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-      fireEvent.click(screen.getByText('Switch Mechanic'))
-
-      // The component clears its internal state, causing the picker to render.
-      // Note: writeStoredMechanicId rejects non-UUID strings so localStorage
-      // is not explicitly cleared, but the component state is reset to ''.
-      expect(screen.getByText('Select Your Profile')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Task Detail')).toBeInTheDocument()
+      })
     })
   })
 })

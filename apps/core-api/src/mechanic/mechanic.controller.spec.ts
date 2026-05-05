@@ -20,7 +20,7 @@ describe('MechanicController', () => {
   let controller: MechanicController;
 
   const mockMechanicService = {
-    assertMechanicAccess: jest.fn().mockResolvedValue(undefined),
+    resolveMechanic: jest.fn().mockResolvedValue(MECHANIC_ID),
     getMechanicQueue: jest.fn().mockResolvedValue([]),
     getMechanicTaskDetail: jest.fn(),
     startTask: jest.fn(),
@@ -61,31 +61,27 @@ describe('MechanicController', () => {
 
     controller = module.get(MechanicController);
     jest.clearAllMocks();
-    mockMechanicService.assertMechanicAccess.mockResolvedValue(undefined);
+    mockMechanicService.resolveMechanic.mockResolvedValue(MECHANIC_ID);
   });
 
-  it('getQueue calls assertMechanicAccess then getMechanicQueue', async () => {
+  it('getQueue calls resolveMechanic then getMechanicQueue', async () => {
     mockMechanicService.getMechanicQueue.mockResolvedValue([]);
 
-    const result = await controller.getQueue(MECHANIC_ID);
+    const result = await controller.getQueue();
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(
-      MECHANIC_ID,
-    );
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.getMechanicQueue).toHaveBeenCalledWith(
       MECHANIC_ID,
     );
     expect(result).toEqual({ data: [] } satisfies MechanicQueueResponseDto);
   });
 
-  it('getTaskDetail calls assertMechanicAccess then getMechanicTaskDetail', async () => {
+  it('getTaskDetail calls resolveMechanic then getMechanicTaskDetail', async () => {
     mockMechanicService.getMechanicTaskDetail.mockResolvedValue(baseDetail);
 
-    const result = await controller.getTaskDetail(MECHANIC_ID, TASK_ID);
+    const result = await controller.getTaskDetail(TASK_ID);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(
-      MECHANIC_ID,
-    );
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.getMechanicTaskDetail).toHaveBeenCalledWith(
       MECHANIC_ID,
       TASK_ID,
@@ -93,49 +89,49 @@ describe('MechanicController', () => {
     expect(result).toBe(baseDetail);
   });
 
-  it('startTask calls assertMechanicAccess then startTask', async () => {
+  it('startTask calls resolveMechanic then startTask', async () => {
     mockMechanicService.startTask.mockResolvedValue(baseDetail);
 
-    const result = await controller.startTask(MECHANIC_ID, TASK_ID);
+    const result = await controller.startTask(TASK_ID);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.startTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
     expect(result).toBe(baseDetail);
   });
 
-  it('switchTask calls assertMechanicAccess then switchTask with dto', async () => {
+  it('switchTask calls resolveMechanic then switchTask with dto', async () => {
     mockMechanicService.switchTask.mockResolvedValue(baseDetail);
     const dto = { previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY };
 
-    const result = await controller.switchTask(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.switchTask(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.switchTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
     expect(result).toBe(baseDetail);
   });
 
-  it('pauseTask calls assertMechanicAccess then pauseTask with dto', async () => {
+  it('pauseTask calls resolveMechanic then pauseTask with dto', async () => {
     mockMechanicService.pauseTask.mockResolvedValue(baseDetail);
     const dto = { pauseReason: LaborPauseReason.WAITING_PARTS };
 
-    const result = await controller.pauseTask(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.pauseTask(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.pauseTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
     expect(result).toBe(baseDetail);
   });
 
-  it('completeTask calls assertMechanicAccess then completeTask', async () => {
+  it('completeTask calls resolveMechanic then completeTask', async () => {
     mockMechanicService.completeTask.mockResolvedValue(baseDetail);
 
-    const result = await controller.completeTask(MECHANIC_ID, TASK_ID);
+    const result = await controller.completeTask(TASK_ID);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.completeTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
     expect(result).toBe(baseDetail);
   });
 
-  it('saveDiagnostics calls assertMechanicAccess then saveDiagnostics with dto', async () => {
+  it('saveDiagnostics calls resolveMechanic then saveDiagnostics with dto', async () => {
     const expected: SaveDiagnosticsResponseDto = {
       taskId: TASK_ID,
       mechanicNotes: 'Oil leak near valve cover.',
@@ -143,9 +139,9 @@ describe('MechanicController', () => {
     mockMechanicService.saveDiagnostics.mockResolvedValue(expected);
     const dto = { mechanicNotes: 'Oil leak near valve cover.' };
 
-    const result = await controller.saveDiagnostics(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.saveDiagnostics(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.saveDiagnostics).toHaveBeenCalledWith(
       MECHANIC_ID,
       TASK_ID,
@@ -154,7 +150,7 @@ describe('MechanicController', () => {
     expect(result).toBe(expected);
   });
 
-  it('requestPart calls assertMechanicAccess then requestPart with dto', async () => {
+  it('requestPart calls resolveMechanic then requestPart with dto', async () => {
     const expected: RequestPartResponseDto = {
       id: 'line-1',
       itemNo: 'OIL-5W30',
@@ -165,9 +161,9 @@ describe('MechanicController', () => {
     mockMechanicService.requestPart.mockResolvedValue(expected);
     const dto = { itemNo: 'OIL-5W30', description: '5W-30 Engine Oil 5L', qty: 2 };
 
-    const result = await controller.requestPart(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.requestPart(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.requestPart).toHaveBeenCalledWith(
       MECHANIC_ID,
       TASK_ID,
@@ -176,7 +172,7 @@ describe('MechanicController', () => {
     expect(result).toBe(expected);
   });
 
-  it('createMediaUploadPolicy calls assertMechanicAccess then createMediaUploadPolicy', async () => {
+  it('createMediaUploadPolicy calls resolveMechanic then createMediaUploadPolicy', async () => {
     const expected: MediaUploadPolicyDto = {
       uploadUrl: 'https://storage.googleapis.com/bucket',
       formFields: { key: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg' },
@@ -187,9 +183,9 @@ describe('MechanicController', () => {
     mockMechanicService.createMediaUploadPolicy.mockResolvedValue(expected);
     const dto = { mimeType: 'image/jpeg' as const, sizeBytes: 1024 * 100 };
 
-    const result = await controller.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.createMediaUploadPolicy(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.createMediaUploadPolicy).toHaveBeenCalledWith(
       MECHANIC_ID,
       TASK_ID,
@@ -198,7 +194,7 @@ describe('MechanicController', () => {
     expect(result).toBe(expected);
   });
 
-  it('saveMediaMetadata calls assertMechanicAccess then saveMediaMetadata', async () => {
+  it('saveMediaMetadata calls resolveMechanic then saveMediaMetadata', async () => {
     const expected: WorkshopMediaDto = {
       id: 'media-1',
       workshopOrderId: 'order-1',
@@ -222,9 +218,9 @@ describe('MechanicController', () => {
       sizeBytes: 102400,
     };
 
-    const result = await controller.saveMediaMetadata(MECHANIC_ID, TASK_ID, dto);
+    const result = await controller.saveMediaMetadata(TASK_ID, dto);
 
-    expect(mockMechanicService.assertMechanicAccess).toHaveBeenCalledWith(MECHANIC_ID);
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
     expect(mockMechanicService.saveMediaMetadata).toHaveBeenCalledWith(
       MECHANIC_ID,
       TASK_ID,
