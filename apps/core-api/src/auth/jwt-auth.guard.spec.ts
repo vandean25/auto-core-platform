@@ -20,26 +20,6 @@ const ADMIN_USER = {
   role: 'ADMIN',
 };
 
-function createContext(
-  user: object,
-  metadata: Record<string, boolean> = {},
-): ExecutionContext {
-  const mockRequest = {
-    headers: { authorization: 'Bearer test-token' },
-    user: undefined as unknown,
-  };
-  return {
-    getHandler: () => ({}),
-    getClass: () => ({}),
-    switchToHttp: () => ({
-      getRequest: () => mockRequest,
-    }),
-    // The Reflector reads from handler/class; we stub it externally per test.
-    _metadata: metadata,
-    _user: user,
-  } as unknown as ExecutionContext;
-}
-
 function buildGuard(
   user: object,
   handlerMetadata: Record<string, boolean> = {},
@@ -109,7 +89,7 @@ describe('JwtAuthGuard — mechanic-mode restrictions (ADR-0014 §8.2)', () => {
       [MECHANIC_ACCESSIBLE_KEY]: false,
     });
     await expect(guard.canActivate(context)).rejects.toThrow(
-      'Mechanic-mode sessions may only access /api/mechanic/* endpoints.',
+      'Mechanic-mode sessions may only access endpoints marked @MechanicAccessible().',
     );
   });
 

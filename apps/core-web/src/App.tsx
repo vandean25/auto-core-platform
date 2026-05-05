@@ -297,15 +297,17 @@ type ShellRouterProps = AppShellProps & {
 function ShellRouter(props: ShellRouterProps) {
   const location = useLocation()
 
+  const isMechanicPath = location.pathname === '/mechanic' || location.pathname.startsWith('/mechanic/')
+
   // ADR-0014 §8.2: A mechanic-mode session (TECH role) may load only the
   // dedicated mechanic/tablet routes. Redirect any other navigation to the
   // mechanic queue.
   const isMechanicMode = props.activeRole === 'TECH'
-  if (isMechanicMode && !location.pathname.startsWith('/mechanic')) {
+  if (isMechanicMode && !isMechanicPath) {
     return <Navigate to="/mechanic/queue" replace />
   }
 
-  if (location.pathname.startsWith('/mechanic')) {
+  if (isMechanicPath) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}

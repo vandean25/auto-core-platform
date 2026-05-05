@@ -66,7 +66,7 @@ export class JwtAuthGuard implements CanActivate {
 
       if (!isMechanicAccessible) {
         throw new ForbiddenException(
-          'Mechanic-mode sessions may only access /api/mechanic/* endpoints.',
+          'Mechanic-mode sessions may only access endpoints marked @MechanicAccessible().',
         );
       }
     }
