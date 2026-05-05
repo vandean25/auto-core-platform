@@ -105,7 +105,6 @@ function SaveStateIndicator({ state }: { state: SaveState }) {
 export default function MechanicTaskDetailPage() {
   const navigate = useNavigate()
   const { taskId = '' } = useParams<{ taskId: string }>()
-
   const { data: task, isLoading, refetch } = useMechanicTaskDetail(taskId)
   const startTask = useStartTask()
   const switchTask = useSwitchTask()

@@ -13,5 +13,7 @@ ALTER TABLE "employees" ADD CONSTRAINT "employees_user_id_fkey"
 CREATE INDEX "employees_user_id_idx" ON "employees"("user_id");
 
 -- Unique constraint: one employee profile per user per tenant.
--- PostgreSQL UNIQUE allows multiple NULLs (NULL != NULL), so this is safe for nullable columns.
-CREATE UNIQUE INDEX "employees_tenant_id_user_id_key" ON "employees"("tenant_id", "user_id");
+-- Partial unique index to explicitly enforce uniqueness only when user_id is populated.
+-- (NULL values are excluded, allowing multiple employees without a linked user account.)
+CREATE UNIQUE INDEX "employees_tenant_id_user_id_key" ON "employees"("tenant_id", "user_id")
+  WHERE "user_id" IS NOT NULL;
