@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import OpenAI from 'openai';
-import { SpeechNoteConfigError } from './speech-note.errors';
 import {
   SPEECH_NOTE_OPENAI_CLIENT,
   SpeechNoteService,
@@ -10,13 +9,20 @@ import {
   providers: [
     {
       provide: SPEECH_NOTE_OPENAI_CLIENT,
-      useFactory: (): OpenAI => {
+      /**
+       * Returns an initialised OpenAI client when OPENAI_API_KEY is configured,
+       * or `null` when the variable is absent.
+       *
+       * Returning `null` rather than throwing here ensures that the rest of the
+       * application can boot (and existing e2e test suites can compile) in
+       * environments where OPENAI_API_KEY has not been provisioned yet.
+       * SpeechNoteService validates the client at call time and raises a clear
+       * SpeechNoteConfigError if it is null.
+       */
+      useFactory: (): OpenAI | null => {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-          throw new SpeechNoteConfigError(
-            'OPENAI_API_KEY environment variable is required for speech-note processing. ' +
-              'Configure this variable on the server; never expose it to the browser.',
-          );
+          return null;
         }
         return new OpenAI({ apiKey });
       },

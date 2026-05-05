@@ -65,8 +65,8 @@ describe('TenantMemberService', () => {
     };
 
     jest
-      .spyOn(service, 'getFirebaseAuth')
-      .mockReturnValue(mockFirebaseAuth);
+      .spyOn(service as never, 'getFirebaseAuth')
+      .mockReturnValue(mockFirebaseAuth as never);
   });
 
   it('lists tenant members with related user data in a paginated response', async () => {

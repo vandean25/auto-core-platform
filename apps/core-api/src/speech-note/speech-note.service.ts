@@ -22,6 +22,9 @@ const AUDIO_MODEL = 'whisper-1';
 /** GPT model used for text-level translation when canonical language is not English. */
 const TEXT_TRANSLATION_MODEL = 'gpt-4o-mini';
 
+/** Regex that matches valid BCP-47 language subtags (e.g. "en", "th", "zh-TW"). */
+const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
 /**
  * Backend adapter for mechanic voice-note transcription and translation.
  *
@@ -40,16 +43,19 @@ const TEXT_TRANSLATION_MODEL = 'gpt-4o-mini';
  * Raw transcript text and audio content are **never** logged to prevent
  * accidental exposure of sensitive mechanic speech.
  */
-/** Regex that matches valid BCP-47 language subtags (e.g. "en", "th", "zh-TW"). */
-const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
-
 @Injectable()
 export class SpeechNoteService {
   private readonly logger = new Logger(SpeechNoteService.name);
   private readonly canonicalLanguage: string;
 
   constructor(
-    @Inject(SPEECH_NOTE_OPENAI_CLIENT) private readonly openai: OpenAI,
+    /**
+     * Injected OpenAI client. May be `null` when OPENAI_API_KEY is not
+     * configured; in that case, `transcribeNote()` will throw
+     * {@link SpeechNoteConfigError} instead of failing at module bootstrap.
+     */
+    @Inject(SPEECH_NOTE_OPENAI_CLIENT)
+    private readonly openai: OpenAI | null,
   ) {
     const lang = (process.env.SPEECH_NOTE_LANGUAGE ?? 'en')
       .toLowerCase()
@@ -70,10 +76,18 @@ export class SpeechNoteService {
    *   for the duration of this call and is never persisted.
    * @returns A {@link SpeechNoteDraft} in the configured canonical language.
    *
+   * @throws {SpeechNoteConfigError} When OPENAI_API_KEY is not configured.
    * @throws {SpeechNoteInputError} When the audio buffer is empty.
    * @throws {SpeechNoteProviderError} When the AI provider returns an error.
    */
   async transcribeNote(input: TranscribeAudioInput): Promise<SpeechNoteDraft> {
+    if (!this.openai) {
+      throw new SpeechNoteConfigError(
+        'OPENAI_API_KEY environment variable is required for speech-note processing. ' +
+          'Configure this variable on the server; never expose it to the browser.',
+      );
+    }
+
     if (!input.audioBuffer || input.audioBuffer.length === 0) {
       throw new SpeechNoteInputError('Audio buffer must not be empty.');
     }
@@ -83,9 +97,9 @@ export class SpeechNoteService {
     });
 
     if (this.canonicalLanguage === 'en') {
-      return this.translateToEnglish(file);
+      return this.translateToEnglish(this.openai, file);
     }
-    return this.transcribeAndTranslate(file);
+    return this.transcribeAndTranslate(this.openai, file);
   }
 
   // ---------------------------------------------------------------------------
@@ -94,10 +108,11 @@ export class SpeechNoteService {
 
   /** Uses the Whisper translation endpoint which always outputs English. */
   private async translateToEnglish(
+    openai: OpenAI,
     file: Awaited<ReturnType<typeof toFile>>,
   ): Promise<SpeechNoteDraft> {
     try {
-      const response = (await this.openai.audio.translations.create({
+      const response = (await openai.audio.translations.create({
         file,
         model: AUDIO_MODEL,
         response_format: 'verbose_json',
@@ -119,6 +134,7 @@ export class SpeechNoteService {
    * text-level translation to the canonical language when needed.
    */
   private async transcribeAndTranslate(
+    openai: OpenAI,
     file: Awaited<ReturnType<typeof toFile>>,
   ): Promise<SpeechNoteDraft> {
     let rawText: string;
@@ -126,7 +142,7 @@ export class SpeechNoteService {
     let durationSeconds: number | undefined;
 
     try {
-      const transcription = (await this.openai.audio.transcriptions.create({
+      const transcription = (await openai.audio.transcriptions.create({
         file,
         model: AUDIO_MODEL,
         response_format: 'verbose_json',
@@ -152,7 +168,7 @@ export class SpeechNoteService {
 
     let translatedText: string;
     try {
-      const chatResponse = await this.openai.chat.completions.create({
+      const chatResponse = await openai.chat.completions.create({
         model: TEXT_TRANSLATION_MODEL,
         messages: [
           {

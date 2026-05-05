@@ -104,7 +104,7 @@ export class BrandService {
       return await this.getBrandRepository().create({
         ...createBrandDto,
         tenant_id: tenantId,
-      });
+      } as unknown as Record<string, unknown>);
     } catch (error) {
       if (error instanceof ConflictError) {
         throw new ConflictException(

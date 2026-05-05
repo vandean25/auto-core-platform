@@ -57,7 +57,7 @@ export class PrismaService
       },
     });
 
-    return serviceProxy;
+    return serviceProxy as PrismaService;
   }
 
   async onModuleInit() {

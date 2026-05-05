@@ -55,18 +55,20 @@ function makeAPIError(status: number, type: string): APIError {
 // ---------------------------------------------------------------------------
 
 function buildService(
-  openai: OpenAI,
+  openai: OpenAI | null,
   canonicalLanguage = 'en',
 ): SpeechNoteService {
   const original = process.env.SPEECH_NOTE_LANGUAGE;
   process.env.SPEECH_NOTE_LANGUAGE = canonicalLanguage;
-  const service = new SpeechNoteService(openai);
-  if (original === undefined) {
-    delete process.env.SPEECH_NOTE_LANGUAGE;
-  } else {
-    process.env.SPEECH_NOTE_LANGUAGE = original;
+  try {
+    return new SpeechNoteService(openai);
+  } finally {
+    if (original === undefined) {
+      delete process.env.SPEECH_NOTE_LANGUAGE;
+    } else {
+      process.env.SPEECH_NOTE_LANGUAGE = original;
+    }
   }
-  return service;
 }
 
 // ---------------------------------------------------------------------------
@@ -352,10 +354,30 @@ describe('SpeechNoteService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Startup / config fast-fail (module-level, but verified here for clarity)
+  // Missing provider configuration (null client)
   // -------------------------------------------------------------------------
 
-  describe('SpeechNoteConfigError is a SpeechNoteError subclass', () => {
+  describe('missing OPENAI_API_KEY (null client)', () => {
+    it('throws SpeechNoteConfigError when called with a null client', async () => {
+      const service = buildService(null);
+      await expect(service.transcribeNote(DUMMY_INPUT)).rejects.toBeInstanceOf(
+        SpeechNoteConfigError,
+      );
+    });
+
+    it('SpeechNoteConfigError message mentions OPENAI_API_KEY', async () => {
+      const service = buildService(null);
+      await expect(service.transcribeNote(DUMMY_INPUT)).rejects.toThrow(
+        'OPENAI_API_KEY',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Error classes
+  // -------------------------------------------------------------------------
+
+  describe('error classes', () => {
     it('SpeechNoteConfigError is instance of Error', () => {
       const err = new SpeechNoteConfigError('missing key');
       expect(err).toBeInstanceOf(Error);

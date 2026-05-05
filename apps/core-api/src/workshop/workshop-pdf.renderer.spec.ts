@@ -32,7 +32,7 @@ describe('WorkshopPdfRenderer', () => {
       },
       tasks: [],
       ...overrides,
-    });
+    }) as WorkshopOrderForPdf;
 
   afterEach(() => {
     jest.restoreAllMocks();
