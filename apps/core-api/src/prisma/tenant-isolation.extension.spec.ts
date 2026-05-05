@@ -137,7 +137,7 @@ describe('applyTenantIsolation', () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const getExtensionContextSpy = jest
         .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({} as never);
+        .mockReturnValue({});
 
       try {
         await runWithTenant(() =>
@@ -169,7 +169,7 @@ describe('applyTenantIsolation', () => {
         .spyOn(Prisma, 'getExtensionContext')
         .mockReturnValue({
           FinanceSettings: { findFirst },
-        } as never);
+        });
 
       try {
         await runWithTenant(() =>

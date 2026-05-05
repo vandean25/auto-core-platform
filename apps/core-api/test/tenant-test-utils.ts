@@ -47,11 +47,11 @@ export async function createTestTenant(
     const details = error instanceof Error ? error.message : String(error);
     const code =
       error && typeof error === 'object' && 'code' in error
-        ? String((error as { code: unknown }).code)
+        ? String((error).code)
         : 'unknown';
     const meta =
       error && typeof error === 'object' && 'meta' in error
-        ? JSON.stringify((error as { meta: unknown }).meta)
+        ? JSON.stringify((error).meta)
         : 'null';
     throw new Error(
       `[createTestTenant] Failed to create tenant slug='${slug}' code=${code} meta=${meta}: ${details}`,

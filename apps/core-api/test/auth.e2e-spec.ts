@@ -153,7 +153,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/platform/probe')
@@ -193,7 +193,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/platform/probe')
@@ -206,7 +206,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/protected')
@@ -243,7 +243,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/protected')
@@ -339,7 +339,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/auth/me')
@@ -437,7 +437,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .post('/auth/switch-tenant')
@@ -485,7 +485,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .post('/auth/switch-tenant')

@@ -20,7 +20,7 @@ describe('PlaywrightBrowserService', () => {
     };
     const launchSpy = jest
       .spyOn(chromium, 'launch')
-      .mockResolvedValue(browser as never);
+      .mockResolvedValue(browser);
 
     const [first, second] = await Promise.all([
       service.getBrowser(),
@@ -46,7 +46,7 @@ describe('PlaywrightBrowserService', () => {
 
     const launchSpy = jest
       .spyOn(chromium, 'launch')
-      .mockResolvedValue(liveBrowser as never);
+      .mockResolvedValue(liveBrowser);
 
     await expect(service.getBrowser()).resolves.toBe(liveBrowser);
     expect(launchSpy).toHaveBeenCalledTimes(1);

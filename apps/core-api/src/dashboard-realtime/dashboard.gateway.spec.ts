@@ -49,7 +49,7 @@ describe('DashboardGateway', () => {
     authService = {
       authenticateBearerToken: jest.fn(),
     };
-    gateway = new DashboardGateway(authService as unknown as AuthService);
+    gateway = new DashboardGateway(authService);
   });
 
   it('disconnects immediately when socket auth token is missing', async () => {
