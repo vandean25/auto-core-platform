@@ -2223,6 +2223,11 @@ export interface components {
             role: components["schemas"]["EmployeeRole"];
             isActive: boolean;
             sortOrder: number;
+            /**
+             * Format: uuid
+             * @description The linked User.id for this employee, or null if not linked.
+             */
+            userId?: Record<string, never> | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2243,12 +2248,22 @@ export interface components {
             role: components["schemas"]["EmployeeRole"];
             isActive?: boolean;
             sortOrder?: number;
+            /**
+             * Format: uuid
+             * @description Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session.
+             */
+            userId?: string | null;
         };
         UpdateEmployeeDto: {
             name?: string;
             role?: components["schemas"]["EmployeeRole"];
             isActive?: boolean;
             sortOrder?: number;
+            /**
+             * Format: uuid
+             * @description Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1).
+             */
+            userId?: Record<string, never> | null;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */

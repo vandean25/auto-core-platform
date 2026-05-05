@@ -21,6 +21,7 @@ export class EmployeeService {
     role: EmployeeRole;
     is_active: boolean;
     sort_order: number;
+    user_id?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -30,6 +31,7 @@ export class EmployeeService {
       role: employee.role,
       isActive: employee.is_active,
       sortOrder: employee.sort_order,
+      userId: employee.user_id ?? null,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };
@@ -75,16 +77,29 @@ export class EmployeeService {
   }
 
   async create(dto: CreateEmployeeDto) {
-    const created = await this.prisma.employee.create({
-      data: {
-        name: dto.name.trim(),
-        role: dto.role,
-        is_active: dto.isActive ?? true,
-        sort_order: dto.sortOrder ?? 0,
-      } as Prisma.EmployeeUncheckedCreateInput,
-    });
+    try {
+      const created = await this.prisma.employee.create({
+        data: {
+          name: dto.name.trim(),
+          role: dto.role,
+          is_active: dto.isActive ?? true,
+          sort_order: dto.sortOrder ?? 0,
+          ...(dto.userId !== undefined && { user_id: dto.userId }),
+        } as Prisma.EmployeeUncheckedCreateInput,
+      });
 
-    return this.mapEmployee(created);
+      return this.mapEmployee(created);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'This user account is already linked to another employee in this tenant.',
+        );
+      }
+      throw error;
+    }
   }
 
   async update(id: string, dto: UpdateEmployeeDto) {
@@ -93,17 +108,30 @@ export class EmployeeService {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
 
-    const updated = await this.prisma.employee.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.role !== undefined && { role: dto.role }),
-        ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-        ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
-      },
-    });
+    try {
+      const updated = await this.prisma.employee.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name.trim() }),
+          ...(dto.role !== undefined && { role: dto.role }),
+          ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+          ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
+          ...(dto.userId !== undefined && { user_id: dto.userId }),
+        },
+      });
 
-    return this.mapEmployee(updated);
+      return this.mapEmployee(updated);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'This user account is already linked to another employee in this tenant.',
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(id: string) {

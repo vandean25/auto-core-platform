@@ -7772,6 +7772,12 @@
           "sortOrder": {
             "type": "number"
           },
+          "userId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "The linked User.id for this employee, or null if not linked."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -7851,6 +7857,12 @@
           "sortOrder": {
             "type": "number",
             "minimum": 0
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session."
           }
         },
         "required": [
@@ -7877,6 +7889,12 @@
           "sortOrder": {
             "type": "number",
             "minimum": 0
+          },
+          "userId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1)."
           }
         }
       },

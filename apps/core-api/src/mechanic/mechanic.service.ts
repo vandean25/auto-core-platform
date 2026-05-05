@@ -142,8 +142,13 @@ export class MechanicService {
    * record for the active tenant and returns the employee ID.
    *
    * Server-side resolution: the mechanic identity is derived exclusively from
-   * the authenticated session (Firebase UID → Employee.user_id) and the active
-   * tenant context.  The client must not supply a mechanicId; ADR-0014 §1 target-state.
+   * the authenticated session.  The resolution chain is:
+   *   session.userId (Firebase UID) → User.firebaseUid lookup → User.id
+   *   → Employee.user_id match within this tenant
+   *
+   * Note: Employee.user_id stores User.id (the Postgres UUID primary key),
+   * NOT the Firebase UID string.  Admins can link an existing Employee to a
+   * User account via PATCH /api/employees/:id with { "userId": "<User.id>" }.
    *
    * Throws ForbiddenException if the user is not a TECH tenant member.
    * Throws ForbiddenException if no active MECHANIC employee is linked to this
