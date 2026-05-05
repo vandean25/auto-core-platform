@@ -49,7 +49,7 @@
     "@prisma/client": "^7.8.0",
     "@prisma/extension-accelerate": "^3.0.1",
     "@prisma/instrumentation": "^7.8.0",
-    "@sentry/nestjs": "^10.50.0",
+    "@sentry/nestjs": "^10.51.0",
     "@sentry/node": "^10.50.0",
     "async-retry": "^1.3.3",
     "axios": "^1.16.0",
