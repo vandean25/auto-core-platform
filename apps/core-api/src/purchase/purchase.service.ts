@@ -79,8 +79,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -189,6 +191,8 @@ export class PurchaseService {
           }
         >();
 
+        const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
+
         for (const received of receivedItems) {
           if (!received.itemId) {
             throw new BadRequestException(
@@ -196,9 +200,7 @@ export class PurchaseService {
             );
           }
 
-          const poItem = po.items.find(
-            (i) => i.catalog_item_id === received.itemId,
-          );
+          const poItem = poItemsMap.get(received.itemId);
           if (!poItem) {
             const availableIds = po.items
               .map((i) => i.catalog_item_id)
@@ -332,8 +334,11 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+    const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -352,9 +357,7 @@ export class PurchaseService {
       }
 
       // Check if item already exists in PO
-      const existingItem = po.items.find(
-        (i) => i.catalog_item_id === item.catalogItemId,
-      );
+      const existingItem = poItemsMap.get(item.catalogItemId);
       if (existingItem) {
         throw new BadRequestException(
           `Item ${catalogItem.name} is already in this purchase order`,
