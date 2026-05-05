@@ -88,6 +88,7 @@ model User {
   activeTenant     Tenant?        @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
   memberships      TenantMember[]
   platformAdmin    PlatformAdmin?
+  employees        Employee[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -657,6 +658,8 @@ model Employee {
   id                      String          @id @default(uuid())
   tenant_id               String
   tenant                  Tenant          @relation(fields: [tenant_id], references: [id])
+  user_id                 String?         @map("user_id")
+  user                    User?           @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   name                    String
   role                    EmployeeRole
   is_active               Boolean         @default(true)
@@ -669,7 +672,9 @@ model Employee {
   updatedAt               DateTime        @updatedAt
 
   @@index([tenant_id])
+  @@index([user_id])
   @@unique([tenant_id, id])
+  @@unique([tenant_id, user_id])
   @@map("employees")
 }
 

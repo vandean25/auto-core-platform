@@ -2947,18 +2947,7 @@
     "/api/mechanic/queue": {
       "get": {
         "operationId": "MechanicController_getQueue",
-        "parameters": [
-          {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -2980,16 +2969,6 @@
       "get": {
         "operationId": "MechanicController_getTaskDetail",
         "parameters": [
-          {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "taskId",
             "required": true,
@@ -3021,16 +3000,6 @@
         "operationId": "MechanicController_startTask",
         "parameters": [
           {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
             "name": "taskId",
             "required": true,
             "in": "path",
@@ -3061,16 +3030,6 @@
       "post": {
         "operationId": "MechanicController_switchTask",
         "parameters": [
-          {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "taskId",
             "required": true,
@@ -3113,16 +3072,6 @@
         "operationId": "MechanicController_pauseTask",
         "parameters": [
           {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
             "name": "taskId",
             "required": true,
             "in": "path",
@@ -3164,16 +3113,6 @@
         "operationId": "MechanicController_completeTask",
         "parameters": [
           {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
             "name": "taskId",
             "required": true,
             "in": "path",
@@ -3204,16 +3143,6 @@
       "patch": {
         "operationId": "MechanicController_saveDiagnostics",
         "parameters": [
-          {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "taskId",
             "required": true,
@@ -3256,16 +3185,6 @@
         "operationId": "MechanicController_requestPart",
         "parameters": [
           {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
             "name": "taskId",
             "required": true,
             "in": "path",
@@ -3307,16 +3226,6 @@
         "operationId": "MechanicController_createMediaUploadPolicy",
         "parameters": [
           {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
             "name": "taskId",
             "required": true,
             "in": "path",
@@ -3357,16 +3266,6 @@
       "post": {
         "operationId": "MechanicController_saveMediaMetadata",
         "parameters": [
-          {
-            "name": "mechanicId",
-            "required": true,
-            "in": "query",
-            "description": "UUID of the mechanic (Employee with role MECHANIC)",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "taskId",
             "required": true,
@@ -7873,6 +7772,12 @@
           "sortOrder": {
             "type": "number"
           },
+          "userId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "The linked User.id for this employee, or null if not linked."
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -7952,6 +7857,12 @@
           "sortOrder": {
             "type": "number",
             "minimum": 0
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session."
           }
         },
         "required": [
@@ -7978,6 +7889,12 @@
           "sortOrder": {
             "type": "number",
             "minimum": 0
+          },
+          "userId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1)."
           }
         }
       },

@@ -8,14 +8,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import {
   ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
@@ -40,25 +38,17 @@ export class MechanicController {
   constructor(private readonly mechanicService: MechanicService) {}
 
   /**
-   * Returns the active task queue for the given mechanic.
+   * Returns the active task queue for the authenticated mechanic.
    *
-   * Only tasks assigned to the mechanic (directly or via order-level
-   * inheritance — ADR-0014 §2.2) that are not DONE are returned.
+   * The mechanic identity is resolved server-side from the authenticated
+   * user session — no mechanicId is accepted from the client (ADR-0014 §1).
    *
-   * Requires TECH tenant-member role.
+   * Requires TECH tenant-member role with a linked MECHANIC employee profile.
    */
   @Get('queue')
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOkResponse({ type: MechanicQueueResponseDto })
-  async getQueue(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
-  ): Promise<MechanicQueueResponseDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+  async getQueue(): Promise<MechanicQueueResponseDto> {
+    const mechanicId = await this.mechanicService.resolveMechanic();
     const data = await this.mechanicService.getMechanicQueue(mechanicId);
     return { data };
   }
@@ -66,23 +56,16 @@ export class MechanicController {
   /**
    * Returns the restricted task-detail projection for a single task.
    *
-   * Access is denied when the task is not assigned to the mechanic.
+   * Access is denied when the task is not assigned to the authenticated mechanic.
    *
-   * Requires TECH tenant-member role.
+   * Requires TECH tenant-member role with a linked MECHANIC employee profile.
    */
   @Get('tasks/:taskId')
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOkResponse({ type: MechanicTaskDetailDto })
   async getTaskDetail(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.getMechanicTaskDetail(mechanicId, taskId);
   }
 
@@ -94,19 +77,12 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/start')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({ summary: 'Start a task (punch in)' })
   @ApiOkResponse({ type: MechanicTaskDetailDto })
   async startTask(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.startTask(mechanicId, taskId);
   }
 
@@ -120,21 +96,14 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/switch')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({ summary: 'Switch to a different task' })
   @ApiBody({ type: SwitchTaskDto })
   @ApiOkResponse({ type: MechanicTaskDetailDto })
   async switchTask(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: SwitchTaskDto,
   ): Promise<MechanicTaskDetailDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.switchTask(mechanicId, taskId, dto);
   }
 
@@ -147,21 +116,14 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/pause')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({ summary: 'Pause the active task' })
   @ApiBody({ type: PauseTaskDto })
   @ApiOkResponse({ type: MechanicTaskDetailDto })
   async pauseTask(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: PauseTaskDto,
   ): Promise<MechanicTaskDetailDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.pauseTask(mechanicId, taskId, dto);
   }
 
@@ -173,19 +135,12 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/complete')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({ summary: 'Complete the task' })
   @ApiOkResponse({ type: MechanicTaskDetailDto })
   async completeTask(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.completeTask(mechanicId, taskId);
   }
 
@@ -197,23 +152,16 @@ export class MechanicController {
    */
   @Patch('tasks/:taskId/diagnostics')
   @HttpCode(HttpStatus.OK)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({
     summary: 'Debounced auto-save of mechanic notes and checklist values',
   })
   @ApiBody({ type: SaveDiagnosticsDto })
   @ApiOkResponse({ type: SaveDiagnosticsResponseDto })
   async saveDiagnostics(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: SaveDiagnosticsDto,
   ): Promise<SaveDiagnosticsResponseDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.saveDiagnostics(mechanicId, taskId, dto);
   }
 
@@ -226,23 +174,16 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/parts')
   @HttpCode(HttpStatus.CREATED)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({
     summary: 'Request a part (marks PENDING_PICK, no stock deduction)',
   })
   @ApiBody({ type: RequestPartDto })
   @ApiCreatedResponse({ type: RequestPartResponseDto })
   async requestPart(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: RequestPartDto,
   ): Promise<RequestPartResponseDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.requestPart(mechanicId, taskId, dto);
   }
 
@@ -256,12 +197,6 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/media/uploads')
   @HttpCode(HttpStatus.CREATED)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({
     summary:
       'Generate presigned POST upload policy for direct-to-storage upload',
@@ -269,11 +204,10 @@ export class MechanicController {
   @ApiBody({ type: RequestMediaUploadDto })
   @ApiCreatedResponse({ type: MediaUploadPolicyDto })
   async createMediaUploadPolicy(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: RequestMediaUploadDto,
   ): Promise<MediaUploadPolicyDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.createMediaUploadPolicy(
       mechanicId,
       taskId,
@@ -289,21 +223,14 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/media')
   @HttpCode(HttpStatus.CREATED)
-  @ApiQuery({
-    name: 'mechanicId',
-    required: true,
-    description: 'UUID of the mechanic (Employee with role MECHANIC)',
-    schema: { type: 'string', format: 'uuid' },
-  })
   @ApiOperation({ summary: 'Persist uploaded media metadata' })
   @ApiBody({ type: CreateMediaDto })
   @ApiCreatedResponse({ type: WorkshopMediaDto })
   async saveMediaMetadata(
-    @Query('mechanicId', ParseUUIDPipe) mechanicId: string,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: CreateMediaDto,
   ): Promise<WorkshopMediaDto> {
-    await this.mechanicService.assertMechanicAccess(mechanicId);
+    const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.saveMediaMetadata(mechanicId, taskId, dto);
   }
 }

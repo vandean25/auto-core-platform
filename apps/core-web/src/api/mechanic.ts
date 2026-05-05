@@ -19,9 +19,8 @@ export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
 
 export const mechanicQueueKeys = {
   all: ['mechanic'] as const,
-  queue: (mechanicId: string) => [...mechanicQueueKeys.all, 'queue', mechanicId] as const,
-  taskDetail: (mechanicId: string, taskId: string) =>
-    [...mechanicQueueKeys.all, 'task', mechanicId, taskId] as const,
+  queue: () => [...mechanicQueueKeys.all, 'queue'] as const,
+  taskDetail: (taskId: string) => [...mechanicQueueKeys.all, 'task', taskId] as const,
 }
 
 /** Reads error message from a failed HTTP Response body. */
@@ -42,44 +41,39 @@ async function throwHttpError(response: Response, fallback: string): Promise<nev
   throw createHttpError(message, response.status)
 }
 
-export function useMechanicQueue(mechanicId: string) {
+export function useMechanicQueue() {
   return useQuery<MechanicQueueResponse>({
-    queryKey: mechanicQueueKeys.queue(mechanicId),
+    queryKey: mechanicQueueKeys.queue(),
     queryFn: async () => {
-      const response = await fetchWithAuth(
-        `/api/mechanic/queue?mechanicId=${encodeURIComponent(mechanicId)}`,
-      )
+      const response = await fetchWithAuth('/api/mechanic/queue')
       if (!response.ok) {
         throw new Error(await getErrorMessage(response, 'Failed to load mechanic queue'))
       }
       return response.json() as Promise<MechanicQueueResponse>
     },
-    enabled: !!mechanicId,
   })
 }
 
-export function useMechanicTaskDetail(mechanicId: string, taskId: string) {
+export function useMechanicTaskDetail(taskId: string) {
   return useQuery<MechanicTaskDetail>({
-    queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+    queryKey: mechanicQueueKeys.taskDetail(taskId),
     queryFn: async () => {
-      const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}?mechanicId=${encodeURIComponent(mechanicId)}`,
-      )
+      const response = await fetchWithAuth(`/api/mechanic/tasks/${encodeURIComponent(taskId)}`)
       if (!response.ok) {
         throw new Error(await getErrorMessage(response, 'Failed to load task detail'))
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
-    enabled: !!mechanicId && !!taskId,
+    enabled: !!taskId,
   })
 }
 
 export function useStartTask() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ mechanicId, taskId }: { mechanicId: string; taskId: string }) => {
+    mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/start?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/start`,
         { method: 'POST' },
       )
       if (!response.ok) {
@@ -87,10 +81,10 @@ export function useStartTask() {
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue(mechanicId) })
+    onSuccess: (_data, { taskId }) => {
+      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -100,16 +94,14 @@ export function useSwitchTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: SwitchTaskPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/switch?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/switch`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -122,10 +114,10 @@ export function useSwitchTask() {
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue(mechanicId) })
+    onSuccess: (_data, { taskId }) => {
+      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -135,16 +127,14 @@ export function usePauseTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: PauseTaskPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/pause?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/pause`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,10 +146,10 @@ export function usePauseTask() {
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue(mechanicId) })
+    onSuccess: (_data, { taskId }) => {
+      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -168,9 +158,9 @@ export function usePauseTask() {
 export function useCompleteTask() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ mechanicId, taskId }: { mechanicId: string; taskId: string }) => {
+    mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/complete?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/complete`,
         { method: 'POST' },
       )
       if (!response.ok) {
@@ -178,10 +168,10 @@ export function useCompleteTask() {
       }
       return response.json() as Promise<MechanicTaskDetail>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue(mechanicId) })
+    onSuccess: (_data, { taskId }) => {
+      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -191,16 +181,14 @@ export function useSaveDiagnostics() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: SaveDiagnosticsPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -212,9 +200,9 @@ export function useSaveDiagnostics() {
       }
       return response.json() as Promise<SaveDiagnosticsResponse>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
+    onSuccess: (_data, { taskId }) => {
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -224,16 +212,14 @@ export function useRequestPart() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: RequestPartPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/parts?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/parts`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -245,9 +231,9 @@ export function useRequestPart() {
       }
       return response.json() as Promise<RequestPartResponse>
     },
-    onSuccess: (_data, { mechanicId, taskId }) => {
+    onSuccess: (_data, { taskId }) => {
       void queryClient.invalidateQueries({
-        queryKey: mechanicQueueKeys.taskDetail(mechanicId, taskId),
+        queryKey: mechanicQueueKeys.taskDetail(taskId),
       })
     },
   })
@@ -256,16 +242,14 @@ export function useRequestPart() {
 export function useCreateMediaUploadPolicy() {
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: RequestMediaUploadPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media/uploads?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media/uploads`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -283,16 +267,14 @@ export function useCreateMediaUploadPolicy() {
 export function useSaveMediaMetadata() {
   return useMutation({
     mutationFn: async ({
-      mechanicId,
       taskId,
       payload,
     }: {
-      mechanicId: string
       taskId: string
       payload: CreateMediaPayload
     }) => {
       const response = await fetchWithAuth(
-        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media?mechanicId=${encodeURIComponent(mechanicId)}`,
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

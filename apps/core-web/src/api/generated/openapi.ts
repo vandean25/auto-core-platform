@@ -2223,6 +2223,11 @@ export interface components {
             role: components["schemas"]["EmployeeRole"];
             isActive: boolean;
             sortOrder: number;
+            /**
+             * Format: uuid
+             * @description The linked User.id for this employee, or null if not linked.
+             */
+            userId?: Record<string, never> | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2243,12 +2248,22 @@ export interface components {
             role: components["schemas"]["EmployeeRole"];
             isActive?: boolean;
             sortOrder?: number;
+            /**
+             * Format: uuid
+             * @description Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session.
+             */
+            userId?: string | null;
         };
         UpdateEmployeeDto: {
             name?: string;
             role?: components["schemas"]["EmployeeRole"];
             isActive?: boolean;
             sortOrder?: number;
+            /**
+             * Format: uuid
+             * @description Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1).
+             */
+            userId?: Record<string, never> | null;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
@@ -4264,10 +4279,7 @@ export interface operations {
     };
     MechanicController_getQueue: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -4286,10 +4298,7 @@ export interface operations {
     };
     MechanicController_getTaskDetail: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4310,10 +4319,7 @@ export interface operations {
     };
     MechanicController_startTask: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4334,10 +4340,7 @@ export interface operations {
     };
     MechanicController_switchTask: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4362,10 +4365,7 @@ export interface operations {
     };
     MechanicController_pauseTask: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4390,10 +4390,7 @@ export interface operations {
     };
     MechanicController_completeTask: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4414,10 +4411,7 @@ export interface operations {
     };
     MechanicController_saveDiagnostics: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4442,10 +4436,7 @@ export interface operations {
     };
     MechanicController_requestPart: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4470,10 +4461,7 @@ export interface operations {
     };
     MechanicController_createMediaUploadPolicy: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;
@@ -4498,10 +4486,7 @@ export interface operations {
     };
     MechanicController_saveMediaMetadata: {
         parameters: {
-            query: {
-                /** @description UUID of the mechanic (Employee with role MECHANIC) */
-                mechanicId: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 taskId: string;

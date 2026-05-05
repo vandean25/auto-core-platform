@@ -138,14 +138,23 @@ export class MechanicService {
   }
 
   /**
-   * Resolves and validates the current authenticated user as a MECHANIC
-   * employee for the given tenant.
+   * Resolves the current authenticated user to their linked MECHANIC employee
+   * record for the active tenant and returns the employee ID.
+   *
+   * Server-side resolution: the mechanic identity is derived exclusively from
+   * the authenticated session.  The resolution chain is:
+   *   session.userId (Firebase UID) → User.firebaseUid lookup → User.id
+   *   → Employee.user_id match within this tenant
+   *
+   * Note: Employee.user_id stores User.id (the Postgres UUID primary key),
+   * NOT the Firebase UID string.  Admins can link an existing Employee to a
+   * User account via PATCH /api/employees/:id with { "userId": "<User.id>" }.
    *
    * Throws ForbiddenException if the user is not a TECH tenant member.
-   * Throws NotFoundException if no active MECHANIC employee exists for the
-   * given mechanicId within the tenant.
+   * Throws ForbiddenException if no active MECHANIC employee is linked to this
+   * user account within the tenant (prompt the user to contact their administrator).
    */
-  async assertMechanicAccess(mechanicId: string): Promise<void> {
+  async resolveMechanic(): Promise<string> {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user || user.role !== 'TECH') {
       throw new ForbiddenException(
@@ -157,19 +166,22 @@ export class MechanicService {
 
     const employee = await this.prisma.employee.findFirst({
       where: {
-        id: mechanicId,
         tenant_id: tenantId,
         role: 'MECHANIC',
         is_active: true,
+        user: { firebaseUid: user.userId },
       },
       select: { id: true },
     });
 
     if (!employee) {
-      throw new NotFoundException(
-        `Active mechanic employee ${mechanicId} not found in this tenant.`,
+      throw new ForbiddenException(
+        'No active mechanic profile is linked to your account in this tenant. ' +
+          'Contact your administrator.',
       );
     }
+
+    return employee.id;
   }
 
   /**

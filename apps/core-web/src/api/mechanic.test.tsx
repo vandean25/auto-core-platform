@@ -38,7 +38,6 @@ function createJsonResponse(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as Response
 }
 
-const MECHANIC_ID = '11111111-1111-1111-1111-111111111111'
 const TASK_ID = '22222222-2222-2222-2222-222222222222'
 
 const baseQueueItem = {
@@ -86,19 +85,14 @@ describe('mechanic api hooks', () => {
       expect(mechanicQueueKeys.all).toEqual(['mechanic'])
     })
 
-    it('queue key namespaces by mechanicId', () => {
-      expect(mechanicQueueKeys.queue(MECHANIC_ID)).toEqual([
-        'mechanic',
-        'queue',
-        MECHANIC_ID,
-      ])
+    it('queue key is ["mechanic", "queue"]', () => {
+      expect(mechanicQueueKeys.queue()).toEqual(['mechanic', 'queue'])
     })
 
-    it('taskDetail key namespaces by mechanicId and taskId', () => {
-      expect(mechanicQueueKeys.taskDetail(MECHANIC_ID, TASK_ID)).toEqual([
+    it('taskDetail key namespaces by taskId', () => {
+      expect(mechanicQueueKeys.taskDetail(TASK_ID)).toEqual([
         'mechanic',
         'task',
-        MECHANIC_ID,
         TASK_ID,
       ])
     })
@@ -113,29 +107,15 @@ describe('mechanic api hooks', () => {
       )
 
       const queryClient = createQueryClient()
-      const { result } = renderHook(() => useMechanicQueue(MECHANIC_ID), {
+      const { result } = renderHook(() => useMechanicQueue(), {
         wrapper: createWrapper(queryClient),
       })
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/queue?mechanicId=${MECHANIC_ID}`,
-      )
+      expect(fetchWithAuth).toHaveBeenCalledWith('/api/mechanic/queue')
       expect(result.current.data?.data).toHaveLength(1)
       expect(result.current.data?.data[0].taskId).toBe(TASK_ID)
-    })
-
-    it('is disabled when mechanicId is empty', () => {
-      const queryClient = createQueryClient()
-      const { result } = renderHook(() => useMechanicQueue(''), {
-        wrapper: createWrapper(queryClient),
-      })
-
-      // Query should not have been called because enabled=false
-      expect(fetchWithAuth).not.toHaveBeenCalled()
-      expect(result.current.isPending).toBe(true)
-      expect(result.current.isFetching).toBe(false)
     })
 
     it('response does not expose financial fields', async () => {
@@ -150,7 +130,7 @@ describe('mechanic api hooks', () => {
       )
 
       const queryClient = createQueryClient()
-      const { result } = renderHook(() => useMechanicQueue(MECHANIC_ID), {
+      const { result } = renderHook(() => useMechanicQueue(), {
         wrapper: createWrapper(queryClient),
       })
 
@@ -168,7 +148,7 @@ describe('mechanic api hooks', () => {
       )
 
       const queryClient = createQueryClient()
-      const { result } = renderHook(() => useMechanicQueue(MECHANIC_ID), {
+      const { result } = renderHook(() => useMechanicQueue(), {
         wrapper: createWrapper(queryClient),
       })
 
@@ -191,22 +171,20 @@ describe('mechanic api hooks', () => {
 
       const queryClient = createQueryClient()
       const { result } = renderHook(
-        () => useMechanicTaskDetail(MECHANIC_ID, TASK_ID),
+        () => useMechanicTaskDetail(TASK_ID),
         { wrapper: createWrapper(queryClient) },
       )
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}?mechanicId=${MECHANIC_ID}`,
-      )
+      expect(fetchWithAuth).toHaveBeenCalledWith(`/api/mechanic/tasks/${TASK_ID}`)
       expect(result.current.data?.taskId).toBe(TASK_ID)
     })
 
     it('is disabled when taskId is empty', () => {
       const queryClient = createQueryClient()
       const { result } = renderHook(
-        () => useMechanicTaskDetail(MECHANIC_ID, ''),
+        () => useMechanicTaskDetail(''),
         { wrapper: createWrapper(queryClient) },
       )
 
@@ -221,7 +199,7 @@ describe('mechanic api hooks', () => {
 
       const queryClient = createQueryClient()
       const { result } = renderHook(
-        () => useMechanicTaskDetail(MECHANIC_ID, TASK_ID),
+        () => useMechanicTaskDetail(TASK_ID),
         { wrapper: createWrapper(queryClient) },
       )
 
@@ -241,7 +219,7 @@ describe('mechanic api hooks', () => {
 
       const queryClient = createQueryClient()
       const { result } = renderHook(
-        () => useMechanicTaskDetail(MECHANIC_ID, TASK_ID),
+        () => useMechanicTaskDetail(TASK_ID),
         { wrapper: createWrapper(queryClient) },
       )
 
@@ -267,10 +245,10 @@ describe('mechanic api hooks', () => {
         wrapper: createWrapper(queryClient),
       })
 
-      const data = await result.current.mutateAsync({ mechanicId: MECHANIC_ID, taskId: TASK_ID })
+      const data = await result.current.mutateAsync({ taskId: TASK_ID })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/start?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/start`,
         expect.objectContaining({ method: 'POST' }),
       )
       expect(data.taskStatus).toBe('IN_PROGRESS')
@@ -291,7 +269,7 @@ describe('mechanic api hooks', () => {
       })
 
       await expect(
-        result.current.mutateAsync({ mechanicId: MECHANIC_ID, taskId: TASK_ID }),
+        result.current.mutateAsync({ taskId: TASK_ID }),
       ).rejects.toMatchObject({
         status: 409,
       })
@@ -312,13 +290,12 @@ describe('mechanic api hooks', () => {
       })
 
       const data = await result.current.mutateAsync({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' },
       })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/switch?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/switch`,
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' }),
@@ -343,7 +320,6 @@ describe('mechanic api hooks', () => {
 
       await expect(
         result.current.mutateAsync({
-          mechanicId: MECHANIC_ID,
           taskId: TASK_ID,
           payload: { previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' },
         }),
@@ -365,13 +341,12 @@ describe('mechanic api hooks', () => {
       })
 
       const data = await result.current.mutateAsync({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { pauseReason: 'WAITING_PARTS' },
       })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/pause?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/pause`,
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ pauseReason: 'WAITING_PARTS' }),
@@ -394,10 +369,10 @@ describe('mechanic api hooks', () => {
         wrapper: createWrapper(queryClient),
       })
 
-      const data = await result.current.mutateAsync({ mechanicId: MECHANIC_ID, taskId: TASK_ID })
+      const data = await result.current.mutateAsync({ taskId: TASK_ID })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/complete?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/complete`,
         expect.objectContaining({ method: 'POST' }),
       )
       expect(data.taskStatus).toBe('DONE')
@@ -418,13 +393,12 @@ describe('mechanic api hooks', () => {
       })
 
       const data = await result.current.mutateAsync({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { mechanicNotes: 'Oil was dark.' },
       })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/diagnostics?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/diagnostics`,
         expect.objectContaining({
           method: 'PATCH',
           body: JSON.stringify({ mechanicNotes: 'Oil was dark.' }),
@@ -445,7 +419,6 @@ describe('mechanic api hooks', () => {
 
       await expect(
         result.current.mutateAsync({
-          mechanicId: MECHANIC_ID,
           taskId: TASK_ID,
           payload: {},
         }),
@@ -472,13 +445,12 @@ describe('mechanic api hooks', () => {
       })
 
       const data = await result.current.mutateAsync({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { itemNo: 'OIL-FILTER', description: 'Oil Filter', qty: 1 },
       })
 
       expect(fetchWithAuth).toHaveBeenCalledWith(
-        `/api/mechanic/tasks/${TASK_ID}/parts?mechanicId=${MECHANIC_ID}`,
+        `/api/mechanic/tasks/${TASK_ID}/parts`,
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ itemNo: 'OIL-FILTER', description: 'Oil Filter', qty: 1 }),
@@ -504,7 +476,6 @@ describe('mechanic api hooks', () => {
       })
 
       const data = await result.current.mutateAsync({
-        mechanicId: MECHANIC_ID,
         taskId: TASK_ID,
         payload: { itemNo: 'OIL-FILTER', description: 'Oil Filter', qty: 1 },
       })

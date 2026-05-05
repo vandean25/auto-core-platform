@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -50,6 +51,17 @@ export class CreateEmployeeDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description:
+      'Link this employee to a User account by User.id (Postgres UUID). ' +
+      'Required for mechanics so resolveMechanic() can identify them from the session.',
+  })
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 }
 
 export class UpdateEmployeeDto {
@@ -75,6 +87,18 @@ export class UpdateEmployeeDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description:
+      'Link (or unlink) this employee to a User account. ' +
+      'Pass the User.id (Postgres UUID) to link, or null to unlink. ' +
+      'Required for mechanics to enable server-side session resolution (ADR-0014 §1).',
+  })
+  @IsOptional()
+  @IsUUID()
+  userId?: string | null;
 }
 
 export class ListEmployeesQueryDto {
@@ -126,6 +150,13 @@ export class EmployeeResponseDto {
 
   @ApiProperty()
   sortOrder!: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'The linked User.id for this employee, or null if not linked.',
+  })
+  userId!: string | null;
 
   @ApiProperty()
   createdAt!: Date;
