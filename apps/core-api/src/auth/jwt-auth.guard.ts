@@ -1,7 +1,13 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator';
+import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { AuthService } from './auth.service';
@@ -45,6 +51,24 @@ export class JwtAuthGuard implements CanActivate {
 
     if (request.user.tenantId) {
       this.tenantContext.setAuthenticatedUser(request.user);
+    }
+
+    // ADR-0014 §8.2: A mechanic-mode session (role === TECH) may only access
+    // endpoints explicitly marked with @MechanicAccessible(). All other
+    // back-office endpoints must reject the request even if the underlying
+    // tenant member still maps to TenantMemberRole.TECH.
+    if ('role' in request.user && request.user.role === 'TECH') {
+      const isMechanicAccessible =
+        this.reflector.getAllAndOverride<boolean>(MECHANIC_ACCESSIBLE_KEY, [
+          context.getHandler(),
+          context.getClass(),
+        ]) ?? false;
+
+      if (!isMechanicAccessible) {
+        throw new ForbiddenException(
+          'Mechanic-mode sessions may only access /api/mechanic/* endpoints.',
+        );
+      }
     }
 
     return true;

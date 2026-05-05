@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
 import { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -33,6 +34,7 @@ import {
 import { MechanicService } from './mechanic.service';
 
 @ApiTags('mechanic')
+@MechanicAccessible()
 @Controller('mechanic')
 export class MechanicController {
   constructor(private readonly mechanicService: MechanicService) {}
