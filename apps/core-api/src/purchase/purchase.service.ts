@@ -79,8 +79,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -332,8 +334,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
