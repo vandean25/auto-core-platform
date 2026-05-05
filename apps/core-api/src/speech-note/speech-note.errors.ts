@@ -13,8 +13,9 @@ export class SpeechNoteError extends Error {
 }
 
 /**
- * Thrown at startup when required provider configuration (e.g. OPENAI_API_KEY)
- * is missing or invalid.
+ * Thrown when required provider configuration (e.g. OPENAI_API_KEY) is missing
+ * or when an environment variable value is invalid (e.g. a malformed
+ * SPEECH_NOTE_LANGUAGE code). Callers should map this to HTTP 503.
  */
 export class SpeechNoteConfigError extends SpeechNoteError {
   constructor(message: string) {

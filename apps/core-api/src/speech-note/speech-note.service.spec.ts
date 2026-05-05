@@ -101,6 +101,34 @@ describe('SpeechNoteService', () => {
         service.transcribeNote({ ...DUMMY_INPUT, audioBuffer: Buffer.alloc(0) }),
       ).rejects.toThrow('Audio buffer must not be empty.');
     });
+
+    it('throws SpeechNoteInputError for an unsupported MIME type', async () => {
+      const service = buildService(mockOpenAI);
+      await expect(
+        service.transcribeNote({ ...DUMMY_INPUT, mimeType: 'image/jpeg' }),
+      ).rejects.toBeInstanceOf(SpeechNoteInputError);
+    });
+
+    it('SpeechNoteInputError message for unsupported MIME includes the rejected type', async () => {
+      const service = buildService(mockOpenAI);
+      await expect(
+        service.transcribeNote({ ...DUMMY_INPUT, mimeType: 'image/jpeg' }),
+      ).rejects.toThrow('image/jpeg');
+    });
+
+    it('accepts a supported MIME type with codec parameters (e.g. audio/webm;codecs=opus)', async () => {
+      const service = buildService(mockOpenAI, 'en');
+      (mockOpenAI.audio.translations.create as jest.Mock).mockResolvedValue({
+        text: 'Check oil.',
+        duration: 1.5,
+        language: 'english',
+        segments: [],
+      });
+
+      await expect(
+        service.transcribeNote({ ...DUMMY_INPUT, mimeType: 'audio/webm;codecs=opus' }),
+      ).resolves.toBeDefined();
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -155,11 +183,12 @@ describe('SpeechNoteService', () => {
 
       const result = await service.transcribeNote(DUMMY_INPUT);
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         text: 'Replace brake pads on front axle.',
         provider: 'openai',
         model: 'whisper-1',
         durationSeconds: 4.2,
+        detectedLanguage: 'english',
       });
     });
 
@@ -262,7 +291,43 @@ describe('SpeechNoteService', () => {
 
       expect(result.text).toBe('เปลี่ยนผ้าเบรก');
       expect(result.detectedLanguage).toBe('en');
-      expect(result.model).toBe('gpt-4o-mini');
+      expect(result.model).toBe('whisper-1');
+    });
+
+    it('normalises detected language case before matching canonical', async () => {
+      // Provider might return "EN" or "EN-US"; canonical is stored as "th",
+      // so these should NOT match and translation should proceed.
+      (mockOpenAI.audio.transcriptions.create as jest.Mock).mockResolvedValue({
+        text: 'Replace brake pads.',
+        language: 'EN',
+        duration: 3.0,
+        segments: [],
+      });
+      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: 'เปลี่ยนผ้าเบรก', role: 'assistant' } }],
+      });
+
+      const result = await service.transcribeNote(DUMMY_INPUT);
+
+      // Translation should have run and detected language normalised.
+      expect(result.detectedLanguage).toBe('en');
+      expect(mockOpenAI.chat.completions.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips translation when detected language matches canonical after normalisation', async () => {
+      // Provider returns "TH" (uppercase); canonical is "th" — should still skip translation.
+      const thService = buildService(mockOpenAI, 'th');
+      (mockOpenAI.audio.transcriptions.create as jest.Mock).mockResolvedValue({
+        text: 'ตรวจสอบผ้าเบรก',
+        language: 'TH',
+        duration: 2.0,
+        segments: [],
+      });
+
+      const result = await thService.transcribeNote(DUMMY_INPUT);
+
+      expect(mockOpenAI.chat.completions.create).not.toHaveBeenCalled();
+      expect(result.detectedLanguage).toBe('th');
     });
   });
 

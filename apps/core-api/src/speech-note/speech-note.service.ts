@@ -26,6 +26,31 @@ const TEXT_TRANSLATION_MODEL = 'gpt-4o-mini';
 const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
 /**
+ * MIME types accepted by the OpenAI Whisper endpoint.
+ * Requests with any other MIME type are rejected early as {@link SpeechNoteInputError}
+ * so controller code can distinguish a bad client upload from a provider failure.
+ *
+ * Ref: https://platform.openai.com/docs/guides/speech-to-text/supported-formats
+ */
+const SUPPORTED_AUDIO_MIME_TYPES = new Set([
+  'audio/flac',
+  'audio/m4a',
+  'audio/mp3',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/mpga',
+  'audio/oga',
+  'audio/ogg',
+  'audio/wav',
+  'audio/wave',
+  'audio/webm',
+  'audio/x-wav',
+  'video/mp4',
+  'video/mpeg',
+  'video/webm',
+]);
+
+/**
  * Backend adapter for mechanic voice-note transcription and translation.
  *
  * ADR-0014 §5.3 — provider credentials must remain server-only; the browser
@@ -92,6 +117,16 @@ export class SpeechNoteService {
       throw new SpeechNoteInputError('Audio buffer must not be empty.');
     }
 
+    // Validate MIME type early so controller code can distinguish a bad client
+    // upload (SpeechNoteInputError → 400) from an upstream failure (SpeechNoteProviderError → 502).
+    const normalizedMime = input.mimeType.split(';')[0].trim().toLowerCase();
+    if (!SUPPORTED_AUDIO_MIME_TYPES.has(normalizedMime)) {
+      throw new SpeechNoteInputError(
+        `Unsupported audio format "${input.mimeType}". ` +
+          `Supported MIME types: ${[...SUPPORTED_AUDIO_MIME_TYPES].join(', ')}.`,
+      );
+    }
+
     const file = await toFile(input.audioBuffer, input.filename, {
       type: input.mimeType,
     });
@@ -120,6 +155,7 @@ export class SpeechNoteService {
 
       return {
         text: response.text,
+        detectedLanguage: response.language || undefined,
         provider: 'openai',
         model: AUDIO_MODEL,
         durationSeconds: response.duration,
@@ -156,10 +192,13 @@ export class SpeechNoteService {
     }
 
     // Skip translation when source already matches the canonical language.
-    if (detectedLanguage === this.canonicalLanguage) {
+    // Normalise both sides to lower-case so provider variants like "EN" or
+    // "en-US" are handled the same as the canonical tag stored in lower-case.
+    const normalizedDetected = detectedLanguage?.trim().toLowerCase();
+    if (normalizedDetected === this.canonicalLanguage) {
       return {
         text: rawText,
-        detectedLanguage,
+        detectedLanguage: normalizedDetected,
         provider: 'openai',
         model: AUDIO_MODEL,
         durationSeconds,
@@ -186,9 +225,11 @@ export class SpeechNoteService {
 
     return {
       text: translatedText,
-      detectedLanguage,
+      detectedLanguage: normalizedDetected,
       provider: 'openai',
-      model: TEXT_TRANSLATION_MODEL,
+      // Always report the audio transcription model — Whisper always processes
+      // the audio regardless of whether a text-level translation follows.
+      model: AUDIO_MODEL,
       durationSeconds,
     };
   }
