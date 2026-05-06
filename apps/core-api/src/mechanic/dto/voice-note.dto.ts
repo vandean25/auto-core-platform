@@ -1,27 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { SUPPORTED_SPEECH_NOTE_MIME_TYPES } from '../../speech-note/speech-note.service';
 
 /**
  * Allowed MIME types for mechanic voice-note uploads.
- * Must stay in sync with `SUPPORTED_AUDIO_MIME_TYPES` in `SpeechNoteService`.
+ * Reuses the authoritative list from `SpeechNoteService`.
  * Ref: https://platform.openai.com/docs/guides/speech-to-text/supported-formats
  */
-export const ALLOWED_VOICE_NOTE_MIME_TYPES: ReadonlySet<string> = new Set([
-  'audio/flac',
-  'audio/m4a',
-  'audio/mp3',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/mpga',
-  'audio/oga',
-  'audio/ogg',
-  'audio/wav',
-  'audio/wave',
-  'audio/webm',
-  'audio/x-wav',
-  'video/mp4',
-  'video/mpeg',
-  'video/webm',
-]);
+export const ALLOWED_VOICE_NOTE_MIME_TYPES: ReadonlySet<string> = SUPPORTED_SPEECH_NOTE_MIME_TYPES;
 
 /**
  * Whisper API hard limit is 25 MiB.
