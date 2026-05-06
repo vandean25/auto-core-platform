@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -8,6 +9,7 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('PurchaseInvoice (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   let vendorId: string;
   let catalogItemId: string;
@@ -15,7 +17,6 @@ describe('PurchaseInvoice (e2e)', () => {
   let purchaseOrderItemId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -29,6 +30,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Setup Test Data
     const vendor = await prisma.vendor.create({
@@ -92,7 +94,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(response.body).toHaveLength(1);
@@ -124,7 +126,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -147,7 +149,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(response.body[0].quantityPending).toBe(5); // 10 received - 5 invoiced
@@ -177,7 +179,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(400);
   });
@@ -207,13 +209,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(response.body.status).toBe('POSTED');
@@ -230,13 +232,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(400);
   });
 
@@ -265,18 +267,18 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/pay`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(response.body.status).toBe('PAID');
@@ -313,7 +315,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -325,7 +327,7 @@ describe('PurchaseInvoice (e2e)', () => {
     // 3. Delete the Draft invoice (decrements quantity_invoiced)
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     const poItemAfterDelete = await prisma.purchaseOrderItem.findUnique({
@@ -358,18 +360,18 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(400);
   });
 
@@ -404,7 +406,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -424,7 +426,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(updateDto)
       .expect(200);
 
@@ -472,7 +474,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -484,13 +486,13 @@ describe('PurchaseInvoice (e2e)', () => {
     // 2. Delete one line
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}/lines/${lineToDelete.id}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     // 3. Verify remaining state
     const updated = await request(app.getHttpServer())
       .get(`/purchase-invoices/${draft.body.id}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(updated.body.lines).toHaveLength(1);

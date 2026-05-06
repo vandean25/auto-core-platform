@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -12,12 +13,10 @@ const PREFIX = 'e2e-catalog-';
 
 describe('Catalog Module (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
-  let originalApiKey: string | undefined;
 
   beforeAll(async () => {
-    originalApiKey = process.env.API_KEY;
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -33,6 +32,7 @@ describe('Catalog Module (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
@@ -56,8 +56,6 @@ describe('Catalog Module (e2e)', () => {
       where: { name: { startsWith: PREFIX } },
     });
     await teardownTestApp(app, prisma);
-    if (originalApiKey === undefined) delete process.env.API_KEY;
-    else process.env.API_KEY = originalApiKey;
   });
 
   it('search endpoint should return categoryName for categorized and uncategorized labor results', async () => {
@@ -151,7 +149,7 @@ describe('Catalog Module (e2e)', () => {
         .get(
           `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
         )
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];

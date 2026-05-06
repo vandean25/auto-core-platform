@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, HttpStatus, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -9,10 +10,10 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -29,6 +30,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
   });
 
   afterAll(async () => {
@@ -50,7 +52,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     // Try to create another with same email via API
     const response = await request(app.getHttpServer())
       .post('/api/customers')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send({
         first_name: 'Duplicate',
         last_name: 'User',
@@ -70,7 +72,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     const nonExistentId = '00000000-0000-0000-0000-000000000000';
     const response = await request(app.getHttpServer())
       .get(`/api/sales/invoices/${nonExistentId}`)
-      .set('x-api-key', 'test-api-key');
+        .set('Authorization', `Bearer \${authToken}`);
 
     expect(response.status).toBe(HttpStatus.NOT_FOUND);
     expect(response.body).toMatchObject({
@@ -92,7 +94,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
       // For now, let's just verify the standardized shape on a known 400
       const response = await request(app.getHttpServer())
         .post('/api/sales/invoices')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({}); // Missing required fields
 
       expect(response.status).toBe(HttpStatus.BAD_REQUEST);

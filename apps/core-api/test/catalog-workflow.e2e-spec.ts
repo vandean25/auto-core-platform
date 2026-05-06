@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -11,8 +12,8 @@ const PREFIX = 'workflow-catalog-';
 
 describe('Catalog Workflow Search (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
-  let originalApiKey: string | undefined;
 
   // Track created IDs for deterministic cleanup
   const createdBrandIds: string[] = [];
@@ -22,8 +23,6 @@ describe('Catalog Workflow Search (e2e)', () => {
   let createdVehicleId: string | undefined;
 
   beforeAll(async () => {
-    originalApiKey = process.env.API_KEY;
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -39,6 +38,7 @@ describe('Catalog Workflow Search (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
   });
 
   afterAll(async () => {

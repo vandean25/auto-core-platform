@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -6,15 +7,16 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('Security (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    authToken = app.get(AuthService).createTestToken();
   });
 
   afterAll(async () => {
@@ -24,7 +26,7 @@ describe('Security (e2e)', () => {
   it('should allow access with valid API key', () => {
     return request(app.getHttpServer())
       .get('/')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
   });
 
@@ -35,7 +37,7 @@ describe('Security (e2e)', () => {
   it('should block access with invalid API key', () => {
     return request(app.getHttpServer())
       .get('/')
-      .set('x-api-key', 'wrong-key')
+        .set('Authorization', `Bearer invalid-token`)
       .expect(401);
   });
 });

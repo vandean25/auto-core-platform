@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -8,12 +9,12 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('Purchase Order Receipt Flow (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   let vendorId: string;
   let catalogItemId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -25,6 +26,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up test data
     await prisma.inventoryTransaction.deleteMany();
@@ -69,7 +71,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           vendorId,
           items: [
@@ -87,7 +89,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [
             {
@@ -120,7 +122,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           vendorId,
           items: [
@@ -135,7 +137,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive all items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [
             { itemId: catalogItemId, quantity: 3 },
@@ -185,7 +187,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 10, unitCost: 10 }],
@@ -197,7 +199,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Partial receipt (5 out of 10)
       const receipt1 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -208,7 +210,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Complete receipt (remaining 5)
       const receipt2 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -221,7 +223,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -233,7 +235,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Attempt to receive more than ordered
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 10 }],
         })
@@ -246,7 +248,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -264,7 +266,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer \${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })

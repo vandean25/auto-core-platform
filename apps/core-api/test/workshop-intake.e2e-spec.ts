@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -8,12 +9,12 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   const customerId: string = 'mock-customer-id';
   const vehicleId: string = 'mock-vehicle-id';
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -25,6 +26,7 @@ describe('Workshop Intake Module (e2e)', () => {
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
+    authToken = app.get(AuthService).createTestToken();
   });
 
   afterAll(async () => {
@@ -34,7 +36,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/search (GET) - should find vehicle by VIN', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/workshop/search?q=TESTVIN')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200);
 
     expect(res.body.vehicles).toBeDefined();
@@ -45,7 +47,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should create workshop order', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -64,7 +66,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should validate fuel level', async () => {
     await request(app.getHttpServer())
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -78,7 +80,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/register (POST) - should register vehicle using upsert', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/register')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .send({
         vin: 'NEWVIN123',
         plate: 'NEW-PLATE',

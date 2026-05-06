@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import {
   INestApplication,
   NotFoundException,
@@ -12,6 +13,7 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
 
   const mockPdfService = {
     requestGeneration: jest.fn(),
@@ -20,7 +22,6 @@ describe('Workshop PDF endpoints (e2e)', () => {
   };
 
   beforeAll(() => {
-    process.env.API_KEY = 'test-api-key';
   });
 
   beforeEach(async () => {
@@ -39,6 +40,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
       new ValidationPipe({ transform: true, whitelist: true }),
     );
     await app.init();
+    authToken = app.get(AuthService).createTestToken();
   });
 
   afterEach(async () => {
@@ -53,7 +55,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF is ready',
@@ -70,7 +72,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF generation enqueued',
@@ -89,7 +91,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200)
       .expect('Content-Type', /application\/pdf/);
   });
@@ -101,7 +103,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(404);
   });
 });

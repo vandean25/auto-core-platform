@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -7,9 +8,9 @@ import { teardownTestApp } from './test-lifecycle';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
+  let authToken: string;
 
   beforeAll(() => {
-    process.env.API_KEY = 'test-api-key';
   });
 
   beforeEach(async () => {
@@ -19,6 +20,7 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    authToken = app.get(AuthService).createTestToken();
   });
 
   afterEach(async () => {
@@ -28,7 +30,7 @@ describe('AppController (e2e)', () => {
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer \${authToken}`)
       .expect(200)
       .expect('Hello World!');
   });
