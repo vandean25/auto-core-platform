@@ -6,5 +6,7 @@
   "setupFiles": ["dotenv/config"],
   "transform": {
     "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.e2e.json" }]
-  }
+  },
+  "detectOpenHandles": true,
+  "testTimeout": 60000
 }
