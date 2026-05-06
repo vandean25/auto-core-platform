@@ -8,6 +8,7 @@ import request from 'supertest';
 import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
@@ -41,7 +42,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await teardownTestApp(app);
   });
 
   it('returns ready JSON when workshop PDF generation finishes inline', async () => {

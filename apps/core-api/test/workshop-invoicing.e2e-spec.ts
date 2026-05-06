@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Invoicing (e2e)', () => {
   let app: INestApplication;
@@ -73,7 +74,7 @@ describe('Workshop Invoicing (e2e)', () => {
     await prisma.vehicle.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.invoiceSequence.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('creates a draft invoice and issues it for a completed workshop order', async () => {

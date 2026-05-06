@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 const PREFIX = 'workflow-catalog-';
 
@@ -71,7 +72,7 @@ describe('Catalog Workflow Search (e2e)', () => {
       } else {
         process.env.API_KEY = originalApiKey;
       }
-      await app.close();
+      await teardownTestApp(app, prisma);
     }
   });
 

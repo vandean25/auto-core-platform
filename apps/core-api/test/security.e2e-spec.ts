@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Security (e2e)', () => {
   let app: INestApplication;
@@ -17,7 +18,7 @@ describe('Security (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app);
   });
 
   it('should allow access with valid API key', () => {

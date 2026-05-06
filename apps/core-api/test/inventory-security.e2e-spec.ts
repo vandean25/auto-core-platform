@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { InventoryService } from '../src/inventory/inventory.service';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('InventoryController (e2e) Security', () => {
   let app: INestApplication;
@@ -33,7 +34,7 @@ describe('InventoryController (e2e) Security', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await teardownTestApp(app);
   });
 
   it('should reject requests with missing required fields', () => {

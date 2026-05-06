@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { SalesOrderStatus } from '@prisma/client';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Sales Order Filters (Repro Issue #10)', () => {
   let app: INestApplication;
@@ -87,7 +88,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('should respect pagination parameters (standard)', async () => {

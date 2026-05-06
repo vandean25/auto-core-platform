@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Labor Metadata (e2e)', () => {
   let app: INestApplication;
@@ -94,7 +95,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
         where: { id: laborOperationId },
       });
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('persists and updates labor metadata, then creates invoice from the completed order', async () => {

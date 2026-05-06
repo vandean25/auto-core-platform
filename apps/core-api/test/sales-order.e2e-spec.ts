@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Sales Order Workflow (e2e)', () => {
   let app: INestApplication;
@@ -92,7 +93,7 @@ describe('Sales Order Workflow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('should create a sales order, update it, and convert to invoice', async () => {

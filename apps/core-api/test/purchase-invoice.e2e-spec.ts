@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('PurchaseInvoice (e2e)', () => {
   let app: INestApplication;
@@ -79,7 +80,7 @@ describe('PurchaseInvoice (e2e)', () => {
     await prisma.catalogItem.deleteMany();
     await prisma.vendor.deleteMany();
     await prisma.brand.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('/vendors/:id/unbilled-receipts (GET)', async () => {

@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { GlobalExceptionFilter } from '../src/common';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;
@@ -31,7 +32,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('should map Prisma P2002 (Unique Constraint) to 409 Conflict', async () => {

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('SalesController (e2e)', () => {
   let app: INestApplication;
@@ -74,7 +75,7 @@ describe('SalesController (e2e)', () => {
     await prisma.catalogItem.deleteMany();
     await prisma.revenueGroup.deleteMany();
     await prisma.brand.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('/api/sales/invoices (POST) - Create Draft', async () => {

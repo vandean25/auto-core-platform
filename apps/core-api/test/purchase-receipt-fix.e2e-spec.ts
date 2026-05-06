@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Purchase Receipt Fix Verification (e2e)', () => {
   let app: INestApplication;
@@ -82,7 +83,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   describe('Receipt Flow with Inventory Stock Fix', () => {

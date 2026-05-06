@@ -16,6 +16,7 @@ import {
   createTestTenant,
   runWithTenantContext,
 } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 /**
  * E2E tests for the mechanic voice-note upload endpoint (AUT-101).
@@ -237,7 +238,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       console.error('Cleanup failed:', cleanupError);
     } finally {
       if (app) {
-        await app.close();
+        await teardownTestApp(app, basePrisma);
       }
     }
   });

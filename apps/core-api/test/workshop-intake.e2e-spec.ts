@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { mockPrismaService } from './mocks/prisma.mock';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
@@ -27,7 +28,7 @@ describe('Workshop Intake Module (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('/api/workshop/search (GET) - should find vehicle by VIN', async () => {

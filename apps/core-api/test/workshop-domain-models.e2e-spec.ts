@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 jest.setTimeout(30000);
 
@@ -127,7 +128,7 @@ describe('Workshop Domain Models (e2e)', () => {
     if (tenantId) {
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('persists inspection templates, inspections, media metadata, and part execution status', async () => {

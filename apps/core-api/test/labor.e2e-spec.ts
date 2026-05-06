@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 type CategoryNode = { id: string; name: string; children: CategoryNode[] };
 type OperationListItem = { id: string; isActive: boolean; categoryId?: string };
@@ -57,7 +58,7 @@ describe('Labor Module (e2e)', () => {
     await prisma.laborCategory.deleteMany({
       where: { name: { startsWith: PREFIX } },
     });
-    await app.close();
+    await teardownTestApp(app, prisma);
     if (originalApiKey === undefined) delete process.env.API_KEY;
     else process.env.API_KEY = originalApiKey;
   });

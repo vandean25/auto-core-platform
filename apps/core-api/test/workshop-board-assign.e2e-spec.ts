@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Board Assign (e2e)', () => {
   let app: INestApplication;
@@ -112,7 +113,7 @@ describe('Workshop Board Assign (e2e)', () => {
     if (tenantId) {
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('assigns a mechanic and returns 200', async () => {

@@ -6,6 +6,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 /**
  * E2E tests for mechanic execution engine endpoints (ADR-0014 §4–7).
@@ -141,7 +142,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
     await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
     await prisma.employee.deleteMany({ where: { id: mechanicId } });
     await prisma.tenant.deleteMany({ where: { id: tenantId } });
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   // ─── Queue & Detail ───────────────────────────────────────────────────────

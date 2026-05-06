@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Purchase Order Receipt Flow (e2e)', () => {
   let app: INestApplication;
@@ -60,7 +61,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   describe('POST /api/purchase-orders/:id/receive', () => {

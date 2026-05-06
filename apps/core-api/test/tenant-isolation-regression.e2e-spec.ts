@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
+import { teardownTestApp } from './test-lifecycle';
   createTenantAwarePrisma,
   createTestTenant,
 } from './tenant-test-utils';
@@ -99,7 +100,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
     }
 
     if (app) {
-      await app.close();
+      await teardownTestApp(app, prisma);
     }
   });
 
