@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  BadGatewayException,
   ConflictException,
   ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -1381,7 +1383,7 @@ describe('MechanicService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('maps SpeechNoteProviderError to InternalServerErrorException', async () => {
+    it('maps SpeechNoteProviderError to BadGatewayException', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
       (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
         new SpeechNoteProviderError('Audio processing failed.', 503),
@@ -1389,10 +1391,10 @@ describe('MechanicService', () => {
 
       await expect(
         service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(InternalServerErrorException);
+      ).rejects.toThrow(BadGatewayException);
     });
 
-    it('maps SpeechNoteConfigError to InternalServerErrorException', async () => {
+    it('maps SpeechNoteConfigError to ServiceUnavailableException', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
       (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
         new SpeechNoteConfigError('OPENAI_API_KEY is required.'),
@@ -1400,7 +1402,16 @@ describe('MechanicService', () => {
 
       await expect(
         service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(InternalServerErrorException);
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    it('throws UnprocessableEntityException when buffer exceeds maximum bytes (25 MiB)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      const largeBuffer = Buffer.alloc(25 * 1024 * 1024 + 1);
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: largeBuffer })),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
