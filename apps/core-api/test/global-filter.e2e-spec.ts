@@ -52,7 +52,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     // Try to create another with same email via API
     const response = await request(app.getHttpServer())
       .post('/api/customers')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         first_name: 'Duplicate',
         last_name: 'User',
@@ -72,7 +72,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     const nonExistentId = '00000000-0000-0000-0000-000000000000';
     const response = await request(app.getHttpServer())
       .get(`/api/sales/invoices/${nonExistentId}`)
-        .set('Authorization', `Bearer \${authToken}`);
+        .set('Authorization', `Bearer ${authToken}`);
 
     expect(response.status).toBe(HttpStatus.NOT_FOUND);
     expect(response.body).toMatchObject({
@@ -94,7 +94,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
       // For now, let's just verify the standardized shape on a known 400
       const response = await request(app.getHttpServer())
         .post('/api/sales/invoices')
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({}); // Missing required fields
 
       expect(response.status).toBe(HttpStatus.BAD_REQUEST);

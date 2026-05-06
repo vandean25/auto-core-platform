@@ -55,7 +55,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF is ready',
@@ -72,7 +72,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF generation enqueued',
@@ -91,7 +91,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Content-Type', /application\/pdf/);
   });
@@ -103,7 +103,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
   });
 });

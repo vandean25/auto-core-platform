@@ -93,7 +93,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -111,7 +111,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Receive 5 items (PARTIAL)
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {
@@ -147,7 +147,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create first PO and receive 5 items to establish initial stock
       const po1Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -162,7 +162,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po1Response.body.id}/receive`)
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: freshItemId, quantity: 5 }],
         })
@@ -171,7 +171,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Create another PO and receive more items for the same catalog item
       const po2Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -189,7 +189,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // Receive 5 more items
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po2Id}/receive`)
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {

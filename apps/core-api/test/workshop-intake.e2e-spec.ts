@@ -36,7 +36,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/search (GET) - should find vehicle by VIN', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/workshop/search?q=TESTVIN')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(res.body.vehicles).toBeDefined();
@@ -47,7 +47,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should create workshop order', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -66,7 +66,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should validate fuel level', async () => {
     await request(app.getHttpServer())
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -80,7 +80,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/register (POST) - should register vehicle using upsert', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/register')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         vin: 'NEWVIN123',
         plate: 'NEW-PLATE',

@@ -12,6 +12,7 @@ import {
   SpeechNoteProviderError,
 } from '../src/speech-note/speech-note.errors';
 import {
+  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestTenant,
   runWithTenantContext,
@@ -196,43 +197,12 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     try {
       if (!prisma || !tenantId) return;
 
-      await runWithTenantContext(tenantId, async () => {
-        // Clean up in dependency order to avoid FK violations
-        const taskIds = [taskId, unassignedTaskId].filter(Boolean) as string[];
-        if (taskIds.length > 0) {
-          await prisma.workshopTask.deleteMany({
-            where: { id: { in: taskIds } },
-          });
-        }
-
-        const orderIds = [orderId, otherOrderId].filter(Boolean) as string[];
-        if (orderIds.length > 0) {
-          await prisma.workshopOrder.deleteMany({
-            where: { id: { in: orderIds } },
-          });
-        }
-
-        if (mechanicId) {
-          await prisma.employee.deleteMany({ where: { id: mechanicId } });
-        }
-
-        if (vehicleId) {
-          await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
-        }
-
-        if (customerId) {
-          await prisma.customer.deleteMany({ where: { id: customerId } });
-        }
-      });
+      await cleanupTestTenantGraph(basePrisma, tenantId);
 
       if (authToken) {
         await basePrisma.user.deleteMany({
           where: { firebaseUid: { startsWith: 'e2e-voice-uid-' } },
         });
-      }
-
-      if (tenantId) {
-        await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
       }
     } catch (cleanupError) {
       console.error('Cleanup failed:', cleanupError);

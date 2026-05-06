@@ -149,7 +149,7 @@ describe('Catalog Module (e2e)', () => {
         .get(
           `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
         )
-          .set('Authorization', `Bearer \${authToken}`)
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];

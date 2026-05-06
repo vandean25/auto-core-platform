@@ -30,7 +30,7 @@ describe('AppController (e2e)', () => {
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Hello World!');
   });

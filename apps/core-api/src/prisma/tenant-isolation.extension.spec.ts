@@ -23,7 +23,7 @@ function call(
   args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
 ) {
-  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
+  return applyTenantIsolation(model, operation, args, queryFn);
 }
 
 describe('applyTenantIsolation', () => {
@@ -143,7 +143,6 @@ describe('applyTenantIsolation', () => {
         await runWithTenant(() =>
           applyTenantIsolation.call(
             {},
-            {},
             'FinanceSettings',
             'update',
             {
@@ -176,7 +175,6 @@ describe('applyTenantIsolation', () => {
         await runWithTenant(() =>
           applyTenantIsolation.call(
             {},
-            { FinanceSettings: { findFirst } },
             'FinanceSettings',
             'update',
             {
@@ -201,6 +199,43 @@ describe('applyTenantIsolation', () => {
         data: { workshop_order_prefix: 'WO-2026-' },
       });
     });
+
+    it('resolves a delegate when Prisma exposes the current model as the extension context', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const findFirst = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const getExtensionContextSpy = jest
+        .spyOn(Prisma, 'getExtensionContext')
+        .mockReturnValue({ findFirst } as never);
+
+      try {
+        await runWithTenant(() =>
+          applyTenantIsolation.call(
+            {},
+            'WorkshopTask',
+            'update',
+            {
+              where: { id: 'task-1' },
+              data: { status: 'DONE' },
+            },
+            query,
+          ),
+        );
+      } finally {
+        getExtensionContextSpy.mockRestore();
+      }
+
+      expect(findFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [{ id: 'task-1' }, { tenant_id: TENANT_ID }],
+        },
+        select: { id: true },
+      });
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1' },
+        data: { status: 'DONE' },
+      });
+    });
+
   });
 
   describe('create() — must stamp tenant_id', () => {

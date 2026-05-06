@@ -61,6 +61,27 @@ export async function createTestTenant(
   return { tenantId: tenant.id };
 }
 
+export async function cleanupTestTenantGraph(
+  prisma: PrismaService,
+  tenantId: string,
+): Promise<void> {
+  const tenantPrisma = createTenantAwarePrisma(prisma, tenantId) as PrismaService;
+
+  await tenantPrisma.workshopInspectionItem.deleteMany({});
+  await tenantPrisma.workshopInspection.deleteMany({});
+  await tenantPrisma.workshopMedia.deleteMany({});
+  await tenantPrisma.workshopTaskLineItem.deleteMany({});
+  await tenantPrisma.laborEntry.deleteMany({});
+  await tenantPrisma.workshopTask.deleteMany({});
+  await tenantPrisma.workshopOrder.deleteMany({});
+  await tenantPrisma.inspectionTemplateItem.deleteMany({});
+  await tenantPrisma.inspectionTemplate.deleteMany({});
+  await tenantPrisma.employee.deleteMany({});
+  await tenantPrisma.vehicle.deleteMany({});
+  await tenantPrisma.customer.deleteMany({});
+  await prisma.tenant.deleteMany({ where: { id: tenantId } });
+}
+
 function wrapDelegateWithTenantContext<T extends object>(
   delegate: T,
   tenantId: string,

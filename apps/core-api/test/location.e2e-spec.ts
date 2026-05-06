@@ -41,7 +41,7 @@ describe('Location Hierarchy (e2e)', () => {
     // 1. Warehouse
     const whRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Main Warehouse', code: 'WH-001', type: 'warehouse' })
       .expect(201);
     const whId = whRes.body.id;
@@ -49,7 +49,7 @@ describe('Location Hierarchy (e2e)', () => {
     // 2. Aisle
     const aisleRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Aisle A', code: 'AISLE-A', type: 'aisle', parentId: whId })
       .expect(201);
     const aisleId = aisleRes.body.id;
@@ -57,7 +57,7 @@ describe('Location Hierarchy (e2e)', () => {
     // 3. Shelf
     const shelfRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         name: 'Shelf 1',
         code: 'SHELF-1',
@@ -70,7 +70,7 @@ describe('Location Hierarchy (e2e)', () => {
     // 4. Bin
     const binRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Bin X', code: 'BIN-X', type: 'bin', parentId: shelfId })
       .expect(201);
 
@@ -81,13 +81,13 @@ describe('Location Hierarchy (e2e)', () => {
     // Warehouse cannot have parent (assuming creating another WH first)
     const whRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Parent WH', code: 'WH-PARENT', type: 'warehouse' })
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         name: 'Child WH',
         code: 'WH-CHILD',
@@ -99,7 +99,7 @@ describe('Location Hierarchy (e2e)', () => {
     // Aisle must have parent
     await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'Orphan Aisle', code: 'AISLE-ORPHAN', type: 'aisle' })
       .expect(400);
   });
@@ -107,7 +107,7 @@ describe('Location Hierarchy (e2e)', () => {
   it('should return the tree structure', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/inventory/locations/tree')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -122,19 +122,19 @@ describe('Location Hierarchy (e2e)', () => {
     // Create isolated location
     const whRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'To Delete', code: 'WH-DEL', type: 'warehouse' })
       .expect(201);
 
     await request(app.getHttpServer())
       .delete(`/api/inventory/locations/${whRes.body.id}`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     // Should not appear in findAll
     const listRes = await request(app.getHttpServer())
       .get('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const found = listRes.body.find((l: any) => l.code === 'WH-DEL');
@@ -145,7 +145,7 @@ describe('Location Hierarchy (e2e)', () => {
     // Create warehouse
     const whRes = await request(app.getHttpServer())
       .post('/api/inventory/locations')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ name: 'WH-Stock-Test', code: 'WH-TEST-STOCK', type: 'warehouse' })
       .expect(201);
     const whId = whRes.body.id;
@@ -187,7 +187,7 @@ describe('Location Hierarchy (e2e)', () => {
     // Let's rely on receiving items to create the General Bin automatically.
     const receiveRes = await request(app.getHttpServer())
       .post(`/api/purchase-orders/${po.id}/receive`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ items: [{ itemId: item.id, quantity: 10 }] })
       .expect(201);
 

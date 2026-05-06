@@ -105,7 +105,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -119,7 +119,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Engine diagnostic labor' })
       .expect(201);
 
@@ -127,7 +127,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const firstSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -153,7 +153,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const secondSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -185,13 +185,13 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
     const draftInvoiceRes = await api
       .post('/api/invoices/drafts')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
@@ -209,7 +209,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -223,7 +223,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Invalid labor operation reference' })
       .expect(201);
 
@@ -231,7 +231,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const invalidRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer \${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -249,6 +249,10 @@ describe('Workshop Labor Metadata (e2e)', () => {
       })
       .expect(400);
 
-    expect(invalidRes.body.message).toContain('laborOperationId');
+    expect(
+      (invalidRes.body.message as string[]).some((message) =>
+        message.includes('laborOperationId'),
+      ),
+    ).toBe(true);
   });
 });
