@@ -50,8 +50,38 @@ export class AutoCorePage {
    * are served before any assertions are made.
    */
   async navigate(path: string) {
+    // Mock auth session to prevent "Unable to load your tenant session" blocking the UI
+    // This is done globally here to avoid repeating it in every test file.
+    await this.page.route(AutoCorePage.apiRouteMatcher("/api/auth/me"), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          userId: "e2e-test-user",
+          email: "testauto@auto.core.at",
+          activeTenant: {
+            id: "e2e-tenant-id",
+            name: "E2E Tenant",
+            slug: "e2e-tenant",
+          },
+          activeRole: "ADMIN",
+          memberships: [
+            {
+              tenantId: "e2e-tenant-id",
+              role: "ADMIN",
+              tenant: {
+                id: "e2e-tenant-id",
+                name: "E2E Tenant",
+                slug: "e2e-tenant",
+              },
+            },
+          ],
+        }),
+      });
+    });
+
     await this.page.goto(path);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState("networkidle");
   }
 
   /**
