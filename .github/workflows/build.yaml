@@ -211,6 +211,8 @@ jobs:
         run: npm run build
 
       - name: Run unit tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
         run: npm test -- --ci --runInBand
 
       - name: Run E2E tests
