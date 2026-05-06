@@ -3303,6 +3303,61 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/voice-notes": {
+      "post": {
+        "description": "Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.",
+        "operationId": "MechanicController_uploadVoiceNote",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "audio"
+                ],
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Translated diagnostic-note draft ready for mechanic review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceNoteDraftResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio."
+          }
+        },
+        "summary": "Upload voice note and receive a translated diagnostic draft",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -6984,6 +7039,40 @@
           "sizeBytes",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "VoiceNoteDraftResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics."
+          },
+          "detectedLanguage": {
+            "type": "string",
+            "description": "BCP-47 language code detected from the audio source.",
+            "nullable": true
+          },
+          "provider": {
+            "type": "string",
+            "description": "AI provider used for transcription/translation.",
+            "example": "openai"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model used for audio transcription/translation.",
+            "example": "whisper-1"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "description": "Duration of the audio recording in seconds.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "text",
+          "provider",
+          "model"
         ]
       },
       "LaborOperationSearchItemDto": {

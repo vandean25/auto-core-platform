@@ -1036,6 +1036,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/voice-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload voice note and receive a translated diagnostic draft
+         * @description Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.
+         */
+        post: operations["MechanicController_uploadVoiceNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labor/search": {
         parameters: {
             query?: never;
@@ -1964,6 +1984,24 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        VoiceNoteDraftResponseDto: {
+            /** @description Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics. */
+            text: string;
+            /** @description BCP-47 language code detected from the audio source. */
+            detectedLanguage?: string | null;
+            /**
+             * @description AI provider used for transcription/translation.
+             * @example openai
+             */
+            provider: string;
+            /**
+             * @description Model used for audio transcription/translation.
+             * @example whisper-1
+             */
+            model: string;
+            /** @description Duration of the audio recording in seconds. */
+            durationSeconds?: number | null;
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -4506,6 +4544,45 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WorkshopMediaDto"];
                 };
+            };
+        };
+    };
+    MechanicController_uploadVoiceNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB.
+                     */
+                    audio: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Translated diagnostic-note draft ready for mechanic review. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceNoteDraftResponseDto"];
+                };
+            };
+            /** @description Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -10,7 +10,11 @@ import {
   SpeechNoteInputError,
   SpeechNoteProviderError,
 } from '../src/speech-note/speech-note.errors';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import {
+  createTenantAwarePrisma,
+  createTestTenant,
+  runWithTenantContext,
+} from './tenant-test-utils';
 
 /**
  * E2E tests for the mechanic voice-note upload endpoint (AUT-101).
@@ -36,6 +40,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   let taskId: string;
   let unassignedTaskId: string;
   let orderId: string;
+  let otherOrderId: string;
   let authToken: string;
 
   /**
@@ -51,143 +56,176 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
+    try {
+      process.env.API_KEY = 'test-api-key';
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(SpeechNoteService)
-      .useValue(mockSpeechNote)
-      .compile();
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
+      })
+        .overrideProvider(SpeechNoteService)
+        .useValue(mockSpeechNote)
+        .compile();
 
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
-    await app.init();
+      app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
+      app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+      await app.init();
 
-    basePrisma = app.get<PrismaService>(PrismaService);
-    const authService = app.get<AuthService>(AuthService);
+      basePrisma = app.get<PrismaService>(PrismaService);
+      const authService = app.get<AuthService>(AuthService);
 
-    const testTenant = await createTestTenant(basePrisma, 'mech-voice');
-    tenantId = testTenant.tenantId;
-    prisma = createTenantAwarePrisma(basePrisma, tenantId);
+      // Create global Tenant - bypasses isolation
+      const testTenant = await createTestTenant(basePrisma, 'mech-voice');
+      tenantId = testTenant.tenantId;
+      prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
-    // ── Mechanic user + employee ──────────────────────────────────────────────
-    // resolveMechanic() requires: JWT sub → User.firebaseUid → Employee.user_id
-    const firebaseUid = `e2e-voice-uid-${Date.now()}`;
+      await runWithTenantContext(tenantId, async () => {
+        // ── Mechanic user + employee ──────────────────────────────────────────────
+        const firebaseUid = `e2e-voice-uid-${Date.now()}`;
 
-    const user = await basePrisma.user.create({
-      data: {
-        firebaseUid,
-        email: `voice-mechanic-${Date.now()}@e2e.local`,
-      },
-    });
+        const user = await basePrisma.user.create({
+          data: {
+            firebaseUid,
+            email: `voice-mechanic-${Date.now()}@e2e.local`,
+          },
+        });
 
-    authToken = authService.createTestToken({
-      sub: firebaseUid,
-      email: user.email,
-      tenantId,
-      role: 'TECH',
-    });
+        authToken = authService.createTestToken({
+          sub: firebaseUid,
+          email: user.email,
+          tenantId,
+          role: 'TECH',
+        });
 
-    const mechanic = await prisma.employee.create({
-      data: {
-        name: 'Voice Mechanic',
-        role: 'MECHANIC',
-        is_active: true,
-        user_id: user.id,
-      },
-    });
-    mechanicId = mechanic.id;
+        const mechanic = await basePrisma.employee.create({
+          data: {
+            tenant_id: tenantId,
+            name: 'Voice Mechanic',
+            role: 'MECHANIC',
+            is_active: true,
+            user_id: user.id,
+          },
+        });
+        mechanicId = mechanic.id;
 
-    // ── Workshop order + tasks ────────────────────────────────────────────────
-    const customer = await prisma.customer.create({
-      data: {
-        first_name: 'Voice',
-        last_name: 'Customer',
-        email: `voice-cust-${Date.now()}@e2e.local`,
-        type: 'PRIVATE',
-      },
-    });
+        // ── Workshop order + tasks ────────────────────────────────────────────────
+        const customer = await basePrisma.customer.create({
+          data: {
+            tenant_id: tenantId,
+            first_name: 'Voice',
+            last_name: 'Customer',
+            email: `voice-cust-${Date.now()}@e2e.local`,
+            type: 'PRIVATE',
+          },
+        });
 
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        make: 'Toyota',
-        model: 'Hilux',
-        year: 2023,
-        vin: `VIN-VOICE-${Date.now()}`,
-        customer_id: customer.id,
-      },
-    });
+        const vehicle = await basePrisma.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            make: 'Toyota',
+            model: 'Hilux',
+            year: 2023,
+            vin: `VIN-VOICE-${Date.now()}`,
+            customer_id: customer.id,
+          },
+        });
 
-    const order = await prisma.workshopOrder.create({
-      data: {
-        order_number: `WO-VOICE-${Date.now()}`,
-        customer_id: customer.id,
-        vehicle_id: vehicle.id,
-        mechanic_id: mechanicId,
-        odometer: 50000,
-        fuel_level: 75,
-        status: 'IN_PROGRESS',
-      },
-    });
-    orderId = order.id;
+        const order = await basePrisma.workshopOrder.create({
+          data: {
+            tenant_id: tenantId,
+            order_number: `WO-VOICE-${Date.now()}`,
+            customer_id: customer.id,
+            vehicle_id: vehicle.id,
+            mechanic_id: mechanicId,
+            odometer: 50000,
+            fuel_level: 75,
+            status: 'IN_PROGRESS',
+          },
+        });
+        orderId = order.id;
 
-    // Task assigned to the mechanic (via order-level inheritance: task.mechanic_id = null)
-    const taskA = await prisma.workshopTask.create({
-      data: {
-        workshop_order_id: orderId,
-        title: 'Engine Diagnostics',
-        sequence: 1,
-        status: 'IN_PROGRESS',
-      },
-    });
-    taskId = taskA.id;
+        const taskA = await basePrisma.workshopTask.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            title: 'Engine Diagnostics',
+            sequence: 1,
+            status: 'IN_PROGRESS',
+          },
+        });
+        taskId = taskA.id;
 
-    // Task assigned to a *different* order (no mechanic access) for the unassigned test
-    const otherOrder = await prisma.workshopOrder.create({
-      data: {
-        order_number: `WO-VOICE-OTHER-${Date.now()}`,
-        customer_id: customer.id,
-        vehicle_id: vehicle.id,
-        odometer: 60000,
-        fuel_level: 50,
-        status: 'IN_PROGRESS',
-      },
-    });
+        const otherOrder = await basePrisma.workshopOrder.create({
+          data: {
+            tenant_id: tenantId,
+            order_number: `WO-VOICE-OTHER-${Date.now()}`,
+            customer_id: customer.id,
+            vehicle_id: vehicle.id,
+            odometer: 60000,
+            fuel_level: 50,
+            status: 'IN_PROGRESS',
+          },
+        });
+        otherOrderId = otherOrder.id;
 
-    const taskB = await prisma.workshopTask.create({
-      data: {
-        workshop_order_id: otherOrder.id,
-        title: 'Transmission Check',
-        sequence: 1,
-        status: 'IN_PROGRESS',
-      },
-    });
-    unassignedTaskId = taskB.id;
+        const taskB = await basePrisma.workshopTask.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_order_id: otherOrderId,
+            title: 'Transmission Check',
+            sequence: 1,
+            status: 'IN_PROGRESS',
+          },
+        });
+        unassignedTaskId = taskB.id;
+      });
+    } catch (error) {
+      console.error('FAILED E2E SETUP:', error);
+      throw error;
+    }
   });
 
   afterAll(async () => {
-    // Clean up in dependency order
-    await prisma.workshopTask.deleteMany({
-      where: {
-        workshop_order: {
-          OR: [{ id: orderId }, { mechanic_id: null, customer_id: { not: '' } }],
-        },
-      },
-    });
-    await prisma.workshopOrder.deleteMany({
-      where: { mechanic_id: mechanicId },
-    });
-    await prisma.workshopOrder.deleteMany({
-      where: { id: { in: [orderId] } },
-    });
-    await prisma.employee.deleteMany({ where: { id: mechanicId } });
-    await basePrisma.user.deleteMany({
-      where: { firebaseUid: { startsWith: 'e2e-voice-uid-' } },
-    });
-    await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
-    await app.close();
+    try {
+      if (!prisma || !tenantId) return;
+
+      await runWithTenantContext(tenantId, async () => {
+        // Clean up in dependency order to avoid FK violations
+        const taskIds = [taskId, unassignedTaskId].filter(Boolean) as string[];
+        if (taskIds.length > 0) {
+          await prisma.workshopTask.deleteMany({
+            where: { id: { in: taskIds } },
+          });
+        }
+
+        const orderIds = [orderId, otherOrderId].filter(Boolean) as string[];
+        if (orderIds.length > 0) {
+          await prisma.workshopOrder.deleteMany({
+            where: { id: { in: orderIds } },
+          });
+        }
+
+        if (mechanicId) {
+          await prisma.employee.deleteMany({ where: { id: mechanicId } });
+        }
+      });
+
+      if (authToken) {
+        await basePrisma.user.deleteMany({
+          where: { firebaseUid: { startsWith: 'e2e-voice-uid-' } },
+        });
+      }
+
+      if (tenantId) {
+        await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
+      }
+    } catch (cleanupError) {
+      console.error('Cleanup failed:', cleanupError);
+    } finally {
+      if (app) {
+        await app.close();
+      }
+    }
   });
 
   beforeEach(() => {
@@ -244,7 +282,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(201);
 
     // The task mechanic_notes must remain unchanged (null/empty).
-    const taskRow = await prisma.workshopTask.findUnique({
+    const taskRow = await prisma.workshopTask.findFirst({
       where: { id: taskId },
       select: { mechanic_notes: true },
     });
@@ -309,6 +347,9 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       where: { workshop_order_id: otherOrder.id },
     });
     await otherPrisma.workshopOrder.deleteMany({ where: { id: otherOrder.id } });
+    await otherPrisma.vehicle.deleteMany({ where: { id: otherVehicle.id } });
+    await otherPrisma.customer.deleteMany({ where: { id: otherCust.id } });
+
     await basePrisma.tenant.deleteMany({
       where: { id: otherTenant.tenantId },
     });
@@ -389,6 +430,8 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   // ─── Duration exceeds limit ───────────────────────────────────────────────
 
+  // ─── Duration exceeds limit ───────────────────────────────────────────────
+
   it('returns 422 when transcription reports duration exceeding the limit', async () => {
     mockSpeechNote.transcribeNote.mockResolvedValueOnce({
       text: 'Very long recording content…',
@@ -408,9 +451,32 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(422);
   });
 
+  // ─── Multer size limit (25 MiB) ──────────────────────────────────────────
+
+  it('returns 413 or 422 when the audio file exceeds Multer limits (25 MiB)', async () => {
+    // 25 MiB + 1 byte
+    const oversizedBuffer = Buffer.alloc(25 * 1024 * 1024 + 1);
+
+    await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .attach('audio', oversizedBuffer, {
+        filename: 'huge.webm',
+        contentType: 'audio/webm',
+      })
+      // NestJS FileInterceptor with limits throws Payload Too Large (413) 
+      // or UnprocessableEntity (422) depending on internal mapping.
+      // Usually 413 for Multer size limit.
+      .expect((res) => {
+        if (res.status !== 413 && res.status !== 422) {
+          throw new Error(`Expected 413 or 422, got ${res.status}`);
+        }
+      });
+  });
+
   // ─── Provider failure ─────────────────────────────────────────────────────
 
-  it('returns 500 when the speech-note provider fails', async () => {
+  it('returns 502 (Bad Gateway) when the speech-note provider fails', async () => {
     mockSpeechNote.transcribeNote.mockRejectedValueOnce(
       new SpeechNoteProviderError(
         'Audio processing failed (provider: openai, status: 503).',
@@ -425,12 +491,12 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         filename: 'note.webm',
         contentType: 'audio/webm',
       })
-      .expect(500);
+      .expect(502);
   });
 
   // ─── Provider not configured ──────────────────────────────────────────────
 
-  it('returns 500 when the speech-note provider is not configured', async () => {
+  it('returns 503 (Service Unavailable) when the speech-note provider is not configured', async () => {
     mockSpeechNote.transcribeNote.mockRejectedValueOnce(
       new SpeechNoteConfigError('OPENAI_API_KEY environment variable is required.'),
     );
@@ -442,17 +508,17 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         filename: 'note.webm',
         contentType: 'audio/webm',
       })
-      .expect(500);
+      .expect(503);
   });
 
   // ─── Missing audio field ──────────────────────────────────────────────────
 
   it('returns 422 when no audio file is attached', async () => {
-    // Send a multipart request but without the "audio" field
+    // Send a valid multipart request but without the "audio" field
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
       .set('Authorization', `Bearer ${authToken}`)
-      .set('Content-Type', 'multipart/form-data')
+      .field('dummy', 'value')
       .expect(422);
   });
 

@@ -35,7 +35,7 @@ import {
   RequestMediaUploadDto,
   WorkshopMediaDto,
 } from './dto/media.dto';
-import { VoiceNoteDraftResponseDto } from './dto/voice-note.dto';
+import { MAX_VOICE_NOTE_BYTES, VoiceNoteDraftResponseDto } from './dto/voice-note.dto';
 import { MechanicService } from './mechanic.service';
 
 @ApiTags('mechanic')
@@ -296,7 +296,7 @@ export class MechanicController {
   })
   async uploadVoiceNote(
     @Param('taskId', ParseUUIDPipe) taskId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ): Promise<VoiceNoteDraftResponseDto> {
     const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.uploadVoiceNote(mechanicId, taskId, file);

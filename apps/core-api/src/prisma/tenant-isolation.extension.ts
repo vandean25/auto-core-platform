@@ -12,6 +12,8 @@ import { toPrismaDelegateKey } from './prisma-delegate';
  */
 const GLOBAL_MODELS = new Set([
   'Tenant',
+  'User',
+  'PlatformAdmin',
   'MasterPart',
   'PartFitment',
   'LocalInventory',

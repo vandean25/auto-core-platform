@@ -1288,7 +1288,7 @@ export class MechanicService {
   async uploadVoiceNote(
     mechanicId: string,
     taskId: string,
-    file: Express.Multer.File,
+    file: any,
   ): Promise<VoiceNoteDraftResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
 
