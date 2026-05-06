@@ -247,7 +247,16 @@ function MechanicRoutes() {
   )
 }
 
-function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicShellProps) {
+// ADR-0014: The stale localStorage key written by the previous client-side mechanic
+// selection model.  Removing it on every shell mount ensures no residual identity
+// can survive an upgrade even if the user never explicitly cleared site data.
+const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
+
+export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicShellProps) {
+  React.useEffect(() => {
+    window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)
+  }, [])
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Minimal top bar — hides all admin/billing navigation */}
