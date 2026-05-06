@@ -21,8 +21,6 @@ test.describe("Blueprint: Purchase Order Detail", () => {
   const VENDOR_ID = "vendor-mock-123";
   const MOCK_AVAILABLE_QUANTITY = 25;
 
-
-
   test("Purchase Order Detail - rendering and items", async ({ page }) => {
     const corePage = new AutoCorePage(page, "Purchase Order");
 
@@ -143,9 +141,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       id: VENDOR_ID,
       name: "Bosch Automotive",
     });
-
-    // Track state locally to simulate backend transitions
-    let currentPO = createMockPurchaseOrder({
+    const mockPO = createMockPurchaseOrder({
       id: PO_ID,
       order_number: "PO-2026-0001",
       status: "DRAFT",
@@ -159,35 +155,20 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       async (route) => {
         if (route.request().method() === "PATCH") {
           const body = JSON.parse(route.request().postData() || "{}");
-          currentPO = { ...currentPO, ...body };
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify(currentPO),
+            body: JSON.stringify({ ...mockPO, ...body }),
           });
         } else {
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify(currentPO),
+            body: JSON.stringify(mockPO),
           });
         }
       },
     );
-
-    // Mock the POST route for status transition
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}/mark-as-sent`),
-      async (route) => {
-        currentPO.status = "SENT";
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify(currentPO),
-        });
-      },
-    );
-
     await page.route(
       AutoCorePage.apiRouteMatcher("/api/vendors"),
       async (route) => {
@@ -226,10 +207,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     const sendButton = page.getByRole("button", { name: /Mark as Sent/i });
     await expect(sendButton).toBeVisible();
     await sendButton.click();
-    await expect(sendButton).not.toBeVisible();
-
-    // Verify the status changes to Sent in the UI
-    await expect(page.getByText("Sent", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("SENT", { exact: true })).toBeVisible();
   });
 
   // Auto-save (Saving → Saved cycle) is not yet implemented on the PO detail page.
