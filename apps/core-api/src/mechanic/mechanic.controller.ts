@@ -264,7 +264,7 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/voice-notes')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('audio'))
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_NOTE_BYTES } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Upload voice note and receive a translated diagnostic draft',
