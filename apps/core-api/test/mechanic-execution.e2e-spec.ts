@@ -49,7 +49,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -137,7 +139,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
     await prisma.workshopTaskLineItem.deleteMany({
       where: { workshop_task: { workshop_order_id: orderId } },
     });
-    await prisma.workshopTask.deleteMany({ where: { workshop_order_id: orderId } });
+    await prisma.workshopTask.deleteMany({
+      where: { workshop_order_id: orderId },
+    });
     await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
     await prisma.employee.deleteMany({ where: { id: mechanicId } });
     await prisma.tenant.deleteMany({ where: { id: tenantId } });
@@ -202,7 +206,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('PATCH /tasks/:taskId/diagnostics saves mechanic notes', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`)
+      .patch(
+        `/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mechanicNotes: 'Oil was very dark, filter replaced.' })
       .expect(200);
@@ -213,7 +219,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('PATCH /tasks/:taskId/diagnostics accepts empty payload (partial save)', async () => {
     await request(app.getHttpServer())
-      .patch(`/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`)
+      .patch(
+        `/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
       .expect(200);
@@ -225,7 +233,11 @@ describe('Mechanic Execution Engine (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/parts?mechanicId=${mechanicId}`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ itemNo: 'OIL-FILTER-001', description: 'Oil filter 2.0 TDI', qty: 1 })
+      .send({
+        itemNo: 'OIL-FILTER-001',
+        description: 'Oil filter 2.0 TDI',
+        qty: 1,
+      })
       .expect(201);
 
     expect(res.body.itemNo).toBe('OIL-FILTER-001');
@@ -264,9 +276,15 @@ describe('Mechanic Execution Engine (e2e)', () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(
+        `/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ mimeType: 'image/jpeg', sizeBytes: 512000, filename: 'photo.jpg' })
+      .send({
+        mimeType: 'image/jpeg',
+        sizeBytes: 512000,
+        filename: 'photo.jpg',
+      })
       .expect(201);
 
     expect(res.body.uploadUrl).toBe(
@@ -280,7 +298,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/media/uploads rejects unsupported mimeType with 400', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(
+        `/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mimeType: 'application/pdf', sizeBytes: 10000 })
       .expect(400);
@@ -402,7 +422,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/media/uploads rejects upload policy for completed task with 422', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(
+        `/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`,
+      )
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mimeType: 'image/jpeg', sizeBytes: 1024 })
       .expect(422);

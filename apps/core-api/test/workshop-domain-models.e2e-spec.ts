@@ -32,7 +32,9 @@ describe('Workshop Domain Models (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -106,11 +108,15 @@ describe('Workshop Domain Models (e2e)', () => {
       await prisma.workshopTaskLineItem.deleteMany({
         where: { workshop_task: { workshop_order_id: orderId } },
       });
-      await prisma.workshopTask.deleteMany({ where: { workshop_order_id: orderId } });
+      await prisma.workshopTask.deleteMany({
+        where: { workshop_order_id: orderId },
+      });
       await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
     }
     if (templateItemId) {
-      await prisma.inspectionTemplateItem.deleteMany({ where: { id: templateItemId } });
+      await prisma.inspectionTemplateItem.deleteMany({
+        where: { id: templateItemId },
+      });
     }
     if (templateId) {
       await prisma.inspectionTemplate.deleteMany({ where: { id: templateId } });
@@ -209,7 +215,9 @@ describe('Workshop Domain Models (e2e)', () => {
     expect(template.items).toHaveLength(1);
     expect(inspection.workshop_order_id).toBe(orderId);
     expect(inspection.workshop_task_id).toBe(taskId);
-    expect(inspection.items[0]?.inspection_template_item_id).toBe(template.items[0]?.id);
+    expect(inspection.items[0]?.inspection_template_item_id).toBe(
+      template.items[0]?.id,
+    );
     expect(media.storage_key).toContain(orderId);
     expect(partLine.part_execution_status).toBe('PENDING_PICK');
   });
