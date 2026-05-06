@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   ForbiddenException,
   Inject,
@@ -30,7 +31,11 @@ type AuthenticateBearerTokenOptions = {
 
 @Injectable()
 export class AuthService {
-  private readonly testJwtSecret = 'test-jwt-secret';
+  private readonly testJwtSecret =
+    process.env.TEST_JWT_SECRET ||
+    (process.env.NODE_ENV === 'test'
+      ? 'test-jwt-secret'
+      : randomBytes(32).toString('hex'));
 
   constructor(
     @Inject(forwardRef(() => PrismaService))
