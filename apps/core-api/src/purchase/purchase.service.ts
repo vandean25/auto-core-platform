@@ -356,7 +356,9 @@ export class PurchaseService {
       }
 
       // Check if item already exists in PO
-      const existingItem = poItemsMap.get(item.catalogItemId);
+      const existingItem = po.items.find(
+        (i) => i.catalog_item_id === item.catalogItemId,
+      );
       if (existingItem) {
         throw new BadRequestException(
           `Item ${catalogItem.name} is already in this purchase order`,
