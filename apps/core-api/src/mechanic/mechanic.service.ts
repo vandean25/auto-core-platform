@@ -20,6 +20,12 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  SpeechNoteConfigError,
+  SpeechNoteInputError,
+  SpeechNoteProviderError,
+} from '../speech-note/speech-note.errors';
+import { SpeechNoteService } from '../speech-note/speech-note.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -30,6 +36,13 @@ import type { RequestPartResponseDto } from './dto/request-part.dto';
 import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
 import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
+import {
+  ALLOWED_VOICE_NOTE_MIME_TYPES,
+  MAX_VOICE_NOTE_BYTES,
+  MAX_VOICE_NOTE_DURATION_SECONDS,
+  MIN_VOICE_NOTE_BYTES,
+  type VoiceNoteDraftResponseDto,
+} from './dto/voice-note.dto';
 import {
   IMAGE_MIME_TYPES,
   MechanicMediaStorage,
@@ -123,6 +136,7 @@ export class MechanicService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
+    private readonly speechNote: SpeechNoteService,
   ) {
     this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
   }
@@ -1254,5 +1268,137 @@ export class MechanicService {
     throw new ForbiddenException(
       `Task ${task.id} is not assigned to mechanic ${mechanicId}.`,
     );
+  }
+
+  // ─── Voice Note Upload ─────────────────────────────────────────────────────
+
+  /**
+   * Transcribes and translates a mechanic voice-note audio recording.
+   *
+   * Accepts a completed `multipart/form-data` audio blob (ADR-0014 §5.3),
+   * validates the audio envelope, and delegates to `SpeechNoteService`.
+   *
+   * The returned draft is **not** persisted automatically.  The mechanic must
+   * review it and submit it via `PATCH /api/mechanic/tasks/:taskId/diagnostics`.
+   *
+   * ADR-0014 §5.3
+   */
+  async uploadVoiceNote(
+    mechanicId: string,
+    taskId: string,
+    file: Express.Multer.File,
+  ): Promise<VoiceNoteDraftResponseDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    // ── 1. Task access check ──────────────────────────────────────────────────
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        status: true,
+        mechanic_id: true,
+        workshop_order_id: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    // ── 2. Audio envelope validation ──────────────────────────────────────────
+
+    // Reject missing or structurally empty uploads early.
+    if (!file || !file.buffer || file.buffer.length === 0) {
+      throw new UnprocessableEntityException(
+        'Audio file must not be empty. Include an audio file in the "audio" field.',
+      );
+    }
+
+    // Reject payloads that are too small to contain meaningful audio (proxy for
+    // silence — a real recording always has header + samples).
+    if (file.buffer.length < MIN_VOICE_NOTE_BYTES) {
+      throw new UnprocessableEntityException(
+        `Audio file is too small (${file.buffer.length} bytes). ` +
+          'The recording appears to be empty or silent.',
+      );
+    }
+
+    // Enforce provider size cap.
+    if (file.buffer.length > MAX_VOICE_NOTE_BYTES) {
+      throw new UnprocessableEntityException(
+        `Audio file size ${file.buffer.length} bytes exceeds the maximum of ${MAX_VOICE_NOTE_BYTES} bytes (25 MiB).`,
+      );
+    }
+
+    // Validate MIME type against the allow-list.
+    const normalizedMime = (file.mimetype ?? '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
+    if (!ALLOWED_VOICE_NOTE_MIME_TYPES.has(normalizedMime)) {
+      throw new UnprocessableEntityException(
+        `Unsupported audio format "${file.mimetype}". ` +
+          `Allowed formats: ${[...ALLOWED_VOICE_NOTE_MIME_TYPES].join(', ')}.`,
+      );
+    }
+
+    // ── 3. Provider call ──────────────────────────────────────────────────────
+    let draft: VoiceNoteDraftResponseDto;
+    try {
+      draft = await this.speechNote.transcribeNote({
+        audioBuffer: file.buffer,
+        filename: file.originalname || `voice-note.${normalizedMime.split('/')[1] ?? 'bin'}`,
+        mimeType: normalizedMime,
+      });
+    } catch (error) {
+      if (error instanceof SpeechNoteInputError) {
+        // Provider detected an empty/invalid audio payload.
+        throw new UnprocessableEntityException(error.message);
+      }
+      if (error instanceof SpeechNoteConfigError) {
+        // Provider is not configured — surface as 503.
+        throw new InternalServerErrorException(
+          'Voice-note transcription is not available. Contact your administrator.',
+        );
+      }
+      if (error instanceof SpeechNoteProviderError) {
+        // Upstream AI provider failed — surface as 502.
+        throw new InternalServerErrorException(
+          'Voice-note transcription failed due to an upstream provider error. Please try again.',
+        );
+      }
+      throw error;
+    }
+
+    // ── 4. Post-transcription duration guard ──────────────────────────────────
+    if (
+      draft.durationSeconds !== undefined &&
+      draft.durationSeconds !== null &&
+      draft.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
+    ) {
+      throw new UnprocessableEntityException(
+        `Audio recording duration ${draft.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
+      );
+    }
+
+    // ── 5. Empty transcription guard (silent audio) ───────────────────────────
+    if (!draft.text || draft.text.trim().length === 0) {
+      throw new UnprocessableEntityException(
+        'Voice note appears to be silent — no speech was detected in the recording.',
+      );
+    }
+
+    // Audio is not persisted (ADR-0014 §5.3); return the draft for mechanic review.
+    return {
+      text: draft.text,
+      detectedLanguage: draft.detectedLanguage,
+      provider: draft.provider,
+      model: draft.model,
+      durationSeconds: draft.durationSeconds,
+    } satisfies VoiceNoteDraftResponseDto;
   }
 }

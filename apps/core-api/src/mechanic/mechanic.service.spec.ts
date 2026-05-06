@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -17,6 +18,11 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  SpeechNoteConfigError,
+  SpeechNoteInputError,
+  SpeechNoteProviderError,
+} from '../speech-note/speech-note.errors';
 import { MechanicService } from './mechanic.service';
 import { MechanicMediaStorage } from './mechanic-media.storage';
 import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
@@ -55,6 +61,10 @@ const mockMediaStorage = {
   generateUploadPolicy: jest.fn(),
 } as unknown as MechanicMediaStorage;
 
+const mockSpeechNoteService = {
+  transcribeNote: jest.fn(),
+} as unknown as import('../speech-note/speech-note.service').SpeechNoteService;
+
 describe('MechanicService', () => {
   let service: MechanicService;
 
@@ -67,6 +77,7 @@ describe('MechanicService', () => {
       mockRealtimeService,
       mockEventEmitter,
       mockMediaStorage,
+      mockSpeechNoteService,
     );
     jest.clearAllMocks();
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
@@ -1256,6 +1267,191 @@ describe('MechanicService', () => {
       expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ type: 'WORKSHOP_MEDIA', action: 'CREATED' }),
+      );
+    });
+  });
+
+  // ─── uploadVoiceNote ────────────────────────────────────────────────────────
+
+  describe('uploadVoiceNote()', () => {
+    /** Minimal task stub accepted by assertTaskAssignedToMechanic. */
+    const makeTask = (overrides = {}) => ({
+      id: TASK_ID,
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      mechanic_id: MECHANIC_ID,
+      bay_id: null,
+      workshop_order_id: ORDER_ID,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    /** A valid audio file stub (>= 100 bytes, accepted MIME). */
+    const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
+      ({
+        fieldname: 'audio',
+        originalname: 'note.webm',
+        mimetype: 'audio/webm',
+        buffer: Buffer.alloc(2048, 0xaa),
+        size: 2048,
+        ...overrides,
+      }) as Express.Multer.File;
+
+    it('throws NotFoundException when task does not exist', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when task is not assigned to the mechanic', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask({ mechanic_id: 'other-mechanic', workshop_order: { mechanic_id: 'other-mechanic', bay_id: null } }),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws UnprocessableEntityException for an empty buffer', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(0) })),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when buffer is below minimum bytes (silent)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(50) })),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException for a disallowed MIME type', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ mimetype: 'application/pdf' }),
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when duration exceeds the limit', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Long recording content',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 301,
+      });
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: '',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 3.0,
+      });
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('maps SpeechNoteInputError to UnprocessableEntityException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteInputError('Audio buffer must not be empty.'),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('maps SpeechNoteProviderError to InternalServerErrorException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteProviderError('Audio processing failed.', 503),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it('maps SpeechNoteConfigError to InternalServerErrorException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteConfigError('OPENAI_API_KEY is required.'),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Clutch bearing worn — replace.',
+        detectedLanguage: 'en',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 9.3,
+      });
+
+      const result = await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      expect(result.text).toBe('Clutch bearing worn — replace.');
+      expect(result.detectedLanguage).toBe('en');
+      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('whisper-1');
+      expect(result.durationSeconds).toBe(9.3);
+    });
+
+    it('does not call any Prisma write methods (no persistence)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'No oil pressure detected.',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 5.0,
+      });
+
+      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      // None of the write methods should have been called.
+      expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+      expect((mockPrisma.$transaction as jest.Mock)).not.toHaveBeenCalled();
+    });
+
+    it('passes tenant_id to the task lookup query', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Test note.',
+        provider: 'openai',
+        model: 'whisper-1',
+      });
+
+      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      expect(mockPrisma.workshopTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
       );
     });
   });
