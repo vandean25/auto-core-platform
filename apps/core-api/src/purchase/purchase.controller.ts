@@ -17,6 +17,7 @@ import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
 import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
 import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import type { Prisma } from '@prisma/client';
 
 @Controller('purchase-orders')
@@ -172,6 +173,17 @@ export class PurchaseController {
   })
   async findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
+  }
+
+  @Patch(':id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
+  async updatePurchaseOrder(
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderDto,
+  ) {
+    return this.purchaseService.updatePurchaseOrder(id, dto);
   }
 
   @Delete(':id')

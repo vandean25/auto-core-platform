@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { usePurchaseOrder, useReceiveGoods, useAddPOItems, useUpdatePOItem, useDeletePOItem } from '@/api/purchase-orders'
+import { usePurchaseOrder, useReceiveGoods, useAddPOItems, useUpdatePOItem, useDeletePOItem, useUpdatePurchaseOrder } from '@/api/purchase-orders'
 import { useInventory } from '@/api/inventory'
 import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,68 @@ interface StagedPOItem {
     price: number
 }
 
+
+function PONotesInput({ po, id }: { po: PurchaseOrder, id: string }) {
+    const [notes, setNotes] = useState(po.notes || '')
+    const [isSaving, setIsSaving] = useState(false)
+    const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | ''>('')
+    const updatePO = useUpdatePurchaseOrder()
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+        setNotes(po.notes || '')
+    }, [po.notes])
+
+    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newNotes = e.target.value
+        setNotes(newNotes)
+        setSaveStatus('saving')
+
+        if (typingTimeoutRef.current) {
+            window.clearTimeout(typingTimeoutRef.current)
+        }
+
+        typingTimeoutRef.current = window.setTimeout(() => {
+            setIsSaving(true)
+            updatePO.mutate({
+                id,
+                updates: { notes: newNotes }
+            }, {
+                onSuccess: () => {
+                    setSaveStatus('saved')
+                    setIsSaving(false)
+                    setTimeout(() => setSaveStatus(''), 2000)
+                },
+                onError: (error) => {
+                    setSaveStatus('error')
+                    setIsSaving(false)
+                    toast.error('Failed to auto-save notes', { description: error.message })
+                }
+            })
+        }, 1000) // 1 second debounce
+    }
+
+    return (
+        <div className="space-y-2 relative">
+            <label htmlFor="notes-input" className="sr-only block text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Notes</label>
+            <textarea
+                id="notes-input"
+                aria-label="Notes" name="Notes" title="Notes"
+                value={notes}
+                onChange={handleNotesChange}
+                placeholder="Add notes..."
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {saveStatus && (
+                <div className="absolute bottom-2 right-3 text-xs flex items-center">
+                    {saveStatus === 'saving' && <span className="text-muted-foreground animate-pulse">Saving...</span>}
+                    {saveStatus === 'saved' && <span className="text-green-500">Saved</span>}
+                    {saveStatus === 'error' && <span className="text-red-500">Error saving</span>}
+                </div>
+            )}
+        </div>
+    )
+}
 export default function PurchaseOrderDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
@@ -302,6 +364,14 @@ export default function PurchaseOrderDetail() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="space-y-6 lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Order Notes</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <PONotesInput po={po} id={id} />
+                        </CardContent>
+                    </Card>
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base font-semibold">Purchase Order</CardTitle>

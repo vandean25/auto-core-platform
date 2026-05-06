@@ -58,6 +58,25 @@ export function useCreatePO() {
     })
 }
 
+export function useUpdatePurchaseOrder() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ id, updates }: { id: string; updates: { notes?: string } }) => {
+            const res = await fetchWithAuth(`${PO_API}/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+            })
+            if (!res.ok) throw new Error('Failed to update PO')
+            return res.json()
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.id) })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
+        },
+    })
+}
+
 export function usePurchaseOrder(id: string) {
     return useQuery({
         queryKey: purchaseOrderKeys.detail(id),

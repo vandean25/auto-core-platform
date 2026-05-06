@@ -589,6 +589,16 @@ export class PurchaseService {
     });
   }
 
+  async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
+    const po = await this.prisma.purchaseOrder.findUnique({ where: { id } });
+    if (!po) throw new NotFoundException('Purchase order not found');
+
+    return this.prisma.purchaseOrder.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
