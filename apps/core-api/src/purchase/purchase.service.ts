@@ -589,6 +589,35 @@ export class PurchaseService {
     });
   }
 
+  async markAsSent(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    if (order.status !== PurchaseOrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT purchase orders can be marked as sent',
+      );
+    }
+
+    return this.prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: PurchaseOrderStatus.SENT },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
