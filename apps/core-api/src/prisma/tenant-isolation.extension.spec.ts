@@ -23,7 +23,7 @@ function call(
   args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
 ) {
-  return applyTenantIsolation(model, operation, args, queryFn);
+  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
 }
 
 describe('applyTenantIsolation', () => {
@@ -143,6 +143,7 @@ describe('applyTenantIsolation', () => {
         await runWithTenant(() =>
           applyTenantIsolation.call(
             {},
+            {},
             'FinanceSettings',
             'update',
             {
@@ -175,6 +176,7 @@ describe('applyTenantIsolation', () => {
         await runWithTenant(() =>
           applyTenantIsolation.call(
             {},
+            { FinanceSettings: { findFirst } },
             'FinanceSettings',
             'update',
             {
