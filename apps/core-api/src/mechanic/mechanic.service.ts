@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  BadGatewayException,
   ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -1361,13 +1363,13 @@ export class MechanicService {
       }
       if (error instanceof SpeechNoteConfigError) {
         // Provider is not configured — surface as 503.
-        throw new InternalServerErrorException(
+        throw new ServiceUnavailableException(
           'Voice-note transcription is not available. Contact your administrator.',
         );
       }
       if (error instanceof SpeechNoteProviderError) {
         // Upstream AI provider failed — surface as 502.
-        throw new InternalServerErrorException(
+        throw new BadGatewayException(
           'Voice-note transcription failed due to an upstream provider error. Please try again.',
         );
       }
