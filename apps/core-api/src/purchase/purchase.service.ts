@@ -191,6 +191,8 @@ export class PurchaseService {
           }
         >();
 
+        const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
+
         for (const received of receivedItems) {
           if (!received.itemId) {
             throw new BadRequestException(
@@ -198,9 +200,7 @@ export class PurchaseService {
             );
           }
 
-          const poItem = po.items.find(
-            (i) => i.catalog_item_id === received.itemId,
-          );
+          const poItem = poItemsMap.get(received.itemId);
           if (!poItem) {
             const availableIds = po.items
               .map((i) => i.catalog_item_id)
@@ -356,9 +356,7 @@ export class PurchaseService {
       }
 
       // Check if item already exists in PO
-      const existingItem = po.items.find(
-        (i) => i.catalog_item_id === item.catalogItemId,
-      );
+      const existingItem = poItemsMap.get(item.catalogItemId);
       if (existingItem) {
         throw new BadRequestException(
           `Item ${catalogItem.name} is already in this purchase order`,
