@@ -4584,6 +4584,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Upstream speech-note provider failed. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Speech-note provider is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     LaborController_search: {

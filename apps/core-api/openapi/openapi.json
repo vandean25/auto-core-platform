@@ -3350,6 +3350,12 @@
           },
           "422": {
             "description": "Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio."
+          },
+          "502": {
+            "description": "Upstream speech-note provider failed."
+          },
+          "503": {
+            "description": "Speech-note provider is not configured."
           }
         },
         "summary": "Upload voice note and receive a translated diagnostic draft",

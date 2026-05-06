@@ -13,11 +13,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadGatewayResponse,
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
@@ -257,8 +259,8 @@ export class MechanicController {
    *   - Recording duration exceeds 5 minutes
    *   - Empty or silent audio (no speech detected)
    *
-   * Returns 503/502 surfaced as 500 when the AI provider is not configured or
-   * returns an error.
+   * Returns 503 when the speech-note provider is not configured or 502 when the
+   * upstream AI provider returns an error.
    *
    * ADR-0014 §5.3
    */
@@ -294,9 +296,15 @@ export class MechanicController {
     description:
       'Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio.',
   })
+  @ApiBadGatewayResponse({
+    description: 'Upstream speech-note provider failed.',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Speech-note provider is not configured.',
+  })
   async uploadVoiceNote(
     @Param('taskId', ParseUUIDPipe) taskId: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ): Promise<VoiceNoteDraftResponseDto> {
     const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.uploadVoiceNote(mechanicId, taskId, file);

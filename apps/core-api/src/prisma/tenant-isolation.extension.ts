@@ -121,6 +121,7 @@ function buildTenantOwnershipWhere(
  */
 export function applyTenantIsolation(
   this: unknown,
+  ctx: any,
   model: string,
   operation: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,16 +180,10 @@ export function applyTenantIsolation(
         return query(nextArgs);
       }
 
-      const ctx = Prisma.getExtensionContext(this) as Record<string, unknown>;
       const delegateKey = toPrismaDelegateKey(model);
-      const modelDelegate = (ctx[delegateKey] ?? ctx[model]) as
-        | {
-            findFirst?: (findArgs: {
-              where: Record<string, unknown>;
-              select: { id: boolean };
-            }) => Promise<{ id: string } | null>;
-          }
-        | undefined;
+      
+      // Resolve delegate from explicitly passed context or fall back to 'this'
+      const modelDelegate = (ctx[delegateKey] ?? ctx[model] ?? (this as any)[delegateKey] ?? (this as any)[model]);
 
       if (typeof modelDelegate?.findFirst !== 'function') {
         throw new Error(
@@ -266,7 +261,14 @@ export function createTenantIsolationExtension() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async $allOperations({ model, operation, args, query }: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyTenantIsolation.call(this, model, operation, args, query);
+          return applyTenantIsolation.call(
+            this,
+            Prisma.getExtensionContext(this),
+            model,
+            operation,
+            args,
+            query,
+          );
         },
       },
     },

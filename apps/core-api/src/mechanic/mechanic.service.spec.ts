@@ -3,7 +3,6 @@ import {
   BadGatewayException,
   ConflictException,
   ForbiddenException,
-  InternalServerErrorException,
   NotFoundException,
   ServiceUnavailableException,
   UnprocessableEntityException,

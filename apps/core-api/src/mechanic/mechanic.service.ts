@@ -1288,7 +1288,7 @@ export class MechanicService {
   async uploadVoiceNote(
     mechanicId: string,
     taskId: string,
-    file: any,
+    file: Express.Multer.File,
   ): Promise<VoiceNoteDraftResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
 
@@ -1307,6 +1307,12 @@ export class MechanicService {
 
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    if (task.status === WorkshopTaskStatus.DONE) {
+      throw new ForbiddenException(
+        'Cannot upload voice notes for a completed task.',
+      );
     }
 
     this.assertTaskAssignedToMechanic(task, mechanicId);

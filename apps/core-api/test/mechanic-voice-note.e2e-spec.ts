@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SpeechNoteService } from '../src/speech-note/speech-note.service';
+import { WorkshopTaskStatus } from '@prisma/client';
 import {
   SpeechNoteConfigError,
   SpeechNoteInputError,
@@ -37,6 +38,8 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   let basePrisma: PrismaService;
   let tenantId: string;
   let mechanicId: string;
+  let customerId: string;
+  let vehicleId: string;
   let taskId: string;
   let unassignedTaskId: string;
   let orderId: string;
@@ -119,6 +122,8 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
           },
         });
 
+        customerId = customer.id;
+
         const vehicle = await basePrisma.vehicle.create({
           data: {
             tenant_id: tenantId,
@@ -126,9 +131,10 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
             model: 'Hilux',
             year: 2023,
             vin: `VIN-VOICE-${Date.now()}`,
-            customer_id: customer.id,
+            customer_id: customerId,
           },
         });
+        vehicleId = vehicle.id;
 
         const order = await basePrisma.workshopOrder.create({
           data: {
@@ -183,7 +189,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       console.error('FAILED E2E SETUP:', error);
       throw error;
     }
-  });
+  }, 30000);
 
   afterAll(async () => {
     try {
@@ -207,6 +213,14 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
         if (mechanicId) {
           await prisma.employee.deleteMany({ where: { id: mechanicId } });
+        }
+
+        if (vehicleId) {
+          await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
+        }
+
+        if (customerId) {
+          await prisma.customer.deleteMany({ where: { id: customerId } });
         }
       });
 
@@ -407,6 +421,33 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(422);
   });
 
+  // ─── Completed task ───────────────────────────────────────────────────────
+
+  it('returns 403 when the task is completed (DONE status)', async () => {
+    // Mark the task as DONE
+    await prisma.workshopTask.updateMany({
+      where: { id: taskId },
+      data: { status: WorkshopTaskStatus.DONE },
+    });
+
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('audio', VALID_AUDIO_BUFFER, {
+          filename: 'note.webm',
+          contentType: 'audio/webm',
+        })
+        .expect(403);
+    } finally {
+      // Revert status for other tests if necessary (thoughtaskId is used in many)
+      await prisma.workshopTask.updateMany({
+        where: { id: taskId },
+        data: { status: WorkshopTaskStatus.IN_PROGRESS },
+      });
+    }
+  });
+
   // ─── Transcription returns empty text (silent recording) ─────────────────
 
   it('returns 422 when transcription returns empty text (silent audio)', async () => {
@@ -427,8 +468,6 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       })
       .expect(422);
   });
-
-  // ─── Duration exceeds limit ───────────────────────────────────────────────
 
   // ─── Duration exceeds limit ───────────────────────────────────────────────
 
