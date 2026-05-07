@@ -23,7 +23,7 @@ function call(
   args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
 ) {
-  return applyTenantIsolation(model, operation, args, queryFn);
+  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
 }
 
 describe('applyTenantIsolation', () => {
@@ -135,26 +135,19 @@ describe('applyTenantIsolation', () => {
   describe('update() — must verify tenant ownership', () => {
     it('executes tenant-scoped unique updates without resolving a delegate', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      const getExtensionContextSpy = jest
-        .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({} as never);
-
-      try {
-        await runWithTenant(() =>
-          applyTenantIsolation.call(
-            {},
-            'FinanceSettings',
-            'update',
-            {
-              where: { tenant_id: 'wrong-tenant' },
-              data: { workshop_order_prefix: 'WO-2026-' },
-            },
-            query,
-          ),
-        );
-      } finally {
-        getExtensionContextSpy.mockRestore();
-      }
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          {},
+          {},
+          'FinanceSettings',
+          'update',
+          {
+            where: { tenant_id: 'wrong-tenant' },
+            data: { workshop_order_prefix: 'WO-2026-' },
+          },
+          query,
+        ),
+      );
 
       expect(query).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID },
@@ -165,28 +158,21 @@ describe('applyTenantIsolation', () => {
     it('tenant-scopes the ownership pre-check when lower-camel delegates are unavailable', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const findFirst = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      const getExtensionContextSpy = jest
-        .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({
-          FinanceSettings: { findFirst },
-        } as never);
-
-      try {
-        await runWithTenant(() =>
-          applyTenantIsolation.call(
-            {},
-            'FinanceSettings',
-            'update',
-            {
-              where: { id: 'settings-1' },
-              data: { workshop_order_prefix: 'WO-2026-' },
-            },
-            query,
-          ),
-        );
-      } finally {
-        getExtensionContextSpy.mockRestore();
-      }
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          {},
+          {
+            FinanceSettings: { findFirst },
+          },
+          'FinanceSettings',
+          'update',
+          {
+            where: { id: 'settings-1' },
+            data: { workshop_order_prefix: 'WO-2026-' },
+          },
+          query,
+        ),
+      );
 
       expect(findFirst).toHaveBeenCalledWith({
         where: {
@@ -203,26 +189,19 @@ describe('applyTenantIsolation', () => {
     it('resolves a delegate when Prisma exposes the current model as the extension context', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'task-1' });
       const findFirst = jest.fn().mockResolvedValue({ id: 'task-1' });
-      const getExtensionContextSpy = jest
-        .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({ findFirst } as never);
-
-      try {
-        await runWithTenant(() =>
-          applyTenantIsolation.call(
-            {},
-            'WorkshopTask',
-            'update',
-            {
-              where: { id: 'task-1' },
-              data: { status: 'DONE' },
-            },
-            query,
-          ),
-        );
-      } finally {
-        getExtensionContextSpy.mockRestore();
-      }
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          { findFirst },
+          {},
+          'WorkshopTask',
+          'update',
+          {
+            where: { id: 'task-1' },
+            data: { status: 'DONE' },
+          },
+          query,
+        ),
+      );
 
       expect(findFirst).toHaveBeenCalledWith({
         where: {

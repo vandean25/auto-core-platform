@@ -13,6 +13,18 @@ export const authSessionKeys = {
   user: (userKey: string | null) => [...authSessionKeys.all, userKey ?? 'anonymous'] as const,
 }
 
+const e2eAuthSession: AuthSession = {
+  userId: 'e2e-test-user',
+  email: 'testauto@auto.core.at',
+  activeTenant: {
+    id: 'e2e-tenant-id',
+    name: 'Auto Core E2E Tenant',
+    slug: 'e2e-tenant',
+  },
+  activeRole: 'ADMIN',
+  memberships: [],
+}
+
 function getCurrentUserKey(explicitUserKey?: string | null) {
   if (explicitUserKey) {
     return explicitUserKey
@@ -26,6 +38,10 @@ async function getErrorMessage(response: Response, fallbackMessage: string) {
   return payload?.message || fallbackMessage
 }
 
+function isE2EAuthBypassEnabled() {
+  return import.meta.env.MODE !== 'production' && import.meta.env.VITE_E2E_SKIP_AUTH === 'true'
+}
+
 export function useAuthSession(userKey?: string | null, enabled = true) {
   const resolvedUserKey = getCurrentUserKey(userKey)
 
@@ -33,6 +49,10 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
     queryKey: authSessionKeys.user(resolvedUserKey),
     enabled: enabled && Boolean(resolvedUserKey),
     queryFn: async () => {
+      if (isE2EAuthBypassEnabled()) {
+        return e2eAuthSession
+      }
+
       const response = await fetchWithAuth('/api/auth/me')
 
       if (!response.ok) {

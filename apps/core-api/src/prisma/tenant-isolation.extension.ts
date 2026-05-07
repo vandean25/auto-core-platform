@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { toPrismaDelegateKey } from './prisma-delegate';
+import { resolvePrismaModelDelegate } from './prisma-delegate';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
@@ -180,10 +180,13 @@ export function applyTenantIsolation(
         return query(nextArgs);
       }
 
-      const delegateKey = toPrismaDelegateKey(model);
-      
-      // Resolve delegate from explicitly passed context or fall back to 'this'
-      const modelDelegate = (ctx[delegateKey] ?? ctx[model] ?? (this as any)[delegateKey] ?? (this as any)[model]);
+      const extensionContext = Prisma.getExtensionContext(this) as Record<
+        string,
+        unknown
+      >;
+      const modelDelegate =
+        resolvePrismaModelDelegate(ctx as Record<string, unknown>, model) ??
+        resolvePrismaModelDelegate(extensionContext, model);
 
       if (typeof modelDelegate?.findFirst !== 'function') {
         throw new Error(
