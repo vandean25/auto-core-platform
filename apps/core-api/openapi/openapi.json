@@ -1991,6 +1991,14 @@
             }
           },
           {
+            "name": "params",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",

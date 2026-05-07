@@ -3679,6 +3679,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+                params?: string;
                 page?: number;
                 pageSize?: number;
                 search?: string;

@@ -57,6 +57,7 @@ export class SalesOrderController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiQuery({ name: 'params', required: false, schema: { type: 'string' } })
   @ApiOkResponse({
     schema: { type: 'object' },
   })
