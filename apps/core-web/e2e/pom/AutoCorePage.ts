@@ -136,7 +136,7 @@ export class AutoCorePage {
     // 2. The network request completes.
     await responsePromise;
 
-    // 3. UI transitions to "Saved" / "All changes saved".
-    await expect(this.page.getByText(/saved/i)).toBeVisible();
+    // 3. UI transitions to an explicit saved-state message.
+    await expect(this.page.getByText(/^(all changes saved|saved(?: ✓)?)$/i)).toBeVisible();
   }
 }

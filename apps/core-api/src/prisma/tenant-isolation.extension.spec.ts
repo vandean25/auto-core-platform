@@ -228,6 +228,25 @@ describe('applyTenantIsolation', () => {
         data: { name: 'Test', status: 'DRAFT', tenant_id: TENANT_ID },
       });
     });
+
+    it('injects tenant_id into each createMany payload row', async () => {
+      const query = jest.fn().mockResolvedValue({ count: 2 });
+      const args = {
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT' },
+          { order_number: 'SO-2', status: 'CONFIRMED' },
+        ],
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'createMany', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
+          { order_number: 'SO-2', status: 'CONFIRMED', tenant_id: TENANT_ID },
+        ],
+      });
+    });
   });
 
   describe('upsert() — must stamp tenant_id in create and enforce tenant-scoped where', () => {

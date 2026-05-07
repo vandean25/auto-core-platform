@@ -263,7 +263,7 @@ async function seedWidgetsForApp(page: import('@playwright/test').Page, widgets:
   const serialized = JSON.stringify(widgets);
   await page.addInitScript(
     ({ value }: { value: string }) => {
-      const storageKey = 'acp:dashboard-widgets:testauto@auto.core.at';
+      const storageKey = 'acp:dashboard-widgets:e2e-test-user';
       window.localStorage.setItem(storageKey, value);
     },
     { value: serialized },

@@ -62,6 +62,20 @@ function normalizeRecord(value: unknown): Record<string, unknown> {
   return { ...(value as Record<string, unknown>) };
 }
 
+function stampTenantIntoCreateManyData(data: unknown, tenantId: string) {
+  if (Array.isArray(data)) {
+    return data.map((item) => ({
+      ...normalizeRecord(item),
+      tenant_id: tenantId,
+    }));
+  }
+
+  return {
+    ...normalizeRecord(data),
+    tenant_id: tenantId,
+  };
+}
+
 function injectTenantIntoWhere(
   where: Record<string, unknown> | undefined,
   tenantId: string,
@@ -214,6 +228,12 @@ export function applyTenantIsolation(
         ...normalizeRecord(nextArgs.data),
         tenant_id: tenantId,
       };
+
+      return query(nextArgs);
+    }
+
+    if (operation === 'createMany') {
+      nextArgs.data = stampTenantIntoCreateManyData(nextArgs.data, tenantId);
 
       return query(nextArgs);
     }

@@ -14,6 +14,7 @@ module follows the same architectural patterns.
 # From apps/core-web directory
 npm run test:e2e          # Run all E2E tests (headless)
 npx playwright test --ui  # Interactive UI mode
+E2E_LIVE_BACKEND=true npm run test:e2e  # Include seed-based smoke tests against a live seeded backend
 ```
 
 ---
@@ -38,6 +39,7 @@ npx playwright test --ui  # Interactive UI mode
 - Navigate against a fully seeded environment.
 - Verify basic page load and known SKU/record visibility.
 - Label with `Smoke Tests (seed-based)` in the `test.describe` name.
+- Opt in with `E2E_LIVE_BACKEND=true`; they are skipped by default in frontend-only CI.
 
 ---
 

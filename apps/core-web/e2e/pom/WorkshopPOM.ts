@@ -39,9 +39,7 @@ export class WorkshopPOM extends AutoCorePage {
     await searchInput.fill(query);
 
     // Rule: suggestions list must appear after typing
-    await expect(
-      this.page.locator('[role="listbox"], [data-radix-collection-item]'),
-    ).toBeVisible();
+    await expect(this.page.getByRole('listbox', { name: 'Suggestions' })).toBeVisible();
   }
 
   /**
