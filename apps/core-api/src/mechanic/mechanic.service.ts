@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  BadGatewayException,
   ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -20,6 +22,12 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  SpeechNoteConfigError,
+  SpeechNoteInputError,
+  SpeechNoteProviderError,
+} from '../speech-note/speech-note.errors';
+import { SpeechNoteService } from '../speech-note/speech-note.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -30,6 +38,13 @@ import type { RequestPartResponseDto } from './dto/request-part.dto';
 import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
 import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
+import {
+  ALLOWED_VOICE_NOTE_MIME_TYPES,
+  MAX_VOICE_NOTE_BYTES,
+  MAX_VOICE_NOTE_DURATION_SECONDS,
+  MIN_VOICE_NOTE_BYTES,
+  type VoiceNoteDraftResponseDto,
+} from './dto/voice-note.dto';
 import {
   IMAGE_MIME_TYPES,
   MechanicMediaStorage,
@@ -123,6 +138,7 @@ export class MechanicService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
+    private readonly speechNote: SpeechNoteService,
   ) {
     this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
   }
@@ -1272,6 +1288,117 @@ export class MechanicService {
       createdAt: media.createdAt,
       updatedAt: media.updatedAt,
     } satisfies WorkshopMediaDto;
+  }
+
+  async uploadVoiceNote(
+    mechanicId: string,
+    taskId: string,
+    file: Express.Multer.File,
+  ): Promise<VoiceNoteDraftResponseDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const task = await this.prisma.workshopTask.findFirst({
+      where: { id: taskId, tenant_id: tenantId },
+      select: {
+        id: true,
+        bay_id: true,
+        status: true,
+        mechanic_id: true,
+        workshop_order_id: true,
+        workshop_order: { select: { mechanic_id: true, bay_id: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found.`);
+    }
+
+    if (task.status === WorkshopTaskStatus.DONE) {
+      throw new ForbiddenException(
+        'Cannot upload voice notes for a completed task.',
+      );
+    }
+
+    this.assertTaskAssignedToMechanic(task, mechanicId);
+
+    if (!file || !file.buffer || file.buffer.length === 0) {
+      throw new UnprocessableEntityException(
+        'Audio file must not be empty. Include an audio file in the "audio" field.',
+      );
+    }
+
+    if (file.buffer.length < MIN_VOICE_NOTE_BYTES) {
+      throw new UnprocessableEntityException(
+        `Audio file is too small (${file.buffer.length} bytes). The recording appears to be empty or silent.`,
+      );
+    }
+
+    if (file.buffer.length > MAX_VOICE_NOTE_BYTES) {
+      throw new UnprocessableEntityException(
+        `Audio file size ${file.buffer.length} bytes exceeds the maximum of ${MAX_VOICE_NOTE_BYTES} bytes (25 MiB).`,
+      );
+    }
+
+    const normalizedMime = (file.mimetype ?? '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
+
+    if (!ALLOWED_VOICE_NOTE_MIME_TYPES.has(normalizedMime)) {
+      throw new UnprocessableEntityException(
+        `Unsupported audio format "${file.mimetype}". Allowed formats: ${[...ALLOWED_VOICE_NOTE_MIME_TYPES].join(', ')}.`,
+      );
+    }
+
+    let draft: VoiceNoteDraftResponseDto;
+    try {
+      draft = await this.speechNote.transcribeNote({
+        audioBuffer: file.buffer,
+        filename:
+          file.originalname ||
+          `voice-note.${normalizedMime.split('/')[1] ?? 'bin'}`,
+        mimeType: normalizedMime,
+      });
+    } catch (error) {
+      if (error instanceof SpeechNoteInputError) {
+        throw new UnprocessableEntityException(error.message);
+      }
+      if (error instanceof SpeechNoteConfigError) {
+        throw new ServiceUnavailableException(
+          'Voice-note transcription is not available. Contact your administrator.',
+        );
+      }
+      if (error instanceof SpeechNoteProviderError) {
+        throw new BadGatewayException(
+          'Voice-note transcription failed due to an upstream provider error. Please try again.',
+        );
+      }
+      throw error;
+    }
+
+    if (
+      draft.durationSeconds !== undefined &&
+      draft.durationSeconds !== null &&
+      draft.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
+    ) {
+      throw new UnprocessableEntityException(
+        `Audio recording duration ${draft.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
+      );
+    }
+
+    if (!draft.text || draft.text.trim().length === 0) {
+      throw new UnprocessableEntityException(
+        'Voice note appears to be silent - no speech was detected in the recording.',
+      );
+    }
+
+    return {
+      text: draft.text,
+      detectedLanguage: draft.detectedLanguage,
+      provider: draft.provider,
+      model: draft.model,
+      durationSeconds: draft.durationSeconds,
+    } satisfies VoiceNoteDraftResponseDto;
   }
 
   /**
