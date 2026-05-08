@@ -55,6 +55,15 @@ export class PurchaseController {
     return result;
   }
 
+  @Post(':id/mark-as-sent')
+  @HttpCode(200)
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
+  async markAsSent(@Param('id') id: string) {
+    return this.purchaseService.markAsSent(id);
+  }
+
   @Get()
   @ApiQuery({
     name: 'status',

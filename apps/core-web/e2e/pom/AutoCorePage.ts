@@ -1,4 +1,4 @@
-import { Page, expect, Locator } from '@playwright/test';
+import { Page, expect, Locator } from "@playwright/test";
 
 /**
  * AutoCorePage encapsulates the "Golden Rules" of the Auto Core Platform UI.
@@ -22,7 +22,7 @@ export class AutoCorePage {
 
   /** Escapes a string for safe embedding in a RegExp literal. */
   private static escapeRegex(text: string): string {
-    return text.replace(/[+.*?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(/[+.*?^${}()|[\]\\]/g, "\\$&");
   }
 
   /**
@@ -35,14 +35,16 @@ export class AutoCorePage {
    */
   get createButton(): Locator {
     // Anchored: matches exactly "Item" or "+ Item" but NOT "Items", "Purchase Orders", etc.
-    const nameRegex = new RegExp(`^(\\+ )?${AutoCorePage.escapeRegex(this.entityName)}$`);
+    const nameRegex = new RegExp(
+      `^(\\+ )?${AutoCorePage.escapeRegex(this.entityName)}$`,
+    );
     return this.page
-      .getByRole('button', { name: nameRegex })
-      .or(this.page.getByRole('link', { name: nameRegex }));
+      .getByRole("button", { name: nameRegex })
+      .or(this.page.getByRole("link", { name: nameRegex }));
   }
 
   get dataTable(): Locator {
-    return this.page.getByRole('table');
+    return this.page.getByRole("table");
   }
 
   /**
@@ -50,8 +52,27 @@ export class AutoCorePage {
    * are served before any assertions are made.
    */
   async navigate(path: string) {
+    await this.page.route(
+      AutoCorePage.apiRouteMatcher("/api/auth/session"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            user: {
+              id: "test-user",
+              email: "test@example.com",
+            },
+            tenant: {
+              id: "test-tenant",
+              name: "Test Tenant",
+            },
+          }),
+        });
+      },
+    );
     await this.page.goto(path);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState("networkidle");
   }
 
   /**
@@ -63,7 +84,10 @@ export class AutoCorePage {
    * - A create button matching `entityName` is visible (typically top-right).
    */
   async verifyHeaderConsistency(title: string) {
-    const heading = this.page.getByRole('heading', { name: title, exact: true });
+    const heading = this.page.getByRole("heading", {
+      name: title,
+      exact: true,
+    });
     await expect(heading).toBeVisible();
     await expect(this.createButton).toBeVisible();
   }
@@ -76,7 +100,10 @@ export class AutoCorePage {
    * b) Navigation      → the URL changes (e.g. `/vendors/:id`).
    */
   async openRowDetails(searchText: string) {
-    const row = this.page.locator('[data-table-row="true"]').filter({ hasText: searchText }).first();
+    const row = this.page
+      .locator('[data-table-row="true"]')
+      .filter({ hasText: searchText })
+      .first();
     await expect(row).toBeVisible();
 
     const urlBefore = this.page.url();
@@ -131,7 +158,8 @@ export class AutoCorePage {
     const responsePromise = this.page.waitForResponse(
       (res) =>
         res.url().includes(apiPath) &&
-        (res.request().method() === 'PATCH' || res.request().method() === 'POST'),
+        (res.request().method() === "PATCH" ||
+          res.request().method() === "POST"),
     );
 
     const savingLocator = this.page.getByText(/saving/i)

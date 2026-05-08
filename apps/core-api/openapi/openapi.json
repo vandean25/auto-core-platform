@@ -622,6 +622,36 @@
         ]
       }
     },
+    "/api/purchase-orders/{id}/mark-as-sent": {
+      "post": {
+        "operationId": "PurchaseController_markAsSent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      }
+    },
     "/api/purchase-orders/{id}": {
       "get": {
         "operationId": "PurchaseController_findOne",

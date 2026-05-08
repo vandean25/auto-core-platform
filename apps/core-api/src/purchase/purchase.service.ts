@@ -79,8 +79,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -189,6 +191,8 @@ export class PurchaseService {
           }
         >();
 
+        const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
+
         for (const received of receivedItems) {
           if (!received.itemId) {
             throw new BadRequestException(
@@ -196,9 +200,7 @@ export class PurchaseService {
             );
           }
 
-          const poItem = po.items.find(
-            (i) => i.catalog_item_id === received.itemId,
-          );
+          const poItem = poItemsMap.get(received.itemId);
           if (!poItem) {
             const availableIds = po.items
               .map((i) => i.catalog_item_id)
@@ -349,8 +351,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -618,6 +622,35 @@ export class PurchaseService {
       where: { id, tenant_id: tenantId },
       include: {
         vendor: { include: { supportedBrands: true } },
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
+  async markAsSent(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    if (order.status !== PurchaseOrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT purchase orders can be marked as sent',
+      );
+    }
+
+    return this.prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: PurchaseOrderStatus.SENT },
+      include: {
+        vendor: true,
         items: {
           include: { catalog_item: true },
         },
