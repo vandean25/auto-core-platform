@@ -170,8 +170,8 @@ export class PurchaseInvoiceService {
       // Update quantity_invoiced on PO items (Optimized)
       const poItemsToUpdate = Array.from(poItemTotals.entries());
       await chunkedPromiseAll(poItemsToUpdate, async ([poItemId, quantity]) => {
-        return tx.purchaseOrderItem.update({
-          where: { id: poItemId },
+        return tx.purchaseOrderItem.updateMany({
+          where: { id: poItemId, tenant_id: tenantId },
           data: {
             quantity_invoiced: {
               increment: quantity,
@@ -238,8 +238,11 @@ export class PurchaseInvoiceService {
         (l) => l.purchase_order_item_id,
       );
       await chunkedPromiseAll(linesToRollback, async (line) => {
-        return tx.purchaseOrderItem.update({
-          where: { id: line.purchase_order_item_id as string },
+        return tx.purchaseOrderItem.updateMany({
+          where: {
+            id: line.purchase_order_item_id as string,
+            tenant_id: tenantId,
+          },
           data: {
             quantity_invoiced: {
               decrement: line.quantity,
@@ -312,18 +315,28 @@ export class PurchaseInvoiceService {
         };
       });
 
-      const updated = await tx.purchaseInvoice.update({
-        where: { id },
+      await tx.purchaseInvoice.updateMany({
+        where: { id, tenant_id: tenantId },
         data: {
           vendor_id: data.vendorId,
           vendor_invoice_number: data.vendorInvoiceNumber,
           invoice_date: new Date(data.invoiceDate),
           due_date: new Date(data.dueDate),
           total_amount: totalAmount,
-          lines: {
-            create: linesData,
-          },
         },
+      });
+
+      if (linesData.length > 0) {
+        await tx.purchaseInvoiceLine.createMany({
+          data: linesData.map((line) => ({
+            ...line,
+            purchase_invoice_id: id,
+          })),
+        });
+      }
+
+      const updated = await tx.purchaseInvoice.findFirst({
+        where: { id, tenant_id: tenantId },
         include: {
           lines: {
             include: {
@@ -337,13 +350,17 @@ export class PurchaseInvoiceService {
         },
       });
 
+      if (!updated) {
+        throw new NotFoundException('Invoice not found');
+      }
+
       // 5. Apply new quantity_invoiced (Optimized)
       const newPoItemsToUpdate = Array.from(poItemTotals.entries());
       await chunkedPromiseAll(
         newPoItemsToUpdate,
         async ([poItemId, quantity]) => {
-          return tx.purchaseOrderItem.update({
-            where: { id: poItemId },
+          return tx.purchaseOrderItem.updateMany({
+            where: { id: poItemId, tenant_id: tenantId },
             data: {
               quantity_invoiced: {
                 increment: quantity,
@@ -460,8 +477,11 @@ export class PurchaseInvoiceService {
         (l) => l.purchase_order_item_id,
       );
       await chunkedPromiseAll(linesToDecrement, async (line) => {
-        return tx.purchaseOrderItem.update({
-          where: { id: line.purchase_order_item_id as string },
+        return tx.purchaseOrderItem.updateMany({
+          where: {
+            id: line.purchase_order_item_id as string,
+            tenant_id: tenantId,
+          },
           data: {
             quantity_invoiced: {
               decrement: line.quantity,
@@ -520,14 +540,21 @@ export class PurchaseInvoiceService {
 
       // 2. Unlink PO Item if applicable
       if (line.purchase_order_item_id) {
-        await tx.purchaseOrderItem.update({
-          where: { id: line.purchase_order_item_id },
+        const updateResult = await tx.purchaseOrderItem.updateMany({
+          where: {
+            id: line.purchase_order_item_id,
+            tenant_id: tenantId,
+          },
           data: {
             quantity_invoiced: {
               decrement: line.quantity,
             },
           },
         });
+
+        if (updateResult.count === 0) {
+          throw new NotFoundException('PO Item not found');
+        }
       }
 
       // 3. Delete the line with invoice relation check

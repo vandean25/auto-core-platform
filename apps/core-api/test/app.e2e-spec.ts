@@ -4,11 +4,15 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let authToken: string;
+  let prisma: PrismaService;
+  let tenantId: string;
 
   beforeAll(() => {
   });
@@ -19,17 +23,25 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
-    authToken = app.get(AuthService).createTestToken();
+    prisma = app.get(PrismaService);
+    const testTenant = await createTestTenant(prisma, 'app-root');
+    tenantId = testTenant.tenantId;
+    authToken = app.get(AuthService).createTestToken({ tenantId });
   });
 
   afterEach(async () => {
-    await teardownTestApp(app);
+    if (tenantId) {
+      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      tenantId = '';
+    }
+    await teardownTestApp(app, prisma);
   });
 
   it('/ (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/api')
         .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Hello World!');

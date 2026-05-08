@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 import { firebaseAuth } from '@/lib/firebase'
+import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
 
 export type AuthSession = components['schemas']['AuthSessionResponseDto']
 export type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
@@ -36,10 +37,6 @@ function getCurrentUserKey(explicitUserKey?: string | null) {
 async function getErrorMessage(response: Response, fallbackMessage: string) {
   const payload = await response.json().catch(() => undefined) as { message?: string } | undefined
   return payload?.message || fallbackMessage
-}
-
-function isE2EAuthBypassEnabled() {
-  return import.meta.env.MODE !== 'production' && import.meta.env.VITE_E2E_SKIP_AUTH === 'true'
 }
 
 export function useAuthSession(userKey?: string | null, enabled = true) {

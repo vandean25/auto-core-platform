@@ -141,7 +141,7 @@ describe('Sales Order Workflow (e2e)', () => {
       .expect(200);
 
     // Verify update
-    const updatedOrder = await prisma.salesOrder.findUnique({
+    const updatedOrder = await prisma.salesOrder.findFirst({
       where: { id: orderId },
     });
     expect(Number(updatedOrder.total_amount)).toBe(30);
@@ -156,13 +156,13 @@ describe('Sales Order Workflow (e2e)', () => {
     expect(invoiceRes.body.invoice_number).toBeNull();
     expect(invoiceRes.body.status).toBe('DRAFT');
 
-    const pendingOrder = await prisma.salesOrder.findUnique({
+    const pendingOrder = await prisma.salesOrder.findFirst({
       where: { id: orderId },
     });
     expect(pendingOrder.status).toBe('DRAFT');
 
     // 4. Update order to CONFIRMED before finalizing invoice (as required by SalesService validation)
-    await prisma.salesOrder.update({
+    await prisma.salesOrder.updateMany({
       where: { id: orderId },
       data: { status: 'CONFIRMED' },
     });
@@ -176,7 +176,7 @@ describe('Sales Order Workflow (e2e)', () => {
     expect(finalizeRes.body.status).toBe('FINALIZED');
     expect(finalizeRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
 
-    const finalOrder = await prisma.salesOrder.findUnique({
+    const finalOrder = await prisma.salesOrder.findFirst({
       where: { id: orderId },
     });
     expect(finalOrder.status).toBe('INVOICED');
@@ -204,7 +204,7 @@ describe('Sales Order Workflow (e2e)', () => {
     const orderId = createRes.body.id;
 
     // Move to INVOICED directly (via DB to simulate state) or using API
-    await prisma.salesOrder.update({
+    await prisma.salesOrder.updateMany({
       where: { id: orderId },
       data: { status: 'CONFIRMED' },
     });

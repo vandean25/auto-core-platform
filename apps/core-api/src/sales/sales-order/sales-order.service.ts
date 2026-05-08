@@ -225,10 +225,18 @@ export class SalesOrderService {
     }
 
     // If updating items, recalculate total
-    let itemsUpdate:
-      | Prisma.SalesOrderItemUpdateManyWithoutSales_orderNestedInput
-      | undefined = undefined;
     let totalAmount = order.total_amount;
+    let newItemsData:
+      | Array<{
+          tenant_id: string;
+          catalog_item_id: string;
+          description: string;
+          quantity: Prisma.Decimal;
+          unit_price: Prisma.Decimal;
+          tax_rate: Prisma.Decimal;
+          total: Prisma.Decimal;
+        }>
+      | undefined;
 
     if (updateDto.items) {
       // Tenant isolation checks for catalog items
@@ -254,7 +262,7 @@ export class SalesOrderService {
       // This transaction logic should be inside a $transaction if we want atomicity for replace
       // For now, I'll just rely on the update data structure
 
-      const newItemsData = updateDto.items.map((item) => {
+      newItemsData = updateDto.items.map((item) => {
         const quantity = new Prisma.Decimal(item.quantity);
         const unitPrice = new Prisma.Decimal(item.unit_price);
         const total = quantity.mul(unitPrice);
@@ -274,23 +282,46 @@ export class SalesOrderService {
         new Prisma.Decimal(0),
       );
 
-      itemsUpdate = {
-        deleteMany: {},
-        create: newItemsData,
-      };
     }
 
-    const updatedOrder = await this.prisma.salesOrder.update({
-      where: { id },
-      data: {
-        customer_id: updateDto.customer_id,
-        vehicle_id: updateDto.vehicle_id,
-        notes: updateDto.notes,
-        status: updateDto.status,
-        total_amount: totalAmount, // Update total if items changed
-        items: itemsUpdate,
-      },
-      include: { items: true },
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.salesOrder.updateMany({
+        where: { id, tenant_id: tenantId },
+        data: {
+          customer_id: updateDto.customer_id,
+          vehicle_id: updateDto.vehicle_id,
+          notes: updateDto.notes,
+          status: updateDto.status,
+          total_amount: totalAmount,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        throw new NotFoundException('Sales order not found');
+      }
+
+      if (newItemsData) {
+        await tx.salesOrderItem.deleteMany({
+          where: { sales_order_id: id, tenant_id: tenantId },
+        });
+        await tx.salesOrderItem.createMany({
+          data: newItemsData.map((item) => ({
+            ...item,
+            sales_order_id: id,
+          })),
+        });
+      }
+
+      const refreshed = await tx.salesOrder.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: { items: true },
+      });
+
+      if (!refreshed) {
+        throw new NotFoundException('Sales order not found');
+      }
+
+      return refreshed;
     });
 
     return updatedOrder;

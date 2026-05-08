@@ -143,12 +143,10 @@ describe('Staging Tote Seed (e2e)', () => {
       unchanged: 49,
     });
 
-    const restoredTote = await prisma.storageLocation.findUnique({
+    const restoredTote = await prisma.storageLocation.findFirst({
       where: {
-        tenant_id_code: {
-          tenant_id: tenantId,
-          code: 'TOTE-010',
-        },
+        tenant_id: tenantId,
+        code: 'TOTE-010',
       },
     });
 

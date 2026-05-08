@@ -8,12 +8,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
 import { teardownTestApp } from './test-lifecycle';
+import { createTestTenant } from './tenant-test-utils';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
+  let prisma: PrismaService;
+  let tenantId: string;
 
   const mockPdfService = {
     requestGeneration: jest.fn(),
@@ -40,11 +44,18 @@ describe('Workshop PDF endpoints (e2e)', () => {
       new ValidationPipe({ transform: true, whitelist: true }),
     );
     await app.init();
-    authToken = app.get(AuthService).createTestToken();
+    prisma = app.get(PrismaService);
+    const testTenant = await createTestTenant(prisma, 'workshop-pdf');
+    tenantId = testTenant.tenantId;
+    authToken = app.get(AuthService).createTestToken({ tenantId });
   });
 
   afterEach(async () => {
-    await teardownTestApp(app);
+    if (tenantId) {
+      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      tenantId = '';
+    }
+    await teardownTestApp(app, prisma);
   });
 
   it('returns ready JSON when workshop PDF generation finishes inline', async () => {

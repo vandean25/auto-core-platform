@@ -350,8 +350,8 @@ export class SalesService {
           );
         }
 
-        await tx.salesOrder.update({
-          where: { id: invoice.sales_order_id },
+        await tx.salesOrder.updateMany({
+          where: { id: invoice.sales_order_id, tenant_id: tenantId },
           data: { status: SalesOrderStatus.INVOICED },
         });
       }

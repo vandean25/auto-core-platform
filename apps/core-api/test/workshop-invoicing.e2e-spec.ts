@@ -168,7 +168,7 @@ describe('Workshop Invoicing (e2e)', () => {
     expect(issueRes.body.status).toBe('ISSUED');
     expect(issueRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
 
-    const lockedOrder = await prisma.workshopOrder.findUnique({
+    const lockedOrder = await prisma.workshopOrder.findFirst({
       where: { id: orderId },
     });
     expect(lockedOrder?.status).toBe('INVOICED');
@@ -230,7 +230,7 @@ describe('Workshop Invoicing (e2e)', () => {
     expect(deleteRes.body.status).toBe('INTAKE');
     expect(deleteRes.body.tasks).toHaveLength(0);
 
-    const persistedTask = await prisma.workshopTask.findUnique({
+    const persistedTask = await prisma.workshopTask.findFirst({
       where: { id: taskId },
     });
     expect(persistedTask).toBeNull();

@@ -14,6 +14,7 @@ const PREFIX = 'e2e-catalog-';
 describe('Catalog Module (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
 
   beforeAll(async () => {
@@ -28,10 +29,10 @@ describe('Catalog Module (e2e)', () => {
     );
     await app.init();
 
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(prisma);
-    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    const testTenant = await createTestTenant(basePrisma);
+    prisma = createTenantAwarePrisma(basePrisma, testTenant.tenantId);
     authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     await prisma.laborFitment.deleteMany({
@@ -55,7 +56,7 @@ describe('Catalog Module (e2e)', () => {
     await prisma.laborCategory.deleteMany({
       where: { name: { startsWith: PREFIX } },
     });
-    await teardownTestApp(app, prisma);
+    await teardownTestApp(app, basePrisma);
   });
 
   it('search endpoint should return categoryName for categorized and uncategorized labor results', async () => {
@@ -168,13 +169,18 @@ describe('Catalog Module (e2e)', () => {
           where: { id: { in: opIds } },
         });
       }
-      if (categoryId)
-        await prisma.laborCategory.delete({ where: { id: categoryId } });
-      if (workshopOrderId)
-        await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
-      if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
-      if (customerId)
-        await prisma.customer.delete({ where: { id: customerId } });
+      if (categoryId) {
+        await prisma.laborCategory.deleteMany({ where: { id: categoryId } });
+      }
+      if (workshopOrderId) {
+        await prisma.workshopOrder.deleteMany({ where: { id: workshopOrderId } });
+      }
+      if (vehicleId) {
+        await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
+      }
+      if (customerId) {
+        await prisma.customer.deleteMany({ where: { id: customerId } });
+      }
     }
   });
 });

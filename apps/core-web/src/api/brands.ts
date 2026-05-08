@@ -29,9 +29,13 @@ export const brandKeys = {
     detail: (id: number) => [...brandKeys.all, 'detail', id] as const,
 }
 
-export function useBrands(filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean }) {
+export function useBrands(
+    filters?: { isVehicleMake?: boolean; isPartManufacturer?: boolean },
+    options?: { enabled?: boolean },
+) {
     return useQuery<Brand[]>({
         queryKey: brandKeys.list(filters),
+        enabled: options?.enabled ?? true,
         queryFn: async () => {
             const params = new URLSearchParams()
             if (filters?.isVehicleMake !== undefined) params.append('isVehicleMake', filters.isVehicleMake.toString())

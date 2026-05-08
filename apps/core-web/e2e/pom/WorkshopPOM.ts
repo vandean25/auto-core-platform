@@ -48,6 +48,17 @@ export class WorkshopPOM extends AutoCorePage {
    */
   async mockOrderDetails(id: string, vehicle: { make: string; model: string }) {
     await this.page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: [], bays: [] }),
+        });
+      },
+    );
+
+    await this.page.route(
       AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${id}`),
       async (route) => {
         await route.fulfill({

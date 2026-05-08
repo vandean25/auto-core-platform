@@ -176,10 +176,18 @@ describe('Location Hierarchy (e2e)', () => {
 
     const po = await prisma.purchaseOrder.create({
       data: {
+        tenant_id: vendor.tenant_id,
         order_number: 'PO-STOCK-ERR',
         vendor_id: vendor.id,
         items: {
-          create: [{ catalog_item_id: item.id, quantity: 10, unit_cost: 10 }],
+          create: [
+            {
+              tenant_id: vendor.tenant_id,
+              catalog_item_id: item.id,
+              quantity: 10,
+              unit_cost: 10,
+            },
+          ],
         },
       },
     });
