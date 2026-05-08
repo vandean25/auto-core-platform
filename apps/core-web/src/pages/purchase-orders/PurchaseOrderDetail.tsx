@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { usePurchaseOrder, useReceiveGoods, useAddPOItems, useUpdatePOItem, useDeletePOItem } from '@/api/purchase-orders'
+import { usePurchaseOrder, useReceiveGoods, useAddPOItems, useUpdatePOItem, useDeletePOItem, useMarkPOSent } from '@/api/purchase-orders'
 import { useInventory } from '@/api/inventory'
 import { useUnbilledReceipts } from '@/api/usePurchaseInvoices'
 import { Button } from '@/components/ui/button'
@@ -48,6 +48,7 @@ interface StagedPOItem {
 export default function PurchaseOrderDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
+    const markAsSent = useMarkPOSent()
     const { data: po, isLoading, error } = usePurchaseOrder(id!)
     const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false)
     const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -282,6 +283,21 @@ export default function PurchaseOrderDetail() {
                 </div>
                 <div className="flex items-center space-x-4">
                     <StatusBadge status={po.status} />
+
+                    {po.status === 'DRAFT' && (
+                        <Button
+                            onClick={() => {
+                                toast.promise(markAsSent.mutateAsync(po.id), {
+                                    loading: 'Marking as sent...',
+                                    success: 'Purchase order marked as sent',
+                                    error: 'Failed to mark as sent',
+                                })
+                            }}
+                            disabled={markAsSent.isPending}
+                        >
+                            Mark as Sent
+                        </Button>
+                    )}
 
                     <Button
                         variant="outline"

@@ -114,12 +114,10 @@ test.describe('Blueprint: Purchase Order Detail', () => {
     await expect(page.getByRole('cell', { name: 'Test Part' })).toBeVisible()
   })
 
-  // Blueprint requires the workflow control to exist and the status to change to SENT.
-  // Mark as fixme until the PO detail UI implements an explicit "Mark as Sent" action.
-  test.fixme('Purchase Order Detail - status workflow: Mark as Sent', async ({ page }) => {
+  test('Purchase Order Detail - status workflow: Mark as Sent', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Purchase Order')
     const mockVendor = createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' })
-    const mockPO = createMockPurchaseOrder({
+    let currentPO = createMockPurchaseOrder({
       id: PO_ID,
       order_number: 'PO-2026-0001',
       status: 'DRAFT',
@@ -133,18 +131,33 @@ test.describe('Blueprint: Purchase Order Detail', () => {
       async (route) => {
         if (route.request().method() === 'PATCH') {
           const body = JSON.parse(route.request().postData() || '{}')
+          currentPO = { ...currentPO, ...body }
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ ...mockPO, ...body }),
+            body: JSON.stringify(currentPO),
           })
         } else {
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify(mockPO),
+            body: JSON.stringify(currentPO),
           })
         }
+      },
+    )
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}/mark-as-sent`),
+      async (route) => {
+        currentPO = {
+          ...currentPO,
+          status: 'SENT',
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(currentPO),
+        })
       },
     )
     await page.route(AutoCorePage.apiRouteMatcher('/api/vendors'), async (route) => {
@@ -177,7 +190,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
     const sendButton = page.getByRole('button', { name: /Mark as Sent/i })
     await expect(sendButton).toBeVisible()
     await sendButton.click()
-    await expect(page.getByText('SENT', { exact: true })).toBeVisible()
+    await expect(page.getByText('Sent', { exact: true })).toBeVisible()
   })
 
   // Auto-save (Saving → Saved cycle) is not yet implemented on the PO detail page.

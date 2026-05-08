@@ -73,6 +73,26 @@ export function usePurchaseOrder(id: string) {
     })
 }
 
+export function useMarkPOSent() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetchWithAuth(`${PO_API}/${id}/mark-as-sent`, {
+                method: 'POST',
+            })
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({ message: 'Failed to mark PO as sent' }))
+                throw new Error(error.message || 'Failed to mark PO as sent')
+            }
+            return res.json() as Promise<PurchaseOrder>
+        },
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(id) })
+            queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all })
+        },
+    })
+}
+
 export function useReceiveGoods() {
     const queryClient = useQueryClient()
     return useMutation({

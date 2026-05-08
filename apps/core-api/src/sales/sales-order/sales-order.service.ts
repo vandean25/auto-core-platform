@@ -238,11 +238,19 @@ export class SalesOrderService {
         }>
       | undefined;
 
-    if (updateDto.items) {
+    const replacementItems = updateDto.items;
+
+    if (replacementItems) {
       // Tenant isolation checks for catalog items
-      const catalogItemIds = updateDto.items
-        .map((i) => i.catalog_item_id)
-        .filter((id): id is string => typeof id === 'string');
+      const catalogItemIds = replacementItems
+        .map((item) => item.catalog_item_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+      if (catalogItemIds.length !== replacementItems.length) {
+        throw new BadRequestException(
+          'Each sales order item must include catalog_item_id',
+        );
+      }
 
       if (catalogItemIds.length > 0) {
         const uniqueIds = [...new Set(catalogItemIds)];
@@ -262,18 +270,18 @@ export class SalesOrderService {
       // This transaction logic should be inside a $transaction if we want atomicity for replace
       // For now, I'll just rely on the update data structure
 
-      newItemsData = updateDto.items.map((item) => {
+      newItemsData = replacementItems.map((item) => {
         const quantity = new Prisma.Decimal(item.quantity);
         const unitPrice = new Prisma.Decimal(item.unit_price);
         const total = quantity.mul(unitPrice);
         return {
           tenant_id: tenantId,
-          catalog_item_id: item.catalog_item_id,
+          catalog_item_id: item.catalog_item_id as string,
           description: item.description,
-          quantity: quantity,
+          quantity,
           unit_price: unitPrice,
           tax_rate: new Prisma.Decimal(item.tax_rate || 20),
-          total: total,
+          total,
         };
       });
 
@@ -281,7 +289,6 @@ export class SalesOrderService {
         (sum, item) => sum.add(item.total),
         new Prisma.Decimal(0),
       );
-
     }
 
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
