@@ -43,7 +43,7 @@ function renderShell(
               <MechanicShell
                 activeTenant={
                   opts.tenantName
-                    ? { id: 'tenant-1', name: opts.tenantName, slug: 'tenant-1', isActive: true }
+                    ? { id: 'tenant-1', name: opts.tenantName, slug: 'tenant-1' }
                     : null
                 }
                 userEmail={opts.userEmail ?? 'mechanic@workshop.com'}
