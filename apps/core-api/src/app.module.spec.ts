@@ -6,7 +6,7 @@ describe('AppModule middleware routing', () => {
     const apply = jest.fn().mockReturnValue({ forRoutes });
     const consumer = { apply };
 
-    new AppModule().configure(consumer as never);
+    new AppModule().configure(consumer);
 
     expect(forRoutes).toHaveBeenCalledWith('{*path}');
   });

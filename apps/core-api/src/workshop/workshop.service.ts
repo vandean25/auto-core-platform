@@ -396,7 +396,7 @@ export class WorkshopService {
       },
     });
 
-    return this.normalizeWorkshopOrder(order as WorkshopOrderWithRelations);
+    return this.normalizeWorkshopOrder(order);
   }
 
   async findAll(params: {
@@ -529,7 +529,7 @@ export class WorkshopService {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
 
-    return this.normalizeWorkshopOrder(order as WorkshopOrderWithRelations);
+    return this.normalizeWorkshopOrder(order);
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
@@ -555,7 +555,7 @@ export class WorkshopService {
       },
     });
 
-    return this.normalizeWorkshopOrder(updated as WorkshopOrderWithRelations);
+    return this.normalizeWorkshopOrder(updated);
   }
 
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {

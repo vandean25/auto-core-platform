@@ -102,7 +102,6 @@ describe('InventoryController (e2e) Security', () => {
       })
       .expect(201)
       .expect((res: any) => {
-         
         expect(res.body.sku).toBe('TEST-SKU-VALID');
       });
   });

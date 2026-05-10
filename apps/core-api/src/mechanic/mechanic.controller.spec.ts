@@ -95,18 +95,27 @@ describe('MechanicController', () => {
     const result = await controller.startTask(TASK_ID);
 
     expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
-    expect(mockMechanicService.startTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
+    expect(mockMechanicService.startTask).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+    );
     expect(result).toBe(baseDetail);
   });
 
   it('switchTask calls resolveMechanic then switchTask with dto', async () => {
     mockMechanicService.switchTask.mockResolvedValue(baseDetail);
-    const dto = { previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY };
+    const dto = {
+      previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
+    };
 
     const result = await controller.switchTask(TASK_ID, dto);
 
     expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
-    expect(mockMechanicService.switchTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
+    expect(mockMechanicService.switchTask).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
     expect(result).toBe(baseDetail);
   });
 
@@ -117,7 +126,11 @@ describe('MechanicController', () => {
     const result = await controller.pauseTask(TASK_ID, dto);
 
     expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
-    expect(mockMechanicService.pauseTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID, dto);
+    expect(mockMechanicService.pauseTask).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      dto,
+    );
     expect(result).toBe(baseDetail);
   });
 
@@ -127,7 +140,10 @@ describe('MechanicController', () => {
     const result = await controller.completeTask(TASK_ID);
 
     expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
-    expect(mockMechanicService.completeTask).toHaveBeenCalledWith(MECHANIC_ID, TASK_ID);
+    expect(mockMechanicService.completeTask).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+    );
     expect(result).toBe(baseDetail);
   });
 
@@ -159,7 +175,11 @@ describe('MechanicController', () => {
       partExecutionStatus: WorkshopPartLineExecutionStatus.PENDING_PICK,
     };
     mockMechanicService.requestPart.mockResolvedValue(expected);
-    const dto = { itemNo: 'OIL-5W30', description: '5W-30 Engine Oil 5L', qty: 2 };
+    const dto = {
+      itemNo: 'OIL-5W30',
+      description: '5W-30 Engine Oil 5L',
+      qty: 2,
+    };
 
     const result = await controller.requestPart(TASK_ID, dto);
 
@@ -258,4 +278,3 @@ describe('MechanicController', () => {
     expect(result).toBe(expectedDraft);
   });
 });
-

@@ -59,7 +59,9 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     basePrisma = app.get<PrismaService>(PrismaService);
@@ -254,7 +256,11 @@ describe('Mechanic Execution Engine (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ itemNo: 'OIL-FILTER-001', description: 'Oil filter 2.0 TDI', qty: 1 })
+      .send({
+        itemNo: 'OIL-FILTER-001',
+        description: 'Oil filter 2.0 TDI',
+        qty: 1,
+      })
       .expect(201);
 
     expect(res.body.itemNo).toBe('OIL-FILTER-001');
@@ -295,7 +301,11 @@ describe('Mechanic Execution Engine (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/media/uploads`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ mimeType: 'image/jpeg', sizeBytes: 512000, filename: 'photo.jpg' })
+      .send({
+        mimeType: 'image/jpeg',
+        sizeBytes: 512000,
+        filename: 'photo.jpg',
+      })
       .expect(201);
 
     expect(res.body.uploadUrl).toBe(
