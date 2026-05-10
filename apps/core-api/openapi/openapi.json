@@ -651,6 +651,44 @@
           "Purchase"
         ]
       },
+      "patch": {
+        "operationId": "PurchaseController_updatePurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePurchaseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      },
       "delete": {
         "operationId": "PurchaseController_remove",
         "parameters": [
@@ -5055,6 +5093,10 @@
         "properties": {}
       },
       "ReceivePurchaseOrderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePurchaseOrderDto": {
         "type": "object",
         "properties": {}
       },

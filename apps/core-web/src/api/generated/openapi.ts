@@ -241,7 +241,7 @@ export interface paths {
         delete: operations["PurchaseController_remove"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["PurchaseController_updatePurchaseOrder"];
         trace?: never;
     };
     "/api/purchase-orders/{id}/items": {
@@ -1447,6 +1447,7 @@ export interface components {
         UpdateLocationDto: Record<string, never>;
         CreatePurchaseOrderDto: Record<string, never>;
         ReceivePurchaseOrderDto: Record<string, never>;
+        UpdatePurchaseOrderDto: Record<string, never>;
         AddPurchaseOrderItemsDto: Record<string, never>;
         UpdatePurchaseOrderItemDto: Record<string, never>;
         CreatePurchaseInvoiceDto: Record<string, never>;
@@ -2818,6 +2819,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PurchaseController_updatePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePurchaseOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };

@@ -180,8 +180,6 @@ test.describe('Blueprint: Purchase Order Detail', () => {
     await expect(page.getByText('SENT', { exact: true })).toBeVisible()
   })
 
-  // Auto-save (Saving → Saved cycle) is not yet implemented on the PO detail page.
-  // Mark as fixme until the UI implements a debounced form-level auto-save indicator.
   test('Purchase Order Detail - auto-save on field change', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Purchase Order')
     const mockVendor = createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' })
