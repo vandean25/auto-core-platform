@@ -715,8 +715,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         })
         .expect(429);
 
-      // The 429 response should contain a meaningful message.
-      expect(throttleRes.body.message).toMatch(/rate limit exceeded/i);
+      // The 429 response must contain the stable, documented message prefix.
+      // Per runbook: "Voice note rate limit exceeded. Maximum N uploads per Ts window."
+      expect(throttleRes.body.message).toMatch(
+        /^Voice note rate limit exceeded\. Maximum 2 uploads per 60s window\. Retry after \d+s\./,
+      );
 
       // Cleanup
       await basePrisma.workshopTask.deleteMany({
