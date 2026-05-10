@@ -4,7 +4,12 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestTenant,
+} from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Board Assign (e2e)', () => {
   let app: INestApplication;
@@ -95,24 +100,10 @@ describe('Workshop Board Assign (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (orderId) {
-      await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
-    }
-    if (mechanicId || nonMechanicEmployeeId) {
-      await prisma.employee.deleteMany({
-        where: { id: { in: [mechanicId, nonMechanicEmployeeId].filter(Boolean) } },
-      });
-    }
-    if (vehicleId) {
-      await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
-    }
-    if (customerId) {
-      await prisma.customer.deleteMany({ where: { id: customerId } });
-    }
     if (tenantId) {
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('assigns a mechanic and returns 200', async () => {

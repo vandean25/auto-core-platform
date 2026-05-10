@@ -11,6 +11,7 @@ import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admi
 import type { AuthenticatedUser } from '../src/auth/types/authenticated-user';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service';
+import { teardownTestApp } from './test-lifecycle';
 
 const firebaseAuthMock = {
   getUser: jest.fn(),
@@ -94,7 +95,7 @@ describe('Bearer auth (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app);
   });
 
   beforeEach(() => {

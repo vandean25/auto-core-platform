@@ -49,9 +49,6 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       ],
     });
 
-    // 1. Mock all dependencies BEFORE navigation (network isolation)
-
-    // GET/PATCH /api/purchase-orders/:id -> main entity
     await page.route(
       AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}`),
       async (route) => {
@@ -72,7 +69,6 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       },
     );
 
-    // GET /api/vendors -> secondary API for vendor resolution
     await page.route(
       AutoCorePage.apiRouteMatcher("/api/vendors"),
       async (route) => {
@@ -84,7 +80,6 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       },
     );
 
-    // GET /api/inventory -> secondary API for item search
     await page.route(
       AutoCorePage.apiRouteMatcher("/api/inventory"),
       async (route) => {
@@ -102,7 +97,6 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       },
     );
 
-    // GET /api/vendors/:vendorId/unbilled-receipts -> required to render correctly
     await page.route(
       AutoCorePage.apiRouteMatcher(
         `/api/vendors/${VENDOR_ID}/unbilled-receipts`,
@@ -116,23 +110,18 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       },
     );
 
-    // 2. Navigate to the page
     await corePage.navigate(`/purchase-orders/${PO_ID}`);
 
-    // 3. Detail page load: verify header renders
     await expect(
       page.getByRole("heading", { name: "PO-2026-0001", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Vendor: Bosch Automotive")).toBeVisible();
     await expect(page.getByText(/DRAFT/i)).toBeVisible();
 
-    // 4. Line items: verify the table renders the mocked items
     await expect(page.getByRole("cell", { name: "TEST-SKU-1" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Test Part" })).toBeVisible();
   });
 
-  // Blueprint requires the workflow control to exist and the status to change to SENT.
-  // Mark as fixme until the PO detail UI implements an explicit "Mark as Sent" action.
   test("Purchase Order Detail - status workflow: Mark as Sent", async ({
     page,
   }) => {
@@ -141,7 +130,7 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       id: VENDOR_ID,
       name: "Bosch Automotive",
     });
-    const mockPO = createMockPurchaseOrder({
+    let currentPO = createMockPurchaseOrder({
       id: PO_ID,
       order_number: "PO-2026-0001",
       status: "DRAFT",
@@ -155,18 +144,33 @@ test.describe("Blueprint: Purchase Order Detail", () => {
       async (route) => {
         if (route.request().method() === "PATCH") {
           const body = JSON.parse(route.request().postData() || "{}");
+          currentPO = { ...currentPO, ...body };
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ ...mockPO, ...body }),
+            body: JSON.stringify(currentPO),
           });
         } else {
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify(mockPO),
+            body: JSON.stringify(currentPO),
           });
         }
+      },
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}/mark-as-sent`),
+      async (route) => {
+        currentPO = {
+          ...currentPO,
+          status: "SENT",
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(currentPO),
+        });
       },
     );
     await page.route(
@@ -207,11 +211,9 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     const sendButton = page.getByRole("button", { name: /Mark as Sent/i });
     await expect(sendButton).toBeVisible();
     await sendButton.click();
-    await expect(page.getByText("SENT", { exact: true })).toBeVisible();
+    await expect(page.getByText("Sent", { exact: true })).toBeVisible();
   });
 
-  // Auto-save (Saving → Saved cycle) is not yet implemented on the PO detail page.
-  // Mark as fixme until the UI implements a debounced form-level auto-save indicator.
   test.fixme("Purchase Order Detail - auto-save on field change", async ({
     page,
   }) => {

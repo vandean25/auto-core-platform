@@ -145,14 +145,32 @@ export class LedgerService {
 
       let stock: InventoryStockRecord;
       if (existingStock) {
-        stock = await tx.inventoryStock.update({
-          where: { id: existingStock.id },
+        const updateResult = await tx.inventoryStock.updateMany({
+          where: { id: existingStock.id, tenant_id: tenantId },
           data: {
             quantity_on_hand: {
               increment: Number(params.quantity),
             },
           },
         });
+
+        if (updateResult.count === 0) {
+          throw new BadRequestException(
+            `Inventory stock ${existingStock.id} not found for current tenant`,
+          );
+        }
+
+        const refreshedStock = await tx.inventoryStock.findFirst({
+          where: { id: existingStock.id, tenant_id: tenantId },
+        });
+
+        if (!refreshedStock) {
+          throw new BadRequestException(
+            `Inventory stock ${existingStock.id} not found after update`,
+          );
+        }
+
+        stock = refreshedStock;
       } else {
         stock = await tx.inventoryStock.create({
           data: {

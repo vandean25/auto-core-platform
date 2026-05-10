@@ -1,18 +1,20 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Invoicing (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   let customerId: string;
   let vehicleId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,6 +30,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -73,7 +76,7 @@ describe('Workshop Invoicing (e2e)', () => {
     await prisma.vehicle.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.invoiceSequence.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('creates a draft invoice and issues it for a completed workshop order', async () => {
@@ -81,7 +84,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -96,7 +99,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Replace brake pads' })
       .expect(201);
 
@@ -104,7 +107,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -127,7 +130,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const completedRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
@@ -135,7 +138,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const invoiceRes = await api
       .post('/api/invoices/drafts')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
@@ -159,20 +162,20 @@ describe('Workshop Invoicing (e2e)', () => {
     const invoiceId = invoiceRes.body.id;
     const issueRes = await api
       .patch(`/api/invoices/${invoiceId}/issue`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(issueRes.body.status).toBe('ISSUED');
     expect(issueRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
 
-    const lockedOrder = await prisma.workshopOrder.findUnique({
+    const lockedOrder = await prisma.workshopOrder.findFirst({
       where: { id: orderId },
     });
     expect(lockedOrder?.status).toBe('INVOICED');
 
     await api
       .patch(`/api/workshop/orders/${orderId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ notes: 'Attempt to edit after invoicing' })
       .expect(400);
   });
@@ -182,7 +185,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -196,7 +199,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Inspection task' })
       .expect(201);
 
@@ -204,7 +207,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -220,14 +223,14 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const deleteRes = await api
       .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(deleteRes.body.id).toBe(orderId);
     expect(deleteRes.body.status).toBe('INTAKE');
     expect(deleteRes.body.tasks).toHaveLength(0);
 
-    const persistedTask = await prisma.workshopTask.findUnique({
+    const persistedTask = await prisma.workshopTask.findFirst({
       where: { id: taskId },
     });
     expect(persistedTask).toBeNull();
@@ -243,7 +246,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -257,7 +260,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Invoice protected task' })
       .expect(201);
 
@@ -265,7 +268,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -281,19 +284,19 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
     await api
       .post('/api/invoices/drafts')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
     const deleteRes = await api
       .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(400);
 
     expect(deleteRes.body.message).toBe(

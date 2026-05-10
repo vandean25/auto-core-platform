@@ -1,29 +1,40 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestTenant,
+} from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Purchase Order Receipt Flow (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
+  let tenantId: string;
   let vendorId: string;
   let catalogItemId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
 
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(prisma);
-    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    const testTenant = await createTestTenant(basePrisma);
+    tenantId = testTenant.tenantId;
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId });
 
     // Clean up test data
     await prisma.inventoryTransaction.deleteMany();
@@ -60,7 +71,10 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (tenantId) {
+      await cleanupTestTenantGraph(basePrisma, tenantId);
+    }
+    await teardownTestApp(app, basePrisma);
   });
 
   describe('POST /api/purchase-orders/:id/receive', () => {
@@ -68,7 +82,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [
@@ -86,7 +100,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {
@@ -119,7 +133,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [
@@ -134,7 +148,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive all items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             { itemId: catalogItemId, quantity: 3 },
@@ -147,7 +161,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       expect(receiptResponse.body.status).toBe('COMPLETED');
 
       // Verify all items marked as received
-      const updatedPO = await prisma.purchaseOrder.findUnique({
+      const updatedPO = await prisma.purchaseOrder.findFirst({
         where: { id: poId },
         include: { items: true },
       });
@@ -184,7 +198,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 10, unitCost: 10 }],
@@ -196,7 +210,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Partial receipt (5 out of 10)
       const receipt1 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -207,7 +221,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Complete receipt (remaining 5)
       const receipt2 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -220,7 +234,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -232,7 +246,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Attempt to receive more than ordered
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 10 }],
         })
@@ -245,7 +259,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -253,7 +267,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .expect(201);
 
       const poId = poResponse.body.id;
-      const initialPO = await prisma.purchaseOrder.findUnique({
+      const initialPO = await prisma.purchaseOrder.findFirst({
         where: { id: poId },
         include: { items: true },
       });
@@ -263,14 +277,14 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
         .expect(201);
 
       // Verify consistency: if status is COMPLETED, all items must be received
-      const finalPO = await prisma.purchaseOrder.findUnique({
+      const finalPO = await prisma.purchaseOrder.findFirst({
         where: { id: poId },
         include: { items: true },
       });

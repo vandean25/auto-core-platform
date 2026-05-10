@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -56,18 +57,20 @@ export class SalesOrderController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiQuery({ name: 'params', required: false, schema: { type: 'string' } })
   @ApiOkResponse({
     schema: { type: 'object' },
   })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
+    @Query('params') rawParams?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('search') search?: string,
     @Query('sortField') sortField?: string,
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
   ) {
-    const queryParams: QueryParams = {};
+    const queryParams = this.parseQueryParams(rawParams);
     const parsedPage = page ? parseInt(page, 10) : NaN;
     const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
 
@@ -127,6 +130,32 @@ export class SalesOrderController {
         pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
       },
     };
+  }
+
+  private parseQueryParams(rawParams?: string): QueryParams {
+    if (!rawParams) {
+      return {};
+    }
+
+    try {
+      const parsed = JSON.parse(rawParams) as QueryParams;
+
+      return {
+        filters: Array.isArray(parsed.filters) ? parsed.filters : undefined,
+        sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
+        page:
+          typeof parsed.page === 'number' && Number.isFinite(parsed.page)
+            ? parsed.page
+            : undefined,
+        pageSize:
+          typeof parsed.pageSize === 'number' && Number.isFinite(parsed.pageSize)
+            ? parsed.pageSize
+            : undefined,
+        search: typeof parsed.search === 'string' ? parsed.search : undefined,
+      };
+    } catch {
+      throw new BadRequestException('params must be valid JSON');
+    }
   }
 
   @Get(':id')

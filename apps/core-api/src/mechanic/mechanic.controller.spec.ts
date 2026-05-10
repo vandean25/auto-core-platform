@@ -228,5 +228,34 @@ describe('MechanicController', () => {
     );
     expect(result).toBe(expected);
   });
+
+  it('uploadVoiceNote calls resolveMechanic then uploadVoiceNote with file', async () => {
+    const expectedDraft = {
+      text: 'Clutch bearing worn — replace.',
+      detectedLanguage: 'en',
+      provider: 'openai',
+      model: 'whisper-1',
+      durationSeconds: 9.3,
+    };
+    mockMechanicService.uploadVoiceNote = jest.fn().mockResolvedValue(expectedDraft);
+
+    const fakeFile = {
+      fieldname: 'audio',
+      originalname: 'note.webm',
+      mimetype: 'audio/webm',
+      buffer: Buffer.alloc(2048),
+      size: 2048,
+    } as Express.Multer.File;
+
+    const result = await controller.uploadVoiceNote(TASK_ID, fakeFile);
+
+    expect(mockMechanicService.resolveMechanic).toHaveBeenCalledTimes(1);
+    expect(mockMechanicService.uploadVoiceNote).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+      fakeFile,
+    );
+    expect(result).toBe(expectedDraft);
+  });
 });
 

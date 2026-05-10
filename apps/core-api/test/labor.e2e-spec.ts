@@ -1,9 +1,11 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 type CategoryNode = { id: string; name: string; children: CategoryNode[] };
 type OperationListItem = { id: string; isActive: boolean; categoryId?: string };
@@ -13,12 +15,10 @@ const PREFIX = 'e2e-labor-';
 
 describe('Labor Module (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
-  let originalApiKey: string | undefined;
 
   beforeAll(async () => {
-    originalApiKey = process.env.API_KEY;
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -34,6 +34,7 @@ describe('Labor Module (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up only records created by this suite (scoped by PREFIX)
     await prisma.laborFitment.deleteMany({
@@ -57,9 +58,7 @@ describe('Labor Module (e2e)', () => {
     await prisma.laborCategory.deleteMany({
       where: { name: { startsWith: PREFIX } },
     });
-    await app.close();
-    if (originalApiKey === undefined) delete process.env.API_KEY;
-    else process.env.API_KEY = originalApiKey;
+    await teardownTestApp(app, prisma);
   });
 
   // ── LaborCategory ──────────────────────────────────────────────────────
@@ -72,7 +71,7 @@ describe('Labor Module (e2e)', () => {
     it('should create a top-level category → 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: `${PREFIX}Engine Repair`,
           description: 'Engine-related repairs',
@@ -92,7 +91,7 @@ describe('Labor Module (e2e)', () => {
     it('should create a subcategory with valid parent_id → 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: `${PREFIX}Cylinder Head`,
           description: 'Cylinder head work',
@@ -112,7 +111,7 @@ describe('Labor Module (e2e)', () => {
       // subCategoryId already has a parent, so creating a child of it exceeds max depth
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: `${PREFIX}Too Deep Category`,
           parent_id: subCategoryId,
@@ -125,7 +124,7 @@ describe('Labor Module (e2e)', () => {
     it('should reject duplicate category name → 409', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({ name: `${PREFIX}Engine Repair` })
         .expect(409);
 
@@ -135,7 +134,7 @@ describe('Labor Module (e2e)', () => {
     it('should update category name → 200', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/labor/categories/${topLevelCategoryId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({ name: `${PREFIX}Engine Repair Updated` })
         .expect(200);
 
@@ -147,7 +146,7 @@ describe('Labor Module (e2e)', () => {
     it('should list categories as tree structure → 200', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(res.body).toHaveProperty('data');
@@ -168,7 +167,7 @@ describe('Labor Module (e2e)', () => {
       // topLevelCategoryId has subCategoryId as a child
       const res = await request(app.getHttpServer())
         .delete(`/api/labor/categories/${topLevelCategoryId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(409);
 
       expect(res.body.message).toContain('child');
@@ -178,14 +177,14 @@ describe('Labor Module (e2e)', () => {
       // Create a standalone category and attach an operation to it
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({ name: `${PREFIX}Category With Ops` })
         .expect(201);
       const catId = catRes.body.id;
 
       await request(app.getHttpServer())
         .post('/api/labor/operations')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: `${PREFIX}OP-GUARD-001`,
           description: 'Guard test operation',
@@ -197,7 +196,7 @@ describe('Labor Module (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .delete(`/api/labor/categories/${catId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(409);
 
       expect(res.body.message).toContain('operation');
@@ -206,14 +205,14 @@ describe('Labor Module (e2e)', () => {
     it('should delete an empty category → 200', async () => {
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({ name: `${PREFIX}Empty Category` })
         .expect(201);
       categoryForDeletionId = catRes.body.id;
 
       const res = await request(app.getHttpServer())
         .delete(`/api/labor/categories/${categoryForDeletionId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(res.body.id).toBe(categoryForDeletionId);
@@ -230,7 +229,7 @@ describe('Labor Module (e2e)', () => {
       // Create a category to use in operation tests
       const catRes = await request(app.getHttpServer())
         .post('/api/labor/categories')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({ name: `${PREFIX}Transmission` })
         .expect(201);
       categoryId = catRes.body.id;
@@ -239,7 +238,7 @@ describe('Labor Module (e2e)', () => {
     it('should create an operation with all fields → 201', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/operations')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: `${PREFIX}TR-001`,
           description: 'Transmission overhaul',
@@ -282,7 +281,7 @@ describe('Labor Module (e2e)', () => {
     it('should reject duplicate operation code → 409', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/labor/operations')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: `${PREFIX}TR-001`,
           description: 'Duplicate code attempt',
@@ -298,7 +297,7 @@ describe('Labor Module (e2e)', () => {
     it('should update an operation → 200', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/labor/operations/${operationId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           description: 'Transmission overhaul (updated)',
           hourlyRate: 90.0,
@@ -315,7 +314,7 @@ describe('Labor Module (e2e)', () => {
     it('should replace fitments when updating operation → 200', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/labor/operations/${operationId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           fitments: [
             { make: 'Honda', model: 'Accord', yearFrom: 2018, yearTo: 2023 },
@@ -336,7 +335,7 @@ describe('Labor Module (e2e)', () => {
     it('should soft-delete an operation → 200 with isActive = false', async () => {
       const res = await request(app.getHttpServer())
         .delete(`/api/labor/operations/${operationId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(res.body).toMatchObject({ id: operationId, isActive: false });
@@ -345,7 +344,7 @@ describe('Labor Module (e2e)', () => {
     it('should list operations filtered by isActive=false → returns soft-deleted', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/labor/operations?isActive=false')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(res.body).toHaveProperty('data');
@@ -360,7 +359,7 @@ describe('Labor Module (e2e)', () => {
     it('should list operations filtered by isActive=true → excludes soft-deleted', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/labor/operations?isActive=true')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       const found = (res.body.data as OperationListItem[]).find(
@@ -373,7 +372,7 @@ describe('Labor Module (e2e)', () => {
       // Create an active operation in the category
       const opRes = await request(app.getHttpServer())
         .post('/api/labor/operations')
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: `${PREFIX}TR-CAT-001`,
           description: 'Category filter test',
@@ -385,7 +384,7 @@ describe('Labor Module (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/api/labor/operations?categoryId=${categoryId}`)
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThan(0);
@@ -394,7 +393,7 @@ describe('Labor Module (e2e)', () => {
       });
 
       // Cleanup
-      await prisma.laborOperation.delete({ where: { id: opRes.body.id } });
+      await prisma.laborOperation.deleteMany({ where: { id: opRes.body.id } });
     });
 
     it('search endpoint should exclude inactive operations', async () => {
@@ -488,7 +487,7 @@ describe('Labor Module (e2e)', () => {
           .get(
             `/api/labor/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
           )
-          .set('x-api-key', 'test-api-key')
+            .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
         const results = res.body.data as SearchResultItem[];
@@ -509,13 +508,13 @@ describe('Labor Module (e2e)', () => {
           });
         }
         if (categoryId)
-          await prisma.laborCategory.delete({ where: { id: categoryId } });
+          await prisma.laborCategory.deleteMany({ where: { id: categoryId } });
         if (workshopOrderId)
-          await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
+          await prisma.workshopOrder.deleteMany({ where: { id: workshopOrderId } });
         if (vehicleId)
-          await prisma.vehicle.delete({ where: { id: vehicleId } });
+          await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
         if (customerId)
-          await prisma.customer.delete({ where: { id: customerId } });
+          await prisma.customer.deleteMany({ where: { id: customerId } });
       }
     });
   });

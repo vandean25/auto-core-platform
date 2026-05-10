@@ -1,3 +1,4 @@
+import { AuthService } from '../src/auth/auth.service';
 import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -5,13 +6,16 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 const PREFIX = 'workflow-catalog-';
 
 describe('Catalog Workflow Search (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
-  let originalApiKey: string | undefined;
+  let tenantId: string;
 
   // Track created IDs for deterministic cleanup
   const createdBrandIds: string[] = [];
@@ -21,8 +25,6 @@ describe('Catalog Workflow Search (e2e)', () => {
   let createdVehicleId: string | undefined;
 
   beforeAll(async () => {
-    originalApiKey = process.env.API_KEY;
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -34,10 +36,12 @@ describe('Catalog Workflow Search (e2e)', () => {
     );
     await app.init();
 
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(prisma);
-    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    const testTenant = await createTestTenant(basePrisma);
+    tenantId = testTenant.tenantId;
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId });
   });
 
   afterAll(async () => {
@@ -64,33 +68,34 @@ describe('Catalog Workflow Search (e2e)', () => {
           where: { id: { in: createdBrandIds } },
         });
       }
-    } finally {
-      // Restore original API_KEY regardless of cleanup errors
-      if (originalApiKey === undefined) {
-        delete process.env.API_KEY;
-      } else {
-        process.env.API_KEY = originalApiKey;
+      if (tenantId) {
+        await prisma.financeSettings.deleteMany({});
+        await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
       }
-      await app.close();
+    } finally {
+      await teardownTestApp(app, basePrisma);
     }
   });
 
   it('should complete full business workflow and correctly filter labor by fitment', async () => {
     const ts = Date.now();
-    const apiKey = 'test-api-key';
 
     // 1. Setup Master Data (Brands)
-    const skodaBrand = await prisma.brand.upsert({
-      where: { name: 'Skoda' },
-      create: { name: 'Skoda', isVehicleMake: true, isPartManufacturer: false },
-      update: {},
+    const skodaBrand = await prisma.brand.create({
+      data: {
+        name: `${PREFIX}Skoda-${ts}`,
+        isVehicleMake: true,
+        isPartManufacturer: false,
+      },
     });
     createdBrandIds.push(skodaBrand.id);
 
-    const bmwBrand = await prisma.brand.upsert({
-      where: { name: 'BMW' },
-      create: { name: 'BMW', isVehicleMake: true, isPartManufacturer: true },
-      update: {},
+    const bmwBrand = await prisma.brand.create({
+      data: {
+        name: `${PREFIX}BMW-${ts}`,
+        isVehicleMake: true,
+        isPartManufacturer: true,
+      },
     });
     createdBrandIds.push(bmwBrand.id);
 
@@ -148,7 +153,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // 3. Register Customer & Vehicle (Skoda Octavia)
     const registerResponse = await request(app.getHttpServer())
       .post('/api/workshop/register')
-      .set('x-api-key', apiKey)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         firstName: 'Workflow',
         lastName: 'Tester',
@@ -170,7 +175,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     // 4. Create Workshop Order
     const orderResponse = await request(app.getHttpServer())
       .post('/api/workshop/orders')
-      .set('x-api-key', apiKey)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId: customerId,
         vehicleId: vehicleId,
@@ -186,7 +191,7 @@ describe('Catalog Workflow Search (e2e)', () => {
       .get(
         `/api/catalog/search?q=SearchKey&workshopOrderId=${createdWorkshopOrderId}`,
       )
-      .set('x-api-key', apiKey)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const labor = searchResponse.body.labor;

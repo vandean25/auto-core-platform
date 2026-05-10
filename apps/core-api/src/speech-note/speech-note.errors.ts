@@ -25,7 +25,8 @@ export class SpeechNoteConfigError extends SpeechNoteError {
 
 /**
  * Thrown when the AI provider returns an error (e.g. API key invalid,
- * rate limit exceeded, internal provider failure).
+ * rate limit exceeded, internal provider failure). Callers should map
+ * this to HTTP 502 (Bad Gateway).
  * The message is sanitised — it must not contain API keys, raw request
  * payloads, or other sensitive provider data.
  */

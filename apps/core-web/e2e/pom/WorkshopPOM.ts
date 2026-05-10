@@ -39,9 +39,7 @@ export class WorkshopPOM extends AutoCorePage {
     await searchInput.fill(query);
 
     // Rule: suggestions list must appear after typing
-    await expect(
-      this.page.locator('[role="listbox"], [data-radix-collection-item]'),
-    ).toBeVisible();
+    await expect(this.page.getByRole('listbox', { name: 'Suggestions' })).toBeVisible();
   }
 
   /**
@@ -49,6 +47,17 @@ export class WorkshopPOM extends AutoCorePage {
    * Must be called BEFORE navigating so the interceptor is registered first.
    */
   async mockOrderDetails(id: string, vehicle: { make: string; model: string }) {
+    await this.page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: [], bays: [] }),
+        });
+      },
+    );
+
     await this.page.route(
       AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${id}`),
       async (route) => {

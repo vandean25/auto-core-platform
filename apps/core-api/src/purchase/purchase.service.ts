@@ -244,10 +244,16 @@ export class PurchaseService {
         await chunkedPromiseAll(
           validatedAggregatedItems,
           async ({ poItem, quantity, received }) => {
-            await tx.purchaseOrderItem.update({
-              where: { id: poItem.id },
+            const updateResult = await tx.purchaseOrderItem.updateMany({
+              where: { id: poItem.id, tenant_id: tenantId },
               data: { quantity_received: { increment: quantity } },
             });
+
+            if (updateResult.count === 0) {
+              throw new NotFoundException(
+                `Purchase order item ${poItem.id} not found for current tenant`,
+              );
+            }
 
             // Record the inventory transaction using the ledger service
             await this.ledgerService.recordTransactions(
@@ -285,10 +291,21 @@ export class PurchaseService {
         else if (anyReceived) newStatus = PurchaseOrderStatus.PARTIAL;
 
         if (newStatus !== updatedPO.status) {
-          await tx.purchaseOrder.update({
-            where: { id: orderId },
+          await tx.purchaseOrder.updateMany({
+            where: { id: orderId, tenant_id: tenantId },
             data: { status: newStatus },
           });
+
+          const refreshedPO = await tx.purchaseOrder.findFirst({
+            where: { id: orderId, tenant_id: tenantId },
+            include: { items: true },
+          });
+
+          if (!refreshedPO) {
+            throw new Error('Failed to retrieve refreshed PO');
+          }
+
+          return refreshedPO;
         }
 
         return updatedPO;
@@ -397,10 +414,13 @@ export class PurchaseService {
         po.status,
       );
 
-      // Update status and return full PO
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {
@@ -448,10 +468,14 @@ export class PurchaseService {
 
     // Update in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.update({
-        where: { id: itemId },
+      const updateResult = await tx.purchaseOrderItem.updateMany({
+        where: { id: itemId, tenant_id: tenantId },
         data: prismaUpdates,
       });
+
+      if (updateResult.count === 0) {
+        throw new NotFoundException('Purchase order item not found');
+      }
 
       // Re-read the PO with updated items
       const updatedPO = await tx.purchaseOrder.findFirst({
@@ -466,9 +490,13 @@ export class PurchaseService {
         po.status,
       );
 
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {
@@ -501,9 +529,13 @@ export class PurchaseService {
 
     // Delete in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.delete({
-        where: { id: itemId },
+      const deleteResult = await tx.purchaseOrderItem.deleteMany({
+        where: { id: itemId, tenant_id: tenantId },
       });
+
+      if (deleteResult.count === 0) {
+        throw new NotFoundException('Purchase order item not found');
+      }
 
       // Re-read the PO with updated items
       const updatedPO = await tx.purchaseOrder.findFirst({
@@ -518,9 +550,13 @@ export class PurchaseService {
         po.status,
       );
 
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {

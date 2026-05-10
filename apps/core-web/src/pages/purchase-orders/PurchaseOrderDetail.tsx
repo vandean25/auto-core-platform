@@ -67,13 +67,11 @@ export default function PurchaseOrderDetail() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingQty, setEditingQty] = useState<string>("");
 
-  // Animation state
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
   const [poppedQtyRowId, setPoppedQtyRowId] = useState<string | null>(null);
   const rowFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qtyPopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Item search state - inline pattern
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [newQty, setNewQty] = useState("1");
@@ -83,7 +81,6 @@ export default function PurchaseOrderDetail() {
   const itemInputRef = useRef<HTMLInputElement | null>(null);
   const qtyInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Debounce search
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());
@@ -91,34 +88,27 @@ export default function PurchaseOrderDetail() {
     return () => window.clearTimeout(timeout);
   }, [searchQuery]);
 
-  // Fetch inventory for item search - filter by vendor's supported brands
   const vendorBrandNames =
     po?.vendor?.supportedBrands?.map((b) => b.name) ?? [];
 
-  // Fetch larger page size to ensure vendor-brand filtered results include all valid items
-  // We filter client-side, so we need to fetch enough items to get a good set after filtering
   const { data: inventoryResponse } = useInventory({
     search: debouncedSearchQuery,
-    pageSize: 100, // Increased from 10 to ensure we have valid items after brand filtering
+    pageSize: 100,
     brand: vendorBrandNames.length > 0 ? undefined : undefined,
   });
   const inventory = inventoryResponse;
 
-  // Filter inventory items to only show those from vendor's supported brands
   const filteredInventory =
     inventory?.data?.filter((item: InventoryItem) =>
       vendorBrandNames.includes(item.brand),
     ) ?? [];
 
-  // Mutations
   const addItems = useAddPOItems();
   const updateItem = useUpdatePOItem();
   const deleteItem = useDeletePOItem();
 
-  // Fetch unbilled receipts for this vendor to calculate count related to this PO
   const { data: unbilledItems = [] } = useUnbilledReceipts(po?.vendor_id);
 
-  // Filter unbilled items for this specific PO
   const poUnbilledCount = unbilledItems.filter(
     (item) => item.purchaseOrderNumber === po?.order_number,
   ).length;
@@ -186,7 +176,6 @@ export default function PurchaseOrderDetail() {
     if (!stagedItem || !id || !po) return;
     const qty = Number(newQty);
 
-    // Validate quantity strictly - don't silently default to 1
     if (!Number.isFinite(qty) || qty <= 0) {
       toast.error("Invalid quantity", {
         description: "Please enter a positive number",
@@ -194,13 +183,11 @@ export default function PurchaseOrderDetail() {
       return;
     }
 
-    // Check if item already exists in the PO
     const existingItem = po.items.find(
       (item: PurchaseOrderItem) => item.catalog_item_id === stagedItem.id,
     );
 
     if (existingItem) {
-      // Item exists - update quantity by adding the new quantity
       const newTotalQty = existingItem.quantity + qty;
       updateItem.mutate(
         {
@@ -222,7 +209,6 @@ export default function PurchaseOrderDetail() {
         },
       );
     } else {
-      // Item doesn't exist - add as new
       addItems.mutate(
         {
           orderId: id,
@@ -247,17 +233,15 @@ export default function PurchaseOrderDetail() {
     }
   }
 
-  const handleUpdateItemQty = (itemId: string, newQty: string) => {
-    const qty = Number(newQty);
+  const handleUpdateItemQty = (itemId: string, newQtyValue: string) => {
+    const qty = Number(newQtyValue);
     if (!Number.isFinite(qty) || qty <= 0) return;
 
     if (!po) return;
 
-    // Find the item to check quantity_received
     const item = po.items.find((i: PurchaseOrderItem) => i.id === itemId);
     if (!item) return;
 
-    // Validate that new quantity is not less than already received
     if (qty < item.quantity_received) {
       toast.error("Invalid quantity", {
         description: `Cannot reduce quantity below ${item.quantity_received} already received`,
@@ -418,7 +402,6 @@ export default function PurchaseOrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-3">
-              {/* Inline Item Search & Add Panel */}
               <div className="border rounded-xl bg-muted/40 px-3 py-2">
                 <div className="grid grid-cols-[1fr_70px_auto] gap-2">
                   <div className="relative">
@@ -449,36 +432,30 @@ export default function PurchaseOrderDetail() {
                             )}
                             {filteredInventory.length > 0 && (
                               <CommandGroup heading="Parts">
-                                {filteredInventory.map(
-                                  (item: InventoryItem) => {
-                                    return (
-                                      <CommandItem
-                                        key={item.id}
-                                        value={`${item.sku} ${item.name}`}
-                                        onSelect={() => stagePart(item)}
-                                      >
-                                        <div className="flex w-full items-center justify-between gap-2">
-                                          <div className="min-w-0">
-                                            <div className="text-xs font-medium">
-                                              {item.sku}
-                                            </div>
-                                            <div className="truncate text-xs text-muted-foreground">
-                                              {item.name}
-                                            </div>
+                                {filteredInventory.map((item: InventoryItem) => {
+                                  return (
+                                    <CommandItem
+                                      key={item.id}
+                                      value={`${item.sku} ${item.name}`}
+                                      onSelect={() => stagePart(item)}
+                                    >
+                                      <div className="flex w-full items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-xs font-medium">
+                                            {item.sku}
                                           </div>
-                                          <div className="shrink-0 text-right text-xs text-muted-foreground">
-                                            <div>
-                                              {formatCurrency(item.price)}
-                                            </div>
-                                            <div>
-                                              Stock: {item.quantity_available}
-                                            </div>
+                                          <div className="truncate text-xs text-muted-foreground">
+                                            {item.name}
                                           </div>
                                         </div>
-                                      </CommandItem>
-                                    );
-                                  },
-                                )}
+                                        <div className="shrink-0 text-right text-xs text-muted-foreground">
+                                          <div>{formatCurrency(item.price)}</div>
+                                          <div>Stock: {item.quantity_available}</div>
+                                        </div>
+                                      </div>
+                                    </CommandItem>
+                                  );
+                                })}
                               </CommandGroup>
                             )}
                           </CommandList>
@@ -508,7 +485,6 @@ export default function PurchaseOrderDetail() {
                 </div>
               </div>
 
-              {/* Items Table */}
               <div className="border rounded-md overflow-x-auto">
                 <Table className="min-w-[700px]">
                   <TableHeader>
@@ -710,9 +686,7 @@ function ReceiveGoodsDialog({
                 return (
                   <TableRow key={item.catalog_item_id}>
                     <TableCell>
-                      <div className="font-medium">
-                        {item.catalog_item?.sku}
-                      </div>
+                      <div className="font-medium">{item.catalog_item?.sku}</div>
                       <div className="text-sm text-muted-foreground">
                         {item.catalog_item?.name}
                       </div>

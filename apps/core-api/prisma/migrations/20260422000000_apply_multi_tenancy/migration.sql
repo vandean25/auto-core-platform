@@ -1,6 +1,113 @@
 -- AlterEnum
 ALTER TYPE "InvoiceStatus" ADD VALUE 'ISSUED';
 
+-- CreateEnum
+CREATE TYPE "TenantPlan" AS ENUM ('STANDARD', 'PREMIUM', 'ENTERPRISE');
+
+-- CreateTable
+CREATE TABLE "tenants" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "plan" "TenantPlan" NOT NULL DEFAULT 'STANDARD',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "tenants_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "tenants_slug_key" ON "tenants"("slug");
+
+-- Add tenant_id columns (initially nullable)
+ALTER TABLE "brands" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "catalog_items" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "customers" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "finance_settings" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "inventory_stocks" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "inventory_transactions" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "invoice_items" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "invoice_sequences" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "invoices" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "labor_categories" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "labor_operations" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "purchase_invoice_lines" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "purchase_invoices" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "purchase_order_items" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "purchase_orders" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "revenue_groups" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "sales_order_items" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "sales_orders" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "storage_locations" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "vehicles" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "vendors" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "workshop_orders" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "workshop_task_line_items" ADD COLUMN "tenant_id" TEXT;
+ALTER TABLE "workshop_tasks" ADD COLUMN "tenant_id" TEXT;
+
+-- Seed default tenant and migrate data
+DO $$
+DECLARE
+  default_tenant_id TEXT := '00000000-0000-0000-0000-000000000000';
+BEGIN
+  INSERT INTO "tenants" ("id", "name", "slug", "plan", "created_at", "updated_at", "is_active")
+  VALUES (default_tenant_id, 'Default Workshop', 'default-workshop', 'STANDARD', NOW(), NOW(), TRUE)
+  ON CONFLICT DO NOTHING;
+
+  -- Update all tables
+  UPDATE "brands" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "catalog_items" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "customers" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "finance_settings" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "inventory_stocks" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "inventory_transactions" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "invoice_items" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "invoice_sequences" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "invoices" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "labor_categories" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "labor_operations" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "purchase_invoice_lines" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "purchase_invoices" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "purchase_order_items" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "purchase_orders" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "revenue_groups" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "sales_order_items" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "sales_orders" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "storage_locations" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "vehicles" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "vendors" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "workshop_orders" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "workshop_task_line_items" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+  UPDATE "workshop_tasks" SET "tenant_id" = default_tenant_id WHERE "tenant_id" IS NULL;
+END $$;
+
+-- Set columns NOT NULL
+ALTER TABLE "brands" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "catalog_items" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "customers" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "finance_settings" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "inventory_stocks" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "inventory_transactions" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "invoice_items" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "invoice_sequences" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "invoices" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "labor_categories" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "labor_operations" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "purchase_invoice_lines" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "purchase_invoices" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "purchase_order_items" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "purchase_orders" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "revenue_groups" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "sales_order_items" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "sales_orders" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "storage_locations" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "vehicles" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "vendors" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "workshop_orders" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "workshop_task_line_items" ALTER COLUMN "tenant_id" SET NOT NULL;
+ALTER TABLE "workshop_tasks" ALTER COLUMN "tenant_id" SET NOT NULL;
+
 -- DropForeignKey
 ALTER TABLE "invoices" DROP CONSTRAINT "invoices_sales_order_id_fkey";
 

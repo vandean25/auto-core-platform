@@ -1,9 +1,11 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 type CatalogSearchLaborItem = { id: string; categoryName: string | null };
 
@@ -11,12 +13,11 @@ const PREFIX = 'e2e-catalog-';
 
 describe('Catalog Module (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
-  let originalApiKey: string | undefined;
 
   beforeAll(async () => {
-    originalApiKey = process.env.API_KEY;
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,10 +29,11 @@ describe('Catalog Module (e2e)', () => {
     );
     await app.init();
 
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(prisma);
-    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    const testTenant = await createTestTenant(basePrisma);
+    prisma = createTenantAwarePrisma(basePrisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
@@ -54,9 +56,7 @@ describe('Catalog Module (e2e)', () => {
     await prisma.laborCategory.deleteMany({
       where: { name: { startsWith: PREFIX } },
     });
-    await app.close();
-    if (originalApiKey === undefined) delete process.env.API_KEY;
-    else process.env.API_KEY = originalApiKey;
+    await teardownTestApp(app, basePrisma);
   });
 
   it('search endpoint should return categoryName for categorized and uncategorized labor results', async () => {
@@ -150,7 +150,7 @@ describe('Catalog Module (e2e)', () => {
         .get(
           `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
         )
-        .set('x-api-key', 'test-api-key')
+          .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];
@@ -169,13 +169,18 @@ describe('Catalog Module (e2e)', () => {
           where: { id: { in: opIds } },
         });
       }
-      if (categoryId)
-        await prisma.laborCategory.delete({ where: { id: categoryId } });
-      if (workshopOrderId)
-        await prisma.workshopOrder.delete({ where: { id: workshopOrderId } });
-      if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
-      if (customerId)
-        await prisma.customer.delete({ where: { id: customerId } });
+      if (categoryId) {
+        await prisma.laborCategory.deleteMany({ where: { id: categoryId } });
+      }
+      if (workshopOrderId) {
+        await prisma.workshopOrder.deleteMany({ where: { id: workshopOrderId } });
+      }
+      if (vehicleId) {
+        await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
+      }
+      if (customerId) {
+        await prisma.customer.deleteMany({ where: { id: customerId } });
+      }
     }
   });
 });

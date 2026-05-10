@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { toPrismaDelegateKey } from './prisma-delegate';
+import { resolvePrismaModelDelegate } from './prisma-delegate';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
@@ -12,6 +12,8 @@ import { toPrismaDelegateKey } from './prisma-delegate';
  */
 const GLOBAL_MODELS = new Set([
   'Tenant',
+  'User',
+  'PlatformAdmin',
   'MasterPart',
   'PartFitment',
   'LocalInventory',
@@ -58,6 +60,20 @@ function normalizeRecord(value: unknown): Record<string, unknown> {
   }
 
   return { ...(value as Record<string, unknown>) };
+}
+
+function stampTenantIntoCreateManyData(data: unknown, tenantId: string) {
+  if (Array.isArray(data)) {
+    return data.map((item) => ({
+      ...normalizeRecord(item),
+      tenant_id: tenantId,
+    }));
+  }
+
+  return {
+    ...normalizeRecord(data),
+    tenant_id: tenantId,
+  };
 }
 
 function injectTenantIntoWhere(
@@ -119,6 +135,7 @@ function buildTenantOwnershipWhere(
  */
 export function applyTenantIsolation(
   this: unknown,
+  ctx: any,
   model: string,
   operation: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,16 +194,13 @@ export function applyTenantIsolation(
         return query(nextArgs);
       }
 
-      const ctx = Prisma.getExtensionContext(this) as Record<string, unknown>;
-      const delegateKey = toPrismaDelegateKey(model);
-      const modelDelegate = (ctx[delegateKey] ?? ctx[model]) as
-        | {
-            findFirst?: (findArgs: {
-              where: Record<string, unknown>;
-              select: { id: boolean };
-            }) => Promise<{ id: string } | null>;
-          }
-        | undefined;
+      const extensionContext = Prisma.getExtensionContext(this) as Record<
+        string,
+        unknown
+      >;
+      const modelDelegate =
+        resolvePrismaModelDelegate(ctx as Record<string, unknown>, model) ??
+        resolvePrismaModelDelegate(extensionContext, model);
 
       if (typeof modelDelegate?.findFirst !== 'function') {
         throw new Error(
@@ -214,6 +228,12 @@ export function applyTenantIsolation(
         ...normalizeRecord(nextArgs.data),
         tenant_id: tenantId,
       };
+
+      return query(nextArgs);
+    }
+
+    if (operation === 'createMany') {
+      nextArgs.data = stampTenantIntoCreateManyData(nextArgs.data, tenantId);
 
       return query(nextArgs);
     }
@@ -264,7 +284,14 @@ export function createTenantIsolationExtension() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async $allOperations({ model, operation, args, query }: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyTenantIsolation.call(this, model, operation, args, query);
+          return applyTenantIsolation.call(
+            this,
+            Prisma.getExtensionContext(this),
+            model,
+            operation,
+            args,
+            query,
+          );
         },
       },
     },
