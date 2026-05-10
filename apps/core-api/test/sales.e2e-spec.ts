@@ -1,18 +1,20 @@
+import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('SalesController (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   let customerId: string;
   let catalogItemId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -24,6 +26,7 @@ describe('SalesController (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Setup Test Data
     const customer = await prisma.customer.create({
@@ -74,7 +77,7 @@ describe('SalesController (e2e)', () => {
     await prisma.catalogItem.deleteMany();
     await prisma.revenueGroup.deleteMany();
     await prisma.brand.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('/api/sales/invoices (POST) - Create Draft', async () => {
@@ -93,7 +96,7 @@ describe('SalesController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/api/sales/invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send(createInvoiceDto)
       .expect(201);
 
@@ -119,7 +122,7 @@ describe('SalesController (e2e)', () => {
 
     const draftResponse = await request(app.getHttpServer())
       .post('/api/sales/invoices')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send(createInvoiceDto)
       .expect(201);
 
@@ -128,7 +131,7 @@ describe('SalesController (e2e)', () => {
     // 2. Finalize
     const finalizeResponse = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceId}/finalize`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(finalizeResponse.body.status).toBe('FINALIZED');

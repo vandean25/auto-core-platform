@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 
+const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
+
 /**
  * Inventory — Smoke Tests (seed-based)
  *
@@ -13,6 +15,11 @@ import { createMockInventoryItem, createMockListResponse } from './utils/mock-fa
  * real data flow.
  */
 test.describe('Inventory — Smoke Tests (seed-based)', () => {
+  test.skip(
+    !RUN_SEEDED_SMOKE_TESTS,
+    'Seed-based smoke tests require E2E_LIVE_BACKEND=true and a seeded backend.',
+  );
+
   const SEED_SKU = '06J-115-403-Q';
 
   test('should display inventory list and open item details sheet', async ({ page }) => {

@@ -22,6 +22,11 @@ test.describe('Blueprint: Settings Page', () => {
   test('Settings tab navigation and content rendering across tabs', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Settings');
 
+    const waitForApiResponse = (path: string) =>
+      page.waitForResponse((response) => {
+        return AutoCorePage.apiRouteMatcher(path).test(response.url()) && response.ok();
+      });
+
     const mockFinance = createMockFinanceSettings({ invoice_prefix: 'TEST-', next_invoice_number: 999 });
     const mockRevenueGroup = createMockRevenueGroup({ name: 'Parts Revenue' });
     const mockBrand = createMockBrand({ name: 'Stellantis' });
@@ -131,8 +136,10 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('button', { name: /Create Location/i })).toBeVisible();
 
     // 7. Tab Navigation to Employees
+    const employeesResponsePromise = waitForApiResponse('/api/employees');
     await page.getByRole('tab', { name: 'Employees' }).click();
     await expect(page).toHaveURL(/\/settings\?tab=employees$/);
+    await employeesResponsePromise;
     await expect(page.getByRole('cell', { name: 'Alex Novak' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^\+ Employee$/ })).toBeVisible();
 
@@ -141,8 +148,10 @@ test.describe('Blueprint: Settings Page', () => {
     await page.keyboard.press('Escape');
 
     // 8. Tab Navigation to Bays
+    const baysResponsePromise = waitForApiResponse('/api/bays');
     await page.getByRole('tab', { name: 'Bays' }).click();
     await expect(page).toHaveURL(/\/settings\?tab=bays$/);
+    await baysResponsePromise;
     await expect(page.getByRole('cell', { name: 'Bay 01' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^\+ Bay$/ })).toBeVisible();
 
@@ -151,7 +160,9 @@ test.describe('Blueprint: Settings Page', () => {
     await page.keyboard.press('Escape');
 
     // 9. Tab Navigation to Labor
+    const laborCategoriesResponsePromise = waitForApiResponse('/api/labor/categories');
     await page.getByRole('tab', { name: 'Labor' }).click();
+    await laborCategoriesResponsePromise;
     await expect(page.getByText('Diagnostic Labor').first()).toBeVisible();
 
     // Verify Labor category add form is visible

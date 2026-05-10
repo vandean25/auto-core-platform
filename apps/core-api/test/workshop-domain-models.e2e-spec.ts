@@ -4,7 +4,12 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestTenant,
+} from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 jest.setTimeout(30000);
 
@@ -104,36 +109,10 @@ describe('Workshop Domain Models (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (orderId) {
-      await prisma.workshopTaskLineItem.deleteMany({
-        where: { workshop_task: { workshop_order_id: orderId } },
-      });
-      await prisma.workshopTask.deleteMany({
-        where: { workshop_order_id: orderId },
-      });
-      await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
-    }
-    if (templateItemId) {
-      await prisma.inspectionTemplateItem.deleteMany({
-        where: { id: templateItemId },
-      });
-    }
-    if (templateId) {
-      await prisma.inspectionTemplate.deleteMany({ where: { id: templateId } });
-    }
-    if (mechanicId) {
-      await prisma.employee.deleteMany({ where: { id: mechanicId } });
-    }
-    if (vehicleId) {
-      await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
-    }
-    if (customerId) {
-      await prisma.customer.deleteMany({ where: { id: customerId } });
-    }
     if (tenantId) {
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('persists inspection templates, inspections, media metadata, and part execution status', async () => {

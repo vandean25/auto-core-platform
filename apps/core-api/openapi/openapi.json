@@ -622,6 +622,36 @@
         ]
       }
     },
+    "/api/purchase-orders/{id}/mark-as-sent": {
+      "post": {
+        "operationId": "PurchaseController_markAsSent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      }
+    },
     "/api/purchase-orders/{id}": {
       "get": {
         "operationId": "PurchaseController_findOne",
@@ -1991,6 +2021,14 @@
             }
           },
           {
+            "name": "params",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -3298,6 +3336,67 @@
           }
         },
         "summary": "Persist uploaded media metadata",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
+    "/api/mechanic/tasks/{taskId}/voice-notes": {
+      "post": {
+        "description": "Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.",
+        "operationId": "MechanicController_uploadVoiceNote",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "audio"
+                ],
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Translated diagnostic-note draft ready for mechanic review.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceNoteDraftResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio."
+          },
+          "502": {
+            "description": "Upstream speech-note provider failed."
+          },
+          "503": {
+            "description": "Speech-note provider is not configured."
+          }
+        },
+        "summary": "Upload voice note and receive a translated diagnostic draft",
         "tags": [
           "mechanic"
         ]
@@ -6984,6 +7083,40 @@
           "sizeBytes",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "VoiceNoteDraftResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics."
+          },
+          "detectedLanguage": {
+            "type": "string",
+            "description": "BCP-47 language code detected from the audio source.",
+            "nullable": true
+          },
+          "provider": {
+            "type": "string",
+            "description": "AI provider used for transcription/translation.",
+            "example": "openai"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model used for audio transcription/translation.",
+            "example": "whisper-1"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "description": "Duration of the audio recording in seconds.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "text",
+          "provider",
+          "model"
         ]
       },
       "LaborOperationSearchItemDto": {

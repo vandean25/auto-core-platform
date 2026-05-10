@@ -646,14 +646,22 @@ export class WorkshopService {
       }
       this.assertOrderEditable(task.workshop_order.status);
 
-      await tx.workshopTask.update({
-        where: { id: taskId },
+      const taskUpdate = await tx.workshopTask.updateMany({
+        where: {
+          id: taskId,
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+        },
         data: {
           title: dto.title,
           status: dto.status,
           mechanic_notes: dto.mechanicNotes,
         },
       });
+
+      if (taskUpdate.count === 0) {
+        throw new NotFoundException(`Task ${taskId} not found for this order`);
+      }
 
       const tasks = await tx.workshopTask.findMany({
         where: { workshop_order_id: orderId, tenant_id: tenantId },

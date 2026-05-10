@@ -52,6 +52,7 @@ describe('WorkshopService', () => {
       findMany: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       deleteMany: jest.fn(),
     },
     catalogItem: {
@@ -156,7 +157,7 @@ describe('WorkshopService', () => {
       workshop_order_id: 'wo-1',
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
-    mockPrisma.workshopTask.update.mockResolvedValue({});
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTask.findMany.mockResolvedValue([
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.DONE },
@@ -190,7 +191,7 @@ describe('WorkshopService', () => {
         invoice: { id: 'inv-draft-1', invoice_number: null },
       },
     });
-    mockPrisma.workshopTask.update.mockResolvedValue({});
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTask.findMany.mockResolvedValue([
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.NOT_STARTED },
@@ -204,7 +205,7 @@ describe('WorkshopService', () => {
       }),
     ).resolves.toEqual({ id: 'wo-1' });
 
-    expect(mockPrisma.workshopTask.update).toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalled();
   });
 
   it('blocks updates when workshop order status is invoiced', async () => {
@@ -221,7 +222,7 @@ describe('WorkshopService', () => {
       service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.DONE }),
     ).rejects.toThrow(BadRequestException);
 
-    expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
   });
 
   it('deletes a task and recalculates workshop order status', async () => {
