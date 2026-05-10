@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { TenantMemberRole } from '@prisma/client';
+import type { Auth } from 'firebase-admin/auth';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
@@ -64,7 +65,12 @@ describe('TenantMemberService', () => {
       revokeRefreshTokens: jest.fn(),
     };
 
-    jest.spyOn(service, 'getFirebaseAuth').mockReturnValue(mockFirebaseAuth);
+    jest
+      .spyOn(
+        service as unknown as { getFirebaseAuth: () => Auth },
+        'getFirebaseAuth',
+      )
+      .mockReturnValue(mockFirebaseAuth as unknown as Auth);
   });
 
   it('lists tenant members with related user data in a paginated response', async () => {
