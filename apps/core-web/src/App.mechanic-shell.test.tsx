@@ -67,6 +67,7 @@ describe('MechanicShell (ADR-0014 §8.2)', () => {
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
   })
 
   // ─── No mechanic selector or app switcher ────────────────────────────────
