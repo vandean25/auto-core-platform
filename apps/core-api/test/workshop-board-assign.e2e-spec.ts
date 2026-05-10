@@ -27,7 +27,9 @@ describe('Workshop Board Assign (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -100,7 +102,9 @@ describe('Workshop Board Assign (e2e)', () => {
     }
     if (mechanicId || nonMechanicEmployeeId) {
       await prisma.employee.deleteMany({
-        where: { id: { in: [mechanicId, nonMechanicEmployeeId].filter(Boolean) } },
+        where: {
+          id: { in: [mechanicId, nonMechanicEmployeeId].filter(Boolean) },
+        },
       });
     }
     if (vehicleId) {

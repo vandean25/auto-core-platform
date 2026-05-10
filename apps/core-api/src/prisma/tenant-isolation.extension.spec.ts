@@ -137,7 +137,7 @@ describe('applyTenantIsolation', () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const getExtensionContextSpy = jest
         .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({} as never);
+        .mockReturnValue({});
 
       try {
         await runWithTenant(() =>
@@ -169,7 +169,7 @@ describe('applyTenantIsolation', () => {
         .spyOn(Prisma, 'getExtensionContext')
         .mockReturnValue({
           FinanceSettings: { findFirst },
-        } as never);
+        });
 
       try {
         await runWithTenant(() =>
@@ -203,7 +203,9 @@ describe('applyTenantIsolation', () => {
 
   describe('create() — must stamp tenant_id', () => {
     it('injects tenant_id into data', async () => {
-      const query = jest.fn().mockResolvedValue({ id: '1', tenant_id: TENANT_ID });
+      const query = jest
+        .fn()
+        .mockResolvedValue({ id: '1', tenant_id: TENANT_ID });
       const args = { data: { name: 'Test', status: 'DRAFT' } };
 
       await runWithTenant(() => call('SalesOrder', 'create', args, query));
@@ -265,7 +267,9 @@ describe('applyTenantIsolation', () => {
 
       await expect(
         runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
-      ).rejects.toThrow(/must use a tenant-scoped unique selector containing tenant_id/);
+      ).rejects.toThrow(
+        /must use a tenant-scoped unique selector containing tenant_id/,
+      );
       expect(query).not.toHaveBeenCalled();
     });
   });

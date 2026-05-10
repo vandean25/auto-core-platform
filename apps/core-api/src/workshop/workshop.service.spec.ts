@@ -83,7 +83,9 @@ describe('WorkshopService', () => {
   };
 
   const mockTenantContext = {
-    getTenantId: jest.fn().mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+    getTenantId: jest
+      .fn()
+      .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
   };
 
   beforeEach(async () => {
@@ -308,8 +310,8 @@ describe('WorkshopService', () => {
       ],
     });
 
-    const createManyArg = mockPrisma.workshopTaskLineItem.createMany.mock
-      .calls[0]?.[0];
+    const createManyArg =
+      mockPrisma.workshopTaskLineItem.createMany.mock.calls[0]?.[0];
     const firstLineItem = createManyArg?.data?.[0];
     const secondLineItem = createManyArg?.data?.[1];
     expect(createManyArg).toBeDefined();

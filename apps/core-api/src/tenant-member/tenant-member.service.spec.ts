@@ -64,9 +64,7 @@ describe('TenantMemberService', () => {
       revokeRefreshTokens: jest.fn(),
     };
 
-    jest
-      .spyOn(service as never, 'getFirebaseAuth')
-      .mockReturnValue(mockFirebaseAuth as never);
+    jest.spyOn(service, 'getFirebaseAuth').mockReturnValue(mockFirebaseAuth);
   });
 
   it('lists tenant members with related user data in a paginated response', async () => {

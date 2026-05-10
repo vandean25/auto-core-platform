@@ -2,10 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import {
-  createTenantAwarePrisma,
-  createTestTenant,
-} from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 describe('Tenant Isolation Regression (e2e)', () => {
   let app: INestApplication;
