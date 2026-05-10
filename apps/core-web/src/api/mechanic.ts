@@ -16,6 +16,7 @@ export type RequestMediaUploadPayload = components['schemas']['RequestMediaUploa
 export type MediaUploadPolicy = components['schemas']['MediaUploadPolicyDto']
 export type CreateMediaPayload = components['schemas']['CreateMediaDto']
 export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
+export type VoiceNoteDraftResponse = components['schemas']['VoiceNoteDraftResponseDto']
 
 export const mechanicQueueKeys = {
   all: ['mechanic'] as const,
@@ -285,6 +286,39 @@ export function useSaveMediaMetadata() {
         return throwHttpError(response, 'Failed to save media metadata')
       }
       return response.json() as Promise<WorkshopMedia>
+    },
+  })
+}
+
+/**
+ * Uploads a voice-note audio file (`multipart/form-data`) and returns a
+ * translated diagnostic-note draft (`VoiceNoteDraftResponse`).
+ *
+ * The draft is **not** persisted automatically.  The mechanic must review it
+ * and submit it via `useSaveDiagnostics` (PATCH /diagnostics), which handles
+ * task-detail cache invalidation.
+ *
+ * ADR-0014 §5.3
+ */
+export function useUploadVoiceNote() {
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      audio,
+    }: {
+      taskId: string
+      audio: File | Blob
+    }) => {
+      const form = new FormData()
+      form.append('audio', audio)
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/voice-notes`,
+        { method: 'POST', body: form },
+      )
+      if (!response.ok) {
+        return throwHttpError(response, 'Failed to upload voice note')
+      }
+      return response.json() as Promise<VoiceNoteDraftResponse>
     },
   })
 }
