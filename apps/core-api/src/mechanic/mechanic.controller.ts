@@ -21,6 +21,7 @@ import {
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
@@ -297,6 +298,11 @@ export class MechanicController {
   @ApiUnprocessableEntityResponse({
     description:
       'Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio.',
+  })
+  @ApiTooManyRequestsResponse({
+    description:
+      'Per-mechanic rate limit exceeded. Retry after the indicated window elapses. ' +
+      'Limit is configured via VOICE_NOTE_RATE_LIMIT_MAX and VOICE_NOTE_RATE_LIMIT_TTL_SECONDS.',
   })
   @ApiBadGatewayResponse({
     description: 'Upstream speech-note provider failed.',

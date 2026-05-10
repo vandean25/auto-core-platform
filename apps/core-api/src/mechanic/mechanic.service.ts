@@ -3,8 +3,11 @@ import {
   BadGatewayException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -53,6 +56,31 @@ import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
 } from './mechanic-events.constants';
+
+/**
+ * Rate-limit configuration for the voice-note upload endpoint.
+ * Configurable via environment variables (ADR-0014 §5.3 guardrails).
+ *
+ * VOICE_NOTE_RATE_LIMIT_MAX            — max uploads per mechanic per window (default 10)
+ * VOICE_NOTE_RATE_LIMIT_TTL_SECONDS    — sliding-window length in seconds (default 60)
+ */
+function getVoiceNoteRateLimitConfig(): { max: number; ttlMs: number } {
+  const max = parseInt(process.env.VOICE_NOTE_RATE_LIMIT_MAX ?? '10', 10);
+  const ttlSeconds = parseInt(
+    process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS ?? '60',
+    10,
+  );
+  return {
+    max: Number.isFinite(max) && max > 0 ? max : 10,
+    ttlMs: Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds * 1000 : 60_000,
+  };
+}
+
+/** Sliding-window entry stored per-mechanic for rate limiting. */
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
 
 const QUEUE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.INTAKE,
@@ -124,6 +152,8 @@ function pauseReasonToTaskStatus(
 
 @Injectable()
 export class MechanicService {
+  private readonly logger = new Logger(MechanicService.name);
+
   /**
    * Cached on first use; undefined when the env var is absent (e.g. during
    * OpenAPI generation).  Methods that actually need the bucket call
@@ -131,6 +161,14 @@ export class MechanicService {
    * without this var set.
    */
   private readonly workshopMediaBucket: string | undefined;
+
+  /**
+   * Per-mechanic sliding-window rate limit map for voice-note uploads.
+   * Key: `${tenantId}:${mechanicId}`. Entries are pruned lazily on each check.
+   *
+   * ADR-0014 §5.3 — prevents runaway provider spend and accidental repeated uploads.
+   */
+  private readonly voiceNoteRateLimitMap = new Map<string, RateLimitEntry>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1297,6 +1335,9 @@ export class MechanicService {
   ): Promise<VoiceNoteDraftResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
 
+    // ── Rate limiting (per mechanic, sliding window) ────────────────────────
+    this.checkVoiceNoteRateLimit(mechanicId, tenantId);
+
     const task = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
       select: {
@@ -1350,6 +1391,14 @@ export class MechanicService {
       );
     }
 
+    // Log safe operational metadata only — never log audio content or transcript text.
+    // ADR-0014 §5.3 — Observability without content logging.
+    const sizeBytes = file.buffer.length;
+    this.logger.log(
+      `voice_note_start tenantId=${tenantId} taskId=${taskId} bytes=${sizeBytes} mimeType=${normalizedMime}`,
+    );
+
+    const startedAt = Date.now();
     let draft: VoiceNoteDraftResponseDto;
     try {
       draft = await this.speechNote.transcribeNote({
@@ -1360,6 +1409,27 @@ export class MechanicService {
         mimeType: normalizedMime,
       });
     } catch (error) {
+      // Zero out the audio buffer immediately to release sensitive data.
+      // ADR-0014 §5.3 — Audio retention minimisation.
+      file.buffer.fill(0);
+
+      const latencyMs = Date.now() - startedAt;
+      const failureClass =
+        error instanceof SpeechNoteInputError
+          ? 'SpeechNoteInputError'
+          : error instanceof SpeechNoteConfigError
+            ? 'SpeechNoteConfigError'
+            : error instanceof SpeechNoteProviderError
+              ? 'SpeechNoteProviderError'
+              : error instanceof Error
+                ? error.name
+                : 'UnknownError';
+
+      // Log only safe metadata — no transcript text, no audio content.
+      this.logger.warn(
+        `voice_note_failure tenantId=${tenantId} taskId=${taskId} latencyMs=${latencyMs} failureClass=${failureClass}`,
+      );
+
       if (error instanceof SpeechNoteInputError) {
         throw new UnprocessableEntityException(error.message);
       }
@@ -1376,6 +1446,10 @@ export class MechanicService {
       throw error;
     }
 
+    // Zero out the audio buffer immediately after successful transcription.
+    // ADR-0014 §5.3 — Audio retention minimisation.
+    file.buffer.fill(0);
+
     if (
       draft.durationSeconds !== undefined &&
       draft.durationSeconds !== null &&
@@ -1391,6 +1465,13 @@ export class MechanicService {
         'Voice note appears to be silent - no speech was detected in the recording.',
       );
     }
+
+    const latencyMs = Date.now() - startedAt;
+    // Log only safe operational metadata — never log draft.text (transcript content).
+    // ADR-0014 §5.3 — Observability without content logging.
+    this.logger.log(
+      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${draft.provider} model=${draft.model} latencyMs=${latencyMs} durationSeconds=${draft.durationSeconds ?? 'unknown'}`,
+    );
 
     return {
       text: draft.text,
@@ -1434,5 +1515,41 @@ export class MechanicService {
     throw new ForbiddenException(
       `Task ${task.id} is not assigned to mechanic ${mechanicId}.`,
     );
+  }
+
+  /**
+   * Enforces a per-mechanic sliding-window rate limit for voice-note uploads.
+   *
+   * Limit and window are read from environment variables at runtime so that
+   * operators can tune them without a code deploy.
+   *
+   * Throws HTTP 429 when the mechanic has exceeded the allowed number of
+   * uploads within the current window.
+   *
+   * ADR-0014 §5.3 — rate and abuse controls.
+   */
+  private checkVoiceNoteRateLimit(mechanicId: string, tenantId: string): void {
+    const { max, ttlMs } = getVoiceNoteRateLimitConfig();
+    const key = `${tenantId}:${mechanicId}`;
+    const now = Date.now();
+    const entry = this.voiceNoteRateLimitMap.get(key);
+
+    if (!entry || now - entry.windowStart >= ttlMs) {
+      // Start a fresh window.
+      this.voiceNoteRateLimitMap.set(key, { count: 1, windowStart: now });
+      return;
+    }
+
+    if (entry.count >= max) {
+      const retryAfterSeconds = Math.ceil(
+        (ttlMs - (now - entry.windowStart)) / 1000,
+      );
+      throw new HttpException(
+        `Voice note rate limit exceeded. Maximum ${max} uploads per ${Math.ceil(ttlMs / 1000)}s window. Retry after ${retryAfterSeconds}s.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    entry.count += 1;
   }
 }
