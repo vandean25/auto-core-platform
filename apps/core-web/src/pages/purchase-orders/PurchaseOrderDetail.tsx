@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { ChangeEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { usePurchaseOrder, useReceiveGoods, useAddPOItems, useUpdatePOItem, useDeletePOItem, useUpdatePurchaseOrder } from '@/api/purchase-orders'
@@ -46,18 +47,25 @@ interface StagedPOItem {
 }
 
 
-function PONotesInput({ po, id }: { po: PurchaseOrder, id: string }) {
+function PONotesInput({ po, id }: { po: PurchaseOrder; id: string }) {
     const [notes, setNotes] = useState(po.notes || '')
-    const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | ''>('')
     const updatePO = useUpdatePurchaseOrder()
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const clearStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
         setNotes(po.notes || '')
     }, [po.notes])
 
-    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    useEffect(() => {
+        return () => {
+            if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current)
+            if (clearStatusTimeoutRef.current) window.clearTimeout(clearStatusTimeoutRef.current)
+        }
+    }, [])
+
+    const handleNotesChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
         const newNotes = e.target.value
         setNotes(newNotes)
         setSaveStatus('saving')
@@ -67,23 +75,21 @@ function PONotesInput({ po, id }: { po: PurchaseOrder, id: string }) {
         }
 
         typingTimeoutRef.current = window.setTimeout(() => {
-            setIsSaving(true)
             updatePO.mutate({
                 id,
                 updates: { notes: newNotes }
             }, {
                 onSuccess: () => {
                     setSaveStatus('saved')
-                    setIsSaving(false)
-                    setTimeout(() => setSaveStatus(''), 2000)
+                    if (clearStatusTimeoutRef.current) window.clearTimeout(clearStatusTimeoutRef.current)
+                    clearStatusTimeoutRef.current = window.setTimeout(() => setSaveStatus(''), 2000)
                 },
                 onError: (error) => {
                     setSaveStatus('error')
-                    setIsSaving(false)
                     toast.error('Failed to auto-save notes', { description: error.message })
                 }
             })
-        }, 1000) // 1 second debounce
+        }, 750) // 750ms debounce per UX standard
     }
 
     return (
@@ -369,7 +375,7 @@ export default function PurchaseOrderDetail() {
                             <CardTitle className="text-base font-semibold">Order Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <PONotesInput po={po} id={id} />
+                            <PONotesInput po={po} id={id!} />
                         </CardContent>
                     </Card>
                     <Card>
