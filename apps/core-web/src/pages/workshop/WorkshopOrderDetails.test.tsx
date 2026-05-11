@@ -16,7 +16,6 @@ vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
-    loading: vi.fn().mockReturnValue('toast-id'),
   },
 }))
 
@@ -166,12 +165,6 @@ function setupDefaultMocks(orderOverride?: unknown) {
   asMock(invoicesApi.useIssueInvoice).mockReturnValue(createMutationMock())
   asMock(invoicesApi.useUpdateInvoiceDiscount).mockReturnValue(createMutationMock())
   asMock(workshopApi.useCatalogSearch).mockReturnValue({ data: [], isFetching: false })
-  asMock(workshopApi.useWorkshopResources).mockReturnValue({
-    data: { mechanics: [], bays: [] },
-    isLoading: false,
-  })
-  asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(createMutationMock())
-  asMock(workshopApi.downloadWorkshopPdf).mockResolvedValue(new Blob())
 }
 
 // --------------------------------------------------------------------------
@@ -182,20 +175,6 @@ describe('WorkshopOrderDetails Characterization', () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    })
-
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -285,10 +264,7 @@ describe('WorkshopOrderDetails Characterization', () => {
     it('renders odometer and fuel level when present', () => {
       renderComponent()
 
-      // toLocaleString() output varies by JSDOM locale; match the number flexibly
-      expect(
-        screen.getAllByText((content) => /85.?000\s*km/i.test(content.replace(/\u202f/g, ' ')))[0],
-      ).toBeInTheDocument()
+      expect(screen.getAllByText('85,000 km')[0]).toBeInTheDocument()
       expect(screen.getAllByText('75%')[0]).toBeInTheDocument()
     })
 
@@ -801,27 +777,18 @@ describe('WorkshopOrderDetails Characterization', () => {
   // =====================================================================
 
   describe('print action', () => {
-    it('calls PDF generation and triggers download', async () => {
-      const mockGenerate = createMutationMock({
-        mutateAsync: vi.fn().mockResolvedValue({ enqueued: false }),
-      })
-      asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(mockGenerate)
-      asMock(workshopApi.downloadWorkshopPdf).mockResolvedValue(new Blob())
-
-      // Mock URL methods before rendering
-      window.URL.createObjectURL = vi.fn().mockReturnValue('mock-url')
-      window.URL.revokeObjectURL = vi.fn()
+    it('calls window.print', () => {
+      const originalPrint = window.print
+      window.print = vi.fn()
 
       renderComponent()
 
       const printButtons = screen.getAllByText('Print Job Card')
       fireEvent.click(printButtons[0])
 
-      await waitFor(() => {
-        expect(mockGenerate.mutateAsync).toHaveBeenCalledWith('order-1')
-        expect(workshopApi.downloadWorkshopPdf).toHaveBeenCalledWith('order-1')
-        expect(window.URL.createObjectURL).toHaveBeenCalled()
-      })
+      expect(window.print).toHaveBeenCalled()
+
+      window.print = originalPrint
     })
   })
 

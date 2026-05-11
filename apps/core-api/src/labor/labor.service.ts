@@ -386,60 +386,37 @@ export class LaborService {
     }
 
     try {
-      const updated = await this.prisma.$transaction(async (tx) => {
-        const updateResult = await tx.laborOperation.updateMany({
-          where: { id, tenant_id: tenantId },
-          data: {
-            ...(dto.code !== undefined && { code: dto.code }),
-            ...(dto.description !== undefined && {
-              description: dto.description,
-            }),
-            ...(dto.standardAw !== undefined && { standard_aw: dto.standardAw }),
-            ...(dto.hourlyRate !== undefined && { hourly_rate: dto.hourlyRate }),
-            ...(dto.internalCost !== undefined && {
-              internal_cost: dto.internalCost,
-            }),
-            ...(dto.categoryId !== undefined && { category_id: dto.categoryId }),
-            ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-          },
-        });
-
-        if (updateResult.count === 0) {
-          throw new NotFoundException(`Labor operation with ID "${id}" not found`);
-        }
-
-        if (dto.fitments !== undefined) {
-          await tx.laborFitment.deleteMany({
-            where: { labor_operation_id: id },
-          });
-
-          if (dto.fitments.length > 0) {
-            await tx.laborFitment.createMany({
-              data: dto.fitments.map((fitment) => ({
-                labor_operation_id: id,
-                make: fitment.make,
-                model: fitment.model,
-                year_from: fitment.yearFrom ?? null,
-                year_to: fitment.yearTo ?? null,
-                engine_code: fitment.engineCode ?? null,
+      const updated = await this.prisma.laborOperation.update({
+        where: { id },
+        data: {
+          ...(dto.code !== undefined && { code: dto.code }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+          ...(dto.standardAw !== undefined && { standard_aw: dto.standardAw }),
+          ...(dto.hourlyRate !== undefined && { hourly_rate: dto.hourlyRate }),
+          ...(dto.internalCost !== undefined && {
+            internal_cost: dto.internalCost,
+          }),
+          ...(dto.categoryId !== undefined && { category_id: dto.categoryId }),
+          ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+          ...(dto.fitments !== undefined && {
+            fitments: {
+              deleteMany: {},
+              create: dto.fitments.map((f) => ({
+                make: f.make,
+                model: f.model,
+                year_from: f.yearFrom ?? null,
+                year_to: f.yearTo ?? null,
+                engine_code: f.engineCode ?? null,
               })),
-            });
-          }
-        }
-
-        const refreshed = await tx.laborOperation.findFirst({
-          where: { id, tenant_id: tenantId },
-          include: {
-            category: { select: { id: true, name: true } },
-            fitments: true,
-          },
-        });
-
-        if (!refreshed) {
-          throw new NotFoundException(`Labor operation with ID "${id}" not found`);
-        }
-
-        return refreshed;
+            },
+          }),
+        },
+        include: {
+          category: { select: { id: true, name: true } },
+          fitments: true,
+        },
       });
 
       return this.mapLaborOperation(updated);
@@ -466,15 +443,11 @@ export class LaborService {
       throw new NotFoundException(`Labor operation with ID "${id}" not found`);
     }
 
-    const updateResult = await this.prisma.laborOperation.updateMany({
-      where: { id, tenant_id: tenantId },
+    const updated = await this.prisma.laborOperation.update({
+      where: { id },
       data: { is_active: false },
     });
 
-    if (updateResult.count === 0) {
-      throw new NotFoundException(`Labor operation with ID "${id}" not found`);
-    }
-
-    return { id, isActive: false };
+    return { id: updated.id, isActive: updated.is_active };
   }
 }

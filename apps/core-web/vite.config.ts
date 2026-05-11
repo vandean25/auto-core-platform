@@ -1,6 +1,6 @@
 import path from 'path'
 import react from '@vitejs/plugin-react'
-import { configDefaults, defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
@@ -39,7 +39,6 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
-      exclude: [...configDefaults.exclude, 'e2e/**'],
     },
     server: {
       proxy: {

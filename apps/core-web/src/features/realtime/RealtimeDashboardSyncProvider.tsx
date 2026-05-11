@@ -12,7 +12,6 @@ import {
   isClaimsUpdatedPayload,
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
-import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
 
 type RealtimeConnection = {
   url: string
@@ -56,14 +55,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   const queryClient = useQueryClient()
   const { signOutUser, user } = useAuth()
   const [token, setToken] = React.useState<string | null>(null)
-  const shouldSkipRealtime = isE2EAuthBypassEnabled()
 
   React.useEffect(() => {
-    if (shouldSkipRealtime) {
-      setToken(null)
-      return
-    }
-
     let active = true
 
     if (!user) {
@@ -86,11 +79,9 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     return () => {
       active = false
     }
-  }, [shouldSkipRealtime, user])
+  }, [user])
 
   React.useEffect(() => {
-    if (shouldSkipRealtime) return
-
     const connection = resolveRealtimeConnection()
     if (!connection || !token) return
 
@@ -147,7 +138,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
       socket.disconnect()
     }
-  }, [queryClient, shouldSkipRealtime, signOutUser, token])
+  }, [queryClient, signOutUser, token])
 
   return <>{children}</>
 }

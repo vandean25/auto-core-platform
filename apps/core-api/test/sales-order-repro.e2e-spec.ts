@@ -1,4 +1,3 @@
-import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -6,15 +5,14 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { SalesOrderStatus } from '@prisma/client';
-import { teardownTestApp } from './test-lifecycle';
 
 describe('Sales Order Filters (Repro Issue #10)', () => {
   let app: INestApplication;
-  let authToken: string;
   let prisma: PrismaService;
   let customerId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -29,7 +27,6 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up
     try {
@@ -90,7 +87,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
   });
 
   afterAll(async () => {
-    await teardownTestApp(app, prisma);
+    await app.close();
   });
 
   it('should respect pagination parameters (standard)', async () => {
@@ -98,7 +95,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
     // Request page 2, page size 1. Should return 1 item (the 2nd one).
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?page=2&pageSize=1`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // If it ignores pagination, it returns all 3 (or default 25).
@@ -119,7 +116,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
 
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?params=${encodeURIComponent(params)}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // Should return 1 item (Page 1)
@@ -130,7 +127,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
   it('should respect filtering (standard)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/sales-orders?status=CONFIRMED`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // Should return 1 item

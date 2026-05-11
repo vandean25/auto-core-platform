@@ -37,8 +37,6 @@ export function CustomerSearch({ value, onChange }: CustomerSearchProps) {
     pageSize: 10,
     search: search || undefined,
     filters: [],
-  }, {
-    enabled: open,
   })
   const customers: Customer[] = Array.isArray(customersResponse)
     ? customersResponse

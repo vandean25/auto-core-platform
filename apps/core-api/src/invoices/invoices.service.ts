@@ -161,16 +161,16 @@ export class InvoicesService {
         invoice_number: invoiceNumber,
       });
 
-      await tx.invoice.updateMany({
-        where: { id: invoiceId, tenant_id: tenantId },
+      await tx.invoice.update({
+        where: { id: invoiceId },
         data: {
           invoice_number: invoiceNumber,
           snapshot,
         },
       });
 
-      await tx.workshopOrder.updateMany({
-        where: { id: invoice.workshop_order_id, tenant_id: tenantId },
+      await tx.workshopOrder.update({
+        where: { id: invoice.workshop_order_id },
         data: { status: WorkshopOrderStatus.INVOICED },
       });
 

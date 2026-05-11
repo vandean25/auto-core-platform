@@ -37,13 +37,9 @@ function normalizeInventoryResponse(payload: InventoryApiResponse): InventoryRes
     }
 }
 
-export function useInventory(
-    params: { page?: number; pageSize?: number; search?: string; brand?: string } = {},
-    options?: { enabled?: boolean },
-) {
+export function useInventory(params: { page?: number; pageSize?: number; search?: string; brand?: string } = {}) {
     return useQuery<InventoryResponse>({
         queryKey: [...inventoryKeys.list(params)],
-        enabled: options?.enabled ?? true,
         queryFn: async () => {
             const searchParams = new URLSearchParams()
             if (params.page) searchParams.append('page', params.page.toString())

@@ -2,17 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/auth/auth.service';
 import { InventoryService } from '../src/inventory/inventory.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { createTestTenant } from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
 
 describe('InventoryController (e2e) Security', () => {
   let app: INestApplication;
-  let authToken: string;
-  let prisma: PrismaService;
-  let tenantId: string;
   const mockInventoryService = {
     createItem: jest.fn().mockImplementation((dto) => {
       return Promise.resolve({
@@ -33,29 +26,19 @@ describe('InventoryController (e2e) Security', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({ transform: true, whitelist: true }),
     );
     await app.init();
-    prisma = app.get(PrismaService);
-    const testTenant = await createTestTenant(prisma, 'inventory-security');
-    tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
   });
 
   afterEach(async () => {
-    if (tenantId) {
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
-      tenantId = '';
-    }
-    await teardownTestApp(app, prisma);
+    await app.close();
   });
 
   it('should reject requests with missing required fields', () => {
     return request(app.getHttpServer())
-      .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .post('/inventory')
       .send({
         // missing sku, name, prices
       })
@@ -64,8 +47,7 @@ describe('InventoryController (e2e) Security', () => {
 
   it('should reject requests with invalid types', () => {
     return request(app.getHttpServer())
-      .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .post('/inventory')
       .send({
         sku: 123, // should be string
         name: 'Test Item',
@@ -77,8 +59,7 @@ describe('InventoryController (e2e) Security', () => {
 
   it('should reject requests with negative prices', () => {
     return request(app.getHttpServer())
-      .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .post('/inventory')
       .send({
         sku: 'TEST-SKU',
         name: 'Test Item',
@@ -90,8 +71,7 @@ describe('InventoryController (e2e) Security', () => {
 
   it('should accept valid requests', () => {
     return request(app.getHttpServer())
-      .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .post('/inventory')
       .send({
         sku: 'TEST-SKU-VALID',
         name: 'Valid Item',
@@ -102,6 +82,7 @@ describe('InventoryController (e2e) Security', () => {
       })
       .expect(201)
       .expect((res: any) => {
+
         expect(res.body.sku).toBe('TEST-SKU-VALID');
       });
   });

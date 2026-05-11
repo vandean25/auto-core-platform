@@ -32,7 +32,7 @@ const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
  *
  * Ref: https://platform.openai.com/docs/guides/speech-to-text/supported-formats
  */
-export const SUPPORTED_SPEECH_NOTE_MIME_TYPES = new Set([
+const SUPPORTED_AUDIO_MIME_TYPES = new Set([
   'audio/flac',
   'audio/m4a',
   'audio/mp3',
@@ -120,10 +120,10 @@ export class SpeechNoteService {
     // Validate MIME type early so controller code can distinguish a bad client
     // upload (SpeechNoteInputError → 400) from an upstream failure (SpeechNoteProviderError → 502).
     const normalizedMime = input.mimeType.split(';')[0].trim().toLowerCase();
-    if (!SUPPORTED_SPEECH_NOTE_MIME_TYPES.has(normalizedMime)) {
+    if (!SUPPORTED_AUDIO_MIME_TYPES.has(normalizedMime)) {
       throw new SpeechNoteInputError(
         `Unsupported audio format "${input.mimeType}". ` +
-          `Supported MIME types: ${[...SUPPORTED_SPEECH_NOTE_MIME_TYPES].join(', ')}.`,
+          `Supported MIME types: ${[...SUPPORTED_AUDIO_MIME_TYPES].join(', ')}.`,
       );
     }
 

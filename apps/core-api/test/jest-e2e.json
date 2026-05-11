@@ -6,6 +6,5 @@
   "setupFiles": ["dotenv/config"],
   "transform": {
     "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.e2e.json" }]
-  },
-  "testTimeout": 60000
+  }
 }

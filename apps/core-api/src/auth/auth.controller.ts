@@ -1,7 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
 import { AuthSessionService, type AuthSession } from './auth-session.service';
 import {
   AuthSessionResponseDto,
@@ -14,7 +13,6 @@ export class AuthController {
   constructor(private readonly authSessionService: AuthSessionService) {}
 
   @Get('me')
-  @MechanicAccessible()
   @ApiOkResponse({ type: AuthSessionResponseDto })
   getMe(
     @Req() request: Request & { user: AuthenticatedUser },

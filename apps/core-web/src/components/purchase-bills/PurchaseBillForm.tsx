@@ -175,12 +175,9 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
         () => selectedVendor?.supportedBrands?.map((brand) => brand.name) ?? [],
         [selectedVendor?.supportedBrands],
     )
-    const shouldSearchInventory = debouncedSearchQuery.length > 0 && vendorBrandNames.length > 0
     const { data: inventoryResponse } = useInventory({
         search: debouncedSearchQuery || undefined,
         pageSize: 100,
-    }, {
-        enabled: shouldSearchInventory,
     })
     
     const createMutation = useCreatePurchaseInvoice()
@@ -222,9 +219,10 @@ export function PurchaseBillForm({ initialData, onSuccess, onCancel }: PurchaseB
     }, [receiptSummaries, receiptFilter])
 
     const filteredInventory = React.useMemo<InventoryItem[]>(() => {
-        if (!shouldSearchInventory) return []
+        if (!debouncedSearchQuery) return []
+        if (vendorBrandNames.length === 0) return []
         return (inventoryResponse?.data ?? []).filter((item) => vendorBrandNames.includes(item.brand))
-    }, [inventoryResponse?.data, shouldSearchInventory, vendorBrandNames])
+    }, [debouncedSearchQuery, inventoryResponse?.data, vendorBrandNames])
 
     React.useEffect(() => {
         const timeout = window.setTimeout(() => {

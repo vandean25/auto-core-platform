@@ -1,12 +1,10 @@
 import {
   BadRequestException,
-  BadGatewayException,
   ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -22,12 +20,6 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  SpeechNoteConfigError,
-  SpeechNoteInputError,
-  SpeechNoteProviderError,
-} from '../speech-note/speech-note.errors';
-import { SpeechNoteService } from '../speech-note/speech-note.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -38,13 +30,6 @@ import type { RequestPartResponseDto } from './dto/request-part.dto';
 import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
 import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
-import {
-  ALLOWED_VOICE_NOTE_MIME_TYPES,
-  MAX_VOICE_NOTE_BYTES,
-  MAX_VOICE_NOTE_DURATION_SECONDS,
-  MIN_VOICE_NOTE_BYTES,
-  type VoiceNoteDraftResponseDto,
-} from './dto/voice-note.dto';
 import {
   IMAGE_MIME_TYPES,
   MechanicMediaStorage,
@@ -138,7 +123,6 @@ export class MechanicService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
-    private readonly speechNote: SpeechNoteService,
   ) {
     this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
   }
@@ -153,6 +137,23 @@ export class MechanicService {
     return this.workshopMediaBucket;
   }
 
+  /**
+   * Resolves the current authenticated user to their linked MECHANIC employee
+   * record for the active tenant and returns the employee ID.
+   *
+   * Server-side resolution: the mechanic identity is derived exclusively from
+   * the authenticated session.  The resolution chain is:
+   *   session.userId (Firebase UID) → User.firebaseUid lookup → User.id
+   *   → Employee.user_id match within this tenant
+   *
+   * Note: Employee.user_id stores User.id (the Postgres UUID primary key),
+   * NOT the Firebase UID string.  Admins can link an existing Employee to a
+   * User account via PATCH /api/employees/:id with { "userId": "<User.id>" }.
+   *
+   * Throws ForbiddenException if the user is not a TECH tenant member.
+   * Throws ForbiddenException if no active MECHANIC employee is linked to this
+   * user account within the tenant (prompt the user to contact their administrator).
+   */
   async resolveMechanic(): Promise<string> {
     const user = this.tenantContext.getAuthenticatedUser();
     if (!user || user.role !== 'TECH') {
@@ -168,55 +169,19 @@ export class MechanicService {
         tenant_id: tenantId,
         role: 'MECHANIC',
         is_active: true,
-        user: {
-          OR: [{ firebaseUid: user.userId }, { email: user.email }],
-        },
+        user: { firebaseUid: user.userId },
       },
       select: { id: true },
     });
 
     if (!employee) {
-      throw new NotFoundException(
-        'Active mechanic employee for the authenticated user was not found in this tenant.',
+      throw new ForbiddenException(
+        'No active mechanic profile is linked to your account in this tenant. ' +
+          'Contact your administrator.',
       );
     }
 
     return employee.id;
-  }
-
-  /**
-   * Resolves and validates the current authenticated user as a MECHANIC
-   * employee for the given tenant.
-   *
-   * Throws ForbiddenException if the user is not a TECH tenant member.
-   * Throws NotFoundException if no active MECHANIC employee exists for the
-   * given mechanicId within the tenant.
-   */
-  async assertMechanicAccess(mechanicId: string): Promise<void> {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user || user.role !== 'TECH') {
-      throw new ForbiddenException(
-        'Only technicians (TECH role) may access mechanic endpoints.',
-      );
-    }
-
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        id: mechanicId,
-        tenant_id: tenantId,
-        role: 'MECHANIC',
-        is_active: true,
-      },
-      select: { id: true },
-    });
-
-    if (!employee) {
-      throw new NotFoundException(
-        `Active mechanic employee ${mechanicId} not found in this tenant.`,
-      );
-    }
   }
 
   /**
@@ -267,7 +232,7 @@ export class MechanicService {
           select: {
             id: true,
             description: true,
-            quantity: true,
+            qty: true,
             part_execution_status: true,
           },
         },
@@ -308,7 +273,7 @@ export class MechanicService {
         partLines: task.line_items.map((li) => ({
           id: li.id,
           description: li.description,
-          qty: Number(li.quantity),
+          qty: li.qty,
           partExecutionStatus: li.part_execution_status ?? null,
         })),
         updatedAt: task.updatedAt,
@@ -345,7 +310,7 @@ export class MechanicService {
             id: true,
             type: true,
             description: true,
-            quantity: true,
+            qty: true,
             part_execution_status: true,
           },
         },
@@ -388,7 +353,7 @@ export class MechanicService {
         id: li.id,
         type: li.type,
         description: li.description,
-        qty: Number(li.quantity),
+        qty: li.qty,
         partExecutionStatus: li.part_execution_status ?? null,
       })),
       createdAt: task.createdAt,
@@ -602,23 +567,13 @@ export class MechanicService {
 
     await this.prisma.$transaction(async (tx) => {
       // Close the existing labor entry.
-      const previousEntryUpdate = await tx.laborEntry.updateMany({
-        where: {
-          id: openEntry.id,
-          tenant_id: tenantId,
-          ended_at: null,
-        },
+      await tx.laborEntry.update({
+        where: { id: openEntry.id },
         data: {
           ended_at: new Date(),
           pause_reason: dto.previousPauseReason,
         },
       });
-
-      if (previousEntryUpdate.count === 0) {
-        throw new ConflictException(
-          `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-        );
-      }
 
       // Transition the previous task using an atomic guard.
       if (previousTaskNextStatus !== null) {
@@ -765,20 +720,10 @@ export class MechanicService {
     const nextTaskStatus = pauseReasonToTaskStatus(dto.pauseReason);
 
     await this.prisma.$transaction(async (tx) => {
-      const laborEntryUpdate = await tx.laborEntry.updateMany({
-        where: {
-          id: openEntry.id,
-          tenant_id: tenantId,
-          ended_at: null,
-        },
+      await tx.laborEntry.update({
+        where: { id: openEntry.id },
         data: { ended_at: new Date(), pause_reason: dto.pauseReason },
       });
-
-      if (laborEntryUpdate.count === 0) {
-        throw new ConflictException(
-          `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-        );
-      }
 
       if (nextTaskStatus !== null) {
         const taskUpdate = await tx.workshopTask.updateMany({
@@ -871,20 +816,10 @@ export class MechanicService {
 
     await this.prisma.$transaction(async (tx) => {
       if (openEntry) {
-        const laborEntryUpdate = await tx.laborEntry.updateMany({
-          where: {
-            id: openEntry.id,
-            tenant_id: tenantId,
-            ended_at: null,
-          },
+        await tx.laborEntry.update({
+          where: { id: openEntry.id },
           data: { ended_at: new Date() },
         });
-
-        if (laborEntryUpdate.count === 0) {
-          throw new ConflictException(
-            `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-          );
-        }
       }
 
       const taskUpdate = await tx.workshopTask.updateMany({
@@ -961,14 +896,10 @@ export class MechanicService {
     await this.prisma.$transaction(async (tx) => {
       // Persist mechanic notes when provided.
       if (dto.mechanicNotes !== undefined) {
-        const taskUpdate = await tx.workshopTask.updateMany({
-          where: { id: taskId, tenant_id: tenantId },
+        await tx.workshopTask.update({
+          where: { id: taskId },
           data: { mechanic_notes: dto.mechanicNotes },
         });
-
-        if (taskUpdate.count === 0) {
-          throw new NotFoundException(`Task ${taskId} not found.`);
-        }
       }
 
       // Upsert inspection item values when provided.
@@ -1288,117 +1219,6 @@ export class MechanicService {
       createdAt: media.createdAt,
       updatedAt: media.updatedAt,
     } satisfies WorkshopMediaDto;
-  }
-
-  async uploadVoiceNote(
-    mechanicId: string,
-    taskId: string,
-    file: Express.Multer.File,
-  ): Promise<VoiceNoteDraftResponseDto> {
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const task = await this.prisma.workshopTask.findFirst({
-      where: { id: taskId, tenant_id: tenantId },
-      select: {
-        id: true,
-        bay_id: true,
-        status: true,
-        mechanic_id: true,
-        workshop_order_id: true,
-        workshop_order: { select: { mechanic_id: true, bay_id: true } },
-      },
-    });
-
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new ForbiddenException(
-        'Cannot upload voice notes for a completed task.',
-      );
-    }
-
-    this.assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (!file || !file.buffer || file.buffer.length === 0) {
-      throw new UnprocessableEntityException(
-        'Audio file must not be empty. Include an audio file in the "audio" field.',
-      );
-    }
-
-    if (file.buffer.length < MIN_VOICE_NOTE_BYTES) {
-      throw new UnprocessableEntityException(
-        `Audio file is too small (${file.buffer.length} bytes). The recording appears to be empty or silent.`,
-      );
-    }
-
-    if (file.buffer.length > MAX_VOICE_NOTE_BYTES) {
-      throw new UnprocessableEntityException(
-        `Audio file size ${file.buffer.length} bytes exceeds the maximum of ${MAX_VOICE_NOTE_BYTES} bytes (25 MiB).`,
-      );
-    }
-
-    const normalizedMime = (file.mimetype ?? '')
-      .split(';')[0]
-      .trim()
-      .toLowerCase();
-
-    if (!ALLOWED_VOICE_NOTE_MIME_TYPES.has(normalizedMime)) {
-      throw new UnprocessableEntityException(
-        `Unsupported audio format "${file.mimetype}". Allowed formats: ${[...ALLOWED_VOICE_NOTE_MIME_TYPES].join(', ')}.`,
-      );
-    }
-
-    let draft: VoiceNoteDraftResponseDto;
-    try {
-      draft = await this.speechNote.transcribeNote({
-        audioBuffer: file.buffer,
-        filename:
-          file.originalname ||
-          `voice-note.${normalizedMime.split('/')[1] ?? 'bin'}`,
-        mimeType: normalizedMime,
-      });
-    } catch (error) {
-      if (error instanceof SpeechNoteInputError) {
-        throw new UnprocessableEntityException(error.message);
-      }
-      if (error instanceof SpeechNoteConfigError) {
-        throw new ServiceUnavailableException(
-          'Voice-note transcription is not available. Contact your administrator.',
-        );
-      }
-      if (error instanceof SpeechNoteProviderError) {
-        throw new BadGatewayException(
-          'Voice-note transcription failed due to an upstream provider error. Please try again.',
-        );
-      }
-      throw error;
-    }
-
-    if (
-      draft.durationSeconds !== undefined &&
-      draft.durationSeconds !== null &&
-      draft.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
-    ) {
-      throw new UnprocessableEntityException(
-        `Audio recording duration ${draft.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
-      );
-    }
-
-    if (!draft.text || draft.text.trim().length === 0) {
-      throw new UnprocessableEntityException(
-        'Voice note appears to be silent - no speech was detected in the recording.',
-      );
-    }
-
-    return {
-      text: draft.text,
-      detectedLanguage: draft.detectedLanguage,
-      provider: draft.provider,
-      model: draft.model,
-      durationSeconds: draft.durationSeconds,
-    } satisfies VoiceNoteDraftResponseDto;
   }
 
   /**

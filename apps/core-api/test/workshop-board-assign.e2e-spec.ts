@@ -4,12 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import {
-  cleanupTestTenantGraph,
-  createTenantAwarePrisma,
-  createTestTenant,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 describe('Workshop Board Assign (e2e)', () => {
   let app: INestApplication;
@@ -32,9 +27,7 @@ describe('Workshop Board Assign (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -102,10 +95,24 @@ describe('Workshop Board Assign (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (tenantId) {
-      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
+    if (orderId) {
+      await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
     }
-    await teardownTestApp(app, prisma);
+    if (mechanicId || nonMechanicEmployeeId) {
+      await prisma.employee.deleteMany({
+        where: { id: { in: [mechanicId, nonMechanicEmployeeId].filter(Boolean) } },
+      });
+    }
+    if (vehicleId) {
+      await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
+    }
+    if (customerId) {
+      await prisma.customer.deleteMany({ where: { id: customerId } });
+    }
+    if (tenantId) {
+      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+    }
+    await app.close();
   });
 
   it('assigns a mechanic and returns 200', async () => {

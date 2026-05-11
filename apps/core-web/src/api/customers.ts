@@ -60,10 +60,9 @@ function normalizeWorkshopOrders(workshopOrders: RawWorkshopOrder[] | undefined)
     })) as NormalizedWorkshopOrder[]
 }
 
-export function useCustomers(queryParams?: DataTableQueryParams, options?: { enabled?: boolean }) {
+export function useCustomers(queryParams?: DataTableQueryParams) {
     return useQuery<CustomerListResponse>({
         queryKey: customerKeys.list(queryParams),
-        enabled: options?.enabled ?? true,
         queryFn: async () => {
             let url = '/api/customers'
             if (queryParams) {

@@ -202,7 +202,7 @@ describe('BrandService', () => {
       const mockBrand = { id: 1, ...dto };
       mockRepository.create.mockResolvedValue(mockBrand);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto as any);
 
       expect(result).toEqual(mockBrand);
       expect(mockRepository.create).toHaveBeenCalledWith({
@@ -218,7 +218,9 @@ describe('BrandService', () => {
         isPartManufacturer: false,
       };
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
       // Repository should NOT be called if validation fails
       expect(mockRepository.create).not.toHaveBeenCalled();
     });
@@ -233,7 +235,9 @@ describe('BrandService', () => {
         new ConflictError('Unique constraint violated on: name', 'name'),
       );
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

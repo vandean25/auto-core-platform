@@ -1,4 +1,3 @@
-import type { Browser } from 'playwright';
 import { chromium } from 'playwright';
 import { PlaywrightBrowserService } from './playwright-browser.service';
 
@@ -15,11 +14,13 @@ describe('PlaywrightBrowserService', () => {
   });
 
   it('reuses the in-flight browser launch request', async () => {
-    const browser: Partial<Browser> = {
+    const browser = {
       isConnected: jest.fn().mockReturnValue(true),
       close: jest.fn().mockResolvedValue(undefined),
     };
-    const launchSpy = jest.spyOn(chromium, 'launch').mockResolvedValue(browser as Browser);
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockResolvedValue(browser as never);
 
     const [first, second] = await Promise.all([
       service.getBrowser(),
@@ -32,11 +33,11 @@ describe('PlaywrightBrowserService', () => {
   });
 
   it('relaunches when the cached browser is disconnected', async () => {
-    const disconnectedBrowser: Partial<Browser> = {
+    const disconnectedBrowser = {
       isConnected: jest.fn().mockReturnValue(false),
       close: jest.fn().mockResolvedValue(undefined),
     };
-    const liveBrowser: Partial<Browser> = {
+    const liveBrowser = {
       isConnected: jest.fn().mockReturnValue(true),
       close: jest.fn().mockResolvedValue(undefined),
     };
@@ -45,7 +46,7 @@ describe('PlaywrightBrowserService', () => {
 
     const launchSpy = jest
       .spyOn(chromium, 'launch')
-      .mockResolvedValue(liveBrowser as Browser);
+      .mockResolvedValue(liveBrowser as never);
 
     await expect(service.getBrowser()).resolves.toBe(liveBrowser);
     expect(launchSpy).toHaveBeenCalledTimes(1);

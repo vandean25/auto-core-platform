@@ -53,11 +53,11 @@ export class PrismaService
           return Reflect.get(target, property, receiver);
         }
 
-        return Reflect.get(target.client, property, target.client);
+        return Reflect.get(target.client as object, property, target.client);
       },
     });
 
-    return serviceProxy;
+    return serviceProxy as PrismaService;
   }
 
   async onModuleInit() {

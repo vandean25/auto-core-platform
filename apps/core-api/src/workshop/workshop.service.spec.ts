@@ -52,7 +52,6 @@ describe('WorkshopService', () => {
       findMany: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
-      updateMany: jest.fn(),
       deleteMany: jest.fn(),
     },
     catalogItem: {
@@ -84,9 +83,7 @@ describe('WorkshopService', () => {
   };
 
   const mockTenantContext = {
-    getTenantId: jest
-      .fn()
-      .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+    getTenantId: jest.fn().mockResolvedValue('00000000-0000-0000-0000-000000000001'),
   };
 
   beforeEach(async () => {
@@ -157,7 +154,7 @@ describe('WorkshopService', () => {
       workshop_order_id: 'wo-1',
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
-    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.update.mockResolvedValue({});
     mockPrisma.workshopTask.findMany.mockResolvedValue([
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.DONE },
@@ -191,7 +188,7 @@ describe('WorkshopService', () => {
         invoice: { id: 'inv-draft-1', invoice_number: null },
       },
     });
-    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.update.mockResolvedValue({});
     mockPrisma.workshopTask.findMany.mockResolvedValue([
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.NOT_STARTED },
@@ -205,7 +202,7 @@ describe('WorkshopService', () => {
       }),
     ).resolves.toEqual({ id: 'wo-1' });
 
-    expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.update).toHaveBeenCalled();
   });
 
   it('blocks updates when workshop order status is invoiced', async () => {
@@ -222,7 +219,7 @@ describe('WorkshopService', () => {
       service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.DONE }),
     ).rejects.toThrow(BadRequestException);
 
-    expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
   });
 
   it('deletes a task and recalculates workshop order status', async () => {
@@ -311,8 +308,8 @@ describe('WorkshopService', () => {
       ],
     });
 
-    const createManyArg =
-      mockPrisma.workshopTaskLineItem.createMany.mock.calls[0]?.[0];
+    const createManyArg = mockPrisma.workshopTaskLineItem.createMany.mock
+      .calls[0]?.[0];
     const firstLineItem = createManyArg?.data?.[0];
     const secondLineItem = createManyArg?.data?.[1];
     expect(createManyArg).toBeDefined();

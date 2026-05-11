@@ -1,21 +1,19 @@
-import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
 
 describe('Sales Order Workflow (e2e)', () => {
   let app: INestApplication;
-  let authToken: string;
   let prisma: PrismaService;
   let customerId: string;
   let catalogItemId: string;
   let locationId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,7 +26,6 @@ describe('Sales Order Workflow (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up
     try {
@@ -95,14 +92,14 @@ describe('Sales Order Workflow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await teardownTestApp(app, prisma);
+    await app.close();
   });
 
   it('should create a sales order, update it, and convert to invoice', async () => {
     // 1. Create Sales Order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send({
         customer_id: customerId,
         items: [
@@ -126,7 +123,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 2. Update Sales Order (Change Quantity)
     await request(app.getHttpServer())
       .patch(`/api/sales-orders/${orderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send({
         items: [
           {
@@ -141,7 +138,7 @@ describe('Sales Order Workflow (e2e)', () => {
       .expect(200);
 
     // Verify update
-    const updatedOrder = await prisma.salesOrder.findFirst({
+    const updatedOrder = await prisma.salesOrder.findUnique({
       where: { id: orderId },
     });
     expect(Number(updatedOrder.total_amount)).toBe(30);
@@ -149,20 +146,20 @@ describe('Sales Order Workflow (e2e)', () => {
     // 3. Convert to Invoice
     const invoiceRes = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderId}/create-invoice`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(201);
 
     expect(invoiceRes.body.sales_order_id).toBe(orderId);
     expect(invoiceRes.body.invoice_number).toBeNull();
     expect(invoiceRes.body.status).toBe('DRAFT');
 
-    const pendingOrder = await prisma.salesOrder.findFirst({
+    const pendingOrder = await prisma.salesOrder.findUnique({
       where: { id: orderId },
     });
     expect(pendingOrder.status).toBe('DRAFT');
 
     // 4. Update order to CONFIRMED before finalizing invoice (as required by SalesService validation)
-    await prisma.salesOrder.updateMany({
+    await prisma.salesOrder.update({
       where: { id: orderId },
       data: { status: 'CONFIRMED' },
     });
@@ -170,13 +167,13 @@ describe('Sales Order Workflow (e2e)', () => {
     // 5. Finalize invoice to lock order
     const finalizeRes = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(finalizeRes.body.status).toBe('FINALIZED');
     expect(finalizeRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
 
-    const finalOrder = await prisma.salesOrder.findFirst({
+    const finalOrder = await prisma.salesOrder.findUnique({
       where: { id: orderId },
     });
     expect(finalOrder.status).toBe('INVOICED');
@@ -186,7 +183,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Create order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send({
         customer_id: customerId,
         items: [
@@ -204,7 +201,7 @@ describe('Sales Order Workflow (e2e)', () => {
     const orderId = createRes.body.id;
 
     // Move to INVOICED directly (via DB to simulate state) or using API
-    await prisma.salesOrder.updateMany({
+    await prisma.salesOrder.update({
       where: { id: orderId },
       data: { status: 'CONFIRMED' },
     });
@@ -212,7 +209,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Attempt Delete
     await request(app.getHttpServer())
       .delete(`/api/sales-orders/${orderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(400); // Bad Request
   });
 
@@ -223,11 +220,11 @@ describe('Sales Order Workflow (e2e)', () => {
     const [res1, res2] = await Promise.all([
       req
         .post('/api/sales-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('x-api-key', 'test-api-key')
         .send({ customer_id: customerId, items: [] }),
       req
         .post('/api/sales-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('x-api-key', 'test-api-key')
         .send({ customer_id: customerId, items: [] }),
     ]);
 

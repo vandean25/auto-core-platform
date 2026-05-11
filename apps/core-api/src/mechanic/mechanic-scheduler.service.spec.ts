@@ -36,14 +36,12 @@ describe('MechanicSchedulerService', () => {
 
     expect(mockSystemPrisma.laborEntry.update).toHaveBeenCalledTimes(2);
 
-    const call1 = (mockSystemPrisma.laborEntry.update as jest.Mock).mock
-      .calls[0][0];
+    const call1 = (mockSystemPrisma.laborEntry.update as jest.Mock).mock.calls[0][0];
     expect(call1.where.id).toBe('entry-1');
     expect(call1.data.pause_reason).toBe(LaborPauseReason.AUTO_SHIFT_CLOSE);
     expect(call1.data.ended_at).toBeInstanceOf(Date);
 
-    const call2 = (mockSystemPrisma.laborEntry.update as jest.Mock).mock
-      .calls[1][0];
+    const call2 = (mockSystemPrisma.laborEntry.update as jest.Mock).mock.calls[1][0];
     expect(call2.where.id).toBe('entry-2');
     expect(call2.data.pause_reason).toBe(LaborPauseReason.AUTO_SHIFT_CLOSE);
   });
