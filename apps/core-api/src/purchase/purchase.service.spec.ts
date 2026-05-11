@@ -29,6 +29,7 @@ describe('PurchaseService', () => {
     },
     purchaseOrderItem: {
       update: jest.fn(),
+      updateMany: jest.fn(),
       findMany: jest.fn().mockResolvedValue([
         {
           id: 'poi1',
@@ -193,13 +194,15 @@ describe('PurchaseService', () => {
         id: 'loc1',
         type: 'warehouse',
       });
-      mockPrismaService.purchaseOrderItem.update.mockResolvedValue({});
+      mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.purchaseOrder.update.mockResolvedValue({});
 
       await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
 
-      expect(mockPrismaService.purchaseOrderItem.update).toHaveBeenCalledWith({
-        where: { id: 'poi1' },
+      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
+        where: { id: 'poi1', tenant_id: 'tenant-1' },
         data: { quantity_received: { increment: 5 } },
       });
 

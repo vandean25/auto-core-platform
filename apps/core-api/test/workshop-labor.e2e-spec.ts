@@ -1,19 +1,21 @@
+import { AuthService } from '../src/auth/auth.service';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Labor Metadata (e2e)', () => {
   let app: INestApplication;
+  let authToken: string;
   let prisma: PrismaService;
   let customerId: string;
   let vehicleId: string;
   let laborOperationId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -29,6 +31,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
 
     const customer = await prisma.customer.create({
       data: {
@@ -94,7 +97,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
         where: { id: laborOperationId },
       });
     }
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('persists and updates labor metadata, then creates invoice from the completed order', async () => {
@@ -102,7 +105,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -116,7 +119,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Engine diagnostic labor' })
       .expect(201);
 
@@ -124,7 +127,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const firstSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -150,7 +153,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const secondSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -182,13 +185,13 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
     const draftInvoiceRes = await api
       .post('/api/invoices/drafts')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
@@ -206,7 +209,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -220,7 +223,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Invalid labor operation reference' })
       .expect(201);
 
@@ -228,7 +231,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const invalidRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-      .set('x-api-key', 'test-api-key')
+        .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -246,6 +249,10 @@ describe('Workshop Labor Metadata (e2e)', () => {
       })
       .expect(400);
 
-    expect(invalidRes.body.message).toContain('laborOperationId');
+    expect(
+      (invalidRes.body.message as string[]).some((message) =>
+        message.includes('laborOperationId'),
+      ),
+    ).toBe(true);
   });
 });

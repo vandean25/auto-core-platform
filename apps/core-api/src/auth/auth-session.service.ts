@@ -214,7 +214,7 @@ export class AuthSessionService {
           },
         },
       },
-    }) as Promise<UserAccessRecord | null>;
+    });
   }
 
   private async ensureActiveMembership(

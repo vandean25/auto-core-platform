@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  BadGatewayException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -17,6 +19,11 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  SpeechNoteConfigError,
+  SpeechNoteInputError,
+  SpeechNoteProviderError,
+} from '../speech-note/speech-note.errors';
 import { MechanicService } from './mechanic.service';
 import { MechanicMediaStorage } from './mechanic-media.storage';
 import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
@@ -28,12 +35,22 @@ const ORDER_ID = 'order-1';
 
 const mockPrisma = {
   employee: { findFirst: jest.fn() },
-  workshopTask: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+  workshopTask: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
   workshopTaskLineItem: { create: jest.fn() },
   workshopInspection: { findFirst: jest.fn() },
   workshopInspectionItem: { updateMany: jest.fn() },
   workshopMedia: { create: jest.fn() },
-  laborEntry: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+  laborEntry: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
   workshopOrder: { updateMany: jest.fn() },
   $transaction: jest.fn(),
 } as unknown as PrismaService;
@@ -55,10 +72,15 @@ const mockMediaStorage = {
   generateUploadPolicy: jest.fn(),
 } as unknown as MechanicMediaStorage;
 
+const mockSpeechNoteService = {
+  transcribeNote: jest.fn(),
+} as unknown as import('../speech-note/speech-note.service').SpeechNoteService;
+
 describe('MechanicService', () => {
   let service: MechanicService;
 
   beforeEach(() => {
+    jest.resetAllMocks();
     // Set bucket so saveMediaMetadata tests have it available at call time.
     process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
     service = new MechanicService(
@@ -67,8 +89,8 @@ describe('MechanicService', () => {
       mockRealtimeService,
       mockEventEmitter,
       mockMediaStorage,
+      mockSpeechNoteService,
     );
-    jest.clearAllMocks();
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
       email: 'tech@workshop.at',
@@ -93,7 +115,9 @@ describe('MechanicService', () => {
         role: 'SALES',
       });
 
-      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
+      await expect(service.resolveMechanic()).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws ForbiddenException when there is no authenticated user', async () => {
@@ -101,13 +125,15 @@ describe('MechanicService', () => {
         undefined,
       );
 
-      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
+      await expect(service.resolveMechanic()).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws ForbiddenException when no linked MECHANIC employee is found', async () => {
       (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.resolveMechanic()).rejects.toThrow(ForbiddenException);
+      await expect(service.resolveMechanic()).rejects.toThrow(NotFoundException);
     });
 
     it('returns the employee id when user is TECH and employee is linked', async () => {
@@ -130,7 +156,9 @@ describe('MechanicService', () => {
           tenant_id: TENANT_ID,
           role: 'MECHANIC',
           is_active: true,
-          user: { firebaseUid: 'user-1' },
+          user: {
+            OR: [{ firebaseUid: 'user-1' }, { email: 'tech@workshop.at' }],
+          },
         },
         select: { id: true },
       });
@@ -320,16 +348,26 @@ describe('MechanicService', () => {
 
     it('throws ForbiddenException when task is not assigned to mechanic', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeFullTask({ mechanic_id: 'other-mechanic', workshop_order: {
-          id: ORDER_ID,
-          order_number: 'WO-2026-0002',
-          status: WorkshopOrderStatus.IN_PROGRESS,
+        makeFullTask({
           mechanic_id: 'other-mechanic',
-          bay_id: null,
-          reported_issue: null,
-          odometer: 0,
-          vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
-        } }),
+          workshop_order: {
+            id: ORDER_ID,
+            order_number: 'WO-2026-0002',
+            status: WorkshopOrderStatus.IN_PROGRESS,
+            mechanic_id: 'other-mechanic',
+            bay_id: null,
+            reported_issue: null,
+            odometer: 0,
+            vehicle: {
+              id: 'v1',
+              make: 'VW',
+              model: 'Golf',
+              year: 2020,
+              vin: null,
+              plate: null,
+            },
+          },
+        }),
       );
 
       await expect(
@@ -399,10 +437,7 @@ describe('MechanicService', () => {
         makeFullTask(),
       );
 
-      const result = await service.getMechanicTaskDetail(
-        MECHANIC_ID,
-        TASK_ID,
-      );
+      const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
       const item = result as Record<string, unknown>;
 
       expect(item).not.toHaveProperty('customer');
@@ -415,10 +450,7 @@ describe('MechanicService', () => {
         makeFullTask(),
       );
 
-      const result = await service.getMechanicTaskDetail(
-        MECHANIC_ID,
-        TASK_ID,
-      );
+      const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
       const item = result as Record<string, unknown>;
 
       expect(item).not.toHaveProperty('unitPrice');
@@ -450,7 +482,14 @@ describe('MechanicService', () => {
         bay_id: null,
         reported_issue: null,
         odometer: 50000,
-        vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
+        vehicle: {
+          id: 'v1',
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: null,
+          plate: null,
+        },
       },
       bay: null,
       line_items: [],
@@ -476,9 +515,13 @@ describe('MechanicService', () => {
     });
 
     it('throws UnprocessableEntityException when task already has an active labor entry', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeStartableTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeStartableTask(),
+      );
       // First findFirst (task-scoped) returns an active entry → 422
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'open-entry' });
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValueOnce({
+        id: 'open-entry',
+      });
 
       await expect(service.startTask(MECHANIC_ID, TASK_ID)).rejects.toThrow(
         UnprocessableEntityException,
@@ -486,7 +529,9 @@ describe('MechanicService', () => {
     });
 
     it('throws ConflictException when mechanic already has an open labor entry on a different task', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeStartableTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeStartableTask(),
+      );
       // First findFirst (task-scoped) returns null, second (mechanic-scoped) returns entry → 409
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
@@ -501,12 +546,20 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeStartableTask())
         // second call from getMechanicTaskDetail inside startTask
-        .mockResolvedValueOnce(makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       // Both findFirst calls return null (no existing entries)
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.startTask(MECHANIC_ID, TASK_ID);
 
@@ -515,26 +568,46 @@ describe('MechanicService', () => {
 
     it('allows resuming an IN_PROGRESS task when no open labor entry exists for it', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
-        .mockResolvedValueOnce(makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }))
-        .mockResolvedValueOnce(makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        )
+        .mockResolvedValueOnce(
+          makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       // Both findFirst calls return null
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'resume-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'resume-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 0 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       // Should not throw — IN_PROGRESS with no open entry is a resumable task
-      await expect(service.startTask(MECHANIC_ID, TASK_ID)).resolves.not.toThrow();
+      await expect(
+        service.startTask(MECHANIC_ID, TASK_ID),
+      ).resolves.not.toThrow();
     });
 
     it('emits WORKSHOP_TASK realtime update after start', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeStartableTask())
-        .mockResolvedValueOnce(makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeStartableTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.startTask(MECHANIC_ID, TASK_ID);
 
@@ -569,7 +642,14 @@ describe('MechanicService', () => {
         bay_id: null,
         reported_issue: null,
         odometer: 50000,
-        vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
+        vehicle: {
+          id: 'v1',
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: null,
+          plate: null,
+        },
       },
       bay: null,
       line_items: [],
@@ -594,9 +674,13 @@ describe('MechanicService', () => {
     });
 
     it('throws UnprocessableEntityException when target task already has an active labor entry', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTargetTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTargetTask(),
+      );
       // First findFirst (target-scoped) returns an active entry → 422
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'target-entry' });
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValueOnce({
+        id: 'target-entry',
+      });
 
       await expect(
         service.switchTask(MECHANIC_ID, TASK_ID, {
@@ -606,7 +690,9 @@ describe('MechanicService', () => {
     });
 
     it('throws ConflictException when mechanic has no open labor entry', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTargetTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTargetTask(),
+      );
       // First findFirst (target-scoped): null; second (mechanic-scoped): null → 409
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
 
@@ -620,12 +706,14 @@ describe('MechanicService', () => {
     it('executes the full atomic transaction on valid switch', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTargetTask())
-        .mockResolvedValueOnce(makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       // First findFirst (target-scoped): null; second (mechanic-scoped): open entry
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
       (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -639,12 +727,16 @@ describe('MechanicService', () => {
 
     it('allows switching to an IN_PROGRESS target with no active labor entry', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
-        .mockResolvedValueOnce(makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }))
-        .mockResolvedValueOnce(makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        )
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)  // target has no active entry
         .mockResolvedValueOnce(openEntryMock);  // mechanic has open entry to switch from
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
       (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -660,11 +752,13 @@ describe('MechanicService', () => {
     it('emits realtime updates for both previous and target tasks', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTargetTask())
-        .mockResolvedValueOnce(makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
       (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -676,7 +770,10 @@ describe('MechanicService', () => {
       expect(mockRealtimeService.emitEntityUpdated).toHaveBeenCalledTimes(2);
       expect(mockRealtimeService.emitEntityUpdated).toHaveBeenCalledWith(
         TENANT_ID,
-        expect.objectContaining({ type: 'WORKSHOP_TASK', entityId: PREV_TASK_ID }),
+        expect.objectContaining({
+          type: 'WORKSHOP_TASK',
+          entityId: PREV_TASK_ID,
+        }),
       );
       expect(mockRealtimeService.emitEntityUpdated).toHaveBeenCalledWith(
         TENANT_ID,
@@ -687,11 +784,13 @@ describe('MechanicService', () => {
     it('emits WAITING_CUSTOMER event when previous pause reason is WAITING_CUSTOMER', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTargetTask())
-        .mockResolvedValueOnce(makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }));
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
       (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -734,7 +833,14 @@ describe('MechanicService', () => {
         bay_id: null,
         reported_issue: null,
         odometer: 50000,
-        vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
+        vehicle: {
+          id: 'v1',
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: null,
+          plate: null,
+        },
       },
       bay: null,
       line_items: [],
@@ -752,7 +858,9 @@ describe('MechanicService', () => {
     });
 
     it('throws ConflictException when no open labor entry exists for the task', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makePausableTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makePausableTask(),
+      );
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -767,7 +875,7 @@ describe('MechanicService', () => {
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_PARTS }));
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
@@ -782,7 +890,7 @@ describe('MechanicService', () => {
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }));
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
@@ -791,7 +899,11 @@ describe('MechanicService', () => {
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         TASK_WAITING_CUSTOMER_EVENT,
-        expect.objectContaining({ tenantId: TENANT_ID, taskId: TASK_ID, mechanicId: MECHANIC_ID }),
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          taskId: TASK_ID,
+          mechanicId: MECHANIC_ID,
+        }),
       );
     });
 
@@ -800,7 +912,7 @@ describe('MechanicService', () => {
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask());
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
@@ -834,7 +946,14 @@ describe('MechanicService', () => {
         bay_id: null,
         reported_issue: null,
         odometer: 50000,
-        vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
+        vehicle: {
+          id: 'v1',
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: null,
+          plate: null,
+        },
         tasks: [{ id: TASK_ID, status: WorkshopTaskStatus.IN_PROGRESS }],
       },
       bay: null,
@@ -865,7 +984,7 @@ describe('MechanicService', () => {
         .mockResolvedValueOnce(makeCompletableTask())
         .mockResolvedValueOnce(makeCompletableTask({ status: WorkshopTaskStatus.DONE }));
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.update as jest.Mock).mockResolvedValue({});
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
       (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
 
@@ -877,10 +996,16 @@ describe('MechanicService', () => {
     it('completes task without error when no open labor entry exists', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeCompletableTask())
-        .mockResolvedValueOnce(makeCompletableTask({ status: WorkshopTaskStatus.DONE }));
+        .mockResolvedValueOnce(
+          makeCompletableTask({ status: WorkshopTaskStatus.DONE }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 0 });
 
       await service.completeTask(MECHANIC_ID, TASK_ID);
 
@@ -890,10 +1015,16 @@ describe('MechanicService', () => {
     it('emits WORKSHOP_TASK realtime update after completion', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeCompletableTask())
-        .mockResolvedValueOnce(makeCompletableTask({ status: WorkshopTaskStatus.DONE }));
+        .mockResolvedValueOnce(
+          makeCompletableTask({ status: WorkshopTaskStatus.DONE }),
+        );
       (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 0 });
 
       await service.completeTask(MECHANIC_ID, TASK_ID);
 
@@ -919,7 +1050,9 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.saveDiagnostics(MECHANIC_ID, TASK_ID, { mechanicNotes: 'note' }),
+        service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
+          mechanicNotes: 'note',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -927,15 +1060,15 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTaskForDiagnostics())
         .mockResolvedValueOnce({ id: TASK_ID, mechanic_notes: 'Oil leak.' });
-      (mockPrisma.workshopTask.update as jest.Mock).mockResolvedValue({ id: TASK_ID });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         mechanicNotes: 'Oil leak.',
       });
 
-      expect(mockPrisma.workshopTask.update).toHaveBeenCalledWith(
+      expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: TASK_ID },
+          where: { id: TASK_ID, tenant_id: TENANT_ID },
           data: { mechanic_notes: 'Oil leak.' },
         }),
       );
@@ -949,21 +1082,21 @@ describe('MechanicService', () => {
 
       await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {});
 
-      expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+      expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when inspectionId not found for task', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForDiagnostics(),
       );
-      (mockPrisma.workshopInspection.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.workshopInspection.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
           inspectionId: 'insp-1',
-          inspectionItems: [
-            { itemId: 'item-1', passed: true },
-          ],
+          inspectionItems: [{ itemId: 'item-1', passed: true }],
         }),
       ).rejects.toThrow(NotFoundException);
     });
@@ -1035,11 +1168,16 @@ describe('MechanicService', () => {
           }),
         }),
       );
-      expect(result.partExecutionStatus).toBe(WorkshopPartLineExecutionStatus.PENDING_PICK);
+      expect(result.partExecutionStatus).toBe(
+        WorkshopPartLineExecutionStatus.PENDING_PICK,
+      );
       // The Prisma realtime extension emits the event; service no longer calls manually.
       expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
-        expect.objectContaining({ type: 'WORKSHOP_TASK_LINE_ITEM', action: 'CREATED' }),
+        expect.objectContaining({
+          type: 'WORKSHOP_TASK_LINE_ITEM',
+          action: 'CREATED',
+        }),
       );
     });
 
@@ -1061,7 +1199,8 @@ describe('MechanicService', () => {
         qty: 1,
       });
 
-      const createCall = (mockPrisma.workshopTaskLineItem.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockPrisma.workshopTaskLineItem.create as jest.Mock)
+        .mock.calls[0][0];
       // Guardrail: internal_cost_rate and standard_aw must not be set by mechanic
       expect(createCall.data).not.toHaveProperty('internal_cost_rate');
       expect(createCall.data).not.toHaveProperty('standard_aw');
@@ -1117,10 +1256,14 @@ describe('MechanicService', () => {
         expiresAt,
       });
 
-      const result = await service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
-        mimeType: 'image/jpeg',
-        sizeBytes: 1024,
-      });
+      const result = await service.createMediaUploadPolicy(
+        MECHANIC_ID,
+        TASK_ID,
+        {
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        },
+      );
 
       expect(mockMediaStorage.generateUploadPolicy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1256,6 +1399,200 @@ describe('MechanicService', () => {
       expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ type: 'WORKSHOP_MEDIA', action: 'CREATED' }),
+      );
+    });
+  });
+
+  // ─── uploadVoiceNote ────────────────────────────────────────────────────────
+
+  describe('uploadVoiceNote()', () => {
+    /** Minimal task stub accepted by assertTaskAssignedToMechanic. */
+    const makeTask = (overrides = {}) => ({
+      id: TASK_ID,
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      mechanic_id: MECHANIC_ID,
+      bay_id: null,
+      workshop_order_id: ORDER_ID,
+      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
+      ...overrides,
+    });
+
+    /** A valid audio file stub (>= 100 bytes, accepted MIME). */
+    const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
+      ({
+        fieldname: 'audio',
+        originalname: 'note.webm',
+        mimetype: 'audio/webm',
+        buffer: Buffer.alloc(2048, 0xaa),
+        size: 2048,
+        ...overrides,
+      }) as Express.Multer.File;
+
+    it('throws NotFoundException when task does not exist', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when task is not assigned to the mechanic', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask({ mechanic_id: 'other-mechanic', workshop_order: { mechanic_id: 'other-mechanic', bay_id: null } }),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws UnprocessableEntityException for an empty buffer', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(0) })),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when buffer is below minimum bytes (silent)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(50) })),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException for a disallowed MIME type', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+
+      await expect(
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ mimetype: 'application/pdf' }),
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when duration exceeds the limit', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Long recording content',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 301,
+      });
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: '',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 3.0,
+      });
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('maps SpeechNoteInputError to UnprocessableEntityException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteInputError('Audio buffer must not be empty.'),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('maps SpeechNoteProviderError to BadGatewayException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteProviderError('Audio processing failed.', 503),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(BadGatewayException);
+    });
+
+    it('maps SpeechNoteConfigError to ServiceUnavailableException', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteConfigError('OPENAI_API_KEY is required.'),
+      );
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    it('throws UnprocessableEntityException when buffer exceeds maximum bytes (25 MiB)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      const largeBuffer = Buffer.alloc(25 * 1024 * 1024 + 1);
+
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: largeBuffer })),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Clutch bearing worn — replace.',
+        detectedLanguage: 'en',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 9.3,
+      });
+
+      const result = await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      expect(result.text).toBe('Clutch bearing worn — replace.');
+      expect(result.detectedLanguage).toBe('en');
+      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('whisper-1');
+      expect(result.durationSeconds).toBe(9.3);
+    });
+
+    it('does not call any Prisma write methods (no persistence)', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'No oil pressure detected.',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 5.0,
+      });
+
+      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      // None of the write methods should have been called.
+      expect(mockPrisma.workshopTask.update).not.toHaveBeenCalled();
+      expect((mockPrisma.$transaction as jest.Mock)).not.toHaveBeenCalled();
+    });
+
+    it('passes tenant_id to the task lookup query', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Test note.',
+        provider: 'openai',
+        model: 'whisper-1',
+      });
+
+      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+      expect(mockPrisma.workshopTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
       );
     });
   });

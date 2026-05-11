@@ -10,6 +10,7 @@ import {
 import type { User } from 'firebase/auth'
 import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
+import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
 
 const allowedEmails = (import.meta.env.VITE_ALLOWED_LOGIN_EMAILS ?? '')
   .split(',')
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    if (import.meta.env.MODE !== 'production' && import.meta.env.VITE_E2E_SKIP_AUTH === 'true') {
+    if (isE2EAuthBypassEnabled()) {
       setUser({
         uid: 'e2e-test-user',
         email: 'testauto@auto.core.at',

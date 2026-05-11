@@ -5,6 +5,7 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { AuthService } from './../src/auth/auth.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('FinanceModule (e2e)', () => {
   let app: INestApplication;
@@ -43,7 +44,7 @@ describe('FinanceModule (e2e)', () => {
     await prisma.catalogItem.deleteMany();
     await prisma.revenueGroup.deleteMany();
     await prisma.brand.deleteMany();
-    await app.close();
+    await teardownTestApp(app, prisma);
   });
 
   it('/finance/settings (GET)', async () => {

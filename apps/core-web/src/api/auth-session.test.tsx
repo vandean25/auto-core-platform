@@ -87,7 +87,23 @@ describe('useSwitchTenant', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
+  })
+
+  it('returns a local auth session in E2E mode without calling the API', async () => {
+    vi.stubEnv('MODE', 'test')
+    vi.stubEnv('VITE_E2E_SKIP_AUTH', 'true')
+
+    const queryClient = createQueryClient()
+
+    render(<SessionProbe />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(screen.getByText('Auto Core E2E Tenant')).toBeInTheDocument()
+    })
+
+    expect(mocks.fetchWithAuth).not.toHaveBeenCalled()
   })
 
   it('does not reuse a cached auth session from a different user', async () => {

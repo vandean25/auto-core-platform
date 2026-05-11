@@ -6,6 +6,7 @@ import {
   createTenantAwarePrisma,
   createTestTenant,
 } from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 describe('Tenant Isolation Regression (e2e)', () => {
   let app: INestApplication;
@@ -99,7 +100,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
     }
 
     if (app) {
-      await app.close();
+      await teardownTestApp(app, prisma);
     }
   });
 

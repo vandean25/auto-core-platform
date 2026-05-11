@@ -80,8 +80,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -190,6 +192,8 @@ export class PurchaseService {
           }
         >();
 
+        const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
+
         for (const received of receivedItems) {
           if (!received.itemId) {
             throw new BadRequestException(
@@ -197,9 +201,7 @@ export class PurchaseService {
             );
           }
 
-          const poItem = po.items.find(
-            (i) => i.catalog_item_id === received.itemId,
-          );
+          const poItem = poItemsMap.get(received.itemId);
           if (!poItem) {
             const availableIds = po.items
               .map((i) => i.catalog_item_id)
@@ -243,10 +245,16 @@ export class PurchaseService {
         await chunkedPromiseAll(
           validatedAggregatedItems,
           async ({ poItem, quantity, received }) => {
-            await tx.purchaseOrderItem.update({
-              where: { id: poItem.id },
+            const updateResult = await tx.purchaseOrderItem.updateMany({
+              where: { id: poItem.id, tenant_id: tenantId },
               data: { quantity_received: { increment: quantity } },
             });
+
+            if (updateResult.count === 0) {
+              throw new NotFoundException(
+                `Purchase order item ${poItem.id} not found for current tenant`,
+              );
+            }
 
             // Record the inventory transaction using the ledger service
             await this.ledgerService.recordTransactions(
@@ -284,10 +292,21 @@ export class PurchaseService {
         else if (anyReceived) newStatus = PurchaseOrderStatus.PARTIAL;
 
         if (newStatus !== updatedPO.status) {
-          await tx.purchaseOrder.update({
-            where: { id: orderId },
+          await tx.purchaseOrder.updateMany({
+            where: { id: orderId, tenant_id: tenantId },
             data: { status: newStatus },
           });
+
+          const refreshedPO = await tx.purchaseOrder.findFirst({
+            where: { id: orderId, tenant_id: tenantId },
+            include: { items: true },
+          });
+
+          if (!refreshedPO) {
+            throw new Error('Failed to retrieve refreshed PO');
+          }
+
+          return refreshedPO;
         }
 
         return updatedPO;
@@ -333,8 +352,10 @@ export class PurchaseService {
       include: { brand: true },
     });
 
+    const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
+
     for (const item of items) {
-      const catalogItem = catalogItems.find((c) => c.id === item.catalogItemId);
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
       if (!catalogItem)
         throw new BadRequestException(
           `Catalog Item ${item.catalogItemId} not found`,
@@ -394,10 +415,13 @@ export class PurchaseService {
         po.status,
       );
 
-      // Update status and return full PO
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {
@@ -445,10 +469,14 @@ export class PurchaseService {
 
     // Update in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.update({
-        where: { id: itemId },
+      const updateResult = await tx.purchaseOrderItem.updateMany({
+        where: { id: itemId, tenant_id: tenantId },
         data: prismaUpdates,
       });
+
+      if (updateResult.count === 0) {
+        throw new NotFoundException('Purchase order item not found');
+      }
 
       // Re-read the PO with updated items
       const updatedPO = await tx.purchaseOrder.findFirst({
@@ -463,9 +491,13 @@ export class PurchaseService {
         po.status,
       );
 
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {
@@ -498,9 +530,13 @@ export class PurchaseService {
 
     // Delete in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.delete({
-        where: { id: itemId },
+      const deleteResult = await tx.purchaseOrderItem.deleteMany({
+        where: { id: itemId, tenant_id: tenantId },
       });
+
+      if (deleteResult.count === 0) {
+        throw new NotFoundException('Purchase order item not found');
+      }
 
       // Re-read the PO with updated items
       const updatedPO = await tx.purchaseOrder.findFirst({
@@ -515,9 +551,13 @@ export class PurchaseService {
         po.status,
       );
 
-      return tx.purchaseOrder.update({
-        where: { id: orderId },
+      await tx.purchaseOrder.updateMany({
+        where: { id: orderId, tenant_id: tenantId },
         data: { status: newStatus },
+      });
+
+      return tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
         include: {
           vendor: true,
           items: {
@@ -600,6 +640,35 @@ export class PurchaseService {
     return this.prisma.purchaseOrder.update({
       where: { id, tenant_id: tenantId },
       data: dto,
+    });
+  }
+
+  async markAsSent(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    if (order.status !== PurchaseOrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT purchase orders can be marked as sent',
+      );
+    }
+
+    return this.prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: PurchaseOrderStatus.SENT },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
     });
   }
 
