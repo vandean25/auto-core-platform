@@ -1595,6 +1595,126 @@ describe('MechanicService', () => {
         }),
       );
     });
+
+    it('zeros out the audio buffer after successful transcription', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        text: 'Some diagnostic note.',
+        provider: 'openai',
+        model: 'whisper-1',
+        durationSeconds: 4.0,
+      });
+
+      const file = makeFile();
+      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, file);
+
+      // Buffer must be zeroed out after transcription — audio data must not linger in memory.
+      expect(file.buffer.every((byte: number) => byte === 0)).toBe(true);
+    });
+
+    it('zeros out the audio buffer even when transcription throws', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
+        new SpeechNoteProviderError('Provider failure.', 503),
+      );
+
+      const file = makeFile();
+      await expect(
+        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, file),
+      ).rejects.toThrow(BadGatewayException);
+
+      // Buffer must be zeroed out on failure too — no audio data retained.
+      expect(file.buffer.every((byte: number) => byte === 0)).toBe(true);
+    });
+
+    it('throws 429 (HttpException) when the per-mechanic rate limit is exceeded', async () => {
+      // Set a tight limit for the test.
+      const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+      const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+      process.env.VOICE_NOTE_RATE_LIMIT_MAX = '2';
+      process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '60';
+
+      try {
+        // A fresh service instance starts with an empty rate-limit map.
+        const freshService = new MechanicService(
+          mockPrisma,
+          mockTenantContext,
+          mockRealtimeService,
+          mockEventEmitter,
+          mockMediaStorage,
+          mockSpeechNoteService,
+        );
+
+        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+        (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+          text: 'Note.',
+          provider: 'openai',
+          model: 'whisper-1',
+          durationSeconds: 2.0,
+        });
+
+        // Consume 2 allowed slots.
+        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+        // Third call must be rejected with HTTP 429.
+        await expect(
+          freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+        ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+      } finally {
+        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
+        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+      }
+    });
+
+    it('resets the rate-limit window after TTL expires', async () => {
+      const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+      const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+      // Use a very short TTL so we can simulate expiry without real delays.
+      process.env.VOICE_NOTE_RATE_LIMIT_MAX = '1';
+      process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '1';
+
+      try {
+        const freshService = new MechanicService(
+          mockPrisma,
+          mockTenantContext,
+          mockRealtimeService,
+          mockEventEmitter,
+          mockMediaStorage,
+          mockSpeechNoteService,
+        );
+
+        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+        (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+          text: 'Note.',
+          provider: 'openai',
+          model: 'whisper-1',
+          durationSeconds: 2.0,
+        });
+
+        // First call consumes the only slot in the window.
+        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+        // Simulate window expiry by back-dating the internal map entry.
+        // Access the private map via bracket notation (unit-test only).
+        const rateLimitMap = (freshService as unknown as { voiceNoteRateLimitMap: Map<string, { count: number; windowStart: number }> }).voiceNoteRateLimitMap;
+        const key = `${TENANT_ID}:${MECHANIC_ID}`;
+        const entry = rateLimitMap.get(key)!;
+        entry.windowStart = Date.now() - 2000; // 2 seconds ago, past 1s TTL
+
+        // After the window resets, the call should succeed again.
+        await expect(
+          freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+        ).resolves.toBeDefined();
+      } finally {
+        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
+        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+      }
+    });
   });
 
 });

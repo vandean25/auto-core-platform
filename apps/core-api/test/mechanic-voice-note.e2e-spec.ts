@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SpeechNoteService } from '../src/speech-note/speech-note.service';
+import { MechanicService } from '../src/mechanic/mechanic.service';
 import { WorkshopTaskStatus } from '@prisma/client';
 import {
   SpeechNoteConfigError,
@@ -215,6 +216,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the per-mechanic rate-limit counters between tests so that each
+    // test starts with a clean slate and unrelated upstream requests don't
+    // exhaust the limit before the rate-limit test itself runs.
+    const mechanicService = app.get(MechanicService);
+    (mechanicService as unknown as { voiceNoteRateLimitMap: Map<unknown, unknown> }).voiceNoteRateLimitMap.clear();
   });
 
   // ─── Happy path ───────────────────────────────────────────────────────────
@@ -569,5 +575,179 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         contentType: 'audio/webm',
       })
       .expect(422);
+  });
+
+  // ─── Response body audit — no API key or sensitive credentials ───────────
+
+  it('response body does not contain API keys or sensitive credential fields', async () => {
+    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
+      text: 'Oil filter replaced.',
+      detectedLanguage: 'en',
+      provider: 'openai',
+      model: 'whisper-1',
+      durationSeconds: 5.0,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .attach('audio', VALID_AUDIO_BUFFER, {
+        filename: 'note.webm',
+        contentType: 'audio/webm',
+      })
+      .expect(201);
+
+    // The response must only contain the known-safe fields.
+    const allowedKeys = new Set([
+      'text',
+      'detectedLanguage',
+      'provider',
+      'model',
+      'durationSeconds',
+    ]);
+    const responseKeys = Object.keys(res.body);
+    const unexpectedKeys = responseKeys.filter((k) => !allowedKeys.has(k));
+    expect(unexpectedKeys).toHaveLength(0);
+
+    // Explicitly verify that no credential-like fields are present.
+    expect(res.body).not.toHaveProperty('apiKey');
+    expect(res.body).not.toHaveProperty('api_key');
+    expect(res.body).not.toHaveProperty('openai_api_key');
+    expect(res.body).not.toHaveProperty('OPENAI_API_KEY');
+    expect(res.body).not.toHaveProperty('token');
+    expect(res.body).not.toHaveProperty('secret');
+    expect(res.body).not.toHaveProperty('credential');
+  });
+
+  // ─── Rate limiting (per mechanic, sliding window) ─────────────────────────
+
+  it('returns 429 after exceeding the per-mechanic rate limit', async () => {
+    // Override the rate limit to 2 per window to make the test deterministic.
+    const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+    const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+    process.env.VOICE_NOTE_RATE_LIMIT_MAX = '2';
+    process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '60';
+
+    try {
+      // Re-create a separate test mechanic user so the rate limit map starts
+      // from 0 (earlier tests use a different mechanicId key).
+      let limitToken: string;
+      let rlTaskId: string;
+      let limitUserId: string;
+      let limitEmployeeId: string;
+      let rlOrderId: string;
+
+      await runWithTenantContext(tenantId, async () => {
+        const limitFirebaseUid = `e2e-ratelimit-uid-${Date.now()}`;
+        const limitUser = await basePrisma.user.create({
+          data: {
+            firebaseUid: limitFirebaseUid,
+            email: `ratelimit-mechanic-${Date.now()}@e2e.local`,
+          },
+        });
+        limitUserId = limitUser.id;
+
+        limitToken = app.get(AuthService).createTestToken({
+          sub: limitFirebaseUid,
+          email: limitUser.email,
+          tenantId,
+          role: 'TECH',
+        });
+
+        const limitEmployee = await basePrisma.employee.create({
+          data: {
+            tenant_id: tenantId,
+            name: 'Rate Limit Mechanic',
+            role: 'MECHANIC',
+            is_active: true,
+            user_id: limitUser.id,
+          },
+        });
+        limitEmployeeId = limitEmployee.id;
+
+        const rlOrder = await basePrisma.workshopOrder.create({
+          data: {
+            tenant_id: tenantId,
+            order_number: `WO-RL-${Date.now()}`,
+            customer_id: customerId,
+            vehicle_id: vehicleId,
+            mechanic_id: limitEmployeeId,
+            odometer: 70000,
+            fuel_level: 80,
+            status: 'IN_PROGRESS',
+          },
+        });
+        rlOrderId = rlOrder.id;
+
+        const rlTask = await basePrisma.workshopTask.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_order_id: rlOrder.id,
+            title: 'Rate Limit Task',
+            sequence: 1,
+            status: 'IN_PROGRESS',
+          },
+        });
+        rlTaskId = rlTask.id;
+      });
+
+      // Requests 1 and 2 should succeed (within the limit of 2).
+      for (let i = 0; i < 2; i++) {
+        mockSpeechNote.transcribeNote.mockResolvedValueOnce({
+          text: `Note ${i + 1}`,
+          detectedLanguage: 'en',
+          provider: 'openai',
+          model: 'whisper-1',
+          durationSeconds: 3.0,
+        });
+
+        await request(app.getHttpServer())
+          .post(`/api/mechanic/tasks/${rlTaskId!}/voice-notes`)
+          .set('Authorization', `Bearer ${limitToken!}`)
+          .attach('audio', VALID_AUDIO_BUFFER, {
+            filename: 'note.webm',
+            contentType: 'audio/webm',
+          })
+          .expect(201);
+      }
+
+      // Request 3 must be throttled with a stable 429 response.
+      const throttleRes = await request(app.getHttpServer())
+        .post(`/api/mechanic/tasks/${rlTaskId!}/voice-notes`)
+        .set('Authorization', `Bearer ${limitToken!}`)
+        .attach('audio', VALID_AUDIO_BUFFER, {
+          filename: 'note.webm',
+          contentType: 'audio/webm',
+        })
+        .expect(429);
+
+      // The 429 response must contain the stable, documented message prefix.
+      // Per runbook: "Voice note rate limit exceeded. Maximum N uploads per Ts window."
+      expect(throttleRes.body.message).toMatch(
+        /^Voice note rate limit exceeded\. Maximum 2 uploads per 60s window\. Retry after \d+s\./,
+      );
+
+      // Cleanup
+      await runWithTenantContext(tenantId, async () => {
+        await basePrisma.workshopTask.deleteMany({
+          where: { workshop_order_id: rlOrderId! },
+        });
+        await basePrisma.workshopOrder.deleteMany({ where: { id: rlOrderId! } });
+        await basePrisma.employee.deleteMany({ where: { id: limitEmployeeId! } });
+      });
+      await basePrisma.user.deleteMany({ where: { id: limitUserId! } });
+    } finally {
+      // Restore original env values regardless of test outcome.
+      if (originalMax === undefined) {
+        delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+      } else {
+        process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
+      }
+      if (originalTtl === undefined) {
+        delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+      } else {
+        process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+      }
+    }
   });
 });

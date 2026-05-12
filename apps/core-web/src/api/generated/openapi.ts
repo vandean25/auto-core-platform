@@ -4622,6 +4622,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Per-mechanic rate limit exceeded. Retry after the indicated window elapses. Limit is configured via VOICE_NOTE_RATE_LIMIT_MAX and VOICE_NOTE_RATE_LIMIT_TTL_SECONDS. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Upstream speech-note provider failed. */
             502: {
                 headers: {
