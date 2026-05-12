@@ -1,4 +1,10 @@
-import { Controller, Get, Req, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Req,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -11,6 +17,7 @@ import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admi
 import type { AuthenticatedUser } from '../src/auth/types/authenticated-user';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service';
+import { teardownTestApp } from './test-lifecycle';
 
 const firebaseAuthMock = {
   getUser: jest.fn(),
@@ -87,14 +94,16 @@ describe('Bearer auth (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     authService = app.get(AuthService);
   });
 
   afterAll(async () => {
-    await app.close();
+    await teardownTestApp(app);
   });
 
   beforeEach(() => {
@@ -153,7 +162,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/platform/probe')
@@ -193,7 +202,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/platform/probe')
@@ -206,7 +215,7 @@ describe('Bearer auth (e2e)', () => {
       tenantId: undefined,
       role: undefined,
       platformRole: 'SUPER_ADMIN',
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/protected')
@@ -243,7 +252,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/protected')
@@ -339,7 +348,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .get('/auth/me')
@@ -437,7 +446,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .post('/auth/switch-tenant')
@@ -485,7 +494,7 @@ describe('Bearer auth (e2e)', () => {
       email: 'testauto@auto.core.at',
       tenantId: undefined,
       role: undefined,
-    } as never);
+    });
 
     await request(app.getHttpServer())
       .post('/auth/switch-tenant')

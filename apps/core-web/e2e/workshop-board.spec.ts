@@ -153,8 +153,8 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByRole('heading', { name: 'Workshop Board', exact: true })).toBeVisible()
 
     // View toggle top-right
-    await expect(page.getByRole('button', { name: /By Mechanic/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /By Bay/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: /By Mechanic/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: /By Bay/i })).toBeVisible()
   })
 
   test('Board renders mechanic swimlane columns with order cards', async ({ page }) => {
@@ -197,7 +197,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await corePage.navigate('/workshop/board')
 
     // Switch to bay view
-    await page.getByRole('button', { name: /By Bay/i }).click()
+    await page.getByRole('radio', { name: /By Bay/i }).click()
 
     // Bay column "Bay 01" should appear
     await expect(page.getByTestId('board-column-bay-001')).toBeVisible()
@@ -332,6 +332,7 @@ test.describe('Blueprint: Workshop Board', () => {
 
     let assignCalled = false
     let assignPayload: Record<string, unknown> = {}
+    let boardData = structuredClone(mockBoardActiveResponse)
 
     await page.route(
       AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
@@ -350,7 +351,7 @@ test.describe('Blueprint: Workshop Board', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(mockBoardActiveResponse),
+          body: JSON.stringify(boardData),
         })
       },
     )
@@ -360,6 +361,12 @@ test.describe('Blueprint: Workshop Board', () => {
       async (route) => {
         assignCalled = true
         assignPayload = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+        boardData = {
+          ...boardData,
+          data: boardData.data.map((order) =>
+            order.id === ORDER_ID_2 ? { ...order, mechanicId: MECHANIC_ID, bayId: null } : order,
+          ),
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -381,7 +388,9 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByTestId('assign-mechanic-emp-mech-001').click({ force: true })
+    await card.getByTestId('assign-mechanic-emp-mech-001').evaluate((element: HTMLElement) => {
+      element.click()
+    })
     await responsePromise
 
     expect(assignCalled).toBe(true)
@@ -435,7 +444,9 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByTestId('assign-mechanic-emp-mech-001').click({ force: true })
+    await card.getByTestId('assign-mechanic-emp-mech-001').evaluate((element: HTMLElement) => {
+      element.click()
+    })
     const response = await responsePromise
 
     expect(response.status()).toBe(422)

@@ -209,7 +209,7 @@ export class TenantMemberService {
   }
 
   private async syncUserClaims(userId: string): Promise<void> {
-    const user = (await this.systemPrisma.user.findFirst({
+    const user = await this.systemPrisma.user.findFirst({
       where: { id: userId },
       include: {
         platformAdmin: true,
@@ -221,7 +221,7 @@ export class TenantMemberService {
           orderBy: [{ createdAt: 'asc' }],
         },
       },
-    })) as UserProjectionRecord | null;
+    });
 
     if (!user) {
       throw new BadRequestException(

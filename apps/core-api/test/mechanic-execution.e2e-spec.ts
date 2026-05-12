@@ -5,7 +5,13 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestTenant,
+  runWithTenantContext,
+} from './tenant-test-utils';
+import { teardownTestApp } from './test-lifecycle';
 
 /**
  * E2E tests for mechanic execution engine endpoints (ADR-0014 §4–7).
@@ -23,12 +29,16 @@ import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 describe('Mechanic Execution Engine (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let basePrisma: PrismaService;
   let tenantId: string;
   let mechanicId: string;
   let orderId: string;
   let taskId: string;
   let taskBId: string;
   let authToken: string;
+  let mechanicUserId: string;
+  let otherTenantId: string | undefined;
+  let otherMechanicUserId: string | undefined;
 
   const mockMediaStorage: Partial<MechanicMediaStorage> & {
     generateUploadPolicy: jest.Mock;
@@ -49,106 +59,127 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
-    const basePrisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
     const authService = app.get<AuthService>(AuthService);
 
     const testTenant = await createTestTenant(basePrisma, 'mech-exec');
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
-    // Create a TECH-role auth token scoped to this tenant
-    authToken = authService.createTestToken({
-      sub: `e2e-tech-user-${Date.now()}`,
-      email: 'e2e-tech@workshop.local',
-      tenantId,
-      role: 'TECH',
-    });
+    await runWithTenantContext(tenantId, async () => {
+      const firebaseUid = `e2e-mech-exec-${Date.now()}`;
 
-    // Create mechanic employee
-    const mechanic = await prisma.employee.create({
-      data: { name: 'E2E Mechanic', role: 'MECHANIC', is_active: true },
-    });
-    mechanicId = mechanic.id;
+      const user = await basePrisma.user.create({
+        data: {
+          firebaseUid,
+          email: `e2e-tech-${Date.now()}@workshop.local`,
+        },
+      });
+      mechanicUserId = user.id;
 
-    // Create customer + vehicle + order
-    const customer = await prisma.customer.create({
-      data: {
-        first_name: 'E2E',
-        last_name: 'MechCustomer',
-        email: `e2e-mech-${Date.now()}@example.com`,
-        type: 'PRIVATE',
-      },
-    });
+      authToken = authService.createTestToken({
+        sub: firebaseUid,
+        email: user.email,
+        tenantId,
+        role: 'TECH',
+      });
 
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        make: 'BMW',
-        model: '320d',
-        year: 2022,
-        vin: `VIN-MECH-${Date.now()}`,
-        customer_id: customer.id,
-      },
-    });
+      const mechanic = await basePrisma.employee.create({
+        data: {
+          tenant_id: tenantId,
+          name: 'E2E Mechanic',
+          role: 'MECHANIC',
+          is_active: true,
+          user_id: user.id,
+        },
+      });
+      mechanicId = mechanic.id;
 
-    const order = await prisma.workshopOrder.create({
-      data: {
-        order_number: `WO-MECH-${Date.now()}`,
-        customer_id: customer.id,
-        vehicle_id: vehicle.id,
-        mechanic_id: mechanicId,
-        odometer: 80000,
-        fuel_level: 60,
-        status: 'INTAKE',
-      },
-    });
-    orderId = order.id;
+      const customer = await basePrisma.customer.create({
+        data: {
+          tenant_id: tenantId,
+          first_name: 'E2E',
+          last_name: 'MechCustomer',
+          email: `e2e-mech-${Date.now()}@example.com`,
+          type: 'PRIVATE',
+        },
+      });
 
-    // Task A — main task for happy path
-    const taskA = await prisma.workshopTask.create({
-      data: {
-        workshop_order_id: orderId,
-        title: 'Oil Change',
-        sequence: 1,
-        status: 'NOT_STARTED',
-      },
-    });
-    taskId = taskA.id;
+      const vehicle = await basePrisma.vehicle.create({
+        data: {
+          tenant_id: tenantId,
+          make: 'BMW',
+          model: '320d',
+          year: 2022,
+          vin: `VIN-MECH-${Date.now()}`,
+          customer_id: customer.id,
+        },
+      });
 
-    // Task B — used for switch / conflict tests
-    const taskB = await prisma.workshopTask.create({
-      data: {
-        workshop_order_id: orderId,
-        title: 'Brake Inspection',
-        sequence: 2,
-        status: 'NOT_STARTED',
-      },
+      const order = await basePrisma.workshopOrder.create({
+        data: {
+          tenant_id: tenantId,
+          order_number: `WO-MECH-${Date.now()}`,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          mechanic_id: mechanicId,
+          odometer: 80000,
+          fuel_level: 60,
+          status: 'INTAKE',
+        },
+      });
+      orderId = order.id;
+
+      const taskA = await basePrisma.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: 'Oil Change',
+          sequence: 1,
+          status: 'NOT_STARTED',
+        },
+      });
+      taskId = taskA.id;
+
+      const taskB = await basePrisma.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: 'Brake Inspection',
+          sequence: 2,
+          status: 'NOT_STARTED',
+        },
+      });
+      taskBId = taskB.id;
     });
-    taskBId = taskB.id;
   });
 
   afterAll(async () => {
-    // Clean up in dependency order
-    await prisma.laborEntry.deleteMany({
-      where: { workshop_task: { workshop_order_id: orderId } },
-    });
-    await prisma.workshopTaskLineItem.deleteMany({
-      where: { workshop_task: { workshop_order_id: orderId } },
-    });
-    await prisma.workshopTask.deleteMany({ where: { workshop_order_id: orderId } });
-    await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
-    await prisma.employee.deleteMany({ where: { id: mechanicId } });
-    await prisma.tenant.deleteMany({ where: { id: tenantId } });
-    await app.close();
+    if (otherTenantId) {
+      await cleanupTestTenantGraph(basePrisma, otherTenantId);
+    }
+    if (tenantId) {
+      await cleanupTestTenantGraph(basePrisma, tenantId);
+    }
+    if (otherMechanicUserId) {
+      await basePrisma.user.deleteMany({ where: { id: otherMechanicUserId } });
+    }
+    if (mechanicUserId) {
+      await basePrisma.user.deleteMany({ where: { id: mechanicUserId } });
+    }
+    await teardownTestApp(app, basePrisma);
   });
 
   // ─── Queue & Detail ───────────────────────────────────────────────────────
 
   it('GET /queue returns the mechanic task queue', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/api/mechanic/queue?mechanicId=${mechanicId}`)
+      .get('/api/mechanic/queue')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -162,7 +193,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('GET /tasks/:taskId returns task detail without financial info', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/api/mechanic/tasks/${taskId}?mechanicId=${mechanicId}`)
+      .get(`/api/mechanic/tasks/${taskId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -182,7 +213,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
       role: 'ADMIN',
     });
     await request(app.getHttpServer())
-      .get(`/api/mechanic/queue?mechanicId=${mechanicId}`)
+      .get('/api/mechanic/queue')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(403);
   });
@@ -191,7 +222,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/start transitions task to IN_PROGRESS', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/start?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -202,7 +233,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('PATCH /tasks/:taskId/diagnostics saves mechanic notes', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`)
+      .patch(`/api/mechanic/tasks/${taskId}/diagnostics`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mechanicNotes: 'Oil was very dark, filter replaced.' })
       .expect(200);
@@ -213,7 +244,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('PATCH /tasks/:taskId/diagnostics accepts empty payload (partial save)', async () => {
     await request(app.getHttpServer())
-      .patch(`/api/mechanic/tasks/${taskId}/diagnostics?mechanicId=${mechanicId}`)
+      .patch(`/api/mechanic/tasks/${taskId}/diagnostics`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
       .expect(200);
@@ -223,9 +254,13 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/parts creates a PENDING_PICK part line item', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/parts?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ itemNo: 'OIL-FILTER-001', description: 'Oil filter 2.0 TDI', qty: 1 })
+      .send({
+        itemNo: 'OIL-FILTER-001',
+        description: 'Oil filter 2.0 TDI',
+        qty: 1,
+      })
       .expect(201);
 
     expect(res.body.itemNo).toBe('OIL-FILTER-001');
@@ -239,7 +274,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/parts rejects missing required fields with 400', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/parts?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ description: 'Missing itemNo', qty: 1 })
       .expect(400);
@@ -264,9 +299,13 @@ describe('Mechanic Execution Engine (e2e)', () => {
     });
 
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/media/uploads`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ mimeType: 'image/jpeg', sizeBytes: 512000, filename: 'photo.jpg' })
+      .send({
+        mimeType: 'image/jpeg',
+        sizeBytes: 512000,
+        filename: 'photo.jpg',
+      })
       .expect(201);
 
     expect(res.body.uploadUrl).toBe(
@@ -280,7 +319,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/media/uploads rejects unsupported mimeType with 400', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/media/uploads`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mimeType: 'application/pdf', sizeBytes: 10000 })
       .expect(400);
@@ -290,7 +329,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/pause transitions task to WAITING_PARTS', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/pause?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/pause`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ pauseReason: 'WAITING_PARTS' })
       .expect(200);
@@ -305,7 +344,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
     // it would bypass the scheduler's idempotency checks and corrupt labor history.
     // This tests DTO-level validation before any business logic runs.
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/pause?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/pause`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ pauseReason: 'AUTO_SHIFT_CLOSE' })
       .expect(400);
@@ -315,7 +354,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/start resumes a WAITING_PARTS task', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/start?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -328,7 +367,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
     // Task A is still IN_PROGRESS (mechanic has open entry).
     // Trying to start Task B should return 409.
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskBId}/start?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskBId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(409);
 
@@ -340,7 +379,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   it('POST /tasks/taskBId/switch atomically closes Task A and starts Task B', async () => {
     // Mechanic still has open entry on Task A — switch to Task B.
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskBId}/switch?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskBId}/switch`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' })
       .expect(200);
@@ -350,7 +389,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
     // Verify Task A was transitioned (status no longer IN_PROGRESS)
     const taskARes = await request(app.getHttpServer())
-      .get(`/api/mechanic/tasks/${taskId}?mechanicId=${mechanicId}`)
+      .get(`/api/mechanic/tasks/${taskId}`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(taskARes.body.taskStatus).not.toBe('IN_PROGRESS');
@@ -359,13 +398,13 @@ describe('Mechanic Execution Engine (e2e)', () => {
   it('POST /tasks/taskId/switch returns 409 when mechanic has no open labor entry', async () => {
     // Complete Task B first so the mechanic has no open entry.
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskBId}/complete?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskBId}/complete`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     // Now switch should return 409 (no open labor entry to switch from).
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/switch?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/switch`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ previousPauseReason: 'SWITCHED_TO_HIGHER_PRIORITY' })
       .expect(409);
@@ -378,12 +417,12 @@ describe('Mechanic Execution Engine (e2e)', () => {
   it('POST /tasks/:taskId/complete transitions task to DONE', async () => {
     // Resume Task A first
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/start?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/complete?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/complete`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
@@ -394,7 +433,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/parts rejects adding parts to a completed task with 422', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/parts?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ itemNo: 'PART-X', description: 'Should fail', qty: 1 })
       .expect(422);
@@ -402,7 +441,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/media/uploads rejects upload policy for completed task with 422', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/media/uploads?mechanicId=${mechanicId}`)
+      .post(`/api/mechanic/tasks/${taskId}/media/uploads`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ mimeType: 'image/jpeg', sizeBytes: 1024 })
       .expect(422);
@@ -410,25 +449,42 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   // ─── Tenant isolation ─────────────────────────────────────────────────────
 
-  it('GET /queue returns 404 for mechanic in a different tenant', async () => {
-    // Create a second isolated tenant + mechanic
-    const basePrisma = app.get<PrismaService>(PrismaService);
+  it('GET /tasks/:taskId returns 404 for a mechanic in a different tenant', async () => {
+    const authService = app.get(AuthService);
     const otherTenant = await createTestTenant(basePrisma, 'mech-other');
+    otherTenantId = otherTenant.tenantId;
 
-    const otherToken = app.get(AuthService).createTestToken({
-      sub: 'e2e-tech-other',
-      email: 'e2e-other@workshop.local',
-      tenantId: otherTenant.tenantId,
+    const otherFirebaseUid = `e2e-tech-other-${Date.now()}`;
+    const otherUser = await basePrisma.user.create({
+      data: {
+        firebaseUid: otherFirebaseUid,
+        email: `e2e-other-${Date.now()}@workshop.local`,
+      },
+    });
+    otherMechanicUserId = otherUser.id;
+
+    await runWithTenantContext(otherTenantId, async () => {
+      await basePrisma.employee.create({
+        data: {
+          tenant_id: otherTenantId!,
+          name: 'Other Tenant Mechanic',
+          role: 'MECHANIC',
+          is_active: true,
+          user_id: otherUser.id,
+        },
+      });
+    });
+
+    const otherToken = authService.createTestToken({
+      sub: otherFirebaseUid,
+      email: otherUser.email,
+      tenantId: otherTenantId,
       role: 'TECH',
     });
 
-    // mechanicId belongs to the first tenant — should be 404 from the second tenant's context
     await request(app.getHttpServer())
-      .get(`/api/mechanic/queue?mechanicId=${mechanicId}`)
+      .get(`/api/mechanic/tasks/${taskId}`)
       .set('Authorization', `Bearer ${otherToken}`)
       .expect(404);
-
-    // Clean up the second tenant (no employees to clean)
-    await basePrisma.tenant.delete({ where: { id: otherTenant.tenantId } });
   });
 });

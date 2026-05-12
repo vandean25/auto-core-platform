@@ -8,14 +8,22 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadGatewayResponse,
   ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
 import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
 import { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -30,9 +38,11 @@ import {
   RequestMediaUploadDto,
   WorkshopMediaDto,
 } from './dto/media.dto';
+import { MAX_VOICE_NOTE_BYTES, VoiceNoteDraftResponseDto } from './dto/voice-note.dto';
 import { MechanicService } from './mechanic.service';
 
 @ApiTags('mechanic')
+@MechanicAccessible()
 @Controller('mechanic')
 export class MechanicController {
   constructor(private readonly mechanicService: MechanicService) {}
@@ -232,5 +242,73 @@ export class MechanicController {
   ): Promise<WorkshopMediaDto> {
     const mechanicId = await this.mechanicService.resolveMechanic();
     return this.mechanicService.saveMediaMetadata(mechanicId, taskId, dto);
+  }
+
+  /**
+   * Upload a mechanic voice-note recording and receive a translated diagnostic
+   * draft without persisting it.
+   *
+   * Accepts a completed `MediaRecorder` blob as `multipart/form-data` with the
+   * audio binary in a field named `audio` (ADR-0014 §5.3 phase-one contract).
+   *
+   * The returned draft is **not** appended to `mechanic_notes` automatically.
+   * The mechanic must review it and submit it via
+   * `PATCH /api/mechanic/tasks/:taskId/diagnostics`.
+   *
+   * Returns 422 for:
+   *   - Unsupported MIME type
+   *   - File exceeds 25 MiB
+   *   - Recording duration exceeds 5 minutes
+   *   - Empty or silent audio (no speech detected)
+   *
+   * Returns 503 when the speech-note provider is not configured or 502 when the
+   * upstream AI provider returns an error.
+   *
+   * ADR-0014 §5.3
+   */
+  @Post('tasks/:taskId/voice-notes')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_NOTE_BYTES } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload voice note and receive a translated diagnostic draft',
+    description:
+      'Accepts a completed audio recording as `multipart/form-data`. ' +
+      'Returns a translated diagnostic-note draft. ' +
+      'The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['audio'],
+      properties: {
+        audio: {
+          type: 'string',
+          format: 'binary',
+          description: 'Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB.',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    type: VoiceNoteDraftResponseDto,
+    description: 'Translated diagnostic-note draft ready for mechanic review.',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'Unsupported MIME type, file too large, duration exceeds limit, or silent/empty audio.',
+  })
+  @ApiBadGatewayResponse({
+    description: 'Upstream speech-note provider failed.',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Speech-note provider is not configured.',
+  })
+  async uploadVoiceNote(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<VoiceNoteDraftResponseDto> {
+    const mechanicId = await this.mechanicService.resolveMechanic();
+    return this.mechanicService.uploadVoiceNote(mechanicId, taskId, file);
   }
 }

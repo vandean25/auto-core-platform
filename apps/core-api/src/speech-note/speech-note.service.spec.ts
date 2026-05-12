@@ -47,7 +47,12 @@ function makeMockOpenAI() {
 function makeAPIError(status: number, type: string): APIError {
   // Pass undefined for headers; APIError constructor does a null-safe headers?.get() check.
 
-  return new APIError(status, { type, message: 'provider error' }, 'provider error', undefined as any);
+  return new APIError(
+    status,
+    { type, message: 'provider error' },
+    'provider error',
+    undefined as any,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -91,14 +96,20 @@ describe('SpeechNoteService', () => {
     it('throws SpeechNoteInputError when audioBuffer is empty', async () => {
       const service = buildService(mockOpenAI);
       await expect(
-        service.transcribeNote({ ...DUMMY_INPUT, audioBuffer: Buffer.alloc(0) }),
+        service.transcribeNote({
+          ...DUMMY_INPUT,
+          audioBuffer: Buffer.alloc(0),
+        }),
       ).rejects.toBeInstanceOf(SpeechNoteInputError);
     });
 
     it('throws SpeechNoteInputError with a descriptive message for empty buffer', async () => {
       const service = buildService(mockOpenAI);
       await expect(
-        service.transcribeNote({ ...DUMMY_INPUT, audioBuffer: Buffer.alloc(0) }),
+        service.transcribeNote({
+          ...DUMMY_INPUT,
+          audioBuffer: Buffer.alloc(0),
+        }),
       ).rejects.toThrow('Audio buffer must not be empty.');
     });
 
@@ -126,7 +137,10 @@ describe('SpeechNoteService', () => {
       });
 
       await expect(
-        service.transcribeNote({ ...DUMMY_INPUT, mimeType: 'audio/webm;codecs=opus' }),
+        service.transcribeNote({
+          ...DUMMY_INPUT,
+          mimeType: 'audio/webm;codecs=opus',
+        }),
       ).resolves.toBeDefined();
     });
   });
@@ -304,7 +318,9 @@ describe('SpeechNoteService', () => {
         segments: [],
       });
       (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue({
-        choices: [{ message: { content: 'เปลี่ยนผ้าเบรก', role: 'assistant' } }],
+        choices: [
+          { message: { content: 'เปลี่ยนผ้าเบรก', role: 'assistant' } },
+        ],
       });
 
       const result = await service.transcribeNote(DUMMY_INPUT);
@@ -459,9 +475,9 @@ describe('SpeechNoteService', () => {
     });
 
     it('throws SpeechNoteConfigError when SPEECH_NOTE_LANGUAGE is an invalid code', () => {
-      expect(() => buildService(mockOpenAI, 'not a valid lang code!!!')).toThrow(
-        SpeechNoteConfigError,
-      );
+      expect(() =>
+        buildService(mockOpenAI, 'not a valid lang code!!!'),
+      ).toThrow(SpeechNoteConfigError);
     });
 
     it('accepts valid BCP-47 sub-tagged language codes like zh-tw', () => {

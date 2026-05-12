@@ -23,7 +23,7 @@ function call(
   args: Record<string, unknown> | undefined,
   queryFn: jest.Mock,
 ) {
-  return applyTenantIsolation(model, operation, args, queryFn);
+  return applyTenantIsolation.call({}, {}, model, operation, args, queryFn);
 }
 
 describe('applyTenantIsolation', () => {
@@ -135,26 +135,19 @@ describe('applyTenantIsolation', () => {
   describe('update() — must verify tenant ownership', () => {
     it('executes tenant-scoped unique updates without resolving a delegate', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      const getExtensionContextSpy = jest
-        .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({} as never);
-
-      try {
-        await runWithTenant(() =>
-          applyTenantIsolation.call(
-            {},
-            'FinanceSettings',
-            'update',
-            {
-              where: { tenant_id: 'wrong-tenant' },
-              data: { workshop_order_prefix: 'WO-2026-' },
-            },
-            query,
-          ),
-        );
-      } finally {
-        getExtensionContextSpy.mockRestore();
-      }
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          {},
+          {},
+          'FinanceSettings',
+          'update',
+          {
+            where: { tenant_id: 'wrong-tenant' },
+            data: { workshop_order_prefix: 'WO-2026-' },
+          },
+          query,
+        ),
+      );
 
       expect(query).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID },
@@ -165,28 +158,21 @@ describe('applyTenantIsolation', () => {
     it('tenant-scopes the ownership pre-check when lower-camel delegates are unavailable', async () => {
       const query = jest.fn().mockResolvedValue({ id: 'settings-1' });
       const findFirst = jest.fn().mockResolvedValue({ id: 'settings-1' });
-      const getExtensionContextSpy = jest
-        .spyOn(Prisma, 'getExtensionContext')
-        .mockReturnValue({
-          FinanceSettings: { findFirst },
-        } as never);
-
-      try {
-        await runWithTenant(() =>
-          applyTenantIsolation.call(
-            {},
-            'FinanceSettings',
-            'update',
-            {
-              where: { id: 'settings-1' },
-              data: { workshop_order_prefix: 'WO-2026-' },
-            },
-            query,
-          ),
-        );
-      } finally {
-        getExtensionContextSpy.mockRestore();
-      }
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          {},
+          {
+            FinanceSettings: { findFirst },
+          },
+          'FinanceSettings',
+          'update',
+          {
+            where: { id: 'settings-1' },
+            data: { workshop_order_prefix: 'WO-2026-' },
+          },
+          query,
+        ),
+      );
 
       expect(findFirst).toHaveBeenCalledWith({
         where: {
@@ -199,17 +185,68 @@ describe('applyTenantIsolation', () => {
         data: { workshop_order_prefix: 'WO-2026-' },
       });
     });
+
+    it('resolves a delegate when Prisma exposes the current model as the extension context', async () => {
+      const query = jest.fn().mockResolvedValue({ id: 'task-1' });
+      const findFirst = jest.fn().mockResolvedValue({ id: 'task-1' });
+      await runWithTenant(() =>
+        applyTenantIsolation.call(
+          { findFirst },
+          {},
+          'WorkshopTask',
+          'update',
+          {
+            where: { id: 'task-1' },
+            data: { status: 'DONE' },
+          },
+          query,
+        ),
+      );
+
+      expect(findFirst).toHaveBeenCalledWith({
+        where: {
+          AND: [{ id: 'task-1' }, { tenant_id: TENANT_ID }],
+        },
+        select: { id: true },
+      });
+      expect(query).toHaveBeenCalledWith({
+        where: { id: 'task-1' },
+        data: { status: 'DONE' },
+      });
+    });
+
   });
 
   describe('create() — must stamp tenant_id', () => {
     it('injects tenant_id into data', async () => {
-      const query = jest.fn().mockResolvedValue({ id: '1', tenant_id: TENANT_ID });
+      const query = jest
+        .fn()
+        .mockResolvedValue({ id: '1', tenant_id: TENANT_ID });
       const args = { data: { name: 'Test', status: 'DRAFT' } };
 
       await runWithTenant(() => call('SalesOrder', 'create', args, query));
 
       expect(query).toHaveBeenCalledWith({
         data: { name: 'Test', status: 'DRAFT', tenant_id: TENANT_ID },
+      });
+    });
+
+    it('injects tenant_id into each createMany payload row', async () => {
+      const query = jest.fn().mockResolvedValue({ count: 2 });
+      const args = {
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT' },
+          { order_number: 'SO-2', status: 'CONFIRMED' },
+        ],
+      };
+
+      await runWithTenant(() => call('SalesOrder', 'createMany', args, query));
+
+      expect(query).toHaveBeenCalledWith({
+        data: [
+          { order_number: 'SO-1', status: 'DRAFT', tenant_id: TENANT_ID },
+          { order_number: 'SO-2', status: 'CONFIRMED', tenant_id: TENANT_ID },
+        ],
       });
     });
   });
@@ -265,7 +302,9 @@ describe('applyTenantIsolation', () => {
 
       await expect(
         runWithTenant(() => call('StorageLocation', 'upsert', args, query)),
-      ).rejects.toThrow(/must use a tenant-scoped unique selector containing tenant_id/);
+      ).rejects.toThrow(
+        /must use a tenant-scoped unique selector containing tenant_id/,
+      );
       expect(query).not.toHaveBeenCalled();
     });
   });

@@ -47,11 +47,11 @@ export async function createTestTenant(
     const details = error instanceof Error ? error.message : String(error);
     const code =
       error && typeof error === 'object' && 'code' in error
-        ? String((error as { code: unknown }).code)
+        ? String(error.code)
         : 'unknown';
     const meta =
       error && typeof error === 'object' && 'meta' in error
-        ? JSON.stringify((error as { meta: unknown }).meta)
+        ? JSON.stringify(error.meta)
         : 'null';
     throw new Error(
       `[createTestTenant] Failed to create tenant slug='${slug}' code=${code} meta=${meta}: ${details}`,
@@ -59,6 +59,38 @@ export async function createTestTenant(
   }
 
   return { tenantId: tenant.id };
+}
+
+export async function cleanupTestTenantGraph(
+  prisma: PrismaService,
+  tenantId: string,
+): Promise<void> {
+  const tenantPrisma = createTenantAwarePrisma(prisma, tenantId) as PrismaService;
+
+  await tenantPrisma.purchaseInvoiceLine.deleteMany({});
+  await tenantPrisma.purchaseInvoice.deleteMany({});
+  await tenantPrisma.inventoryTransaction.deleteMany({});
+  await tenantPrisma.inventoryStock.deleteMany({});
+  await tenantPrisma.purchaseOrderItem.deleteMany({});
+  await tenantPrisma.purchaseOrder.deleteMany({});
+  await tenantPrisma.workshopInspectionItem.deleteMany({});
+  await tenantPrisma.workshopInspection.deleteMany({});
+  await tenantPrisma.workshopMedia.deleteMany({});
+  await tenantPrisma.workshopTaskLineItem.deleteMany({});
+  await tenantPrisma.laborEntry.deleteMany({});
+  await tenantPrisma.workshopTask.deleteMany({});
+  await tenantPrisma.workshopOrder.deleteMany({});
+  await tenantPrisma.inspectionTemplateItem.deleteMany({});
+  await tenantPrisma.inspectionTemplate.deleteMany({});
+  await tenantPrisma.employee.deleteMany({});
+  await tenantPrisma.vehicle.deleteMany({});
+  await tenantPrisma.customer.deleteMany({});
+  await tenantPrisma.catalogItem.deleteMany({});
+  await tenantPrisma.vendor.deleteMany({});
+  await tenantPrisma.storageLocation.deleteMany({});
+  await tenantPrisma.brand.deleteMany({});
+  await tenantPrisma.financeSettings.deleteMany({});
+  await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
 function wrapDelegateWithTenantContext<T extends object>(
