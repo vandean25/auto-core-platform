@@ -292,7 +292,7 @@ export function useSaveMediaMetadata() {
 
 /**
  * Uploads a voice-note audio file (`multipart/form-data`) and returns a
- * translated diagnostic-note draft (`VoiceNoteDraftResponse`).
+ * transcribed/translated diagnostic-note draft (`VoiceNoteDraftResponse`).
  *
  * The draft is **not** persisted automatically.  The mechanic must review it
  * and submit it via `useSaveDiagnostics` (PATCH /diagnostics), which handles
@@ -309,6 +309,12 @@ export function useUploadVoiceNote() {
       taskId: string
       audio: File | Blob
     }) => {
+      if (!audio.type) {
+        throw createHttpError(
+          'Audio file must have a known MIME type (e.g. audio/webm, audio/mp4).',
+          422,
+        )
+      }
       const form = new FormData()
       form.append('audio', audio)
       const response = await fetchWithAuth(
