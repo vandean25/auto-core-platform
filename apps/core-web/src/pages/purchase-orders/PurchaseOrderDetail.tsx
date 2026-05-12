@@ -339,7 +339,7 @@ export default function PurchaseOrderDetail() {
 
     if (isLoading) return <div>Loading order...</div>
     if (error) return <div>Error loading order</div>
-    if (!po) return <div>Order not found</div>
+    if (!po || !id) return <div>Order not found</div>
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
@@ -375,7 +375,7 @@ export default function PurchaseOrderDetail() {
                             <CardTitle className="text-base font-semibold">Order Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <PONotesInput po={po} id={id!} />
+                            <PONotesInput po={po} id={id} />
                         </CardContent>
                     </Card>
                     <Card>

@@ -592,15 +592,12 @@ export class PurchaseService {
 
   async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
-    if (!po) throw new NotFoundException('Purchase order not found');
-
-    return this.prisma.purchaseOrder.update({
+    const result = await this.prisma.purchaseOrder.updateMany({
       where: { id, tenant_id: tenantId },
       data: dto,
     });
+    if (result.count === 0) throw new NotFoundException('Purchase order not found');
+    return this.prisma.purchaseOrder.findFirst({ where: { id, tenant_id: tenantId } });
   }
 
   async remove(id: string) {
