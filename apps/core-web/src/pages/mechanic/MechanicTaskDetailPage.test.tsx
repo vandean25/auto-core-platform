@@ -108,6 +108,7 @@ function installMediaRecorderMock() {
     public mimeType = 'audio/webm'
     public ondataavailable: ((event: { data: Blob }) => void) | null = null
     public onstop: (() => void) | null = null
+    public onerror: (() => void) | null = null
 
     constructor(_stream: MediaStream) {
       instances.push(this as unknown as MockMediaRecorderInstance)

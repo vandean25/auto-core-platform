@@ -210,7 +210,10 @@ export default function MechanicTaskDetailPage() {
   const canPause = isActive
   const canComplete = isActive
   const isVoiceNoteSupported =
-    typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    typeof MediaRecorder !== 'undefined' &&
+    typeof navigator.mediaDevices?.getUserMedia === 'function'
 
   useEffect(() => {
     setVoiceNoteState(isVoiceNoteSupported ? 'idle' : 'unsupported')
