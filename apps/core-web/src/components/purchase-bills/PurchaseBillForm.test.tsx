@@ -46,6 +46,7 @@ describe('PurchaseBillForm Characterization', () => {
     vi.clearAllMocks()
     asMock(purchaseApi.useUnbilledReceipts).mockReturnValue({ data: [], isLoading: false })
     asMock(vendorApi.useVendor).mockReturnValue({ data: { id: 'vendor-1', name: 'Vendor One' }, isLoading: false })
+    asMock(vendorApi.useVendors).mockReturnValue({ data: { data: [] }, isLoading: false })
     asMock(inventoryApi.useInventory).mockReturnValue({ data: { data: [] }, isLoading: false })
     asMock(purchaseApi.useCreatePurchaseInvoice).mockReturnValue({ mutateAsync: vi.fn() })
     asMock(purchaseApi.useUpdatePurchaseInvoice).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
@@ -86,8 +87,9 @@ describe('PurchaseBillForm Characterization', () => {
     // Line 1: 1 * 100 = 100
     // Tax 20%: 20
     // Total: 120
-    expect(screen.getByText('€100.00')).toBeInTheDocument() // Subtotal
-    expect(screen.getByText('€20.00')).toBeInTheDocument() // Tax
-    expect(screen.getByText('€120.00')).toBeInTheDocument() // Grand Total
+    // Values appear in both the line item table and the summary cards
+    expect(screen.getAllByText('€100.00').length).toBeGreaterThanOrEqual(1) // Subtotal
+    expect(screen.getAllByText('€20.00').length).toBeGreaterThanOrEqual(1) // Tax
+    expect(screen.getAllByText('€120.00').length).toBeGreaterThanOrEqual(1) // Grand Total
   })
 })
