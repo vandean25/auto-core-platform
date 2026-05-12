@@ -494,9 +494,6 @@ describe('MechanicTaskDetailPage', () => {
               resolveUpload = resolve
             }),
         )
-      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
-        createMutationMock({ mutateAsync: uploadMock }),
-      )
       setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
       asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
         createMutationMock({ mutateAsync: uploadMock }),
@@ -531,12 +528,6 @@ describe('MechanicTaskDetailPage', () => {
       const saveMock = vi.fn().mockResolvedValue({ taskId: TASK_ID, mechanicNotes: '' })
       const uploadMock = vi.fn().mockResolvedValue({ text: 'Initial draft' })
 
-      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
-        createMutationMock({ mutateAsync: saveMock }),
-      )
-      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
-        createMutationMock({ mutateAsync: uploadMock }),
-      )
       setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Existing typed note' }))
       asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
         createMutationMock({ mutateAsync: saveMock }),
@@ -577,12 +568,6 @@ describe('MechanicTaskDetailPage', () => {
       installMediaRecorderMock()
       const saveMock = vi.fn().mockResolvedValue({ taskId: TASK_ID, mechanicNotes: '' })
       const uploadMock = vi.fn().mockResolvedValue({ text: 'Discard me' })
-      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
-        createMutationMock({ mutateAsync: saveMock }),
-      )
-      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
-        createMutationMock({ mutateAsync: uploadMock }),
-      )
       setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Keep this' }))
       asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
         createMutationMock({ mutateAsync: saveMock }),
@@ -613,9 +598,6 @@ describe('MechanicTaskDetailPage', () => {
     it('shows error state when provider upload fails and keeps typed notes', async () => {
       installMediaRecorderMock()
       const uploadMock = vi.fn().mockRejectedValue(new Error('Provider unavailable'))
-      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
-        createMutationMock({ mutateAsync: uploadMock }),
-      )
       setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Typed note' }))
       asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
         createMutationMock({ mutateAsync: uploadMock }),
