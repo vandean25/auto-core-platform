@@ -10,6 +10,7 @@ import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 
 export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
   include: { vendor: true; items: true };
@@ -590,11 +591,14 @@ export class PurchaseService {
   }
 
   async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
-    const po = await this.prisma.purchaseOrder.findUnique({ where: { id } });
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
     if (!po) throw new NotFoundException('Purchase order not found');
 
     return this.prisma.purchaseOrder.update({
-      where: { id },
+      where: { id, tenant_id: tenantId },
       data: dto,
     });
   }

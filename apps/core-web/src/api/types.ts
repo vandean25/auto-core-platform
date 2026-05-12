@@ -56,6 +56,7 @@ export interface PurchaseOrder {
     vendor: Vendor
     status: PurchaseOrderStatus
     order_number: string
+    notes?: string
     items: PurchaseOrderItem[]
     createdAt: string
 }
