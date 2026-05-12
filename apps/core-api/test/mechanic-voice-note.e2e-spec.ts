@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SpeechNoteService } from '../src/speech-note/speech-note.service';
+import { MechanicService } from '../src/mechanic/mechanic.service';
 import { WorkshopTaskStatus } from '@prisma/client';
 import {
   SpeechNoteConfigError,
@@ -215,6 +216,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the per-mechanic rate-limit counters between tests so that each
+    // test starts with a clean slate and unrelated upstream requests don't
+    // exhaust the limit before the rate-limit test itself runs.
+    const mechanicService = app.get(MechanicService);
+    (mechanicService as unknown as { voiceNoteRateLimitMap: Map<unknown, unknown> }).voiceNoteRateLimitMap.clear();
   });
 
   // ─── Happy path ───────────────────────────────────────────────────────────
