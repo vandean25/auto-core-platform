@@ -275,9 +275,7 @@ export default function MechanicTaskDetailPage() {
           return
         }
 
-        const mimeType =
-          recorder.mimeType || (chunks[0] instanceof Blob ? chunks[0].type : 'audio/webm')
-        const audioBlob = new Blob(chunks, { type: mimeType || 'audio/webm' })
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
         setVoiceNoteState('processing')
         void uploadVoiceNote
           .mutateAsync({ taskId, audio: audioBlob })
