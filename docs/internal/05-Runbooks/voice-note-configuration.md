@@ -22,7 +22,7 @@ and translation.  It is never forwarded to the browser or serialised into any
 API response.
 
 If this variable is absent, the endpoint returns **503 Service Unavailable**
-with the message _"Voice-note transcription is not available."_.
+with the message _"Voice-note transcription is not available. Contact your administrator."_.
 
 ---
 
@@ -63,10 +63,9 @@ one rate-limit window (`VOICE_NOTE_RATE_LIMIT_TTL_SECONDS`).
 When the limit is exceeded, the endpoint returns **429 Too Many Requests** with
 a retry delay in the response message.
 
-This value is read from the environment at **call time**, so it can be changed
-without a restart in most container platforms (provided the env var is updated
-in the running container and the process re-reads it — see note on memory
-state below).
+This value is read from the environment at **call time**.  No code deploy is
+required to change it, but the process must be restarted (or the container
+redeployed) for the updated env var to take effect.
 
 > **Note on multi-instance deployments:** The rate-limit counters are stored
 > in the Node.js process memory of each backend instance.  In a scaled
@@ -98,11 +97,11 @@ deploy.  They are documented here for operational awareness.
 
 | Constant | Value | File |
 |---|---|---|
-| `MAX_VOICE_NOTE_BYTES` | 25 MiB (26,214,400 bytes) | `src/mechanic/dto/voice-note.dto.ts` |
-| `MIN_VOICE_NOTE_BYTES` | 100 bytes | `src/mechanic/dto/voice-note.dto.ts` |
-| `MAX_VOICE_NOTE_DURATION_SECONDS` | 300 seconds (5 minutes) | `src/mechanic/dto/voice-note.dto.ts` |
+| `MAX_VOICE_NOTE_BYTES` | 25 MiB (26,214,400 bytes) | `apps/core-api/src/mechanic/dto/voice-note.dto.ts` |
+| `MIN_VOICE_NOTE_BYTES` | 100 bytes | `apps/core-api/src/mechanic/dto/voice-note.dto.ts` |
+| `MAX_VOICE_NOTE_DURATION_SECONDS` | 300 seconds (5 minutes) | `apps/core-api/src/mechanic/dto/voice-note.dto.ts` |
 
-**MIME allow-list** (defined in `src/speech-note/speech-note.service.ts`):
+**MIME allow-list** (defined in `apps/core-api/src/speech-note/speech-note.service.ts`):
 
 ```
 audio/flac  audio/m4a   audio/mp3   audio/mp4   audio/mpeg

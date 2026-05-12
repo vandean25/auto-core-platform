@@ -164,7 +164,9 @@ export class MechanicService {
 
   /**
    * Per-mechanic sliding-window rate limit map for voice-note uploads.
-   * Key: `${tenantId}:${mechanicId}`. Entries are pruned lazily on each check.
+   * Key: `${tenantId}:${mechanicId}`. All expired entries across every key are
+   * pruned on every check so that the map does not grow without bound in
+   * long-lived instances serving many distinct mechanics/tenants.
    *
    * ADR-0014 §5.3 — prevents runaway provider spend and accidental repeated uploads.
    */
@@ -1532,10 +1534,19 @@ export class MechanicService {
     const { max, ttlMs } = getVoiceNoteRateLimitConfig();
     const key = `${tenantId}:${mechanicId}`;
     const now = Date.now();
+
+    // Prune all expired entries so the map does not grow without bound across
+    // many distinct mechanics/tenants over the lifetime of the process.
+    for (const [k, v] of this.voiceNoteRateLimitMap) {
+      if (now - v.windowStart >= ttlMs) {
+        this.voiceNoteRateLimitMap.delete(k);
+      }
+    }
+
     const entry = this.voiceNoteRateLimitMap.get(key);
 
-    if (!entry || now - entry.windowStart >= ttlMs) {
-      // Start a fresh window.
+    if (!entry) {
+      // Start a fresh window (either first upload or window just expired).
       this.voiceNoteRateLimitMap.set(key, { count: 1, windowStart: now });
       return;
     }
