@@ -728,11 +728,13 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       );
 
       // Cleanup
-      await basePrisma.workshopTask.deleteMany({
-        where: { workshop_order_id: rlOrderId! },
+      await runWithTenantContext(tenantId, async () => {
+        await basePrisma.workshopTask.deleteMany({
+          where: { workshop_order_id: rlOrderId! },
+        });
+        await basePrisma.workshopOrder.deleteMany({ where: { id: rlOrderId! } });
+        await basePrisma.employee.deleteMany({ where: { id: limitEmployeeId! } });
       });
-      await basePrisma.workshopOrder.deleteMany({ where: { id: rlOrderId! } });
-      await basePrisma.employee.deleteMany({ where: { id: limitEmployeeId! } });
       await basePrisma.user.deleteMany({ where: { id: limitUserId! } });
     } finally {
       // Restore original env values regardless of test outcome.
