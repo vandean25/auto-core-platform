@@ -1,5 +1,5 @@
 substitutions:
-  _BACKEND_PROJECT: auto-core-platform-vande
+  _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _DATABASE_SECRET: DATABASE_URL_UAT
   _FRONTEND_PROJECT: auto-core-platform-vande
