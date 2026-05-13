@@ -279,9 +279,7 @@ describe('RealtimeDashboardSyncProvider', () => {
       entityUpdatedHandler?.(null)
     })
 
-    // No dashboard invalidation should have occurred for any malformed payload
-    expect(invalidateQueries).not.toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: expect.arrayContaining(['dashboard-widget-data']) }),
-    )
+    // The handler should early-return for malformed payloads without triggering any invalidation
+    expect(invalidateQueries).not.toHaveBeenCalled()
   })
 })
