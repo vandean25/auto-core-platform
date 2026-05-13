@@ -11,7 +11,7 @@ substitutions:
   _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform-vande.firebaseapp.com
   _VITE_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _VITE_FIREBASE_APP_ID: 1:895976476759:web:d69c51386996793445d312
-  _VITE_ALLOWED_LOGIN_EMAILS: "van.dean25@gmail.com"
+  _VITE_ALLOWED_LOGIN_EMAILS: "van.dean25@gmail.com,mech@auto.core.at,mech2@auto.core.at"
 
 options:
   logging: CLOUD_LOGGING_ONLY
