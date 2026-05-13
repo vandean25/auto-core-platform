@@ -17,6 +17,7 @@ vi.mock('sonner', () => ({
 
 const TASK_ID = '22222222-2222-2222-2222-222222222222'
 const ORDER_ID = 'order-1'
+const VOICE_NOTE_AUTOSAVE_TIMEOUT_MS = 3000
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -591,7 +592,7 @@ describe('MechanicTaskDetailPage', () => {
           taskId: TASK_ID,
           payload: { mechanicNotes: 'Existing typed note\n\nEdited draft' },
         })
-      }, { timeout: 3000 })
+      }, { timeout: VOICE_NOTE_AUTOSAVE_TIMEOUT_MS })
     })
 
     it('discards draft without changing existing notes', async () => {

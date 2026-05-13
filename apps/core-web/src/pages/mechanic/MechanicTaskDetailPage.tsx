@@ -341,6 +341,8 @@ export default function MechanicTaskDetailPage() {
   const stopVoiceNoteRecording = () => {
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state === 'inactive') return
+    // Do not set state here. `onstop` owns the transition to "processing"
+    // so cleanup-triggered stops cannot race against upload state changes.
     recorder.stop()
   }
 
