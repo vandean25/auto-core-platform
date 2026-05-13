@@ -78,6 +78,20 @@ const ALLOWED_MEDIA_TYPES = new Set([
   'video/quicktime',
 ])
 
+const PREFERRED_VOICE_MIME_TYPES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+]
+
+function selectVoiceRecorderMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return undefined
+  }
+  return PREFERRED_VOICE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
+}
+
 // ─── Save State Indicator ─────────────────────────────────────────────────────
 
 function SaveStateIndicator({ state }: { state: SaveState }) {
@@ -146,6 +160,7 @@ export default function MechanicTaskDetailPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const voiceChunksRef = useRef<BlobPart[]>([])
+  const voiceStartInFlightRef = useRef(false)
 
   // ── Media upload ──
   const [uploadState, setUploadState] = useState<UploadState>('idle')
@@ -177,6 +192,20 @@ export default function MechanicTaskDetailPage() {
   }, [])
 
   const stopMediaCapture = useCallback(() => {
+    const recorder = mediaRecorderRef.current
+    if (recorder) {
+      recorder.ondataavailable = null
+      recorder.onstop = null
+      recorder.onerror = null
+      if (recorder.state === 'recording') {
+        try {
+          recorder.stop()
+        } catch {
+          // no-op: recorder may already be stopping/closed
+        }
+      }
+    }
+
     if (mediaStreamRef.current) {
       for (const track of mediaStreamRef.current.getTracks()) {
         track.stop()
@@ -184,6 +213,7 @@ export default function MechanicTaskDetailPage() {
       mediaStreamRef.current = null
     }
     mediaRecorderRef.current = null
+    voiceStartInFlightRef.current = false
   }, [])
 
   // Cancel pending auto-save and upload done timer on unmount
@@ -240,11 +270,14 @@ export default function MechanicTaskDetailPage() {
   }
 
   const startVoiceNoteRecording = async () => {
+    if (voiceStartInFlightRef.current) return
     if (!isVoiceNoteSupported) {
       setVoiceNoteState('unsupported')
       return
     }
 
+    voiceStartInFlightRef.current = true
+    setVoiceNoteState('processing')
     setVoiceNoteError('')
     setVoiceDraftValue('')
     voiceChunksRef.current = []
@@ -253,7 +286,10 @@ export default function MechanicTaskDetailPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaStreamRef.current = stream
 
-      const recorder = new MediaRecorder(stream)
+      const recorderMimeType = selectVoiceRecorderMimeType()
+      const recorder = recorderMimeType
+        ? new MediaRecorder(stream, { mimeType: recorderMimeType })
+        : new MediaRecorder(stream)
       mediaRecorderRef.current = recorder
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -275,7 +311,9 @@ export default function MechanicTaskDetailPage() {
           return
         }
 
-        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        const firstChunk = chunks.find((chunk): chunk is Blob => chunk instanceof Blob)
+        const audioMimeType = recorder.mimeType || firstChunk?.type || recorderMimeType || 'audio/webm'
+        const audioBlob = new Blob(chunks, { type: audioMimeType })
         setVoiceNoteState('processing')
         void uploadVoiceNote
           .mutateAsync({ taskId, audio: audioBlob })
@@ -296,13 +334,14 @@ export default function MechanicTaskDetailPage() {
       stopMediaCapture()
       setVoiceNoteState('error')
       setVoiceNoteError(getErrorMessage(error, 'Unable to access microphone.'))
+    } finally {
+      voiceStartInFlightRef.current = false
     }
   }
 
   const stopVoiceNoteRecording = () => {
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state === 'inactive') return
-    setVoiceNoteState('processing')
     recorder.stop()
   }
 

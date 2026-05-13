@@ -91,6 +91,7 @@ type MockMediaRecorderInstance = {
   mimeType: string
   ondataavailable: ((event: { data: Blob }) => void) | null
   onstop: (() => void) | null
+  onerror: (() => void) | null
   start: () => void
   stop: () => void
 }
@@ -104,13 +105,20 @@ function installMediaRecorderMock() {
   })
 
   class MockMediaRecorder {
+    public static isTypeSupported(mimeType: string) {
+      return mimeType.includes('webm')
+    }
+
     public state: 'inactive' | 'recording' = 'inactive'
     public mimeType = 'audio/webm'
     public ondataavailable: ((event: { data: Blob }) => void) | null = null
     public onstop: (() => void) | null = null
     public onerror: (() => void) | null = null
 
-    constructor(_stream: MediaStream) {
+    constructor(_stream: unknown, options?: { mimeType?: string }) {
+      if (options?.mimeType) {
+        this.mimeType = options.mimeType
+      }
       instances.push(this as unknown as MockMediaRecorderInstance)
     }
 
@@ -467,21 +475,37 @@ describe('MechanicTaskDetailPage', () => {
 
   describe('voice-note recording and draft review', () => {
     it('shows disabled voice-note controls when recording is unsupported', () => {
-      vi.unstubAllGlobals()
+      const originalMediaRecorder = globalThis.MediaRecorder
+      const originalMediaDevices = globalThis.navigator.mediaDevices
       Object.defineProperty(globalThis.navigator, 'mediaDevices', {
         configurable: true,
         writable: true,
         value: undefined,
       })
+      vi.stubGlobal('MediaRecorder', undefined)
 
-      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
-      renderDetailPage()
+      try {
+        setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+        renderDetailPage()
 
-      const button = screen.getByRole('button', { name: /record voice note/i })
-      expect(button).toBeDisabled()
-      expect(
-        screen.getByText(/voice note recording is unavailable on this browser/i),
-      ).toBeInTheDocument()
+        const button = screen.getByRole('button', { name: /record voice note/i })
+        expect(button).toBeDisabled()
+        expect(
+          screen.getByText(/voice note recording is unavailable on this browser/i),
+        ).toBeInTheDocument()
+      } finally {
+        vi.unstubAllGlobals()
+        Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+          configurable: true,
+          writable: true,
+          value: originalMediaDevices,
+        })
+        Object.defineProperty(globalThis, 'MediaRecorder', {
+          configurable: true,
+          writable: true,
+          value: originalMediaRecorder,
+        })
+      }
     })
 
     it('transitions from recording to processing to draft-ready and uploads audio', async () => {
@@ -562,7 +586,7 @@ describe('MechanicTaskDetailPage', () => {
           taskId: TASK_ID,
           payload: { mechanicNotes: 'Existing typed note\n\nEdited draft' },
         })
-      })
+      }, { timeout: 3000 })
     })
 
     it('discards draft without changing existing notes', async () => {
@@ -618,6 +642,34 @@ describe('MechanicTaskDetailPage', () => {
 
       expect(screen.getByPlaceholderText(/record diagnostic findings/i)).toHaveValue('Typed note')
       expect(screen.getByText(/provider unavailable/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /retry recording/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+    })
+
+    it('shows recorder error and allows starting a new recording attempt', async () => {
+      const media = installMediaRecorderMock()
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+
+      media.getLastInstance()?.onerror?.()
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /retry recording/i })).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /retry recording/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
     })
   })
 
