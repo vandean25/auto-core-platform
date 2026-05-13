@@ -7,7 +7,7 @@ import {
   RealtimeDashboardSyncProvider,
   resolveRealtimeConnection,
 } from './RealtimeDashboardSyncProvider'
-import { AUTH_CLAIMS_UPDATED_EVENT } from './types'
+import { AUTH_CLAIMS_UPDATED_EVENT, ENTITY_UPDATED_EVENT } from './types'
 
 const mocks = vi.hoisted(() => {
   const socket = {
@@ -168,5 +168,120 @@ describe('RealtimeDashboardSyncProvider', () => {
       })
       expect(invalidateQueries).toHaveBeenCalledWith({ refetchType: 'active' })
     })
+  })
+
+  // ─── entity_updated → cache invalidation (Service Advisor / task-detail) ──
+
+  it('invalidates WORKSHOP_TASK dashboard source keys when a valid entity_updated event is received', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'WORKSHOP_TASK',
+        action: 'UPDATED',
+        entityId: 'task-123',
+        timestamp: '2026-05-01T10:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['dashboard-widget-data', 'workshop-tasks'],
+        refetchType: 'active',
+      })
+    })
+  })
+
+  it('invalidates the expected dashboard source keys for each known entity type', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    const entityTypeToExpectedKey: Array<[string, string]> = [
+      ['WORKSHOP_TASK', 'workshop-tasks'],
+      ['WORKSHOP_ORDER', 'workshop-orders'],
+      ['WORKSHOP_TASK_LINE_ITEM', 'workshop-task-line-items'],
+    ]
+
+    for (const [entityType, expectedSourceKey] of entityTypeToExpectedKey) {
+      invalidateQueries.mockClear()
+
+      await act(async () => {
+        entityUpdatedHandler?.({
+          type: entityType,
+          action: 'UPDATED',
+          entityId: `entity-${entityType.toLowerCase()}`,
+          timestamp: '2026-05-01T10:00:00.000Z',
+        })
+      })
+
+      await waitFor(() => {
+        expect(invalidateQueries).toHaveBeenCalledWith({
+          queryKey: ['dashboard-widget-data', expectedSourceKey],
+          refetchType: 'active',
+        })
+      })
+    }
+  })
+
+  it('does not call invalidateQueries when an entity_updated event has an invalid payload', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    await act(async () => {
+      // Malformed — missing timestamp
+      entityUpdatedHandler?.({ type: 'WORKSHOP_TASK', action: 'UPDATED' })
+      // Malformed — unknown type
+      entityUpdatedHandler?.({ type: 'UNKNOWN_ENTITY', action: 'CREATED', timestamp: '2026-05-01T10:00:00.000Z' })
+      // Null payload
+      entityUpdatedHandler?.(null)
+    })
+
+    // No dashboard invalidation should have occurred for any malformed payload
+    expect(invalidateQueries).not.toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: expect.arrayContaining(['dashboard-widget-data']) }),
+    )
   })
 })
