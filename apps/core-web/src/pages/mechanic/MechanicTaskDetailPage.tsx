@@ -5,10 +5,12 @@ import {
   ArrowLeft,
   CheckCircle,
   Loader2,
+  Mic,
   Pause,
   Play,
   Plus,
   RefreshCw,
+  Square,
   Upload,
   Zap,
 } from 'lucide-react'
@@ -39,6 +41,7 @@ import {
   useRequestPart,
   useCreateMediaUploadPolicy,
   useSaveMediaMetadata,
+  useUploadVoiceNote,
 } from '@/api/mechanic'
 import type {
   PauseTaskPayload,
@@ -53,6 +56,7 @@ type PauseReason = PauseTaskPayload['pauseReason']
 type SwitchReason = SwitchTaskPayload['previousPauseReason']
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type UploadState = 'idle' | 'uploading' | 'done' | 'error'
+type VoiceNoteState = 'idle' | 'unsupported' | 'recording' | 'processing' | 'draft-ready' | 'accepted' | 'error'
 
 const PAUSE_REASON_LABELS: Record<PauseReason, string> = {
   WAITING_PARTS: 'Waiting for Parts',
@@ -73,6 +77,20 @@ const ALLOWED_MEDIA_TYPES = new Set([
   'video/mp4',
   'video/quicktime',
 ])
+
+const PREFERRED_VOICE_MIME_TYPES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+]
+
+function selectVoiceRecorderMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return undefined
+  }
+  return PREFERRED_VOICE_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType))
+}
 
 // ─── Save State Indicator ─────────────────────────────────────────────────────
 
@@ -114,6 +132,7 @@ export default function MechanicTaskDetailPage() {
   const requestPart = useRequestPart()
   const createUploadPolicy = useCreateMediaUploadPolicy()
   const saveMediaMeta = useSaveMediaMetadata()
+  const uploadVoiceNote = useUploadVoiceNote()
 
   // ── Pause dialog ──
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false)
@@ -135,6 +154,13 @@ export default function MechanicTaskDetailPage() {
   const [notesInitialized, setNotesInitialized] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [voiceNoteState, setVoiceNoteState] = useState<VoiceNoteState>('idle')
+  const [voiceDraftValue, setVoiceDraftValue] = useState('')
+  const [voiceNoteError, setVoiceNoteError] = useState('')
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const voiceChunksRef = useRef<BlobPart[]>([])
+  const voiceStartInFlightRef = useRef(false)
 
   // ── Media upload ──
   const [uploadState, setUploadState] = useState<UploadState>('idle')
@@ -165,15 +191,41 @@ export default function MechanicTaskDetailPage() {
     }
   }, [])
 
+  const stopMediaCapture = useCallback(() => {
+    const recorder = mediaRecorderRef.current
+    if (recorder) {
+      recorder.ondataavailable = null
+      recorder.onstop = null
+      recorder.onerror = null
+      if (recorder.state === 'recording') {
+        try {
+          recorder.stop()
+        } catch {
+          // no-op: recorder may already be stopping/closed
+        }
+      }
+    }
+
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getTracks()) {
+        track.stop()
+      }
+      mediaStreamRef.current = null
+    }
+    mediaRecorderRef.current = null
+    voiceStartInFlightRef.current = false
+  }, [])
+
   // Cancel pending auto-save and upload done timer on unmount
   useEffect(() => {
     return () => {
       cancelPendingSave()
+      stopMediaCapture()
       if (uploadDoneTimerRef.current !== null) {
         clearTimeout(uploadDoneTimerRef.current)
       }
     }
-  }, [cancelPendingSave])
+  }, [cancelPendingSave, stopMediaCapture])
 
   const isActive = task?.taskStatus === 'IN_PROGRESS'
   const isNotStarted = task?.taskStatus === 'NOT_STARTED'
@@ -187,6 +239,19 @@ export default function MechanicTaskDetailPage() {
   const canSwitch = canStart
   const canPause = isActive
   const canComplete = isActive
+  const isVoiceNoteSupported =
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    typeof MediaRecorder !== 'undefined' &&
+    typeof navigator.mediaDevices?.getUserMedia === 'function'
+
+  useEffect(() => {
+    setVoiceNoteState(isVoiceNoteSupported ? 'idle' : 'unsupported')
+    setVoiceDraftValue('')
+    setVoiceNoteError('')
+    voiceChunksRef.current = []
+    stopMediaCapture()
+  }, [taskId, isVoiceNoteSupported, stopMediaCapture])
 
   // ── Notes auto-save (750 ms debounce) ──
   const handleNotesChange = (value: string) => {
@@ -202,6 +267,103 @@ export default function MechanicTaskDetailPage() {
           setSaveState('error')
         })
     }, DEBOUNCE_MS)
+  }
+
+  const startVoiceNoteRecording = async () => {
+    if (voiceStartInFlightRef.current) return
+    if (!isVoiceNoteSupported) {
+      setVoiceNoteState('unsupported')
+      return
+    }
+
+    voiceStartInFlightRef.current = true
+    setVoiceNoteState('processing')
+    setVoiceNoteError('')
+    setVoiceDraftValue('')
+    voiceChunksRef.current = []
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+
+      const recorderMimeType = selectVoiceRecorderMimeType()
+      const recorder = recorderMimeType
+        ? new MediaRecorder(stream, { mimeType: recorderMimeType })
+        : new MediaRecorder(stream)
+      mediaRecorderRef.current = recorder
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data)
+        }
+      }
+      recorder.onerror = () => {
+        stopMediaCapture()
+        setVoiceNoteState('error')
+        setVoiceNoteError('Voice note failed. Please retry recording.')
+      }
+      recorder.onstop = () => {
+        stopMediaCapture()
+        const chunks = voiceChunksRef.current
+        voiceChunksRef.current = []
+        if (chunks.length === 0) {
+          setVoiceNoteState('error')
+          setVoiceNoteError('No audio captured. Please retry recording.')
+          return
+        }
+
+        const audioMimeType = recorder.mimeType || recorderMimeType || 'audio/webm'
+        const audioBlob = new Blob(chunks, { type: audioMimeType })
+        setVoiceNoteState('processing')
+        void uploadVoiceNote
+          .mutateAsync({ taskId, audio: audioBlob })
+          .then((draft) => {
+            setVoiceDraftValue(draft.text)
+            setVoiceNoteError('')
+            setVoiceNoteState('draft-ready')
+          })
+          .catch((error: unknown) => {
+            console.error('[MechanicTaskDetail] Voice-note upload failed:', error)
+            setVoiceNoteState('error')
+            setVoiceNoteError(getErrorMessage(error, 'Voice note failed. Please retry recording.'))
+          })
+      }
+      recorder.start()
+      setVoiceNoteState('recording')
+    } catch (error: unknown) {
+      stopMediaCapture()
+      setVoiceNoteState('error')
+      setVoiceNoteError(getErrorMessage(error, 'Unable to access microphone.'))
+    } finally {
+      voiceStartInFlightRef.current = false
+    }
+  }
+
+  const stopVoiceNoteRecording = () => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state === 'inactive') return
+    // Do not set state here. `onstop` owns the transition to "processing"
+    // so cleanup-triggered stops cannot race against upload state changes.
+    recorder.stop()
+  }
+
+  const handleAcceptVoiceDraft = () => {
+    const draft = voiceDraftValue.trim()
+    if (!draft) {
+      setVoiceDraftValue('')
+      setVoiceNoteState('idle')
+      return
+    }
+    const mergedNotes = notesValue.trim().length > 0 ? `${notesValue}\n\n${draft}` : draft
+    handleNotesChange(mergedNotes)
+    setVoiceDraftValue('')
+    setVoiceNoteError('')
+    setVoiceNoteState('accepted')
+  }
+
+  const handleDiscardVoiceDraft = () => {
+    setVoiceDraftValue('')
+    setVoiceNoteError('')
+    setVoiceNoteState('idle')
   }
 
   // ── Start ──
@@ -531,6 +693,96 @@ export default function MechanicTaskDetailPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 rounded-md border border-slate-200 bg-slate-50/70 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant={voiceNoteState === 'recording' ? 'destructive' : 'outline'}
+                className="min-h-[48px] gap-2 px-4"
+                onClick={() => {
+                  if (voiceNoteState === 'recording') {
+                    stopVoiceNoteRecording()
+                  } else {
+                    void startVoiceNoteRecording()
+                  }
+                }}
+                disabled={isDone || voiceNoteState === 'processing' || voiceNoteState === 'unsupported'}
+              >
+                {voiceNoteState === 'recording' ? (
+                  <>
+                    <Square className="h-4 w-4" />
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-4 w-4" />
+                    Record Voice Note
+                  </>
+                )}
+              </Button>
+              {voiceNoteState === 'error' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[44px]"
+                  onClick={() => void startVoiceNoteRecording()}
+                  disabled={isDone}
+                >
+                  Retry recording
+                </Button>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {voiceNoteState === 'unsupported' &&
+                'Voice note recording is unavailable on this browser.'}
+              {voiceNoteState === 'idle' &&
+                'Tap record to dictate a voice note. Review and edit the translated draft before acceptance.'}
+              {voiceNoteState === 'recording' && 'Recording…'}
+              {voiceNoteState === 'processing' && (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Processing voice note…
+                </span>
+              )}
+              {voiceNoteState === 'draft-ready' &&
+                'Draft ready. Review and edit before accepting into diagnostics.'}
+              {voiceNoteState === 'accepted' && 'Draft accepted into diagnostics notes.'}
+              {voiceNoteState === 'error' &&
+                (voiceNoteError || 'Voice note failed. Please retry recording.')}
+            </p>
+          </div>
+
+          {voiceNoteState === 'draft-ready' && (
+            <div className="mb-4 space-y-2 rounded-md border border-slate-200 p-3">
+              <Label htmlFor="voice-note-draft">Voice-note draft</Label>
+              <textarea
+                id="voice-note-draft"
+                value={voiceDraftValue}
+                onChange={(event) => setVoiceDraftValue(event.target.value)}
+                rows={4}
+                className="w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-50"
+                disabled={isDone}
+              />
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDiscardVoiceDraft}
+                  disabled={isDone}
+                >
+                  Discard Draft
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleAcceptVoiceDraft}
+                  disabled={isDone || voiceDraftValue.trim().length === 0}
+                >
+                  Accept Draft
+                </Button>
+              </div>
+            </div>
+          )}
+
           <textarea
             value={notesValue}
             onChange={(e) => handleNotesChange(e.target.value)}

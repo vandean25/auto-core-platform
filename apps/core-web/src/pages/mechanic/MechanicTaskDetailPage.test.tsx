@@ -17,6 +17,7 @@ vi.mock('sonner', () => ({
 
 const TASK_ID = '22222222-2222-2222-2222-222222222222'
 const ORDER_ID = 'order-1'
+const VOICE_NOTE_AUTOSAVE_TIMEOUT_MS = 3000
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,75 @@ function setupDefaultMocks(task = makeTask()) {
   asMock(mechanicApi.useRequestPart).mockReturnValue(createMutationMock())
   asMock(mechanicApi.useCreateMediaUploadPolicy).mockReturnValue(createMutationMock())
   asMock(mechanicApi.useSaveMediaMetadata).mockReturnValue(createMutationMock())
+  asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(createMutationMock())
+}
+
+type MockMediaRecorderInstance = {
+  state: 'inactive' | 'recording'
+  mimeType: string
+  ondataavailable: ((event: { data: Blob }) => void) | null
+  onstop: (() => void) | null
+  onerror: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+function installMediaRecorderMock() {
+  const trackStopMock = vi.fn()
+  const instances: MockMediaRecorderInstance[] = []
+
+  const getUserMediaMock = vi.fn().mockResolvedValue({
+    getTracks: () => [{ stop: trackStopMock }],
+  })
+
+  class MockMediaRecorder {
+    public static isTypeSupported(mimeType: string) {
+      return [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ].includes(mimeType)
+    }
+
+    public state: 'inactive' | 'recording' = 'inactive'
+    public mimeType = 'audio/webm'
+    public ondataavailable: ((event: { data: Blob }) => void) | null = null
+    public onstop: (() => void) | null = null
+    public onerror: (() => void) | null = null
+
+    constructor(_stream: unknown, options?: { mimeType?: string }) {
+      if (options?.mimeType) {
+        this.mimeType = options.mimeType
+      }
+      instances.push(this as unknown as MockMediaRecorderInstance)
+    }
+
+    start() {
+      this.state = 'recording'
+    }
+
+    stop() {
+      this.state = 'inactive'
+      this.ondataavailable?.({
+        data: new Blob(['voice-note'], { type: this.mimeType }),
+      })
+      this.onstop?.()
+    }
+  }
+
+  Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+    configurable: true,
+    writable: true,
+    value: { getUserMedia: getUserMediaMock },
+  })
+  vi.stubGlobal('MediaRecorder', MockMediaRecorder)
+
+  return {
+    getUserMediaMock,
+    trackStopMock,
+    getLastInstance: () => instances.at(-1),
+  }
 }
 
 function renderDetailPage(
@@ -108,6 +178,7 @@ function renderDetailPage(
 describe('MechanicTaskDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(createMutationMock())
   })
 
   afterEach(() => {
@@ -407,6 +478,206 @@ describe('MechanicTaskDetailPage', () => {
   })
 
   // ─── Switch 409 → start fallback ─────────────────────────────────────────────
+
+  describe('voice-note recording and draft review', () => {
+    it('shows disabled voice-note controls when recording is unsupported', () => {
+      const originalMediaRecorder = globalThis.MediaRecorder
+      const originalMediaDevices = globalThis.navigator.mediaDevices
+      Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+        configurable: true,
+        writable: true,
+        value: undefined,
+      })
+      vi.stubGlobal('MediaRecorder', undefined)
+
+      try {
+        setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+        renderDetailPage()
+
+        const button = screen.getByRole('button', { name: /record voice note/i })
+        expect(button).toBeDisabled()
+        expect(
+          screen.getByText(/voice note recording is unavailable on this browser/i),
+        ).toBeInTheDocument()
+      } finally {
+        vi.unstubAllGlobals()
+        Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+          configurable: true,
+          writable: true,
+          value: originalMediaDevices,
+        })
+        Object.defineProperty(globalThis, 'MediaRecorder', {
+          configurable: true,
+          writable: true,
+          value: originalMediaRecorder,
+        })
+      }
+    })
+
+    it('transitions from recording to processing to draft-ready and uploads audio', async () => {
+      const media = installMediaRecorderMock()
+      let resolveUpload: ((value: { text: string }) => void) | undefined
+      const uploadMock = vi
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise<{ text: string }>((resolve) => {
+              resolveUpload = resolve
+            }),
+        )
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
+        createMutationMock({ mutateAsync: uploadMock }),
+      )
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+
+      const recorder = media.getLastInstance()
+      expect(recorder).toBeDefined()
+      fireEvent.click(screen.getByRole('button', { name: /stop recording/i }))
+
+      expect(media.trackStopMock).toHaveBeenCalled()
+      expect(screen.getByText(/processing voice note/i)).toBeInTheDocument()
+      expect(uploadMock).toHaveBeenCalledWith(
+        expect.objectContaining({ taskId: TASK_ID, audio: expect.any(Blob) }),
+      )
+
+      resolveUpload?.({ text: 'Translated draft' })
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/voice-note draft/i)).toBeInTheDocument()
+      })
+    })
+
+    it('accepts edited draft into diagnostics notes and keeps autosave path', async () => {
+      installMediaRecorderMock()
+      const saveMock = vi.fn().mockResolvedValue({ taskId: TASK_ID, mechanicNotes: '' })
+      const uploadMock = vi.fn().mockResolvedValue({ text: 'Initial draft' })
+
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Existing typed note' }))
+      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
+        createMutationMock({ mutateAsync: saveMock }),
+      )
+      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
+        createMutationMock({ mutateAsync: uploadMock }),
+      )
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+      fireEvent.click(screen.getByRole('button', { name: /stop recording/i }))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/voice-note draft/i)).toBeInTheDocument()
+      })
+
+      fireEvent.change(screen.getByLabelText(/voice-note draft/i), {
+        target: { value: 'Edited draft' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /accept draft/i }))
+
+      const diagnosticsTextarea = screen.getByPlaceholderText(/record diagnostic findings/i)
+      expect(diagnosticsTextarea).toHaveValue('Existing typed note\n\nEdited draft')
+
+      await waitFor(() => {
+        expect(saveMock).toHaveBeenCalledWith({
+          taskId: TASK_ID,
+          payload: { mechanicNotes: 'Existing typed note\n\nEdited draft' },
+        })
+      }, { timeout: VOICE_NOTE_AUTOSAVE_TIMEOUT_MS })
+    })
+
+    it('discards draft without changing existing notes', async () => {
+      installMediaRecorderMock()
+      const saveMock = vi.fn().mockResolvedValue({ taskId: TASK_ID, mechanicNotes: '' })
+      const uploadMock = vi.fn().mockResolvedValue({ text: 'Discard me' })
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Keep this' }))
+      asMock(mechanicApi.useSaveDiagnostics).mockReturnValue(
+        createMutationMock({ mutateAsync: saveMock }),
+      )
+      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
+        createMutationMock({ mutateAsync: uploadMock }),
+      )
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+      fireEvent.click(screen.getByRole('button', { name: /stop recording/i }))
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /discard draft/i })).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /discard draft/i }))
+
+      expect(screen.getByPlaceholderText(/record diagnostic findings/i)).toHaveValue('Keep this')
+      expect(screen.queryByLabelText(/voice-note draft/i)).not.toBeInTheDocument()
+      expect(saveMock).not.toHaveBeenCalled()
+    })
+
+    it('shows error state when provider upload fails and keeps typed notes', async () => {
+      installMediaRecorderMock()
+      const uploadMock = vi.fn().mockRejectedValue(new Error('Provider unavailable'))
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: 'Typed note' }))
+      asMock(mechanicApi.useUploadVoiceNote).mockReturnValue(
+        createMutationMock({ mutateAsync: uploadMock }),
+      )
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+      fireEvent.click(screen.getByRole('button', { name: /stop recording/i }))
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /retry recording/i })).toBeInTheDocument()
+      })
+
+      expect(screen.getByPlaceholderText(/record diagnostic findings/i)).toHaveValue('Typed note')
+      expect(screen.getByText(/provider unavailable/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /retry recording/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+    })
+
+    it('shows recorder error and allows starting a new recording attempt', async () => {
+      const media = installMediaRecorderMock()
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+
+      media.getLastInstance()?.onerror?.()
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /retry recording/i })).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /retry recording/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument()
+      })
+    })
+  })
 
   describe('switch 409 → start fallback', () => {
     it('opens the switch dialog on "Switch Here" click', () => {
