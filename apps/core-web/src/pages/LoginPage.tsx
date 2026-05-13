@@ -6,10 +6,17 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/auth/AuthProvider'
 
 function describeAuthError(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'code' in error) {
-    const code = String((error as { code?: string }).code ?? '')
-    if (code) {
-      return `${fallback} (${code})`
+  if (error && typeof error === 'object') {
+    const details = [
+      ['name', 'name' in error ? String((error as { name?: string }).name ?? '') : ''],
+      ['code', 'code' in error ? String((error as { code?: string }).code ?? '') : ''],
+      ['message', 'message' in error ? String((error as { message?: string }).message ?? '') : ''],
+    ]
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key}=${value}`)
+
+    if (details.length > 0) {
+      return `${fallback} (${details.join(', ')})`
     }
   }
 
