@@ -5,6 +5,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/auth/AuthProvider'
 
+function describeAuthError(error: unknown, fallback: string) {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = String((error as { code?: string }).code ?? '')
+    if (code) {
+      return `${fallback} (${code})`
+    }
+  }
+
+  return fallback
+}
+
 export default function LoginPage() {
   const { signIn, signInWithGoogle, isConfigured } = useAuth()
   const [email, setEmail] = React.useState('')
@@ -25,7 +36,7 @@ export default function LoginPage() {
       if (signInError instanceof Error && signInError.message.includes('not allowed')) {
         setError(signInError.message)
       } else {
-        setError('Login failed. Verify your email and password and try again.')
+        setError(describeAuthError(signInError, 'Login failed. Verify your email and password and try again.'))
       }
     } finally {
       setSubmitting(false)
@@ -42,7 +53,7 @@ export default function LoginPage() {
       if (signInError instanceof Error && signInError.message.includes('not allowed')) {
         setError(signInError.message)
       } else {
-        setError('Google login failed. Try again.')
+        setError(describeAuthError(signInError, 'Google login failed. Try again.'))
       }
     } finally {
       setGoogleSubmitting(false)
