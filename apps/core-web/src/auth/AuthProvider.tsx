@@ -8,26 +8,9 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import type { User, UserCredential } from 'firebase/auth'
 import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
-
-const allowedEmails = (import.meta.env.VITE_ALLOWED_LOGIN_EMAILS ?? '')
-  .split(',')
-  .map((email: string) => email.trim().toLowerCase())
-  .filter(Boolean)
-
-function assertAllowedUser(user: User) {
-  if (allowedEmails.length === 0) {
-    return
-  }
-
-  const email = user.email?.toLowerCase()
-  if (!email || !allowedEmails.includes(email)) {
-    throw new Error('This account is not allowed to access this app.')
-  }
-}
 
 function shouldFallbackToRedirect(error: unknown) {
   if (typeof error !== 'object' || error === null) {
@@ -146,14 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firebase Authentication is not configured.')
     }
 
-    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
-
-    try {
-      assertAllowedUser(credential.user)
-    } catch (error) {
-      await signOut(firebaseAuth)
-      throw error
-    }
+    await signInWithEmailAndPassword(firebaseAuth, email, password)
   }, [])
 
   const signInWithGoogle = React.useCallback(async () => {
@@ -162,23 +138,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const provider = new GoogleAuthProvider()
-    let credential: UserCredential | null = null
 
     try {
-      credential = await signInWithPopup(firebaseAuth, provider)
+      await signInWithPopup(firebaseAuth, provider)
     } catch (error) {
       if (shouldFallbackToRedirect(error)) {
         await signInWithRedirect(firebaseAuth, provider)
         return
       }
 
-      throw error
-    }
-
-    try {
-      assertAllowedUser(credential.user)
-    } catch (error) {
-      await signOut(firebaseAuth)
       throw error
     }
   }, [])

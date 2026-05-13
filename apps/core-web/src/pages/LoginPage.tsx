@@ -40,11 +40,7 @@ export default function LoginPage() {
     try {
       await signIn(email.trim(), password)
     } catch (signInError) {
-      if (signInError instanceof Error && signInError.message.includes('not allowed')) {
-        setError(signInError.message)
-      } else {
-        setError(describeAuthError(signInError, 'Login failed. Verify your email and password and try again.'))
-      }
+      setError(describeAuthError(signInError, 'Login failed. Verify your email and password and try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -57,11 +53,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle()
     } catch (signInError) {
-      if (signInError instanceof Error && signInError.message.includes('not allowed')) {
-        setError(signInError.message)
-      } else {
-        setError(describeAuthError(signInError, 'Google login failed. Try again.'))
-      }
+      setError(describeAuthError(signInError, 'Google login failed. Try again.'))
     } finally {
       setGoogleSubmitting(false)
     }

@@ -224,11 +224,7 @@ VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
-VITE_ALLOWED_LOGIN_EMAILS=
 ```
-
-`VITE_ALLOWED_LOGIN_EMAILS` is a comma-separated allowlist (example: `van.dean25@gmail.com,admin@company.com`).
-If empty, any authenticated Firebase user can access the UI.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
