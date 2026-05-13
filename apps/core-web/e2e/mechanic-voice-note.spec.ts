@@ -25,6 +25,12 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
         onstop = null
         onerror = null
 
+        constructor(_stream: unknown, options?: { mimeType?: string }) {
+          if (options?.mimeType) {
+            this.mimeType = options.mimeType
+          }
+        }
+
         start() {
           this.state = 'recording'
         }
