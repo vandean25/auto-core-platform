@@ -106,7 +106,12 @@ function installMediaRecorderMock() {
 
   class MockMediaRecorder {
     public static isTypeSupported(mimeType: string) {
-      return mimeType.includes('webm')
+      return [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ].includes(mimeType)
     }
 
     public state: 'inactive' | 'recording' = 'inactive'

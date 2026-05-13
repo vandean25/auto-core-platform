@@ -311,8 +311,7 @@ export default function MechanicTaskDetailPage() {
           return
         }
 
-        const firstChunk = chunks.find((chunk): chunk is Blob => chunk instanceof Blob)
-        const audioMimeType = recorder.mimeType || firstChunk?.type || recorderMimeType || 'audio/webm'
+        const audioMimeType = recorder.mimeType || recorderMimeType || 'audio/webm'
         const audioBlob = new Blob(chunks, { type: audioMimeType })
         setVoiceNoteState('processing')
         void uploadVoiceNote

@@ -10,8 +10,13 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
 
     await page.addInitScript(() => {
       class MockMediaRecorder {
-        static isTypeSupported() {
-          return true
+        static isTypeSupported(mimeType: string) {
+          return [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/ogg;codecs=opus',
+          ].includes(mimeType)
         }
 
         state = 'inactive'
