@@ -1,8 +1,9 @@
+import * as React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authSessionKeys } from '@/api/auth-session'
-import { AuthProvider } from '@/auth/AuthProvider'
+import { AuthProvider, useAuth } from '@/auth/AuthProvider'
 
 type MockAuthUser = {
   uid: string
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   signInWithPopup: vi.fn(),
+  signInWithRedirect: vi.fn(),
   signOut: vi.fn(),
 }))
 
@@ -28,6 +30,7 @@ vi.mock('firebase/auth', () => ({
   }),
   signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
   signInWithPopup: mocks.signInWithPopup,
+  signInWithRedirect: mocks.signInWithRedirect,
   signOut: mocks.signOut,
 }))
 
@@ -58,6 +61,16 @@ function createUser(uid: string, email: string): MockAuthUser {
       },
     }),
   }
+}
+
+function AuthActions({ onReady }: { onReady: (actions: ReturnType<typeof useAuth>) => void }) {
+  const auth = useAuth()
+
+  React.useEffect(() => {
+    onReady(auth)
+  }, [auth, onReady])
+
+  return null
 }
 
 describe('AuthProvider', () => {
@@ -111,5 +124,36 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(removeQueries).toHaveBeenCalledTimes(2)
     })
+  })
+
+  it('falls back to redirect when popup sign-in is blocked', async () => {
+    const queryClient = createQueryClient()
+    const authError = { code: 'auth/popup-blocked', message: 'Popup blocked' }
+    mocks.signInWithPopup.mockRejectedValueOnce(authError)
+    mocks.signInWithRedirect.mockResolvedValueOnce(undefined)
+
+    let actions: ReturnType<typeof useAuth> | null = null
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthActions onReady={(nextActions) => {
+            actions = nextActions
+          }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(actions).not.toBeNull()
+    })
+
+    await act(async () => {
+      await actions!.signInWithGoogle()
+    })
+
+    expect(mocks.signInWithPopup).toHaveBeenCalledTimes(1)
+    expect(mocks.signInWithRedirect).toHaveBeenCalledTimes(1)
+    expect(mocks.signOut).not.toHaveBeenCalled()
   })
 })

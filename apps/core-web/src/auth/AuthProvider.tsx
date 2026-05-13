@@ -5,9 +5,10 @@ import {
   onIdTokenChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import type { User } from 'firebase/auth'
+import type { User, UserCredential } from 'firebase/auth'
 import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
@@ -26,6 +27,21 @@ function assertAllowedUser(user: User) {
   if (!email || !allowedEmails.includes(email)) {
     throw new Error('This account is not allowed to access this app.')
   }
+}
+
+function shouldFallbackToRedirect(error: unknown) {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+
+  const code = 'code' in error ? String((error as { code?: string }).code ?? '') : ''
+
+  return [
+    'auth/popup-blocked',
+    'auth/popup-closed-by-user',
+    'auth/cancelled-popup-request',
+    'auth/operation-not-supported-in-this-environment',
+  ].includes(code)
 }
 
 type AuthTokenResult = {
@@ -146,7 +162,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const provider = new GoogleAuthProvider()
-    const credential = await signInWithPopup(firebaseAuth, provider)
+    let credential: UserCredential | null = null
+
+    try {
+      credential = await signInWithPopup(firebaseAuth, provider)
+    } catch (error) {
+      if (shouldFallbackToRedirect(error)) {
+        await signInWithRedirect(firebaseAuth, provider)
+        return
+      }
+
+      throw error
+    }
 
     try {
       assertAllowedUser(credential.user)
