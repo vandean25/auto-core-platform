@@ -200,7 +200,7 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 ### Firebase Project
 
-- **Backend + Cloud Build + Hosting + Firebase Auth Project**: `auto-core-platform`
+- **Backend + Cloud Build + Hosting + Firebase Auth Project**: `auto-core-platform-vande`
 
 The application now uses a single Firebase/GCP project for backend deployment, frontend hosting, and Firebase Authentication.
 
@@ -256,7 +256,7 @@ Authentication -> Users -> Add user.
 
 ### Firebase Console Requirements
 
-In Firebase project `auto-core-platform`:
+In Firebase project `auto-core-platform-vande`:
 
 1. Enable Authentication providers you use (`Email/Password`, `Google`).
 2. Ensure authorized domains include your hosting domains.
@@ -269,11 +269,13 @@ In Firebase project `auto-core-platform`:
 The release trigger deploys on tags matching `^v.*$`.
 
 - Build file: `cloudbuild.yaml`
-- Hosting config: `firebase.json` (site set to `auto-core-platform`)
+- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
+
+Release Firebase substitutions in `cloudbuild.yaml` must match the GSM-backed `core-web` values for `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID`.
 
 ### Required APIs
 
-In project `auto-core-platform`:
+In project `auto-core-platform-vande`:
 
 - `cloudbuild.googleapis.com`
 - `firebase.googleapis.com` (Firebase Management API)
@@ -283,7 +285,7 @@ In project `auto-core-platform`:
 
 ### Required IAM for build service account
 
-Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform`:
+Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
 
 - `roles/firebase.admin`
 - `roles/firebasehosting.admin`
@@ -511,8 +513,8 @@ If Cloud Build fails on hosting deploy with errors like:
 
 Check:
 
-1. `firebase.googleapis.com` and `firebasehosting.googleapis.com` are enabled in **build project** (`auto-core-platform`).
-2. Build service account has Firebase roles on `auto-core-platform`.
+1. `firebase.googleapis.com` and `firebasehosting.googleapis.com` are enabled in **build project** (`auto-core-platform-vande`).
+2. Build service account has Firebase roles on `auto-core-platform-vande`.
 3. `firebase.json` contains the correct hosting site name.
 
 ---
