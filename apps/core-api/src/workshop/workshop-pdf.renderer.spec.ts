@@ -4,34 +4,35 @@ import type { WorkshopOrderForPdf } from './workshop-pdf.types';
 describe('WorkshopPdfRenderer', () => {
   const createOrder = (
     overrides: Partial<WorkshopOrderForPdf> = {},
-  ): WorkshopOrderForPdf => ({
-    id: 'order-1',
-    order_number: 'WO-1',
-    status: 'INTAKE',
-    odometer: 12345,
-    fuel_level: 50,
-    reported_issue: 'Engine noise\nOnly at idle',
-    notes: 'Internal note line 1\nInternal note line 2',
-    customer: {
-      type: 'PRIVATE',
-      first_name: 'Ada',
-      last_name: 'Lovelace',
-      company_name: null,
-      phone: '123456789',
-      email: 'ada@example.com',
-      address_zip: '1010',
-      address_city: 'Wien',
-    },
-    vehicle: {
-      make: 'VW',
-      model: 'Golf',
-      year: 2020,
-      vin: 'VIN-123',
-      plate: 'W-1234',
-    },
-    tasks: [],
-    ...overrides,
-  });
+  ): WorkshopOrderForPdf =>
+    ({
+      id: 'order-1',
+      order_number: 'WO-1',
+      status: 'INTAKE',
+      odometer: 12345,
+      fuel_level: 50,
+      reported_issue: 'Engine noise\nOnly at idle',
+      notes: 'Internal note line 1\nInternal note line 2',
+      customer: {
+        type: 'PRIVATE',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        company_name: null,
+        phone: '123456789',
+        email: 'ada@example.com',
+        address_zip: '1010',
+        address_city: 'Wien',
+      },
+      vehicle: {
+        make: 'VW',
+        model: 'Golf',
+        year: 2020,
+        vin: 'VIN-123',
+        plate: 'W-1234',
+      },
+      tasks: [],
+      ...overrides,
+    }) as WorkshopOrderForPdf;
 
   afterEach(() => {
     jest.restoreAllMocks();

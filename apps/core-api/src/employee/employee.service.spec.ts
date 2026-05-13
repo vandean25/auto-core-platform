@@ -121,10 +121,7 @@ describe('EmployeeService', () => {
   it('unlinks a userId when null is provided in update', async () => {
     const linkedEmployee = { ...baseEmployee, user_id: 'user-uuid-xyz' };
     mockPrisma.employee.findFirst.mockResolvedValue(linkedEmployee);
-    mockPrisma.employee.update.mockResolvedValue({
-      ...baseEmployee,
-      user_id: null,
-    });
+    mockPrisma.employee.update.mockResolvedValue({ ...baseEmployee, user_id: null });
 
     const result = await service.update('emp-1', { userId: null });
 
@@ -151,11 +148,7 @@ describe('EmployeeService', () => {
   });
 
   it('sets userId when provided in create', async () => {
-    const newEmployee = {
-      ...baseEmployee,
-      id: 'emp-new',
-      user_id: 'user-uuid-new',
-    };
+    const newEmployee = { ...baseEmployee, id: 'emp-new', user_id: 'user-uuid-new' };
     mockPrisma.employee.create.mockResolvedValue(newEmployee);
 
     const result = await service.create({

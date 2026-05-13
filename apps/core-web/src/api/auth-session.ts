@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 import { firebaseAuth } from '@/lib/firebase'
-import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
 
 export type AuthSession = components['schemas']['AuthSessionResponseDto']
 export type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
@@ -12,18 +11,6 @@ export type SwitchTenantPayload = components['schemas']['SwitchTenantDto']
 export const authSessionKeys = {
   all: ['auth-session'] as const,
   user: (userKey: string | null) => [...authSessionKeys.all, userKey ?? 'anonymous'] as const,
-}
-
-const e2eAuthSession: AuthSession = {
-  userId: 'e2e-test-user',
-  email: 'testauto@auto.core.at',
-  activeTenant: {
-    id: 'e2e-tenant-id',
-    name: 'Auto Core E2E Tenant',
-    slug: 'e2e-tenant',
-  },
-  activeRole: 'ADMIN',
-  memberships: [],
 }
 
 function getCurrentUserKey(explicitUserKey?: string | null) {
@@ -46,10 +33,6 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
     queryKey: authSessionKeys.user(resolvedUserKey),
     enabled: enabled && Boolean(resolvedUserKey),
     queryFn: async () => {
-      if (isE2EAuthBypassEnabled()) {
-        return e2eAuthSession
-      }
-
       const response = await fetchWithAuth('/api/auth/me')
 
       if (!response.ok) {

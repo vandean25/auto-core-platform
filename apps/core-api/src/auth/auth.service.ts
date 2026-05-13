@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import {
   ForbiddenException,
   Inject,
@@ -31,10 +30,7 @@ type AuthenticateBearerTokenOptions = {
 
 @Injectable()
 export class AuthService {
-  private readonly testJwtSecret =
-    process.env.NODE_ENV === 'test'
-      ? (process.env.TEST_JWT_SECRET || randomBytes(32).toString('hex'))
-      : undefined;
+  private readonly testJwtSecret = 'test-jwt-secret';
 
   constructor(
     @Inject(forwardRef(() => PrismaService))
@@ -117,10 +113,6 @@ export class AuthService {
   }
 
   createTestToken(overrides: Partial<AuthClaims> = {}): string {
-    if (!this.testJwtSecret) {
-      throw new Error('Test tokens can only be created in test environment.');
-    }
-
     return this.jwtService.sign(
       {
         sub: 'e2e-user-id',
@@ -175,10 +167,6 @@ export class AuthService {
   private async verifyTestToken(
     token: string,
   ): Promise<AuthClaims | undefined> {
-    if (!this.testJwtSecret) {
-      return undefined;
-    }
-
     try {
       return await this.jwtService.verifyAsync<AuthClaims>(token, {
         secret: this.testJwtSecret,

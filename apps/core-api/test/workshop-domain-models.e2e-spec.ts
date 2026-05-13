@@ -4,12 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import {
-  cleanupTestTenantGraph,
-  createTenantAwarePrisma,
-  createTestTenant,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 jest.setTimeout(30000);
 
@@ -37,9 +32,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);
@@ -109,10 +102,32 @@ describe('Workshop Domain Models (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (tenantId) {
-      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
+    if (orderId) {
+      await prisma.workshopTaskLineItem.deleteMany({
+        where: { workshop_task: { workshop_order_id: orderId } },
+      });
+      await prisma.workshopTask.deleteMany({ where: { workshop_order_id: orderId } });
+      await prisma.workshopOrder.deleteMany({ where: { id: orderId } });
     }
-    await teardownTestApp(app, prisma);
+    if (templateItemId) {
+      await prisma.inspectionTemplateItem.deleteMany({ where: { id: templateItemId } });
+    }
+    if (templateId) {
+      await prisma.inspectionTemplate.deleteMany({ where: { id: templateId } });
+    }
+    if (mechanicId) {
+      await prisma.employee.deleteMany({ where: { id: mechanicId } });
+    }
+    if (vehicleId) {
+      await prisma.vehicle.deleteMany({ where: { id: vehicleId } });
+    }
+    if (customerId) {
+      await prisma.customer.deleteMany({ where: { id: customerId } });
+    }
+    if (tenantId) {
+      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+    }
+    await app.close();
   });
 
   it('persists inspection templates, inspections, media metadata, and part execution status', async () => {
@@ -194,9 +209,7 @@ describe('Workshop Domain Models (e2e)', () => {
     expect(template.items).toHaveLength(1);
     expect(inspection.workshop_order_id).toBe(orderId);
     expect(inspection.workshop_task_id).toBe(taskId);
-    expect(inspection.items[0]?.inspection_template_item_id).toBe(
-      template.items[0]?.id,
-    );
+    expect(inspection.items[0]?.inspection_template_item_id).toBe(template.items[0]?.id);
     expect(media.storage_key).toContain(orderId);
     expect(partLine.part_execution_status).toBe('PENDING_PICK');
   });

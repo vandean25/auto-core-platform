@@ -1,4 +1,4 @@
-import { Page, expect, Locator } from "@playwright/test";
+import { Page, expect, Locator } from '@playwright/test';
 
 /**
  * AutoCorePage encapsulates the "Golden Rules" of the Auto Core Platform UI.
@@ -22,7 +22,7 @@ export class AutoCorePage {
 
   /** Escapes a string for safe embedding in a RegExp literal. */
   private static escapeRegex(text: string): string {
-    return text.replace(/[+.*?^${}()|[\]\\]/g, "\\$&");
+    return text.replace(/[+.*?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**
@@ -35,16 +35,14 @@ export class AutoCorePage {
    */
   get createButton(): Locator {
     // Anchored: matches exactly "Item" or "+ Item" but NOT "Items", "Purchase Orders", etc.
-    const nameRegex = new RegExp(
-      `^(\\+ )?${AutoCorePage.escapeRegex(this.entityName)}$`,
-    );
+    const nameRegex = new RegExp(`^(\\+ )?${AutoCorePage.escapeRegex(this.entityName)}$`);
     return this.page
-      .getByRole("button", { name: nameRegex })
-      .or(this.page.getByRole("link", { name: nameRegex }));
+      .getByRole('button', { name: nameRegex })
+      .or(this.page.getByRole('link', { name: nameRegex }));
   }
 
   get dataTable(): Locator {
-    return this.page.getByRole("table");
+    return this.page.getByRole('table');
   }
 
   /**
@@ -52,27 +50,8 @@ export class AutoCorePage {
    * are served before any assertions are made.
    */
   async navigate(path: string) {
-    await this.page.route(
-      AutoCorePage.apiRouteMatcher("/api/auth/session"),
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            user: {
-              id: "test-user",
-              email: "test@example.com",
-            },
-            tenant: {
-              id: "test-tenant",
-              name: "Test Tenant",
-            },
-          }),
-        });
-      },
-    );
     await this.page.goto(path);
-    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
@@ -84,10 +63,7 @@ export class AutoCorePage {
    * - A create button matching `entityName` is visible (typically top-right).
    */
   async verifyHeaderConsistency(title: string) {
-    const heading = this.page.getByRole("heading", {
-      name: title,
-      exact: true,
-    });
+    const heading = this.page.getByRole('heading', { name: title, exact: true });
     await expect(heading).toBeVisible();
     await expect(this.createButton).toBeVisible();
   }
@@ -100,10 +76,7 @@ export class AutoCorePage {
    * b) Navigation      → the URL changes (e.g. `/vendors/:id`).
    */
   async openRowDetails(searchText: string) {
-    const row = this.page
-      .locator('[data-table-row="true"]')
-      .filter({ hasText: searchText })
-      .first();
+    const row = this.page.locator('[data-table-row="true"]').filter({ hasText: searchText }).first();
     await expect(row).toBeVisible();
 
     const urlBefore = this.page.url();
@@ -145,38 +118,25 @@ export class AutoCorePage {
    * a fast network response.
    *
    * Sequence verified:
-   * 1. A PATCH or POST request to `apiPath` is completed.
-   * 2. If the "Saving…" indicator becomes visible before the response, observe it.
+   * 1. A "Saving…" text indicator appears in the UI.
+   * 2. A PATCH or POST request to `apiPath` is completed.
    * 3. A "Saved" / "All changes saved" text indicator appears.
-   *
-   * Some document forms render the "Saving…" state for a very short window, so
-   * the helper treats it as best-effort and always requires the final saved-state
-   * message instead of failing on a missed transient transition.
    */
   async waitForAutoSave(apiPath: string) {
     // Register the response listener FIRST to avoid a race with a fast network.
     const responsePromise = this.page.waitForResponse(
       (res) =>
         res.url().includes(apiPath) &&
-        (res.request().method() === "PATCH" ||
-          res.request().method() === "POST"),
+        (res.request().method() === 'PATCH' || res.request().method() === 'POST'),
     );
 
-    const savingLocator = this.page.getByText(/saving/i)
-    const savedLocator = this.page.getByText(/^(all changes saved|saved(?: ✓)?)$/i)
+    // 1. UI transitions to "Saving…"
+    await expect(this.page.getByText(/saving/i)).toBeVisible();
 
-    // Some pages transition from "Saving…" to "Saved" too quickly for a strict
-    // visible assertion, so observe the transient state only if it appears
-    // before the network round-trip completes.
-    const savingSeenBeforeResponse = await Promise.race([
-      savingLocator.waitFor({ state: 'visible', timeout: 1500 }).then(() => true),
-      responsePromise.then(() => false),
-    ]).catch(() => false)
+    // 2. The network request completes.
+    await responsePromise;
 
-    if (savingSeenBeforeResponse) {
-      await responsePromise
-    }
-
-    await expect(savedLocator).toBeVisible()
+    // 3. UI transitions to "Saved" / "All changes saved".
+    await expect(this.page.getByText(/saved/i)).toBeVisible();
   }
 }

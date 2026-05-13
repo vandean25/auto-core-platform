@@ -16,11 +16,6 @@ const mockPrisma = {
     count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  laborFitment: {
-    deleteMany: jest.fn(),
-    createMany: jest.fn(),
   },
   laborCategory: {
     findUnique: jest.fn(),
@@ -30,7 +25,6 @@ const mockPrisma = {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
   },
-  $transaction: jest.fn(),
 };
 
 const mockTenantContextService = {
@@ -56,15 +50,11 @@ describe('LaborService', () => {
   let service: LaborService;
 
   beforeEach(() => {
-    jest.resetAllMocks();
-    mockTenantContextService.getTenantId.mockResolvedValue('tenant-1');
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
-    );
     service = new LaborService(
       mockPrisma as unknown as PrismaService,
       mockTenantContextService as unknown as TenantContextService,
     );
+    jest.clearAllMocks();
   });
 
   // ── findAll ───────────────────────────────────────────────────────────
@@ -298,13 +288,11 @@ describe('LaborService', () => {
 
   describe('update', () => {
     it('updates operation successfully', async () => {
-      mockPrisma.laborOperation.findFirst
-        .mockResolvedValueOnce(baseOperation)
-        .mockResolvedValueOnce({
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         description: 'Updated Description',
       });
-      mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', {
         description: 'Updated Description',
@@ -332,23 +320,20 @@ describe('LaborService', () => {
     });
 
     it('does not re-check code uniqueness when code is unchanged', async () => {
-      mockPrisma.laborOperation.findFirst
-        .mockResolvedValueOnce(baseOperation)
-        .mockResolvedValueOnce({
+      mockPrisma.laborOperation.findFirst.mockResolvedValueOnce(baseOperation);
+      mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         description: 'Updated',
       });
-      mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       await service.update('op-1', { code: 'OP001', description: 'Updated' });
 
-      expect(mockPrisma.laborOperation.findFirst).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.laborOperation.findFirst).toHaveBeenCalledTimes(1);
     });
 
     it('replaces fitments when fitments array provided', async () => {
-      mockPrisma.laborOperation.findFirst
-        .mockResolvedValueOnce(baseOperation)
-        .mockResolvedValueOnce({
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         fitments: [
           {
@@ -361,9 +346,6 @@ describe('LaborService', () => {
           },
         ],
       });
-      mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.laborFitment.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrisma.laborFitment.createMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', {
         fitments: [{ make: 'Honda', model: 'Civic' }],
@@ -373,20 +355,17 @@ describe('LaborService', () => {
     });
 
     it('updates is_active when isActive is provided', async () => {
-      mockPrisma.laborOperation.findFirst
-        .mockResolvedValueOnce(baseOperation)
-        .mockResolvedValueOnce({
+      mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
+      mockPrisma.laborOperation.update.mockResolvedValue({
         ...baseOperation,
         is_active: false,
       });
-      mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', { isActive: false });
 
       expect(result.isActive).toBe(false);
-      expect(mockPrisma.laborOperation.updateMany).toHaveBeenCalledWith(
+      expect(mockPrisma.laborOperation.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'op-1', tenant_id: 'tenant-1' },
           data: expect.objectContaining({ is_active: false }),
         }),
       );
@@ -398,14 +377,17 @@ describe('LaborService', () => {
   describe('softDelete', () => {
     it('sets is_active to false', async () => {
       mockPrisma.laborOperation.findFirst.mockResolvedValue(baseOperation);
-      mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.laborOperation.update.mockResolvedValue({
+        ...baseOperation,
+        is_active: false,
+      });
 
       const result = await service.softDelete('op-1');
 
       expect(result.isActive).toBe(false);
-      expect(mockPrisma.laborOperation.updateMany).toHaveBeenCalledWith(
+      expect(mockPrisma.laborOperation.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'op-1', tenant_id: 'tenant-1' },
+          where: { id: 'op-1' },
           data: { is_active: false },
         }),
       );

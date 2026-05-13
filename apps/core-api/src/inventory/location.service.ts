@@ -140,8 +140,8 @@ export class LocationService {
       await this.validateHierarchy(newType, newParentId);
     }
 
-    await this.prisma.storageLocation.updateMany({
-      where: { id, tenant_id: tenantId },
+    return this.prisma.storageLocation.update({
+      where: { id },
       data: {
         name: data.name,
         code: data.code,
@@ -149,12 +149,6 @@ export class LocationService {
         parent_id: data.parentId,
       },
     });
-
-    const updated = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
-    if (!updated) throw new NotFoundException('Location not found');
-    return updated;
   }
 
   async remove(id: string) {
@@ -176,17 +170,10 @@ export class LocationService {
       throw new BadRequestException('Cannot delete location containing stock.');
     }
 
-    await this.prisma.storageLocation.updateMany({
-      where: { id, tenant_id: tenantId },
+    return this.prisma.storageLocation.update({
+      where: { id },
       data: { deletedAt: new Date() },
     });
-
-    const updated = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
-      include: locationInclude,
-    });
-    if (!updated) throw new NotFoundException('Location not found');
-    return updated;
   }
 
   private async validateHierarchy(

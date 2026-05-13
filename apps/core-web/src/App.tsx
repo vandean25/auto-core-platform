@@ -247,16 +247,7 @@ function MechanicRoutes() {
   )
 }
 
-// ADR-0014: The stale localStorage key written by the previous client-side mechanic
-// selection model.  Removing it on every shell mount ensures no residual identity
-// can survive an upgrade even if the user never explicitly cleared site data.
-const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
-
-export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicShellProps) {
-  React.useEffect(() => {
-    window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)
-  }, [])
-
+function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicShellProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Minimal top bar — hides all admin/billing navigation */}
@@ -306,17 +297,7 @@ type ShellRouterProps = AppShellProps & {
 function ShellRouter(props: ShellRouterProps) {
   const location = useLocation()
 
-  const isMechanicPath = location.pathname === '/mechanic' || location.pathname.startsWith('/mechanic/')
-
-  // ADR-0014 §8.2: A mechanic-mode session (TECH role) may load only the
-  // dedicated mechanic/tablet routes. Redirect any other navigation to the
-  // mechanic queue.
-  const isMechanicMode = props.activeRole === 'TECH'
-  if (isMechanicMode && !isMechanicPath) {
-    return <Navigate to="/mechanic/queue" replace />
-  }
-
-  if (isMechanicPath) {
+  if (location.pathname.startsWith('/mechanic')) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}

@@ -15,7 +15,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
-    updateMany: jest.fn(),
+    update: jest.fn(),
     delete: jest.fn(),
     deleteMany: jest.fn(),
   },
@@ -32,12 +32,11 @@ describe('LaborCategoryService', () => {
   let service: LaborCategoryService;
 
   beforeEach(() => {
-    jest.resetAllMocks();
-    mockTenantContextService.getTenantId.mockResolvedValue('tenant-1');
     service = new LaborCategoryService(
       mockPrisma as unknown as PrismaService,
       mockTenantContextService as unknown as TenantContextService,
     );
+    jest.clearAllMocks();
   });
 
   // ── findAll ───────────────────────────────────────────────────────────
@@ -287,12 +286,11 @@ describe('LaborCategoryService', () => {
     it('updates a category name successfully', async () => {
       mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory) // category exists
-        .mockResolvedValueOnce(null) // new name is unique
-        .mockResolvedValueOnce({
+        .mockResolvedValueOnce(null); // new name is unique
+      mockPrisma.laborCategory.update.mockResolvedValue({
         ...existingCategory,
         name: 'Engine Updated',
       });
-      mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('cat-1', { name: 'Engine Updated' });
 
@@ -300,13 +298,13 @@ describe('LaborCategoryService', () => {
     });
 
     it('preserves 0 as a valid default_hourly_rate on update', async () => {
-      mockPrisma.laborCategory.findFirst
-        .mockResolvedValueOnce(existingCategory)
-        .mockResolvedValueOnce({
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
+        existingCategory,
+      );
+      mockPrisma.laborCategory.update.mockResolvedValue({
         ...existingCategory,
         default_hourly_rate: 0,
       });
-      mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('cat-1', { default_hourly_rate: 0 });
 
@@ -342,7 +340,7 @@ describe('LaborCategoryService', () => {
           clientVersion: '0',
         },
       );
-      mockPrisma.laborCategory.updateMany.mockRejectedValue(p2002);
+      mockPrisma.laborCategory.update.mockRejectedValue(p2002);
 
       await expect(
         service.update('cat-1', { name: 'Race Condition' }),
@@ -403,17 +401,18 @@ describe('LaborCategoryService', () => {
     });
 
     it('does not re-check name uniqueness when name is unchanged', async () => {
-      mockPrisma.laborCategory.findFirst
-        .mockResolvedValueOnce(existingCategory)
-        .mockResolvedValueOnce({
+      mockPrisma.laborCategory.findFirst.mockResolvedValueOnce(
+        existingCategory,
+      );
+      mockPrisma.laborCategory.update.mockResolvedValue({
         ...existingCategory,
         sort_order: 5,
       });
-      mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       await service.update('cat-1', { name: 'Engine', sort_order: 5 });
 
-      expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledTimes(2);
+      // findFirst should only be called once (for the category existence check)
+      expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledTimes(1);
     });
   });
 

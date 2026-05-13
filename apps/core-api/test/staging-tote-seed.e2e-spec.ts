@@ -4,7 +4,6 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
-import { teardownTestApp } from './test-lifecycle';
 
 describe('Staging Tote Seed (e2e)', () => {
   let app: INestApplication;
@@ -76,7 +75,7 @@ describe('Staging Tote Seed (e2e)', () => {
       where: { id: warehouseId },
     });
 
-    await teardownTestApp(app, prisma);
+    await app.close();
   });
 
   it('creates 50 fixed staging totes and stays idempotent on reruns', async () => {
@@ -143,10 +142,12 @@ describe('Staging Tote Seed (e2e)', () => {
       unchanged: 49,
     });
 
-    const restoredTote = await prisma.storageLocation.findFirst({
+    const restoredTote = await prisma.storageLocation.findUnique({
       where: {
-        tenant_id: tenantId,
-        code: 'TOTE-010',
+        tenant_id_code: {
+          tenant_id: tenantId,
+          code: 'TOTE-010',
+        },
       },
     });
 

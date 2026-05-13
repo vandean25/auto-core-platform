@@ -17,7 +17,6 @@ import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/
 
 export default function InventoryList() {
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-    const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
 
     const searchFromNameFilter = queryParams.filters.find((f) => f.field === 'name')?.value
     const { data: responseData, isLoading } = useInventory({
@@ -25,10 +24,8 @@ export default function InventoryList() {
         pageSize: queryParams.pageSize,
         search: queryParams.search ?? searchFromNameFilter,
     })
-    const { data: brandOptions = [] } = useBrands(
-        { isPartManufacturer: true },
-        { enabled: selectedItem !== null },
-    )
+    const { data: brandOptions = [] } = useBrands({ isPartManufacturer: true })
+    const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null)
 
     const data = responseData?.data ?? []
     const pageCount = responseData?.meta.pageCount ?? 1

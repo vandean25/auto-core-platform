@@ -1,4 +1,4 @@
-import type { Socket, Server } from 'socket.io';
+import type { Socket } from 'socket.io';
 import type { AuthService } from '../auth/auth.service';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -18,10 +18,7 @@ describe('resolveCorsOrigins', () => {
 
   it('uses configured origins when FRONTEND_URL is provided', () => {
     expect(
-      resolveCorsOrigins(
-        'http://localhost:5173,https://app.example.com',
-        'development',
-      ),
+      resolveCorsOrigins('http://localhost:5173,https://app.example.com', 'development'),
     ).toEqual(['http://localhost:5173', 'https://app.example.com']);
   });
 });
@@ -47,96 +44,58 @@ function createClient(token?: string): MockSocket {
 describe('DashboardGateway', () => {
   let authService: jest.Mocked<Pick<AuthService, 'authenticateBearerToken'>>;
   let gateway: DashboardGateway;
-  let middleware: (socket: any, next: (err?: Error) => void) => void;
 
   beforeEach(() => {
     authService = {
       authenticateBearerToken: jest.fn(),
     };
-    gateway = new DashboardGateway(authService);
-
-    const mockServer = {
-      use: jest.fn((fn) => {
-        middleware = fn;
-      }),
-    };
-    gateway.afterInit(mockServer as unknown as Server);
+    gateway = new DashboardGateway(authService as unknown as AuthService);
   });
 
-  describe('middleware authentication', () => {
-    it('rejects connection when socket auth token is missing', async () => {
-      const client = createClient();
-      const next = jest.fn();
+  it('disconnects immediately when socket auth token is missing', async () => {
+    const client = createClient();
 
-      await new Promise<void>((resolve) => {
-        middleware(client, (...args: any[]) => {
-          next(...args);
-          resolve();
-        });
-      });
+    await gateway.handleConnection(client as unknown as Socket);
 
-      expect(authService.authenticateBearerToken).not.toHaveBeenCalled();
-      expect(next).toHaveBeenCalledWith(expect.any(Error));
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized');
-    });
-
-    it('rejects connection when socket auth token is invalid', async () => {
-      const client = createClient('bad-token');
-      const next = jest.fn();
-      authService.authenticateBearerToken.mockRejectedValue(
-        new Error('invalid token'),
-      );
-
-      await new Promise<void>((resolve) => {
-        middleware(client, (...args: any[]) => {
-          next(...args);
-          resolve();
-        });
-      });
-
-      expect(authService.authenticateBearerToken).toHaveBeenCalledWith(
-        'Bearer bad-token',
-      );
-      expect(next).toHaveBeenCalledWith(expect.any(Error));
-      expect(next.mock.calls[0][0].message).toBe('Unauthorized');
-    });
-
-    it('authenticates and attaches user data to socket from jwt tenantId', async () => {
-      const client = createClient('jwt-token');
-      const next = jest.fn();
-      authService.authenticateBearerToken.mockResolvedValue({
-        userId: 'user-1',
-        email: 'user@example.com',
-        tenantId: 'tenant-a',
-        role: 'ADMIN',
-      });
-
-      await new Promise<void>((resolve) => {
-        middleware(client, (...args: any[]) => {
-          next(...args);
-          resolve();
-        });
-      });
-
-      expect(authService.authenticateBearerToken).toHaveBeenCalledWith(
-        'Bearer jwt-token',
-      );
-      expect(client.data.tenantId).toBe('tenant-a');
-      expect(client.data.userId).toBe('user-1');
-      expect(next).toHaveBeenCalledWith(); // Called with no args on success
-    });
+    expect(authService.authenticateBearerToken).not.toHaveBeenCalled();
+    expect(client.join).not.toHaveBeenCalled();
+    expect(client.disconnect).toHaveBeenCalledWith(true);
   });
 
-  describe('handleConnection', () => {
-    it('joins tenant-prefixed room based on socket.data', async () => {
-      const client = createClient();
-      client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+  it('disconnects immediately when socket auth token is invalid', async () => {
+    const client = createClient('bad-token');
+    authService.authenticateBearerToken.mockRejectedValue(
+      new Error('invalid token'),
+    );
 
-      await gateway.handleConnection(client as unknown as Socket);
+    await gateway.handleConnection(client as unknown as Socket);
 
-      expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
-      expect(client.join).toHaveBeenCalledWith('user_user-1');
+    expect(authService.authenticateBearerToken).toHaveBeenCalledWith(
+      'Bearer bad-token',
+    );
+    expect(client.join).not.toHaveBeenCalled();
+    expect(client.disconnect).toHaveBeenCalledWith(true);
+  });
+
+  it('authenticates and joins tenant-prefixed room from jwt tenantId', async () => {
+    const client = createClient('jwt-token');
+    authService.authenticateBearerToken.mockResolvedValue({
+      userId: 'user-1',
+      email: 'user@example.com',
+      tenantId: 'tenant-a',
+      role: 'ADMIN',
     });
+
+    await gateway.handleConnection(client as unknown as Socket);
+
+    expect(authService.authenticateBearerToken).toHaveBeenCalledWith(
+      'Bearer jwt-token',
+    );
+    expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
+    expect(client.join).toHaveBeenCalledWith('user_user-1');
+    expect(client.data.tenantId).toBe('tenant-a');
+    expect(client.data.userId).toBe('user-1');
+    expect(client.disconnect).not.toHaveBeenCalled();
   });
 
   it('emits realtime updates only to tenant-prefixed room without tenantId in payload', () => {

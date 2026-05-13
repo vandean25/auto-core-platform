@@ -12,7 +12,7 @@ describe('TenantContextService', () => {
   let service: TenantContextService;
 
   beforeEach(() => {
-    service = new TenantContextService(mockPrisma);
+    service = new TenantContextService(mockPrisma as never);
     jest.clearAllMocks();
   });
 

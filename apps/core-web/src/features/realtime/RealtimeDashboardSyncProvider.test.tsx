@@ -82,20 +82,7 @@ describe('RealtimeDashboardSyncProvider', () => {
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
     vi.clearAllMocks()
-  })
-
-  it('does not open a socket connection when e2e auth bypass mode is enabled', async () => {
-    vi.stubEnv('VITE_E2E_SKIP_AUTH', 'true')
-
-    const queryClient = createQueryClient()
-
-    render(<div />, { wrapper: createWrapper(queryClient) })
-
-    await waitFor(() => {
-      expect(mocks.io).not.toHaveBeenCalled()
-    })
   })
 
   it('uses the dedicated dev socket proxy path when only the browser origin is available', () => {

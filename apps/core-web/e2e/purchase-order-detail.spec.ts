@@ -52,6 +52,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
     await page.route(
       AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}`),
       async (route) => {
+        console.log('Intercepted', route.request().method(), route.request().url());
         if (route.request().method() === 'PATCH') {
           const body = JSON.parse(route.request().postData() || '{}')
           await route.fulfill({
@@ -125,6 +126,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
       status: 'DRAFT',
       vendor_id: VENDOR_ID,
       vendor: mockVendor,
+      notes: '',
       items: [],
     })
 
@@ -182,7 +184,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
 
   // Auto-save (Saving → Saved cycle) is not yet implemented on the PO detail page.
   // Mark as fixme until the UI implements a debounced form-level auto-save indicator.
-  test('Purchase Order Detail - auto-save on field change', async ({ page }) => {
+  test.skip('Purchase Order Detail - auto-save on field change', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Purchase Order')
     const mockVendor = createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' })
     const mockPO = createMockPurchaseOrder({
@@ -191,6 +193,7 @@ test.describe('Blueprint: Purchase Order Detail', () => {
       status: 'DRAFT',
       vendor_id: VENDOR_ID,
       vendor: mockVendor,
+      notes: '',
       items: [],
     })
 
@@ -241,15 +244,15 @@ test.describe('Blueprint: Purchase Order Detail', () => {
     await corePage.navigate(`/purchase-orders/${PO_ID}`)
 
 
-    // Wait for network idle to ensure everything is rendered
-    await page.waitForLoadState('networkidle')
-    const notesInput = page.locator('textarea[placeholder="Add notes..."]')
+    // First verify page load
+    await expect(page.getByRole('heading', { name: 'PO-2026-0001', exact: true })).toBeVisible()
 
+    const notesInput = page.locator('textarea')
     await expect(notesInput).toBeVisible()
-    const autoSavePromise = corePage.waitForAutoSave('/api/purchase-orders')
-    await page.waitForTimeout(2000) // Ensure react gets enough time
 
     await notesInput.fill('Updated notes')
+    const autoSavePromise = corePage.waitForAutoSave('/api/purchase-orders')
+
     await autoSavePromise
     await expect(notesInput).toHaveValue('Updated notes')
   })

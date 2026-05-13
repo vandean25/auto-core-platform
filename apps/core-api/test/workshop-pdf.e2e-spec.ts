@@ -1,4 +1,3 @@
-import { AuthService } from '../src/auth/auth.service';
 import {
   INestApplication,
   NotFoundException,
@@ -8,16 +7,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
-import { teardownTestApp } from './test-lifecycle';
-import { createTestTenant } from './tenant-test-utils';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
-  let authToken: string;
-  let prisma: PrismaService;
-  let tenantId: string;
 
   const mockPdfService = {
     requestGeneration: jest.fn(),
@@ -26,6 +19,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
   };
 
   beforeAll(() => {
+    process.env.API_KEY = 'test-api-key';
   });
 
   beforeEach(async () => {
@@ -44,18 +38,10 @@ describe('Workshop PDF endpoints (e2e)', () => {
       new ValidationPipe({ transform: true, whitelist: true }),
     );
     await app.init();
-    prisma = app.get(PrismaService);
-    const testTenant = await createTestTenant(prisma, 'workshop-pdf');
-    tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
   });
 
   afterEach(async () => {
-    if (tenantId) {
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
-      tenantId = '';
-    }
-    await teardownTestApp(app, prisma);
+    await app.close();
   });
 
   it('returns ready JSON when workshop PDF generation finishes inline', async () => {
@@ -66,7 +52,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(201)
       .expect({
         message: 'PDF is ready',
@@ -83,7 +69,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(201)
       .expect({
         message: 'PDF generation enqueued',
@@ -102,7 +88,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200)
       .expect('Content-Type', /application\/pdf/);
   });
@@ -114,7 +100,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(404);
   });
 });

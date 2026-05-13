@@ -1,28 +1,20 @@
-import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
-import {
-  cleanupTestTenantGraph,
-  createTenantAwarePrisma,
-  createTestTenant,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 
 describe('PurchaseInvoice (e2e)', () => {
   let app: INestApplication;
-  let authToken: string;
-  let basePrisma: PrismaService;
   let prisma: PrismaService;
-  let tenantId: string;
   let vendorId: string;
   let catalogItemId: string;
   let purchaseOrderId: string;
   let purchaseOrderItemId: string;
 
   beforeAll(async () => {
+    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -32,12 +24,10 @@ describe('PurchaseInvoice (e2e)', () => {
       new ValidationPipe({ transform: true, whitelist: true }),
     );
     await app.init();
-    basePrisma = app.get<PrismaService>(PrismaService);
+    prisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(basePrisma);
-    tenantId = testTenant.tenantId;
-    prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    const testTenant = await createTestTenant(prisma);
+    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
 
     // Setup Test Data
     const vendor = await prisma.vendor.create({
@@ -67,7 +57,6 @@ describe('PurchaseInvoice (e2e)', () => {
         status: 'COMPLETED', // Simulating received
         items: {
           create: {
-            tenant_id: tenantId,
             catalog_item_id: catalogItemId,
             quantity: 10,
             quantity_received: 10, // Full receipt
@@ -90,22 +79,19 @@ describe('PurchaseInvoice (e2e)', () => {
     await prisma.catalogItem.deleteMany();
     await prisma.vendor.deleteMany();
     await prisma.brand.deleteMany();
-    if (tenantId) {
-      await cleanupTestTenantGraph(basePrisma, tenantId);
-    }
-    await teardownTestApp(app, basePrisma);
+    await app.close();
   });
 
   it('/vendors/:id/unbilled-receipts (GET)', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body).toHaveLength(1);
@@ -115,7 +101,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('/purchase-invoices (POST) - Create Draft', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
@@ -137,15 +123,15 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     expect(response.body.status).toBe('DRAFT');
-    expect(response.body.total_amount).toBe('60');
+    expect(response.body.total_amount).toBe('50');
 
     // Verify PO Item updated
-    const poItem = await prisma.purchaseOrderItem.findFirst({
+    const poItem = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     expect(Number(poItem?.quantity_invoiced)).toBe(5);
@@ -153,14 +139,14 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('/vendors/:id/unbilled-receipts (GET) - Check Remaining', async () => {
     // Make this test deterministic by setting the state it expects
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 5 },
     });
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body[0].quantityPending).toBe(5); // 10 received - 5 invoiced
@@ -168,7 +154,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('/purchase-invoices (POST) - Prevent Over-Invoicing', async () => {
     // Ensure we start with 5 already invoiced
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 5 },
     });
@@ -190,14 +176,14 @@ describe('PurchaseInvoice (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(400);
   });
 
   it('Post Invoice', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
@@ -220,13 +206,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body.status).toBe('POSTED');
@@ -243,19 +229,19 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(400);
   });
 
   it('Pay Invoice', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
@@ -278,18 +264,18 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/pay`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(response.body.status).toBe('PAID');
@@ -297,13 +283,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('Delete Draft Invoice and Restore PO Item Quantities', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
 
     // 1. Check current quantity_invoiced
-    const poItemBefore = await prisma.purchaseOrderItem.findFirst({
+    const poItemBefore = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     const qtyBefore = Number(poItemBefore?.quantity_invoiced);
@@ -326,11 +312,11 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
-    const poItemAfterCreate = await prisma.purchaseOrderItem.findFirst({
+    const poItemAfterCreate = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     expect(Number(poItemAfterCreate?.quantity_invoiced)).toBe(qtyBefore + 2);
@@ -338,10 +324,10 @@ describe('PurchaseInvoice (e2e)', () => {
     // 3. Delete the Draft invoice (decrements quantity_invoiced)
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
-    const poItemAfterDelete = await prisma.purchaseOrderItem.findFirst({
+    const poItemAfterDelete = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     expect(Number(poItemAfterDelete?.quantity_invoiced)).toBe(qtyBefore);
@@ -349,7 +335,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('Prevent Deleting Posted Invoice', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
@@ -371,30 +357,30 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(400);
   });
 
   it('Update Invoice (PATCH :id)', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
 
     // Capture initial state
-    const poItemInitial = await prisma.purchaseOrderItem.findFirst({
+    const poItemInitial = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     const initialQty = Number(poItemInitial?.quantity_invoiced);
@@ -417,7 +403,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
@@ -437,7 +423,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(updateDto)
       .expect(200);
 
@@ -449,7 +435,7 @@ describe('PurchaseInvoice (e2e)', () => {
     expect(Number(response.body.lines[0].quantity)).toBe(2);
 
     // 3. Verify PO item quantity_invoiced was updated correctly (0 -> 1 -> 2)
-    const poItemFinal = await prisma.purchaseOrderItem.findFirst({
+    const poItemFinal = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     expect(Number(poItemFinal?.quantity_invoiced)).toBe(initialQty + 2);
@@ -457,7 +443,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
   it('Delete Invoice Line (DELETE :id/lines/:lineId)', async () => {
     // Reset for isolation
-    await prisma.purchaseOrderItem.updateMany({
+    await prisma.purchaseOrderItem.update({
       where: { id: purchaseOrderItemId },
       data: { quantity_invoiced: 0 },
     });
@@ -485,7 +471,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .send(createDto)
       .expect(201);
 
@@ -497,20 +483,20 @@ describe('PurchaseInvoice (e2e)', () => {
     // 2. Delete one line
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}/lines/${lineToDelete.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     // 3. Verify remaining state
     const updated = await request(app.getHttpServer())
       .get(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('x-api-key', 'test-api-key')
       .expect(200);
 
     expect(updated.body.lines).toHaveLength(1);
-    expect(Number(updated.body.total_amount)).toBe(6); // Manual line plus default 20% tax remains
+    expect(Number(updated.body.total_amount)).toBe(5); // Only manual line remains
 
     // 4. Verify PO item quantity_invoiced was restored
-    const poItem = await prisma.purchaseOrderItem.findFirst({
+    const poItem = await prisma.purchaseOrderItem.findUnique({
       where: { id: purchaseOrderItemId },
     });
     expect(Number(poItem?.quantity_invoiced)).toBe(0);

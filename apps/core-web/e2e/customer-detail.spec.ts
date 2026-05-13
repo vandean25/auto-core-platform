@@ -241,7 +241,7 @@ test.describe('Blueprint: Customer Detail Page', () => {
   });
 
   test('inline edit triggers PATCH to /api/customers/:id on blur', async ({ page }) => {
-    let detail = createMockCustomerDetailResponse({
+    const detail = createMockCustomerDetailResponse({
       id: CUSTOMER_ID,
       first_name: 'Jane',
       last_name: 'Smith',
@@ -260,11 +260,10 @@ test.describe('Blueprint: Customer Detail Page', () => {
       } else if (method === 'PATCH') {
         // Return the updated customer
         const patchBody = route.request().postDataJSON();
-        detail = { ...detail, ...patchBody };
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(detail),
+          body: JSON.stringify({ ...detail, ...patchBody }),
         });
       } else {
         await route.continue();

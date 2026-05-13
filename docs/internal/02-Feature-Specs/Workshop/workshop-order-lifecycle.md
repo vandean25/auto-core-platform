@@ -23,7 +23,6 @@ tags:
 
 - As a **Service Advisor**, I want to **intake a vehicle** so that **I can record the customer's reported issue, fuel level, and odometer reading.**
 - As a **Mechanic**, I want to **receive a printed PDF Job Card** so that **I know exactly which tasks and labor operations I need to perform on the vehicle.**
-- As a **Mechanic**, I want to **dictate diagnostic notes in my preferred spoken language** so that **the system can translate them into the workshop note language without forcing me to type on a tablet.**
 - As a **Service Manager**, I want to **track the status of each task** so that **I can accurately bill the customer and convert the completed order into a final Sales Invoice.**
 
 ---
@@ -94,7 +93,6 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 ### Form Handling
 - [x] Modifying the `WorkshopOrder` header uses **debounced auto-save (750 ms)**.
 - [x] Single-field task updates (e.g., Mechanic Notes) use **save-on-blur** via `InlineEdit`.
-- [ ] Mechanic tablet diagnostic notes support AI-assisted voice-note drafts. Recordings are captured with `MediaRecorder`, uploaded to the backend as `multipart/form-data`, translated server-side, reviewed/edited by the mechanic, and then saved through the standard diagnostics mutation path.
 
 ### Component Design
 
@@ -102,7 +100,7 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 |-----------|----------|---------|
 | `WorkshopOrderList` | `src/pages/workshop/` | DataTable view of all active orders. |
 | `WorkshopOrderDetails`| `src/pages/workshop/` | Main document view. Auto-saves changes. |
-| `TaskDetailDrawer` | `src/components/workshop/`| Sliding drawer exposing labor, parts line items, typed notes, and AI-assisted voice-note drafts for a task. |
+| `TaskDetailDrawer` | `src/components/workshop/`| Sliding drawer exposing labor and parts line items for a task. |
 | `ActionGroup` | `src/components/ui/` | Top-right dropdown grouping secondary actions (like Print PDF). |
 
 ---
@@ -114,18 +112,8 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - **Route:** `/api/workshop/:id/pdf/generate`
 - **Behavior:** Kicks off an asynchronous background job via `CloudTasks` / `Playwright` (ADR-0007). The frontend relies on Real-Time Sync (WebSocket `entity_updated` event) to detect when `pdf_storage_key` is populated and replace the spinner with a "Download PDF" button.
 
-### Mechanic AI Voice Notes
-- **Method:** `POST`
-- **Route:** `/api/mechanic/tasks/:taskId/voice-notes`
-- **Request:** `multipart/form-data` audio file captured after recording stops.
-- **Behavior:** Validates tenant, mechanic assignment, MIME type, byte size, duration, and task state; sends the audio to a backend-owned speech-note adapter; returns a translated diagnostic-note draft; does not persist the draft until the mechanic accepts it through the diagnostics save flow.
-- **Guardrails:** No client-side AI models, no phase-one raw audio WebSocket streaming, no provider credentials in the browser, transient raw-audio retention by default, no transcript/audio content in normal logs, per-mechanic or per-tenant rate limiting.
-
 ### OpenAPI Regeneration
-- [x] Contract already generated and committed for the existing PDF pipeline.
-- [ ] Regenerate contract artifacts when the mechanic voice-note endpoint is implemented:
-  - `npm --prefix apps/core-api run openapi:generate`
-  - `npm --prefix apps/core-web run api:types:generate`
+- [x] Contract already generated and committed.
 
 ---
 
@@ -145,16 +133,11 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - [ ] Cannot transition to `COMPLETED` if any task is not `DONE`.
 - [ ] Fiscal lock date validation on `COMPLETED → INVOICED` transition.
 - [ ] PDF generation pipeline triggers on `INVOICED` transition.
-- [ ] Mechanic voice-note endpoint rejects unassigned tasks, wrong tenant, disallowed MIME types, oversized files, too-long recordings, and silent/empty recordings.
-- [ ] Mechanic voice-note endpoint returns a translated draft without persisting diagnostic notes until the diagnostics save mutation accepts it.
-- [ ] AI provider failures surface as endpoint errors without changing existing task notes.
 
 ### Frontend
 
 - [ ] Visual QA: status badge rendering, task drawer, auto-save indicator.
 - [ ] PDF spinner → download button transition via WebSocket.
-- [ ] Voice-note UI shows recording, processing, draft-ready, accepted, and error states while preserving typed note edits.
-- [ ] Translated drafts remain editable before being accepted into diagnostic notes.
 
 ---
 
@@ -175,7 +158,6 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - ADR-0007: Async PDF Pipeline — Job Card generation via Playwright/Cloud Tasks
 - ADR-0009: Sequential Document Numbering — `WO-2026-XXXX` assigned at creation/intake; invoice `RE-2026-XXXX` at `COMPLETED → INVOICED`
 - ADR-0011: Atomic Status Transition Guards — all Workshop Order and Task status transitions use the `updateMany` guard pattern
-- ADR-0014: Mechanic Digital Repair Order Tablet RBAC — mechanic tablet execution, restricted projections, and AI voice-note guardrails
 
 ---
 

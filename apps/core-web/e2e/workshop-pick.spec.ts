@@ -7,7 +7,6 @@ import {
 } from './utils/mock-factories';
 
 const LIVE_PICK_SKU = '06J-115-403-Q';
-const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
 
 async function seedWorkshopOrderForPick(page: Page) {
   const searchResponse = await page.request.get('/api/workshop/search?q=max');
@@ -139,11 +138,6 @@ async function mockPickQueueBaseRoutes(page: Page, orderId = 'ws-123') {
 }
 
 test.describe('Workshop Pick Queue — Smoke Tests (seed-based)', () => {
-  test.skip(
-    !RUN_SEEDED_SMOKE_TESTS,
-    'Seed-based smoke tests require E2E_LIVE_BACKEND=true and a seeded backend.',
-  );
-
   test('should open pick drawer from a seeded pick queue row', async ({ page }) => {
     const seededOrder = await seedWorkshopOrderForPick(page);
     const corePage = new AutoCorePage(page, 'Order');

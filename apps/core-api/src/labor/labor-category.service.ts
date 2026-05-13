@@ -205,8 +205,8 @@ export class LaborCategoryService {
     }
 
     try {
-      const updateResult = await this.prisma.laborCategory.updateMany({
-        where: { id, tenant_id: tenantId },
+      const updated = await this.prisma.laborCategory.update({
+        where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.description !== undefined && {
@@ -220,18 +220,6 @@ export class LaborCategoryService {
           ...(dto.is_active !== undefined && { is_active: dto.is_active }),
         },
       });
-
-      if (updateResult.count === 0) {
-        throw new NotFoundException(`Labor category with ID "${id}" not found`);
-      }
-
-      const updated = await this.prisma.laborCategory.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!updated) {
-        throw new NotFoundException(`Labor category with ID "${id}" not found`);
-      }
 
       return {
         ...updated,

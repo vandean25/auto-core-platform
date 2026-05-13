@@ -1,10 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
-import {
-  createMockListResponse,
-  createMockPurchaseBill,
-  createMockVendor,
-} from './utils/mock-factories';
+import { createMockPurchaseBill, createMockVendor } from './utils/mock-factories';
 
 /**
  * Auto-Save Hardening Suite
@@ -31,11 +27,6 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
       vendor_invoice_number: 'B-OLD-123',
       vendor: createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' }),
     });
-    const vendor = createMockVendor({
-      id: VENDOR_ID,
-      name: 'Bosch Automotive',
-      supportedBrands: [{ id: 1, name: 'Bosch' }],
-    });
 
     // ── Step 1: Register all mocks BEFORE navigating ────────────────────────
 
@@ -44,8 +35,6 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
       AutoCorePage.apiRouteMatcher(`/api/purchase-invoices/${BILL_ID}`),
       async (route) => {
         if (route.request().method() === 'PATCH') {
-          await new Promise((resolve) => setTimeout(resolve, 150));
-
           // PATCH: auto-save — return the updated bill
           await route.fulfill({
             status: 200,
@@ -73,28 +62,13 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(vendor),
-        });
-      },
-    );
-
-    // GET /api/vendors  →  vendor combobox list
-    await page.route(AutoCorePage.apiRouteMatcher('/api/vendors'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([vendor])),
-      });
-    });
-
-    // GET /api/vendors/:id/unbilled-receipts  →  no pending receipts for this bill
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/vendors/${VENDOR_ID}/unbilled-receipts`),
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([]),
+          body: JSON.stringify(
+            createMockVendor({
+              id: VENDOR_ID,
+              name: 'Bosch Automotive',
+              supportedBrands: [{ id: 1, name: 'Bosch' }],
+            }),
+          ),
         });
       },
     );
