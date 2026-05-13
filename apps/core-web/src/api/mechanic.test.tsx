@@ -11,6 +11,7 @@ import {
   useCompleteTask,
   useSaveDiagnostics,
   useRequestPart,
+  useUploadVoiceNote,
   mechanicQueueKeys,
 } from './mechanic'
 import { fetchWithAuth } from './client'
@@ -483,6 +484,34 @@ describe('mechanic api hooks', () => {
       const item = data as Record<string, unknown>
       expect(item).not.toHaveProperty('unitPrice')
       expect(item).not.toHaveProperty('lineTotal')
+    })
+  })
+
+  describe('useUploadVoiceNote', () => {
+    it('uploads browser Blob recordings with a MIME-derived filename', async () => {
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse({
+          text: 'Translated note',
+          provider: 'openai',
+          model: 'whisper-1',
+        }),
+      )
+
+      const queryClient = createQueryClient()
+      const { result } = renderHook(() => useUploadVoiceNote(), {
+        wrapper: createWrapper(queryClient),
+      })
+
+      await result.current.mutateAsync({
+        taskId: TASK_ID,
+        audio: new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/webm' }),
+      })
+
+      const [, init] = vi.mocked(fetchWithAuth).mock.calls[0]
+      const body = init?.body as FormData
+      const uploadedAudio = body.get('audio') as File
+
+      expect(uploadedAudio.name).toBe('voice-note.webm')
     })
   })
 })

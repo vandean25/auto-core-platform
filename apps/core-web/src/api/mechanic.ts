@@ -18,6 +18,23 @@ export type CreateMediaPayload = components['schemas']['CreateMediaDto']
 export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
 export type VoiceNoteDraftResponse = components['schemas']['VoiceNoteDraftResponseDto']
 
+const voiceNoteExtensionByMimeType: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/ogg': 'ogg',
+}
+
+function getVoiceNoteFilename(audio: File | Blob): string {
+  if (typeof File !== 'undefined' && audio instanceof File && audio.name && audio.name !== 'blob') {
+    return audio.name
+  }
+
+  const extension = voiceNoteExtensionByMimeType[audio.type] ?? 'bin'
+  return `voice-note.${extension}`
+}
+
 export const mechanicQueueKeys = {
   all: ['mechanic'] as const,
   queue: () => [...mechanicQueueKeys.all, 'queue'] as const,
@@ -316,7 +333,7 @@ export function useUploadVoiceNote() {
         )
       }
       const form = new FormData()
-      form.append('audio', audio)
+      form.append('audio', audio, getVoiceNoteFilename(audio))
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/voice-notes`,
         { method: 'POST', body: form },
