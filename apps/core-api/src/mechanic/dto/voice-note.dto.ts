@@ -17,8 +17,8 @@ export const MAX_VOICE_NOTE_BYTES = 25 * 1024 * 1024; // 25 MiB
 /**
  * Maximum permitted audio recording duration in seconds (5 minutes).
  * ADR-0014 §5.3 — validate before provider submission.
- * The check uses the duration reported by the provider in the verbose response;
- * an error is returned to the caller when the limit is exceeded.
+ * The backend rejects parseable over-limit recordings before provider submission
+ * and keeps the provider-reported duration check as a fallback.
  */
 export const MAX_VOICE_NOTE_DURATION_SECONDS = 300;
 

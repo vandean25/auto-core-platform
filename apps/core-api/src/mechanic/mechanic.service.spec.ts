@@ -1428,6 +1428,34 @@ describe('MechanicService', () => {
         ...overrides,
       }) as Express.Multer.File;
 
+    const createEbmlElement = (id: number[], data: Buffer): Buffer =>
+      Buffer.concat([Buffer.from(id), Buffer.from([0x80 | data.length]), data]);
+
+    const createUnknownSizeEbmlElement = (id: number[], data: Buffer): Buffer =>
+      Buffer.concat([
+        Buffer.from(id),
+        Buffer.from([0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+        data,
+      ]);
+
+    const createWebmDurationFixture = (durationSeconds: number): Buffer => {
+      const duration = Buffer.alloc(8);
+      duration.writeDoubleBE(durationSeconds * 1000, 0);
+
+      const info = createEbmlElement(
+        [0x15, 0x49, 0xa9, 0x66],
+        Buffer.concat([
+          createEbmlElement([0x2a, 0xd7, 0xb1], Buffer.from([0x0f, 0x42, 0x40])),
+          createEbmlElement([0x44, 0x89], duration),
+        ]),
+      );
+
+      return Buffer.concat([
+        createUnknownSizeEbmlElement([0x18, 0x53, 0x80, 0x67], info),
+        Buffer.alloc(128),
+      ]);
+    };
+
     it('throws NotFoundException when task does not exist', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
 
@@ -1474,7 +1502,7 @@ describe('MechanicService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('throws UnprocessableEntityException when duration exceeds the limit', async () => {
+    it('throws UnprocessableEntityException before transcription when parseable duration exceeds the limit', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
       (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
         text: 'Long recording content',
@@ -1482,10 +1510,16 @@ describe('MechanicService', () => {
         model: 'whisper-1',
         durationSeconds: 301,
       });
+      const longRecording = createWebmDurationFixture(301);
 
       await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ buffer: longRecording, size: longRecording.length }),
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
+      expect(mockSpeechNoteService.transcribeNote).not.toHaveBeenCalled();
     });
 
     it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {

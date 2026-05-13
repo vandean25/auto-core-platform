@@ -56,6 +56,7 @@ import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
 } from './mechanic-events.constants';
+import { readAudioDurationSeconds } from './audio-duration';
 
 /**
  * Rate-limit configuration for the voice-note upload endpoint.
@@ -80,6 +81,28 @@ function getVoiceNoteRateLimitConfig(): { max: number; ttlMs: number } {
 interface RateLimitEntry {
   count: number;
   windowStart: number;
+}
+
+const VOICE_NOTE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/ogg': 'ogg',
+};
+
+function getVoiceNoteFilename(file: Express.Multer.File, mimeType: string): string {
+  const originalName = file.originalname?.trim();
+  if (
+    originalName &&
+    originalName !== 'blob' &&
+    /\.[a-z0-9]+$/i.test(originalName)
+  ) {
+    return originalName;
+  }
+
+  const extension = VOICE_NOTE_EXTENSION_BY_MIME_TYPE[mimeType] ?? 'bin';
+  return `voice-note.${extension}`;
 }
 
 const QUEUE_ORDER_STATUSES: WorkshopOrderStatus[] = [
@@ -1400,14 +1423,26 @@ export class MechanicService {
       `voice_note_start tenantId=${tenantId} taskId=${taskId} bytes=${sizeBytes} mimeType=${normalizedMime}`,
     );
 
+    const parsedDurationSeconds = readAudioDurationSeconds(
+      file.buffer,
+      normalizedMime,
+    );
+    if (
+      parsedDurationSeconds !== undefined &&
+      parsedDurationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
+    ) {
+      file.buffer.fill(0);
+      throw new UnprocessableEntityException(
+        `Audio recording duration ${parsedDurationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
+      );
+    }
+
     const startedAt = Date.now();
     let draft: VoiceNoteDraftResponseDto;
     try {
       draft = await this.speechNote.transcribeNote({
         audioBuffer: file.buffer,
-        filename:
-          file.originalname ||
-          `voice-note.${normalizedMime.split('/')[1] ?? 'bin'}`,
+        filename: getVoiceNoteFilename(file, normalizedMime),
         mimeType: normalizedMime,
       });
     } catch (error) {
