@@ -71,8 +71,12 @@ export class CreateEmployeeDto {
       'Preferred source language for this employee voice notes (BCP-47).',
     nullable: true,
     example: 'pl-PL',
+    type: String,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsString()
   @Matches(LANGUAGE_CODE_RE)
   motherLanguageCode?: string | null;
@@ -119,8 +123,12 @@ export class UpdateEmployeeDto {
       'Preferred source language for this employee voice notes (BCP-47).',
     nullable: true,
     example: 'pl-PL',
+    type: String,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsString()
   @Matches(LANGUAGE_CODE_RE)
   motherLanguageCode?: string | null;
@@ -188,6 +196,7 @@ export class EmployeeResponseDto {
     description:
       'Preferred source language for this employee voice notes (BCP-47).',
     example: 'pl-PL',
+    type: String,
   })
   motherLanguageCode!: string | null;
 

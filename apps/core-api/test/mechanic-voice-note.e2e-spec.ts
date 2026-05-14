@@ -1,17 +1,12 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, INestApplication, ServiceUnavailableException, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { SpeechNoteService } from '../src/speech-note/speech-note.service';
+import { VoiceTranslationService } from '../src/voice-translation/voice-translation.service';
 import { MechanicService } from '../src/mechanic/mechanic.service';
 import { WorkshopTaskStatus } from '@prisma/client';
-import {
-  SpeechNoteConfigError,
-  SpeechNoteInputError,
-  SpeechNoteProviderError,
-} from '../src/speech-note/speech-note.errors';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -23,7 +18,7 @@ import { teardownTestApp } from './test-lifecycle';
 /**
  * E2E tests for the mechanic voice-note upload endpoint (AUT-101).
  *
- * `SpeechNoteService` is mocked to avoid a real OpenAI API key requirement.
+ * `VoiceTranslationService` is mocked to avoid real Google provider calls.
  *
  * Covers ADR-0014 §5.3 acceptance criteria:
  *   - Happy path: valid audio → 201 with translated draft
@@ -51,14 +46,37 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   /**
    * A minimal valid audio buffer (> MIN_VOICE_NOTE_BYTES = 100 bytes).
-   * We use a 2-KiB buffer; the mock SpeechNoteService never reads it.
+   * We use a 2-KiB buffer; the mock VoiceTranslationService never reads it.
    */
   const VALID_AUDIO_BUFFER = Buffer.alloc(2048, 0xaa);
+  const makeTranslationResult = (
+    translatedText: string,
+    overrides?: Partial<{
+      originalText: string;
+      sourceLanguageCode: string;
+      targetLanguageCode: string;
+      detectedLanguageCode: string;
+      provider: string;
+      model: string;
+      durationSeconds: number;
+    }>,
+  ) => ({
+    originalText: overrides?.originalText ?? translatedText,
+    translatedText,
+    sourceLanguageCode: overrides?.sourceLanguageCode ?? 'en',
+    targetLanguageCode: overrides?.targetLanguageCode ?? 'de',
+    detectedLanguageCode: overrides?.detectedLanguageCode ?? 'en',
+    provider: overrides?.provider ?? 'google-cloud',
+    model: overrides?.model ?? 'latest_long',
+    durationSeconds: overrides?.durationSeconds ?? 5,
+  });
 
-  const mockSpeechNote: Partial<SpeechNoteService> & {
-    transcribeNote: jest.Mock;
+  const mockVoiceTranslation: Partial<VoiceTranslationService> & {
+    getTargetLanguageCode: jest.Mock;
+    translateVoiceNote: jest.Mock;
   } = {
-    transcribeNote: jest.fn(),
+    getTargetLanguageCode: jest.fn().mockResolvedValue('de'),
+    translateVoiceNote: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -68,8 +86,8 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       const moduleFixture: TestingModule = await Test.createTestingModule({
         imports: [AppModule],
       })
-        .overrideProvider(SpeechNoteService)
-        .useValue(mockSpeechNote)
+        .overrideProvider(VoiceTranslationService)
+        .useValue(mockVoiceTranslation)
         .compile();
 
       app = moduleFixture.createNestApplication();
@@ -226,13 +244,12 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   // ─── Happy path ───────────────────────────────────────────────────────────
 
   it('returns 201 with a translated draft for a valid audio upload', async () => {
-    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-      text: 'Engine mounts are worn. Recommend replacement.',
-      detectedLanguage: 'en',
-      provider: 'openai',
-      model: 'whisper-1',
-      durationSeconds: 12.5,
-    });
+    mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+      makeTranslationResult('Engine mounts are worn. Recommend replacement.', {
+        originalText: 'Engine mounts are worn.',
+        durationSeconds: 12.5,
+      }),
+    );
 
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -247,21 +264,20 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       'Engine mounts are worn. Recommend replacement.',
     );
     expect(res.body.detectedLanguage).toBe('en');
-    expect(res.body.provider).toBe('openai');
-    expect(res.body.model).toBe('whisper-1');
+    expect(res.body.provider).toBe('google-cloud');
+    expect(res.body.model).toBe('latest_long');
     expect(res.body.durationSeconds).toBe(12.5);
   });
 
   // ─── No automatic persistence ─────────────────────────────────────────────
 
   it('does NOT update mechanic_notes on the task after a successful upload', async () => {
-    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-      text: 'Brake pads at 20% — replace soon.',
-      detectedLanguage: 'en',
-      provider: 'openai',
-      model: 'whisper-1',
-      durationSeconds: 8.0,
-    });
+    mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+      makeTranslationResult('Brake pads at 20% — replace soon.', {
+        originalText: 'Brake pads at 20%.',
+        durationSeconds: 8.0,
+      }),
+    );
 
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -428,13 +444,13 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   // ─── Transcription returns empty text (silent recording) ─────────────────
 
   it('returns 422 when transcription returns empty text (silent audio)', async () => {
-    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-      text: '',
-      detectedLanguage: undefined,
-      provider: 'openai',
-      model: 'whisper-1',
-      durationSeconds: 3.0,
-    });
+    mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+      makeTranslationResult('', {
+        originalText: '',
+        detectedLanguageCode: '',
+        durationSeconds: 3.0,
+      }),
+    );
 
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -449,13 +465,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   // ─── Duration exceeds limit ───────────────────────────────────────────────
 
   it('returns 422 when transcription reports duration exceeding the limit', async () => {
-    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-      text: 'Very long recording content…',
-      detectedLanguage: 'en',
-      provider: 'openai',
-      model: 'whisper-1',
-      durationSeconds: 301, // exceeds 300s limit
-    });
+    mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+      makeTranslationResult('Very long recording content…', {
+        durationSeconds: 301, // exceeds 300s limit
+      }),
+    );
 
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -492,12 +506,9 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   // ─── Provider failure ─────────────────────────────────────────────────────
 
-  it('returns 502 (Bad Gateway) when the speech-note provider fails', async () => {
-    mockSpeechNote.transcribeNote.mockRejectedValueOnce(
-      new SpeechNoteProviderError(
-        'Audio processing failed (provider: openai, status: 503).',
-        503,
-      ),
+  it('returns 502 (Bad Gateway) when the voice-translation provider fails', async () => {
+    mockVoiceTranslation.translateVoiceNote.mockRejectedValueOnce(
+      new Error('Audio processing failed'),
     );
 
     await request(app.getHttpServer())
@@ -512,9 +523,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   // ─── Provider not configured ──────────────────────────────────────────────
 
-  it('returns 503 (Service Unavailable) when the speech-note provider is not configured', async () => {
-    mockSpeechNote.transcribeNote.mockRejectedValueOnce(
-      new SpeechNoteConfigError('OPENAI_API_KEY environment variable is required.'),
+  it('returns 503 (Service Unavailable) when voice translation is not configured', async () => {
+    mockVoiceTranslation.translateVoiceNote.mockRejectedValueOnce(
+      new ServiceUnavailableException(
+        'Google voice translation credential is not configured.',
+      ),
     );
 
     await request(app.getHttpServer())
@@ -558,11 +571,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(403);
   });
 
-  // ─── SpeechNoteInputError maps to 422 ────────────────────────────────────
+  // ─── BadRequestException from provider maps to 422 ───────────────────────
 
   it('returns 422 when the provider rejects the audio as invalid', async () => {
-    mockSpeechNote.transcribeNote.mockRejectedValueOnce(
-      new SpeechNoteInputError(
+    mockVoiceTranslation.translateVoiceNote.mockRejectedValueOnce(
+      new BadRequestException(
         'Unsupported audio format "audio/webm". Use a supported format.',
       ),
     );
@@ -580,13 +593,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   // ─── Response body audit — no API key or sensitive credentials ───────────
 
   it('response body does not contain API keys or sensitive credential fields', async () => {
-    mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-      text: 'Oil filter replaced.',
-      detectedLanguage: 'en',
-      provider: 'openai',
-      model: 'whisper-1',
-      durationSeconds: 5.0,
-    });
+    mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+      makeTranslationResult('Oil filter replaced.', {
+        durationSeconds: 5.0,
+      }),
+    );
 
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -599,7 +610,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
     // The response must only contain the known-safe fields.
     const allowedKeys = new Set([
+      'draftId',
       'text',
+      'originalText',
+      'sourceLanguageCode',
+      'targetLanguageCode',
       'detectedLanguage',
       'provider',
       'model',
@@ -693,13 +708,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
       // Requests 1 and 2 should succeed (within the limit of 2).
       for (let i = 0; i < 2; i++) {
-        mockSpeechNote.transcribeNote.mockResolvedValueOnce({
-          text: `Note ${i + 1}`,
-          detectedLanguage: 'en',
-          provider: 'openai',
-          model: 'whisper-1',
-          durationSeconds: 3.0,
-        });
+        mockVoiceTranslation.translateVoiceNote.mockResolvedValueOnce(
+          makeTranslationResult(`Note ${i + 1}`, {
+            durationSeconds: 3.0,
+          }),
+        );
 
         await request(app.getHttpServer())
           .post(`/api/mechanic/tasks/${rlTaskId!}/voice-notes`)

@@ -247,12 +247,13 @@ export class MechanicController {
 
   /**
    * Upload a mechanic voice-note recording and receive a translated diagnostic
-   * draft without persisting it.
+   * draft.
    *
    * Accepts a completed `MediaRecorder` blob as `multipart/form-data` with the
    * audio binary in a field named `audio` (ADR-0014 §5.3 phase-one contract).
    *
-   * The returned draft is **not** appended to `mechanic_notes` automatically.
+   * The returned draft is persisted as `PENDING` and is **not** appended to
+   * `mechanic_notes` automatically.
    * The mechanic must review it and submit it via
    * `PATCH /api/mechanic/tasks/:taskId/diagnostics`.
    *
@@ -262,8 +263,8 @@ export class MechanicController {
    *   - Recording duration exceeds 5 minutes
    *   - Empty or silent audio (no speech detected)
    *
-   * Returns 503 when the speech-note provider is not configured or 502 when the
-   * upstream AI provider returns an error.
+   * Returns 503 when Google voice translation is not configured or 502 when the
+   * upstream provider returns an error.
    *
    * ADR-0014 §5.3
    */
@@ -275,8 +276,8 @@ export class MechanicController {
     summary: 'Upload voice note and receive a translated diagnostic draft',
     description:
       'Accepts a completed audio recording as `multipart/form-data`. ' +
-      'Returns a translated diagnostic-note draft. ' +
-      'The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.',
+       'Returns a translated diagnostic-note draft persisted as PENDING. ' +
+       'The mechanic must accept it via PATCH /diagnostics to apply it to notes.',
   })
   @ApiBody({
     schema: {
@@ -305,10 +306,10 @@ export class MechanicController {
       'Limit is configured via VOICE_NOTE_RATE_LIMIT_MAX and VOICE_NOTE_RATE_LIMIT_TTL_SECONDS.',
   })
   @ApiBadGatewayResponse({
-    description: 'Upstream speech-note provider failed.',
+    description: 'Upstream voice-translation provider failed.',
   })
   @ApiServiceUnavailableResponse({
-    description: 'Speech-note provider is not configured.',
+    description: 'Voice translation provider is not configured.',
   })
   async uploadVoiceNote(
     @Param('taskId', ParseUUIDPipe) taskId: string,

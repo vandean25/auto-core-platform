@@ -16,12 +16,17 @@ import type {
   VoiceTranslationRequest,
   VoiceTranslationResult,
 } from './voice-translation.types';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
 
 const DEFAULT_TARGET_LANGUAGE = 'de';
 const DEFAULT_LOCATION = 'global';
 const PROVIDER_NAME = 'google-cloud';
-const MODEL_NAME = 'chirp_2';
+const MODEL_NAME = 'latest_long';
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
 function normalizeLanguageCode(value: string): string {
@@ -46,18 +51,31 @@ function toRecognitionEncoding(mimeType: string):
   | 'OGG_OPUS'
   | 'LINEAR16'
   | 'FLAC'
-  | 'ENCODING_UNSPECIFIED' {
+  | undefined {
   const normalized = mimeType.toLowerCase();
   if (normalized.includes('webm')) return 'WEBM_OPUS';
   if (normalized.includes('mpeg') || normalized.includes('mp3')) return 'MP3';
   if (normalized.includes('ogg')) return 'OGG_OPUS';
   if (normalized.includes('wav')) return 'LINEAR16';
   if (normalized.includes('flac')) return 'FLAC';
-  return 'ENCODING_UNSPECIFIED';
+  return undefined;
 }
+
+type GoogleServiceAccount = {
+  client_email: string;
+  private_key: string;
+  project_id?: string;
+};
+
+type GoogleClientBundle = {
+  speech: SpeechClient;
+  translation: TranslationServiceClient;
+};
 
 @Injectable()
 export class VoiceTranslationService {
+  private readonly clientCache = new Map<string, GoogleClientBundle>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
@@ -65,15 +83,20 @@ export class VoiceTranslationService {
 
   async getSettings(): Promise<VoiceTranslationSettingsResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
-    const row = await this.prisma.voiceTranslationSettings.upsert({
+    const row = await this.prisma.voiceTranslationSettings.findFirst({
       where: { tenant_id: tenantId },
-      update: {},
-      create: {
-        tenant_id: tenantId,
-        target_language_code: DEFAULT_TARGET_LANGUAGE,
-        google_location: DEFAULT_LOCATION,
-      },
     });
+
+    if (!row) {
+      return {
+        id: '00000000-0000-0000-0000-000000000000',
+        targetLanguageCode: DEFAULT_TARGET_LANGUAGE,
+        googleProjectId: null,
+        googleLocation: DEFAULT_LOCATION,
+        hasGoogleCredential: false,
+        updatedAt: new Date(0),
+      };
+    }
 
     return this.mapSettings(row);
   }
@@ -87,7 +110,9 @@ export class VoiceTranslationService {
         ? undefined
         : dto.googleServiceAccountJson === null
           ? null
-          : this.encryptCredential(dto.googleServiceAccountJson);
+          : this.encryptCredential(
+              JSON.stringify(this.parseServiceAccount(dto.googleServiceAccountJson)),
+            );
 
     const updated = await this.prisma.voiceTranslationSettings.upsert({
       where: { tenant_id: tenantId },
@@ -163,22 +188,25 @@ export class VoiceTranslationService {
     }
 
     const location = settings.google_location || DEFAULT_LOCATION;
-    const speech = new SpeechClient({ credentials: parsed, projectId });
-    const translation = new TranslationServiceClient({
-      credentials: parsed,
-      projectId,
-    });
-
-    const recognizeResponse = (await speech.recognize({
+    const { speech, translation } = this.getOrCreateClients(parsed, projectId);
+    const sourceLanguage = normalizeLanguageCode(request.sourceLanguageCode);
+    const targetLanguage = normalizeTargetTranslationLanguage(
+      request.targetLanguageCode,
+    );
+    const requestEncoding = toRecognitionEncoding(request.mimeType);
+    const [recognizeOperation] = await speech.longRunningRecognize({
       config: {
-        encoding: toRecognitionEncoding(request.mimeType),
-        languageCode: normalizeLanguageCode(request.sourceLanguageCode),
+        ...(requestEncoding ? { encoding: requestEncoding } : {}),
+        languageCode: sourceLanguage,
         model: MODEL_NAME,
       },
       audio: {
         content: request.audioBuffer.toString('base64'),
       },
-    })) as unknown as { results?: Array<{ alternatives?: Array<{ transcript?: string }>; languageCode?: string }> };
+    });
+    const [recognizeResponse] = (await recognizeOperation.promise()) as unknown as [
+      { results?: Array<{ alternatives?: Array<{ transcript?: string }>; languageCode?: string }> },
+    ];
 
     const originalText =
       recognizeResponse.results
@@ -194,19 +222,32 @@ export class VoiceTranslationService {
       return {
         originalText: '',
         translatedText: '',
-        sourceLanguageCode: request.sourceLanguageCode,
-        targetLanguageCode: normalizeTargetTranslationLanguage(
-          request.targetLanguageCode,
-        ),
+        sourceLanguageCode: sourceLanguage,
+        targetLanguageCode: targetLanguage,
         detectedLanguageCode,
         provider: PROVIDER_NAME,
         model: MODEL_NAME,
       };
     }
 
-    const targetLanguage = normalizeTargetTranslationLanguage(
-      request.targetLanguageCode,
-    );
+    const normalizedDetectedLanguage = detectedLanguageCode
+      ? normalizeTargetTranslationLanguage(detectedLanguageCode)
+      : undefined;
+    const normalizedSourceLanguage =
+      normalizedDetectedLanguage ??
+      normalizeTargetTranslationLanguage(sourceLanguage);
+
+    if (normalizedSourceLanguage === targetLanguage) {
+      return {
+        originalText,
+        translatedText: originalText,
+        sourceLanguageCode: sourceLanguage,
+        targetLanguageCode: targetLanguage,
+        detectedLanguageCode,
+        provider: PROVIDER_NAME,
+        model: MODEL_NAME,
+      };
+    }
 
     const [translationResponse] = await translation.translateText({
       parent: `projects/${projectId}/locations/${location}`,
@@ -222,7 +263,7 @@ export class VoiceTranslationService {
     return {
       originalText,
       translatedText,
-      sourceLanguageCode: request.sourceLanguageCode,
+      sourceLanguageCode: sourceLanguage,
       targetLanguageCode: targetLanguage,
       detectedLanguageCode,
       provider: PROVIDER_NAME,
@@ -293,9 +334,7 @@ export class VoiceTranslationService {
     return clear.toString('utf8');
   }
 
-  private parseServiceAccount(
-    raw: string,
-  ): { client_email: string; private_key: string; project_id?: string } {
+  private parseServiceAccount(raw: string): GoogleServiceAccount {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -314,10 +353,26 @@ export class VoiceTranslationService {
       );
     }
 
-    return parsed as {
-      client_email: string;
-      private_key: string;
-      project_id?: string;
+    return parsed as GoogleServiceAccount;
+  }
+
+  private getOrCreateClients(
+    credentials: GoogleServiceAccount,
+    projectId: string,
+  ): GoogleClientBundle {
+    const cacheKey = createHash('sha256')
+      .update(JSON.stringify({ credentials, projectId }))
+      .digest('hex');
+    const existing = this.clientCache.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    const created = {
+      speech: new SpeechClient({ credentials, projectId }),
+      translation: new TranslationServiceClient({ credentials, projectId }),
     };
+    this.clientCache.set(cacheKey, created);
+    return created;
   }
 }

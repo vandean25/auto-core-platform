@@ -1063,7 +1063,7 @@ export interface paths {
         put?: never;
         /**
          * Upload voice note and receive a translated diagnostic draft
-         * @description Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.
+         * @description Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft persisted as PENDING. The mechanic must accept it via PATCH /diagnostics to apply it to notes.
          */
         post: operations["MechanicController_uploadVoiceNote"];
         delete?: never;
@@ -2028,7 +2028,7 @@ export interface components {
              * @description Server-generated draft id. Pass this id to PATCH /diagnostics when accepting the voice-note draft.
              */
             draftId: string;
-            /** @description Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics. */
+            /** @description Transcribed and translated note draft in the canonical deployment language. Persisted as a PENDING draft; mechanic acceptance via PATCH /diagnostics marks it ACCEPTED. */
             text: string;
             /** @description Original transcript text before translation. */
             originalText: string;
@@ -2060,7 +2060,7 @@ export interface components {
              */
             targetLanguageCode: string;
             /** @description Google Cloud project id used for speech/translation requests. */
-            googleProjectId?: Record<string, never> | null;
+            googleProjectId?: string | null;
             /**
              * @description Google Cloud location for Speech-to-Text V2 resources.
              * @example global
@@ -2078,14 +2078,14 @@ export interface components {
              */
             targetLanguageCode?: string;
             /** @description Google Cloud project id used for speech/translation requests. */
-            googleProjectId?: Record<string, never> | null;
+            googleProjectId?: string | null;
             /**
              * @description Google Cloud location for Speech-to-Text V2 resources.
              * @example global
              */
             googleLocation?: string;
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
-            googleServiceAccountJson?: Record<string, never> | null;
+            googleServiceAccountJson?: string | null;
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -2354,7 +2354,7 @@ export interface components {
              * @description Preferred source language for this employee voice notes (BCP-47).
              * @example pl-PL
              */
-            motherLanguageCode?: Record<string, never> | null;
+            motherLanguageCode?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2384,7 +2384,7 @@ export interface components {
              * @description Preferred source language for this employee voice notes (BCP-47).
              * @example pl-PL
              */
-            motherLanguageCode?: Record<string, never> | null;
+            motherLanguageCode?: string | null;
         };
         UpdateEmployeeDto: {
             name?: string;
@@ -2400,7 +2400,7 @@ export interface components {
              * @description Preferred source language for this employee voice notes (BCP-47).
              * @example pl-PL
              */
-            motherLanguageCode?: Record<string, never> | null;
+            motherLanguageCode?: string | null;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
@@ -4712,14 +4712,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Upstream speech-note provider failed. */
+            /** @description Upstream voice-translation provider failed. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Speech-note provider is not configured. */
+            /** @description Voice translation provider is not configured. */
             503: {
                 headers: {
                     [name: string]: unknown;

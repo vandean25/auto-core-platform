@@ -1019,9 +1019,26 @@ export class MechanicService {
     await this.prisma.$transaction(async (tx) => {
       let acceptedDraftText: string | null = null;
       if (dto.voiceNoteDraftId) {
-        const acceptedDraft = await tx.workshopVoiceNoteDraft.updateMany({
+        const pendingDraft = await tx.workshopVoiceNoteDraft.findFirst({
           where: {
             id: dto.voiceNoteDraftId,
+            tenant_id: tenantId,
+            workshop_task_id: taskId,
+            mechanic_employee_id: mechanicId,
+            status: 'PENDING',
+          },
+          select: { id: true, translated_text: true },
+        });
+
+        if (!pendingDraft) {
+          throw new NotFoundException(
+            `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
+          );
+        }
+
+        const acceptedDraft = await tx.workshopVoiceNoteDraft.updateMany({
+          where: {
+            id: pendingDraft.id,
             tenant_id: tenantId,
             workshop_task_id: taskId,
             mechanic_employee_id: mechanicId,
@@ -1039,17 +1056,7 @@ export class MechanicService {
             `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
           );
         }
-
-        const accepted = await tx.workshopVoiceNoteDraft.findFirst({
-          where: {
-            id: dto.voiceNoteDraftId,
-            tenant_id: tenantId,
-            workshop_task_id: taskId,
-            mechanic_employee_id: mechanicId,
-          },
-          select: { translated_text: true },
-        });
-        acceptedDraftText = accepted?.translated_text ?? null;
+        acceptedDraftText = pendingDraft.translated_text;
       }
 
       const effectiveMechanicNotes =
@@ -1524,6 +1531,9 @@ export class MechanicService {
       if (error instanceof ServiceUnavailableException) {
         throw error;
       }
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadGatewayException(
         'Voice-note transcription failed due to an upstream provider error. Please try again.',
       );
@@ -1532,14 +1542,8 @@ export class MechanicService {
     // Zero out the audio buffer immediately after successful transcription.
     // ADR-0014 §5.3 — Audio retention minimisation.
     file.buffer.fill(0);
-    const legacyText =
-      typeof (result as { text?: unknown }).text === 'string'
-        ? (((result as unknown as { text: string }).text) ?? '')
-        : '';
-    const originalText =
-      result.originalText ?? result.translatedText ?? legacyText;
-    const translatedText =
-      result.translatedText ?? result.originalText ?? legacyText;
+    const originalText = result.originalText ?? result.translatedText ?? '';
+    const translatedText = result.translatedText ?? result.originalText ?? '';
 
     if (
       result.durationSeconds !== undefined &&

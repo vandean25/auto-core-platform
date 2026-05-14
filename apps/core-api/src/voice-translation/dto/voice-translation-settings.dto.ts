@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
@@ -16,6 +17,7 @@ export class VoiceTranslationSettingsResponseDto {
   @ApiPropertyOptional({
     description: 'Google Cloud project id used for speech/translation requests.',
     nullable: true,
+    type: String,
   })
   googleProjectId?: string | null;
 
@@ -47,10 +49,14 @@ export class UpdateVoiceTranslationSettingsDto {
   @ApiPropertyOptional({
     description: 'Google Cloud project id used for speech/translation requests.',
     nullable: true,
+    type: String,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsString()
-  @MinLength(1)
+  @MinLength(3)
   googleProjectId?: string | null;
 
   @ApiPropertyOptional({
@@ -66,10 +72,13 @@ export class UpdateVoiceTranslationSettingsDto {
     description:
       'Google service account JSON credentials. The API stores this encrypted and never returns the raw value.',
     nullable: true,
+    type: String,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsString()
-  @MinLength(2)
+  @MinLength(100)
   googleServiceAccountJson?: string | null;
 }
-

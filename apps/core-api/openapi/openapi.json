@@ -3343,7 +3343,7 @@
     },
     "/api/mechanic/tasks/{taskId}/voice-notes": {
       "post": {
-        "description": "Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.",
+        "description": "Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft persisted as PENDING. The mechanic must accept it via PATCH /diagnostics to apply it to notes.",
         "operationId": "MechanicController_uploadVoiceNote",
         "parameters": [
           {
@@ -3393,10 +3393,10 @@
             "description": "Per-mechanic rate limit exceeded. Retry after the indicated window elapses. Limit is configured via VOICE_NOTE_RATE_LIMIT_MAX and VOICE_NOTE_RATE_LIMIT_TTL_SECONDS."
           },
           "502": {
-            "description": "Upstream speech-note provider failed."
+            "description": "Upstream voice-translation provider failed."
           },
           "503": {
-            "description": "Speech-note provider is not configured."
+            "description": "Voice translation provider is not configured."
           }
         },
         "summary": "Upload voice note and receive a translated diagnostic draft",
@@ -7154,7 +7154,7 @@
           },
           "text": {
             "type": "string",
-            "description": "Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics."
+            "description": "Transcribed and translated note draft in the canonical deployment language. Persisted as a PENDING draft; mechanic acceptance via PATCH /diagnostics marks it ACCEPTED."
           },
           "originalText": {
             "type": "string",
@@ -7212,7 +7212,7 @@
             "example": "de"
           },
           "googleProjectId": {
-            "type": "object",
+            "type": "string",
             "description": "Google Cloud project id used for speech/translation requests.",
             "nullable": true
           },
@@ -7247,7 +7247,7 @@
             "example": "de"
           },
           "googleProjectId": {
-            "type": "object",
+            "type": "string",
             "description": "Google Cloud project id used for speech/translation requests.",
             "nullable": true
           },
@@ -7257,7 +7257,7 @@
             "example": "global"
           },
           "googleServiceAccountJson": {
-            "type": "object",
+            "type": "string",
             "description": "Google service account JSON credentials. The API stores this encrypted and never returns the raw value.",
             "nullable": true
           }
@@ -8056,7 +8056,7 @@
             "description": "The linked User.id for this employee, or null if not linked."
           },
           "motherLanguageCode": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "example": "pl-PL"
@@ -8148,7 +8148,7 @@
             "description": "Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session."
           },
           "motherLanguageCode": {
-            "type": "object",
+            "type": "string",
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "nullable": true,
             "example": "pl-PL"
@@ -8186,7 +8186,7 @@
             "description": "Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1)."
           },
           "motherLanguageCode": {
-            "type": "object",
+            "type": "string",
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "nullable": true,
             "example": "pl-PL"

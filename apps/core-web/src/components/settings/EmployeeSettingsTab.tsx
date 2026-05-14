@@ -460,7 +460,7 @@ export function EmployeeSettingsTab() {
                 }}
               >
                 <SelectTrigger id='employee-mother-language'>
-                  <SelectValue />
+                  <SelectValue placeholder='Default (target language)' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='__DEFAULT__'>Default (target language)</SelectItem>

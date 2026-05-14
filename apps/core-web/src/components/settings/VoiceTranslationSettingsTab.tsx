@@ -32,6 +32,7 @@ export function VoiceTranslationSettingsTab() {
   const { data, isLoading } = useVoiceTranslationSettings()
   const updateMutation = useUpdateVoiceTranslationSettings()
   const [formState, setFormState] = React.useState<FormState>(defaultFormState)
+  const [showCredential, setShowCredential] = React.useState(false)
 
   React.useEffect(() => {
     if (!data) return
@@ -46,6 +47,14 @@ export function VoiceTranslationSettingsTab() {
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
+    const isOverwritingCredential =
+      Boolean(data?.hasGoogleCredential) && Boolean(formState.googleServiceAccountJson.trim())
+    if (
+      isOverwritingCredential &&
+      !window.confirm('Overwrite the currently configured Google credential?')
+    ) {
+      return
+    }
     try {
       await updateMutation.mutateAsync({
         targetLanguageCode: formState.targetLanguageCode,
@@ -132,20 +141,39 @@ export function VoiceTranslationSettingsTab() {
             </Label>
             <textarea
               id='voice-google-credential'
-              className='min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
-              value={formState.googleServiceAccountJson}
-              onChange={(event) =>
-                setFormState((previous) => ({
-                  ...previous,
-                  googleServiceAccountJson: event.target.value,
-                }))
+              className='min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono'
+              value={
+                showCredential
+                  ? formState.googleServiceAccountJson
+                  : formState.googleServiceAccountJson
+                    ? '••••••••••••••••••••••••••••••••'
+                    : ''
               }
+              onChange={
+                showCredential
+                  ? (event) =>
+                      setFormState((previous) => ({
+                        ...previous,
+                        googleServiceAccountJson: event.target.value,
+                      }))
+                  : undefined
+              }
+              readOnly={!showCredential}
               placeholder='{"type":"service_account",...}'
             />
             <p className='text-sm text-slate-500'>
-              Credential is stored encrypted on the server and never returned to the browser.
-              Current status: {data?.hasGoogleCredential ? 'configured' : 'not configured'}.
+              Credential is stored encrypted on the server and never returned to the browser. Leave
+              this blank to keep the current credential unchanged. Current status:{' '}
+              {data?.hasGoogleCredential ? 'configured' : 'not configured'}.
             </p>
+            <label className='flex items-center gap-2 text-sm text-slate-600'>
+              <input
+                type='checkbox'
+                checked={showCredential}
+                onChange={(event) => setShowCredential(event.target.checked)}
+              />
+              Show credential
+            </label>
           </div>
 
           <div className='flex justify-end'>
@@ -158,4 +186,3 @@ export function VoiceTranslationSettingsTab() {
     </Card>
   )
 }
-
