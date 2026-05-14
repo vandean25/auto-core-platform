@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/node';
-import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import {
   ApplicationError,
@@ -114,9 +113,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (status >= 500) {
       try {
-        eventId = Sentry.captureException(exception) || randomUUID();
+        const captured = Sentry.captureException(exception);
+        if (captured) {
+          eventId = captured;
+        }
       } catch {
-        eventId = randomUUID();
+        // Sentry unavailable — omit eventId rather than returning a fake UUID
       }
     }
 
