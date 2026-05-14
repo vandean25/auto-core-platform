@@ -3405,6 +3405,56 @@
         ]
       }
     },
+    "/api/voice-translation/settings": {
+      "get": {
+        "operationId": "VoiceTranslationController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceTranslationSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "voice-translation"
+        ]
+      },
+      "patch": {
+        "operationId": "VoiceTranslationController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVoiceTranslationSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceTranslationSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "voice-translation"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -6827,6 +6877,12 @@
             "nullable": true,
             "description": "Free-text mechanic diagnostic notes saved to the task."
           },
+          "voiceNoteDraftId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Optional voice-note draft id to accept while saving diagnostics."
+          },
           "inspectionId": {
             "type": "string",
             "format": "uuid",
@@ -7091,9 +7147,26 @@
       "VoiceNoteDraftResponseDto": {
         "type": "object",
         "properties": {
+          "draftId": {
+            "type": "string",
+            "description": "Server-generated draft id. Pass this id to PATCH /diagnostics when accepting the voice-note draft.",
+            "format": "uuid"
+          },
           "text": {
             "type": "string",
             "description": "Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics."
+          },
+          "originalText": {
+            "type": "string",
+            "description": "Original transcript text before translation."
+          },
+          "sourceLanguageCode": {
+            "type": "string",
+            "description": "Configured source language code used for speech recognition."
+          },
+          "targetLanguageCode": {
+            "type": "string",
+            "description": "Configured target language code used for translated output."
           },
           "detectedLanguage": {
             "type": "string",
@@ -7117,10 +7190,78 @@
           }
         },
         "required": [
+          "draftId",
           "text",
+          "originalText",
+          "sourceLanguageCode",
+          "targetLanguageCode",
           "provider",
           "model"
         ]
+      },
+      "VoiceTranslationSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetLanguageCode": {
+            "type": "string",
+            "description": "Target translation language code used for mechanic voice notes.",
+            "example": "de"
+          },
+          "googleProjectId": {
+            "type": "object",
+            "description": "Google Cloud project id used for speech/translation requests.",
+            "nullable": true
+          },
+          "googleLocation": {
+            "type": "string",
+            "description": "Google Cloud location for Speech-to-Text V2 resources.",
+            "example": "global"
+          },
+          "hasGoogleCredential": {
+            "type": "boolean",
+            "description": "Whether a Google service account credential is configured."
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "targetLanguageCode",
+          "googleLocation",
+          "hasGoogleCredential",
+          "updatedAt"
+        ]
+      },
+      "UpdateVoiceTranslationSettingsDto": {
+        "type": "object",
+        "properties": {
+          "targetLanguageCode": {
+            "type": "string",
+            "description": "Target translation language code used for mechanic voice notes.",
+            "example": "de"
+          },
+          "googleProjectId": {
+            "type": "object",
+            "description": "Google Cloud project id used for speech/translation requests.",
+            "nullable": true
+          },
+          "googleLocation": {
+            "type": "string",
+            "description": "Google Cloud location for Speech-to-Text V2 resources.",
+            "example": "global"
+          },
+          "googleServiceAccountJson": {
+            "type": "object",
+            "description": "Google service account JSON credentials. The API stores this encrypted and never returns the raw value.",
+            "nullable": true
+          }
+        }
       },
       "LaborOperationSearchItemDto": {
         "type": "object",
@@ -7914,6 +8055,12 @@
             "nullable": true,
             "description": "The linked User.id for this employee, or null if not linked."
           },
+          "motherLanguageCode": {
+            "type": "object",
+            "nullable": true,
+            "description": "Preferred source language for this employee voice notes (BCP-47).",
+            "example": "pl-PL"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -7999,6 +8146,12 @@
             "format": "uuid",
             "nullable": true,
             "description": "Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session."
+          },
+          "motherLanguageCode": {
+            "type": "object",
+            "description": "Preferred source language for this employee voice notes (BCP-47).",
+            "nullable": true,
+            "example": "pl-PL"
           }
         },
         "required": [
@@ -8031,6 +8184,12 @@
             "format": "uuid",
             "nullable": true,
             "description": "Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1)."
+          },
+          "motherLanguageCode": {
+            "type": "object",
+            "description": "Preferred source language for this employee voice notes (BCP-47).",
+            "nullable": true,
+            "example": "pl-PL"
           }
         }
       },

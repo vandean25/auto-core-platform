@@ -34,7 +34,9 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.15.2",
+    "@google-cloud/speech": "^7.3.1",
     "@google-cloud/tasks": "^6.2.1",
+    "@google-cloud/translate": "^9.4.1",
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
     "@nestjs/event-emitter": "^3.1.0",

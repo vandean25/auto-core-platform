@@ -38,6 +38,13 @@ export const MIN_VOICE_NOTE_BYTES = 100;
  * ADR-0014 §5.3
  */
 export class VoiceNoteDraftResponseDto {
+  @ApiProperty({
+    description:
+      'Server-generated draft id. Pass this id to PATCH /diagnostics when accepting the voice-note draft.',
+    format: 'uuid',
+  })
+  draftId!: string;
+
   /**
    * Transcribed/translated note text in the canonical deployment language.
    * The mechanic should review this draft before accepting it.
@@ -48,6 +55,21 @@ export class VoiceNoteDraftResponseDto {
       'Not persisted — the mechanic must accept it via PATCH /diagnostics.',
   })
   text!: string;
+
+  @ApiProperty({
+    description: 'Original transcript text before translation.',
+  })
+  originalText!: string;
+
+  @ApiProperty({
+    description: 'Configured source language code used for speech recognition.',
+  })
+  sourceLanguageCode!: string;
+
+  @ApiProperty({
+    description: 'Configured target language code used for translated output.',
+  })
+  targetLanguageCode!: string;
 
   /**
    * BCP-47 language tag detected from the source audio (e.g. `"en"`, `"th"`).

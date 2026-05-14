@@ -14,6 +14,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | Entity | Delete Allowed | Rule |
 |---|---|---|
 | FinanceSettings | No | Singleton configuration record; never deleted. |
+| VoiceTranslationSettings | No | Singleton tenant configuration record for voice translation; update in place only. |
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
 | Brand | Conditional | Allow only when no `CatalogItem` or `Vendor.supportedBrands` reference it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
@@ -43,6 +44,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopInspection | Conditional | Cannot delete after the parent order is completed; before completion only manager-controlled void/delete flows should be allowed. |
 | WorkshopInspectionItem | No direct delete | Managed by the parent `WorkshopInspection` lifecycle and should not be deleted independently after completion. |
 | WorkshopMedia | Conditional | Cannot delete after the parent order is completed; before completion, only failed or unattached media may be removed by mechanics, otherwise manager-only. |
+| WorkshopVoiceNoteDraft | No direct delete | Immutable audit-support record for voice-note transcription/translation acceptance history; status transitions (`PENDING` -> `ACCEPTED`) only. |
 | LaborEntry | No | Immutable audit trail of mechanic time intervals; never hard-deleted through the API. The nightly close-out job may set `ended_at` and `pause_reason = AUTO_SHIFT_CLOSE` on open entries, but does not delete records. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |

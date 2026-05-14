@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -29,6 +30,8 @@ function parseOptionalNumber(value: unknown): unknown {
   }
   return Number(value);
 }
+
+const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
 export class CreateEmployeeDto {
   @ApiProperty()
@@ -62,6 +65,17 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Preferred source language for this employee voice notes (BCP-47).',
+    nullable: true,
+    example: 'pl-PL',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(LANGUAGE_CODE_RE)
+  motherLanguageCode?: string | null;
 }
 
 export class UpdateEmployeeDto {
@@ -99,6 +113,17 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsUUID()
   userId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Preferred source language for this employee voice notes (BCP-47).',
+    nullable: true,
+    example: 'pl-PL',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(LANGUAGE_CODE_RE)
+  motherLanguageCode?: string | null;
 }
 
 export class ListEmployeesQueryDto {
@@ -157,6 +182,14 @@ export class EmployeeResponseDto {
     description: 'The linked User.id for this employee, or null if not linked.',
   })
   userId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Preferred source language for this employee voice notes (BCP-47).',
+    example: 'pl-PL',
+  })
+  motherLanguageCode!: string | null;
 
   @ApiProperty()
   createdAt!: Date;

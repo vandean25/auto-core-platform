@@ -34,6 +34,7 @@ import { PageLoader } from "@/components/ui/PageLoader"
 import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
+import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -262,7 +263,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -346,8 +347,9 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className={cn("grid w-full max-w-[1100px]", canManageTeam ? 'grid-cols-8' : 'grid-cols-7')}>
+                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-9' : 'grid-cols-8')}>
                     <TabsTrigger value="finance">Finance</TabsTrigger>
+                    <TabsTrigger value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
                     <TabsTrigger value="brands">Brands</TabsTrigger>
                     <TabsTrigger value="locations">Storage Locations</TabsTrigger>
@@ -410,6 +412,10 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                     </form>
+                </TabsContent>
+
+                <TabsContent value="voice-translation" className="space-y-6">
+                    <VoiceTranslationSettingsTab />
                 </TabsContent>
 
                 {/* ── Revenue Groups Tab ── */}

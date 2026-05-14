@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import { SOURCE_LANGUAGE_OPTIONS } from '@/constants/voice-languages'
 
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 
@@ -34,12 +35,14 @@ type EmployeeFormState = {
   name: string
   role: EmployeeRole
   sortOrder: string
+  motherLanguageCode: string
 }
 
 const defaultFormState: EmployeeFormState = {
   name: '',
   role: 'MECHANIC',
   sortOrder: '0',
+  motherLanguageCode: '',
 }
 
 function formatRoleLabel(role: EmployeeRole) {
@@ -53,6 +56,12 @@ function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
 }
 
+function getLanguageLabel(code: string | null | undefined) {
+  if (!code) return 'Default (target language)'
+  const option = SOURCE_LANGUAGE_OPTIONS.find((item) => item.value === code)
+  return option ? option.label : code
+}
+
 function matchesEmployeeSearch(employee: Employee, term: string) {
   if (!term) return true
 
@@ -62,6 +71,8 @@ function matchesEmployeeSearch(employee: Employee, term: string) {
     formatRoleLabel(employee.role),
     employee.isActive ? 'active' : 'inactive',
     String(employee.sortOrder),
+    employee.motherLanguageCode ?? '',
+    getLanguageLabel(employee.motherLanguageCode),
   ]
 
   return haystack.some((entry) => entry.toLowerCase().includes(term))
@@ -91,6 +102,12 @@ function sortEmployees(
 
     if (sortField === 'sortOrder') {
       return direction * (left.sortOrder - right.sortOrder)
+    }
+
+    if (sortField === 'motherLanguageCode') {
+      const leftValue = left.motherLanguageCode ?? ''
+      const rightValue = right.motherLanguageCode ?? ''
+      return direction * leftValue.localeCompare(rightValue)
     }
 
     return 0
@@ -147,6 +164,7 @@ export function EmployeeSettingsTab() {
         role?: EmployeeRole
         isActive?: boolean
         sortOrder?: number
+        motherLanguageCode?: string | null
       },
       successMessage: string,
       fallbackMessage: string,
@@ -183,6 +201,7 @@ export function EmployeeSettingsTab() {
         role: formState.role,
         sortOrder: parsedSortOrder,
         isActive: true,
+        motherLanguageCode: formState.motherLanguageCode || null,
       })
 
       toast.success('Employee created')
@@ -254,6 +273,42 @@ export function EmployeeSettingsTab() {
               {EMPLOYEE_ROLE_OPTIONS.map((role) => (
                 <SelectItem key={role} value={role}>
                   {formatRoleLabel(role)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
+        accessorKey: 'motherLanguageCode',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Mother Language' />
+        ),
+        cell: ({ row }) => (
+          <Select
+            value={row.original.motherLanguageCode ?? '__DEFAULT__'}
+            onValueChange={(nextLanguageCode) => {
+              void runUpdate(
+                row.original.id,
+                {
+                  motherLanguageCode:
+                    nextLanguageCode === '__DEFAULT__'
+                      ? null
+                      : nextLanguageCode,
+                },
+                'Employee language updated',
+                'Failed to update employee language',
+              )
+            }}
+          >
+            <SelectTrigger className='h-8 w-[250px]'>
+              <SelectValue>{getLanguageLabel(row.original.motherLanguageCode)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='__DEFAULT__'>Default (target language)</SelectItem>
+              {SOURCE_LANGUAGE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -390,6 +445,32 @@ export function EmployeeSettingsTab() {
                   setFormState((previous) => ({ ...previous, sortOrder: event.target.value }))
                 }}
               />
+            </div>
+
+            <div className='space-y-2'>
+              <Label htmlFor='employee-mother-language'>Mother Language</Label>
+              <Select
+                value={formState.motherLanguageCode || '__DEFAULT__'}
+                onValueChange={(nextLanguageCode) => {
+                  setFormState((previous) => ({
+                    ...previous,
+                    motherLanguageCode:
+                      nextLanguageCode === '__DEFAULT__' ? '' : nextLanguageCode,
+                  }))
+                }}
+              >
+                <SelectTrigger id='employee-mother-language'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='__DEFAULT__'>Default (target language)</SelectItem>
+                  {SOURCE_LANGUAGE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <DialogFooter>

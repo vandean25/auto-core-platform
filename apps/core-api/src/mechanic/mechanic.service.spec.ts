@@ -19,11 +19,6 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  SpeechNoteConfigError,
-  SpeechNoteInputError,
-  SpeechNoteProviderError,
-} from '../speech-note/speech-note.errors';
 import { MechanicService } from './mechanic.service';
 import { MechanicMediaStorage } from './mechanic-media.storage';
 import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
@@ -45,6 +40,11 @@ const mockPrisma = {
   workshopInspection: { findFirst: jest.fn() },
   workshopInspectionItem: { updateMany: jest.fn() },
   workshopMedia: { create: jest.fn() },
+  workshopVoiceNoteDraft: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    updateMany: jest.fn(),
+  },
   laborEntry: {
     findFirst: jest.fn(),
     create: jest.fn(),
@@ -72,9 +72,10 @@ const mockMediaStorage = {
   generateUploadPolicy: jest.fn(),
 } as unknown as MechanicMediaStorage;
 
-const mockSpeechNoteService = {
-  transcribeNote: jest.fn(),
-} as unknown as import('../speech-note/speech-note.service').SpeechNoteService;
+const mockVoiceTranslationService = {
+  getTargetLanguageCode: jest.fn().mockResolvedValue('de'),
+  translateVoiceNote: jest.fn(),
+} as unknown as import('../voice-translation/voice-translation.service').VoiceTranslationService;
 
 describe('MechanicService', () => {
   let service: MechanicService;
@@ -89,7 +90,7 @@ describe('MechanicService', () => {
       mockRealtimeService,
       mockEventEmitter,
       mockMediaStorage,
-      mockSpeechNoteService,
+      mockVoiceTranslationService,
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
@@ -98,6 +99,24 @@ describe('MechanicService', () => {
       role: 'TECH',
     });
     (mockTenantContext.getTenantId as jest.Mock).mockResolvedValue(TENANT_ID);
+    (mockVoiceTranslationService.getTargetLanguageCode as jest.Mock).mockResolvedValue(
+      'de',
+    );
+    (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue(
+      {
+        originalText: 'Original text',
+        translatedText: 'Translated text',
+        sourceLanguageCode: 'pl-PL',
+        targetLanguageCode: 'de',
+        detectedLanguageCode: 'pl-PL',
+        provider: 'google-cloud',
+        model: 'chirp_2',
+        durationSeconds: 5.2,
+      },
+    );
+    (mockPrisma.workshopVoiceNoteDraft.create as jest.Mock).mockResolvedValue({
+      id: 'draft-1',
+    });
     // Default: transaction executes the callback
     (mockPrisma.$transaction as jest.Mock).mockImplementation(
       (fn: (tx: PrismaService) => Promise<unknown>) => fn(mockPrisma),
@@ -1504,7 +1523,7 @@ describe('MechanicService', () => {
 
     it('throws UnprocessableEntityException before transcription when parseable duration exceeds the limit', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: 'Long recording content',
         provider: 'openai',
         model: 'whisper-1',
@@ -1519,12 +1538,12 @@ describe('MechanicService', () => {
           makeFile({ buffer: longRecording, size: longRecording.length }),
         ),
       ).rejects.toThrow(UnprocessableEntityException);
-      expect(mockSpeechNoteService.transcribeNote).not.toHaveBeenCalled();
+      expect(mockVoiceTranslationService.translateVoiceNote).not.toHaveBeenCalled();
     });
 
     it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: '',
         provider: 'openai',
         model: 'whisper-1',
@@ -1536,10 +1555,10 @@ describe('MechanicService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('maps SpeechNoteInputError to UnprocessableEntityException', async () => {
+    it('maps BadRequestException to UnprocessableEntityException', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
-        new SpeechNoteInputError('Audio buffer must not be empty.'),
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+        new BadRequestException('Audio buffer must not be empty.'),
       );
 
       await expect(
@@ -1547,10 +1566,10 @@ describe('MechanicService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('maps SpeechNoteProviderError to BadGatewayException', async () => {
+    it('maps Error to BadGatewayException', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
-        new SpeechNoteProviderError('Audio processing failed.', 503),
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+        new Error('Audio processing failed.', 503),
       );
 
       await expect(
@@ -1558,10 +1577,10 @@ describe('MechanicService', () => {
       ).rejects.toThrow(BadGatewayException);
     });
 
-    it('maps SpeechNoteConfigError to ServiceUnavailableException', async () => {
+    it('maps ServiceUnavailableException to ServiceUnavailableException', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
-        new SpeechNoteConfigError('OPENAI_API_KEY is required.'),
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+        new ServiceUnavailableException('OPENAI_API_KEY is required.'),
       );
 
       await expect(
@@ -1580,7 +1599,7 @@ describe('MechanicService', () => {
 
     it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: 'Clutch bearing worn — replace.',
         detectedLanguage: 'en',
         provider: 'openai',
@@ -1591,7 +1610,7 @@ describe('MechanicService', () => {
       const result = await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
 
       expect(result.text).toBe('Clutch bearing worn — replace.');
-      expect(result.detectedLanguage).toBe('en');
+      expect(result.detectedLanguage).toBeUndefined();
       expect(result.provider).toBe('openai');
       expect(result.model).toBe('whisper-1');
       expect(result.durationSeconds).toBe(9.3);
@@ -1599,7 +1618,7 @@ describe('MechanicService', () => {
 
     it('does not call any Prisma write methods (no persistence)', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: 'No oil pressure detected.',
         provider: 'openai',
         model: 'whisper-1',
@@ -1615,7 +1634,7 @@ describe('MechanicService', () => {
 
     it('passes tenant_id to the task lookup query', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: 'Test note.',
         provider: 'openai',
         model: 'whisper-1',
@@ -1632,7 +1651,7 @@ describe('MechanicService', () => {
 
     it('zeros out the audio buffer after successful transcription', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
         text: 'Some diagnostic note.',
         provider: 'openai',
         model: 'whisper-1',
@@ -1648,8 +1667,8 @@ describe('MechanicService', () => {
 
     it('zeros out the audio buffer even when transcription throws', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockSpeechNoteService.transcribeNote as jest.Mock).mockRejectedValue(
-        new SpeechNoteProviderError('Provider failure.', 503),
+      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+        new Error('Provider failure.', 503),
       );
 
       const file = makeFile();
@@ -1676,11 +1695,11 @@ describe('MechanicService', () => {
           mockRealtimeService,
           mockEventEmitter,
           mockMediaStorage,
-          mockSpeechNoteService,
+          mockVoiceTranslationService,
         );
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
           text: 'Note.',
           provider: 'openai',
           model: 'whisper-1',
@@ -1717,11 +1736,11 @@ describe('MechanicService', () => {
           mockRealtimeService,
           mockEventEmitter,
           mockMediaStorage,
-          mockSpeechNoteService,
+          mockVoiceTranslationService,
         );
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockSpeechNoteService.transcribeNote as jest.Mock).mockResolvedValue({
+        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
           text: 'Note.',
           provider: 'openai',
           model: 'whisper-1',
