@@ -340,9 +340,11 @@ function App() {
 
   if (!user) {
     return (
-      <React.Suspense fallback={<PageLoader />}>
-        <LoginPage />
-      </React.Suspense>
+      <GlobalErrorBoundary>
+        <React.Suspense fallback={<PageLoader />}>
+          <LoginPage />
+        </React.Suspense>
+      </GlobalErrorBoundary>
     )
   }
 
