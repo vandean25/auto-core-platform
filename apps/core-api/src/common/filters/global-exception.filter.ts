@@ -7,6 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
+import { randomUUID } from 'crypto';
 import type { Response } from 'express';
 import {
   ApplicationError,
@@ -31,6 +33,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let error: string | undefined;
+    let eventId: string | undefined;
 
     // Handle standard NestJS HttpExceptions
     if (exception instanceof HttpException) {
@@ -109,10 +112,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       this.logger.error('Unknown error caught by filter', exception);
     }
 
+    if (status >= 500) {
+      try {
+        eventId = Sentry.captureException(exception) || randomUUID();
+      } catch {
+        eventId = randomUUID();
+      }
+    }
+
     response.status(status).json({
       statusCode: status,
       message,
       error: error || this.getHttpStatusName(status),
+      ...(eventId ? { eventId } : {}),
     });
   }
 

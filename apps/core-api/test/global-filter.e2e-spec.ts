@@ -81,7 +81,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
     });
   });
 
-  it('should mask 500 error messages when NODE_ENV=production', async () => {
+  it('should keep standard error response shape for validation errors', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/customers')
         .set('Authorization', `Bearer ${authToken}`)
