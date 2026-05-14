@@ -540,7 +540,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(503);
 
     expect(res.body.message).toBe(
-      'Voice-note transcription is not configured. Missing server setting: OPENAI_API_KEY.',
+      'Google voice translation credential is not configured.',
     );
   });
 
