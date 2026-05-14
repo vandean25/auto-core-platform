@@ -1,14 +1,17 @@
 type ApiErrorLike = {
-    message?: string
+    message?: string | string[]
     name?: string
     status?: number
+    eventId?: string
     data?: {
-        message?: string
+        message?: string | string[]
+        eventId?: string
     }
     response?: {
         status?: number
         data?: {
-            message?: string
+            message?: string | string[]
+            eventId?: string
         }
     }
 }
@@ -23,12 +26,23 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
     }
 
     const apiError = error as ApiErrorLike
-    return (
+    const rawMessage = (
         apiError.response?.data?.message ||
         apiError.data?.message ||
         apiError.message ||
         fallbackMessage
     )
+    const baseMessage = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage
+    const eventId =
+        apiError.response?.data?.eventId ||
+        apiError.data?.eventId ||
+        apiError.eventId
+
+    if (!eventId) {
+        return baseMessage
+    }
+
+    return `${baseMessage} (Error ID: ${eventId})`
 }
 
 export function getErrorStatus(error: unknown): number | null {

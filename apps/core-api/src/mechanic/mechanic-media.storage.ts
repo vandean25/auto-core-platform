@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import {
@@ -154,8 +155,8 @@ export class MechanicMediaStorage {
   private getBucketName(): string {
     const bucket = process.env.WORKSHOP_MEDIA_BUCKET;
     if (!bucket) {
-      throw new InternalServerErrorException(
-        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
+      throw new ServiceUnavailableException(
+        'Media upload is not configured. Missing server setting: WORKSHOP_MEDIA_BUCKET.',
       );
     }
     return bucket;
