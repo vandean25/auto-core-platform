@@ -25,12 +25,7 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  SpeechNoteConfigError,
-  SpeechNoteInputError,
-  SpeechNoteProviderError,
-} from '../speech-note/speech-note.errors';
-import { SpeechNoteService } from '../speech-note/speech-note.service';
+import { VoiceTranslationService } from '../voice-translation/voice-translation.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -201,7 +196,7 @@ export class MechanicService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
-    private readonly speechNote: SpeechNoteService,
+    private readonly voiceTranslationService: VoiceTranslationService,
   ) {
     this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
   }
@@ -1022,11 +1017,59 @@ export class MechanicService {
     this.assertTaskAssignedToMechanic(task, mechanicId);
 
     await this.prisma.$transaction(async (tx) => {
-      // Persist mechanic notes when provided.
-      if (dto.mechanicNotes !== undefined) {
+      let acceptedDraftText: string | null = null;
+      if (dto.voiceNoteDraftId) {
+        const pendingDraft = await tx.workshopVoiceNoteDraft.findFirst({
+          where: {
+            id: dto.voiceNoteDraftId,
+            tenant_id: tenantId,
+            workshop_task_id: taskId,
+            mechanic_employee_id: mechanicId,
+            status: 'PENDING',
+          },
+          select: { id: true, translated_text: true },
+        });
+
+        if (!pendingDraft) {
+          throw new NotFoundException(
+            `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
+          );
+        }
+
+        const acceptedDraft = await tx.workshopVoiceNoteDraft.updateMany({
+          where: {
+            id: pendingDraft.id,
+            tenant_id: tenantId,
+            workshop_task_id: taskId,
+            mechanic_employee_id: mechanicId,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'ACCEPTED',
+            accepted_at: new Date(),
+            accepted_by_employee_id: mechanicId,
+          },
+        });
+
+        if (acceptedDraft.count === 0) {
+          throw new NotFoundException(
+            `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
+          );
+        }
+        acceptedDraftText = pendingDraft.translated_text;
+      }
+
+      const effectiveMechanicNotes =
+        dto.mechanicNotes !== undefined
+          ? dto.mechanicNotes
+          : acceptedDraftText !== null
+            ? acceptedDraftText
+            : undefined;
+
+      if (effectiveMechanicNotes !== undefined) {
         const taskUpdate = await tx.workshopTask.updateMany({
           where: { id: taskId, tenant_id: tenantId },
-          data: { mechanic_notes: dto.mechanicNotes },
+          data: { mechanic_notes: effectiveMechanicNotes },
         });
 
         if (taskUpdate.count === 0) {
@@ -1437,13 +1480,37 @@ export class MechanicService {
       );
     }
 
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        id: mechanicId,
+        tenant_id: tenantId,
+        role: 'MECHANIC',
+      },
+      select: { mother_language_code: true },
+    });
+    const targetLanguageCode =
+      await this.voiceTranslationService.getTargetLanguageCode(tenantId);
+    const sourceLanguageCode =
+      employee?.mother_language_code || targetLanguageCode;
+
     const startedAt = Date.now();
-    let draft: VoiceNoteDraftResponseDto;
+    let result: {
+      originalText: string;
+      translatedText: string;
+      sourceLanguageCode: string;
+      targetLanguageCode: string;
+      detectedLanguageCode?: string;
+      provider: string;
+      model: string;
+      durationSeconds?: number;
+    };
     try {
-      draft = await this.speechNote.transcribeNote({
+      result = await this.voiceTranslationService.translateVoiceNote({
         audioBuffer: file.buffer,
         filename: getVoiceNoteFilename(file, normalizedMime),
         mimeType: normalizedMime,
+        sourceLanguageCode,
+        targetLanguageCode,
       });
     } catch (error) {
       // Zero out the audio buffer immediately to release sensitive data.
@@ -1451,71 +1518,86 @@ export class MechanicService {
       file.buffer.fill(0);
 
       const latencyMs = Date.now() - startedAt;
-      const failureClass =
-        error instanceof SpeechNoteInputError
-          ? 'SpeechNoteInputError'
-          : error instanceof SpeechNoteConfigError
-            ? 'SpeechNoteConfigError'
-            : error instanceof SpeechNoteProviderError
-              ? 'SpeechNoteProviderError'
-              : error instanceof Error
-                ? error.name
-                : 'UnknownError';
+      const failureClass = error instanceof Error ? error.name : 'UnknownError';
 
       // Log only safe metadata — no transcript text, no audio content.
       this.logger.warn(
         `voice_note_failure tenantId=${tenantId} taskId=${taskId} latencyMs=${latencyMs} failureClass=${failureClass}`,
       );
 
-      if (error instanceof SpeechNoteInputError) {
+      if (error instanceof BadRequestException) {
         throw new UnprocessableEntityException(error.message);
       }
-      if (error instanceof SpeechNoteConfigError) {
-        throw new ServiceUnavailableException(
-          'Voice-note transcription is not configured. Missing server setting: OPENAI_API_KEY.',
-        );
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
       }
-      if (error instanceof SpeechNoteProviderError) {
-        throw new BadGatewayException(
-          'Voice-note transcription failed due to an upstream provider error. Please try again.',
-        );
+      if (error instanceof HttpException) {
+        throw error;
       }
-      throw error;
+      throw new BadGatewayException(
+        'Voice-note transcription failed due to an upstream provider error. Please try again.',
+      );
     }
 
     // Zero out the audio buffer immediately after successful transcription.
     // ADR-0014 §5.3 — Audio retention minimisation.
     file.buffer.fill(0);
+    const originalText = result.originalText ?? result.translatedText ?? '';
+    const translatedText = result.translatedText ?? result.originalText ?? '';
 
     if (
-      draft.durationSeconds !== undefined &&
-      draft.durationSeconds !== null &&
-      draft.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
+      result.durationSeconds !== undefined &&
+      result.durationSeconds !== null &&
+      result.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
     ) {
       throw new UnprocessableEntityException(
-        `Audio recording duration ${draft.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
+        `Audio recording duration ${result.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
       );
     }
 
-    if (!draft.text || draft.text.trim().length === 0) {
+    if (!originalText || originalText.trim().length === 0) {
       throw new UnprocessableEntityException(
         'Voice note appears to be silent - no speech was detected in the recording.',
       );
     }
 
+    const savedDraft = await this.prisma.workshopVoiceNoteDraft.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        mechanic_employee_id: mechanicId,
+        status: 'PENDING',
+        source_language_code: result.sourceLanguageCode,
+        target_language_code: result.targetLanguageCode,
+        original_text: originalText,
+        translated_text: translatedText,
+        provider: result.provider,
+        model: result.model,
+        duration_seconds:
+          result.durationSeconds != null
+            ? new Prisma.Decimal(result.durationSeconds)
+            : null,
+      },
+      select: { id: true },
+    });
+
     const latencyMs = Date.now() - startedAt;
     // Log only safe operational metadata — never log draft.text (transcript content).
     // ADR-0014 §5.3 — Observability without content logging.
     this.logger.log(
-      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${draft.provider} model=${draft.model} latencyMs=${latencyMs} durationSeconds=${draft.durationSeconds ?? 'unknown'}`,
+      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${result.provider} model=${result.model} latencyMs=${latencyMs} durationSeconds=${result.durationSeconds ?? 'unknown'}`,
     );
 
     return {
-      text: draft.text,
-      detectedLanguage: draft.detectedLanguage,
-      provider: draft.provider,
-      model: draft.model,
-      durationSeconds: draft.durationSeconds,
+      draftId: savedDraft.id,
+      text: translatedText,
+      originalText: originalText,
+      sourceLanguageCode: result.sourceLanguageCode,
+      targetLanguageCode: result.targetLanguageCode,
+      detectedLanguage: result.detectedLanguageCode,
+      provider: result.provider,
+      model: result.model,
+      durationSeconds: result.durationSeconds,
     } satisfies VoiceNoteDraftResponseDto;
   }
 

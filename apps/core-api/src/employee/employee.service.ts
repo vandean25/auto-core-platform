@@ -22,6 +22,7 @@ export class EmployeeService {
     is_active: boolean;
     sort_order: number;
     user_id?: string | null;
+    mother_language_code?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -32,6 +33,7 @@ export class EmployeeService {
       isActive: employee.is_active,
       sortOrder: employee.sort_order,
       userId: employee.user_id ?? null,
+      motherLanguageCode: employee.mother_language_code ?? null,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };
@@ -85,6 +87,9 @@ export class EmployeeService {
           is_active: dto.isActive ?? true,
           sort_order: dto.sortOrder ?? 0,
           ...(dto.userId !== undefined && { user_id: dto.userId }),
+          ...(dto.motherLanguageCode !== undefined && {
+            mother_language_code: dto.motherLanguageCode,
+          }),
         } as Prisma.EmployeeUncheckedCreateInput,
       });
 
@@ -117,6 +122,9 @@ export class EmployeeService {
           ...(dto.isActive !== undefined && { is_active: dto.isActive }),
           ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
           ...(dto.userId !== undefined && { user_id: dto.userId }),
+          ...(dto.motherLanguageCode !== undefined && {
+            mother_language_code: dto.motherLanguageCode,
+          }),
         },
       });
 

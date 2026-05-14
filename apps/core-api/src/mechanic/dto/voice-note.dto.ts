@@ -1,12 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SUPPORTED_SPEECH_NOTE_MIME_TYPES } from '../../speech-note/speech-note.service';
 
 /**
  * Allowed MIME types for mechanic voice-note uploads.
- * Reuses the authoritative list from `SpeechNoteService`.
- * Ref: https://platform.openai.com/docs/guides/speech-to-text/supported-formats
  */
-export const ALLOWED_VOICE_NOTE_MIME_TYPES: ReadonlySet<string> = SUPPORTED_SPEECH_NOTE_MIME_TYPES;
+export const ALLOWED_VOICE_NOTE_MIME_TYPES: ReadonlySet<string> = new Set([
+  'audio/webm',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/ogg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/flac',
+]);
 
 /**
  * Whisper API hard limit is 25 MiB.
@@ -31,13 +36,20 @@ export const MIN_VOICE_NOTE_BYTES = 100;
 /**
  * Response DTO for `POST /api/mechanic/tasks/:taskId/voice-notes`.
  *
- * Contains the translated diagnostic-note draft returned by the speech-note
- * adapter.  The draft is **not** persisted automatically — the mechanic must
- * review it and submit it via `PATCH /api/mechanic/tasks/:taskId/diagnostics`.
+ * Contains the translated diagnostic-note draft returned by the voice-translation
+ * adapter. The draft is persisted immediately as `PENDING` and can later be
+ * accepted via `PATCH /api/mechanic/tasks/:taskId/diagnostics`.
  *
  * ADR-0014 §5.3
  */
 export class VoiceNoteDraftResponseDto {
+  @ApiProperty({
+    description:
+      'Server-generated draft id. Pass this id to PATCH /diagnostics when accepting the voice-note draft.',
+    format: 'uuid',
+  })
+  draftId!: string;
+
   /**
    * Transcribed/translated note text in the canonical deployment language.
    * The mechanic should review this draft before accepting it.
@@ -45,9 +57,24 @@ export class VoiceNoteDraftResponseDto {
   @ApiProperty({
     description:
       'Transcribed and translated note draft in the canonical deployment language. ' +
-      'Not persisted — the mechanic must accept it via PATCH /diagnostics.',
+      'Persisted as a PENDING draft; mechanic acceptance via PATCH /diagnostics marks it ACCEPTED.',
   })
   text!: string;
+
+  @ApiProperty({
+    description: 'Original transcript text before translation.',
+  })
+  originalText!: string;
+
+  @ApiProperty({
+    description: 'Configured source language code used for speech recognition.',
+  })
+  sourceLanguageCode!: string;
+
+  @ApiProperty({
+    description: 'Configured target language code used for translated output.',
+  })
+  targetLanguageCode!: string;
 
   /**
    * BCP-47 language tag detected from the source audio (e.g. `"en"`, `"th"`).

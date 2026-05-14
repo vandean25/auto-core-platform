@@ -3,10 +3,21 @@ import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 
 export type EmployeeRole = components['schemas']['EmployeeRole']
-export type Employee = components['schemas']['EmployeeResponseDto']
+export type Employee = Omit<components['schemas']['EmployeeResponseDto'], 'userId' | 'motherLanguageCode'> & {
+  userId?: string | null
+  motherLanguageCode?: string | null
+}
 export type EmployeesListResponse = components['schemas']['EmployeesListResponseDto']
-export type CreateEmployeePayload = components['schemas']['CreateEmployeeDto']
-export type UpdateEmployeePayload = components['schemas']['UpdateEmployeeDto']
+export type CreateEmployeePayload = Omit<components['schemas']['CreateEmployeeDto'], 'motherLanguageCode'> & {
+  motherLanguageCode?: string | null
+}
+export type UpdateEmployeePayload = Omit<
+  components['schemas']['UpdateEmployeeDto'],
+  'userId' | 'motherLanguageCode'
+> & {
+  userId?: string | null
+  motherLanguageCode?: string | null
+}
 export type DeleteEmployeeResponse = components['schemas']['EmployeeDeleteResponseDto']
 
 export type ListEmployeesOptions = {
@@ -28,7 +39,10 @@ async function getErrorMessage(response: Response, fallbackMessage: string) {
 }
 
 export function useEmployees(options?: ListEmployeesOptions) {
-  return useQuery<EmployeesListResponse>({
+  return useQuery<{
+    data: Employee[]
+    meta: EmployeesListResponse['meta']
+  }>({
     queryKey: employeeKeys.list(options),
     queryFn: async () => {
       const params = new URLSearchParams()

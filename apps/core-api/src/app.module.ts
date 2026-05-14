@@ -32,7 +32,7 @@ import { BayModule } from './bay/bay.module';
 import { AuthModule } from './auth/auth.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 import { TenantMemberModule } from './tenant-member/tenant-member.module';
-import { SpeechNoteModule } from './speech-note/speech-note.module';
+import { VoiceTranslationModule } from './voice-translation/voice-translation.module';
 
 @Module({
   imports: [
@@ -58,7 +58,7 @@ import { SpeechNoteModule } from './speech-note/speech-note.module';
     AuthModule,
     PlatformAdminModule,
     TenantMemberModule,
-    SpeechNoteModule,
+    VoiceTranslationModule,
   ],
   controllers: [AppController],
   providers: [

@@ -4,7 +4,28 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common';
 
+function validateStartupEnv(): void {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
+  const raw = process.env.SECRET_ENCRYPTION_KEY;
+  if (!raw) {
+    throw new Error(
+      'SECRET_ENCRYPTION_KEY is required and must be a base64-encoded 32-byte key.',
+    );
+  }
+
+  const key = Buffer.from(raw, 'base64');
+  if (key.length !== 32) {
+    throw new Error(
+      'SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key.',
+    );
+  }
+}
+
 async function bootstrap() {
+  validateStartupEnv();
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));

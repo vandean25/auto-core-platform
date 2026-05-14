@@ -42,6 +42,7 @@ model Tenant {
 
   revenueGroups        RevenueGroup[]
   financeSettings      FinanceSettings?
+  voiceTranslationSettings VoiceTranslationSettings?
   brands               Brand[]
   catalogItems         CatalogItem[]
   storageLocations     StorageLocation[]
@@ -64,6 +65,7 @@ model Tenant {
   workshopInspections  WorkshopInspection[]
   workshopInspectionItems WorkshopInspectionItem[]
   workshopMedia        WorkshopMedia[]
+  workshopVoiceNoteDrafts WorkshopVoiceNoteDraft[]
   workshopOrders       WorkshopOrder[]
   workshopTasks        WorkshopTask[]
   workshopTaskLineItems WorkshopTaskLineItem[]
@@ -166,6 +168,21 @@ model FinanceSettings {
   @@index([tenant_id])
   @@unique([tenant_id]) // tenant-scoped
   @@map("finance_settings")
+}
+
+model VoiceTranslationSettings {
+  id                              String   @id @default(uuid())
+  tenant_id                       String
+  tenant                          Tenant   @relation(fields: [tenant_id], references: [id])
+  target_language_code            String   @default("de")
+  google_project_id               String?
+  google_location                 String   @default("global")
+  google_service_account_encrypted String?
+  updatedAt                       DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id])
+  @@map("voice_translation_settings")
 }
 
 // ============================================================================
@@ -664,10 +681,13 @@ model Employee {
   role                    EmployeeRole
   is_active               Boolean         @default(true)
   sort_order              Int             @default(0)
+  mother_language_code    String?
   workshopOrdersAsMechanic WorkshopOrder[] @relation("WorkshopOrderMechanic")
   workshopTasksAsMechanic  WorkshopTask[]  @relation("WorkshopTaskMechanic")
   laborEntries             LaborEntry[]    @relation("EmployeeLaborEntries")
   uploadedWorkshopMedia    WorkshopMedia[] @relation("WorkshopMediaUploadedByEmployee")
+  createdVoiceNoteDrafts   WorkshopVoiceNoteDraft[] @relation("CreatedVoiceNoteDrafts")
+  acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -676,6 +696,11 @@ model Employee {
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
   @@map("employees")
+}
+
+enum WorkshopVoiceNoteDraftStatus {
+  PENDING
+  ACCEPTED
 }
 
 model Bay {
@@ -814,6 +839,7 @@ model WorkshopTask {
   line_items        WorkshopTaskLineItem[]
   labor_entries     LaborEntry[]
   media             WorkshopMedia[]
+  voice_note_drafts WorkshopVoiceNoteDraft[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -971,6 +997,34 @@ model WorkshopMedia {
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_media_task")
   @@index([tenant_id, uploaded_by_employee_id], map: "idx_workshop_media_employee")
   @@map("workshop_media")
+}
+
+model WorkshopVoiceNoteDraft {
+  id                      String                      @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                      @relation(fields: [tenant_id], references: [id])
+  workshop_task_id        String
+  workshop_task           WorkshopTask                @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  mechanic_employee_id    String
+  mechanic_employee       Employee                    @relation("CreatedVoiceNoteDrafts", fields: [tenant_id, mechanic_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  status                  WorkshopVoiceNoteDraftStatus @default(PENDING)
+  source_language_code    String?
+  target_language_code    String
+  original_text           String
+  translated_text         String
+  provider                String
+  model                   String
+  duration_seconds        Decimal?                    @db.Decimal(10, 2)
+  accepted_at             DateTime?
+  accepted_by_employee_id String?
+  accepted_by_employee    Employee?                   @relation("AcceptedVoiceNoteDrafts", fields: [tenant_id, accepted_by_employee_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+
+  @@index([tenant_id])
+  @@index([tenant_id, workshop_task_id], map: "idx_workshop_voice_note_drafts_task")
+  @@index([tenant_id, mechanic_employee_id], map: "idx_workshop_voice_note_drafts_mechanic")
+  @@map("workshop_voice_note_drafts")
 }
 
 // ============================================================================

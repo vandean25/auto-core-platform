@@ -1063,13 +1063,29 @@ export interface paths {
         put?: never;
         /**
          * Upload voice note and receive a translated diagnostic draft
-         * @description Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft. The draft is NOT persisted — the mechanic must accept it via PATCH /diagnostics.
+         * @description Accepts a completed audio recording as `multipart/form-data`. Returns a translated diagnostic-note draft persisted as PENDING. The mechanic must accept it via PATCH /diagnostics to apply it to notes.
          */
         post: operations["MechanicController_uploadVoiceNote"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/voice-translation/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VoiceTranslationController_getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["VoiceTranslationController_updateSettings"];
         trace?: never;
     };
     "/api/labor/search": {
@@ -1915,6 +1931,11 @@ export interface components {
             mechanicNotes?: string | null;
             /**
              * Format: uuid
+             * @description Optional voice-note draft id to accept while saving diagnostics.
+             */
+            voiceNoteDraftId?: string | null;
+            /**
+             * Format: uuid
              * @description ID of the WorkshopInspection instance to update checklist items for.
              */
             inspectionId?: string | null;
@@ -2002,8 +2023,19 @@ export interface components {
             updatedAt: string;
         };
         VoiceNoteDraftResponseDto: {
-            /** @description Transcribed and translated note draft in the canonical deployment language. Not persisted — the mechanic must accept it via PATCH /diagnostics. */
+            /**
+             * Format: uuid
+             * @description Server-generated draft id. Pass this id to PATCH /diagnostics when accepting the voice-note draft.
+             */
+            draftId: string;
+            /** @description Transcribed and translated note draft in the canonical deployment language. Persisted as a PENDING draft; mechanic acceptance via PATCH /diagnostics marks it ACCEPTED. */
             text: string;
+            /** @description Original transcript text before translation. */
+            originalText: string;
+            /** @description Configured source language code used for speech recognition. */
+            sourceLanguageCode: string;
+            /** @description Configured target language code used for translated output. */
+            targetLanguageCode: string;
             /** @description BCP-47 language code detected from the audio source. */
             detectedLanguage?: string | null;
             /**
@@ -2018,6 +2050,42 @@ export interface components {
             model: string;
             /** @description Duration of the audio recording in seconds. */
             durationSeconds?: number | null;
+        };
+        VoiceTranslationSettingsResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Target translation language code used for mechanic voice notes.
+             * @example de
+             */
+            targetLanguageCode: string;
+            /** @description Google Cloud project id used for speech/translation requests. */
+            googleProjectId?: string | null;
+            /**
+             * @description Google Cloud location for Speech-to-Text V2 resources.
+             * @example global
+             */
+            googleLocation: string;
+            /** @description Whether a Google service account credential is configured. */
+            hasGoogleCredential: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateVoiceTranslationSettingsDto: {
+            /**
+             * @description Target translation language code used for mechanic voice notes.
+             * @example de
+             */
+            targetLanguageCode?: string;
+            /** @description Google Cloud project id used for speech/translation requests. */
+            googleProjectId?: string | null;
+            /**
+             * @description Google Cloud location for Speech-to-Text V2 resources.
+             * @example global
+             */
+            googleLocation?: string;
+            /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
+            googleServiceAccountJson?: string | null;
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -2282,6 +2350,11 @@ export interface components {
              * @description The linked User.id for this employee, or null if not linked.
              */
             userId?: Record<string, never> | null;
+            /**
+             * @description Preferred source language for this employee voice notes (BCP-47).
+             * @example pl-PL
+             */
+            motherLanguageCode?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2307,6 +2380,11 @@ export interface components {
              * @description Link this employee to a User account by User.id (Postgres UUID). Required for mechanics so resolveMechanic() can identify them from the session.
              */
             userId?: string | null;
+            /**
+             * @description Preferred source language for this employee voice notes (BCP-47).
+             * @example pl-PL
+             */
+            motherLanguageCode?: string | null;
         };
         UpdateEmployeeDto: {
             name?: string;
@@ -2318,6 +2396,11 @@ export interface components {
              * @description Link (or unlink) this employee to a User account. Pass the User.id (Postgres UUID) to link, or null to unlink. Required for mechanics to enable server-side session resolution (ADR-0014 §1).
              */
             userId?: Record<string, never> | null;
+            /**
+             * @description Preferred source language for this employee voice notes (BCP-47).
+             * @example pl-PL
+             */
+            motherLanguageCode?: string | null;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
@@ -4629,19 +4712,61 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Upstream speech-note provider failed. */
+            /** @description Upstream voice-translation provider failed. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Speech-note provider is not configured. */
+            /** @description Voice translation provider is not configured. */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    VoiceTranslationController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    VoiceTranslationController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVoiceTranslationSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
             };
         };
     };

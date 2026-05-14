@@ -63,6 +63,18 @@ export class SaveDiagnosticsDto {
     required: false,
     nullable: true,
     description:
+      'Optional voice-note draft id to accept while saving diagnostics.',
+  })
+  @IsUUID()
+  @IsOptional()
+  voiceNoteDraftId?: string | null;
+
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    required: false,
+    nullable: true,
+    description:
       'ID of the WorkshopInspection instance to update checklist items for.',
   })
   @IsUUID()
