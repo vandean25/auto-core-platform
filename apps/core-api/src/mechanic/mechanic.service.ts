@@ -1472,7 +1472,7 @@ export class MechanicService {
       }
       if (error instanceof SpeechNoteConfigError) {
         throw new ServiceUnavailableException(
-          'Voice-note transcription is not available. Contact your administrator.',
+          'Voice-note transcription is not configured. Missing server setting: OPENAI_API_KEY.',
         );
       }
       if (error instanceof SpeechNoteProviderError) {

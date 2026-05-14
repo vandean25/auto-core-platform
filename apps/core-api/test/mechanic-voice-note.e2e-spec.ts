@@ -517,7 +517,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       new SpeechNoteConfigError('OPENAI_API_KEY environment variable is required.'),
     );
 
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
       .set('Authorization', `Bearer ${authToken}`)
       .attach('audio', VALID_AUDIO_BUFFER, {
@@ -525,6 +525,10 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         contentType: 'audio/webm',
       })
       .expect(503);
+
+    expect(res.body.message).toBe(
+      'Voice-note transcription is not configured. Missing server setting: OPENAI_API_KEY.',
+    );
   });
 
   // ─── Missing audio field ──────────────────────────────────────────────────

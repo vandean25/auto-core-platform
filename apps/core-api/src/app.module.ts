@@ -4,9 +4,8 @@ import {
   NestModule,
   forwardRef,
 } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantContextMiddleware } from './common/services/tenant-context.middleware';
@@ -64,10 +63,6 @@ import { SpeechNoteModule } from './speech-note/speech-note.module';
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_FILTER,
-      useClass: SentryGlobalFilter,
-    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
