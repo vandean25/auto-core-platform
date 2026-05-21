@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { DECORATORS } from '@nestjs/swagger/dist/constants';
+const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 import { WorkshopController } from './workshop.controller';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopService } from './workshop.service';
@@ -78,7 +78,7 @@ describe('WorkshopController', () => {
 
   it('documents pick-parts response schema in Swagger metadata', () => {
     const responses = Reflect.getMetadata(
-      DECORATORS.API_RESPONSE,
+      SWAGGER_API_RESPONSE,
       controller.pickParts,
     ) as Record<string, { type?: unknown }>;
 
