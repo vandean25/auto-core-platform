@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user';
 import { TenantContextStorage } from './tenant-context.storage';
@@ -23,6 +24,15 @@ export class TenantContextService {
       email: '',
       tenantId,
       role: 'worker',
+    });
+    // Override the source to JOB; preserve the requestId that TenantContextMiddleware
+    // already generated for this HTTP context (Cloud Tasks delivers via HTTP).
+    const existing = TenantContextStorage.getRequestMeta();
+    TenantContextStorage.setRequestMeta({
+      requestId: existing?.requestId ?? randomUUID(),
+      source: 'JOB',
+      ip: existing?.ip,
+      userAgent: existing?.userAgent,
     });
   }
 
