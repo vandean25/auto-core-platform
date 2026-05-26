@@ -8,9 +8,9 @@ const UUID_REGEX =
 
 function buildRequest(
   overrides: Partial<{
-    'x-request-id': string;
-    'x-forwarded-for': string;
-    'user-agent': string;
+    'x-request-id': string | string[];
+    'x-forwarded-for': string | string[];
+    'user-agent': string | string[];
     ip: string;
   }> = {},
 ): Request {
@@ -77,6 +77,20 @@ describe('TenantContextMiddleware', () => {
       });
     });
 
+    it('uses the first non-empty x-request-id value from repeated headers', (done) => {
+      const req = buildRequest({
+        'x-request-id': ['   ', ' client-req-id-abc ', 'client-req-id-def'],
+      });
+      const { res, headers } = buildResponse();
+
+      middleware.use(req, res, () => {
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toBe('client-req-id-abc');
+        expect(headers['x-request-id']).toBe('client-req-id-abc');
+        done();
+      });
+    });
+
     it('generates distinct IDs for concurrent requests', (done) => {
       let id1: string | undefined;
       let id2: string | undefined;
@@ -117,13 +131,26 @@ describe('TenantContextMiddleware', () => {
   // ── IP extraction ──────────────────────────────────────────────────────────
 
   describe('IP extraction', () => {
-    it('uses the leftmost value from x-forwarded-for', (done) => {
+    it('uses req.ip even when x-forwarded-for is present', (done) => {
       const req = buildRequest({
         'x-forwarded-for': '203.0.113.5, 10.0.0.1, 10.0.0.2',
+        ip: '10.20.30.40',
       });
 
       middleware.use(req, buildResponse().res, () => {
-        expect(TenantContextStorage.getRequestMeta()?.ip).toBe('203.0.113.5');
+        expect(TenantContextStorage.getRequestMeta()?.ip).toBe('10.20.30.40');
+        done();
+      });
+    });
+
+    it('ignores repeated x-forwarded-for headers and uses req.ip', (done) => {
+      const req = buildRequest({
+        'x-forwarded-for': ['203.0.113.5', '198.51.100.1'],
+        ip: '10.20.30.40',
+      });
+
+      middleware.use(req, buildResponse().res, () => {
+        expect(TenantContextStorage.getRequestMeta()?.ip).toBe('10.20.30.40');
         done();
       });
     });
@@ -143,6 +170,19 @@ describe('TenantContextMiddleware', () => {
   describe('user-agent', () => {
     it('captures the user-agent header', (done) => {
       const req = buildRequest({ 'user-agent': 'MyClient/1.0' });
+
+      middleware.use(req, buildResponse().res, () => {
+        expect(TenantContextStorage.getRequestMeta()?.userAgent).toBe(
+          'MyClient/1.0',
+        );
+        done();
+      });
+    });
+
+    it('uses the first non-empty user-agent value from repeated headers', (done) => {
+      const req = buildRequest({
+        'user-agent': ['   ', ' MyClient/1.0 ', 'OtherClient/2.0'],
+      });
 
       middleware.use(req, buildResponse().res, () => {
         expect(TenantContextStorage.getRequestMeta()?.userAgent).toBe(
