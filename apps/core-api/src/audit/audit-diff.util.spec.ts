@@ -17,6 +17,18 @@ class Decimal {
   }
 }
 
+class DecimalWithToFixed {
+  constructor(private readonly value: string) {}
+
+  toFixed(): string {
+    return this.value;
+  }
+
+  toString(): string {
+    return this.value;
+  }
+}
+
 describe('audit diff utilities', () => {
   it('normalizes dates, decimal-like values, and omits undefined fields', () => {
     const normalized = normalizeAuditValue({
@@ -36,6 +48,16 @@ describe('audit diff utilities', () => {
         amount: '5.50',
       },
       items: ['1.25', null, '2026-01-01T00:00:00.000Z'],
+    });
+  });
+
+  it('normalizes decimal-like values detected via toFixed', () => {
+    const normalized = normalizeAuditValue({
+      tax: new DecimalWithToFixed('7.75'),
+    });
+
+    expect(normalized).toEqual({
+      tax: '7.75',
     });
   });
 
