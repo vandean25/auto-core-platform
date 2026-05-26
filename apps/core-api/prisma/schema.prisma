@@ -74,6 +74,7 @@ model Tenant {
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
   laborEntries         LaborEntry[]
+  auditLogs            AuditLog[]
   memberships          TenantMember[]
   activeUsers          User[]         @relation("UserActiveTenant")
 
@@ -300,6 +301,18 @@ enum TransactionType {
   INITIAL_BALANCE
 }
 
+enum AuditLogAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  MIGRATION
+}
+
 model InventoryTransaction {
   id           String          @id @default(uuid())
   tenant_id    String
@@ -319,6 +332,34 @@ model InventoryTransaction {
   @@index([item_id, location_id])
   @@index([type])
   @@index([createdAt])
+}
+
+model AuditLog {
+  id                String         @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant         @relation(fields: [tenant_id], references: [id])
+  entity_type       String
+  entity_id         String
+  action            AuditLogAction
+  actor_user_id     String?
+  actor_email       String?
+  actor_role        String?
+  actor_type        AuditActorType
+  request_id        String?
+  source            String?
+  ip_address        String?
+  user_agent        String?
+  before            Json?
+  after             Json?
+  diff              Json?
+  changed_fields    Json?
+  redacted_fields   Json?
+  occurred_at       DateTime       @default(now())
+
+  @@index([tenant_id, occurred_at])
+  @@index([tenant_id, entity_type, entity_id, occurred_at])
+  @@index([request_id])
+  @@map("audit_logs")
 }
 
 model Vendor {

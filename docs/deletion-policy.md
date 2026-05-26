@@ -21,6 +21,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | StorageLocation | Conditional (soft delete) | Allow only when no child locations and no stock exists; soft-delete via `deletedAt`. |
 | InventoryStock | No | Derived operational state; managed by ledger operations. |
 | InventoryTransaction | No | Immutable audit trail; never deleted. |
+| AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder` and no `PurchaseInvoice` references exist. |
 | PurchaseOrder | Draft-only | Allow only in `DRAFT` and only if no received quantity and no purchase invoice links. |
 | PurchaseOrderItem | No direct delete | Managed by parent `PurchaseOrder` lifecycle. |
