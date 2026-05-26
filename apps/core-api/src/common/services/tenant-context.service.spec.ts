@@ -2,6 +2,9 @@ import { InternalServerErrorException } from '@nestjs/common';
 import { TenantContextService } from './tenant-context.service';
 import { TenantContextStorage } from './tenant-context.storage';
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const mockPrisma = {
   tenant: {
     findFirst: jest.fn(),
@@ -86,6 +89,57 @@ describe('TenantContextService', () => {
 
       expect(resultA?.tenantId).toBe('tenant-a');
       expect(resultB).toBeUndefined();
+    });
+  });
+
+  describe('setTenantIdForWorker()', () => {
+    it('sets user to cloud-tasks-worker with the given tenantId', () => {
+      TenantContextStorage.run(() => {
+        service.setTenantIdForWorker('tenant-worker-1');
+
+        const user = service.getAuthenticatedUser();
+        expect(user?.userId).toBe('cloud-tasks-worker');
+        expect(user?.tenantId).toBe('tenant-worker-1');
+        expect(user?.role).toBe('worker');
+      });
+    });
+
+    it('stamps source as JOB in the request meta', () => {
+      TenantContextStorage.run(() => {
+        service.setTenantIdForWorker('tenant-worker-2');
+
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.source).toBe('JOB');
+      });
+    });
+
+    it('preserves an existing requestId set by the middleware', () => {
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'middleware-req-id',
+          source: 'API',
+          ip: '1.2.3.4',
+          userAgent: 'CloudTasks/1.0',
+        });
+
+        service.setTenantIdForWorker('tenant-worker-3');
+
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toBe('middleware-req-id');
+        expect(meta?.source).toBe('JOB');
+        expect(meta?.ip).toBe('1.2.3.4');
+        expect(meta?.userAgent).toBe('CloudTasks/1.0');
+      });
+    });
+
+    it('generates a requestId when no middleware context exists', () => {
+      TenantContextStorage.run(() => {
+        service.setTenantIdForWorker('tenant-worker-4');
+
+        const meta = TenantContextStorage.getRequestMeta();
+        expect(meta?.requestId).toMatch(UUID_REGEX);
+        expect(meta?.source).toBe('JOB');
+      });
     });
   });
 });
