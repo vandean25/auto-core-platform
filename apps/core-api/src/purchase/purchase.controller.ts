@@ -188,6 +188,22 @@ export class PurchaseController {
     return this.purchaseService.remove(id);
   }
 
+  @Get(':id/items')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
+  async getItems(@Param('id') orderId: string) {
+    return this.purchaseService.getPurchaseOrderItems(orderId);
+  }
+
+  @Get(':id/items/:itemId')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
+  async getItem(@Param('id') orderId: string, @Param('itemId') itemId: string) {
+    return this.purchaseService.getPurchaseOrderItem(orderId, itemId);
+  }
+
   @Post(':id/items')
   @ApiCreatedResponse({
     schema: { type: 'object' },

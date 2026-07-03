@@ -616,17 +616,65 @@ export class PurchaseService {
     return { data, total: data.length };
   }
 
+  async getPurchaseOrderItems(orderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!po) throw new NotFoundException('Purchase Order not found');
+
+    return this.prisma.purchaseOrderItem.findMany({
+      where: { purchase_order_id: orderId, tenant_id: tenantId },
+      include: {
+        catalog_item: {
+          include: { brand: true },
+        },
+      },
+    });
+  }
+
+  async getPurchaseOrderItem(orderId: string, itemId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!po) throw new NotFoundException('Purchase Order not found');
+
+    const item = await this.prisma.purchaseOrderItem.findFirst({
+      where: { id: itemId, purchase_order_id: orderId, tenant_id: tenantId },
+      include: {
+        catalog_item: {
+          include: { brand: true },
+        },
+      },
+    });
+
+    if (!item) throw new NotFoundException('Purchase order item not found');
+
+    return item;
+  }
+
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    return this.prisma.purchaseOrder.findFirst({
+    const po = await this.prisma.purchaseOrder.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
         vendor: { include: { supportedBrands: true } },
         items: {
-          include: { catalog_item: true },
+          include: {
+            catalog_item: { include: { brand: true } },
+          },
         },
       },
     });
+
+    if (!po) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    return po;
   }
 
   async markAsSent(id: string) {
