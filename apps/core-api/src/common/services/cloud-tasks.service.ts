@@ -49,12 +49,9 @@ export class CloudTasksService {
           'Cloud Tasks client initialized with GCP_CREDENTIALS from env',
         );
         return;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const stack = error instanceof Error ? error.stack : undefined;
+      } catch {
         this.logger.error(
-          `Failed to parse GCP_CREDENTIALS for Cloud Tasks client; falling back to default credentials: ${message}`,
-          stack,
+          'Failed to parse GCP_CREDENTIALS for Cloud Tasks client; falling back to default credentials',
         );
       }
     }
