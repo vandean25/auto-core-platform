@@ -42,8 +42,7 @@ function readVint(
   let value = stripLengthMarker ? firstByte & (mask - 1) : firstByte;
   let unknownSizeMarker = stripLengthMarker && value === mask - 1;
   for (let index = 1; index < length; index += 1) {
-    unknownSizeMarker =
-      unknownSizeMarker && buffer[offset + index] === 0xff;
+    unknownSizeMarker = unknownSizeMarker && buffer[offset + index] === 0xff;
     value = value * 256 + buffer[offset + index];
   }
 
@@ -62,7 +61,9 @@ function readElement(buffer: Buffer, offset: number): EbmlElement | null {
   }
 
   const dataOffset = offset + id.length + size.length;
-  const nextOffset = size.isUnknownSize ? buffer.length : dataOffset + size.value;
+  const nextOffset = size.isUnknownSize
+    ? buffer.length
+    : dataOffset + size.value;
   const dataSize = nextOffset - dataOffset;
   if (nextOffset > buffer.length) {
     return null;

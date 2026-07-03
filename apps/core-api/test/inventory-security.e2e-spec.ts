@@ -55,7 +55,7 @@ describe('InventoryController (e2e) Security', () => {
   it('should reject requests with missing required fields', () => {
     return request(app.getHttpServer())
       .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         // missing sku, name, prices
       })
@@ -65,7 +65,7 @@ describe('InventoryController (e2e) Security', () => {
   it('should reject requests with invalid types', () => {
     return request(app.getHttpServer())
       .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         sku: 123, // should be string
         name: 'Test Item',
@@ -78,7 +78,7 @@ describe('InventoryController (e2e) Security', () => {
   it('should reject requests with negative prices', () => {
     return request(app.getHttpServer())
       .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         sku: 'TEST-SKU',
         name: 'Test Item',
@@ -91,7 +91,7 @@ describe('InventoryController (e2e) Security', () => {
   it('should accept valid requests', () => {
     return request(app.getHttpServer())
       .post('/api/inventory')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         sku: 'TEST-SKU-VALID',
         name: 'Valid Item',

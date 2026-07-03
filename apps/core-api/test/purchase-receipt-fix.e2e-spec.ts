@@ -27,7 +27,9 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = app
+      .get(AuthService)
+      .createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up test data using TRUNCATE CASCADE to avoid FK hell
     try {
@@ -93,7 +95,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -111,7 +113,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Receive 5 items (PARTIAL)
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {
@@ -147,7 +149,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 1. Create first PO and receive 5 items to establish initial stock
       const po1Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -162,7 +164,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po1Response.body.id}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: freshItemId, quantity: 5 }],
         })
@@ -171,7 +173,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // 2. Create another PO and receive more items for the same catalog item
       const po2Response = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId: vendorId,
           items: [
@@ -189,7 +191,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       // Receive 5 more items
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${po2Id}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {

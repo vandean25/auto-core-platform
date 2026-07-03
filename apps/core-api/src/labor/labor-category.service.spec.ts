@@ -289,9 +289,9 @@ describe('LaborCategoryService', () => {
         .mockResolvedValueOnce(existingCategory) // category exists
         .mockResolvedValueOnce(null) // new name is unique
         .mockResolvedValueOnce({
-        ...existingCategory,
-        name: 'Engine Updated',
-      });
+          ...existingCategory,
+          name: 'Engine Updated',
+        });
       mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('cat-1', { name: 'Engine Updated' });
@@ -303,9 +303,9 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory)
         .mockResolvedValueOnce({
-        ...existingCategory,
-        default_hourly_rate: 0,
-      });
+          ...existingCategory,
+          default_hourly_rate: 0,
+        });
       mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('cat-1', { default_hourly_rate: 0 });
@@ -406,9 +406,9 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.findFirst
         .mockResolvedValueOnce(existingCategory)
         .mockResolvedValueOnce({
-        ...existingCategory,
-        sort_order: 5,
-      });
+          ...existingCategory,
+          sort_order: 5,
+        });
       mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
 
       await service.update('cat-1', { name: 'Engine', sort_order: 5 });

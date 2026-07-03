@@ -301,9 +301,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        description: 'Updated Description',
-      });
+          ...baseOperation,
+          description: 'Updated Description',
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', {
@@ -335,9 +335,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        description: 'Updated',
-      });
+          ...baseOperation,
+          description: 'Updated',
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       await service.update('op-1', { code: 'OP001', description: 'Updated' });
@@ -349,18 +349,18 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        fitments: [
-          {
-            id: 'fit-2',
-            make: 'Honda',
-            model: 'Civic',
-            year_from: null,
-            year_to: null,
-            engine_code: null,
-          },
-        ],
-      });
+          ...baseOperation,
+          fitments: [
+            {
+              id: 'fit-2',
+              make: 'Honda',
+              model: 'Civic',
+              year_from: null,
+              year_to: null,
+              engine_code: null,
+            },
+          ],
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.laborFitment.deleteMany.mockResolvedValue({ count: 0 });
       mockPrisma.laborFitment.createMany.mockResolvedValue({ count: 1 });
@@ -376,9 +376,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        is_active: false,
-      });
+          ...baseOperation,
+          is_active: false,
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', { isActive: false });

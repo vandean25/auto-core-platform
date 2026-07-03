@@ -33,8 +33,8 @@
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.15.2",
     "@google-cloud/speech": "^7.3.1",
+    "@google-cloud/storage": "^7.15.2",
     "@google-cloud/tasks": "^6.2.1",
     "@google-cloud/translate": "^9.4.1",
     "@nestjs/common": "^11.1.21",

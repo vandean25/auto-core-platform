@@ -257,7 +257,9 @@ describe('MechanicController', () => {
       model: 'whisper-1',
       durationSeconds: 9.3,
     };
-    mockMechanicService.uploadVoiceNote = jest.fn().mockResolvedValue(expectedDraft);
+    mockMechanicService.uploadVoiceNote = jest
+      .fn()
+      .mockResolvedValue(expectedDraft);
 
     const fakeFile = {
       fieldname: 'audio',

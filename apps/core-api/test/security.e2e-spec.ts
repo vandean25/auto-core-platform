@@ -37,7 +37,7 @@ describe('Security (e2e)', () => {
   it('should allow access with valid API key', () => {
     return request(app.getHttpServer())
       .get('/api')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
   });
 
@@ -48,7 +48,7 @@ describe('Security (e2e)', () => {
   it('should block access with invalid API key', () => {
     return request(app.getHttpServer())
       .get('/api')
-        .set('Authorization', `Bearer invalid-token`)
+      .set('Authorization', `Bearer invalid-token`)
       .expect(401);
   });
 });

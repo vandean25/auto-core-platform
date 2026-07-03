@@ -19,7 +19,9 @@ describe('PlaywrightBrowserService', () => {
       isConnected: jest.fn().mockReturnValue(true),
       close: jest.fn().mockResolvedValue(undefined),
     };
-    const launchSpy = jest.spyOn(chromium, 'launch').mockResolvedValue(browser as Browser);
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockResolvedValue(browser as Browser);
 
     const [first, second] = await Promise.all([
       service.getBrowser(),

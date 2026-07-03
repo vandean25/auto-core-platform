@@ -10,4 +10,3 @@ import { VoiceTranslationService } from './voice-translation.service';
   exports: [VoiceTranslationService],
 })
 export class VoiceTranslationModule {}
-

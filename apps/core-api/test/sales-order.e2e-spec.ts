@@ -28,7 +28,9 @@ describe('Sales Order Workflow (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = app
+      .get(AuthService)
+      .createTestToken({ tenantId: testTenant.tenantId });
 
     // Clean up
     try {
@@ -102,7 +104,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 1. Create Sales Order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
         items: [
@@ -126,7 +128,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 2. Update Sales Order (Change Quantity)
     await request(app.getHttpServer())
       .patch(`/api/sales-orders/${orderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         items: [
           {
@@ -149,7 +151,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 3. Convert to Invoice
     const invoiceRes = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderId}/create-invoice`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(201);
 
     expect(invoiceRes.body.sales_order_id).toBe(orderId);
@@ -170,7 +172,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // 5. Finalize invoice to lock order
     const finalizeRes = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(finalizeRes.body.status).toBe('FINALIZED');
@@ -186,7 +188,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Create order
     const createRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customerId,
         items: [
@@ -212,7 +214,7 @@ describe('Sales Order Workflow (e2e)', () => {
     // Attempt Delete
     await request(app.getHttpServer())
       .delete(`/api/sales-orders/${orderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(400); // Bad Request
   });
 
@@ -223,11 +225,11 @@ describe('Sales Order Workflow (e2e)', () => {
     const [res1, res2] = await Promise.all([
       req
         .post('/api/sales-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ customer_id: customerId, items: [] }),
       req
         .post('/api/sales-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ customer_id: customerId, items: [] }),
     ]);
 

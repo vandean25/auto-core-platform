@@ -100,21 +100,21 @@ describe('MechanicService', () => {
       role: 'TECH',
     });
     (mockTenantContext.getTenantId as jest.Mock).mockResolvedValue(TENANT_ID);
-    (mockVoiceTranslationService.getTargetLanguageCode as jest.Mock).mockResolvedValue(
-      'de',
-    );
-    (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue(
-      {
-        originalText: 'Original text',
-        translatedText: 'Translated text',
-        sourceLanguageCode: 'pl-PL',
-        targetLanguageCode: 'de',
-        detectedLanguageCode: 'pl-PL',
-        provider: 'google-cloud',
-        model: 'chirp_2',
-        durationSeconds: 5.2,
-      },
-    );
+    (
+      mockVoiceTranslationService.getTargetLanguageCode as jest.Mock
+    ).mockResolvedValue('de');
+    (
+      mockVoiceTranslationService.translateVoiceNote as jest.Mock
+    ).mockResolvedValue({
+      originalText: 'Original text',
+      translatedText: 'Translated text',
+      sourceLanguageCode: 'pl-PL',
+      targetLanguageCode: 'de',
+      detectedLanguageCode: 'pl-PL',
+      provider: 'google-cloud',
+      model: 'chirp_2',
+      durationSeconds: 5.2,
+    });
     (mockPrisma.workshopVoiceNoteDraft.create as jest.Mock).mockResolvedValue({
       id: 'draft-1',
     });
@@ -153,7 +153,9 @@ describe('MechanicService', () => {
     it('throws ForbiddenException when no linked MECHANIC employee is found', async () => {
       (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.resolveMechanic()).rejects.toThrow(NotFoundException);
+      await expect(service.resolveMechanic()).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns the employee id when user is TECH and employee is linked', async () => {
@@ -733,10 +735,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
@@ -754,12 +764,20 @@ describe('MechanicService', () => {
           makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
         );
       (mockPrisma.laborEntry.findFirst as jest.Mock)
-        .mockResolvedValueOnce(null)  // target has no active entry
-        .mockResolvedValueOnce(openEntryMock);  // mechanic has open entry to switch from
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(null) // target has no active entry
+        .mockResolvedValueOnce(openEntryMock); // mechanic has open entry to switch from
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       // Should not throw — IN_PROGRESS target with no active entry is resumable
       await expect(
@@ -778,10 +796,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
@@ -810,10 +836,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.WAITING_CUSTOMER,
@@ -893,10 +927,18 @@ describe('MechanicService', () => {
     it('closes labor entry and transitions task status on valid pause', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
-        .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_PARTS }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(
+          makePausableTask({ status: WorkshopTaskStatus.WAITING_PARTS }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.WAITING_PARTS,
@@ -908,10 +950,18 @@ describe('MechanicService', () => {
     it('emits WAITING_CUSTOMER event when pause reason is WAITING_CUSTOMER', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
-        .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(
+          makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.WAITING_CUSTOMER,
@@ -931,9 +981,15 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask());
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.OTHER,
@@ -1002,11 +1058,21 @@ describe('MechanicService', () => {
     it('transitions task to DONE and closes open labor entry', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeCompletableTask())
-        .mockResolvedValueOnce(makeCompletableTask({ status: WorkshopTaskStatus.DONE }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
+        .mockResolvedValueOnce(
+          makeCompletableTask({ status: WorkshopTaskStatus.DONE }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 0 });
 
       await service.completeTask(MECHANIC_ID, TASK_ID);
 
@@ -1080,7 +1146,9 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTaskForDiagnostics())
         .mockResolvedValueOnce({ id: TASK_ID, mechanic_notes: 'Oil leak.' });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         mechanicNotes: 'Oil leak.',
@@ -1128,14 +1196,20 @@ describe('MechanicService', () => {
           id: TASK_ID,
           mechanic_notes: 'Translated diagnostic note',
         });
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-1',
         translated_text: 'Translated diagnostic note',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 1,
       });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         voiceNoteDraftId: 'draft-1',
@@ -1156,14 +1230,20 @@ describe('MechanicService', () => {
           id: TASK_ID,
           mechanic_notes: 'Explicit mechanic note',
         });
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-2',
         translated_text: 'Draft translated text',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 1,
       });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         voiceNoteDraftId: 'draft-2',
@@ -1182,9 +1262,9 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForDiagnostics(),
       );
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(
         service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
@@ -1197,11 +1277,15 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForDiagnostics(),
       );
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-accepted',
         translated_text: 'Already accepted text',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 0,
       });
 
@@ -1529,7 +1613,9 @@ describe('MechanicService', () => {
     });
 
     /** A valid audio file stub (>= 100 bytes, accepted MIME). */
-    const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
+    const makeFile = (
+      overrides: Partial<Express.Multer.File> = {},
+    ): Express.Multer.File =>
       ({
         fieldname: 'audio',
         originalname: 'note.webm',
@@ -1556,7 +1642,10 @@ describe('MechanicService', () => {
       const info = createEbmlElement(
         [0x15, 0x49, 0xa9, 0x66],
         Buffer.concat([
-          createEbmlElement([0x2a, 0xd7, 0xb1], Buffer.from([0x0f, 0x42, 0x40])),
+          createEbmlElement(
+            [0x2a, 0xd7, 0xb1],
+            Buffer.from([0x0f, 0x42, 0x40]),
+          ),
           createEbmlElement([0x44, 0x89], duration),
         ]),
       );
@@ -1577,7 +1666,10 @@ describe('MechanicService', () => {
 
     it('throws ForbiddenException when task is not assigned to the mechanic', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTask({ mechanic_id: 'other-mechanic', workshop_order: { mechanic_id: 'other-mechanic', bay_id: null } }),
+        makeTask({
+          mechanic_id: 'other-mechanic',
+          workshop_order: { mechanic_id: 'other-mechanic', bay_id: null },
+        }),
       );
 
       await expect(
@@ -1586,23 +1678,37 @@ describe('MechanicService', () => {
     });
 
     it('throws UnprocessableEntityException for an empty buffer', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
 
       await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(0) })),
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ buffer: Buffer.alloc(0) }),
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('throws UnprocessableEntityException when buffer is below minimum bytes (silent)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
 
       await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(50) })),
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ buffer: Buffer.alloc(50) }),
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('throws UnprocessableEntityException for a disallowed MIME type', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
 
       await expect(
         service.uploadVoiceNote(
@@ -1614,8 +1720,12 @@ describe('MechanicService', () => {
     });
 
     it('throws UnprocessableEntityException before transcription when parseable duration exceeds the limit', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: 'Long recording content',
         translatedText: 'Long recording content',
         sourceLanguageCode: 'en',
@@ -1633,12 +1743,18 @@ describe('MechanicService', () => {
           makeFile({ buffer: longRecording, size: longRecording.length }),
         ),
       ).rejects.toThrow(UnprocessableEntityException);
-      expect(mockVoiceTranslationService.translateVoiceNote).not.toHaveBeenCalled();
+      expect(
+        mockVoiceTranslationService.translateVoiceNote,
+      ).not.toHaveBeenCalled();
     });
 
     it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: '',
         translatedText: '',
         sourceLanguageCode: 'en',
@@ -1654,8 +1770,12 @@ describe('MechanicService', () => {
     });
 
     it('maps BadRequestException to UnprocessableEntityException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockRejectedValue(
         new BadRequestException('Audio buffer must not be empty.'),
       );
 
@@ -1665,10 +1785,12 @@ describe('MechanicService', () => {
     });
 
     it('maps Error to BadGatewayException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new Error('Audio processing failed.'),
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
       );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockRejectedValue(new Error('Audio processing failed.'));
 
       await expect(
         service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
@@ -1676,9 +1798,15 @@ describe('MechanicService', () => {
     });
 
     it('maps ServiceUnavailableException to ServiceUnavailableException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new ServiceUnavailableException('Google voice translation is not configured.'),
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockRejectedValue(
+        new ServiceUnavailableException(
+          'Google voice translation is not configured.',
+        ),
       );
 
       await expect(
@@ -1687,8 +1815,12 @@ describe('MechanicService', () => {
     });
 
     it('preserves non-mapped HttpException subclasses', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockRejectedValue(
         new InternalServerErrorException('Missing SECRET_ENCRYPTION_KEY'),
       );
 
@@ -1698,17 +1830,27 @@ describe('MechanicService', () => {
     });
 
     it('throws UnprocessableEntityException when buffer exceeds maximum bytes (25 MiB)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
       const largeBuffer = Buffer.alloc(25 * 1024 * 1024 + 1);
 
       await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: largeBuffer })),
+        service.uploadVoiceNote(
+          MECHANIC_ID,
+          TASK_ID,
+          makeFile({ buffer: largeBuffer }),
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: 'Clutch bearing worn.',
         translatedText: 'Clutch bearing worn — replace.',
         sourceLanguageCode: 'en',
@@ -1719,7 +1861,11 @@ describe('MechanicService', () => {
         durationSeconds: 9.3,
       });
 
-      const result = await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+      const result = await service.uploadVoiceNote(
+        MECHANIC_ID,
+        TASK_ID,
+        makeFile(),
+      );
 
       expect(result.text).toBe('Clutch bearing worn — replace.');
       expect(result.detectedLanguage).toBe('en');
@@ -1729,8 +1875,12 @@ describe('MechanicService', () => {
     });
 
     it('persists translated draft rows without mutating workshop task notes', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: 'No oil pressure detected.',
         translatedText: 'No oil pressure detected.',
         sourceLanguageCode: 'en',
@@ -1747,8 +1897,12 @@ describe('MechanicService', () => {
     });
 
     it('passes tenant_id to the task lookup query', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: 'Test note.',
         translatedText: 'Test note.',
         sourceLanguageCode: 'en',
@@ -1767,8 +1921,12 @@ describe('MechanicService', () => {
     });
 
     it('zeros out the audio buffer after successful transcription', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
+      );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockResolvedValue({
         originalText: 'Some diagnostic note.',
         translatedText: 'Some diagnostic note.',
         sourceLanguageCode: 'en',
@@ -1786,10 +1944,12 @@ describe('MechanicService', () => {
     });
 
     it('zeros out the audio buffer even when transcription throws', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new Error('Provider failure.'),
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeTask(),
       );
+      (
+        mockVoiceTranslationService.translateVoiceNote as jest.Mock
+      ).mockRejectedValue(new Error('Provider failure.'));
 
       const file = makeFile();
       await expect(
@@ -1818,8 +1978,12 @@ describe('MechanicService', () => {
           mockVoiceTranslationService,
         );
 
-        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+          makeTask(),
+        );
+        (
+          mockVoiceTranslationService.translateVoiceNote as jest.Mock
+        ).mockResolvedValue({
           originalText: 'Note.',
           translatedText: 'Note.',
           sourceLanguageCode: 'en',
@@ -1838,9 +2002,11 @@ describe('MechanicService', () => {
           freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
         ).rejects.toThrow(expect.objectContaining({ status: 429 }));
       } finally {
-        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+        if (originalMax === undefined)
+          delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
         else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+        if (originalTtl === undefined)
+          delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
         else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
       }
     });
@@ -1862,8 +2028,12 @@ describe('MechanicService', () => {
           mockVoiceTranslationService,
         );
 
-        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
+        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+          makeTask(),
+        );
+        (
+          mockVoiceTranslationService.translateVoiceNote as jest.Mock
+        ).mockResolvedValue({
           originalText: 'Note.',
           translatedText: 'Note.',
           sourceLanguageCode: 'en',
@@ -1878,7 +2048,14 @@ describe('MechanicService', () => {
 
         // Simulate window expiry by back-dating the internal map entry.
         // Access the private map via bracket notation (unit-test only).
-        const rateLimitMap = (freshService as unknown as { voiceNoteRateLimitMap: Map<string, { count: number; windowStart: number }> }).voiceNoteRateLimitMap;
+        const rateLimitMap = (
+          freshService as unknown as {
+            voiceNoteRateLimitMap: Map<
+              string,
+              { count: number; windowStart: number }
+            >;
+          }
+        ).voiceNoteRateLimitMap;
         const key = `${TENANT_ID}:${MECHANIC_ID}`;
         const entry = rateLimitMap.get(key)!;
         entry.windowStart = Date.now() - 2000; // 2 seconds ago, past 1s TTL
@@ -1888,12 +2065,13 @@ describe('MechanicService', () => {
           freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
         ).resolves.toBeDefined();
       } finally {
-        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+        if (originalMax === undefined)
+          delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
         else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+        if (originalTtl === undefined)
+          delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
         else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
       }
     });
   });
-
 });

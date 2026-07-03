@@ -36,7 +36,9 @@ function buildGuard(
     });
 
   const authService = {
-    authenticateBearerToken: jest.fn<() => Promise<object>>().mockResolvedValue(user),
+    authenticateBearerToken: jest
+      .fn<() => Promise<object>>()
+      .mockResolvedValue(user),
   };
 
   const tenantContext = {

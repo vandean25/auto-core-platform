@@ -16,4 +16,3 @@ export interface VoiceTranslationResult {
   model: string;
   durationSeconds?: number;
 }
-

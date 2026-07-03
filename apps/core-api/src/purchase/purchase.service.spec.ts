@@ -201,7 +201,9 @@ describe('PurchaseService', () => {
 
       await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
 
-      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.purchaseOrderItem.updateMany,
+      ).toHaveBeenCalledWith({
         where: { id: 'poi1', tenant_id: 'tenant-1' },
         data: { quantity_received: { increment: 5 } },
       });

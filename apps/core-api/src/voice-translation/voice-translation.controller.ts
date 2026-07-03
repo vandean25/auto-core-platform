@@ -1,4 +1,10 @@
-import { Body, Controller, ForbiddenException, Get, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Patch,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   UpdateVoiceTranslationSettingsDto,

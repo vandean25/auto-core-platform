@@ -214,7 +214,6 @@ describe('applyTenantIsolation', () => {
         data: { status: 'DONE' },
       });
     });
-
   });
 
   describe('create() — must stamp tenant_id', () => {

@@ -39,7 +39,10 @@ import {
   RequestMediaUploadDto,
   WorkshopMediaDto,
 } from './dto/media.dto';
-import { MAX_VOICE_NOTE_BYTES, VoiceNoteDraftResponseDto } from './dto/voice-note.dto';
+import {
+  MAX_VOICE_NOTE_BYTES,
+  VoiceNoteDraftResponseDto,
+} from './dto/voice-note.dto';
 import { MechanicService } from './mechanic.service';
 
 @ApiTags('mechanic')
@@ -270,14 +273,16 @@ export class MechanicController {
    */
   @Post('tasks/:taskId/voice-notes')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_NOTE_BYTES } }))
+  @UseInterceptors(
+    FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_NOTE_BYTES } }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Upload voice note and receive a translated diagnostic draft',
     description:
       'Accepts a completed audio recording as `multipart/form-data`. ' +
-       'Returns a translated diagnostic-note draft persisted as PENDING. ' +
-       'The mechanic must accept it via PATCH /diagnostics to apply it to notes.',
+      'Returns a translated diagnostic-note draft persisted as PENDING. ' +
+      'The mechanic must accept it via PATCH /diagnostics to apply it to notes.',
   })
   @ApiBody({
     schema: {
@@ -287,7 +292,8 @@ export class MechanicController {
         audio: {
           type: 'string',
           format: 'binary',
-          description: 'Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB.',
+          description:
+            'Audio file (WebM, MP3, MP4, OGG, WAV, FLAC, M4A, etc.). Max 25 MiB.',
         },
       },
     },

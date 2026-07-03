@@ -33,7 +33,7 @@ type AuthenticateBearerTokenOptions = {
 export class AuthService {
   private readonly testJwtSecret =
     process.env.NODE_ENV === 'test'
-      ? (process.env.TEST_JWT_SECRET || randomBytes(32).toString('hex'))
+      ? process.env.TEST_JWT_SECRET || randomBytes(32).toString('hex')
       : undefined;
 
   constructor(

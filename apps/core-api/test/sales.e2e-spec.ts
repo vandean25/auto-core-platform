@@ -26,7 +26,9 @@ describe('SalesController (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = app
+      .get(AuthService)
+      .createTestToken({ tenantId: testTenant.tenantId });
 
     // Setup Test Data
     const customer = await prisma.customer.create({
@@ -96,7 +98,7 @@ describe('SalesController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/api/sales/invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createInvoiceDto)
       .expect(201);
 
@@ -122,7 +124,7 @@ describe('SalesController (e2e)', () => {
 
     const draftResponse = await request(app.getHttpServer())
       .post('/api/sales/invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createInvoiceDto)
       .expect(201);
 
@@ -131,7 +133,7 @@ describe('SalesController (e2e)', () => {
     // 2. Finalize
     const finalizeResponse = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceId}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(finalizeResponse.body.status).toBe('FINALIZED');

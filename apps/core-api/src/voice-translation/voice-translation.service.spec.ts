@@ -1,4 +1,7 @@
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VoiceTranslationService } from './voice-translation.service';
@@ -46,13 +49,22 @@ describe('VoiceTranslationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET_ENCRYPTION_KEY = key;
-    (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mockImplementation(
-      ({ create, update }: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
+    (
+      mockPrisma.voiceTranslationSettings.upsert as jest.Mock
+    ).mockImplementation(
+      ({
+        create,
+        update,
+      }: {
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
         const merged = { ...create, ...update };
         return {
           id: 'settings-1',
           target_language_code: (merged.target_language_code as string) ?? 'de',
-          google_project_id: (merged.google_project_id as string | null) ?? null,
+          google_project_id:
+            (merged.google_project_id as string | null) ?? null,
           google_location: (merged.google_location as string) ?? 'global',
           google_service_account_encrypted:
             (merged.google_service_account_encrypted as string | null) ?? null,
@@ -64,7 +76,9 @@ describe('VoiceTranslationService', () => {
   });
 
   it('returns synthesized defaults in getSettings() when no row exists', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue(null);
+    (
+      mockPrisma.voiceTranslationSettings.findFirst as jest.Mock
+    ).mockResolvedValue(null);
 
     const result = await service.getSettings();
 
@@ -83,14 +97,16 @@ describe('VoiceTranslationService', () => {
   });
 
   it('stores encrypted credential on updateSettings()', async () => {
-    (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mockResolvedValue({
-      id: 'settings-1',
-      target_language_code: 'de',
-      google_project_id: 'my-project',
-      google_location: 'global',
-      google_service_account_encrypted: 'ciphertext',
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    });
+    (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mockResolvedValue(
+      {
+        id: 'settings-1',
+        target_language_code: 'de',
+        google_project_id: 'my-project',
+        google_location: 'global',
+        google_service_account_encrypted: 'ciphertext',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    );
 
     await service.updateSettings({
       googleProjectId: 'my-project',
@@ -101,19 +117,23 @@ describe('VoiceTranslationService', () => {
       }),
     });
 
-    const upsertCall = (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mock
-      .calls[0][0];
+    const upsertCall = (mockPrisma.voiceTranslationSettings.upsert as jest.Mock)
+      .mock.calls[0][0];
     expect(upsertCall.update.google_service_account_encrypted).toMatch(/^v1:/);
   });
 
   it('falls back to default target language when no settings row exists', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue(null);
+    (
+      mockPrisma.voiceTranslationSettings.findFirst as jest.Mock
+    ).mockResolvedValue(null);
 
     await expect(service.getTargetLanguageCode(tenantId)).resolves.toBe('de');
   });
 
   it('throws ServiceUnavailableException when credential is missing', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    (
+      mockPrisma.voiceTranslationSettings.findFirst as jest.Mock
+    ).mockResolvedValue({
       google_project_id: 'my-project',
       google_location: 'global',
       google_service_account_encrypted: null,
@@ -131,7 +151,9 @@ describe('VoiceTranslationService', () => {
   });
 
   it('throws ServiceUnavailableException when stored credential format is invalid', async () => {
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    (
+      mockPrisma.voiceTranslationSettings.findFirst as jest.Mock
+    ).mockResolvedValue({
       google_project_id: 'my-project',
       google_location: 'global',
       google_service_account_encrypted: 'invalid-format',
@@ -157,12 +179,14 @@ describe('VoiceTranslationService', () => {
         project_id: 'my-project',
       }),
     });
-    (mockPrisma.voiceTranslationSettings.findFirst as jest.Mock).mockResolvedValue({
+    (
+      mockPrisma.voiceTranslationSettings.findFirst as jest.Mock
+    ).mockResolvedValue({
       google_project_id: seeded.googleProjectId,
       google_location: seeded.googleLocation,
-      google_service_account_encrypted:
-        (mockPrisma.voiceTranslationSettings.upsert as jest.Mock).mock.calls[0][0]
-          .update.google_service_account_encrypted,
+      google_service_account_encrypted: (
+        mockPrisma.voiceTranslationSettings.upsert as jest.Mock
+      ).mock.calls[0][0].update.google_service_account_encrypted,
     });
     mockLongRunningRecognize.mockResolvedValue([
       {

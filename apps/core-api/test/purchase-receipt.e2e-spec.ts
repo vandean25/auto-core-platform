@@ -82,7 +82,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [
@@ -100,7 +100,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             {
@@ -133,7 +133,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [
@@ -148,7 +148,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Receive all items
       const receiptResponse = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
             { itemId: catalogItemId, quantity: 3 },
@@ -198,7 +198,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 10, unitCost: 10 }],
@@ -210,7 +210,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Partial receipt (5 out of 10)
       const receipt1 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -221,7 +221,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Complete receipt (remaining 5)
       const receipt2 = await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })
@@ -234,7 +234,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Create PO
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -246,7 +246,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
       // Attempt to receive more than ordered
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 10 }],
         })
@@ -259,7 +259,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       const poResponse = await request(app.getHttpServer())
         .post('/api/purchase-orders')
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           vendorId,
           items: [{ catalogItemId, quantity: 5, unitCost: 10 }],
@@ -277,7 +277,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/purchase-orders/${poId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [{ itemId: catalogItemId, quantity: 5 }],
         })

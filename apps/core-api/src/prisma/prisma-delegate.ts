@@ -16,16 +16,15 @@ export function toPrismaDelegateKey(modelName: string): string {
 function isPrismaDelegateCandidate(value: unknown): value is PrismaDelegate {
   return Boolean(
     value &&
-      (typeof value === 'object' || typeof value === 'function') &&
-      typeof (value as PrismaDelegate).findFirst === 'function',
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as PrismaDelegate).findFirst === 'function',
   );
 }
 
-function findNestedDelegateCandidate(value: unknown): PrismaDelegate | undefined {
-  if (
-    !value ||
-    (typeof value !== 'object' && typeof value !== 'function')
-  ) {
+function findNestedDelegateCandidate(
+  value: unknown,
+): PrismaDelegate | undefined {
+  if (!value || (typeof value !== 'object' && typeof value !== 'function')) {
     return undefined;
   }
 

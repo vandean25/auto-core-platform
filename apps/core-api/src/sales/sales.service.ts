@@ -271,29 +271,72 @@ export class SalesService {
 
       // 2c. Execute updates concurrently and create transactions in bulk
       const stockUpdates = Array.from(stockUpdatesMap.values());
-      await chunkedPromiseAll(stockUpdates, async (update) => {
+
+      // Group stock updates by quantity to deduct to minimize updateMany calls
+      const updatesByQuantity = new Map<number, typeof stockUpdates>();
+      for (const update of stockUpdates) {
+        const group = updatesByQuantity.get(update.quantityToDeduct) || [];
+        group.push(update);
+        updatesByQuantity.set(update.quantityToDeduct, group);
+      }
+
+      // Prepare batched updates (max 50 OR conditions per query to avoid excessive statement size)
+      const MAX_OR_CLAUSES = 50;
+      const batchedUpdates: {
+        quantity: number;
+        updates: typeof stockUpdates;
+      }[] = [];
+      for (const [quantity, group] of updatesByQuantity.entries()) {
+        for (let i = 0; i < group.length; i += MAX_OR_CLAUSES) {
+          batchedUpdates.push({
+            quantity,
+            updates: group.slice(i, i + MAX_OR_CLAUSES),
+          });
+        }
+      }
+
+      await chunkedPromiseAll(batchedUpdates, async (batch) => {
         const updateResult = await tx.inventoryStock.updateMany({
           where: {
-            catalog_item_id: update.catalog_item_id,
-            location_id: update.locationId,
-            quantity_on_hand: { gte: update.quantityToDeduct }, // Ensure sufficient stock
+            tenant_id: tenantId,
+            quantity_on_hand: { gte: batch.quantity }, // Ensure sufficient stock
+            OR: batch.updates.map((u) => ({
+              catalog_item_id: u.catalog_item_id,
+              location_id: u.locationId,
+            })),
           },
           data: {
-            quantity_on_hand: { decrement: update.quantityToDeduct },
+            quantity_on_hand: { decrement: batch.quantity },
           },
         });
 
-        if (updateResult.count === 0) {
-          // Refetch stock to give accurate error message if concurrency was high
-          const latestStock = await tx.inventoryStock.findFirst({
+        if (updateResult.count !== batch.updates.length) {
+          // Refetch stock to give accurate error message if concurrency was high or stock was insufficient
+          const currentStocks = await tx.inventoryStock.findMany({
             where: {
               tenant_id: tenantId,
-              catalog_item_id: update.catalog_item_id,
-              location_id: update.locationId,
+              OR: batch.updates.map((u) => ({
+                catalog_item_id: u.catalog_item_id,
+                location_id: u.locationId,
+              })),
             },
           });
+
+          for (const update of batch.updates) {
+            const stock = currentStocks.find(
+              (s) =>
+                s.catalog_item_id === update.catalog_item_id &&
+                s.location_id === update.locationId,
+            );
+            if (!stock || stock.quantity_on_hand < batch.quantity) {
+              throw new BadRequestException(
+                `Insufficient stock for item at location ${update.locationId} (Req: ${batch.quantity}, Available: ${stock?.quantity_on_hand ?? 0})`,
+              );
+            }
+          }
+
           throw new BadRequestException(
-            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+            'Insufficient stock for one or more items in the order.',
           );
         }
       });

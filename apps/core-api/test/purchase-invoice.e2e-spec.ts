@@ -105,7 +105,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(response.body).toHaveLength(1);
@@ -137,7 +137,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -160,7 +160,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get(`/vendors/${vendorId}/unbilled-receipts`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(response.body[0].quantityPending).toBe(5); // 10 received - 5 invoiced
@@ -190,7 +190,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(400);
   });
@@ -220,13 +220,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(response.body.status).toBe('POSTED');
@@ -243,13 +243,13 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(400);
   });
 
@@ -278,18 +278,18 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/pay`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(response.body.status).toBe('PAID');
@@ -326,7 +326,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -338,7 +338,7 @@ describe('PurchaseInvoice (e2e)', () => {
     // 3. Delete the Draft invoice (decrements quantity_invoiced)
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     const poItemAfterDelete = await prisma.purchaseOrderItem.findFirst({
@@ -371,18 +371,18 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
     await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}/post`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(400);
   });
 
@@ -417,7 +417,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -437,7 +437,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .patch(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(updateDto)
       .expect(200);
 
@@ -485,7 +485,7 @@ describe('PurchaseInvoice (e2e)', () => {
 
     const draft = await request(app.getHttpServer())
       .post('/purchase-invoices')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(createDto)
       .expect(201);
 
@@ -497,13 +497,13 @@ describe('PurchaseInvoice (e2e)', () => {
     // 2. Delete one line
     await request(app.getHttpServer())
       .delete(`/purchase-invoices/${draft.body.id}/lines/${lineToDelete.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     // 3. Verify remaining state
     const updated = await request(app.getHttpServer())
       .get(`/purchase-invoices/${draft.body.id}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(updated.body.lines).toHaveLength(1);

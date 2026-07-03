@@ -9,13 +9,15 @@ export class VoiceTranslationSettingsResponseDto {
   id!: string;
 
   @ApiProperty({
-    description: 'Target translation language code used for mechanic voice notes.',
+    description:
+      'Target translation language code used for mechanic voice notes.',
     example: 'de',
   })
   targetLanguageCode!: string;
 
   @ApiPropertyOptional({
-    description: 'Google Cloud project id used for speech/translation requests.',
+    description:
+      'Google Cloud project id used for speech/translation requests.',
     nullable: true,
     type: String,
   })
@@ -38,7 +40,8 @@ export class VoiceTranslationSettingsResponseDto {
 
 export class UpdateVoiceTranslationSettingsDto {
   @ApiPropertyOptional({
-    description: 'Target translation language code used for mechanic voice notes.',
+    description:
+      'Target translation language code used for mechanic voice notes.',
     example: 'de',
   })
   @IsOptional()
@@ -47,7 +50,8 @@ export class UpdateVoiceTranslationSettingsDto {
   targetLanguageCode?: string;
 
   @ApiPropertyOptional({
-    description: 'Google Cloud project id used for speech/translation requests.',
+    description:
+      'Google Cloud project id used for speech/translation requests.',
     nullable: true,
     type: String,
   })

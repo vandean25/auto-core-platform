@@ -33,7 +33,9 @@ describe('Catalog Module (e2e)', () => {
 
     const testTenant = await createTestTenant(basePrisma);
     prisma = createTenantAwarePrisma(basePrisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = app
+      .get(AuthService)
+      .createTestToken({ tenantId: testTenant.tenantId });
 
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },
@@ -150,7 +152,7 @@ describe('Catalog Module (e2e)', () => {
         .get(
           `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
         )
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];
@@ -173,7 +175,9 @@ describe('Catalog Module (e2e)', () => {
         await prisma.laborCategory.deleteMany({ where: { id: categoryId } });
       }
       if (workshopOrderId) {
-        await prisma.workshopOrder.deleteMany({ where: { id: workshopOrderId } });
+        await prisma.workshopOrder.deleteMany({
+          where: { id: workshopOrderId },
+        });
       }
       if (vehicleId) {
         await prisma.vehicle.deleteMany({ where: { id: vehicleId } });

@@ -394,18 +394,26 @@ export class LaborService {
             ...(dto.description !== undefined && {
               description: dto.description,
             }),
-            ...(dto.standardAw !== undefined && { standard_aw: dto.standardAw }),
-            ...(dto.hourlyRate !== undefined && { hourly_rate: dto.hourlyRate }),
+            ...(dto.standardAw !== undefined && {
+              standard_aw: dto.standardAw,
+            }),
+            ...(dto.hourlyRate !== undefined && {
+              hourly_rate: dto.hourlyRate,
+            }),
             ...(dto.internalCost !== undefined && {
               internal_cost: dto.internalCost,
             }),
-            ...(dto.categoryId !== undefined && { category_id: dto.categoryId }),
+            ...(dto.categoryId !== undefined && {
+              category_id: dto.categoryId,
+            }),
             ...(dto.isActive !== undefined && { is_active: dto.isActive }),
           },
         });
 
         if (updateResult.count === 0) {
-          throw new NotFoundException(`Labor operation with ID "${id}" not found`);
+          throw new NotFoundException(
+            `Labor operation with ID "${id}" not found`,
+          );
         }
 
         if (dto.fitments !== undefined) {
@@ -436,7 +444,9 @@ export class LaborService {
         });
 
         if (!refreshed) {
-          throw new NotFoundException(`Labor operation with ID "${id}" not found`);
+          throw new NotFoundException(
+            `Labor operation with ID "${id}" not found`,
+          );
         }
 
         return refreshed;

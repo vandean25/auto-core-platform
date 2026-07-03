@@ -196,7 +196,9 @@ describe('TenantContextMiddleware', () => {
       const req = buildRequest();
 
       middleware.use(req, buildResponse().res, () => {
-        expect(TenantContextStorage.getRequestMeta()?.userAgent).toBeUndefined();
+        expect(
+          TenantContextStorage.getRequestMeta()?.userAgent,
+        ).toBeUndefined();
         done();
       });
     });
@@ -219,15 +221,23 @@ describe('TenantContextMiddleware', () => {
         }
       };
 
-      middleware.use(buildRequest({ ip: '1.1.1.1' }), buildResponse().res, () => {
-        metaA = TenantContextStorage.getRequestMeta();
-        finish();
-      });
+      middleware.use(
+        buildRequest({ ip: '1.1.1.1' }),
+        buildResponse().res,
+        () => {
+          metaA = TenantContextStorage.getRequestMeta();
+          finish();
+        },
+      );
 
-      middleware.use(buildRequest({ ip: '2.2.2.2' }), buildResponse().res, () => {
-        metaB = TenantContextStorage.getRequestMeta();
-        finish();
-      });
+      middleware.use(
+        buildRequest({ ip: '2.2.2.2' }),
+        buildResponse().res,
+        () => {
+          metaB = TenantContextStorage.getRequestMeta();
+          finish();
+        },
+      );
     });
   });
 });
