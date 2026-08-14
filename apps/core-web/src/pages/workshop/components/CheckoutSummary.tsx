@@ -45,7 +45,6 @@ export interface CheckoutSummaryProps {
   onLineDiscountValueChange: (rowKey: string, value: string) => void
   onCreateDraftInvoice: () => void
   onIssueInvoice: () => void
-  onReturnToTasks: () => void
   onReopenTask: (taskId: string) => void
 }
 
@@ -72,7 +71,6 @@ export function CheckoutSummary({
   onLineDiscountValueChange,
   onCreateDraftInvoice,
   onIssueInvoice,
-  onReturnToTasks,
   onReopenTask,
 }: CheckoutSummaryProps) {
   return (
@@ -91,22 +89,27 @@ export function CheckoutSummary({
                 Invoice: {fetchedInvoice?.invoice_number || activeInvoiceId}
               </span>
             )}
-            {canCreateDraftInCheckout && (
-              <Button size='sm' onClick={onCreateDraftInvoice}>
+            {!activeInvoiceId && (
+              <Button
+                size='sm'
+                onClick={onCreateDraftInvoice}
+                disabled={!canCreateDraftInCheckout || createDraftPending}
+              >
                 {createDraftPending ? 'Creating Draft...' : 'Create Draft Invoice'}
               </Button>
             )}
-            {canIssueInvoiceInCheckout && (
-              <Button size='sm' onClick={onIssueInvoice}>
+            {activeInvoiceId && fetchedInvoice?.status === 'DRAFT' && (
+              <Button
+                size='sm'
+                onClick={onIssueInvoice}
+                disabled={!canIssueInvoiceInCheckout || issuePending}
+              >
                 {issuePending ? 'Issuing...' : 'Issue Invoice'}
               </Button>
             )}
             {activeInvoiceId && isInvoiceLoading && (
               <span className='text-xs text-muted-foreground'>Loading invoice...</span>
             )}
-            <Button variant='outline' size='sm' onClick={onReturnToTasks}>
-              Return to Tasks
-            </Button>
           </div>
         </div>
       </CardHeader>
@@ -138,18 +141,29 @@ export function CheckoutSummary({
                     <TableRow className='bg-muted/40'>
                       <TableCell colSpan={3}>
                         <div className='flex items-center justify-between gap-2'>
-                          <button
-                            type='button'
-                            className='flex items-center gap-2 text-left'
-                            onClick={() => onToggleGroup(task.id)}
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                            ) : (
-                              <ChevronRight className='h-4 w-4 text-muted-foreground' />
-                            )}
-                            <span className='font-semibold'>{task.title}</span>
-                          </button>
+                          <div className='flex items-center gap-1'>
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='icon'
+                              className='h-7 w-7'
+                              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${task.title}`}
+                              onClick={() => onToggleGroup(task.id)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                              ) : (
+                                <ChevronRight className='h-4 w-4 text-muted-foreground' />
+                              )}
+                            </Button>
+                            <button
+                              type='button'
+                              className='font-semibold text-left'
+                              onClick={() => onReopenTask(task.id)}
+                            >
+                              {task.title}
+                            </button>
+                          </div>
                           {!isLocked && (
                             <Button
                               variant='ghost'
