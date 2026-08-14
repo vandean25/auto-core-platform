@@ -135,7 +135,12 @@ export async function applyAuditUpdate(
 
   let beforeRaw: unknown = undefined;
   if (typeof modelDelegate?.findFirst === 'function' && args?.where) {
-    beforeRaw = await modelDelegate.findFirst({ where: args.where });
+    try {
+      beforeRaw = await modelDelegate.findFirst({ where: args.where });
+    } catch {
+      // Composite unique keys (e.g. tenant_id_code) are valid for update
+      // but rejected by findFirst — proceed without a before snapshot.
+    }
   }
 
   const afterRaw = await query(args);
@@ -203,7 +208,12 @@ export async function applyAuditDelete(
 
   let beforeRaw: unknown = undefined;
   if (typeof modelDelegate?.findFirst === 'function' && args?.where) {
-    beforeRaw = await modelDelegate.findFirst({ where: args.where });
+    try {
+      beforeRaw = await modelDelegate.findFirst({ where: args.where });
+    } catch {
+      // Composite unique keys (e.g. tenant_id_code) are valid for delete
+      // but rejected by findFirst — proceed without a before snapshot.
+    }
   }
 
   const deletedRaw = await query(args);

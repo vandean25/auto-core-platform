@@ -70,7 +70,7 @@ describe('Catalog Workflow Search (e2e)', () => {
       }
       if (tenantId) {
         await prisma.financeSettings.deleteMany({});
-        await prisma.auditLog.deleteMany({});
+        await basePrisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
         await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
       }
     } finally {
