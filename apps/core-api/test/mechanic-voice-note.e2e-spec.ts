@@ -350,16 +350,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
       .expect(404);
 
     // Cleanup
-    await otherPrisma.workshopTask.deleteMany({
-      where: { workshop_order_id: otherOrder.id },
-    });
-    await otherPrisma.workshopOrder.deleteMany({ where: { id: otherOrder.id } });
-    await otherPrisma.vehicle.deleteMany({ where: { id: otherVehicle.id } });
-    await otherPrisma.customer.deleteMany({ where: { id: otherCust.id } });
-
-    await basePrisma.tenant.deleteMany({
-      where: { id: otherTenant.tenantId },
-    });
+    await cleanupTestTenantGraph(basePrisma, otherTenant.tenantId);
   });
 
   // ─── Unassigned task ──────────────────────────────────────────────────────

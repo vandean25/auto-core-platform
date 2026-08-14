@@ -46,6 +46,7 @@ describe('InventoryController (e2e) Security', () => {
 
   afterEach(async () => {
     if (tenantId) {
+      await prisma.auditLog.deleteMany({ where: { tenant_id: tenantId } });
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
       tenantId = '';
     }

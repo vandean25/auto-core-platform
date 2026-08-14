@@ -29,6 +29,7 @@ describe('Security (e2e)', () => {
 
   afterAll(async () => {
     if (tenantId) {
+      await prisma.auditLog.deleteMany({ where: { tenant_id: tenantId } });
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
     }
     await teardownTestApp(app, prisma);

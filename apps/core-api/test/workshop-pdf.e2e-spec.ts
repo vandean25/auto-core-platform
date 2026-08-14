@@ -52,6 +52,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
   afterEach(async () => {
     if (tenantId) {
+      await prisma.auditLog.deleteMany({ where: { tenant_id: tenantId } });
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
       tenantId = '';
     }
