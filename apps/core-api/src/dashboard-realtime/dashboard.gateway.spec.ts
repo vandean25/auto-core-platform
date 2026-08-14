@@ -128,14 +128,45 @@ describe('DashboardGateway', () => {
   });
 
   describe('handleConnection', () => {
-    it('joins tenant-prefixed room based on socket.data', async () => {
+    it('joins tenant-prefixed room based on socket.data and logs structured event', async () => {
       const client = createClient();
       client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+      const loggerDebugSpy = jest.spyOn((gateway as any).logger, 'debug');
 
       await gateway.handleConnection(client as unknown as Socket);
 
       expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
       expect(client.join).toHaveBeenCalledWith('user_user-1');
+
+      const logCalls = loggerDebugSpy.mock.calls.map((call) => JSON.parse(call[0]));
+      expect(logCalls).toContainEqual(
+        expect.objectContaining({
+          type: 'ws_connect',
+          socketId: 'socket-1',
+          tenantId: 'tenant-a',
+          userId: 'user-1',
+        }),
+      );
+    });
+  });
+
+  describe('handleDisconnect', () => {
+    it('logs structured ws_disconnect event with socket metadata', () => {
+      const client = createClient();
+      client.data = { tenantId: 'tenant-a', userId: 'user-1' };
+      const loggerDebugSpy = jest.spyOn((gateway as any).logger, 'debug');
+
+      gateway.handleDisconnect(client as unknown as Socket);
+
+      const logCalls = loggerDebugSpy.mock.calls.map((call) => JSON.parse(call[0]));
+      expect(logCalls).toContainEqual(
+        expect.objectContaining({
+          type: 'ws_disconnect',
+          socketId: 'socket-1',
+          tenantId: 'tenant-a',
+          userId: 'user-1',
+        }),
+      );
     });
   });
 

@@ -2,7 +2,8 @@ import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common';
+import { GlobalExceptionFilter, HttpLoggingInterceptor } from './common';
+
 
 function validateStartupEnv(): void {
   if (process.env.NODE_ENV === 'test') {
@@ -30,6 +31,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new HttpLoggingInterceptor());
 
   // CORS Configuration
   const frontendUrl = process.env.FRONTEND_URL;

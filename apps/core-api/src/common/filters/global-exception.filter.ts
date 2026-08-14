@@ -16,6 +16,7 @@ import {
   BadRequestError,
   ValidationError,
 } from '../errors/application-errors';
+import { TenantContextStorage } from '../services/tenant-context.storage';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -28,6 +29,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+
+    const user = TenantContextStorage.getUser();
+    const requestMeta = TenantContextStorage.getRequestMeta();
+    const requestId = requestMeta?.requestId;
+    const tenantId = user?.tenantId;
+    const actorId = user?.userId;
 
     let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
@@ -49,19 +56,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       // Mask messages for 500 errors in production
       if (status >= 500 && process.env.NODE_ENV === 'production') {
-        this.logger.error(
-          `HttpException ${status}: ${exception.message}`,
-          exception.stack,
-        );
+        const logPayload = {
+          type: 'http_error',
+          ...(requestId ? { requestId } : {}),
+          statusCode: status,
+          errorName: exception.constructor.name,
+          message: exception.message,
+          ...(tenantId ? { tenantId } : {}),
+          ...(actorId ? { actorId } : {}),
+        };
+        this.logger.error(JSON.stringify(logPayload), exception.stack);
         message = 'Internal server error';
       }
     }
     // Handle Prisma specific exceptions (as fallback for unhandled database errors)
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       // Sanitize logging: log only code and meta, skip raw message which might contain values
-      this.logger.error(
-        `Prisma error ${exception.code} | meta: ${JSON.stringify(exception.meta ?? {})}`,
-      );
+      const logPayload = {
+        type: 'prisma_error',
+        ...(requestId ? { requestId } : {}),
+        code: exception.code,
+        meta: exception.meta ?? {},
+        ...(tenantId ? { tenantId } : {}),
+        ...(actorId ? { actorId } : {}),
+      };
+      this.logger.error(JSON.stringify(logPayload));
+
       switch (exception.code) {
         case 'P2000':
           status = HttpStatus.BAD_REQUEST;
@@ -100,15 +120,31 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // General Error handling
     else if (exception instanceof Error) {
-      this.logger.error(
-        `Unhandled error: ${exception.message}`,
-        exception.stack,
-      );
+      const logPayload = {
+        type: 'http_error',
+        ...(requestId ? { requestId } : {}),
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        errorName: exception.constructor.name,
+        message: exception.message,
+        ...(tenantId ? { tenantId } : {}),
+        ...(actorId ? { actorId } : {}),
+      };
+      this.logger.error(JSON.stringify(logPayload), exception.stack);
+
       // Mask messages for 500 errors in production
       status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'Internal server error';
+      if (process.env.NODE_ENV === 'production') {
+        message = 'Internal server error';
+      }
     } else {
-      this.logger.error('Unknown error caught by filter', exception);
+      const logPayload = {
+        type: 'unknown_error',
+        ...(requestId ? { requestId } : {}),
+        error: String(exception),
+        ...(tenantId ? { tenantId } : {}),
+        ...(actorId ? { actorId } : {}),
+      };
+      this.logger.error(JSON.stringify(logPayload));
     }
 
     if (status >= 500) {
