@@ -269,9 +269,9 @@ export async function runSeedTenantMemberCli(
 
   const dependencies: SeedTenantMemberDependencies = {
     prisma: {
-      tenant: prisma.tenant,
-      user: prisma.user,
-      tenantMember: prisma.tenantMember,
+      tenant: prisma.tenant as never,
+      user: prisma.user as never,
+      tenantMember: prisma.tenantMember as never,
       userAccessProjection: (userId: string) =>
         prisma.user.findFirst({
           where: { id: userId },
@@ -290,7 +290,7 @@ export async function runSeedTenantMemberCli(
               },
             },
           },
-        }) as Promise<UserAccessProjection | null>,
+        }) as never,
       $disconnect: () => prisma.$disconnect(),
     },
     firebaseAuth: getFirebaseAdminAuth(),

@@ -169,7 +169,7 @@ export async function runSeedPlatformAdminCli(
     const result = await seedPlatformAdmin(
       { email },
       {
-        prisma,
+        prisma: prisma as never,
         firebaseAuth: getFirebaseAdminAuth(),
       },
     );

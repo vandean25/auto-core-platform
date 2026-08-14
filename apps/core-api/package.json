@@ -37,16 +37,16 @@
     "@google-cloud/speech": "^7.3.1",
     "@google-cloud/tasks": "^6.2.1",
     "@google-cloud/translate": "^9.4.1",
-    "@nestjs/common": "^11.1.21",
-    "@nestjs/core": "^11.1.21",
+    "@nestjs/common": "^11.1.26",
+    "@nestjs/core": "^11.1.26",
     "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.1",
-    "@nestjs/platform-express": "^11.1.21",
-    "@nestjs/platform-socket.io": "^11.1.21",
+    "@nestjs/platform-express": "^11.1.26",
+    "@nestjs/platform-socket.io": "^11.1.26",
     "@nestjs/schedule": "^6.1.3",
-    "@nestjs/swagger": "^11.4.3",
-    "@nestjs/websockets": "^11.1.21",
+    "@nestjs/swagger": "^11.4.4",
+    "@nestjs/websockets": "^11.1.26",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/extension-accelerate": "^3.0.1",
@@ -54,12 +54,12 @@
     "@sentry/nestjs": "^10.53.0",
     "@sentry/node": "^10.50.0",
     "async-retry": "^1.3.3",
-    "axios": "^1.16.0",
+    "axios": "^1.19.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.1",
     "firebase-admin": "^13.10.0",
-    "openai": "^6.36.0",
+    "openai": "^6.39.0",
     "pg": "^8.17.2",
     "playwright": "^1.60.0",
     "reflect-metadata": "^0.2.2",
@@ -70,14 +70,14 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^10.0.1",
-    "@nestjs/cli": "^11.0.21",
+    "@nestjs/cli": "^11.0.23",
     "@nestjs/schematics": "^11.1.0",
-    "@nestjs/testing": "^11.1.21",
+    "@nestjs/testing": "^11.1.26",
     "@types/async-retry": "^1.4.9",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.1.0",
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.1",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^7.2.0",
     "eslint": "^10.4.0",
@@ -94,7 +94,7 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.4"
+    "typescript-eslint": "^8.60.0"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -124,5 +124,9 @@
     ],
     "coverageDirectory": "coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "js-yaml": "^5.3.0",
+    "uuid": "^11.1.1"
   }
 }
