@@ -1,6 +1,7 @@
 import { Inject, Logger, forwardRef } from '@nestjs/common';
 import {
   OnGatewayConnection,
+  OnGatewayDisconnect,
   OnGatewayInit,
   WebSocketGateway,
   WebSocketServer,
@@ -57,7 +58,9 @@ const allowedOrigins = resolveCorsOrigins();
     credentials: true,
   },
 })
-export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
+export class DashboardGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   private readonly logger = new Logger(DashboardGateway.name);
   private static readonly TENANT_ROOM_PREFIX = 'tenant_';
   private static readonly USER_ROOM_PREFIX = 'user_';
@@ -80,7 +83,11 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
           const token = auth?.token;
           if (typeof token !== 'string' || token.trim().length === 0) {
             this.logger.debug(
-              `Unauthorized: No token provided (Socket ID: ${socket.id})`,
+              JSON.stringify({
+                type: 'ws_auth_failed',
+                socketId: socket.id,
+                reason: 'No token provided',
+              }),
             );
             return next(new Error('Unauthorized'));
           }
@@ -105,7 +112,11 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
           const message =
             error instanceof Error ? error.message : String(error);
           this.logger.debug(
-            `Unauthorized: Invalid token (Socket ID: ${socket.id}): ${message}`,
+            JSON.stringify({
+              type: 'ws_auth_failed',
+              socketId: socket.id,
+              reason: message,
+            }),
           );
           next(new Error('Unauthorized'));
         }
@@ -120,7 +131,24 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
     await client.join(tenantRoom);
     await client.join(userRoom);
     this.logger.debug(
-      `Client authenticated and joined rooms: ${tenantRoom}, ${userRoom} (Socket ID: ${client.id})`,
+      JSON.stringify({
+        type: 'ws_connect',
+        socketId: client.id,
+        tenantId: data.tenantId,
+        userId: data.userId,
+      }),
+    );
+  }
+
+  handleDisconnect(client: Socket) {
+    const data = (client.data ?? {}) as Record<string, string | undefined>;
+    this.logger.debug(
+      JSON.stringify({
+        type: 'ws_disconnect',
+        socketId: client.id,
+        ...(data.tenantId ? { tenantId: data.tenantId } : {}),
+        ...(data.userId ? { userId: data.userId } : {}),
+      }),
     );
   }
 
@@ -130,7 +158,13 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
   ): void {
     if (!this.server) {
       this.logger.debug(
-        `Skipped emitting ${DASHBOARD_ENTITY_UPDATED_EVENT}: ${payload.type}/${payload.action} (No server connected)`.trim(),
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event: DASHBOARD_ENTITY_UPDATED_EVENT,
+          entityType: payload.type,
+          action: payload.action,
+          reason: 'No server connected',
+        }),
       );
       return;
     }
@@ -138,7 +172,14 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
     // Emit only to the specific tenant's room
     this.server.to(room).emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
-      `Emitted ${DASHBOARD_ENTITY_UPDATED_EVENT} to room ${room}: ${payload.type}/${payload.action} ${payload.entityId ?? ''}`.trim(),
+      JSON.stringify({
+        type: 'ws_emit',
+        event: DASHBOARD_ENTITY_UPDATED_EVENT,
+        room,
+        entityType: payload.type,
+        action: payload.action,
+        ...(payload.entityId ? { entityId: payload.entityId } : {}),
+      }),
     );
   }
 
@@ -148,7 +189,11 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
   ): void {
     if (!this.server) {
       this.logger.debug(
-        `Skipped emitting ${AUTH_CLAIMS_UPDATED_EVENT}: ${payload.reason} (No server connected)`.trim(),
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event: AUTH_CLAIMS_UPDATED_EVENT,
+          reason: 'No server connected',
+        }),
       );
       return;
     }
@@ -156,7 +201,12 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayInit {
     const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
     this.server.to(room).emit(AUTH_CLAIMS_UPDATED_EVENT, payload);
     this.logger.debug(
-      `Emitted ${AUTH_CLAIMS_UPDATED_EVENT} to room ${room}: ${payload.reason}`.trim(),
+      JSON.stringify({
+        type: 'ws_emit',
+        event: AUTH_CLAIMS_UPDATED_EVENT,
+        room,
+        claimReason: payload.reason,
+      }),
     );
   }
 }
