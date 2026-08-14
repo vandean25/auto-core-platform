@@ -137,4 +137,37 @@ describe('audit diff utilities', () => {
     });
     expect(result.changedFields).toEqual(['access_token']);
   });
+
+  it('detects changes when nested objects have same key counts but different key names', () => {
+    const before = {
+      config: { a: undefined as unknown as string },
+    };
+    const after = {
+      config: { b: undefined as unknown as string },
+    };
+
+    const result = computeAuditDiff(before, after);
+
+    expect(result.changedFields).toEqual(['config']);
+    expect(result.diff).toEqual({
+      config: {
+        before: { a: undefined },
+        after: { b: undefined },
+      },
+    });
+  });
+
+  it('treats nested objects with same keys in different insertion orders as equal', () => {
+    const before = {
+      meta: { foo: '1', bar: '2' },
+    };
+    const after = {
+      meta: { bar: '2', foo: '1' },
+    };
+
+    const result = computeAuditDiff(before, after);
+
+    expect(result.changedFields).toEqual([]);
+    expect(result.diff).toEqual({});
+  });
 });

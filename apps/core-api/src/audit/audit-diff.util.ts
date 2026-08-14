@@ -70,10 +70,16 @@ const isDeepEqual = (left: AuditJsonValue | undefined, right: AuditJsonValue | u
   }
 
   if (isObject(left) && isObject(right)) {
-    const leftKeys = Object.keys(left);
-    const rightKeys = Object.keys(right);
+    const leftKeys = Object.keys(left).sort();
+    const rightKeys = Object.keys(right).sort();
     if (leftKeys.length !== rightKeys.length) {
       return false;
+    }
+
+    for (let i = 0; i < leftKeys.length; i++) {
+      if (leftKeys[i] !== rightKeys[i]) {
+        return false;
+      }
     }
 
     return leftKeys.every((key) =>
