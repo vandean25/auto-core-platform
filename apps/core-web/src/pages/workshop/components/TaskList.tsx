@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -7,9 +7,10 @@ import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import type { WorkshopTask } from '@/api/types'
+import type { WorkshopOrder, WorkshopTask } from '@/api/types'
+import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
+import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
-import type { WorkshopOrder } from '@/api/types'
 
 type WorkshopOrderWithLegacyReportedIssue = WorkshopOrder & { reported_issue?: string | null }
 
@@ -19,10 +20,16 @@ export interface TaskListProps {
   rawTaskTotals: Map<string, TaskTotals>
   isLocked: boolean
   newTaskTitle: string
+  expandedTaskId: string | null
   onNewTaskTitleChange: (value: string) => void
   onAddTask: () => void
   onToggleTask: (taskId: string, checked: boolean) => void
-  onOpenTask: (taskId: string) => void
+  onExpandedTaskIdChange: (taskId: string | null) => void
+  onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
+  onTaskMechanicNotesChange: (taskId: string, notes: string) => void
+  onTaskDelete: (taskId: string) => void
+  canDeleteTask: boolean
+  isDeletingTask: boolean
   onSaveReportedIssue: (value: string) => void
   onSaveNotes: (value: string) => void
 }
@@ -33,10 +40,16 @@ export function TaskList({
   rawTaskTotals,
   isLocked,
   newTaskTitle,
+  expandedTaskId,
   onNewTaskTitleChange,
   onAddTask,
   onToggleTask,
-  onOpenTask,
+  onExpandedTaskIdChange,
+  onTaskLineItemsChange,
+  onTaskMechanicNotesChange,
+  onTaskDelete,
+  canDeleteTask,
+  isDeletingTask,
   onSaveReportedIssue,
   onSaveNotes,
 }: TaskListProps) {
@@ -99,47 +112,23 @@ export function TaskList({
             <div className='text-sm text-muted-foreground'>No tasks yet. Add the first task to begin work.</div>
           )}
           {tasks.map((task) => (
-            <div
+            <TaskAccordionRow
               key={task.id}
-              data-workshop-task-row='true'
-              onClick={() => onOpenTask(task.id)}
-              className='w-full border rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer'
-            >
-              <div className='flex items-center gap-3 text-left'>
-                <Checkbox
-                  checked={task.done}
-                  onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
-                  disabled={isLocked}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-                  {task.title}
-                </span>
-                <span className='ml-auto flex items-center gap-2'>
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    className='h-7 px-2'
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onOpenTask(task.id)
-                    }}
-                  >
-                    Open
-                  </Button>
-                  <span className='text-sm font-semibold'>
-                    {formatCurrency(rawTaskTotals.get(task.id)?.total ?? 0)}
-                  </span>
-                  <StatusBadge status={task.status} />
-                </span>
-              </div>
-              <div className='mt-1 pl-7 text-xs text-muted-foreground'>
-                Parts {formatCurrency(rawTaskTotals.get(task.id)?.parts ?? 0)} · Labor{' '}
-                {formatCurrency(rawTaskTotals.get(task.id)?.labor ?? 0)} · Std{' '}
-                {(rawTaskTotals.get(task.id)?.laborStandardHours ?? 0).toFixed(2)}h · Actual{' '}
-                {(rawTaskTotals.get(task.id)?.laborActualHours ?? 0).toFixed(2)}h
-              </div>
-            </div>
+              task={task}
+              workshopOrderId={order.id}
+              totals={rawTaskTotals.get(task.id)}
+              isExpanded={expandedTaskId === task.id}
+              isLocked={isLocked}
+              onToggleTask={onToggleTask}
+              onToggleExpanded={() =>
+                onExpandedTaskIdChange(expandedTaskId === task.id ? null : task.id)
+              }
+              onTaskLineItemsChange={onTaskLineItemsChange}
+              onTaskMechanicNotesChange={onTaskMechanicNotesChange}
+              onTaskDelete={onTaskDelete}
+              canDeleteTask={canDeleteTask}
+              isDeletingTask={isDeletingTask}
+            />
           ))}
         </CardContent>
       </Card>
@@ -162,5 +151,137 @@ export function TaskList({
         </CardContent>
       </Card>
     </>
+  )
+}
+
+interface TaskAccordionRowProps {
+  task: WorkshopTask
+  workshopOrderId: string
+  totals: TaskTotals | undefined
+  isExpanded: boolean
+  isLocked: boolean
+  onToggleTask: (taskId: string, checked: boolean) => void
+  onToggleExpanded: () => void
+  onTaskLineItemsChange: (taskId: string, items: TaskLineItem[]) => void
+  onTaskMechanicNotesChange: (taskId: string, notes: string) => void
+  onTaskDelete: (taskId: string) => void
+  canDeleteTask: boolean
+  isDeletingTask: boolean
+}
+
+function TaskAccordionRow({
+  task,
+  workshopOrderId,
+  totals,
+  isExpanded,
+  isLocked,
+  onToggleTask,
+  onToggleExpanded,
+  onTaskLineItemsChange,
+  onTaskMechanicNotesChange,
+  onTaskDelete,
+  canDeleteTask,
+  isDeletingTask,
+}: TaskAccordionRowProps) {
+  const lineItems: TaskLineItem[] = (task.lineItems ?? []).map((item, index) => ({
+    id: item.id ?? `tmp-${task.id}-${index}`,
+    type: item.type,
+    itemNo: item.itemNo,
+    description: item.description,
+    qty: item.qty,
+    unitPrice: item.unitPrice,
+    laborOperationId: item.laborOperationId,
+    standardAw: item.standardAw ?? null,
+    actualHours: item.actualHours ?? null,
+    internalCostRate: item.internalCostRate ?? null,
+  }))
+  const partsCount = lineItems.filter((item) => item.type === 'PART').length
+  const laborCount = lineItems.filter((item) => item.type === 'LABOR').length
+  const taskTotals = totals ?? {
+    parts: 0,
+    labor: 0,
+    total: 0,
+    laborStandardHours: 0,
+    laborActualHours: 0,
+    laborInternalCost: 0,
+    hasLaborCostData: false,
+  }
+
+  return (
+    <div
+      data-workshop-task-row='true'
+      className='w-full rounded-lg border transition-colors hover:bg-accent'
+      onClick={onToggleExpanded}
+    >
+      <div className='flex items-center gap-3 px-3 py-2.5 text-left'>
+        <Checkbox
+          checked={task.done}
+          onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
+          disabled={isLocked}
+          onClick={(event) => event.stopPropagation()}
+        />
+        <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
+          {task.title}
+        </span>
+        <span className='ml-auto flex items-center gap-2'>
+          <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
+          <StatusBadge status={task.status} />
+        </span>
+      </div>
+      <div className='px-3 pb-2.5 pl-10 text-xs text-muted-foreground'>
+        {partsCount} {partsCount === 1 ? 'part' : 'parts'} · {laborCount}{' '}
+        {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
+        {formatCurrency(taskTotals.parts)} · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
+        {taskTotals.laborStandardHours.toFixed(2)}h · Actual{' '}
+        {taskTotals.laborActualHours.toFixed(2)}h
+      </div>
+
+      {isExpanded && (
+        <div
+          className='space-y-4 border-t px-3 py-4'
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className='flex items-center justify-between gap-3'>
+            <div>
+              <div className='text-sm font-semibold'>{task.title}</div>
+              <div className='mt-1 text-xs text-muted-foreground'>Task details and estimate lines</div>
+            </div>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              className='h-8 text-destructive hover:text-destructive'
+              onClick={() => onTaskDelete(task.id)}
+              disabled={!canDeleteTask || isDeletingTask}
+            >
+              <Trash2 className='mr-1.5 h-3.5 w-3.5' />
+              Delete task
+            </Button>
+          </div>
+
+          <TaskLineItemEditor
+            workshopOrderId={workshopOrderId}
+            taskId={task.id}
+            lineItems={lineItems}
+            readOnly={isLocked}
+            onLineItemsChange={(items) => onTaskLineItemsChange(task.id, items)}
+          />
+
+          <div className='space-y-2'>
+            <div className='text-sm font-semibold'>Mechanic Notes</div>
+            <InlineEdit
+              mode='textarea'
+              rows={4}
+              placeholder='Mechanic observations, measurements, and service notes...'
+              value={task.mechanicNotes ?? ''}
+              readOnly={isLocked}
+              onSave={(notes) => onTaskMechanicNotesChange(task.id, notes)}
+              emptyText='Add mechanic notes'
+              ariaLabel='Mechanic notes'
+            />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

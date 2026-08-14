@@ -7,7 +7,7 @@ import { AutoCorePage } from './AutoCorePage';
  * Covers:
  * - Navigating to a specific workshop order detail page.
  * - Opening a task row (uses `data-workshop-task-row="true"` attribute).
- * - Searching the parts / labor catalog within a task drawer.
+ * - Searching the parts / labor catalog within an expanded task.
  * - Mocking a workshop order with an OpenAPI-aligned payload.
  */
 export class WorkshopPOM extends AutoCorePage {
@@ -27,11 +27,9 @@ export class WorkshopPOM extends AutoCorePage {
     await expect(taskRow).toBeVisible();
     await taskRow.click();
 
-    // The task detail drawer renders as role="dialog" or role="complementary"
-    const detailView = this.page
-      .locator('[role="dialog"], [role="complementary"]')
-      .first();
-    await expect(detailView).toBeVisible();
+    await expect(
+      this.page.getByPlaceholder('Search labor or part number...'),
+    ).toBeVisible();
   }
 
   async searchCatalog(query: string) {
