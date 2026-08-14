@@ -54,12 +54,12 @@ test.describe('Blueprint: Catalog Fitment Filtering Workflow', () => {
       });
     });
 
-    await test.step('Action: Navigate to order and open task drawer', async () => {
+    await test.step('Action: Navigate to order and open task', async () => {
       // gotoOrder calls navigate which waits for networkidle
       await workshop.gotoOrder(WORKSHOP_ORDER_ID);
 
-      // Vehicle context must be visible in the order header
-      await expect(page.getByText('Skoda Octavia')).toBeVisible();
+      // Vehicle context is visible in the header subtitle and the vehicle card
+      await expect(page.getByText('2020 Skoda Octavia', { exact: true })).toBeVisible();
 
       // Click the task row — validates data-workshop-task-row attribute
       await workshop.openTask('General Inspection');
@@ -70,13 +70,11 @@ test.describe('Blueprint: Catalog Fitment Filtering Workflow', () => {
     });
 
     await test.step('Verify: API-returned items visible; excluded items absent', async () => {
-      const drawer = page.locator('[role="dialog"], [role="complementary"]').first();
-
-      await expect(drawer.getByText('UNIVERSAL-LABOR')).toBeVisible();
-      await expect(drawer.getByText('SKODA-LABOR')).toBeVisible();
+      await expect(page.getByText('UNIVERSAL-LABOR')).toBeVisible();
+      await expect(page.getByText('SKODA-LABOR')).toBeVisible();
 
       // BMW-LABOR was never returned by the API — it must not appear in the UI
-      await expect(drawer.getByText('BMW-LABOR')).not.toBeVisible();
+      await expect(page.getByText('BMW-LABOR')).not.toBeVisible();
     });
   });
 });
