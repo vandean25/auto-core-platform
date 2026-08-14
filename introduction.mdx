@@ -1,8 +1,27 @@
 ---
 title: "Introduction"
-description: "Welcome to the Auto Core Platform documentation"
+description: "ACP is the workshop ERP for parts, jobs, invoices, and the people who change them."
 ---
 
-# Welcome to ACP
+ACP keeps a workshop running as one system: stock on the shelf, jobs on the board, bills from vendors, and invoices to customers.
 
-Auto Core Platform is an ERP system designed for automotive workshop, inventory, and financial operations.
+Every business change is treated like a ledger entry. You can later answer *who changed this, when, and what it looked like before*.
+
+<CardGroup cols={2}>
+  <Card title="Inventory" icon="package" href="/quickstart">
+    Parts, locations, and stock movements with a quantity ledger.
+  </Card>
+  <Card title="Workshop" icon="wrench">
+    Repair orders, tasks, labor, and bay assignment.
+  </Card>
+  <Card title="Sales & procurement" icon="receipt">
+    Customers, sales orders, invoices, vendors, and purchase bills.
+  </Card>
+  <Card title="Audit trail" icon="scroll-text" href="/settings/audit-logs">
+    Immutable before/after history for business records in your tenant.
+  </Card>
+</CardGroup>
+
+<Tip>
+Audit history lives in **Settings → Audit Logs**. Runtime server logs are a different system, used by operators during incidents. They are not the same thing.
+</Tip>

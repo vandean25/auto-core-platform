@@ -1,0 +1,77 @@
+---
+title: "Audit logs"
+description: "Read who changed a business record, when they changed it, and what the row looked like before."
+---
+
+Use audit logs when a price, status, or master-data field does not match what people remember. The trail is the source of truth for *mutations*, not a debug console.
+
+<Info>
+Audit records are **append-only**. There is no delete button. You cannot edit yesterday's snapshot to make it look cleaner.
+</Info>
+
+## Open the trail
+
+<Steps>
+  <Step title="Go to Settings">
+    Click the gear in the app header. Settings is the tabbed page for finance, brands, locations, and audit.
+  </Step>
+  <Step title="Open Audit Logs">
+    Choose the **Audit Logs** tab. The table lists recent mutations for *your tenant only*.
+  </Step>
+  <Step title="Filter, then open a row">
+    Narrow by **Update** or **Delete**. Search across entity type, id, actor email, and request id. Click the row (or the eye) to open the detail sheet.
+  </Step>
+</Steps>
+
+## Read a record
+
+The list answers the first question. The sheet answers the rest.
+
+| Column | What it tells you |
+| --- | --- |
+| Timestamp | When the server committed the change |
+| Action | `UPDATE` or `DELETE` (creates are not the default trail) |
+| Entity type | What kind of record moved, for example `Invoice` or `WorkshopTask` |
+| Entity ID | The exact row |
+| Actor | Signed-in user email, or `SYSTEM` / script when a job did the write |
+| Changed fields | Names of fields that actually differed |
+
+In the sheet:
+
+- **Diff** — only the fields that changed, before vs after
+- **Before** — the row as it was
+- **After** — the row as it became (`None` on deletes)
+- **Request ID** — the HTTP call that carried the mutation, useful when support correlates an incident
+- **Redacted secret fields** — passwords, tokens, and keys are stripped before the snapshot is stored. Business fields (prices, quantities, statuses, names) stay visible because they *are* the audit subject
+
+<Tabs>
+  <Tab title="Workshop floor">
+    A mechanic or office user changed a job, customer, or invoice. Actor type is `USER`. Start with email and timestamp, then confirm the changed field names match the complaint.
+  </Tab>
+  <Tab title="Background job">
+    Actor type is `SYSTEM`. The mutation still belongs to your tenant. Use request id and entity id when you talk to support.
+  </Tab>
+  <Tab title="Delete">
+    **After** is empty. **Before** is the last known business state. Deletion still has to pass the product's deletion rules; audit does not unlock a forbidden delete.
+  </Tab>
+</Tabs>
+
+## What is recorded
+
+ACP writes one audit row per affected business record on **update** and **delete**. The write and the audit row commit together. A successful edit without a trail is treated as a defect.
+
+<AccordionGroup>
+  <Accordion title="Records that appear in the trail">
+    Customers, vendors, vehicles, catalog items, brands, storage locations, employees, bays, labor categories and rates, finance settings, revenue groups, purchase orders and bills, sales orders, invoices, workshop orders, tasks, line items, media, and labor entries.
+  </Accordion>
+  <Accordion title="What you will not see">
+    New creates (the created row *is* the first state). Stock quantity history still lives in the inventory ledger, not here. Server errors and API latency live in [runtime diagnostics](/operations/runtime-diagnostics), not in this table. Other tenants' data never appears.
+  </Accordion>
+  <Accordion title="Secrets">
+    Known secret fields are replaced before snapshots are saved. If a record shows a redaction banner, those fields were present on the row and stripped on purpose.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+Turning operational log verbosity up or down **does not** pause audit capture. The business trail stays on even when the server is quiet.
+</Warning>

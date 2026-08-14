@@ -1,10 +1,22 @@
 ---
 title: "Quickstart"
-description: "Get started with Auto Core Platform"
+description: "Open ACP, do one real job, then confirm the change landed in the audit trail."
 ---
 
-# Quickstart
+This is the shortest path from login to a record you can prove.
 
-Auto Core Platform covers inventory tracking, purchase order processing, vendor management, sales invoicing, workshop operations, and financial reporting.
+<Steps>
+  <Step title="Sign in to your workshop tenant">
+    Use the account your administrator invited. ACP isolates every tenant. You only see your workshop's customers, jobs, and stock.
+  </Step>
+  <Step title="Complete one business change">
+    Edit a customer, confirm a sales order, update a workshop task, or receive a purchase. The product already records the mutation. You do not turn auditing on.
+  </Step>
+  <Step title="Open the audit trail">
+    Go to **Settings → Audit Logs**. Search for the person, document id, or request id. Click the row to see before, after, and the field-level diff.
+  </Step>
+</Steps>
 
-Use this documentation as the public getting-started guide for the platform.
+<Check>
+If the row is missing, the change was likely a create (new records are the first state) or a model that is not on the audited list. See [Audit logs](/settings/audit-logs).
+</Check>

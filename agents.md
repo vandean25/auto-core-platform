@@ -258,6 +258,8 @@ Use the `mcp-server-neon` skills for database operations like creating branches 
 ### Local Project Skills
 - **Stitch Fetch Skill**: `.agents/skills/stitch-fetch/SKILL.md`
   - Use it to fetch Stitch screen metadata and download image/code assets via hosted URLs using `curl -L`.
+- **Mintlify Docs Skill**: `.agents/skills/mintlify-docs/SKILL.md`
+  - Use it before writing or editing public Mintlify pages (`*.mdx`, `docs.json`). Enforces ACP workshop voice and the unique Mintlify design.
 
 ## Google Secret Manager (Shared Dev Secrets)
 

@@ -1,0 +1,85 @@
+---
+title: "Runtime diagnostics"
+description: "Raise server log verbosity for an incident without touching the business audit trail."
+---
+
+Runtime diagnostics are for operators. They explain slow requests, failed jobs, and websocket disconnects. They are **not** evidence of who changed an invoice.
+
+<Warning>
+Only platform super-admins can change the live log level. Tenant administrators cannot. Noisy levels expire so production cannot stay in `debug` forever.
+</Warning>
+
+## Two systems, two jobs
+
+| | Audit logs | Runtime diagnostics |
+| --- | --- | --- |
+| Who | Workshop users, accountants, support | Platform operators |
+| Where | Settings → Audit Logs (database) | API stdout / cloud log sink |
+| Question | Who changed this row? | Why did this request fail? |
+| Retention | Durable business record | Infrastructure retention |
+| Bodies & secrets | Snapshots with secrets redacted | Request bodies are not logged |
+
+## Inspect the current level
+
+```http
+GET /api/admin/settings/log-level
+Authorization: Bearer <SUPER_ADMIN_JWT>
+```
+
+```json
+{
+  "currentLevel": "log",
+  "defaultLevel": "log"
+}
+```
+
+Boot default comes from `LOG_LEVEL`. Invalid or empty values fall back to `log`. Production never boots into `debug` or `verbose` by accident.
+
+## Raise verbosity for an incident
+
+`debug` and `verbose` require a TTL (default 30 minutes, max 24 hours). When it expires, the process returns to the boot default.
+
+```http
+PATCH /api/admin/settings/log-level
+Authorization: Bearer <SUPER_ADMIN_JWT>
+Content-Type: application/json
+
+{
+  "level": "debug",
+  "durationMinutes": 30
+}
+```
+
+<Steps>
+  <Step title="Confirm you are a platform super-admin">
+    Tenant-admin tokens receive `403`. This endpoint is platform-scoped on purpose.
+  </Step>
+  <Step title="Set a short TTL">
+    Prefer 15–30 minutes. Leave `verbose` for a single instance investigation, not a whole day.
+  </Step>
+  <Step title="Filter the sink by request id">
+    Structured entries include `requestId`, `tenantId`, `actorId`, method, path, status, and duration. Match that `requestId` to an [audit log](/settings/audit-logs) row when a mutation and a failure happened on the same call.
+  </Step>
+  <Step title="Let the override expire">
+    Do not leave `debug` as the new normal. The product reverts automatically.
+  </Step>
+</Steps>
+
+## What a request log looks like
+
+```json
+{
+  "type": "http_request",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "method": "POST",
+  "path": "/api/customers",
+  "statusCode": 201,
+  "durationMs": 42,
+  "tenantId": "tenant-uuid",
+  "actorId": "user-uuid"
+}
+```
+
+<Tip>
+Need *what changed on the customer*? Open Audit Logs. Need *why the request took 2 seconds*? Stay in the log sink.
+</Tip>

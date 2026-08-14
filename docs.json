@@ -1,22 +1,75 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "name": "Auto Core Platform",
+  "theme": "willow",
+  "colors": {
+    "primary": "#0F172A",
+    "light": "#38BDF8",
+    "dark": "#38BDF8"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Sora",
+      "weight": 600
+    },
+    "body": {
+      "family": "IBM Plex Sans"
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "background": {
+    "decoration": "grid",
+    "color": {
+      "light": "#F8FAFC",
+      "dark": "#020617"
+    }
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs",
+    "codeblocks": {
+      "theme": {
+        "light": "github-light",
+        "dark": "github-dark"
+      }
+    }
+  },
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
+        "icon": "book-open",
         "groups": [
           {
             "group": "Getting Started",
             "pages": ["introduction", "quickstart"]
           }
         ]
+      },
+      {
+        "tab": "Settings",
+        "icon": "settings",
+        "groups": [
+          {
+            "group": "Audit & compliance",
+            "pages": ["settings/audit-logs"]
+          }
+        ]
+      },
+      {
+        "tab": "Operations",
+        "icon": "activity",
+        "groups": [
+          {
+            "group": "Diagnostics",
+            "pages": ["operations/runtime-diagnostics"]
+          }
+        ]
       }
     ]
-  },
-  "colors": {
-    "primary": "#0F172A",
-    "light": "#38BDF8",
-    "dark": "#0284C7"
   }
 }
