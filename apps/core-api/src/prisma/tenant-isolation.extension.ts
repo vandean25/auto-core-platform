@@ -277,23 +277,25 @@ export function applyTenantIsolation(
  * @see docs/internal/05-Runbooks/prisma-raw-query-prohibition.md
  */
 export function createTenantIsolationExtension() {
-  return Prisma.defineExtension({
-    name: 'tenant-isolation',
-    query: {
-      $allModels: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async $allOperations({ model, operation, args, query }: any) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyTenantIsolation.call(
-            this,
-            Prisma.getExtensionContext(this),
-            model,
-            operation,
-            args,
-            query,
-          );
+  return Prisma.defineExtension((client) => {
+    return client.$extends({
+      name: 'tenant-isolation',
+      query: {
+        $allModels: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ model, operation, args, query }: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return applyTenantIsolation.call(
+              this,
+              client,
+              model,
+              operation,
+              args,
+              query,
+            );
+          },
         },
       },
-    },
+    });
   });
 }

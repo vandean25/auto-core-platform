@@ -422,51 +422,54 @@ export async function applyAuditDeleteMany(
  * on audited tenant business models.
  */
 export function createAuditExtension() {
-  return Prisma.defineExtension({
-    name: 'prisma-audit',
-    query: {
-      $allModels: {
-        async update({ model, args, query }) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyAuditUpdate.call(
-            this,
-            Prisma.getExtensionContext(this),
-            model,
-            args,
-            query,
-          );
-        },
-        async delete({ model, args, query }) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyAuditDelete.call(
-            this,
-            Prisma.getExtensionContext(this),
-            model,
-            args,
-            query,
-          );
-        },
-        async updateMany({ model, args, query }) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyAuditUpdateMany.call(
-            this,
-            Prisma.getExtensionContext(this),
-            model,
-            args,
-            query,
-          );
-        },
-        async deleteMany({ model, args, query }) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return applyAuditDeleteMany.call(
-            this,
-            Prisma.getExtensionContext(this),
-            model,
-            args,
-            query,
-          );
+  return Prisma.defineExtension((client) => {
+    return client.$extends({
+      name: 'prisma-audit',
+      query: {
+        $allModels: {
+          async update({ model, args, query }) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return applyAuditUpdate.call(
+              this,
+              client,
+              model,
+              args,
+              query,
+            );
+          },
+          async delete({ model, args, query }) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return applyAuditDelete.call(
+              this,
+              client,
+              model,
+              args,
+              query,
+            );
+          },
+          async updateMany({ model, args, query }) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return applyAuditUpdateMany.call(
+              this,
+              client,
+              model,
+              args,
+              query,
+            );
+          },
+          async deleteMany({ model, args, query }) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return applyAuditDeleteMany.call(
+              this,
+              client,
+              model,
+              args,
+              query,
+            );
+          },
         },
       },
-    },
+    });
   });
 }
+

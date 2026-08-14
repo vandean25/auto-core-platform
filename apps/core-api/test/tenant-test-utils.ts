@@ -90,6 +90,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.storageLocation.deleteMany({});
   await tenantPrisma.brand.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
+  await tenantPrisma.auditLog.deleteMany({});
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
