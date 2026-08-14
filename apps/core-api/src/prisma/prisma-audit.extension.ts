@@ -11,7 +11,7 @@ import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { resolvePrismaModelDelegate } from './prisma-delegate';
 
 /**
- * Tenant-scoped business models audited on single-row update and delete.
+ * Tenant-scoped business models audited on single-row and batch update and delete.
  * Internal technical models (AuditLog) and global models (Tenant, User, PlatformAdmin) are excluded.
  */
 export const AUDITED_MODELS = new Set([
@@ -23,6 +23,7 @@ export const AUDITED_MODELS = new Set([
   'PurchaseOrderItem',
   'PurchaseInvoice',
   'PurchaseInvoiceItem',
+  'PurchaseInvoiceLine',
   'SalesOrder',
   'SalesOrderItem',
   'Invoice',
@@ -248,9 +249,177 @@ export async function applyAuditDelete(
   return deletedRaw;
 }
 
+export async function applyAuditUpdateMany(
+  this: unknown,
+  ctx: any,
+  model: string,
+  args: any,
+  query: (args: any) => Promise<unknown>,
+): Promise<unknown> {
+  if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
+    return query(args);
+  }
+
+  const { tenantId, user, requestMeta } = getRequiredTenantContext();
+
+  const extensionContext = (Prisma.getExtensionContext(this) ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const modelDelegate =
+    resolvePrismaModelDelegate(ctx as Record<string, unknown>, model) ??
+    resolvePrismaModelDelegate(extensionContext, model);
+
+  let beforeRows: unknown[] = [];
+  if (typeof (modelDelegate as any)?.findMany === 'function' && args?.where) {
+    beforeRows =
+      ((await (modelDelegate as any).findMany({ where: args.where })) ??
+        []) as unknown[];
+  }
+
+  const result = (await query(args)) as { count: number };
+
+  if (!result || result.count === 0 || beforeRows.length === 0) {
+    return result;
+  }
+
+  const auditLogDelegate = resolveAuditLogDelegate(
+    ctx as Record<string, unknown>,
+    extensionContext,
+  );
+
+  if (typeof auditLogDelegate?.create === 'function') {
+    const affectedIds = beforeRows
+      .map((r) => extractEntityId(r))
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    let afterRows: unknown[] = [];
+    if (
+      typeof (modelDelegate as any)?.findMany === 'function' &&
+      affectedIds.length > 0
+    ) {
+      afterRows =
+        ((await (modelDelegate as any).findMany({
+          where: { id: { in: affectedIds } },
+        })) ?? []) as unknown[];
+    }
+
+    const afterMap = new Map<string, unknown>();
+    for (const afterRow of afterRows) {
+      const id = extractEntityId(afterRow);
+      if (id) {
+        afterMap.set(id, afterRow);
+      }
+    }
+
+    for (const beforeRow of beforeRows) {
+      const entityId = extractEntityId(beforeRow) ?? '';
+      const afterRow = afterMap.get(entityId) ?? beforeRow;
+      const changeSet = buildAuditChangeSet(beforeRow, afterRow);
+
+      await auditLogDelegate.create({
+        data: {
+          tenant_id: tenantId,
+          entity_type: model,
+          entity_id: entityId,
+          action: 'UPDATE',
+          actor_user_id: user.userId ?? null,
+          actor_email: user.email ?? null,
+          actor_role: user.role ?? null,
+          actor_type: resolveActorType(user, requestMeta),
+          request_id: requestMeta?.requestId ?? null,
+          source: requestMeta?.source ?? 'API',
+          ip_address: requestMeta?.ip ?? null,
+          user_agent: requestMeta?.userAgent ?? null,
+          before: changeSet.before as Prisma.InputJsonValue,
+          after: changeSet.after as Prisma.InputJsonValue,
+          diff: changeSet.diff as Prisma.InputJsonValue,
+          changed_fields: changeSet.changedFields as Prisma.InputJsonValue,
+          redacted_fields: changeSet.redactedFields as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
+
+  return result;
+}
+
+export async function applyAuditDeleteMany(
+  this: unknown,
+  ctx: any,
+  model: string,
+  args: any,
+  query: (args: any) => Promise<unknown>,
+): Promise<unknown> {
+  if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
+    return query(args);
+  }
+
+  const { tenantId, user, requestMeta } = getRequiredTenantContext();
+
+  const extensionContext = (Prisma.getExtensionContext(this) ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const modelDelegate =
+    resolvePrismaModelDelegate(ctx as Record<string, unknown>, model) ??
+    resolvePrismaModelDelegate(extensionContext, model);
+
+  let beforeRows: unknown[] = [];
+  if (typeof (modelDelegate as any)?.findMany === 'function' && args?.where) {
+    beforeRows =
+      ((await (modelDelegate as any).findMany({ where: args.where })) ??
+        []) as unknown[];
+  }
+
+  const result = (await query(args)) as { count: number };
+
+  if (!result || result.count === 0 || beforeRows.length === 0) {
+    return result;
+  }
+
+  const auditLogDelegate = resolveAuditLogDelegate(
+    ctx as Record<string, unknown>,
+    extensionContext,
+  );
+
+  if (typeof auditLogDelegate?.create === 'function') {
+    for (const row of beforeRows) {
+      const normalizedBefore = normalizeAuditValue(row);
+      const redactedBefore = redactAuditSecrets(normalizedBefore);
+      const entityId = extractEntityId(row) ?? '';
+
+      await auditLogDelegate.create({
+        data: {
+          tenant_id: tenantId,
+          entity_type: model,
+          entity_id: entityId,
+          action: 'DELETE',
+          actor_user_id: user.userId ?? null,
+          actor_email: user.email ?? null,
+          actor_role: user.role ?? null,
+          actor_type: resolveActorType(user, requestMeta),
+          request_id: requestMeta?.requestId ?? null,
+          source: requestMeta?.source ?? 'API',
+          ip_address: requestMeta?.ip ?? null,
+          user_agent: requestMeta?.userAgent ?? null,
+          before: redactedBefore.value as Prisma.InputJsonValue,
+          after: null,
+          diff: null,
+          changed_fields: [],
+          redacted_fields: redactedBefore.redactedPaths as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
+
+  return result;
+}
+
 /**
  * Creates a Prisma Client Extension that automatically creates `AuditLog` records
- * for single-row `update` and `delete` operations on audited tenant business models.
+ * for single-row and batch `update`, `delete`, `updateMany`, and `deleteMany` operations
+ * on audited tenant business models.
  */
 export function createAuditExtension() {
   return Prisma.defineExtension({
@@ -270,6 +439,26 @@ export function createAuditExtension() {
         async delete({ model, args, query }) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return applyAuditDelete.call(
+            this,
+            Prisma.getExtensionContext(this),
+            model,
+            args,
+            query,
+          );
+        },
+        async updateMany({ model, args, query }) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return applyAuditUpdateMany.call(
+            this,
+            Prisma.getExtensionContext(this),
+            model,
+            args,
+            query,
+          );
+        },
+        async deleteMany({ model, args, query }) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return applyAuditDeleteMany.call(
             this,
             Prisma.getExtensionContext(this),
             model,
