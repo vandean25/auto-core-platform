@@ -18,41 +18,6 @@ vi.mock('sonner', () => ({
   },
 }))
 
-interface MockTaskDetailDrawerProps {
-  open: boolean
-  task: { id: string } | null
-  onTaskLineItemsChange: (taskId: string, lineItems: unknown[]) => void
-}
-
-vi.mock('@/components/workshop/TaskDetailDrawer', () => ({
-  TaskDetailDrawer: ({ open, task, onTaskLineItemsChange }: MockTaskDetailDrawerProps) => {
-    if (!open || !task) return null
-    return (
-      <button
-        type='button'
-        onClick={() => {
-          onTaskLineItemsChange(task.id, [
-            {
-              id: 'line-labor-1',
-              type: 'LABOR',
-              itemNo: 'LAB-01',
-              description: 'Labor line',
-              qty: 1.25,
-              unitPrice: 120,
-              laborOperationId: '550e8400-e29b-41d4-a716-446655440000',
-              standardAw: 1.5,
-              actualHours: 1.75,
-              internalCostRate: 65,
-            },
-          ])
-        }}
-      >
-        Trigger line item save
-      </button>
-    )
-  },
-}))
-
 const baseOrder = {
   id: 'order-1',
   order_number: 'WO-001',
@@ -94,6 +59,18 @@ const baseOrder = {
           description: 'Oil Filter',
           qty: 1,
           unitPrice: 15,
+        },
+        {
+          id: 'line-labor-1',
+          type: 'LABOR' as const,
+          itemNo: 'LAB-01',
+          description: 'Labor line',
+          qty: 1.25,
+          unitPrice: 120,
+          laborOperationId: '550e8400-e29b-41d4-a716-446655440000',
+          standardAw: 1.5,
+          actualHours: 1,
+          internalCostRate: 65,
         },
       ],
     },
@@ -157,6 +134,10 @@ describe('WorkshopOrderDetails line-item persistence', () => {
     ;(workshopApi.useGenerateWorkshopPdf as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       createMutationMock({ mutateAsync: vi.fn() }),
     )
+    ;(workshopApi.useCatalogSearch as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { labor: [], parts: [] },
+      isFetching: false,
+    })
   })
 
   afterEach(() => {
@@ -174,14 +155,26 @@ describe('WorkshopOrderDetails line-item persistence', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Trigger line item save' }))
+    fireEvent.click(screen.getByText('Oil Change'))
+    fireEvent.change(screen.getByLabelText('Actual Hours'), { target: { value: '1.75' } })
+    fireEvent.blur(screen.getByLabelText('Actual Hours'))
 
     await waitFor(() => {
       expect(replaceTaskLineItemsMutateAsync).toHaveBeenCalledWith({
         orderId: 'order-1',
         taskId: 'task-1',
         items: [
+          {
+            type: 'PART',
+            itemNo: 'OIL-FLTR',
+            description: 'Oil Filter',
+            qty: 1,
+            unitPrice: 15,
+            laborOperationId: undefined,
+            standardAw: null,
+            actualHours: null,
+            internalCostRate: null,
+          },
           {
             type: 'LABOR',
             itemNo: 'LAB-01',
