@@ -1,8 +1,8 @@
 type PrismaDelegate = {
   findFirst?: (findArgs: {
     where: Record<string, unknown>;
-    select: { id: boolean };
-  }) => Promise<{ id: string } | null>;
+    select?: { id: boolean } | Record<string, unknown>;
+  }) => Promise<any>;
 };
 
 export function toPrismaDelegateKey(modelName: string): string {
