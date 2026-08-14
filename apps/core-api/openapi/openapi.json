@@ -4527,6 +4527,80 @@
         ]
       }
     },
+    "/api/admin/settings/log-level": {
+      "get": {
+        "operationId": "AdminLogLevelController_getLogLevel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogLevelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires SUPER_ADMIN platform role"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get operational log level settings and active override",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminLogLevelController_updateLogLevel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLogLevelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogLevelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Requires SUPER_ADMIN platform role"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update runtime operational log level with optional expiration duration",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
     "/api/tenant-members": {
       "get": {
         "operationId": "TenantMemberController_findAll",
@@ -8476,6 +8550,99 @@
             "type": "boolean"
           }
         }
+      },
+      "LogLevelOverrideDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warn",
+              "log",
+              "debug",
+              "verbose"
+            ],
+            "example": "debug"
+          },
+          "expiresAt": {
+            "type": "string",
+            "example": "2026-08-14T18:00:00.000Z"
+          },
+          "updatedBy": {
+            "type": "string",
+            "example": "user-uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-08-14T17:30:00.000Z"
+          }
+        },
+        "required": [
+          "level",
+          "updatedAt"
+        ]
+      },
+      "LogLevelResponseDto": {
+        "type": "object",
+        "properties": {
+          "currentLevel": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warn",
+              "log",
+              "debug",
+              "verbose"
+            ],
+            "example": "debug"
+          },
+          "defaultLevel": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warn",
+              "log",
+              "debug",
+              "verbose"
+            ],
+            "example": "log"
+          },
+          "override": {
+            "$ref": "#/components/schemas/LogLevelOverrideDto"
+          }
+        },
+        "required": [
+          "currentLevel",
+          "defaultLevel"
+        ]
+      },
+      "UpdateLogLevelDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warn",
+              "log",
+              "debug",
+              "verbose"
+            ],
+            "description": "The target operational log level",
+            "example": "debug"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "description": "Duration in minutes for temporary override (required for debug/verbose; default 30, max 1440)",
+            "minimum": 1,
+            "maximum": 1440,
+            "example": 30
+          }
+        },
+        "required": [
+          "level"
+        ]
       },
       "TenantMemberResponseDto": {
         "type": "object",

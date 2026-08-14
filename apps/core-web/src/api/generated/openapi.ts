@@ -1312,6 +1312,24 @@ export interface paths {
         patch: operations["PlatformAdminController_update"];
         trace?: never;
     };
+    "/api/admin/settings/log-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get operational log level settings and active override */
+        get: operations["AdminLogLevelController_getLogLevel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update runtime operational log level with optional expiration duration */
+        patch: operations["AdminLogLevelController_updateLogLevel"];
+        trace?: never;
+    };
     "/api/tenant-members": {
         parameters: {
             query?: never;
@@ -2481,6 +2499,45 @@ export interface components {
             slug?: string;
             plan?: components["schemas"]["TenantPlan"];
             isActive?: boolean;
+        };
+        LogLevelOverrideDto: {
+            /**
+             * @example debug
+             * @enum {string}
+             */
+            level: "error" | "warn" | "log" | "debug" | "verbose";
+            /** @example 2026-08-14T18:00:00.000Z */
+            expiresAt?: string;
+            /** @example user-uuid */
+            updatedBy?: string;
+            /** @example 2026-08-14T17:30:00.000Z */
+            updatedAt: string;
+        };
+        LogLevelResponseDto: {
+            /**
+             * @example debug
+             * @enum {string}
+             */
+            currentLevel: "error" | "warn" | "log" | "debug" | "verbose";
+            /**
+             * @example log
+             * @enum {string}
+             */
+            defaultLevel: "error" | "warn" | "log" | "debug" | "verbose";
+            override?: components["schemas"]["LogLevelOverrideDto"];
+        };
+        UpdateLogLevelDto: {
+            /**
+             * @description The target operational log level
+             * @example debug
+             * @enum {string}
+             */
+            level: "error" | "warn" | "log" | "debug" | "verbose";
+            /**
+             * @description Duration in minutes for temporary override (required for debug/verbose; default 30, max 1440)
+             * @example 30
+             */
+            durationMinutes?: number;
         };
         TenantMemberResponseDto: {
             /** Format: uuid */
@@ -5448,6 +5505,76 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformTenantResponseDto"];
                 };
+            };
+        };
+    };
+    AdminLogLevelController_getLogLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogLevelResponseDto"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requires SUPER_ADMIN platform role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminLogLevelController_updateLogLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLogLevelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogLevelResponseDto"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requires SUPER_ADMIN platform role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

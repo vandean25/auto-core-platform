@@ -2,8 +2,11 @@ import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter, HttpLoggingInterceptor } from './common';
-
+import {
+  GlobalExceptionFilter,
+  HttpLoggingInterceptor,
+  LogLevelService,
+} from './common';
 
 function validateStartupEnv(): void {
   if (process.env.NODE_ENV === 'test') {
@@ -27,7 +30,10 @@ function validateStartupEnv(): void {
 
 async function bootstrap() {
   validateStartupEnv();
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: LogLevelService.getInitialNestLogLevels(),
+  });
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
