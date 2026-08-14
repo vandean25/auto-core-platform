@@ -62,6 +62,8 @@ erDiagram
 
     FINANCE_SETTINGS ||--o{ INVOICE_SEQUENCE : guards
     REVENUE_GROUP ||--o{ INVOICE_ITEM : categorizes
+
+    TENANT ||--o{ AUDIT_LOG : scopes
 ```
 
 ## Domain Legends
@@ -101,6 +103,9 @@ erDiagram
 ### Master Data
 - **`Brand`**: Centralized master data for vehicle makes (`is_vehicle_make`) and part manufacturers (`is_part_manufacturer`). Linked to `Vendor` (supported brands) and `CatalogItem` (manufacturer).
 
+### Audit & Compliance
+- **`AuditLog`**: Append-only business audit ledger recording `before`, `after`, and `diff` snapshots for mutations (`UPDATE`, `DELETE`) on audited tenant business models. Captures actor metadata (`user_id`, `actor_email`, `actor_role`), request correlation ID (`request_id`), IP, and user-agent with deterministic secret redaction (ADR-0015). Never hard-deleted through ordinary application APIs.
+
 ---
 
 ## References
@@ -109,3 +114,5 @@ erDiagram
 - ADR-0003: Fiscal Lock Date — defines `FinanceSettings.lock_date` enforcement
 - ADR-0004: Invoice Snapshotting — defines field-level snapshots on `InvoiceItem` and `PurchaseInvoiceLine`
 - ADR-0005: Deletion Policy — defines per-entity deletion rules (`docs/deletion-policy.md`)
+- ADR-0015: Audit Tracing and Operational Logging — defines the `AuditLog` ledger model, Prisma audit extension, and structured operational logging
+

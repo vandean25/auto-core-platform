@@ -24,7 +24,11 @@ if (result.count === 0) {
 }
 ```
 
-If the update matches 0 rows, the entity has already been moved by a concurrent request. This prevents race conditions without explicit row locks. See ADR-0011 (Atomic Status Transition Guards) for the full decision record and ADR-0006 (Form Auto-Save) for auto-save coordination.
+### Audit Observability
+
+All workflow transitions on audited business models (`SalesOrder`, `WorkshopOrder`, `WorkshopTask`, `PurchaseOrder`, `PurchaseInvoice`, `Invoice`, etc.) are observed and recorded by the Prisma Audit Extension (ADR-0015).
+- Whenever an atomic transition succeeds, an immutable `AuditLog` row is created with before/after status snapshots, the authenticated actor ID (`user_id`), email, role, and request correlation ID (`request_id`).
+- When a transition guard fails (e.g. `updateMany` returns `{ count: 0 }`), zero rows are mutated and no phantom audit log is generated.
 
 ## Workshop Order Workflow
 
@@ -182,5 +186,7 @@ stateDiagram-v2
 - ADR-0004: Invoice Snapshotting — defines which fields are snapshotted at which transition
 - ADR-0006: Form Auto-Save — auto-save must be cancelled before status transition mutations
 - ADR-0011: Atomic Status Transition Guards — defines the `updateMany` guard pattern documented in this file
+- ADR-0015: Audit Tracing and Operational Logging — defines audit capture for workflow state transitions
 - [[core-erd|Core ERD]] — entity relationships for all state machine entities
 - Feature Specs: Workshop, Sales, Purchase specs define the business rules governing each workflow
+
