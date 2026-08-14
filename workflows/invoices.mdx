@@ -1,0 +1,34 @@
+---
+title: "Invoices"
+description: "Read a tax invoice, print the PDF, and know when the number is real."
+---
+
+There is no standalone invoice list in the sidebar. You open a tax invoice from a [sales order](/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Create Sales Invoice**.
+
+The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
+
+Top-right: **Print**. That generates or downloads a PDF. If the server queues it, the toast says generation is in the background — try Print again shortly.
+
+<Steps>
+  <Step title="From a sales order">
+    **Create Invoice** on the order. See [Sales orders](/workflows/sales-orders).
+  </Step>
+  <Step title="From a completed job">
+    On the workshop order, **Generate Invoice** / checkout. Issue the draft there. See [Workshop orders](/workflows/workshop-orders).
+  </Step>
+  <Step title="Print">
+    **Print** on the invoice. Filename is based on the invoice number.
+  </Step>
+</Steps>
+
+Numbers look like `RE-2026-0001` (year + four digits). Line **revenue group names** and unit prices are snapshotted at issue. Changing a [revenue group](/settings/revenue-groups) later does not rewrite old invoices.
+
+<Tip>
+Need who changed a draft line yesterday? [Audit logs](/settings/audit-logs), not the PDF.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="Create Sales Invoice from search">
+    **Ctrl+K → Create Sales Invoice** opens a blank invoice editor. Pick a customer, add lines, save a draft, then **Finalize & Print**. The browser asks: this will lock the invoice and deduct stock.
+  </Accordion>
+</AccordionGroup>

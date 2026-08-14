@@ -1,0 +1,21 @@
+---
+title: "Customers"
+description: "Open a private or company record before you write an order or start a job."
+---
+
+**Customers** is the CRM list. Click a row for the detail card (orders and vehicles hang off that person). Top-right: **+ Customer**. Search: **Search customers...** Right-click **Delete** when the record has no orders, invoices, jobs, or vehicles.
+
+<Steps>
+  <Step title="Create">
+    Choose private vs company in the dialog. Company uses **company name**. Private uses first and last name. Address, email, and phone live on the same form.
+  </Step>
+  <Step title="Open the row">
+    Detail shows history. From here you start a sales order with the customer already selected (`/sales-orders/new?customerId=…`).
+  </Step>
+</Steps>
+
+<Warning>
+Delete fails if the customer still owns a sales order, invoice, workshop order, or vehicle. The toast shows the server message.
+</Warning>
+
+Next: [Vehicles](/workflows/vehicles) if a car is on the driveway, or [Sales orders](/workflows/sales-orders) for a counter sale.

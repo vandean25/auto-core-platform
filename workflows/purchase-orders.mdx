@@ -1,0 +1,25 @@
+---
+title: "Purchase orders"
+description: "Send the PO, receive into a bin, then bill only what arrived."
+---
+
+**Purchase Orders**: **+ Purchase Order**. Statuses: **DRAFT → SENT → PARTIAL → COMPLETED**. Right-click **Delete** on **DRAFT** only.
+
+<Steps>
+  <Step title="Draft">
+    Pick a [vendor](/workflows/vendors), add lines (catalog item, qty, price).
+  </Step>
+  <Step title="Mark as Sent">
+    On **DRAFT**, top-right **Mark as Sent**. That is the office saying it left the building.
+  </Step>
+  <Step title="Receive Goods">
+    Until **COMPLETED**, **Receive Goods**. Partial receipts move status to **PARTIAL**. Quantities write the inventory ledger into the bin you choose.
+  </Step>
+  <Step title="Create Bill">
+    **Create Bill (N items)** uses unbilled received qty and jumps to a new vendor bill with vendor and PO prefilled. Disabled when the unbilled count is 0.
+  </Step>
+</Steps>
+
+<Warning>
+You cannot receive after **COMPLETED**. Fiscal lock still applies to dated receipts and bills.
+</Warning>

@@ -1,0 +1,24 @@
+---
+title: "Sign in"
+description: "Get into the right tenant, or onto the mechanic queue if you are TECH."
+---
+
+The login card takes **email + password** or **Continue with Google**. If Firebase is not configured, the form tells you instead of failing silently.
+
+After sign-in, ACP loads your tenant session. If you belong to more than one workshop, the sidebar tenant switcher changes which data you see. That switch is not a second login.
+
+<Tabs>
+  <Tab title="Office roles">
+    OWNER, ADMIN, and SALES get the full sidebar: dashboard, customers, workshop, inventory, purchasing, settings gear. Default landing after `/` is **Inventory**.
+  </Tab>
+  <Tab title="TECH (mechanic)">
+    A TECH membership only loads **My Queue** (`/mechanic/queue`). Any other URL redirects there. There is no finance or vendor nav on that shell. **Sign out** is in the top bar.
+  </Tab>
+  <Tab title="Platform super-admin">
+    Sidebar shows **Tenants** as well. That list is not a workshop screen. See [Platform tenants](/workflows/platform-tenants).
+  </Tab>
+</Tabs>
+
+<Warning>
+You only see one tenant at a time. Customer, stock, and jobs never mix across workshops.
+</Warning>
