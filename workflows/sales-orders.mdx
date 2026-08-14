@@ -1,0 +1,26 @@
+---
+title: "Sales orders"
+description: "Sell parts over the counter: pick a customer, add lines, then create the tax invoice."
+---
+
+**Sales Orders** is the counter pipeline. List subtitle: manage your sales pipeline and job cards. Top-right: **+ Order**. Click the row. Right-click **Delete** only while status is **DRAFT**.
+
+Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, **INVOICED**. The header action you use every day is **Create Invoice**, not a separate Confirm button.
+
+<Steps>
+  <Step title="New order">
+    **+ Order** opens `/sales-orders/new`. Search the customer. Add at least one line from inventory (description, qty, unit price, tax). Save fails with **Please add at least one item** if the grid is empty.
+  </Step>
+  <Step title="Work the draft">
+    Detail shows customer card and lines. Auto-save applies on complex documents. You cannot edit after **INVOICED**.
+  </Step>
+  <Step title="Create Invoice">
+    Top-right **Create Invoice**. From **DRAFT** it runs immediately. From later statuses it asks **Create Final Invoice?** — this finalizes the order and issues an official number. You cannot modify the order after that.
+  </Step>
+</Steps>
+
+<Warning>
+A locked [fiscal lock date](/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is issued, through the inventory ledger — not a silent quantity edit.
+</Warning>
+
+Continue on [Invoices](/workflows/invoices) to print.

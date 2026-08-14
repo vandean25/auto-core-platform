@@ -1,0 +1,41 @@
+---
+title: "Workshop orders"
+description: "Run the job: tasks, parts, notes, job card PDF, then checkout invoice."
+---
+
+**Workshop Orders** lists open work. Click the row for the full job. Top-right: **Pick Queue** and **+ Order**.
+
+Order statuses: **SCHEDULED → INTAKE → IN_PROGRESS → COMPLETED → INVOICED**.
+
+Task statuses include **NOT_STARTED**, **IN_PROGRESS**, **WAITING_PARTS**, **DONE**. Mechanic pause can also show waiting for customer.
+
+<Steps>
+  <Step title="Open the job">
+    Header shows order number and status. Add tasks. Line items are parts and labor on each task. Notes and reported issue save inline until the job is **INVOICED**.
+  </Step>
+  <Step title="Print the job card">
+    **Print Job Card** queues or downloads the PDF. Toast: **Generating Job Card PDF...**
+  </Step>
+  <Step title="Checkout">
+    **Generate Invoice** is enabled when status is **COMPLETED** (or a linked invoice already exists). Inside checkout: **Create Draft Invoice**, then **Issue Invoice**. After issue the order is **INVOICED** and tasks lock.
+  </Step>
+</Steps>
+
+| Button | When it shows |
+| --- | --- |
+| Generate Invoice | Job completed, no invoice yet |
+| Open Checkout | Draft invoice exists |
+| Open Invoice | Already invoiced |
+| Close Checkout | You are in checkout view |
+
+<Warning>
+You cannot delete tasks after the order is invoiced or already has a linked invoice. Labor time entries are never deleted.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="Generate Invoice is greyed out">
+    Finish the job first. Checkout only opens when status is **COMPLETED**, unless an invoice is already linked.
+  </Accordion>
+</AccordionGroup>
+
+Related: [Board](/workflows/workshop-board), [Pick queue](/workflows/workshop-pick), [Mechanic](/workflows/mechanic).

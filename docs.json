@@ -45,8 +45,47 @@
         "icon": "book-open",
         "groups": [
           {
-            "group": "Getting Started",
-            "pages": ["introduction", "quickstart"]
+            "group": "Getting started",
+            "pages": ["introduction", "quickstart", "workflows"]
+          },
+          {
+            "group": "Daily work",
+            "pages": ["workflows/sign-in", "workflows/dashboard"]
+          },
+          {
+            "group": "Sales",
+            "pages": [
+              "workflows/customers",
+              "workflows/vehicles",
+              "workflows/sales-orders",
+              "workflows/invoices"
+            ]
+          },
+          {
+            "group": "Workshop",
+            "pages": [
+              "workflows/workshop-intake",
+              "workflows/workshop-orders",
+              "workflows/workshop-board",
+              "workflows/workshop-pick",
+              "workflows/mechanic"
+            ]
+          },
+          {
+            "group": "Inventory",
+            "pages": ["workflows/inventory"]
+          },
+          {
+            "group": "Procurement",
+            "pages": [
+              "workflows/vendors",
+              "workflows/purchase-orders",
+              "workflows/purchase-bills"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": ["workflows/platform-tenants"]
           }
         ]
       },

@@ -1,0 +1,22 @@
+---
+title: "Inventory"
+description: "Create the part, see on-hand, and read the ledger instead of guessing the count."
+---
+
+**Inventory** lists parts: status, SKU + brand, description, price. Search: **Search parts...** Top-right: **+ Item**. Click the row. A right-hand **Item Details** sheet opens — that panel is preview-only and does not save.
+
+<Steps>
+  <Step title="Add a part">
+    **+ Item**. Brand comes from [part manufacturers](/settings/brands). Revenue group from [finance groups](/settings/revenue-groups).
+  </Step>
+  <Step title="Stock lives on a bin">
+    On-hand is per [storage location](/settings/storage-locations). Receiving a PO and issuing an invoice both write ledger rows. You do not type a new quantity into a cell.
+  </Step>
+  <Step title="Show Ledger">
+    On the sheet, **Show Ledger**. Rows include Purchase Receipt, Sale Issue, Adjustment, Transfer In/Out, Initial Balance.
+  </Step>
+</Steps>
+
+<Warning>
+The catalog item is not hard-deleted. History hangs on that identity. Use supersession / inactive instead of wiping the SKU.
+</Warning>
