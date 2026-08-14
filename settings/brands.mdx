@@ -1,0 +1,40 @@
+---
+title: "Brands"
+description: "Keep one spelling of Volkswagen or Bosch for vehicles, parts, and vendors."
+---
+
+Use **Settings → Brands** so the catalog and vendor lists do not grow a second “BOSCH”.
+
+Subtitle on the card: centralized vehicle makes and part manufacturers.
+
+<Steps>
+  <Step title="Open Brands">
+    Gear → **Brands**.
+  </Step>
+  <Step title="Add with Brand">
+    Top-right **Brand** (plus). Dialog title **Add Brand**.
+  </Step>
+  <Step title="Tick at least one type">
+    **Vehicle Make (OEM)**, **Part Manufacturer (Aftermarket)**, or both. Save is blocked if neither is ticked.
+  </Step>
+</Steps>
+
+## Table
+
+| Column | What you see |
+| --- | --- |
+| **Logo** | Image from Logo URL, or the first two letters of the name |
+| **Name** | Canonical spelling |
+| **Type** | Badges: Vehicle Make and/or Part Manufacturer |
+| **Actions** | Pencil opens **Edit Brand**. Trash asks **Are you sure you want to delete this brand?** |
+
+| Dialog field | Notes |
+| --- | --- |
+| **Name** | Required. Example: Volkswagen, Bosch |
+| **Vehicle Make (OEM)** | Use on vehicles |
+| **Part Manufacturer (Aftermarket)** | Use on catalog items and vendors |
+| **Logo URL** | Optional `https://…` |
+
+<Warning>
+Delete is refused when a catalog item or a vendor still uses the brand. The toast shows the server message. Create is **Create Brand**. Edit is **Save Changes**.
+</Warning>

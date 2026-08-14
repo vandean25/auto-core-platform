@@ -1,0 +1,42 @@
+---
+title: "Labor"
+description: "Build the labor category tree and the default hourly rate for each branch."
+---
+
+Use **Settings → Labor** for **Labor Categories** — engine repair vs diagnostics, parents and children, default hourly rates. This tab does **not** list individual labor operations (codes, AW times, fitments).
+
+Left: the tree. Right: **Add Category**. Helper text: right-click a row to delete.
+
+<Steps>
+  <Step title="Add a top-level category">
+    Name is required. Parent **None (Top Level)**. Optional description, default hourly rate, sort order. **Active** toggle on the form. **Add Category**.
+  </Step>
+  <Step title="Nest a child">
+    Parent Category = an existing top-level row.
+  </Step>
+  <Step title="Tune a rate without opening the dialog">
+    Click the rate (shown with a currency glyph). Enter, blur, or Escape to cancel.
+  </Step>
+</Steps>
+
+## On each row
+
+| Control | Action |
+| --- | --- |
+| Grip | Drag to reorder **siblings only** (same parent). Dropping on a cousin does nothing |
+| Chevron | Expand / collapse children |
+| Name | Opens **Edit Category** |
+| Rate | Inline hourly rate |
+| Active / Inactive | Toggle |
+| Pencil (on hover) | Same edit dialog |
+| Right-click → Delete | Confirm **Delete Category** |
+
+Edit dialog fields match the add form: name, description, parent, default hourly rate, sort order, active.
+
+<Warning>
+Delete is blocked when the category still has labor operations or child categories. The confirm copy warns if children exist. The server message wins if the delete fails.
+</Warning>
+
+<Accordion title="Currency glyph">
+The inline rate shows a baht sign in the UI today. Treat it as “this tenant’s hourly rate,” not a second currency setting. There is no currency picker on this tab.
+</Accordion>

@@ -1,0 +1,41 @@
+---
+title: "Voice translation"
+description: "Set the output language and Google credentials used when mechanics record voice notes."
+---
+
+Use **Settings → Voice Translation** so a note spoken on the shop floor lands in the language the office reads.
+
+Save is **Save Changes** at the bottom right of the card. Toast: **Voice translation settings saved**.
+
+<Steps>
+  <Step title="Open the tab">
+    Gear → **Voice Translation**.
+  </Step>
+  <Step title="Pick Target Language">
+    This is the language the transcript is translated into. Default on an empty form is German.
+  </Step>
+  <Step title="Fill Google Project ID and Location">
+    Project ID is your Google Cloud project. Location defaults to `global`.
+  </Step>
+  <Step title="Paste Service Account JSON only when it must change">
+    Leave the box empty to keep the credential already on the server. Status under the box reads **configured** or **not configured**.
+  </Step>
+</Steps>
+
+## Fields
+
+| Control | What it does |
+| --- | --- |
+| **Target Language** | German, English, Polish, Croatian, Serbian, Bosnian, Turkish, Italian, French, Spanish, Czech, Slovak, Hungarian, Romanian, Ukrainian |
+| **Google Project ID** | Cloud project that runs speech / translate |
+| **Google Location** | Regional endpoint, usually `global` |
+| **Google Service Account JSON** | Paste the key JSON. Stored encrypted. Never sent back to the browser |
+| **Show credential** | Checkbox. Unchecked, the box shows dots while you type a new key |
+
+<Warning>
+If a credential is already **configured** and you paste a new JSON, the browser asks **Overwrite the currently configured Google credential?** Cancel keeps the old key.
+</Warning>
+
+<Accordion title="How this relates to employees">
+Each employee can have a **Mother Language** on the [Employees](/settings/employees) tab. That is the spoken language. Target Language here is the written output. Default mother language means “use this target language.”
+</Accordion>

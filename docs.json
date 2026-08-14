@@ -55,6 +55,31 @@
         "icon": "settings",
         "groups": [
           {
+            "group": "All settings",
+            "pages": ["settings"]
+          },
+          {
+            "group": "Finance",
+            "pages": ["settings/finance", "settings/revenue-groups"]
+          },
+          {
+            "group": "Workshop",
+            "pages": [
+              "settings/employees",
+              "settings/bays",
+              "settings/labor",
+              "settings/voice-translation"
+            ]
+          },
+          {
+            "group": "Master data",
+            "pages": ["settings/brands", "settings/storage-locations"]
+          },
+          {
+            "group": "Access",
+            "pages": ["settings/team"]
+          },
+          {
             "group": "Audit & compliance",
             "pages": ["settings/audit-logs"]
           }

@@ -1,0 +1,67 @@
+---
+title: "Finance"
+description: "Set the fiscal lock date and the invoice numbering fields for your workshop."
+---
+
+Use **Settings → Finance** when the books for a period must stay closed, or when you need to see how this tenant stores invoice prefix and next number.
+
+This tab is one form. Changes sit in the fields until you click **Save Changes**.
+
+<CardGroup cols={2}>
+  <Card title="Fiscal Control" icon="calendar-lock" href="#lock-date">
+    Block edits to transactions on or before the lock date.
+  </Card>
+  <Card title="Invoice Numbering" icon="hash" href="#invoice-numbering">
+    Prefix and next-number fields on the finance record.
+  </Card>
+</CardGroup>
+
+<Steps>
+  <Step title="Open Settings">
+    Click the gear in the app header.
+  </Step>
+  <Step title="Stay on Finance">
+    Finance is the first tab. If you landed on another tab, click **Finance**.
+  </Step>
+  <Step title="Edit, then Save Changes">
+    The save button is bottom-right of the form. A toast reads **Settings updated** when it sticks.
+  </Step>
+</Steps>
+
+## Lock Date
+
+**Lock Date** is a date picker. Helper text on the screen: transactions on or before this date cannot be modified.
+
+Leave it empty if you do not want a lock.
+
+<Warning>
+Moving the lock **later** opens **Confirm Fiscal Lock**. Confirming permanently blocks changes in the previous period and can affect finalized reports. Cancel if you are not ready. The product does not reopen a closed period from this screen.
+</Warning>
+
+| You do this | What happens |
+| --- | --- |
+| Pick a date and save | Dates on or before that day are locked for this tenant |
+| Pick a **later** date than today | Confirm Fiscal Lock, then **Confirm Lock** |
+| Clear the date and save | No lock date |
+
+## Invoice Numbering
+
+Two fields sit side by side:
+
+| Field | What you type |
+| --- | --- |
+| **Prefix** | Text stored on finance settings (seed default looks like `RE-2026-`) |
+| **Next Number** | Integer stored on finance settings (seed default `1001`) |
+
+<Tip>
+When you **finalize** a tax invoice, ACP assigns `RE-` plus the current year plus a four-digit yearly counter (`RE-2026-0001`). Already issued numbers do not change when you edit these fields.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="What this tab does not show">
+    Sales order prefixes (`SO-…`) and workshop order prefixes (`WO-…`) live on the same finance record in the database. They are not fields on this tab. Fiscal year start month is also not on this screen.
+  </Accordion>
+  <Accordion title="Who sees this">
+    Settings is tenant-wide. There is no separate finance login. Changes apply to this workshop tenant only.
+  </Accordion>
+</AccordionGroup>
