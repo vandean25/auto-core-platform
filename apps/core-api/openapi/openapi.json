@@ -4731,6 +4731,121 @@
           "tenant-members"
         ]
       }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "description": "Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.",
+        "operationId": "AuditController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "description": "Filter by audit action (UPDATE, DELETE)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "DELETE"
+              ]
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by actor user ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Free-text search across entityId, actorEmail, and requestId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of audit log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List tenant audit logs",
+        "tags": [
+          "Audit Logs"
+        ]
+      }
     }
   },
   "info": {
@@ -8774,6 +8889,183 @@
             "type": "boolean"
           }
         }
+      },
+      "AuditLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Audit log unique identifier"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "entityType": {
+            "type": "string",
+            "description": "Entity model name (e.g. Customer, SalesOrder)"
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Target entity record ID"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ],
+            "description": "Mutation action type"
+          },
+          "actorUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "User ID of the actor who performed the mutation"
+          },
+          "actorEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the actor who performed the mutation"
+          },
+          "actorRole": {
+            "type": "string",
+            "nullable": true,
+            "description": "Role of the actor at mutation time"
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "SYSTEM",
+              "MIGRATION"
+            ],
+            "description": "Actor classification type"
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTTP request correlation ID"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source channel (e.g. API, JOB)"
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client IP address"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client User-Agent header"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state before mutation"
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state after mutation"
+          },
+          "diff": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Computed diff of changed fields"
+          },
+          "changedFields": {
+            "nullable": true,
+            "description": "List of field names that changed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redactedFields": {
+            "nullable": true,
+            "description": "List of field names that were redacted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when mutation occurred"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "entityType",
+          "entityId",
+          "action",
+          "actorType",
+          "occurredAt"
+        ]
+      },
+      "AuditLogPaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "example": 42,
+            "description": "Total number of matching audit records"
+          },
+          "page": {
+            "type": "number",
+            "example": 1,
+            "description": "Current page number"
+          },
+          "limit": {
+            "type": "number",
+            "example": 20,
+            "description": "Items per page"
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3,
+            "description": "Total number of pages"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "AuditLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "List of audit log items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          },
+          "meta": {
+            "description": "Pagination metadata",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       }
     }
   },

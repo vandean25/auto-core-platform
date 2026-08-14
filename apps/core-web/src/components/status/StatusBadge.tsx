@@ -31,6 +31,10 @@ const statusClassMap: Record<string, string> = {
   SUPERSEDED: 'border-amber-200 bg-amber-100 text-amber-700',
   ACTIVE: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   INACTIVE: 'border-slate-200 bg-slate-100 text-slate-500',
+  // Audit statuses
+  CREATE: 'border-blue-200 bg-blue-100 text-blue-700',
+  UPDATE: 'border-amber-200 bg-amber-100 text-amber-700',
+  DELETE: 'border-rose-200 bg-rose-100 text-rose-700',
   // Parts status
   READY: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   SHORTAGE: 'border-rose-200 bg-rose-100 text-rose-700',

@@ -1378,6 +1378,26 @@ export interface paths {
         patch: operations["TenantMemberController_update"];
         trace?: never;
     };
+    "/api/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tenant audit logs
+         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
+         */
+        get: operations["AuditController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2573,6 +2593,89 @@ export interface components {
         UpdateTenantMemberDto: {
             role?: components["schemas"]["TenantMemberRole"];
             isActive?: boolean;
+        };
+        AuditLogResponseDto: {
+            /** @description Audit log unique identifier */
+            id: string;
+            /** @description Tenant identifier */
+            tenantId: string;
+            /** @description Entity model name (e.g. Customer, SalesOrder) */
+            entityType: string;
+            /** @description Target entity record ID */
+            entityId: string;
+            /**
+             * @description Mutation action type
+             * @enum {string}
+             */
+            action: "CREATE" | "UPDATE" | "DELETE";
+            /** @description User ID of the actor who performed the mutation */
+            actorUserId?: string | null;
+            /** @description Email of the actor who performed the mutation */
+            actorEmail?: string | null;
+            /** @description Role of the actor at mutation time */
+            actorRole?: string | null;
+            /**
+             * @description Actor classification type
+             * @enum {string}
+             */
+            actorType: "USER" | "SYSTEM" | "MIGRATION";
+            /** @description HTTP request correlation ID */
+            requestId?: string | null;
+            /** @description Source channel (e.g. API, JOB) */
+            source?: string | null;
+            /** @description Client IP address */
+            ipAddress?: string | null;
+            /** @description Client User-Agent header */
+            userAgent?: string | null;
+            /** @description Snapshot of entity state before mutation */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Snapshot of entity state after mutation */
+            after?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Computed diff of changed fields */
+            diff?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description List of field names that changed */
+            changedFields?: string[] | null;
+            /** @description List of field names that were redacted */
+            redactedFields?: string[] | null;
+            /**
+             * Format: date-time
+             * @description Timestamp when mutation occurred
+             */
+            occurredAt: string;
+        };
+        AuditLogPaginationMetaDto: {
+            /**
+             * @description Total number of matching audit records
+             * @example 42
+             */
+            total: number;
+            /**
+             * @description Current page number
+             * @example 1
+             */
+            page: number;
+            /**
+             * @description Items per page
+             * @example 20
+             */
+            limit: number;
+            /**
+             * @description Total number of pages
+             * @example 3
+             */
+            totalPages: number;
+        };
+        AuditLogListResponseDto: {
+            /** @description List of audit log items */
+            data: components["schemas"]["AuditLogResponseDto"][];
+            /** @description Pagination metadata */
+            meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
     };
     responses: never;
@@ -5649,6 +5752,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantMemberResponseDto"];
+                };
+            };
+        };
+    };
+    AuditController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Page number */
+                page?: number;
+                /** @description Items per page */
+                limit?: number;
+                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
+                entityType?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by audit action (UPDATE, DELETE) */
+                action?: "CREATE" | "UPDATE" | "DELETE";
+                /** @description Filter by actor user ID */
+                actorUserId?: string;
+                /** @description Free-text search across entityId, actorEmail, and requestId */
+                search?: string;
+                /** @description Start date filter (ISO string) */
+                startDate?: string;
+                /** @description End date filter (ISO string) */
+                endDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of audit log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponseDto"];
                 };
             };
         };

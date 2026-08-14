@@ -35,6 +35,7 @@ import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
+import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -263,7 +264,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -347,7 +348,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-9' : 'grid-cols-8')}>
+                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-10' : 'grid-cols-9')}>
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
@@ -357,6 +358,7 @@ export default function SettingsPage() {
                     <TabsTrigger value="bays">Bays</TabsTrigger>
                     <TabsTrigger value="labor">Labor</TabsTrigger>
                     {canManageTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
+                    <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>
                 </TabsList>
 
                 {/* ── Finance Tab ── */}
@@ -488,6 +490,13 @@ export default function SettingsPage() {
                         <TeamSettingsTab />
                     </TabsContent>
                 ) : null}
+
+                {/* ── Audit Logs Tab ── */}
+                <TabsContent value="audit-logs" className="space-y-6">
+                    <div className="p-6 bg-white border rounded-lg shadow-sm">
+                        <AuditLogsTab />
+                    </div>
+                </TabsContent>
             </Tabs>
 
             {/* Lock Date Alert Dialog */}

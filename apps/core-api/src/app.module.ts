@@ -33,6 +33,7 @@ import { AuthModule } from './auth/auth.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 import { TenantMemberModule } from './tenant-member/tenant-member.module';
 import { VoiceTranslationModule } from './voice-translation/voice-translation.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { VoiceTranslationModule } from './voice-translation/voice-translation.mo
     PlatformAdminModule,
     TenantMemberModule,
     VoiceTranslationModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [
