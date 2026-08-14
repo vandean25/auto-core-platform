@@ -192,13 +192,17 @@ vi.mock('@/components/settings/TeamSettingsTab', () => ({
   TeamSettingsTab: () => <div>Team tab content</div>,
 }))
 
+vi.mock('@/components/settings/AuditLogsTab', () => ({
+  AuditLogsTab: () => <div>Audit logs tab content</div>,
+}))
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid='location-search'>{location.search}</div>
 }
 
 describe('SettingsPage tab integration', () => {
-  it('renders Employees and Bays triggers and respects the initial employees query param', async () => {
+  it('renders Employees, Bays, and Audit Logs triggers and respects the initial employees query param', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=employees']}>
         <Routes>
@@ -218,6 +222,7 @@ describe('SettingsPage tab integration', () => {
     expect(screen.getByRole('tab', { name: 'Employees' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
     expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=employees')
 
@@ -227,5 +232,13 @@ describe('SettingsPage tab integration', () => {
       expect(screen.getByText('Bays tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=bays')
     })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Audit Logs' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Audit logs tab content')).toBeVisible()
+      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=audit-logs')
+    })
   })
 })
+
