@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { WorkshopOrderDetails } from './WorkshopOrderDetails'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -259,6 +259,40 @@ describe('WorkshopOrderDetails Characterization', () => {
       expect(screen.getByText('WO-001')).toBeInTheDocument()
     })
 
+    it('shows customer, vehicle, and plate in the header', () => {
+      renderComponent()
+
+      const header = screen.getByRole('banner')
+
+      expect(within(header).getByRole('heading', { name: 'WO-001' })).toBeInTheDocument()
+      expect(within(header).getByText(/John Doe/)).toBeInTheDocument()
+      expect(within(header).getByText(/2020 Toyota Corolla/)).toBeInTheDocument()
+      expect(within(header).getByText(/ABC-123/)).toBeInTheDocument()
+    })
+
+    it('shows promised time as Not set and does not render Waiter or KPI labels', () => {
+      renderComponent()
+
+      const header = screen.getByRole('banner')
+
+      expect(within(header).getByText(/Promised time: Not set/)).toBeInTheDocument()
+      expect(screen.queryByText('Waiter')).not.toBeInTheDocument()
+      expect(screen.queryByText('Total Parts')).not.toBeInTheDocument()
+      expect(screen.queryByText('Labor Revenue')).not.toBeInTheDocument()
+      expect(screen.queryByText('Internal Labor Cost')).not.toBeInTheDocument()
+      expect(screen.queryByText('Est. Margin')).not.toBeInTheDocument()
+    })
+
+    it('puts Print Job Card in the header and keeps invoice actions out of it', () => {
+      renderComponent()
+
+      const header = screen.getByRole('banner')
+
+      expect(within(header).getByRole('button', { name: /Print Job Card/i })).toBeInTheDocument()
+      expect(within(header).queryByRole('button', { name: /Generate Invoice/i })).not.toBeInTheDocument()
+      expect(within(header).queryByRole('button', { name: /Open Checkout/i })).not.toBeInTheDocument()
+    })
+
     it('renders customer info for PRIVATE customer', () => {
       renderComponent()
 
@@ -315,9 +349,9 @@ describe('WorkshopOrderDetails Characterization', () => {
       // Parts: 1 * 15 = €15.00 | Labor: 0.5 * 80 = €40.00 | Grand: €55.00
       renderComponent()
 
-      expect(screen.getAllByText('€15.00')[0]).toBeInTheDocument()
-      expect(screen.getAllByText('€40.00')[0]).toBeInTheDocument()
-      expect(screen.getAllByText('€55.00')[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/€15\.00/)[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/€40\.00/)[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/€55\.00/)[0]).toBeInTheDocument()
     })
 
     it('renders task list with title, total, and status', () => {
@@ -325,6 +359,25 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       expect(screen.getAllByText('Repair Tasks')[0]).toBeInTheDocument()
       expect(screen.getAllByText('Oil Change')[0]).toBeInTheDocument()
+    })
+
+    it('expands a task in place and keeps only one task expanded', () => {
+      setupDefaultMocks(multiTaskOrder)
+      renderComponent()
+
+      fireEvent.click(screen.getByText('Oil Change'))
+      expect(screen.getByRole('button', { name: 'Add mechanic notes' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Brake Inspection'))
+
+      expect(screen.getByText('Pads at 30%')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Add mechanic notes' })).not.toBeInTheDocument()
+    })
+
+    it('does not render an Open button on task rows', () => {
+      renderComponent()
+
+      expect(screen.queryByRole('button', { name: /^Open$/i })).not.toBeInTheDocument()
     })
 
     it('renders empty tasks message when there are no tasks', () => {
@@ -360,11 +413,6 @@ describe('WorkshopOrderDetails Characterization', () => {
       expect(screen.queryByText('Call Customer')).not.toBeInTheDocument()
     })
 
-    it('registers media query listener for docked layout', () => {
-      renderComponent()
-
-      expect(window.matchMedia).toHaveBeenCalledWith('(min-width: 1536px)')
-    })
   })
 
   // =====================================================================
@@ -394,10 +442,10 @@ describe('WorkshopOrderDetails Characterization', () => {
       checkboxes.forEach((cb) => expect(cb).toBeDisabled())
     })
 
-    it('shows "Open Invoice" as the primary action label', () => {
+    it('shows "Open Invoice" in the checkout footer', () => {
       renderComponent()
 
-      expect(screen.getAllByText('Open Invoice')[0]).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Open Invoice/i })).toBeInTheDocument()
     })
   })
 
@@ -527,54 +575,58 @@ describe('WorkshopOrderDetails Characterization', () => {
   // =====================================================================
 
   describe('checkout view', () => {
-    it('shows only Print Job Card when order is IN_PROGRESS (cannot checkout)', () => {
+    it('shows grand total and Checkout in the footer while order is IN_PROGRESS', () => {
       renderComponent()
 
-      // When checkout is disabled, only the Print button variant should show
-      const printButtons = screen.getAllByText('Print Job Card')
-      expect(printButtons.length).toBeGreaterThan(0)
+      expect(screen.getByText('Grand total')).toBeInTheDocument()
+      expect(screen.getAllByText('€55.00').length).toBeGreaterThan(0)
+      expect(screen.getByRole('button', { name: /^Checkout$/i })).toBeInTheDocument()
     })
 
-    it('enters checkout view when order is COMPLETED', () => {
+    it('keeps the task list mounted when checkout expands', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
-      expect(screen.getAllByText('Draft Invoice')[0]).toBeInTheDocument()
-      expect(screen.getAllByText('Return to Tasks')[0]).toBeInTheDocument()
+      expect(screen.getByText('Draft Invoice')).toBeInTheDocument()
+      expect(screen.getAllByText('Oil Change').length).toBeGreaterThan(0)
     })
 
-    it('exits checkout view with Return to Tasks button', () => {
+    it('does not show Return to Tasks in the expanded footer', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
-      expect(screen.getAllByText('Draft Invoice')[0]).toBeInTheDocument()
-
-      fireEvent.click(screen.getAllByText('Return to Tasks')[0])
-      expect(screen.getAllByText('Repair Tasks')[0]).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
+      expect(screen.queryByText('Return to Tasks')).not.toBeInTheDocument()
     })
 
-    it('exits checkout view via Close Checkout action button', () => {
+    it('collapses checkout with the footer close action', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
-      expect(screen.getAllByText('Draft Invoice')[0]).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
+      expect(screen.getByText('Draft Invoice')).toBeInTheDocument()
 
-      // The primary action button text changes to "Close Checkout" when in checkout view
-      fireEvent.click(screen.getAllByText('Close Checkout')[0])
-      expect(screen.getAllByText('Repair Tasks')[0]).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Close Checkout/i }))
+      expect(screen.queryByText('Draft Invoice')).not.toBeInTheDocument()
     })
 
     it('shows Create Draft Invoice button when no invoice linked', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
-      expect(screen.getAllByText('Create Draft Invoice')[0]).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Create Draft Invoice/i })).toBeInTheDocument()
+    })
+
+    it('disables Create Draft Invoice until the order is COMPLETED', () => {
+      renderComponent()
+
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
+
+      expect(screen.getByRole('button', { name: /Create Draft Invoice/i })).toBeDisabled()
     })
 
     it('creates draft invoice and shows toast on success', async () => {
@@ -589,8 +641,8 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
-      fireEvent.click(screen.getAllByText('Create Draft Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Create Draft Invoice/i }))
 
       await waitFor(() => {
         expect(mockCreate).toHaveBeenCalledWith('order-1')
@@ -602,7 +654,7 @@ describe('WorkshopOrderDetails Characterization', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // Net: 15 + 40 = 55.00
       expect(screen.getAllByText('€55.00').length).toBeGreaterThan(0)
@@ -615,7 +667,7 @@ describe('WorkshopOrderDetails Characterization', () => {
       })
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // When groupedCheckoutTasks is empty, the table renders a "no lines" message
       const allCells = document.querySelectorAll('td')
@@ -635,7 +687,7 @@ describe('WorkshopOrderDetails Characterization', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // Find the task discount input
       const inputs = screen.getAllByPlaceholderText('0')
@@ -652,7 +704,7 @@ describe('WorkshopOrderDetails Characterization', () => {
       setupDefaultMocks(completedOrder)
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // Click task group header to expand
       const taskHeaders = screen.getAllByText('Oil Change')
@@ -679,7 +731,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Generate Invoice')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // Net: 15 + 40 + 100 = 155.00
       // VAT: 3.15 + 0 + 10 = 13.15
@@ -697,6 +749,27 @@ describe('WorkshopOrderDetails Characterization', () => {
   // =====================================================================
 
   describe('invoice lifecycle in checkout', () => {
+    it('shows the linked invoice gross total in the collapsed footer', () => {
+      setupDefaultMocks(invoicedOrder)
+      asMock(salesApi.useInvoice).mockReturnValue({
+        data: {
+          id: 'inv-1',
+          status: 'ISSUED',
+          invoice_number: 'RE-2026-0001',
+          items: [
+            { id: 'line-1', unit_price: 15, qty: 1, tax_rate: 21 },
+            { id: 'line-2', unit_price: 80, qty: 0.5, tax_rate: 0 },
+          ],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      expect(screen.getByText('Grand total')).toBeInTheDocument()
+      expect(screen.getByText('€58.15')).toBeInTheDocument()
+    })
+
     it('shows Issue Invoice button when draft invoice is linked', () => {
       setupDefaultMocks({
         ...completedOrder,
@@ -709,8 +782,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       renderComponent()
 
-      // With a linked invoice and not INVOICED, the action says "Open Checkout"
-      fireEvent.click(screen.getAllByText('Open Checkout')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       expect(screen.getAllByText('Issue Invoice')[0]).toBeInTheDocument()
     })
@@ -734,7 +806,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Open Checkout')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
       fireEvent.click(screen.getAllByText('Issue Invoice')[0])
 
       await waitFor(() => {
@@ -773,7 +845,7 @@ describe('WorkshopOrderDetails Characterization', () => {
 
       renderComponent()
 
-      fireEvent.click(screen.getAllByText('Open Checkout')[0])
+      fireEvent.click(screen.getByRole('button', { name: /^Checkout$/i }))
 
       // Apply a task-level discount to populate lineDiscountOverrides
       const inputs = screen.getAllByPlaceholderText('0')

@@ -1,10 +1,7 @@
-import { Phone, Clock, Key, MapPin, User, Package, Clock3, CircleDollarSign, Printer, FileText } from 'lucide-react'
+import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import { Badge } from '@/components/ui/badge'
-import { ActionGroup } from '@/components/ui/action-group'
-import { formatCurrency } from '@/lib/utils'
 import type { WorkshopOrder } from '@/api/types'
 
 function normalizePhone(phone: string) {
@@ -24,120 +21,47 @@ function getVehicleLabel(order: WorkshopOrder) {
 
 export interface OrderTopBarProps {
   order: WorkshopOrder
-  orderPartsTotal: number
-  orderLaborTotal: number
-  orderGrandTotal: number
-  orderLaborInternalCostTotal: number
-  orderLaborMarginPercent: number | null
-  hasOrderLaborCostData: boolean
-  invoiceActionLabel: string
-  isInvoiceActionDisabled: boolean
-  onCheckoutAction: () => void
+  assignedTechName?: string | null
+  bayName?: string | null
   onPrint: () => void
 }
 
 export function OrderTopBar({
   order,
-  orderPartsTotal,
-  orderLaborTotal,
-  orderGrandTotal,
-  orderLaborInternalCostTotal,
-  orderLaborMarginPercent,
-  hasOrderLaborCostData,
-  invoiceActionLabel,
-  isInvoiceActionDisabled,
-  onCheckoutAction,
+  assignedTechName,
+  bayName,
   onPrint,
 }: OrderTopBarProps) {
+  const customerName = getCustomerName(order)
+  const vehicleLabel = getVehicleLabel(order)
+  const plate = order.vehicle.plate || 'N/A'
+
   return (
-    <Card className='mb-8'>
-      <CardContent className='p-4 sm:p-5'>
-        <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
-          <div className='space-y-3'>
-            <div className='flex items-center gap-3'>
-              <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
-              <StatusBadge status={order.status} />
-              <Badge variant='secondary' className='bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300'>Waiter</Badge>
-            </div>
-          </div>
-
-          <div className='flex w-full flex-col gap-3 lg:w-auto lg:items-end'>
-            <div className='grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[760px] lg:grid-cols-5'>
-              <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                  <Package className='h-3.5 w-3.5' />
-                  <span>Total Parts</span>
-                </div>
-                <div className='mt-1 text-sm font-medium'>{formatCurrency(orderPartsTotal)}</div>
+    <header>
+      <Card className='mb-8'>
+        <CardContent className='p-4 sm:p-5'>
+          <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+            <div className='space-y-3'>
+              <div className='flex items-center gap-3'>
+                <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
+                <StatusBadge status={order.status} />
               </div>
-              <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                  <Clock3 className='h-3.5 w-3.5' />
-                  <span>Labor Revenue</span>
-                </div>
-                <div className='mt-1 text-sm font-medium'>{formatCurrency(orderLaborTotal)}</div>
-              </div>
-              {hasOrderLaborCostData && (
-                <>
-                  <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                    <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                      <Clock3 className='h-3.5 w-3.5' />
-                      <span>Internal Labor Cost</span>
-                    </div>
-                    <div className='mt-1 text-sm font-medium'>
-                      {formatCurrency(orderLaborInternalCostTotal)}
-                    </div>
-                  </div>
-                  <div className='rounded-xl border bg-muted/40 px-3 py-2'>
-                    <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
-                      <CircleDollarSign className='h-3.5 w-3.5' />
-                      <span>Est. Margin</span>
-                    </div>
-                    <div className='mt-1 text-sm font-medium'>
-                      {orderLaborMarginPercent != null
-                        ? `${orderLaborMarginPercent.toFixed(1)}%`
-                        : '—'}
-                    </div>
-                  </div>
-                </>
-              )}
-              <div className='rounded-xl border border-primary/20 bg-primary/10 px-3 py-2'>
-                <div className='flex items-center gap-1.5 text-[11px] text-primary/80'>
-                  <CircleDollarSign className='h-3.5 w-3.5' />
-                  <span>Grand Total</span>
-                </div>
-                <div className='mt-1 text-sm font-semibold text-primary'>{formatCurrency(orderGrandTotal)}</div>
-              </div>
+              <p className='text-sm text-slate-500'>
+                {customerName} · {vehicleLabel} · {plate}
+              </p>
+              <p className='text-sm text-slate-500'>
+                Promised time: Not set · Tech: {assignedTechName ?? 'Unassigned'} · Bay: {bayName ?? 'Unassigned'}
+              </p>
             </div>
 
-            <div className='flex justify-end mt-1'>
-              {!isInvoiceActionDisabled ? (
-                <ActionGroup
-                  primaryAction={
-                    <Button onClick={onCheckoutAction}>
-                      <FileText className='h-4 w-4 mr-2' />
-                      {invoiceActionLabel}
-                    </Button>
-                  }
-                  secondaryActions={[
-                    {
-                      label: 'Print Job Card',
-                      icon: <Printer className='h-4 w-4' />,
-                      onClick: onPrint,
-                    },
-                  ]}
-                />
-              ) : (
-                <Button variant='outline' onClick={onPrint}>
-                  <Printer className='h-4 w-4 mr-2' />
-                  Print Job Card
-                </Button>
-              )}
-            </div>
+            <Button variant='outline' onClick={onPrint}>
+              <Printer className='h-4 w-4 mr-2' />
+              Print Job Card
+            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </header>
   )
 }
 

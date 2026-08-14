@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { TaskDetailDrawer } from '@/components/workshop/TaskDetailDrawer'
 import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from '@/api/invoices'
 import { useInvoice } from '@/api/sales'
 import { parseDiscountValue } from '@/lib/discount'
@@ -43,7 +42,7 @@ import {
 import type { DiscountState } from './hooks/useWorkshopCalculations'
 import { OrderTopBar, CustomerVehicleInfo } from './components/OrderHeader'
 import { TaskList } from './components/TaskList'
-import { CheckoutSummary } from './components/CheckoutSummary'
+import { CheckoutFooter } from './components/CheckoutFooter'
 
 const EMPTY_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
 
@@ -79,9 +78,9 @@ export function WorkshopOrderDetails() {
   const updateInvoiceDiscount = useUpdateInvoiceDiscount()
   const generateWorkshopPdf = useGenerateWorkshopPdf()
 
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [isCheckoutView, setIsCheckoutView] = useState(false)
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<Record<string, boolean>>({})
   const [taskDiscountOverrides, setTaskDiscountOverrides] = useState<Record<string, string>>({})
   const [lineDiscountOverrides, setLineDiscountOverrides] = useState<Record<string, DiscountState>>({})
@@ -89,23 +88,9 @@ export function WorkshopOrderDetails() {
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
   const lineItemSaveSeq = useRef<Record<string, number>>({})
-  const [isDockedLayout, setIsDockedLayout] = useState(
-    typeof window !== 'undefined'
-      ? window.matchMedia('(min-width: 1536px)').matches
-      : false,
-  )
 
   const activeInvoiceId = order?.invoice?.id ?? checkoutInvoiceIdOverride
   const { data: fetchedInvoice, isLoading: isInvoiceLoading } = useInvoice(activeInvoiceId ?? '')
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mediaQuery = window.matchMedia('(min-width: 1536px)')
-    const update = () => setIsDockedLayout(mediaQuery.matches)
-    update()
-    mediaQuery.addEventListener('change', update)
-    return () => mediaQuery.removeEventListener('change', update)
-  }, [])
 
   // ── All calculation logic delegated to the hook ─────────────────────────
   const {
@@ -120,24 +105,14 @@ export function WorkshopOrderDetails() {
     checkoutNetTotal,
     checkoutTaxTotal,
     checkoutGrossTotal,
-    orderPartsTotal,
-    orderLaborTotal,
     orderGrandTotal,
-    orderLaborInternalCostTotal,
-    orderLaborMarginPercent,
-    hasOrderLaborCostData,
   } = useWorkshopCalculations({
     orderTasks: order?.tasks,
     taskLineItemOverrides,
     lineDiscountOverrides,
     fetchedInvoice: fetchedInvoice ?? null,
-    isCheckoutView,
+    isCheckoutView: isCheckoutOpen,
   })
-
-  const activeTask = useMemo(() => {
-    if (!activeTaskId) return null
-    return tasks.find((task) => task.id === activeTaskId) ?? null
-  }, [activeTaskId, tasks])
 
   if (isLoading) {
     return <div className='p-8 text-center text-sm text-muted-foreground'>Loading workshop order...</div>
@@ -159,32 +134,21 @@ export function WorkshopOrderDetails() {
     )
   }
 
-  const canEnterCheckout = order.status === 'COMPLETED' || !!activeInvoiceId
   const isLocked = order.status === 'INVOICED'
   const hasLinkedInvoice = !!activeInvoiceId
   const canDeleteTasks = !isLocked && !hasLinkedInvoice
   const invoiceStatus = fetchedInvoice?.status ?? null
   const canCreateDraftInCheckout =
-    isCheckoutView &&
     !activeInvoiceId &&
     order.status === 'COMPLETED' &&
     !createDraftInvoice.isPending
   const canIssueInvoiceInCheckout =
-    isCheckoutView &&
     !!activeInvoiceId &&
     invoiceStatus === 'DRAFT' &&
     !isLocked &&
     !issueInvoice.isPending &&
     !updateInvoiceDiscount.isPending
   const isInvoicedWithLinkedInvoice = order.status === 'INVOICED' && !!activeInvoiceId
-  const invoiceActionLabel = isCheckoutView
-    ? 'Close Checkout'
-    : isInvoicedWithLinkedInvoice
-      ? 'Open Invoice'
-      : activeInvoiceId
-      ? 'Open Checkout'
-      : 'Generate Invoice'
-  const isInvoiceActionDisabled = !isCheckoutView && !canEnterCheckout
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -221,7 +185,7 @@ export function WorkshopOrderDetails() {
     try {
       const created = await createTask.mutateAsync({ orderId: order.id, title })
       setNewTaskTitle('')
-      setActiveTaskId(created.id)
+      setExpandedTaskId(created.id)
       toast.success('Task created')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to create task'))
@@ -332,8 +296,8 @@ export function WorkshopOrderDetails() {
 
     try {
       await deleteTask.mutateAsync({ orderId: order.id, taskId: taskPendingDelete.id })
-      if (activeTaskId === taskPendingDelete.id) {
-        setActiveTaskId(null)
+      if (expandedTaskId === taskPendingDelete.id) {
+        setExpandedTaskId(null)
       }
       setTaskLineItemOverrides((previous) => {
         const next = { ...previous }
@@ -348,29 +312,12 @@ export function WorkshopOrderDetails() {
     }
   }
 
-  const openCheckoutView = () => {
-    setIsCheckoutView(true)
-    setExpandedTaskGroups({})
-    setActiveTaskId(null)
-  }
-
-  const handleCheckoutAction = async () => {
-    if (isCheckoutView) {
-      setIsCheckoutView(false)
-      return
-    }
-
+  const handleCheckoutAction = () => {
     if (isInvoicedWithLinkedInvoice) {
       navigate(`/sales/invoices/${activeInvoiceId}`)
       return
     }
-
-    if (canEnterCheckout) {
-      openCheckoutView()
-      return
-    }
-
-    toast.error('Checkout view is available only for completed or invoiced workshop orders.')
+    setIsCheckoutOpen((previous) => !previous)
   }
 
   const handleCreateDraftInCheckout = async () => {
@@ -509,13 +456,6 @@ export function WorkshopOrderDetails() {
     }))
   }
 
-  const activeTaskForPanel = activeTask
-    ? {
-      ...activeTask,
-      lineItems: activeTask.lineItems ?? [],
-      mechanicNotes: activeTask.mechanicNotes ?? '',
-    }
-    : null
   const assignedTechName =
     workshopResources?.mechanics.find(
       (mechanic) => mechanic.id === (order.mechanicId ?? order.mechanic_id),
@@ -525,145 +465,60 @@ export function WorkshopOrderDetails() {
       ?.name ?? null
 
   const handleReopenTask = (taskId: string) => {
-    setIsCheckoutView(false)
-    setActiveTaskId(taskId)
+    setIsCheckoutOpen(false)
+    setExpandedTaskId(taskId)
   }
+  const checkoutFooterTotal =
+    activeInvoiceId && fetchedInvoice ? checkoutGrossTotal : orderGrandTotal
+  const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice ? 'Open Invoice' : 'Checkout'
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className={`w-full space-y-6 transition-[max-width,padding,margin] duration-250 ${
-        isDockedLayout && activeTaskForPanel && !isCheckoutView
-          ? 'max-w-[1800px] px-4 2xl:px-6 py-6 mx-auto'
-          : 'max-w-7xl px-6 py-6 mx-auto'
-      }`}
-    >
-      <div className='2xl:flex 2xl:items-start 2xl:justify-start 2xl:gap-4'>
-        <motion.div
-          className={`w-full min-w-0 space-y-6 2xl:min-w-[960px] 2xl:flex-1 transition-transform duration-250 ${
-            isDockedLayout && activeTask && !isCheckoutView ? '2xl:-translate-x-3' : '2xl:translate-x-0'
-          }`}
-        >
+    <div className='w-full max-w-7xl mx-auto space-y-6 p-6'>
+      <motion.div className='w-full min-w-0 space-y-6'>
           <OrderTopBar
             order={order}
-            orderPartsTotal={orderPartsTotal}
-            orderLaborTotal={orderLaborTotal}
-            orderGrandTotal={orderGrandTotal}
-            orderLaborInternalCostTotal={orderLaborInternalCostTotal}
-            orderLaborMarginPercent={orderLaborMarginPercent}
-            hasOrderLaborCostData={hasOrderLaborCostData}
-            invoiceActionLabel={invoiceActionLabel}
-            isInvoiceActionDisabled={isInvoiceActionDisabled}
-            onCheckoutAction={() => void handleCheckoutAction()}
+            assignedTechName={assignedTechName}
+            bayName={assignedBayName}
             onPrint={handlePrint}
           />
 
-          {!isCheckoutView && (
-            <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
-              <motion.div
-                className='space-y-6 lg:col-span-1'
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-              >
-                <CustomerVehicleInfo
-                  order={order}
-                  assignedTechName={assignedTechName}
-                  bayName={assignedBayName}
-                />
-              </motion.div>
-
-              <motion.div
-                className='space-y-6 lg:col-span-2'
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
-              >
-                <TaskList
-                  order={order}
-                  tasks={tasks}
-                  rawTaskTotals={rawTaskTotals}
-                  isLocked={isLocked}
-                  newTaskTitle={newTaskTitle}
-                  onNewTaskTitleChange={setNewTaskTitle}
-                  onAddTask={() => void handleAddTask()}
-                  onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
-                  onOpenTask={setActiveTaskId}
-                  onSaveReportedIssue={(value) => void handleSaveReportedIssue(value)}
-                  onSaveNotes={(value) => void handleSaveNotes(value)}
-                />
-              </motion.div>
-            </div>
-          )}
-
-          {isCheckoutView && (
-            <div className='grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start'>
-              <motion.div
-                className='space-y-6 xl:sticky xl:top-24'
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-              >
-                <CustomerVehicleInfo
-                  order={order}
-                  assignedTechName={assignedTechName}
-                  bayName={assignedBayName}
-                />
-              </motion.div>
-
-              <motion.div
-                className='space-y-6'
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
-              >
-                <CheckoutSummary
-                  activeInvoiceId={activeInvoiceId}
-                  fetchedInvoice={fetchedInvoice}
-                  isInvoiceLoading={isInvoiceLoading}
-                  isLocked={isLocked}
-                  canCreateDraftInCheckout={canCreateDraftInCheckout}
-                  canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
-                  createDraftPending={createDraftInvoice.isPending}
-                  issuePending={issueInvoice.isPending}
-                  groupedCheckoutTasks={groupedCheckoutTasks}
-                  expandedTaskGroups={expandedTaskGroups}
-                  taskDiscountOverrides={taskDiscountOverrides}
-                  checkoutSubtotal={checkoutSubtotal}
-                  checkoutDiscountTotal={checkoutDiscountTotal}
-                  checkoutNetTotal={checkoutNetTotal}
-                  checkoutTaxTotal={checkoutTaxTotal}
-                  checkoutGrossTotal={checkoutGrossTotal}
-                  onToggleGroup={handleToggleGroup}
-                  onTaskDiscountValueChange={handleTaskDiscountValueChange}
-                  onLineDiscountTypeChange={handleLineDiscountTypeChange}
-                  onLineDiscountValueChange={handleLineDiscountValueChange}
-                  onCreateDraftInvoice={() => void handleCreateDraftInCheckout()}
-                  onIssueInvoice={() => void handleIssueInvoiceInCheckout()}
-                  onReturnToTasks={() => setIsCheckoutView(false)}
-                  onReopenTask={handleReopenTask}
-                />
-              </motion.div>
-            </div>
-          )}
-        </motion.div>
-
-        <AnimatePresence>
-          {!isCheckoutView && isDockedLayout && activeTaskForPanel && (
+          <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
             <motion.div
-              className='w-[1000px] min-w-[1000px] max-w-[1000px] shrink-0 sticky top-20'
-              initial={{ opacity: 0, x: 16 }}
+              className='space-y-6 lg:col-span-1'
+              initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
-              exit={{ opacity: 0, x: 16, transition: { duration: 0.16, ease: 'easeIn' } }}
             >
-              <TaskDetailDrawer
-                variant='docked'
-                workshopOrderId={order.id}
-                open={!!activeTaskForPanel}
-                onOpenChange={(open) => {
-                  if (!open) setActiveTaskId(null)
-                }}
-                task={activeTaskForPanel}
-                onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-                onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-                onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
+              <CustomerVehicleInfo
+                order={order}
+                assignedTechName={assignedTechName}
+                bayName={assignedBayName}
+              />
+            </motion.div>
+
+            <motion.div
+              className='space-y-6 lg:col-span-2'
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0, transition: { duration: 0.22, ease: 'easeOut', delay: 0.04 } }}
+            >
+              <TaskList
+                order={order}
+                tasks={tasks}
+                rawTaskTotals={rawTaskTotals}
+                isLocked={isLocked}
+                newTaskTitle={newTaskTitle}
+                expandedTaskId={expandedTaskId}
+                onNewTaskTitleChange={setNewTaskTitle}
+                onAddTask={() => void handleAddTask()}
+                onToggleTask={(taskId, checked) => void handleToggleTask(taskId, checked)}
+                onExpandedTaskIdChange={setExpandedTaskId}
+                onTaskLineItemsChange={(taskId, items) =>
+                  void handleTaskLineItemsChange(taskId, items)
+                }
+                onTaskMechanicNotesChange={(taskId, notes) =>
+                  void handleTaskMechanicNotesChange(taskId, notes)
+                }
                 onTaskDelete={(taskId) => {
                   const task = tasks.find((existingTask) => existingTask.id === taskId)
                   if (task) {
@@ -672,36 +527,43 @@ export function WorkshopOrderDetails() {
                 }}
                 canDeleteTask={canDeleteTasks}
                 isDeletingTask={deleteTask.isPending}
-                readOnly={isLocked}
+                onSaveReportedIssue={(value) => void handleSaveReportedIssue(value)}
+                onSaveNotes={(value) => void handleSaveNotes(value)}
               />
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </div>
 
-      {!isCheckoutView && !isDockedLayout && (
-        <TaskDetailDrawer
-          variant='drawer'
-          workshopOrderId={order.id}
-          open={!!activeTaskForPanel}
-          onOpenChange={(open) => {
-            if (!open) setActiveTaskId(null)
-          }}
-          task={activeTaskForPanel}
-          onTaskStatusChange={(taskId, status) => void handleTaskStatusChange(taskId, status)}
-          onTaskLineItemsChange={(taskId, items) => void handleTaskLineItemsChange(taskId, items)}
-          onTaskMechanicNotesChange={(taskId, notes) => void handleTaskMechanicNotesChange(taskId, notes)}
-          onTaskDelete={(taskId) => {
-            const task = tasks.find((existingTask) => existingTask.id === taskId)
-            if (task) {
-              setTaskPendingDelete(task)
-            }
-          }}
-          canDeleteTask={canDeleteTasks}
-          isDeletingTask={deleteTask.isPending}
-          readOnly={isLocked}
-        />
-      )}
+          <CheckoutFooter
+            checkoutFooterTotal={checkoutFooterTotal}
+            isCheckoutOpen={isCheckoutOpen}
+            primaryActionLabel={primaryCheckoutActionLabel}
+            onPrimaryAction={handleCheckoutAction}
+            onClose={() => setIsCheckoutOpen(false)}
+            activeInvoiceId={activeInvoiceId}
+            fetchedInvoice={fetchedInvoice}
+            isInvoiceLoading={isInvoiceLoading}
+            isLocked={isLocked}
+            canCreateDraftInCheckout={canCreateDraftInCheckout}
+            canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
+            createDraftPending={createDraftInvoice.isPending}
+            issuePending={issueInvoice.isPending}
+            groupedCheckoutTasks={groupedCheckoutTasks}
+            expandedTaskGroups={expandedTaskGroups}
+            taskDiscountOverrides={taskDiscountOverrides}
+            checkoutSubtotal={checkoutSubtotal}
+            checkoutDiscountTotal={checkoutDiscountTotal}
+            checkoutNetTotal={checkoutNetTotal}
+            checkoutTaxTotal={checkoutTaxTotal}
+            checkoutGrossTotal={checkoutGrossTotal}
+            onToggleGroup={handleToggleGroup}
+            onTaskDiscountValueChange={handleTaskDiscountValueChange}
+            onLineDiscountTypeChange={handleLineDiscountTypeChange}
+            onLineDiscountValueChange={handleLineDiscountValueChange}
+            onCreateDraftInvoice={() => void handleCreateDraftInCheckout()}
+            onIssueInvoice={() => void handleIssueInvoiceInCheckout()}
+            onReopenTask={handleReopenTask}
+          />
+        </motion.div>
 
       <AlertDialog
         open={taskPendingDelete !== null}
