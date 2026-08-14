@@ -41,13 +41,28 @@ export class AuditLogResponseDto {
   @ApiPropertyOptional({ type: String, nullable: true, description: 'Client User-Agent header' })
   userAgent?: string | null;
 
-  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Snapshot of entity state before mutation' })
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description: 'Snapshot of entity state before mutation',
+  })
   before?: unknown;
 
-  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Snapshot of entity state after mutation' })
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description: 'Snapshot of entity state after mutation',
+  })
   after?: unknown;
 
-  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Computed diff of changed fields' })
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description: 'Computed diff of changed fields',
+  })
   diff?: unknown;
 
   @ApiPropertyOptional({ nullable: true, type: [String], description: 'List of field names that changed' })

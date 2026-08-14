@@ -8964,16 +8964,19 @@
           },
           "before": {
             "type": "object",
+            "additionalProperties": true,
             "nullable": true,
             "description": "Snapshot of entity state before mutation"
           },
           "after": {
             "type": "object",
+            "additionalProperties": true,
             "nullable": true,
             "description": "Snapshot of entity state after mutation"
           },
           "diff": {
             "type": "object",
+            "additionalProperties": true,
             "nullable": true,
             "description": "Computed diff of changed fields"
           },

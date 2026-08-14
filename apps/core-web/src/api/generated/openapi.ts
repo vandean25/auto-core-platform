@@ -2628,11 +2628,17 @@ export interface components {
             /** @description Client User-Agent header */
             userAgent?: string | null;
             /** @description Snapshot of entity state before mutation */
-            before?: Record<string, never> | null;
+            before?: {
+                [key: string]: unknown;
+            } | null;
             /** @description Snapshot of entity state after mutation */
-            after?: Record<string, never> | null;
+            after?: {
+                [key: string]: unknown;
+            } | null;
             /** @description Computed diff of changed fields */
-            diff?: Record<string, never> | null;
+            diff?: {
+                [key: string]: unknown;
+            } | null;
             /** @description List of field names that changed */
             changedFields?: string[] | null;
             /** @description List of field names that were redacted */

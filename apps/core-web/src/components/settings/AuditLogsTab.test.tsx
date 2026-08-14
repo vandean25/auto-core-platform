@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuditLog } from '@/api/audit'
-import { useAuditLogs } from '@/api/audit'
 import { AuditLogsTab } from './AuditLogsTab'
 
 const mockAuditLogs: AuditLog[] = [
