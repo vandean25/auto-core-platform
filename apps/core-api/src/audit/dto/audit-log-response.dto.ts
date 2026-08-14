@@ -17,37 +17,37 @@ export class AuditLogResponseDto {
   @ApiProperty({ enum: AuditLogAction, description: 'Mutation action type' })
   action!: AuditLogAction;
 
-  @ApiPropertyOptional({ nullable: true, description: 'User ID of the actor who performed the mutation' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'User ID of the actor who performed the mutation' })
   actorUserId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Email of the actor who performed the mutation' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Email of the actor who performed the mutation' })
   actorEmail?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Role of the actor at mutation time' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Role of the actor at mutation time' })
   actorRole?: string | null;
 
   @ApiProperty({ enum: AuditActorType, description: 'Actor classification type' })
   actorType!: AuditActorType;
 
-  @ApiPropertyOptional({ nullable: true, description: 'HTTP request correlation ID' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'HTTP request correlation ID' })
   requestId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Source channel (e.g. API, JOB)' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Source channel (e.g. API, JOB)' })
   source?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Client IP address' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Client IP address' })
   ipAddress?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Client User-Agent header' })
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Client User-Agent header' })
   userAgent?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Snapshot of entity state before mutation' })
+  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Snapshot of entity state before mutation' })
   before?: unknown;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Snapshot of entity state after mutation' })
+  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Snapshot of entity state after mutation' })
   after?: unknown;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Computed diff of changed fields' })
+  @ApiPropertyOptional({ type: Object, nullable: true, description: 'Computed diff of changed fields' })
   diff?: unknown;
 
   @ApiPropertyOptional({ nullable: true, type: [String], description: 'List of field names that changed' })
@@ -56,7 +56,7 @@ export class AuditLogResponseDto {
   @ApiPropertyOptional({ nullable: true, type: [String], description: 'List of field names that were redacted' })
   redactedFields?: string[] | null;
 
-  @ApiProperty({ description: 'Timestamp when mutation occurred' })
+  @ApiProperty({ type: String, format: 'date-time', description: 'Timestamp when mutation occurred' })
   occurredAt!: Date;
 }
 
