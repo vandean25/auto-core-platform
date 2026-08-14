@@ -52,6 +52,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
   afterEach(async () => {
     if (tenantId) {
+      await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
       tenantId = '';
     }
