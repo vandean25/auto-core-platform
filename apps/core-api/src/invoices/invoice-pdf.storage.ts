@@ -7,6 +7,7 @@ import {
 import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
+import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket';
 
 @Injectable()
 export class InvoicePdfStorage {
@@ -123,12 +124,6 @@ export class InvoicePdfStorage {
   }
 
   private getBucketName(): string {
-    const bucket = process.env.INVOICE_PDF_BUCKET;
-    if (!bucket) {
-      throw new InternalServerErrorException(
-        'INVOICE_PDF_BUCKET environment variable is not configured',
-      );
-    }
-    return bucket;
+    return resolvePdfStorageBucket();
   }
 }
