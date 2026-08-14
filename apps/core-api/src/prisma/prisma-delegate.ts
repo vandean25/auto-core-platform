@@ -3,6 +3,10 @@ type PrismaDelegate = {
     where: Record<string, unknown>;
     select?: { id: boolean } | Record<string, unknown>;
   }) => Promise<any>;
+  findMany?: (findArgs: {
+    where?: Record<string, unknown>;
+    select?: Record<string, unknown>;
+  } | Record<string, unknown>) => Promise<any[]>;
 };
 
 export function toPrismaDelegateKey(modelName: string): string {
@@ -17,7 +21,8 @@ function isPrismaDelegateCandidate(value: unknown): value is PrismaDelegate {
   return Boolean(
     value &&
       (typeof value === 'object' || typeof value === 'function') &&
-      typeof (value as PrismaDelegate).findFirst === 'function',
+      (typeof (value as PrismaDelegate).findFirst === 'function' ||
+        typeof (value as PrismaDelegate).findMany === 'function'),
   );
 }
 
