@@ -269,8 +269,10 @@ Request and response bodies must not be logged by default. Payload logging requi
 - ADR-0010: `2026-04-12-openapi-contract-first.md` — endpoint implementation requires contract regeneration
 - ADR-0013: `2026-04-15-row-level-multi-tenancy.md` — tenant context and tenant-safe audit queries
 - `docs/deletion-policy.md`
+- `docs/internal/05-Runbooks/operational-logging-and-log-level-runbook.md` — runbook for operational logging and runtime log level management
 - NestJS Logger documentation
 - Prisma Client Extensions documentation
+
 
 ---
 
