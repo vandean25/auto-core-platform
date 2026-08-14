@@ -58,3 +58,10 @@ This document defines when deletion is allowed in Auto Core Platform.
 - Show row context `Delete` only for entities with delete support.
 - Where delete is state-dependent (for example `PurchaseOrder`, `SalesOrder`), hide the action when clearly disallowed.
 - Always rely on backend as source of truth and surface API error messages.
+
+## References
+
+- ADR-0005: Deletion Policy Enforcement
+- ADR-0013: Row-Level Multi-Tenancy & Tenant Isolation
+- ADR-0015: Audit Tracing and Operational Logging — AuditLog ledger immutability
+
