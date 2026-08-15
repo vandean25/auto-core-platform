@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   CustomerType,
   WorkshopLineItemType,
+  WorkshopOrderPurpose,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
@@ -140,8 +141,11 @@ export class WorkshopOrderResponseDto {
   @ApiProperty({ enum: WorkshopOrderStatus })
   status!: WorkshopOrderStatus;
 
-  @ApiProperty()
-  customer_id!: string;
+  @ApiProperty({ enum: WorkshopOrderPurpose })
+  purpose!: WorkshopOrderPurpose;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  customer_id?: string | null;
 
   @ApiProperty()
   vehicle_id!: string;
@@ -167,8 +171,8 @@ export class WorkshopOrderResponseDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   stagingLocationId?: string | null;
 
-  @ApiProperty({ type: () => WorkshopCustomerSummaryDto })
-  customer!: WorkshopCustomerSummaryDto;
+  @ApiProperty({ type: () => WorkshopCustomerSummaryDto, required: false, nullable: true })
+  customer?: WorkshopCustomerSummaryDto | null;
 
   @ApiProperty({ type: () => WorkshopVehicleSummaryDto })
   vehicle!: WorkshopVehicleSummaryDto;

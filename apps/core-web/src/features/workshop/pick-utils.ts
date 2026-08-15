@@ -9,6 +9,7 @@ export const PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES = new Set<WorkshopOrderStatus
 ])
 
 export function getWorkshopCustomerDisplayName(order: WorkshopOrder) {
+  if (!order.customer) return 'Dealer stock'
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
     return order.customer.company_name
   }

@@ -42,6 +42,9 @@ export const AUDITED_MODELS = new Set([
   'LaborCategory',
   'LaborRate',
   'TenantMember',
+  'VehiclePurchase',
+  'VehicleSale',
+  'VehicleLedgerEntry',
 ]);
 
 function extractEntityId(value: unknown): string | undefined {

@@ -28,6 +28,7 @@ const baseOrder = {
   id: 'order-1',
   order_number: 'WO-001',
   status: 'IN_PROGRESS' as const,
+  purpose: 'CUSTOMER_REPAIR' as const,
   customer_id: 'cust-1',
   customer: {
     id: 'cust-1',

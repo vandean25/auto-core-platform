@@ -187,6 +187,8 @@ export class CustomerService {
       invoicesCount,
       workshopOrdersCount,
       vehiclesCount,
+      vehiclePurchasesCount,
+      vehicleSalesCount,
     ] = await Promise.all([
       this.prisma.salesOrder.count({
         where: { tenant_id: tenantId, customer_id: id },
@@ -200,9 +202,21 @@ export class CustomerService {
       this.prisma.vehicle.count({
         where: { tenant_id: tenantId, customer_id: id },
       }),
+      this.prisma.vehiclePurchase.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
+      this.prisma.vehicleSale.count({
+        where: { tenant_id: tenantId, customer_id: id },
+      }),
     ]);
 
-    if (salesOrdersCount > 0 || invoicesCount > 0 || workshopOrdersCount > 0) {
+    if (
+      salesOrdersCount > 0 ||
+      invoicesCount > 0 ||
+      workshopOrdersCount > 0 ||
+      vehiclePurchasesCount > 0 ||
+      vehicleSalesCount > 0
+    ) {
       throw new BadRequestException(
         'Customer cannot be deleted because it has linked orders or invoices. Use archive/deactivate instead.',
       );

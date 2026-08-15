@@ -180,18 +180,26 @@ export class VendorService {
       throw new NotFoundException(`Vendor ${id} not found`);
     }
 
-    const [purchaseOrdersCount, purchaseInvoicesCount] = await Promise.all([
-      this.prisma.purchaseOrder.count({
-        where: { tenant_id: tenantId, vendor_id: id },
-      }),
-      this.prisma.purchaseInvoice.count({
-        where: { tenant_id: tenantId, vendor_id: id },
-      }),
-    ]);
+    const [purchaseOrdersCount, purchaseInvoicesCount, vehiclePurchasesCount] =
+      await Promise.all([
+        this.prisma.purchaseOrder.count({
+          where: { tenant_id: tenantId, vendor_id: id },
+        }),
+        this.prisma.purchaseInvoice.count({
+          where: { tenant_id: tenantId, vendor_id: id },
+        }),
+        this.prisma.vehiclePurchase.count({
+          where: { tenant_id: tenantId, vendor_id: id },
+        }),
+      ]);
 
-    if (purchaseOrdersCount > 0 || purchaseInvoicesCount > 0) {
+    if (
+      purchaseOrdersCount > 0 ||
+      purchaseInvoicesCount > 0 ||
+      vehiclePurchasesCount > 0
+    ) {
       throw new BadRequestException(
-        'Vendor cannot be deleted because purchase orders or purchase invoices are linked.',
+        'Vendor cannot be deleted because purchase orders, purchase invoices, or vehicle purchases are linked.',
       );
     }
 

@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopService } from './workshop.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 
 describe('WorkshopService', () => {
   let service: WorkshopService;
@@ -35,6 +36,7 @@ describe('WorkshopService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       upsert: jest.fn(),
+      updateMany: jest.fn(),
     },
     workshopOrder: {
       create: jest.fn(),
@@ -57,6 +59,9 @@ describe('WorkshopService', () => {
     },
     catalogItem: {
       findMany: jest.fn(),
+    },
+    vehicleLedgerEntry: {
+      findFirst: jest.fn(),
     },
     inventoryStock: {
       findMany: jest.fn(),
@@ -83,6 +88,11 @@ describe('WorkshopService', () => {
     recordTransactions: jest.fn(),
   };
 
+  const mockVehicleLedger = {
+    append: jest.fn(),
+    completeStockPrep: jest.fn(),
+  };
+
   const mockTenantContext = {
     getTenantId: jest
       .fn()
@@ -97,6 +107,7 @@ describe('WorkshopService', () => {
         { provide: InvoicesService, useValue: mockInvoices },
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContext },
+        { provide: VehicleLedgerService, useValue: mockVehicleLedger },
       ],
     }).compile();
 
@@ -108,11 +119,25 @@ describe('WorkshopService', () => {
   });
 
   it('delegates invoice creation to InvoicesService', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      purpose: 'CUSTOMER_REPAIR',
+    });
     mockInvoices.createDraftInvoice.mockResolvedValue({ id: 'inv-1' });
 
     await service.createInvoiceFromOrder('wo-1');
 
     expect(mockInvoices.createDraftInvoice).toHaveBeenCalledWith('wo-1');
+  });
+
+  it('rejects invoicing stock-prep workshop orders', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      purpose: 'STOCK_PREP',
+    });
+
+    await expect(service.createInvoiceFromOrder('wo-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(mockInvoices.createDraftInvoice).not.toHaveBeenCalled();
   });
 
   it('creates workshop order with generated order number', async () => {
@@ -170,7 +195,11 @@ describe('WorkshopService', () => {
     });
 
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
+      where: {
+        id: 'wo-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: { not: WorkshopOrderStatus.INVOICED },
+      },
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
   });
@@ -247,7 +276,11 @@ describe('WorkshopService', () => {
       where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001' },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
+      where: {
+        id: 'wo-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: { not: WorkshopOrderStatus.INVOICED },
+      },
       data: { status: WorkshopOrderStatus.INTAKE },
     });
   });

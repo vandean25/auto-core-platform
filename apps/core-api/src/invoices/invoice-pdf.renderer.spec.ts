@@ -11,6 +11,7 @@ describe('InvoicePdfRenderer', () => {
     total_tax: '20.00',
     total_gross: '120.00',
     notes: 'Test note',
+    tax_mode: 'STANDARD',
     customer: {
       type: 'PRIVATE',
       company_name: null,
@@ -61,5 +62,56 @@ describe('InvoicePdfRenderer', () => {
     );
     expect(browserService.getBrowser).toHaveBeenCalledTimes(1);
     expect(page.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes Differenzbesteuerung legal line for margin-scheme invoices', async () => {
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const browser = {
+      newPage: jest.fn().mockResolvedValue(page),
+    };
+    const browserService = {
+      getBrowser: jest.fn().mockResolvedValue(browser),
+      withTimeout: jest.fn((promise: Promise<Buffer>) => promise),
+    };
+
+    const renderer = new InvoicePdfRenderer(browserService as never);
+    await renderer.render({
+      ...createSnapshot(),
+      tax_mode: 'MARGIN_SCHEME',
+    });
+
+    const html = page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain(
+      'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
+    );
+    expect(html).not.toContain('<span>Tax:</span>');
+    expect(html).not.toContain('<span>Net:</span>');
+  });
+
+  it('omits the margin legal line for standard invoices', async () => {
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const browser = {
+      newPage: jest.fn().mockResolvedValue(page),
+    };
+    const browserService = {
+      getBrowser: jest.fn().mockResolvedValue(browser),
+      withTimeout: jest.fn((promise: Promise<Buffer>) => promise),
+    };
+
+    const renderer = new InvoicePdfRenderer(browserService as never);
+    await renderer.render(createSnapshot());
+
+    expect(page.setContent).toHaveBeenCalledWith(
+      expect.not.stringContaining('Differenzbesteuerung'),
+      expect.any(Object),
+    );
   });
 });

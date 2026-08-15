@@ -1,5 +1,6 @@
 import {
   CustomerType,
+  InvoiceTaxMode,
   Prisma,
   type Customer,
   type Invoice,
@@ -17,6 +18,7 @@ export type InvoiceSnapshot = {
   total_tax: string;
   total_gross: string;
   notes: string | null;
+  tax_mode?: InvoiceTaxMode;
 
   customer: {
     type: CustomerType;
@@ -92,6 +94,7 @@ export const buildInvoiceSnapshot = (
     total_tax: decimalToString(invoice.total_tax),
     total_gross: decimalToString(invoice.total_gross),
     notes: invoice.notes ?? null,
+    tax_mode: invoice.tax_mode ?? InvoiceTaxMode.STANDARD,
 
     customer: {
       type: invoice.customer.type,

@@ -14,6 +14,8 @@ export type RealtimeEntityType =
   | 'CUSTOMER'
   | 'VENDOR'
   | 'VEHICLE'
+  | 'VEHICLE_PURCHASE'
+  | 'VEHICLE_SALE'
 
 export type RealtimeEntityAction = 'CREATED' | 'UPDATED' | 'DELETED'
 

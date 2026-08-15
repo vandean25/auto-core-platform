@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { InvoiceTaxMode, Prisma } from '@prisma/client';
 import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
 import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
 import { TenantContextService } from '../common/services/tenant-context.service';
@@ -47,9 +47,14 @@ export class FinanceService {
    * Validates if a transaction date is allowed.
    * Transactions occurring on or before the lock_date are blocked.
    */
-  async validateTransactionDate(date: Date) {
-    const settings = await this.getSettings();
-    if (settings.lock_date && date <= settings.lock_date) {
+  async validateTransactionDate(date: Date, tx?: Prisma.TransactionClient) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const db = tx ?? this.prisma;
+    const settings = await db.financeSettings.findFirst({
+      where: { tenant_id: tenantId },
+      select: { lock_date: true },
+    });
+    if (settings?.lock_date && date <= settings.lock_date) {
       throw new ForbiddenException(
         `Transaction date ${date.toISOString()} is in a locked fiscal period (Locked up to ${settings.lock_date.toISOString()})`,
       );
@@ -92,15 +97,26 @@ export class FinanceService {
         revenue_group_name: true,
         quantity: true,
         unit_price: true,
+        invoice: {
+          select: { id: true, tax_mode: true, total_net: true },
+        },
       },
     });
 
     const revenueByGroup: Record<string, number> = {};
     let total = 0;
+    const seenMarginInvoices = new Set<string>();
 
     items.forEach((item) => {
       const group = item.revenue_group_name || 'Other';
-      const value = Number(item.quantity) * Number(item.unit_price);
+      let value = Number(item.quantity) * Number(item.unit_price);
+      if (item.invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+        if (seenMarginInvoices.has(item.invoice.id)) {
+          return;
+        }
+        seenMarginInvoices.add(item.invoice.id);
+        value = Number(item.invoice.total_net);
+      }
       revenueByGroup[group] = (revenueByGroup[group] || 0) + value;
       total += value;
     });

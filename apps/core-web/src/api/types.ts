@@ -150,6 +150,7 @@ export interface Invoice {
     total_net: string
     total_tax: string
     total_gross: string
+    tax_mode?: 'STANDARD' | 'MARGIN_SCHEME'
     global_discount_type?: DiscountType | null
     global_discount_value?: number | string | null
     notes?: string
@@ -426,12 +427,13 @@ export interface CatalogSearchResponse {
 }
 
 export interface CreateWorkshopOrderPayload {
-    customerId: string
+    customerId?: string
     vehicleId: string
     odometer: number
     fuelLevel: number
     reportedIssue?: string
     notes?: string
+    purpose?: 'CUSTOMER_REPAIR' | 'STOCK_PREP'
 }
 
 export interface RegisterIntakePayload {

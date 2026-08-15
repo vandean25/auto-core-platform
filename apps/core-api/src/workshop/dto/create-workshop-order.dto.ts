@@ -6,16 +6,24 @@ import {
   Max,
   IsOptional,
   IsUUID,
+  IsEnum,
+  ValidateIf,
 } from 'class-validator';
+import { WorkshopOrderPurpose } from '@prisma/client';
 
 export class CreateWorkshopOrderDto {
+  @ValidateIf((dto: CreateWorkshopOrderDto) => dto.purpose !== WorkshopOrderPurpose.STOCK_PREP)
   @IsUUID()
   @IsNotEmpty()
-  customerId!: string;
+  customerId?: string;
 
   @IsUUID()
   @IsNotEmpty()
   vehicleId!: string;
+
+  @IsOptional()
+  @IsEnum(WorkshopOrderPurpose)
+  purpose?: WorkshopOrderPurpose;
 
   @IsInt()
   @Min(0)

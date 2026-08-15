@@ -50,6 +50,8 @@ Every change in stock is recorded as an immutable `InventoryTransaction`. A tran
 
 > Any new `TransactionType` must be added to the Prisma enum, documented in this table, and handled in `ledger.service.ts` before use.
 
+**Whole vehicles are out of scope for this ledger.** Dealer-owned cars use `VehicleLedgerEntry` (ADR-0016). Do not add a VIN to `CatalogItem` or post vehicle purchases/sales as `InventoryTransaction` rows.
+
 ### 2. Derived Stock Quantities (Eager Cache Model)
 
 The `InventoryStock` table, which holds `quantity_on_hand` per item per location, is treated as a **materialized cache**. It is not computed on-the-fly via SUM but is **eagerly updated** (incremented or decremented by the transaction's signed quantity) inside the same `prisma.$transaction` block that creates the `InventoryTransaction` record.

@@ -41,8 +41,14 @@ stateDiagram-v2
     SCHEDULED --> INTAKE: Vehicle arrives
     INTAKE --> IN_PROGRESS: Work begins
     IN_PROGRESS --> COMPLETED: All tasks DONE
-    COMPLETED --> INVOICED: Invoice generated
+    COMPLETED --> INVOICED: Invoice generated (CUSTOMER_REPAIR)
     INVOICED --> [*]
+
+    note right of COMPLETED
+      STOCK_PREP (ADR-0016) is terminal
+      at COMPLETED: post WORKSHOP_COST
+      to the vehicle ledger; do not invoice.
+    end note
 ```
 
 ### Workshop Task Lifecycle
@@ -111,7 +117,7 @@ stateDiagram-v2
 
 ## Invoice Lifecycle
 
-The financial document workflow, shared by Sales and Workshop.
+The financial document workflow, shared by Sales, Workshop, and Vehicle Sales (ADR-0016).
 
 ```mermaid
 stateDiagram-v2
@@ -152,6 +158,62 @@ stateDiagram-v2
     end note
 ```
 
+## Vehicle Purchase (ADR-0016)
+
+Used-vehicle acquisition. Not a parts `PurchaseOrder`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: Purchase created
+    DRAFT --> RECEIVED: VIN received into stock
+    DRAFT --> CANCELLED: Abandoned before receive
+    RECEIVED --> [*]
+    CANCELLED --> [*]
+
+    note right of RECEIVED
+      Creates or reuses Vehicle
+      inventory_role USED
+      posts VehicleLedgerEntry PURCHASE
+      Fiscal lock date applies
+    end note
+```
+
+## Vehicle Sale (ADR-0016)
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: Sale created
+    DRAFT --> INVOICED: Invoice finalized
+    DRAFT --> CANCELLED: Abandoned before invoice
+    INVOICED --> [*]
+    CANCELLED --> [*]
+
+    note right of INVOICED
+      Invoice tax_mode MARGIN_SCHEME
+      Vehicle becomes CUSTOMER owned by buyer
+      posts VehicleLedgerEntry SALE
+      Restock on cancel is out of scope for phase A
+    end note
+```
+
+## Vehicle Stock Status (USED cars)
+
+```mermaid
+stateDiagram-v2
+    [*] --> IN_STOCK: Purchase received
+    IN_STOCK --> RESERVED: Reserved for customer
+    RESERVED --> IN_STOCK: Reservation cleared
+    IN_STOCK --> IN_PREP: STOCK_PREP workshop started
+    RESERVED --> IN_PREP: STOCK_PREP workshop started
+    IN_PREP --> IN_STOCK: Prep complete unreserved
+    IN_PREP --> RESERVED: Prep complete still reserved
+    IN_STOCK --> SOLD: Sale invoiced
+    RESERVED --> SOLD: Sale invoiced to reserved buyer
+    SOLD --> [*]
+```
+
+After `SOLD`, `inventory_role` becomes `CUSTOMER` and `stock_status` is cleared.
+
 ## Purchase Invoice Lifecycle
 
 The vendor billing document, created from one or more received Purchase Orders.
@@ -181,6 +243,7 @@ stateDiagram-v2
 
 ## References
 
+- ADR-0016: Vehicle Stock — `VehiclePurchase`, `VehicleSale`, and `USED` `stock_status` machines; `STOCK_PREP` workshop does not invoice
 - ADR-0002: Ledger-Based Inventory — defines `RECEIPT` and other `TransactionType` values triggered by state transitions
 - ADR-0003: Fiscal Lock Date — `DRAFT → FINALIZED` (Invoice) and `DRAFT → POSTED` (PurchaseInvoice) must validate against `lock_date`
 - ADR-0004: Invoice Snapshotting — defines which fields are snapshotted at which transition
