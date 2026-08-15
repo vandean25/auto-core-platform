@@ -76,20 +76,22 @@ export default function VehiclePurchasePage() {
   const isNew = id === 'new'
   const { data: existing } = useVehiclePurchase(id)
   const createPurchase = useCreateVehiclePurchase()
-  const updatePurchase = useUpdateVehiclePurchase(isNew ? '' : id)
+  const [purchaseId, setPurchaseId] = useState(isNew ? '' : id)
+  const updatePurchase = useUpdateVehiclePurchase(purchaseId)
   const receivePurchase = useReceiveVehiclePurchase()
   const { data: vendorsResponse } = useVendors({ page: 1, pageSize: 50, filters: [] })
   const [form, setForm] = useState<PurchaseForm>(emptyForm)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [purchaseId, setPurchaseId] = useState(isNew ? '' : id)
-  const skipNextSave = useRef(true)
+  const lastSavedSerialized = useRef<string | null>(null)
+  const createPurchaseRef = useRef(createPurchase)
+  const updatePurchaseRef = useRef(updatePurchase)
+  createPurchaseRef.current = createPurchase
+  updatePurchaseRef.current = updatePurchase
 
   useEffect(() => {
     if (!existing) return
-    skipNextSave.current = true
-    setPurchaseId(existing.id)
-    setForm({
+    const nextForm: PurchaseForm = {
       seller_type: existing.seller_type,
       vendor_id: existing.vendor_id ?? '',
       customer_id: existing.customer_id ?? '',
@@ -101,7 +103,20 @@ export default function VehiclePurchasePage() {
       color: existing.color ?? '',
       mileage: existing.mileage != null ? String(existing.mileage) : '',
       purchase_price: String(existing.purchase_price),
-    })
+    }
+    setPurchaseId(existing.id)
+    setForm(nextForm)
+    lastSavedSerialized.current = JSON.stringify(toPayload(nextForm))
+    if (existing.customer) {
+      setCustomer({
+        id: existing.customer.id,
+        type: existing.customer.type,
+        first_name: existing.customer.first_name,
+        last_name: existing.customer.last_name,
+        company_name: existing.customer.company_name ?? undefined,
+        email: existing.customer.email ?? '',
+      })
+    }
   }, [existing])
 
   const payload = useMemo(() => toPayload(form), [form])
@@ -109,20 +124,20 @@ export default function VehiclePurchasePage() {
 
   useEffect(() => {
     if (!isDraft || !payload) return
-    if (skipNextSave.current) {
-      skipNextSave.current = false
-      return
-    }
+    const serialized = JSON.stringify(payload)
+    if (serialized === lastSavedSerialized.current) return
     const handle = window.setTimeout(() => {
       void (async () => {
         setSaveStatus('saving')
         try {
           if (!purchaseId) {
-            const created = await createPurchase.mutateAsync(payload)
+            const created = await createPurchaseRef.current.mutateAsync(payload)
             setPurchaseId(created.id)
+            lastSavedSerialized.current = serialized
             navigate(`/vehicle-stock/purchases/${created.id}`, { replace: true })
           } else {
-            await updatePurchase.mutateAsync(payload)
+            await updatePurchaseRef.current.mutateAsync(payload)
+            lastSavedSerialized.current = serialized
           }
           setSaveStatus('saved')
         } catch (error) {
@@ -132,7 +147,7 @@ export default function VehiclePurchasePage() {
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [payload, isDraft, purchaseId, createPurchase, updatePurchase, navigate])
+  }, [payload, isDraft, purchaseId, navigate])
 
   const receive = async () => {
     if (!purchaseId) return

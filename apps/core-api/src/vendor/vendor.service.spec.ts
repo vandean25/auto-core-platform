@@ -20,6 +20,9 @@ describe('VendorService', () => {
     purchaseInvoice: {
       count: jest.fn(),
     },
+    vehiclePurchase: {
+      count: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -42,6 +45,7 @@ describe('VendorService', () => {
     mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.purchaseOrder.count.mockResolvedValue(0);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
     mockPrisma.vendor.deleteMany.mockResolvedValue({ id: 'v-1', count: 1 });
 
     await service.remove('v-1');
@@ -55,6 +59,15 @@ describe('VendorService', () => {
     mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.purchaseOrder.count.mockResolvedValue(1);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
+
+    await expect(service.remove('v-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('blocks delete when vehicle purchases are linked', async () => {
+    mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.purchaseOrder.count.mockResolvedValue(0);
+    mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(1);
 
     await expect(service.remove('v-1')).rejects.toThrow(BadRequestException);
   });

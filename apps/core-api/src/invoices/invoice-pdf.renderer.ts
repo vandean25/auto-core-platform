@@ -195,6 +195,18 @@ export class InvoicePdfRenderer {
           </tbody>
         </table>
 
+        ${
+          snapshot.tax_mode === 'MARGIN_SCHEME'
+            ? `
+        <div class="totals">
+          <div class="total-row grand">
+            <span>Gross:</span>
+            <span>${this.escapeHtml(snapshot.total_gross)}</span>
+          </div>
+        </div>
+        <div class="legal-line">Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).</div>
+            `
+            : `
         <div class="totals">
           <div class="total-row">
             <span>Net:</span>
@@ -209,13 +221,7 @@ export class InvoicePdfRenderer {
             <span>${this.escapeHtml(snapshot.total_gross)}</span>
           </div>
         </div>
-
-        ${
-          snapshot.tax_mode === 'MARGIN_SCHEME'
-            ? `
-          <div class="legal-line">Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).</div>
-        `
-            : ''
+            `
         }
 
         ${

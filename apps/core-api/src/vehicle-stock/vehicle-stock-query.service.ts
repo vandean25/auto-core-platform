@@ -51,7 +51,18 @@ export class VehicleStockQueryService {
     const [data, total] = await Promise.all([
       this.prisma.vehicle.findMany({
         where,
-        include: { reserved_for_customer: true, location: true },
+        include: {
+          reserved_for_customer: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              company_name: true,
+              type: true,
+            },
+          },
+          location: true,
+        },
         orderBy: { updatedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -77,7 +88,15 @@ export class VehicleStockQueryService {
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id: vehicleId, tenant_id: tenantId },
       include: {
-        reserved_for_customer: true,
+        reserved_for_customer: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            company_name: true,
+            type: true,
+          },
+        },
         location: true,
         purchases: { orderBy: { createdAt: 'desc' } },
         sales: { orderBy: { createdAt: 'desc' } },
@@ -110,35 +129,65 @@ export class VehicleStockQueryService {
       throw new ConflictException('Only used stock vehicles can be patched here');
     }
 
-    let stockStatus = vehicle.stock_status;
-    if (dto.reserved_for_customer_id === null) {
-      if (stockStatus === VehicleStockStatus.RESERVED) {
-        stockStatus = VehicleStockStatus.IN_STOCK;
+    if (dto.location_id) {
+      const location = await this.prisma.storageLocation.findFirst({
+        where: { id: dto.location_id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (!location) {
+        throw new NotFoundException(`Location ${dto.location_id} not found`);
       }
-    } else if (dto.reserved_for_customer_id) {
-      if (
-        stockStatus !== VehicleStockStatus.IN_STOCK &&
-        stockStatus !== VehicleStockStatus.RESERVED
-      ) {
-        throw new ConflictException('Vehicle cannot be reserved in its current status');
+    }
+    if (dto.reserved_for_customer_id) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: dto.reserved_for_customer_id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new NotFoundException(
+          `Customer ${dto.reserved_for_customer_id} not found`,
+        );
       }
-      stockStatus = VehicleStockStatus.RESERVED;
     }
 
-    return this.prisma.vehicle.update({
-      where: { id: vehicleId },
-      data: {
-        location_id: dto.location_id === undefined ? undefined : dto.location_id,
-        reserved_for_customer_id:
-          dto.reserved_for_customer_id === undefined
-            ? undefined
-            : dto.reserved_for_customer_id,
-        mileage: dto.mileage,
-        color: dto.color,
-        key_number: dto.key_number,
-        registration_certificate_no: dto.registration_certificate_no,
-        stock_status: stockStatus,
-      },
+    const data: Prisma.VehicleUncheckedUpdateManyInput = {
+      location_id: dto.location_id === undefined ? undefined : dto.location_id,
+      mileage: dto.mileage,
+      color: dto.color,
+      key_number: dto.key_number,
+      registration_certificate_no: dto.registration_certificate_no,
+    };
+
+    const where: Prisma.VehicleWhereInput = {
+      id: vehicleId,
+      tenant_id: tenantId,
+      inventory_role: VehicleInventoryRole.USED,
+    };
+
+    if (dto.reserved_for_customer_id === null) {
+      data.reserved_for_customer_id = null;
+      if (vehicle.stock_status === VehicleStockStatus.RESERVED) {
+        data.stock_status = VehicleStockStatus.IN_STOCK;
+        where.stock_status = VehicleStockStatus.RESERVED;
+      }
+    } else if (dto.reserved_for_customer_id) {
+      data.reserved_for_customer_id = dto.reserved_for_customer_id;
+      data.stock_status = VehicleStockStatus.RESERVED;
+      where.stock_status = {
+        in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
+      };
+    }
+
+    const updated = await this.prisma.vehicle.updateMany({
+      where,
+      data,
     });
+    if (updated.count === 0) {
+      throw new ConflictException(
+        'Vehicle status changed concurrently and cannot be patched',
+      );
+    }
+
+    return this.detail(vehicleId);
   }
 }

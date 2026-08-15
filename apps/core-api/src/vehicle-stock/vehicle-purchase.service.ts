@@ -38,6 +38,7 @@ export class VehiclePurchaseService {
   async create(dto: CreateVehiclePurchaseDto) {
     const tenantId = await this.tenantContext.getTenantId();
     this.assertSeller(dto);
+    await this.assertTenantRefs(tenantId, dto);
 
     const purchaseNumber = await this.nextPurchaseNumber(tenantId);
 
@@ -102,6 +103,7 @@ export class VehiclePurchaseService {
     const tenantId = await this.tenantContext.getTenantId();
     const purchase = await this.prisma.vehiclePurchase.findFirst({
       where: { id, tenant_id: tenantId },
+      include: { customer: true },
     });
     if (!purchase) {
       throw new NotFoundException(`Vehicle purchase ${id} not found`);
@@ -125,6 +127,11 @@ export class VehiclePurchaseService {
           ? dto.customer_id ?? undefined
           : purchase.customer_id ?? undefined,
     } as CreateVehiclePurchaseDto);
+    await this.assertTenantRefs(tenantId, {
+      vendor_id: dto.vendor_id,
+      customer_id: dto.customer_id,
+      location_id: dto.location_id,
+    });
 
     return this.prisma.vehiclePurchase.update({
       where: { id },
@@ -184,57 +191,65 @@ export class VehiclePurchaseService {
         where: { tenant_id: tenantId, vin },
       });
 
-      if (
-        existing?.inventory_role === VehicleInventoryRole.USED &&
-        existing.stock_status &&
-        ACTIVE_STOCK_STATUSES.includes(existing.stock_status)
-      ) {
-        throw new ConflictException('VIN is already in dealer stock');
-      }
+      const stockData = {
+        make: purchase.make,
+        model: purchase.model,
+        year: purchase.year,
+        engine_code: purchase.engine_code,
+        plate: purchase.plate,
+        color: purchase.color,
+        mileage: purchase.mileage,
+        key_number: purchase.key_number,
+        registration_certificate_no: purchase.registration_certificate_no,
+        location_id: purchase.location_id,
+        customer_id: null,
+        inventory_role: VehicleInventoryRole.USED,
+        stock_status: VehicleStockStatus.IN_STOCK,
+        tax_scheme: VehicleTaxScheme.MARGIN,
+      };
 
-      const vehicle = existing
-        ? await tx.vehicle.update({
-            where: { id: existing.id },
-            data: {
-              make: purchase.make,
-              model: purchase.model,
-              year: purchase.year,
-              engine_code: purchase.engine_code,
-              plate: purchase.plate,
-              color: purchase.color,
-              mileage: purchase.mileage,
-              key_number: purchase.key_number,
-              registration_certificate_no: purchase.registration_certificate_no,
-              location_id: purchase.location_id,
-              customer_id: null,
-              inventory_role: VehicleInventoryRole.USED,
-              stock_status: VehicleStockStatus.IN_STOCK,
-              tax_scheme: VehicleTaxScheme.MARGIN,
-            },
-          })
-        : await tx.vehicle.create({
+      let vehicleId: string;
+      if (existing) {
+        const flipped = await tx.vehicle.updateMany({
+          where: {
+            id: existing.id,
+            tenant_id: tenantId,
+            OR: [
+              { inventory_role: { not: VehicleInventoryRole.USED } },
+              { stock_status: null },
+              { stock_status: { notIn: ACTIVE_STOCK_STATUSES } },
+            ],
+          },
+          data: stockData,
+        });
+        if (flipped.count === 0) {
+          throw new ConflictException('VIN is already in dealer stock');
+        }
+        vehicleId = existing.id;
+      } else {
+        try {
+          const created = await tx.vehicle.create({
             data: {
               tenant_id: tenantId,
-              make: purchase.make,
-              model: purchase.model,
-              year: purchase.year,
-              engine_code: purchase.engine_code,
               vin,
-              plate: purchase.plate,
-              color: purchase.color,
-              mileage: purchase.mileage,
-              key_number: purchase.key_number,
-              registration_certificate_no: purchase.registration_certificate_no,
-              location_id: purchase.location_id,
-              inventory_role: VehicleInventoryRole.USED,
-              stock_status: VehicleStockStatus.IN_STOCK,
-              tax_scheme: VehicleTaxScheme.MARGIN,
+              ...stockData,
             },
           });
+          vehicleId = created.id;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new ConflictException('VIN is already in dealer stock');
+          }
+          throw error;
+        }
+      }
 
       await this.ledger.append(
         {
-          vehicleId: vehicle.id,
+          vehicleId,
           entryType: VehicleLedgerEntryType.PURCHASE,
           amount: purchase.purchase_price,
           vehiclePurchaseId: purchase.id,
@@ -244,7 +259,7 @@ export class VehiclePurchaseService {
 
       return tx.vehiclePurchase.update({
         where: { id: purchase.id },
-        data: { vehicle_id: vehicle.id },
+        data: { vehicle_id: vehicleId },
       });
     });
   }
@@ -272,6 +287,43 @@ export class VehiclePurchaseService {
       throw new BadRequestException(
         'customer_id is required for private purchases',
       );
+    }
+  }
+
+  private async assertTenantRefs(
+    tenantId: string,
+    refs: {
+      vendor_id?: string | null;
+      customer_id?: string | null;
+      location_id?: string | null;
+    },
+  ) {
+    if (refs.vendor_id) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: { id: refs.vendor_id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (!vendor) {
+        throw new NotFoundException(`Vendor ${refs.vendor_id} not found`);
+      }
+    }
+    if (refs.customer_id) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: refs.customer_id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new NotFoundException(`Customer ${refs.customer_id} not found`);
+      }
+    }
+    if (refs.location_id) {
+      const location = await this.prisma.storageLocation.findFirst({
+        where: { id: refs.location_id, tenant_id: tenantId },
+        select: { id: true },
+      });
+      if (!location) {
+        throw new NotFoundException(`Location ${refs.location_id} not found`);
+      }
     }
   }
 

@@ -78,6 +78,10 @@ const mockVoiceTranslationService = {
   translateVoiceNote: jest.fn(),
 } as unknown as import('../voice-translation/voice-translation.service').VoiceTranslationService;
 
+const mockVehicleLedger = {
+  completeStockPrep: jest.fn(),
+} as unknown as import('../vehicle-stock/vehicle-ledger.service').VehicleLedgerService;
+
 describe('MechanicService', () => {
   let service: MechanicService;
 
@@ -92,6 +96,7 @@ describe('MechanicService', () => {
       mockEventEmitter,
       mockMediaStorage,
       mockVoiceTranslationService,
+      mockVehicleLedger,
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
@@ -1816,6 +1821,7 @@ describe('MechanicService', () => {
           mockEventEmitter,
           mockMediaStorage,
           mockVoiceTranslationService,
+          mockVehicleLedger,
         );
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
@@ -1860,6 +1866,7 @@ describe('MechanicService', () => {
           mockEventEmitter,
           mockMediaStorage,
           mockVoiceTranslationService,
+          mockVehicleLedger,
         );
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());

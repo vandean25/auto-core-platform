@@ -21,19 +21,13 @@ export class PatchVehiclePurchaseDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @ValidateIf(
-    (dto: PatchVehiclePurchaseDto) =>
-      dto.seller_type === VehiclePurchaseSellerType.VENDOR,
-  )
+  @ValidateIf((_, value) => value != null)
   @IsUUID()
   vendor_id?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @ValidateIf(
-    (dto: PatchVehiclePurchaseDto) =>
-      dto.seller_type === VehiclePurchaseSellerType.CUSTOMER,
-  )
+  @ValidateIf((_, value) => value != null)
   @IsUUID()
   customer_id?: string | null;
 
@@ -101,6 +95,7 @@ export class PatchVehiclePurchaseDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((_, value) => value != null)
   @IsUUID()
   location_id?: string | null;
 }

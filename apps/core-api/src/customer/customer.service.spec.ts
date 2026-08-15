@@ -18,6 +18,8 @@ describe('CustomerService', () => {
     invoice: { count: jest.fn() },
     workshopOrder: { count: jest.fn() },
     vehicle: { count: jest.fn() },
+    vehiclePurchase: { count: jest.fn() },
+    vehicleSale: { count: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -42,6 +44,8 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
     mockPrisma.customer.deleteMany.mockResolvedValue({ id: 'c-1', count: 1 });
 
     await service.remove('c-1');
@@ -57,6 +61,20 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
+
+    await expect(service.remove('c-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('blocks delete when vehicle purchases or sales are linked', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.salesOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(1);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
 
     await expect(service.remove('c-1')).rejects.toThrow(BadRequestException);
   });
@@ -67,6 +85,8 @@ describe('CustomerService', () => {
     mockPrisma.invoice.count.mockResolvedValue(0);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.vehicle.count.mockResolvedValue(2);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
 
     await expect(service.remove('c-1')).rejects.toThrow(BadRequestException);
   });

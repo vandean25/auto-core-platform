@@ -20,7 +20,6 @@ import {
   Prisma,
   TransactionType,
   VehicleInventoryRole,
-  VehicleLedgerEntryType,
   VehicleStockStatus,
   WorkshopLineItemType,
   WorkshopOrderPurpose,
@@ -82,13 +81,14 @@ export class WorkshopService {
     private readonly vehicleLedger: VehicleLedgerService,
   ) {}
 
-  private async generateOrderNumber() {
+  private async generateOrderNumber(tx?: Prisma.TransactionClient) {
     const tenantId = await this.tenantContext.getTenantId();
     const currentYear = new Date().getFullYear();
     const prefix = `WO-${currentYear}-`;
+    const db = tx ?? this.prisma;
 
-    const settings = await this.prisma.$transaction(async (tx) => {
-      await tx.financeSettings.upsert({
+    const settings = await (async () => {
+      await db.financeSettings.upsert({
         where: { tenant_id: tenantId },
         update: {},
         create: {
@@ -104,7 +104,7 @@ export class WorkshopService {
         },
       });
 
-      return tx.financeSettings.update({
+      return db.financeSettings.update({
         where: { tenant_id: tenantId },
         data: {
           next_workshop_order_number: { increment: 1 },
@@ -114,7 +114,7 @@ export class WorkshopService {
           next_workshop_order_number: true,
         },
       });
-    });
+    })();
 
     const paddedSequence = String(
       settings.next_workshop_order_number - 1,
@@ -135,70 +135,27 @@ export class WorkshopService {
     return WorkshopOrderStatus.IN_PROGRESS;
   }
 
-  private async completeStockPrepIfNeeded(
+  private async applyDerivedOrderStatus(
     tx: Prisma.TransactionClient,
     tenantId: string,
     orderId: string,
+    nextOrderStatus: WorkshopOrderStatus,
   ) {
-    const order = await tx.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: {
-        vehicle: true,
-        tasks: { include: { line_items: true } },
-      },
-    });
-    if (!order || order.purpose !== WorkshopOrderPurpose.STOCK_PREP) {
-      return;
-    }
-
-    const alreadyPosted = await tx.vehicleLedgerEntry.findFirst({
+    const updateResult = await tx.workshopOrder.updateMany({
       where: {
+        id: orderId,
         tenant_id: tenantId,
-        workshop_order_id: orderId,
-        entry_type: VehicleLedgerEntryType.WORKSHOP_COST,
+        status: { not: WorkshopOrderStatus.INVOICED },
       },
+      data: { status: nextOrderStatus },
     });
-    if (alreadyPosted) {
-      return;
+    if (updateResult.count === 0) {
+      return false;
     }
-
-    const amount = (order.tasks ?? [])
-      .flatMap((task) => task.line_items ?? [])
-      .reduce((sum, line) => {
-        if (
-          line.type === WorkshopLineItemType.LABOR &&
-          line.internal_cost_rate
-        ) {
-          const hours =
-            line.actual_hours ?? line.standard_aw ?? line.quantity;
-          return sum.add(hours.mul(line.internal_cost_rate));
-        }
-        return sum.add(line.quantity.mul(line.unit_price));
-      }, new Prisma.Decimal(0));
-
-    if (amount.gt(0)) {
-      await this.vehicleLedger.append(
-        {
-          vehicleId: order.vehicle_id,
-          entryType: VehicleLedgerEntryType.WORKSHOP_COST,
-          amount,
-          workshopOrderId: order.id,
-        },
-        tx,
-      );
+    if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
+      await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
     }
-
-    const restoreStatus = order.vehicle?.reserved_for_customer_id
-      ? VehicleStockStatus.RESERVED
-      : VehicleStockStatus.IN_STOCK;
-    await tx.vehicle.updateMany({
-      where: {
-        id: order.vehicle_id,
-        tenant_id: tenantId,
-        stock_status: VehicleStockStatus.IN_PREP,
-      },
-      data: { stock_status: restoreStatus },
-    });
+    return true;
   }
 
   private assertOrderEditable(status: WorkshopOrderStatus) {
@@ -461,45 +418,54 @@ export class WorkshopService {
           'Stock prep requires the vehicle to be in stock',
         );
       }
-      await this.prisma.vehicle.updateMany({
-        where: {
-          id: vehicle.id,
-          tenant_id: tenantId,
-          stock_status: {
-            in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
-          },
-        },
-        data: { stock_status: VehicleStockStatus.IN_PREP },
-      });
     }
 
-    const orderNumber = await this.generateOrderNumber();
+    const order = await this.prisma.$transaction(async (tx) => {
+      if (purpose === WorkshopOrderPurpose.STOCK_PREP) {
+        const flipped = await tx.vehicle.updateMany({
+          where: {
+            id: vehicle.id,
+            tenant_id: tenantId,
+            stock_status: {
+              in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
+            },
+          },
+          data: { stock_status: VehicleStockStatus.IN_PREP },
+        });
+        if (flipped.count === 0) {
+          throw new ConflictException(
+            'Vehicle is no longer available for stock prep',
+          );
+        }
+      }
 
-    const order = await this.prisma.workshopOrder.create({
-      data: {
-        tenant_id: tenantId,
-        order_number: orderNumber,
-        purpose,
-        customer_id:
-          purpose === WorkshopOrderPurpose.CUSTOMER_REPAIR
-            ? dto.customerId
-            : null,
-        vehicle_id: dto.vehicleId,
-        odometer: dto.odometer,
-        fuel_level: dto.fuelLevel,
-        reported_issue: dto.reportedIssue,
-        notes: dto.notes,
-        status: WorkshopOrderStatus.INTAKE,
-      },
-      include: {
-        customer: true,
-        vehicle: true,
-        tasks: {
-          include: {
-            line_items: true,
+      const orderNumber = await this.generateOrderNumber(tx);
+      return tx.workshopOrder.create({
+        data: {
+          tenant_id: tenantId,
+          order_number: orderNumber,
+          purpose,
+          customer_id:
+            purpose === WorkshopOrderPurpose.CUSTOMER_REPAIR
+              ? dto.customerId
+              : null,
+          vehicle_id: dto.vehicleId,
+          odometer: dto.odometer,
+          fuel_level: dto.fuelLevel,
+          reported_issue: dto.reportedIssue,
+          notes: dto.notes,
+          status: WorkshopOrderStatus.INTAKE,
+        },
+        include: {
+          customer: true,
+          vehicle: true,
+          tasks: {
+            include: {
+              line_items: true,
+            },
           },
         },
-      },
+      });
     });
 
     return this.normalizeWorkshopOrder(order);
@@ -698,14 +664,13 @@ export class WorkshopService {
       ];
       const nextOrderStatus = this.deriveOrderStatus(allTaskStatuses);
       if (nextOrderStatus !== order.status) {
-        const updateResult = await tx.workshopOrder.updateMany({
-          where: {
-            id: orderId,
-            status: { not: WorkshopOrderStatus.INVOICED },
-          },
-          data: { status: nextOrderStatus },
-        });
-        if (updateResult.count === 0) {
+        const applied = await this.applyDerivedOrderStatus(
+          tx,
+          tenantId,
+          orderId,
+          nextOrderStatus,
+        );
+        if (!applied) {
           return {
             ...task,
             done: task.status === WorkshopTaskStatus.DONE,
@@ -777,18 +742,14 @@ export class WorkshopService {
       const nextOrderStatus = this.deriveOrderStatus(
         tasks.map((t) => t.status),
       );
-      const updateResult = await tx.workshopOrder.updateMany({
-        where: {
-          id: orderId,
-          status: { not: WorkshopOrderStatus.INVOICED },
-        },
-        data: { status: nextOrderStatus },
-      });
-      if (updateResult.count === 0) {
+      const updateResult = await this.applyDerivedOrderStatus(
+        tx,
+        tenantId,
+        orderId,
+        nextOrderStatus,
+      );
+      if (!updateResult) {
         return;
-      }
-      if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
-        await this.completeStockPrepIfNeeded(tx, tenantId, orderId);
       }
     });
 
@@ -841,13 +802,7 @@ export class WorkshopService {
       const nextOrderStatus = this.deriveOrderStatus(
         tasks.map((existingTask) => existingTask.status),
       );
-      await tx.workshopOrder.updateMany({
-        where: {
-          id: orderId,
-          status: { not: WorkshopOrderStatus.INVOICED },
-        },
-        data: { status: nextOrderStatus },
-      });
+      await this.applyDerivedOrderStatus(tx, tenantId, orderId, nextOrderStatus);
     });
 
     return this.findOne(orderId);

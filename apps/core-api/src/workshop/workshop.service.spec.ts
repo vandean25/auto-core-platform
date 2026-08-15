@@ -90,6 +90,7 @@ describe('WorkshopService', () => {
 
   const mockVehicleLedger = {
     append: jest.fn(),
+    completeStockPrep: jest.fn(),
   };
 
   const mockTenantContext = {
@@ -194,7 +195,11 @@ describe('WorkshopService', () => {
     });
 
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
+      where: {
+        id: 'wo-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: { not: WorkshopOrderStatus.INVOICED },
+      },
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
   });
@@ -271,7 +276,11 @@ describe('WorkshopService', () => {
       where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001' },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: 'wo-1', status: { not: WorkshopOrderStatus.INVOICED } },
+      where: {
+        id: 'wo-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: { not: WorkshopOrderStatus.INVOICED },
+      },
       data: { status: WorkshopOrderStatus.INTAKE },
     });
   });

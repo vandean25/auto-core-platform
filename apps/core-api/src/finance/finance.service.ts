@@ -47,9 +47,14 @@ export class FinanceService {
    * Validates if a transaction date is allowed.
    * Transactions occurring on or before the lock_date are blocked.
    */
-  async validateTransactionDate(date: Date) {
-    const settings = await this.getSettings();
-    if (settings.lock_date && date <= settings.lock_date) {
+  async validateTransactionDate(date: Date, tx?: Prisma.TransactionClient) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const db = tx ?? this.prisma;
+    const settings = await db.financeSettings.findFirst({
+      where: { tenant_id: tenantId },
+      select: { lock_date: true },
+    });
+    if (settings?.lock_date && date <= settings.lock_date) {
       throw new ForbiddenException(
         `Transaction date ${date.toISOString()} is in a locked fiscal period (Locked up to ${settings.lock_date.toISOString()})`,
       );

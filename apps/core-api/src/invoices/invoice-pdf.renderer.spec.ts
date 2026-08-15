@@ -84,12 +84,12 @@ describe('InvoicePdfRenderer', () => {
       tax_mode: 'MARGIN_SCHEME',
     });
 
-    expect(page.setContent).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
-      ),
-      expect.any(Object),
+    const html = page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain(
+      'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
     );
+    expect(html).not.toContain('<span>Tax:</span>');
+    expect(html).not.toContain('<span>Net:</span>');
   });
 
   it('omits the margin legal line for standard invoices', async () => {

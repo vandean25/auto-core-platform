@@ -29,19 +29,37 @@ export default function VehicleSalePage() {
   const vehicleId = existing?.vehicle_id || vehicleIdFromQuery
   const { data: vehicle } = useVehicleStockDetail(vehicleId)
   const createSale = useCreateVehicleSale()
-  const updateSale = useUpdateVehicleSale(isNew ? '' : id)
+  const [saleId, setSaleId] = useState(isNew ? '' : id)
+  const updateSale = useUpdateVehicleSale(saleId)
   const finalizeSale = useFinalizeVehicleSale()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [salePrice, setSalePrice] = useState('')
-  const [saleId, setSaleId] = useState(isNew ? '' : id)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const skipNextSave = useRef(true)
+  const lastSavedSerialized = useRef<string | null>(null)
+  const createSaleRef = useRef(createSale)
+  const updateSaleRef = useRef(updateSale)
+  createSaleRef.current = createSale
+  updateSaleRef.current = updateSale
 
   useEffect(() => {
     if (!existing) return
-    skipNextSave.current = true
     setSaleId(existing.id)
     setSalePrice(String(existing.sale_price))
+    lastSavedSerialized.current = JSON.stringify({
+      vehicle_id: existing.vehicle_id,
+      customer_id: existing.customer_id,
+      sale_price: Number(existing.sale_price),
+    })
+    if (existing.customer) {
+      setCustomer({
+        id: existing.customer.id,
+        type: existing.customer.type,
+        first_name: existing.customer.first_name,
+        last_name: existing.customer.last_name,
+        company_name: existing.customer.company_name ?? undefined,
+        email: existing.customer.email ?? '',
+      })
+    }
   }, [existing])
 
   const isDraft = !existing || existing.status === 'DRAFT'
@@ -50,27 +68,31 @@ export default function VehicleSalePage() {
 
   useEffect(() => {
     if (!isDraft || !vehicleId || !customerId || !priceNumber) return
-    if (skipNextSave.current) {
-      skipNextSave.current = false
-      return
-    }
+    const serialized = JSON.stringify({
+      vehicle_id: vehicleId,
+      customer_id: customerId,
+      sale_price: priceNumber,
+    })
+    if (serialized === lastSavedSerialized.current) return
     const handle = window.setTimeout(() => {
       void (async () => {
         setSaveStatus('saving')
         try {
           if (!saleId) {
-            const created = await createSale.mutateAsync({
+            const created = await createSaleRef.current.mutateAsync({
               vehicle_id: vehicleId,
               customer_id: customerId,
               sale_price: priceNumber,
             })
             setSaleId(created.id)
+            lastSavedSerialized.current = serialized
             navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
           } else {
-            await updateSale.mutateAsync({
+            await updateSaleRef.current.mutateAsync({
               customer_id: customerId,
               sale_price: priceNumber,
             })
+            lastSavedSerialized.current = serialized
           }
           setSaveStatus('saved')
         } catch (error) {
@@ -80,16 +102,7 @@ export default function VehicleSalePage() {
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [
-    isDraft,
-    vehicleId,
-    customerId,
-    priceNumber,
-    saleId,
-    createSale,
-    updateSale,
-    navigate,
-  ])
+  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate])
 
   const finalize = async () => {
     if (!saleId) return

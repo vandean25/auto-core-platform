@@ -246,6 +246,16 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ title: 'TÜV and polish' })
       .expect(201);
 
+    const polishSku = `POLISH-${Date.now()}`;
+    await prisma.catalogItem.create({
+      data: {
+        sku: polishSku,
+        name: 'Polish',
+        cost_price: 180,
+        retail_price: 500,
+      },
+    });
+
     await request(app.getHttpServer())
       .patch(
         `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
@@ -255,7 +265,7 @@ describe('Vehicle stock trading (e2e)', () => {
         items: [
           {
             type: 'PART',
-            itemNo: 'POLISH',
+            itemNo: polishSku,
             description: 'Polish',
             qty: 1,
             unitPrice: 500,
@@ -279,7 +289,7 @@ describe('Vehicle stock trading (e2e)', () => {
       where: { vehicle_id: vehicleId, entry_type: 'WORKSHOP_COST' },
     });
     expect(costs).toHaveLength(1);
-    expect(Number(costs[0].amount)).toBe(500);
+    expect(Number(costs[0].amount)).toBe(180);
 
     const invoices = await prisma.invoice.count({
       where: { vehicle_id: vehicleId },
@@ -397,6 +407,115 @@ describe('Vehicle stock trading (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/api/vehicle-purchases/${createRes.body.id}/receive`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ lock_date: null })
+      .expect(200);
+  });
+
+  it('rejects a cross-tenant vendor on purchase create', async () => {
+    const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
+    const foreignVendor = await otherPrisma.vendor.create({
+      data: {
+        name: 'Other Tenant Cars',
+        email: 'other-vendor@cars.test',
+        account_number: 'VC-OTHER',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/vehicle-purchases')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        seller_type: 'VENDOR',
+        vendor_id: foreignVendor.id,
+        vin: vin('XTV01'),
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2018,
+        purchase_price: 10000,
+      })
+      .expect(404);
+  });
+
+  it('rejects a sale against another tenant vehicle', async () => {
+    const { received } = await createAndReceive({
+      vin: vin('XTS01'),
+      sellerType: 'VENDOR',
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .send({
+        vehicle_id: received.vehicle_id,
+        customer_id: buyerId,
+        sale_price: 12000,
+      })
+      .expect(404);
+  });
+
+  it('reserves a stock vehicle for a same-tenant customer', async () => {
+    const { received } = await createAndReceive({
+      vin: vin('RSV01'),
+      sellerType: 'VENDOR',
+    });
+    const vehicleId = received.vehicle_id as string;
+
+    const reserved = await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ reserved_for_customer_id: buyerId })
+      .expect(200);
+
+    expect(reserved.body.stock_status).toBe('RESERVED');
+    expect(reserved.body.reserved_for_customer.id).toBe(buyerId);
+
+    const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
+    const foreignBuyer = await otherPrisma.customer.create({
+      data: {
+        first_name: 'Foreign',
+        last_name: 'Buyer',
+        email: 'foreign-buyer@test.com',
+        type: 'PRIVATE',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${vehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ reserved_for_customer_id: foreignBuyer.id })
+      .expect(404);
+  });
+
+  it('rejects sale finalize when the posting date is fiscally locked', async () => {
+    const { received } = await createAndReceive({
+      vin: vin('LOCK02'),
+      sellerType: 'VENDOR',
+    });
+
+    const saleRes = await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicle_id: received.vehicle_id,
+        customer_id: buyerId,
+        sale_price: 12000,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ lock_date: '2026-12-31T00:00:00.000Z' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(403);
 

@@ -160,9 +160,7 @@ export default function VehicleStockDetail() {
               <tbody>
                 {vehicle.ledger_entries.map((entry) => (
                   <tr key={entry.id} className="border-t">
-                    <td className="py-2">
-                      <StatusBadge status={entry.entry_type} />
-                    </td>
+                    <td className="py-2">{entry.entry_type}</td>
                     <td className="py-2 text-right">{formatCurrency(entry.amount)}</td>
                   </tr>
                 ))}

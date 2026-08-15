@@ -25,6 +25,7 @@ import {
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 import { VoiceTranslationService } from '../voice-translation/voice-translation.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
@@ -197,6 +198,7 @@ export class MechanicService {
     private readonly eventEmitter: EventEmitter2,
     private readonly mediaStorage: MechanicMediaStorage,
     private readonly voiceTranslationService: VoiceTranslationService,
+    private readonly vehicleLedger: VehicleLedgerService,
   ) {
     this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
   }
@@ -969,6 +971,7 @@ export class MechanicService {
           },
           data: { status: WorkshopOrderStatus.COMPLETED },
         });
+        await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
       }
     });
 

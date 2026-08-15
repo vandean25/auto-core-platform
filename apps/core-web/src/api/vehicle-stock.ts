@@ -92,6 +92,14 @@ export type VehiclePurchase = {
   purchase_price: string | number
   location_id: string | null
   vehicle_id: string | null
+  customer?: {
+    id: string
+    type: 'PRIVATE' | 'COMPANY'
+    first_name: string
+    last_name: string
+    company_name?: string | null
+    email?: string | null
+  } | null
 }
 
 export type VehicleSale = {
@@ -104,6 +112,14 @@ export type VehicleSale = {
   cost_basis_preview?: string | number
   margin_vat_preview?: string | number
   invoice?: { id: string; invoice_number: string | null; tax_mode: string }
+  customer?: {
+    id: string
+    type: 'PRIVATE' | 'COMPANY'
+    first_name: string
+    last_name: string
+    company_name?: string | null
+    email?: string | null
+  } | null
 }
 
 export type CreateVehiclePurchaseInput = {
