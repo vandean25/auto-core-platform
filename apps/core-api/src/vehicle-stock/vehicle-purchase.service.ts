@@ -133,8 +133,8 @@ export class VehiclePurchaseService {
       location_id: dto.location_id,
     });
 
-    return this.prisma.vehiclePurchase.update({
-      where: { id },
+    const updated = await this.prisma.vehiclePurchase.updateMany({
+      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
       data: {
         seller_type: dto.seller_type,
         vendor_id:
@@ -166,6 +166,10 @@ export class VehiclePurchaseService {
         location_id: dto.location_id,
       },
     });
+    if (updated.count === 0) {
+      throw new ConflictException('Only DRAFT purchases can be updated');
+    }
+    return this.findOne(id);
   }
 
   async receive(id: string) {

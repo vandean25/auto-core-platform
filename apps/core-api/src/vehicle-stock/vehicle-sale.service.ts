@@ -86,8 +86,8 @@ export class VehicleSaleService {
     if (dto.customer_id) {
       await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
     }
-    return this.prisma.vehicleSale.update({
-      where: { id },
+    const updated = await this.prisma.vehicleSale.updateMany({
+      where: { id, tenant_id: tenantId, status: VehicleSaleStatus.DRAFT },
       data: {
         customer_id: dto.customer_id,
         sale_price:
@@ -96,6 +96,10 @@ export class VehicleSaleService {
             : undefined,
       },
     });
+    if (updated.count === 0) {
+      throw new ConflictException('Only DRAFT sales can be updated');
+    }
+    return this.findOne(id);
   }
 
   async finalize(id: string) {
@@ -124,24 +128,32 @@ export class VehicleSaleService {
         throw new ConflictException('Sale is not in DRAFT status');
       }
 
+      const posted = await tx.vehicleSale.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: { vehicle: true, customer: true },
+      });
+      if (!posted) {
+        throw new NotFoundException(`Vehicle sale ${id} not found`);
+      }
+
       const entries = await tx.vehicleLedgerEntry.findMany({
-        where: { tenant_id: tenantId, vehicle_id: sale.vehicle_id },
+        where: { tenant_id: tenantId, vehicle_id: posted.vehicle_id },
       });
       const basis = costBasis(entries);
-      const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
-      const net = sale.sale_price.sub(vat);
+      const vat = marginVatGross(posted.sale_price, basis, DEFAULT_VAT_RATE);
+      const net = posted.sale_price.sub(vat);
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 14);
 
       const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
-      const description = `${sale.vehicle.year} ${sale.vehicle.make} ${sale.vehicle.model} VIN ${sale.vehicle.vin ?? ''}`.trim();
+      const description = `${posted.vehicle.year} ${posted.vehicle.make} ${posted.vehicle.model} VIN ${posted.vehicle.vin ?? ''}`.trim();
 
       const invoice = await tx.invoice.create({
         data: {
           tenant_id: tenantId,
-          customer_id: sale.customer_id,
-          vehicle_id: sale.vehicle_id,
-          vehicle_sale_id: sale.id,
+          customer_id: posted.customer_id,
+          vehicle_id: posted.vehicle_id,
+          vehicle_sale_id: posted.id,
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
@@ -149,15 +161,15 @@ export class VehicleSaleService {
           due_date: dueDate,
           total_net: net,
           total_tax: vat,
-          total_gross: sale.sale_price,
+          total_gross: posted.sale_price,
           items: {
             create: {
               tenant_id: tenantId,
               description,
               quantity: new Prisma.Decimal(1),
-              unit_price: sale.sale_price,
+              unit_price: posted.sale_price,
               tax_rate: DEFAULT_VAT_RATE,
-              line_total: sale.sale_price,
+              line_total: posted.sale_price,
               revenue_group_name: MARGIN_REVENUE_GROUP,
             },
           },
@@ -172,7 +184,7 @@ export class VehicleSaleService {
       });
 
       await tx.vehicleSale.update({
-        where: { id: sale.id },
+        where: { id: posted.id },
         data: {
           cost_basis_snapshot: basis,
           margin_vat_snapshot: vat,
@@ -181,7 +193,7 @@ export class VehicleSaleService {
 
       const stockGuard = await tx.vehicle.updateMany({
         where: {
-          id: sale.vehicle_id,
+          id: posted.vehicle_id,
           tenant_id: tenantId,
           inventory_role: VehicleInventoryRole.USED,
           stock_status: { in: SELLABLE_STATUSES },
@@ -189,7 +201,7 @@ export class VehicleSaleService {
         data: {
           stock_status: null,
           inventory_role: VehicleInventoryRole.CUSTOMER,
-          customer_id: sale.customer_id,
+          customer_id: posted.customer_id,
           reserved_for_customer_id: null,
         },
       });
@@ -199,16 +211,16 @@ export class VehicleSaleService {
 
       await this.ledger.append(
         {
-          vehicleId: sale.vehicle_id,
+          vehicleId: posted.vehicle_id,
           entryType: VehicleLedgerEntryType.SALE,
-          amount: sale.sale_price.negated(),
-          vehicleSaleId: sale.id,
+          amount: posted.sale_price.negated(),
+          vehicleSaleId: posted.id,
         },
         tx,
       );
 
       return {
-        ...sale,
+        ...posted,
         status: VehicleSaleStatus.INVOICED,
         invoice: { ...invoice, snapshot },
       };

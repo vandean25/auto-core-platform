@@ -28,18 +28,14 @@ export default function VehicleSalePage() {
   const { data: existing } = useVehicleSale(id)
   const vehicleId = existing?.vehicle_id || vehicleIdFromQuery
   const { data: vehicle } = useVehicleStockDetail(vehicleId)
-  const createSale = useCreateVehicleSale()
+  const { mutateAsync: createSale } = useCreateVehicleSale()
   const [saleId, setSaleId] = useState(isNew ? '' : id)
-  const updateSale = useUpdateVehicleSale(saleId)
+  const { mutateAsync: updateSale } = useUpdateVehicleSale(saleId)
   const finalizeSale = useFinalizeVehicleSale()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [salePrice, setSalePrice] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
-  const createSaleRef = useRef(createSale)
-  const updateSaleRef = useRef(updateSale)
-  createSaleRef.current = createSale
-  updateSaleRef.current = updateSale
 
   useEffect(() => {
     if (!existing) return
@@ -79,7 +75,7 @@ export default function VehicleSalePage() {
         setSaveStatus('saving')
         try {
           if (!saleId) {
-            const created = await createSaleRef.current.mutateAsync({
+            const created = await createSale({
               vehicle_id: vehicleId,
               customer_id: customerId,
               sale_price: priceNumber,
@@ -88,7 +84,7 @@ export default function VehicleSalePage() {
             lastSavedSerialized.current = serialized
             navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
           } else {
-            await updateSaleRef.current.mutateAsync({
+            await updateSale({
               customer_id: customerId,
               sale_price: priceNumber,
             })
@@ -102,7 +98,7 @@ export default function VehicleSalePage() {
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate])
+  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale])
 
   const finalize = async () => {
     if (!saleId) return

@@ -630,6 +630,7 @@ model VehicleSale {
   updatedAt            DateTime          @updatedAt
 
   @@index([tenant_id])
+  @@unique([tenant_id, id])
   @@unique([tenant_id, sale_number])
   @@map("vehicle_sales")
 }
@@ -740,8 +741,8 @@ model Invoice {
   sales_order    SalesOrder?   @relation(fields: [tenant_id, sales_order_id], references: [tenant_id, id])
   workshop_order_id String?
   workshop_order  WorkshopOrder? @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id])
-  vehicle_sale_id String?        @unique
-  vehicle_sale    VehicleSale?   @relation(fields: [vehicle_sale_id], references: [id])
+  vehicle_sale_id String?
+  vehicle_sale    VehicleSale?   @relation(fields: [tenant_id, vehicle_sale_id], references: [tenant_id, id])
   tax_mode       InvoiceTaxMode @default(STANDARD)
   
   status         InvoiceStatus @default(DRAFT)

@@ -121,7 +121,7 @@ export class VehicleLedgerService {
         if (!line.internal_cost_rate) {
           return sum;
         }
-        const hours = line.actual_hours ?? line.standard_aw ?? line.quantity;
+        const hours = line.actual_hours ?? line.quantity;
         return sum.add(hours.mul(line.internal_cost_rate));
       }
       const unitCost = costBySku.get(line.item_no);

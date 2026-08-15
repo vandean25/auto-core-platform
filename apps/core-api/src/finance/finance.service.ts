@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { InvoiceTaxMode, Prisma } from '@prisma/client';
 import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
 import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
 import { TenantContextService } from '../common/services/tenant-context.service';
@@ -97,15 +97,26 @@ export class FinanceService {
         revenue_group_name: true,
         quantity: true,
         unit_price: true,
+        invoice: {
+          select: { id: true, tax_mode: true, total_net: true },
+        },
       },
     });
 
     const revenueByGroup: Record<string, number> = {};
     let total = 0;
+    const seenMarginInvoices = new Set<string>();
 
     items.forEach((item) => {
       const group = item.revenue_group_name || 'Other';
-      const value = Number(item.quantity) * Number(item.unit_price);
+      let value = Number(item.quantity) * Number(item.unit_price);
+      if (item.invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+        if (seenMarginInvoices.has(item.invoice.id)) {
+          return;
+        }
+        seenMarginInvoices.add(item.invoice.id);
+        value = Number(item.invoice.total_net);
+      }
       revenueByGroup[group] = (revenueByGroup[group] || 0) + value;
       total += value;
     });

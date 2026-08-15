@@ -75,19 +75,15 @@ export default function VehiclePurchasePage() {
   const navigate = useNavigate()
   const isNew = id === 'new'
   const { data: existing } = useVehiclePurchase(id)
-  const createPurchase = useCreateVehiclePurchase()
+  const { mutateAsync: createPurchase } = useCreateVehiclePurchase()
   const [purchaseId, setPurchaseId] = useState(isNew ? '' : id)
-  const updatePurchase = useUpdateVehiclePurchase(purchaseId)
+  const { mutateAsync: updatePurchase } = useUpdateVehiclePurchase(purchaseId)
   const receivePurchase = useReceiveVehiclePurchase()
   const { data: vendorsResponse } = useVendors({ page: 1, pageSize: 50, filters: [] })
   const [form, setForm] = useState<PurchaseForm>(emptyForm)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
-  const createPurchaseRef = useRef(createPurchase)
-  const updatePurchaseRef = useRef(updatePurchase)
-  createPurchaseRef.current = createPurchase
-  updatePurchaseRef.current = updatePurchase
 
   useEffect(() => {
     if (!existing) return
@@ -131,12 +127,12 @@ export default function VehiclePurchasePage() {
         setSaveStatus('saving')
         try {
           if (!purchaseId) {
-            const created = await createPurchaseRef.current.mutateAsync(payload)
+            const created = await createPurchase(payload)
             setPurchaseId(created.id)
             lastSavedSerialized.current = serialized
             navigate(`/vehicle-stock/purchases/${created.id}`, { replace: true })
           } else {
-            await updatePurchaseRef.current.mutateAsync(payload)
+            await updatePurchase(payload)
             lastSavedSerialized.current = serialized
           }
           setSaveStatus('saved')
@@ -147,7 +143,7 @@ export default function VehiclePurchasePage() {
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [payload, isDraft, purchaseId, navigate])
+  }, [payload, isDraft, purchaseId, navigate, createPurchase, updatePurchase])
 
   const receive = async () => {
     if (!purchaseId) return

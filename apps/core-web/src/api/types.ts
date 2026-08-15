@@ -150,6 +150,7 @@ export interface Invoice {
     total_net: string
     total_tax: string
     total_gross: string
+    tax_mode?: 'STANDARD' | 'MARGIN_SCHEME'
     global_discount_type?: DiscountType | null
     global_discount_value?: number | string | null
     notes?: string

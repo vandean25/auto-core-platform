@@ -282,6 +282,24 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ status: 'DONE' })
       .expect(200);
 
+    await request(app.getHttpServer())
+      .patch(
+        `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        items: [
+          {
+            type: 'PART',
+            itemNo: polishSku,
+            description: 'Polish',
+            qty: 2,
+            unitPrice: 500,
+          },
+        ],
+      })
+      .expect(400);
+
     const restored = await prisma.vehicle.findFirst({ where: { id: vehicleId } });
     expect(restored?.stock_status).toBe('IN_STOCK');
 

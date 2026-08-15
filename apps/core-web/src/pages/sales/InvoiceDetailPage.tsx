@@ -394,24 +394,38 @@ export default function InvoiceDetailPage() {
               </Table>
 
               <div className="mt-6 ml-auto w-full max-w-xs space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Net</span>
-                  <span>{formatCurrency(Number(invoice.total_net))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>{formatCurrency(Number(invoice.total_tax))}</span>
-                </div>
-                {totalSavings > 0 && (
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-emerald-700">Total Savings</span>
-                    <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
-                  </div>
+                {invoice.tax_mode === 'MARGIN_SCHEME' ? (
+                  <>
+                    <div className="flex justify-between border-t pt-2 font-semibold">
+                      <span>Total</span>
+                      <span>{formatCurrency(Number(invoice.total_gross))}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Net</span>
+                      <span>{formatCurrency(Number(invoice.total_net))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tax</span>
+                      <span>{formatCurrency(Number(invoice.total_tax))}</span>
+                    </div>
+                    {totalSavings > 0 && (
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-emerald-700">Total Savings</span>
+                        <span className="font-semibold text-emerald-700">-{formatCurrency(totalSavings)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t pt-2 font-semibold">
+                      <span>Total</span>
+                      <span>{formatCurrency(Number(invoice.total_gross))}</span>
+                    </div>
+                  </>
                 )}
-                <div className="flex justify-between border-t pt-2 font-semibold">
-                  <span>Total</span>
-                  <span>{formatCurrency(Number(invoice.total_gross))}</span>
-                </div>
               </div>
             </CardContent>
           </Card>

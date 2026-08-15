@@ -963,7 +963,7 @@ export class MechanicService {
       }
 
       if (allOtherTasksDone) {
-        await tx.workshopOrder.updateMany({
+        const completed = await tx.workshopOrder.updateMany({
           where: {
             id: orderId,
             tenant_id: tenantId,
@@ -971,7 +971,9 @@ export class MechanicService {
           },
           data: { status: WorkshopOrderStatus.COMPLETED },
         });
-        await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
+        if (completed.count > 0) {
+          await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
+        }
       }
     });
 

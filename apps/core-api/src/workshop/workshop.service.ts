@@ -158,9 +158,20 @@ export class WorkshopService {
     return true;
   }
 
-  private assertOrderEditable(status: WorkshopOrderStatus) {
-    if (status === WorkshopOrderStatus.INVOICED) {
+  private assertOrderEditable(order: {
+    status: WorkshopOrderStatus;
+    purpose?: WorkshopOrderPurpose | null;
+  }) {
+    if (order.status === WorkshopOrderStatus.INVOICED) {
       throw new BadRequestException('Workshop order is already invoiced');
+    }
+    if (
+      order.purpose === WorkshopOrderPurpose.STOCK_PREP &&
+      order.status === WorkshopOrderStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        'Completed stock-prep orders cannot be edited',
+      );
     }
   }
 
@@ -606,7 +617,7 @@ export class WorkshopService {
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const existing = await this.findOne(id);
-    this.assertOrderEditable(existing.status);
+    this.assertOrderEditable(existing);
 
     const updated = await this.prisma.workshopOrder.update({
       where: { id },
@@ -644,7 +655,7 @@ export class WorkshopService {
       if (!order) {
         throw new NotFoundException(`Workshop order ${orderId} not found`);
       }
-      this.assertOrderEditable(order.status);
+      this.assertOrderEditable(order);
 
       const task = await tx.workshopTask.create({
         data: {
@@ -706,6 +717,7 @@ export class WorkshopService {
           workshop_order: {
             select: {
               status: true,
+              purpose: true,
               invoice: { select: { id: true, invoice_number: true } },
             },
           },
@@ -715,7 +727,7 @@ export class WorkshopService {
       if (!task) {
         throw new NotFoundException(`Task ${taskId} not found for this order`);
       }
-      this.assertOrderEditable(task.workshop_order.status);
+      this.assertOrderEditable(task.workshop_order);
 
       const taskUpdate = await tx.workshopTask.updateMany({
         where: {
@@ -769,6 +781,7 @@ export class WorkshopService {
           workshop_order: {
             select: {
               status: true,
+              purpose: true,
               invoice: { select: { id: true, invoice_number: true } },
             },
           },
@@ -778,7 +791,7 @@ export class WorkshopService {
       if (!task) {
         throw new NotFoundException(`Task ${taskId} not found for this order`);
       }
-      this.assertOrderEditable(task.workshop_order.status);
+      this.assertOrderEditable(task.workshop_order);
 
       if (task.workshop_order.invoice) {
         throw new BadRequestException(
@@ -824,6 +837,7 @@ export class WorkshopService {
         workshop_order: {
           select: {
             status: true,
+            purpose: true,
             invoice: { select: { id: true, invoice_number: true } },
           },
         },
@@ -833,7 +847,7 @@ export class WorkshopService {
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found for this order`);
     }
-    this.assertOrderEditable(task.workshop_order.status);
+    this.assertOrderEditable(task.workshop_order);
 
     // Validate labor operations belong to the current tenant
     const laborOperationIds = [
