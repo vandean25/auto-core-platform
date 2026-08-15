@@ -110,6 +110,10 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
           queryKey: ['dashboard-widget-data', sourceKey],
           refetchType: 'active',
         })
+        void queryClient.invalidateQueries({
+          queryKey: [sourceKey],
+          refetchType: 'active',
+        })
       }
     }
 

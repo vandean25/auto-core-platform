@@ -15,7 +15,7 @@ tags:
 
 ## Summary
 
-> The Vehicle module provides a centralized registry of customer vehicles tracked across the platform. Vehicles are the physical assets that connect customers to workshop orders, sales orders, and invoices. Each vehicle records make, model, year, engine code, VIN, and license plate, enabling the Fitment Engine to filter compatible parts and labor operations. Vehicles are created during workshop intake or customer management, and their detail page serves as a hub showing all related orders and service history.
+> The Vehicle module provides a centralized registry of vehicles tracked across the platform. Each row is the **VIN master**: make, model, year, engine code, VIN, and license plate. For **customer/service cars** (`inventory_role = CUSTOMER`) this remains a CRM identity that connects owners to workshop orders, parts sales, and invoices, and drives the Fitment Engine. The same table is also the stock identity for dealer-owned cars — see [Vehicle Stock Trading](vehicle-stock-trading.md) and ADR-0016. Do not create a second vehicle table. Vehicles are created during workshop intake, customer management, or (for stock) vehicle purchase receive.
 
 ---
 
@@ -173,6 +173,8 @@ This module does not use a status state machine. Vehicles are reference entities
 
 ## References
 
+- ADR-0016: Vehicle Stock Is a Parallel Ledger Domain — same `Vehicle` row can be `USED` stock; CRM list at `/vehicles` is not the stock list
+- Feature Spec: `vehicle-stock-trading.md`
 - ADR-0005: Deletion Policy — Blocked (Conditional) for Vehicle
 - ADR-0006: Form Auto-Save — vehicle detail uses save-on-blur for inline edits
 - ADR-0001: Prisma Real-Time Sync — `VEHICLE` in `SUPPORTED_ENTITY_TYPES`

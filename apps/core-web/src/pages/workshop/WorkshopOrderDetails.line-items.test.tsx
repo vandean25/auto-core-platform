@@ -21,6 +21,7 @@ vi.mock('sonner', () => ({
 const baseOrder = {
   id: 'order-1',
   order_number: 'WO-001',
+  purpose: 'CUSTOMER_REPAIR' as const,
   status: 'IN_PROGRESS' as const,
   customer_id: 'cust-1',
   customer: {

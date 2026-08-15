@@ -19,7 +19,11 @@ import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-tas
 import {
   Prisma,
   TransactionType,
+  VehicleInventoryRole,
+  VehicleLedgerEntryType,
+  VehicleStockStatus,
   WorkshopLineItemType,
+  WorkshopOrderPurpose,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
@@ -28,6 +32,7 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { LedgerService } from '../inventory/ledger.service';
 import type { RecordTransactionParams } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -73,6 +78,8 @@ export class WorkshopService {
     @Inject(LedgerService) private ledgerService: LedgerService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(VehicleLedgerService)
+    private readonly vehicleLedger: VehicleLedgerService,
   ) {}
 
   private async generateOrderNumber() {
@@ -126,6 +133,72 @@ export class WorkshopService {
       return WorkshopOrderStatus.INTAKE;
     }
     return WorkshopOrderStatus.IN_PROGRESS;
+  }
+
+  private async completeStockPrepIfNeeded(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+  ) {
+    const order = await tx.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      include: {
+        vehicle: true,
+        tasks: { include: { line_items: true } },
+      },
+    });
+    if (!order || order.purpose !== WorkshopOrderPurpose.STOCK_PREP) {
+      return;
+    }
+
+    const alreadyPosted = await tx.vehicleLedgerEntry.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_order_id: orderId,
+        entry_type: VehicleLedgerEntryType.WORKSHOP_COST,
+      },
+    });
+    if (alreadyPosted) {
+      return;
+    }
+
+    const amount = (order.tasks ?? [])
+      .flatMap((task) => task.line_items ?? [])
+      .reduce((sum, line) => {
+        if (
+          line.type === WorkshopLineItemType.LABOR &&
+          line.internal_cost_rate
+        ) {
+          const hours =
+            line.actual_hours ?? line.standard_aw ?? line.quantity;
+          return sum.add(hours.mul(line.internal_cost_rate));
+        }
+        return sum.add(line.quantity.mul(line.unit_price));
+      }, new Prisma.Decimal(0));
+
+    if (amount.gt(0)) {
+      await this.vehicleLedger.append(
+        {
+          vehicleId: order.vehicle_id,
+          entryType: VehicleLedgerEntryType.WORKSHOP_COST,
+          amount,
+          workshopOrderId: order.id,
+        },
+        tx,
+      );
+    }
+
+    const restoreStatus = order.vehicle?.reserved_for_customer_id
+      ? VehicleStockStatus.RESERVED
+      : VehicleStockStatus.IN_STOCK;
+    await tx.vehicle.updateMany({
+      where: {
+        id: order.vehicle_id,
+        tenant_id: tenantId,
+        stock_status: VehicleStockStatus.IN_PREP,
+      },
+      data: { stock_status: restoreStatus },
+    });
   }
 
   private assertOrderEditable(status: WorkshopOrderStatus) {
@@ -358,18 +431,47 @@ export class WorkshopService {
 
   async create(dto: CreateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const [customer, vehicle] = await Promise.all([
-      this.prisma.customer.findFirst({
-        where: { id: dto.customerId, tenant_id: tenantId },
-      }),
-      this.prisma.vehicle.findFirst({
-        where: { id: dto.vehicleId, tenant_id: tenantId },
-      }),
-    ]);
-    if (!customer)
-      throw new NotFoundException(`Customer ${dto.customerId} not found`);
+    const purpose = dto.purpose ?? WorkshopOrderPurpose.CUSTOMER_REPAIR;
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: dto.vehicleId, tenant_id: tenantId },
+    });
     if (!vehicle)
       throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
+
+    if (purpose === WorkshopOrderPurpose.CUSTOMER_REPAIR) {
+      if (!dto.customerId) {
+        throw new BadRequestException('customerId is required');
+      }
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: dto.customerId, tenant_id: tenantId },
+      });
+      if (!customer)
+        throw new NotFoundException(`Customer ${dto.customerId} not found`);
+    } else {
+      if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
+        throw new BadRequestException(
+          'Stock prep requires a used dealer-stock vehicle',
+        );
+      }
+      if (
+        vehicle.stock_status !== VehicleStockStatus.IN_STOCK &&
+        vehicle.stock_status !== VehicleStockStatus.RESERVED
+      ) {
+        throw new BadRequestException(
+          'Stock prep requires the vehicle to be in stock',
+        );
+      }
+      await this.prisma.vehicle.updateMany({
+        where: {
+          id: vehicle.id,
+          tenant_id: tenantId,
+          stock_status: {
+            in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
+          },
+        },
+        data: { stock_status: VehicleStockStatus.IN_PREP },
+      });
+    }
 
     const orderNumber = await this.generateOrderNumber();
 
@@ -377,7 +479,11 @@ export class WorkshopService {
       data: {
         tenant_id: tenantId,
         order_number: orderNumber,
-        customer_id: dto.customerId,
+        purpose,
+        customer_id:
+          purpose === WorkshopOrderPurpose.CUSTOMER_REPAIR
+            ? dto.customerId
+            : null,
         vehicle_id: dto.vehicleId,
         odometer: dto.odometer,
         fuel_level: dto.fuelLevel,
@@ -680,6 +786,9 @@ export class WorkshopService {
       });
       if (updateResult.count === 0) {
         return;
+      }
+      if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
+        await this.completeStockPrepIfNeeded(tx, tenantId, orderId);
       }
     });
 
@@ -1152,6 +1261,16 @@ export class WorkshopService {
   }
 
   async createInvoiceFromOrder(orderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const order = await this.prisma.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: { purpose: true },
+    });
+    if (order?.purpose === WorkshopOrderPurpose.STOCK_PREP) {
+      throw new BadRequestException(
+        'Stock-prep workshop orders cannot be invoiced to a customer',
+      );
+    }
     return this.invoicesService.createDraftInvoice(orderId);
   }
 
@@ -1364,13 +1483,15 @@ export class WorkshopService {
         id: order.id,
         orderNumber: order.order_number,
         status: order.status,
-        customer: {
-          id: order.customer.id,
-          type: order.customer.type,
-          firstName: order.customer.first_name,
-          lastName: order.customer.last_name,
-          companyName: order.customer.company_name,
-        },
+        customer: order.customer
+          ? {
+              id: order.customer.id,
+              type: order.customer.type,
+              firstName: order.customer.first_name,
+              lastName: order.customer.last_name,
+              companyName: order.customer.company_name,
+            }
+          : null,
         vehicle: {
           id: order.vehicle.id,
           make: order.vehicle.make,

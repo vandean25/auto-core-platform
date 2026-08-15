@@ -2982,6 +2982,385 @@
         ]
       }
     },
+    "/api/vehicle-purchases": {
+      "post": {
+        "operationId": "VehiclePurchaseController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehiclePurchaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      },
+      "get": {
+        "operationId": "VehiclePurchaseController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      }
+    },
+    "/api/vehicle-purchases/{id}": {
+      "get": {
+        "operationId": "VehiclePurchaseController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      },
+      "patch": {
+        "operationId": "VehiclePurchaseController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehiclePurchaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      }
+    },
+    "/api/vehicle-purchases/{id}/receive": {
+      "post": {
+        "operationId": "VehiclePurchaseController_receive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      }
+    },
+    "/api/vehicle-purchases/{id}/cancel": {
+      "post": {
+        "operationId": "VehiclePurchaseController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
+      }
+    },
+    "/api/vehicle-sales": {
+      "post": {
+        "operationId": "VehicleSaleController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
+    "/api/vehicle-sales/{id}": {
+      "get": {
+        "operationId": "VehicleSaleController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      },
+      "patch": {
+        "operationId": "VehicleSaleController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehicleSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
+    "/api/vehicle-sales/{id}/finalize": {
+      "post": {
+        "operationId": "VehicleSaleController_finalize",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
+    "/api/vehicle-stock": {
+      "get": {
+        "operationId": "VehicleStockController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stock_status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/{vehicleId}": {
+      "get": {
+        "operationId": "VehicleStockController_detail",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-stock"
+        ]
+      },
+      "patch": {
+        "operationId": "VehicleStockController_patch",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVehicleStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/mechanic/queue": {
       "get": {
         "operationId": "MechanicController_getQueue",
@@ -5244,7 +5623,8 @@
               "shelf",
               "bin",
               "customer_storage",
-              "staging_tote"
+              "staging_tote",
+              "vehicle_lot"
             ]
           },
           "parent_id": {
@@ -5294,7 +5674,8 @@
               "shelf",
               "bin",
               "customer_storage",
-              "staging_tote"
+              "staging_tote",
+              "vehicle_lot"
             ]
           },
           "parent_id": {
@@ -5352,7 +5733,8 @@
               "shelf",
               "bin",
               "customer_storage",
-              "staging_tote"
+              "staging_tote",
+              "vehicle_lot"
             ]
           },
           "parent_id": {
@@ -6106,8 +6488,16 @@
               "INVOICED"
             ]
           },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER_REPAIR",
+              "STOCK_PREP"
+            ]
+          },
           "customer_id": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "vehicle_id": {
             "type": "string"
@@ -6139,7 +6529,13 @@
             "nullable": true
           },
           "customer": {
-            "$ref": "#/components/schemas/WorkshopCustomerSummaryDto"
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopCustomerSummaryDto"
+              }
+            ]
           },
           "vehicle": {
             "$ref": "#/components/schemas/WorkshopVehicleSummaryDto"
@@ -6166,11 +6562,10 @@
           "id",
           "order_number",
           "status",
-          "customer_id",
+          "purpose",
           "vehicle_id",
           "odometer",
           "fuel_level",
-          "customer",
           "vehicle",
           "tasks",
           "createdAt",
@@ -6565,7 +6960,13 @@
             ]
           },
           "customer": {
-            "$ref": "#/components/schemas/BoardCustomerDto"
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoardCustomerDto"
+              }
+            ]
           },
           "vehicle": {
             "$ref": "#/components/schemas/BoardVehicleDto"
@@ -6610,7 +7011,6 @@
           "id",
           "orderNumber",
           "status",
-          "customer",
           "vehicle",
           "partsStatus",
           "tasks",
@@ -6665,6 +7065,177 @@
         "required": [
           "workshopOrderId"
         ]
+      },
+      "CreateVehiclePurchaseDto": {
+        "type": "object",
+        "properties": {
+          "seller_type": {
+            "type": "string",
+            "enum": [
+              "VENDOR",
+              "CUSTOMER"
+            ]
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "mileage": {
+            "type": "number"
+          },
+          "key_number": {
+            "type": "string"
+          },
+          "registration_certificate_no": {
+            "type": "string"
+          },
+          "purchase_price": {
+            "type": "number"
+          },
+          "location_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "seller_type",
+          "vin",
+          "make",
+          "model",
+          "year",
+          "purchase_price"
+        ]
+      },
+      "PatchVehiclePurchaseDto": {
+        "type": "object",
+        "properties": {
+          "seller_type": {
+            "type": "string",
+            "enum": [
+              "VENDOR",
+              "CUSTOMER"
+            ]
+          },
+          "vendor_id": {
+            "type": "object"
+          },
+          "customer_id": {
+            "type": "object"
+          },
+          "vin": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "mileage": {
+            "type": "number"
+          },
+          "key_number": {
+            "type": "string"
+          },
+          "registration_certificate_no": {
+            "type": "string"
+          },
+          "purchase_price": {
+            "type": "number"
+          },
+          "location_id": {
+            "type": "object"
+          }
+        }
+      },
+      "CreateVehicleSaleDto": {
+        "type": "object",
+        "properties": {
+          "vehicle_id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "sale_price": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "customer_id",
+          "sale_price"
+        ]
+      },
+      "PatchVehicleSaleDto": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string"
+          },
+          "sale_price": {
+            "type": "number"
+          }
+        }
+      },
+      "PatchVehicleStockDto": {
+        "type": "object",
+        "properties": {
+          "location_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "reserved_for_customer_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "mileage": {
+            "type": "number"
+          },
+          "color": {
+            "type": "string"
+          },
+          "key_number": {
+            "type": "string"
+          },
+          "registration_certificate_no": {
+            "type": "string"
+          }
+        }
       },
       "MechanicVehicleDto": {
         "type": "object",

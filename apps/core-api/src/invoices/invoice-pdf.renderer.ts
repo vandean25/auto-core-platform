@@ -142,6 +142,7 @@ export class InvoicePdfRenderer {
           .total-row.grand { font-weight: 800; font-size: 13px; border-top: 1px solid #d1d5db; margin-top: 8px; padding-top: 10px; }
 
           .notes-container { break-inside: avoid; white-space: pre-wrap; margin-top: 26px; }
+          .legal-line { margin-top: 24px; font-size: 10px; color: #374151; }
         </style>
       </head>
       <body>
@@ -208,6 +209,14 @@ export class InvoicePdfRenderer {
             <span>${this.escapeHtml(snapshot.total_gross)}</span>
           </div>
         </div>
+
+        ${
+          snapshot.tax_mode === 'MARGIN_SCHEME'
+            ? `
+          <div class="legal-line">Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).</div>
+        `
+            : ''
+        }
 
         ${
           snapshot.notes

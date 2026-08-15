@@ -81,6 +81,11 @@ export class InvoicesService {
       });
 
       try {
+        if (!order.customer_id) {
+          throw new BadRequestException(
+            'Workshop order has no customer to invoice',
+          );
+        }
         return await tx.invoice.create({
           data: {
             tenant_id: tenantId,

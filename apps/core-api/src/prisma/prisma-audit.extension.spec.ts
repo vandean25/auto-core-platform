@@ -828,6 +828,9 @@ describe('Prisma Audit Extension', () => {
       expect(AUDITED_MODELS.has('RevenueGroup')).toBe(true);
       expect(AUDITED_MODELS.has('StorageLocation')).toBe(true);
       expect(AUDITED_MODELS.has('Brand')).toBe(true);
+      expect(AUDITED_MODELS.has('VehiclePurchase')).toBe(true);
+      expect(AUDITED_MODELS.has('VehicleSale')).toBe(true);
+      expect(AUDITED_MODELS.has('VehicleLedgerEntry')).toBe(true);
 
       expect(AUDITED_MODELS.has('AuditLog')).toBe(false);
       expect(AUDITED_MODELS.has('Tenant')).toBe(false);

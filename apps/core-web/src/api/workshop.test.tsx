@@ -28,6 +28,7 @@ function createWorkshopOrder(overrides: Partial<WorkshopOrder> = {}): WorkshopOr
     id: overrides.id ?? 'order-1',
     order_number: overrides.order_number ?? 'WO-2026-0001',
     status: overrides.status ?? 'INTAKE',
+    purpose: overrides.purpose ?? 'CUSTOMER_REPAIR',
     customer_id: 'customer-1',
     customer: {
       id: 'customer-1',

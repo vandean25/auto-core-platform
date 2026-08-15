@@ -37,8 +37,11 @@ Snapshotting occurs at a specific, well-defined moment for each document type:
 | **Sales Invoice** | `SalesOrder` status transitions from `COMPLETED` → `INVOICED`, which creates the `Invoice` entity and its `InvoiceItem` lines in a single atomic transaction. | `SalesOrderItem` fields (which themselves reference `CatalogItem` and `RevenueGroup`) |
 | **Workshop Invoice** | `WorkshopOrder` status transitions from `COMPLETED` → `INVOICED`. The workshop invoice snapshots both parts (from `WorkshopTaskLineItem`) and labor (from `LaborOperation`). | `WorkshopTaskLineItem` and `LaborOperation` fields |
 | **Purchase Invoice** | `PurchaseInvoice` is created manually against a `PurchaseOrder`. Snapshotting occurs when `PurchaseInvoiceLine` records are created. | `PurchaseOrderItem` fields (which reference `CatalogItem`) |
+| **Vehicle Sale Invoice** | `VehicleSale` status transitions from `DRAFT` → `INVOICED` (ADR-0016). Creates `Invoice` with `tax_mode = MARGIN_SCHEME` (phase A) and `vehicle_sale_id`. | Vehicle identity (make/model/year/VIN), `sale_price`, frozen `cost_basis_snapshot` / `margin_vat_snapshot` |
 
-> **Note:** Invoices are never created independently of a source document (SalesOrder, WorkshopOrder, or PurchaseOrder). There is no "direct creation" path that bypasses a parent document.
+> **Note:** Invoices are never created independently of a source document (SalesOrder, WorkshopOrder, PurchaseOrder, or VehicleSale). There is no "direct creation" path that bypasses a parent document.
+
+**Amendment 2026-08-15 (ADR-0016):** Used-vehicle sales reuse `Invoice` rather than a second invoice engine. `Invoice.tax_mode` distinguishes standard VAT from Differenzbesteuerung. Margin VAT is computed from the vehicle ledger cost basis, not from line `unit_price * tax_rate`. PDF rendering must read `tax_mode` and must not recompute tax from live master data.
 
 ### 2. Key Snapshotted Fields
 

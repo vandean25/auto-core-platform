@@ -24,6 +24,7 @@ const partsStatusBorder: Record<PartsStatus, string> = {
 }
 
 function getCustomerName(order: BoardOrder): string {
+  if (!order.customer) return 'Dealer stock'
   if (order.customer.type === 'COMPANY' && order.customer.companyName) {
     return order.customer.companyName
   }

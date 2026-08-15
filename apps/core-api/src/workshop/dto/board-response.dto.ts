@@ -146,8 +146,8 @@ export class BoardOrderDto {
   @ApiProperty({ enum: WorkshopOrderStatus })
   status!: WorkshopOrderStatus;
 
-  @ApiProperty({ type: () => BoardCustomerDto })
-  customer!: BoardCustomerDto;
+  @ApiProperty({ type: () => BoardCustomerDto, required: false, nullable: true })
+  customer?: BoardCustomerDto | null;
 
   @ApiProperty({ type: () => BoardVehicleDto })
   vehicle!: BoardVehicleDto;

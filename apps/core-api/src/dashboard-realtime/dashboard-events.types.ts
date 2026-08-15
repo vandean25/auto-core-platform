@@ -13,7 +13,9 @@ export type DashboardEntityType =
   | 'CATALOG_ITEM'
   | 'CUSTOMER'
   | 'VENDOR'
-  | 'VEHICLE';
+  | 'VEHICLE'
+  | 'VEHICLE_PURCHASE'
+  | 'VEHICLE_SALE';
 
 export type DashboardEntityAction = 'CREATED' | 'UPDATED' | 'DELETED';
 

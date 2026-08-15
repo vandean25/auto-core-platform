@@ -24,6 +24,7 @@ async function generatePDFs() {
     total_tax: '200.00',
     total_gross: '1200.00',
     notes: 'Standard notes',
+    tax_mode: 'STANDARD' as const,
     customer: {
       type: CustomerType.COMPANY,
       company_name: 'Risk Corp',

@@ -9,6 +9,7 @@ function normalizePhone(phone: string) {
 }
 
 function getCustomerName(order: WorkshopOrder) {
+  if (!order.customer) return 'Dealer stock'
   if (order.customer.type === 'COMPANY' && order.customer.company_name) {
     return order.customer.company_name
   }
@@ -75,7 +76,7 @@ export function CustomerVehicleInfo({
   bayName?: string | null
 }) {
   const customerName = getCustomerName(order)
-  const customerPhone = order.customer.phone ?? ''
+  const customerPhone = order.customer?.phone ?? ''
 
   return (
     <>
@@ -124,7 +125,7 @@ export function CustomerVehicleInfo({
         <CardContent className='space-y-3 text-sm'>
           <div>
             <div className='font-medium'>{customerName}</div>
-            <div className='text-muted-foreground'>{order.customer.email}</div>
+            <div className='text-muted-foreground'>{order.customer?.email}</div>
           </div>
           <div>
             <div className='text-muted-foreground'>Phone</div>

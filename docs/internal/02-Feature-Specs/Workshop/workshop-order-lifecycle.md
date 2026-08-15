@@ -15,7 +15,7 @@ tags:
 
 ## Summary
 
-> The Workshop module manages the intake, repair sequence, labor allocation, and completion of vehicle servicing. It unifies customer CRM data, vehicle data, inventory parts, and standardized labor operations into a cohesive "Workshop Order". This module also includes asynchronous, background PDF generation for printing professional Job Cards for mechanics and customer receipts.
+> The Workshop module manages the intake, repair sequence, labor allocation, and completion of vehicle servicing. It unifies customer CRM data, vehicle data, inventory parts, and standardized labor operations into a cohesive "Workshop Order". Orders with `purpose = STOCK_PREP` (ADR-0016) run on dealer-owned stock cars: they **must not** create a customer invoice; costs post to `VehicleLedgerEntry` as `WORKSHOP_COST`. This module also includes asynchronous, background PDF generation for printing professional Job Cards for mechanics and customer receipts.
 
 ---
 
@@ -34,7 +34,7 @@ tags:
 
 | Table | Purpose | Key Constraints / Notes |
 |-------|---------|-------------------------|
-| `WorkshopOrder` | Master document for a workshop visit | Links to `Customer` and `Vehicle`. Tracks `status`, `odometer`, `fuel_level` and generated PDF. |
+| `WorkshopOrder` | Master document for a workshop visit | Links to `Customer` (required for `CUSTOMER_REPAIR`; optional for `STOCK_PREP` — ADR-0016) and `Vehicle`. Tracks `status`, `purpose`, `odometer`, `fuel_level` and generated PDF. |
 | `WorkshopTask` | A specific job within the order (e.g., "Replace Brakes") | Belongs to `WorkshopOrder`. Has its own sub-status (`NOT_STARTED` -> `DONE`). |
 | `WorkshopTaskLineItem`| Parts or Labor consumed by the task | Represents either a `PART` (SKU referenced) or `LABOR` (code referenced). Tracks `quantity` and `unit_price`. |
 

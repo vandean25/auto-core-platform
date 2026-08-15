@@ -22,11 +22,11 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InventoryStock | No | Derived operational state; managed by ledger operations. |
 | InventoryTransaction | No | Immutable audit trail; never deleted. |
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
-| Vendor | Conditional | Allow only when no `PurchaseOrder` and no `PurchaseInvoice` references exist. |
+| Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | PurchaseOrder | Draft-only | Allow only in `DRAFT` and only if no received quantity and no purchase invoice links. |
 | PurchaseOrderItem | No direct delete | Managed by parent `PurchaseOrder` lifecycle. |
-| Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, and no linked `Vehicle`. |
-| Vehicle | Conditional (future) | Should be blocked if linked to orders/invoices/workshop records. |
+| Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
+| Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, or `VehicleLedgerEntry`. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
@@ -48,6 +48,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopVoiceNoteDraft | No direct delete | Immutable audit-support record for voice-note transcription/translation acceptance history; status transitions (`PENDING` -> `ACCEPTED`) only. Records may be removed only by parent `WorkshopTask` cascade deletion. |
 | LaborEntry | No | Immutable audit trail of mechanic time intervals; never hard-deleted through the API. The nightly close-out job may set `ended_at` and `pause_reason = AUTO_SHIFT_CLOSE` on open entries, but does not delete records. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
+| VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. |
+| VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. |
+| VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
 | Employee | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.mechanic_id` references this employee. |

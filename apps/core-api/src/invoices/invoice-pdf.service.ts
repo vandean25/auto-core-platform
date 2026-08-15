@@ -404,6 +404,13 @@ export class InvoicePdfService {
     if (!isString(v.total_tax)) return false;
     if (!isString(v.total_gross)) return false;
     if (!isNullableString(v.notes)) return false;
+    if (
+      v.tax_mode !== undefined &&
+      v.tax_mode !== 'STANDARD' &&
+      v.tax_mode !== 'MARGIN_SCHEME'
+    ) {
+      return false;
+    }
 
     if (!isNullableObject(v.customer)) return false;
     const customer = v.customer as Record<string, unknown>;

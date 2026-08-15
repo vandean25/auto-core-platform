@@ -26,6 +26,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { LaborModule } from './labor/labor.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { VehicleModule } from './vehicle/vehicle.module';
+import { VehicleStockModule } from './vehicle-stock/vehicle-stock.module';
 import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime.module';
 import { EmployeeModule } from './employee/employee.module';
 import { BayModule } from './bay/bay.module';
@@ -53,6 +54,7 @@ import { AuditModule } from './audit/audit.module';
     LaborModule,
     CatalogModule,
     VehicleModule,
+    VehicleStockModule,
     DashboardRealtimeModule,
     EmployeeModule,
     BayModule,

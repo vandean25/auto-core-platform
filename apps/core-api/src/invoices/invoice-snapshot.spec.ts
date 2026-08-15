@@ -3,6 +3,7 @@ import {
   CustomerType,
   Prisma,
   InvoiceStatus,
+  InvoiceTaxMode,
   DiscountType,
 } from '@prisma/client';
 
@@ -15,7 +16,7 @@ describe('Invoice Snapshot Integrity', () => {
     notes: 'Thank you for your business',
     customer: {
       id: 'cust-1',
-      type: CustomerType.INDIVIDUAL,
+      type: CustomerType.PRIVATE,
       first_name: 'John',
       last_name: 'Doe',
       email: 'john@example.com',
@@ -39,6 +40,8 @@ describe('Invoice Snapshot Integrity', () => {
     global_discount_value: null,
     internal_notes: null,
     snapshot: null,
+    tax_mode: InvoiceTaxMode.STANDARD,
+    vehicle_sale_id: null,
     pdf_storage_bucket: null,
     pdf_storage_key: null,
     pdf_generated_at: null,

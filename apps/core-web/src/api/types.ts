@@ -426,12 +426,13 @@ export interface CatalogSearchResponse {
 }
 
 export interface CreateWorkshopOrderPayload {
-    customerId: string
+    customerId?: string
     vehicleId: string
     odometer: number
     fuelLevel: number
     reportedIssue?: string
     notes?: string
+    purpose?: 'CUSTOMER_REPAIR' | 'STOCK_PREP'
 }
 
 export interface RegisterIntakePayload {

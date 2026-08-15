@@ -884,6 +884,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehiclePurchaseController_findAll"];
+        put?: never;
+        post: operations["VehiclePurchaseController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-purchases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehiclePurchaseController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["VehiclePurchaseController_updateDraft"];
+        trace?: never;
+    };
+    "/api/vehicle-purchases/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehiclePurchaseController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-purchases/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehiclePurchaseController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleSaleController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-sales/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleSaleController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["VehicleSaleController_updateDraft"];
+        trace?: never;
+    };
+    "/api/vehicle-sales/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleSaleController_finalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleStockController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/{vehicleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleStockController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["VehicleStockController_patch"];
+        trace?: never;
+    };
     "/api/mechanic/queue": {
         parameters: {
             query?: never;
@@ -1497,7 +1641,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
             parent_id?: string | null;
         };
         LocationCountsDto: {
@@ -1509,7 +1653,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
             parent_id?: string | null;
             parent?: components["schemas"]["LocationParentResponseDto"];
             _count?: components["schemas"]["LocationCountsDto"];
@@ -1524,7 +1668,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
             parent_id?: string | null;
             parent?: components["schemas"]["LocationParentResponseDto"];
             _count?: components["schemas"]["LocationCountsDto"];
@@ -1715,7 +1859,9 @@ export interface components {
             order_number: string;
             /** @enum {string} */
             status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
-            customer_id: string;
+            /** @enum {string} */
+            purpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
+            customer_id?: string | null;
             vehicle_id: string;
             odometer: number;
             fuel_level: number;
@@ -1724,7 +1870,7 @@ export interface components {
             notes?: string | null;
             staging_location_id?: string | null;
             stagingLocationId?: string | null;
-            customer: components["schemas"]["WorkshopCustomerSummaryDto"];
+            customer?: components["schemas"]["WorkshopCustomerSummaryDto"] | null;
             vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
             invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
@@ -1835,7 +1981,7 @@ export interface components {
             orderNumber: string;
             /** @enum {string} */
             status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
-            customer: components["schemas"]["BoardCustomerDto"];
+            customer?: components["schemas"]["BoardCustomerDto"] | null;
             vehicle: components["schemas"]["BoardVehicleDto"];
             mechanicId?: string | null;
             bayId?: string | null;
@@ -1862,6 +2008,59 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        CreateVehiclePurchaseDto: {
+            /** @enum {string} */
+            seller_type: "VENDOR" | "CUSTOMER";
+            vendor_id?: string;
+            customer_id?: string;
+            vin: string;
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string;
+            plate?: string;
+            color?: string;
+            mileage?: number;
+            key_number?: string;
+            registration_certificate_no?: string;
+            purchase_price: number;
+            location_id?: string;
+        };
+        PatchVehiclePurchaseDto: {
+            /** @enum {string} */
+            seller_type?: "VENDOR" | "CUSTOMER";
+            vendor_id?: Record<string, never>;
+            customer_id?: Record<string, never>;
+            vin?: string;
+            make?: string;
+            model?: string;
+            year?: number;
+            engine_code?: string;
+            plate?: string;
+            color?: string;
+            mileage?: number;
+            key_number?: string;
+            registration_certificate_no?: string;
+            purchase_price?: number;
+            location_id?: Record<string, never>;
+        };
+        CreateVehicleSaleDto: {
+            vehicle_id: string;
+            customer_id: string;
+            sale_price: number;
+        };
+        PatchVehicleSaleDto: {
+            customer_id?: string;
+            sale_price?: number;
+        };
+        PatchVehicleStockDto: {
+            location_id?: Record<string, never> | null;
+            reserved_for_customer_id?: Record<string, never> | null;
+            mileage?: number;
+            color?: string;
+            key_number?: string;
+            registration_certificate_no?: string;
         };
         MechanicVehicleDto: {
             id: string;
@@ -4593,6 +4792,276 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>;
                 };
+            };
+        };
+    };
+    VehiclePurchaseController_findAll: {
+        parameters: {
+            query: {
+                search: string;
+                page: string;
+                limit: string;
+                pageSize: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePurchaseController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehiclePurchaseDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePurchaseController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePurchaseController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehiclePurchaseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePurchaseController_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehiclePurchaseController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleSaleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleSaleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_finalize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleStockController_list: {
+        parameters: {
+            query: {
+                search: string;
+                stock_status: string;
+                page: string;
+                limit: string;
+                pageSize: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleStockController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleStockController_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchVehicleStockDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

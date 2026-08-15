@@ -42,6 +42,10 @@ const CustomerList = React.lazy(() => import('./pages/customers/CustomerList'))
 const CustomerDetail = React.lazy(() => import('./pages/customers/CustomerDetail'))
 const VehicleDetail = React.lazy(() => import('./pages/vehicles/VehicleDetail'))
 const VehicleList = React.lazy(() => import('./pages/vehicles/VehicleList'))
+const VehicleStockList = React.lazy(() => import('./pages/vehicle-stock/VehicleStockList'))
+const VehicleStockDetail = React.lazy(() => import('./pages/vehicle-stock/VehicleStockDetail'))
+const VehiclePurchasePage = React.lazy(() => import('./pages/vehicle-stock/VehiclePurchasePage'))
+const VehicleSalePage = React.lazy(() => import('./pages/vehicle-stock/VehicleSalePage'))
 const SalesOrderList = React.lazy(() => import('./pages/sales-orders/SalesOrderList'))
 const SalesOrderCreate = React.lazy(() => import('./pages/sales-orders/SalesOrderCreate'))
 const SalesOrderDetail = React.lazy(() => import('./pages/sales-orders/SalesOrderDetail'))
@@ -72,6 +76,12 @@ function AppRoutes() {
               <Route path="/customers/:id" element={<CustomerDetail />} />
               <Route path="/vehicles" element={<VehicleList />} />
               <Route path="/vehicles/:id" element={<VehicleDetail />} />
+              <Route path="/vehicle-stock" element={<VehicleStockList />} />
+              <Route path="/vehicle-stock/purchases/new" element={<VehiclePurchasePage />} />
+              <Route path="/vehicle-stock/purchases/:id" element={<VehiclePurchasePage />} />
+              <Route path="/vehicle-stock/sales/new" element={<VehicleSalePage />} />
+              <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+              <Route path="/vehicle-stock/:vehicleId" element={<VehicleStockDetail />} />
               <Route path="/sales-orders" element={<SalesOrderList />} />
               <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
               <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />

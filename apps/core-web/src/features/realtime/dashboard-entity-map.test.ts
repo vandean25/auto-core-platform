@@ -6,6 +6,9 @@ describe('dashboard realtime entity mapping', () => {
     expect(getDashboardSourceKeysForEntityType('PURCHASE_ORDER')).toEqual(['purchase-orders'])
     expect(getDashboardSourceKeysForEntityType('WORKSHOP_ORDER')).toEqual(['workshop-orders'])
     expect(getDashboardSourceKeysForEntityType('CATALOG_ITEM')).toEqual(['inventory'])
+    expect(getDashboardSourceKeysForEntityType('VEHICLE')).toEqual(['vehicles', 'vehicle-stock'])
+    expect(getDashboardSourceKeysForEntityType('VEHICLE_PURCHASE')).toEqual(['vehicle-stock'])
+    expect(getDashboardSourceKeysForEntityType('VEHICLE_SALE')).toEqual(['vehicle-stock'])
   })
 
   it('validates entity_updated payload shape', () => {

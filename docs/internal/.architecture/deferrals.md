@@ -13,6 +13,107 @@ This document tracks architectural features, patterns, and complexity that have 
 
 ## Deferred Decisions
 
+### Vehicle trade-in (phase B)
+
+**Status**: Deferred
+**Deferred Date**: 2026-08-15
+**Category**: Architecture
+**Priority**: Medium
+
+**What Was Deferred**:
+Taking a customer's car as (part) payment on a vehicle sale and putting that VIN into used stock (`acquisition_kind = TRADE_IN`, `VehicleSale.trade_in_purchase_id`).
+
+**Original Proposal**:
+Incadea Sales Trade-In (table 5025442) linked to the vehicle sale, creating a used-vehicle purchase.
+
+**Rationale for Deferring**:
+- Current need score: 6/10 (explicit next phase after A)
+- Complexity score: 6/10 (valuation, net-to-pay invoice, VIN reuse of buyer's car)
+- Cost of waiting: Low if A leaves the FK and enum in schema
+- Phase A VIN reuse on purchase already covers the hard identity problem
+
+**Simpler Current Approach**:
+Buy used cars via `VehiclePurchase` `DIRECT` only. Schema includes unused `TRADE_IN` and nullable `trade_in_purchase_id`.
+
+**Trigger Conditions** (Implement when):
+- [ ] Phase A used buy-stock-sell is in production
+- [ ] Dealers need to net a trade-in against a stock sale on one invoice
+
+**Implementation Notes**:
+See ADR-0016 appendix and `vehicle-stock-trading.md` appendix B.
+
+**Related Documents**:
+- `docs/internal/01-ADR/2026-08-15-vehicle-stock-not-parts-inventory.md`
+- `docs/internal/02-Feature-Specs/Vehicle/vehicle-stock-trading.md`
+
+**Last Reviewed**: 2026-08-15
+
+### New vehicles from vendor (phase C)
+
+**Status**: Deferred
+**Deferred Date**: 2026-08-15
+**Category**: Architecture
+**Priority**: Medium
+
+**What Was Deferred**:
+New-car purchase orders from importer/vendor, `inventory_role = NEW`, standard VAT on sale, `ON_ORDER` before receive. OEM allocate/hold/factory options stay even later.
+
+**Original Proposal**:
+Incadea Vehicle Purchase with Vehicle Status New and standard posting groups.
+
+**Rationale for Deferring**:
+- Current need score: 5/10
+- Complexity score: 7/10 if OEM pipeline is included; 4/10 for basic vendor PO
+- Cost of waiting: Low — `NEW` and `STANDARD` tax_mode already on enums
+
+**Simpler Current Approach**:
+Used cars only (`USED` + `MARGIN`).
+
+**Trigger Conditions** (Implement when):
+- [ ] Phase A complete
+- [ ] Tenant sells new vehicles from a vendor/importer
+
+**Implementation Notes**:
+Reuse `VehiclePurchase` / `VehicleSale` / `Invoice.tax_mode = STANDARD`. Do not start with OEM hold queues.
+
+**Related Documents**:
+- ADR-0016
+
+**Last Reviewed**: 2026-08-15
+
+### Demo / company cars (phase D)
+
+**Status**: Deferred
+**Deferred Date**: 2026-08-15
+**Category**: Architecture
+**Priority**: Low
+
+**What Was Deferred**:
+Demo and company cars (`inventory_role = DEMO`): own use then sell, typically standard VAT.
+
+**Original Proposal**:
+Incadea Demo Vehicle status + demo posting group + Own Sale.
+
+**Rationale for Deferring**:
+- Current need score: 4/10
+- Complexity score: 5/10 (own-use, tax on sale of former demo)
+- Cost of waiting: Low — enum value reserved
+
+**Simpler Current Approach**:
+`STOCK_PREP` on `USED` stock covers prep; no demo role written in A.
+
+**Trigger Conditions** (Implement when):
+- [ ] Phase A (and preferably C) complete
+- [ ] Tenant keeps cars for own use before retail sale
+
+**Implementation Notes**:
+Accountant must confirm VAT on demo disposal. Workshop can keep using `STOCK_PREP`.
+
+**Related Documents**:
+- ADR-0016
+
+**Last Reviewed**: 2026-08-15
+
 ### Multiple Example Reviews (Phase 2B)
 
 **Status**: Deferred
@@ -1305,8 +1406,8 @@ Track deferral outcomes to improve decision-making:
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Total deferrals | 22 | All-time count (3 Phase 2B + 4 Phase 3B + 5 Phase 4B + 10 README docs) |
-| Active deferrals | 22 | Currently deferred |
+| Total deferrals | 25 | All-time count (3 Phase 2B + 4 Phase 3B + 5 Phase 4B + 10 README docs + 3 vehicle stock B/C/D) |
+| Active deferrals | 25 | Currently deferred |
 | Triggered awaiting implementation | 0 | Need to address |
 | Implemented | 0 | Were eventually needed |
 | Cancelled | 0 | Were never needed |

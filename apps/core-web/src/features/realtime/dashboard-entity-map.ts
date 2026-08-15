@@ -12,7 +12,9 @@ const entityToDashboardSourceKeys: Record<RealtimeEntityType, string[]> = {
   CATALOG_ITEM: ['inventory'],
   CUSTOMER: ['customers'],
   VENDOR: ['vendors'],
-  VEHICLE: ['vehicles'],
+  VEHICLE: ['vehicles', 'vehicle-stock'],
+  VEHICLE_PURCHASE: ['vehicle-stock'],
+  VEHICLE_SALE: ['vehicle-stock'],
 }
 
 export function getDashboardSourceKeysForEntityType(type: RealtimeEntityType): string[] {

@@ -67,6 +67,12 @@ export async function cleanupTestTenantGraph(
 ): Promise<void> {
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId) as PrismaService;
 
+  await tenantPrisma.vehicleLedgerEntry.deleteMany({});
+  await tenantPrisma.invoiceItem.deleteMany({});
+  await tenantPrisma.invoice.deleteMany({});
+  await tenantPrisma.invoiceSequence.deleteMany({});
+  await tenantPrisma.vehicleSale.deleteMany({});
+  await tenantPrisma.vehiclePurchase.deleteMany({});
   await tenantPrisma.purchaseInvoiceLine.deleteMany({});
   await tenantPrisma.purchaseInvoice.deleteMany({});
   await tenantPrisma.inventoryTransaction.deleteMany({});
