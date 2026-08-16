@@ -543,4 +543,120 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ lock_date: null })
       .expect(200);
   });
+
+  it('lists draft purchases as ON_ORDER rows on the stock list', async () => {
+    const draftVin = vin('DRAFT1');
+    const createRes = await request(app.getHttpServer())
+      .post('/api/vehicle-purchases')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        seller_type: 'VENDOR',
+        vendor_id: vendorId,
+        vin: draftVin,
+        make: 'Volkswagen',
+        model: 'Passat',
+        year: 2016,
+        purchase_price: 8000,
+      })
+      .expect(201);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/vehicle-stock')
+      .query({ search: draftVin })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const row = listRes.body.data.find((item: { vin: string }) => item.vin === draftVin);
+    expect(row).toMatchObject({
+      id: createRes.body.id,
+      draft_purchase_id: createRes.body.id,
+      stock_status: 'ON_ORDER',
+      make: 'Volkswagen',
+      model: 'Passat',
+      year: 2016,
+    });
+  });
+
+  it('sorts stock vehicles by year when sortField=year', async () => {
+    const older = await createAndReceive({
+      vin: vin('YRASC1'),
+      sellerType: 'VENDOR',
+    });
+    const newer = await createAndReceive({
+      vin: vin('YRASC2'),
+      sellerType: 'VENDOR',
+    });
+
+    await prisma.vehicle.update({
+      where: { id: older.received.vehicle_id },
+      data: { year: 2010 },
+    });
+    await prisma.vehicle.update({
+      where: { id: newer.received.vehicle_id },
+      data: { year: 2020 },
+    });
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/vehicle-stock')
+      .query({ sortField: 'year', sortDirection: 'asc', limit: '100' })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const years = listRes.body.data
+      .filter((item: { id: string }) =>
+        [older.received.vehicle_id, newer.received.vehicle_id].includes(item.id),
+      )
+      .map((item: { year: number }) => item.year);
+
+    expect(years).toEqual([2010, 2020]);
+  });
+
+  it('rejects an invalid stock_status filter with 400', async () => {
+    await request(app.getHttpServer())
+      .get('/api/vehicle-stock')
+      .query({ stock_status: 'NOT_A_STATUS' })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(400);
+  });
+
+  it('deletes a DRAFT purchase and refuses delete after receive', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/vehicle-purchases')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        seller_type: 'VENDOR',
+        vendor_id: vendorId,
+        vin: vin('DEL01'),
+        make: 'Volkswagen',
+        model: 'Polo',
+        year: 2015,
+        purchase_price: 5000,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete(`/api/vehicle-purchases/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/vehicle-purchases/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+
+    const { purchase } = await createAndReceive({
+      vin: vin('DEL02'),
+      sellerType: 'VENDOR',
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/api/vehicle-purchases/${purchase.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(409);
+
+    await request(app.getHttpServer())
+      .get(`/api/vehicle-purchases/${purchase.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+  });
 });

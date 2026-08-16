@@ -9,6 +9,7 @@ import {
   createMockPurchaseBill,
   createMockListResponse,
   createMockVehicleListItem,
+  createMockVehicleStockRow,
 } from './utils/mock-factories';
 
 /**
@@ -102,6 +103,14 @@ const modules: ModuleConfig[] = [
     seed: 'Toyota Corolla',
     mockFactory: () => createMockVehicleListItem({ make: 'Toyota', model: 'Corolla' }),
     apiPath: '/api/vehicles',
+  },
+  {
+    name: 'Vehicle Stock',
+    path: '/vehicle-stock',
+    entity: 'Vehicle',
+    seed: 'Volkswagen Golf',
+    mockFactory: () => createMockVehicleStockRow(),
+    apiPath: '/api/vehicle-stock',
   },
 ];
 

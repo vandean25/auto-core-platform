@@ -280,6 +280,28 @@ export class VehiclePurchaseService {
     return this.findOne(id);
   }
 
+  async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const purchase = await this.prisma.vehiclePurchase.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Vehicle purchase ${id} not found`);
+    }
+    if (purchase.status !== VehiclePurchaseStatus.DRAFT) {
+      throw new ConflictException('Only DRAFT purchases can be deleted');
+    }
+
+    const result = await this.prisma.vehiclePurchase.deleteMany({
+      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
+    });
+    if (result.count === 0) {
+      throw new ConflictException('Only DRAFT purchases can be deleted');
+    }
+    return { id };
+  }
+
   private assertSeller(dto: CreateVehiclePurchaseDto) {
     if (dto.seller_type === VehiclePurchaseSellerType.VENDOR && !dto.vendor_id) {
       throw new BadRequestException('vendor_id is required for vendor purchases');

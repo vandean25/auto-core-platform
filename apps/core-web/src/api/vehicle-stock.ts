@@ -33,6 +33,7 @@ export type VehicleStockRow = {
   stock_status: string | null
   inventory_role: string
   mileage: number | null
+  draft_purchase_id?: string | null
   location?: { id: string; name: string } | null
   reserved_for_customer?: {
     id: string
@@ -256,6 +257,22 @@ export function useReceiveVehiclePurchase() {
     },
     onSuccess: (purchase) => {
       queryClient.setQueryData(vehicleStockKeys.purchase(purchase.id), purchase)
+      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+    },
+  })
+}
+
+export function useDeleteVehiclePurchase() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchWithAuth(`/api/vehicle-purchases/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) await parseError(response, 'Failed to delete vehicle purchase')
+      return id
+    },
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
     },
   })

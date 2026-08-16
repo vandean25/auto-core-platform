@@ -88,6 +88,37 @@ export const createMockVehicleListItem = (overrides: Partial<MockVehicle & { cus
   ...overrides,
 });
 
+type MockVehicleStockRow = {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+  vin: string | null;
+  plate: string | null;
+  color: string | null;
+  stock_status: string | null;
+  inventory_role: string;
+  mileage: number | null;
+  draft_purchase_id?: string | null;
+};
+
+export const createMockVehicleStockRow = (
+  overrides: Partial<MockVehicleStockRow> = {},
+): MockVehicleStockRow => ({
+  id: 'stock-veh-123',
+  make: 'Volkswagen',
+  model: 'Golf',
+  year: 2018,
+  vin: 'WVWZZZ1JZXW000001',
+  plate: 'W-GO-2018',
+  color: 'Black',
+  stock_status: 'IN_STOCK',
+  inventory_role: 'USED',
+  mileage: 98000,
+  draft_purchase_id: null,
+  ...overrides,
+});
+
 export const createMockCustomer = (overrides: Partial<MockCustomer> = {}): MockCustomer => ({
   id: 'cust-123',
   type: 'PRIVATE',

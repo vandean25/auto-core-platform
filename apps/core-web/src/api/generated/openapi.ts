@@ -910,7 +910,7 @@ export interface paths {
         get: operations["VehiclePurchaseController_findOne"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["VehiclePurchaseController_remove"];
         options?: never;
         head?: never;
         patch: operations["VehiclePurchaseController_updateDraft"];
@@ -4857,6 +4857,25 @@ export interface operations {
             };
         };
     };
+    VehiclePurchaseController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     VehiclePurchaseController_updateDraft: {
         parameters: {
             query?: never;
@@ -5002,12 +5021,14 @@ export interface operations {
     };
     VehicleStockController_list: {
         parameters: {
-            query: {
-                search: string;
-                stock_status: string;
-                page: string;
-                limit: string;
-                pageSize: string;
+            query?: {
+                search?: string;
+                stock_status?: "ON_ORDER" | "IN_STOCK" | "RESERVED" | "IN_PREP" | "SOLD";
+                page?: number;
+                limit?: number;
+                pageSize?: number;
+                sortField?: string;
+                sortDirection?: "asc" | "desc";
             };
             header?: never;
             path?: never;
