@@ -293,6 +293,15 @@ export class VehiclePurchaseService {
       throw new ConflictException('Only DRAFT purchases can be deleted');
     }
 
+    const ledgerCount = await this.prisma.vehicleLedgerEntry.count({
+      where: { tenant_id: tenantId, vehicle_purchase_id: id },
+    });
+    if (ledgerCount > 0) {
+      throw new ConflictException(
+        'Vehicle purchase cannot be deleted because ledger entries exist',
+      );
+    }
+
     const result = await this.prisma.vehiclePurchase.deleteMany({
       where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
     });

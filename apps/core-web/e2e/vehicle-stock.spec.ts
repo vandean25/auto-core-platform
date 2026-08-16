@@ -52,7 +52,24 @@ test.describe('Blueprint: Vehicle Stock Module', () => {
     const draftTableRow = page.locator('[data-table-row="true"]').filter({ hasText: 'Audi A4' }).first();
     await draftTableRow.click({ button: 'right' });
     await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
-    await page.keyboard.press('Escape');
+
+    page.once('dialog', (dialog) => dialog.accept());
+    const deleteRequest = page.waitForRequest(
+      (req) =>
+        req.method() === 'DELETE' &&
+        req.url().includes('/api/vehicle-purchases/draft-purchase-123'),
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/vehicle-purchases/draft-purchase-123'),
+      async (route) => {
+        if (route.request().method() === 'DELETE') {
+          return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'draft-purchase-123' }) });
+        }
+        return route.fallback();
+      },
+    );
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await deleteRequest;
 
     const stockTableRow = page.locator('[data-table-row="true"]').filter({ hasText: 'Volkswagen Golf' }).first();
     await stockTableRow.click({ button: 'right' });
