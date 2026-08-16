@@ -290,3 +290,44 @@ Never commit real secret values or generated local `.env` files.
 ## Database Performance
 🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
 🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.
+
+## Cursor Cloud specific instructions
+
+This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the app `package.json` scripts; only the caveats below are cloud-specific. The startup update script already runs `npm ci` for both apps plus `prisma generate`.
+
+### Services
+- **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.
+- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires `apps/core-api/.env` (already created, gitignored) with `DATABASE_URL` and a base64 32-byte `SECRET_ENCRYPTION_KEY`; the process throws on startup if `SECRET_ENCRYPTION_KEY` is missing/invalid.
+- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. It proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
+
+### Postgres is not auto-started on boot
+`systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:
+```
+sudo pg_ctlcluster 16 main start
+```
+
+### Backend e2e tests must use a fresh, unseeded DB, serially
+CI runs e2e against an empty `auto_core_test` DB with `--ci --runInBand` (see `.github/workflows/build.yaml`). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm --prefix apps/core-api run test:e2e -- --ci --runInBand
+```
+Jest auto-sets `NODE_ENV=test`, which enables locally-signed test JWTs (no Firebase needed for tests). Unit tests (`npm test`) and the frontend Playwright e2e (`npm run test:e2e`, needs `npx playwright install chromium`) do not need a seeded DB.
+
+### The seed is not idempotent when transactional rows exist
+`prisma db seed` deletes all tenants then recreates `default-workshop` with a **new** id, but its delete order does not cover `sales_orders`, so re-seeding a DB that already has sales orders fails with an FK error. To reset the dev DB cleanly, drop and recreate it:
+```
+sudo -u postgres psql -c "DROP DATABASE core_platform WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE core_platform;"
+npm --prefix apps/core-api exec -- prisma migrate deploy
+npm --prefix apps/core-api run <or> npx prisma db seed   # from apps/core-api
+```
+
+### Interactive login needs Firebase (not configured here)
+All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth. Without real `VITE_FIREBASE_*` (frontend) and Firebase Admin credentials (backend), you cannot log in through the UI. For UI work without Firebase, run Vite with `VITE_E2E_SKIP_AUTH=true` to render the authenticated app shell (API calls then 401 since no bearer token is attached). To exercise the real API/DB without Firebase, run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, tenantId, role, iss: 'local-test-fixture' }`; when no matching DB user exists the guard falls back to the token's `tenantId`/`role` as long as that tenant exists and is active.
+
+### Build/run gotcha
+The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
+
+### Lint state
+`apps/core-api` `npm run lint` runs eslint with `--fix` and currently reports pre-existing errors (and rewrites formatting on many files — revert those if you did not intend them). `apps/core-web` `npm run lint` passes with a couple of warnings.
