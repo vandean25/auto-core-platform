@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { VehiclePurchaseService } from './vehicle-purchase.service';
 import { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
@@ -50,5 +50,10 @@ export class VehiclePurchaseController {
   @Post(':id/cancel')
   cancel(@Param('id') id: string) {
     return this.purchases.cancel(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.purchases.remove(id);
   }
 }

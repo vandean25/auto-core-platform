@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,12 +7,77 @@ import {
 import {
   Prisma,
   VehicleInventoryRole,
+  VehiclePurchaseStatus,
   VehicleStockStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { QueryBuilder } from '../common/utils/query-builder';
 import { costBasis } from './vehicle-cost';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto';
+
+const STOCK_SORT_WHITELIST = [
+  'make',
+  'model',
+  'year',
+  'vin',
+  'plate',
+  'color',
+  'stock_status',
+  'updatedAt',
+];
+const DRAFT_SORT_WHITELIST = STOCK_SORT_WHITELIST.filter(
+  (field) => field !== 'stock_status',
+);
+const STOCK_STATUS_VALUES = new Set<string>(Object.values(VehicleStockStatus));
+const DEFAULT_ORDER_BY = { updatedAt: 'desc' } as const;
+const VEHICLE_LIST_INCLUDE = {
+  reserved_for_customer: {
+    select: {
+      id: true,
+      first_name: true,
+      last_name: true,
+      company_name: true,
+      type: true,
+    },
+  },
+  location: true,
+} as const;
+
+function isVehicleStockStatus(value: string): value is VehicleStockStatus {
+  return STOCK_STATUS_VALUES.has(value);
+}
+
+function searchClause(search?: string) {
+  if (!search) return {};
+  return {
+    OR: [
+      { vin: { contains: search, mode: 'insensitive' as const } },
+      { plate: { contains: search, mode: 'insensitive' as const } },
+      { make: { contains: search, mode: 'insensitive' as const } },
+      { model: { contains: search, mode: 'insensitive' as const } },
+      { color: { contains: search, mode: 'insensitive' as const } },
+    ],
+  };
+}
+
+function concatPageWindow(
+  firstCount: number,
+  page: number,
+  limit: number,
+): { first: { skip: number; take: number }; second: { skip: number; take: number } } {
+  const start = (page - 1) * limit;
+  const end = start + limit;
+  const firstStart = Math.min(start, firstCount);
+  const firstEnd = Math.min(end, firstCount);
+  return {
+    first: { skip: firstStart, take: Math.max(0, firstEnd - firstStart) },
+    second: {
+      skip: Math.max(0, start - firstCount),
+      take: Math.max(0, end - Math.max(start, firstCount)),
+    },
+  };
+}
 
 @Injectable()
 export class VehicleStockQueryService {
@@ -22,56 +88,94 @@ export class VehicleStockQueryService {
 
   async list(params: {
     search?: string;
-    stock_status?: VehicleStockStatus;
+    stock_status?: string;
     page?: number;
     limit?: number;
+    sortField?: string;
+    sortDirection?: 'asc' | 'desc';
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const page = params.page && params.page > 0 ? params.page : 1;
     const limit = Math.min(params.limit && params.limit > 0 ? params.limit : 25, 100);
-    const where: Prisma.VehicleWhereInput = {
+    const stockStatus = this.parseStockStatus(params.stock_status);
+    const includeDrafts =
+      !stockStatus || stockStatus === VehicleStockStatus.ON_ORDER;
+    const sorting = params.sortField
+      ? [{ field: params.sortField, direction: params.sortDirection ?? 'asc' }]
+      : [];
+    const vehicleOrderBy =
+      (QueryBuilder.buildOrderBy(sorting, STOCK_SORT_WHITELIST) as
+        | Prisma.VehicleOrderByWithRelationInput[]
+        | undefined) ?? [DEFAULT_ORDER_BY];
+    const draftOrderBy =
+      (QueryBuilder.buildOrderBy(sorting, DRAFT_SORT_WHITELIST) as
+        | Prisma.VehiclePurchaseOrderByWithRelationInput[]
+        | undefined) ?? [DEFAULT_ORDER_BY];
+
+    const vehicleWhere: Prisma.VehicleWhereInput = {
       tenant_id: tenantId,
       inventory_role: {
         in: [VehicleInventoryRole.USED, VehicleInventoryRole.NEW, VehicleInventoryRole.DEMO],
       },
-      ...(params.stock_status ? { stock_status: params.stock_status } : {}),
-      ...(params.search
-        ? {
-            OR: [
-              { vin: { contains: params.search, mode: 'insensitive' } },
-              { plate: { contains: params.search, mode: 'insensitive' } },
-              { make: { contains: params.search, mode: 'insensitive' } },
-              { model: { contains: params.search, mode: 'insensitive' } },
-              { color: { contains: params.search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      ...(stockStatus ? { stock_status: stockStatus } : {}),
+      ...searchClause(params.search),
+    };
+    const draftWhere: Prisma.VehiclePurchaseWhereInput = {
+      tenant_id: tenantId,
+      status: VehiclePurchaseStatus.DRAFT,
+      ...searchClause(params.search),
     };
 
-    const [data, total] = await Promise.all([
-      this.prisma.vehicle.findMany({
-        where,
-        include: {
-          reserved_for_customer: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              company_name: true,
-              type: true,
-            },
-          },
-          location: true,
-        },
-        orderBy: { updatedAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.vehicle.count({ where }),
+    const [vehicleTotal, draftTotal] = await Promise.all([
+      this.prisma.vehicle.count({ where: vehicleWhere }),
+      includeDrafts ? this.prisma.vehiclePurchase.count({ where: draftWhere }) : 0,
+    ]);
+    const total = vehicleTotal + draftTotal;
+    const window = concatPageWindow(includeDrafts ? draftTotal : 0, page, limit);
+
+    const [drafts, vehicles] = await Promise.all([
+      includeDrafts && window.first.take > 0
+        ? this.prisma.vehiclePurchase.findMany({
+            where: draftWhere,
+            orderBy: draftOrderBy,
+            skip: window.first.skip,
+            take: window.first.take,
+          })
+        : Promise.resolve([]),
+      window.second.take > 0
+        ? this.prisma.vehicle.findMany({
+            where: vehicleWhere,
+            include: VEHICLE_LIST_INCLUDE,
+            orderBy: vehicleOrderBy,
+            skip: window.second.skip,
+            take: window.second.take,
+          })
+        : Promise.resolve([]),
     ]);
 
     return {
-      data,
+      data: [
+        ...drafts.map((purchase) => ({
+          id: purchase.id,
+          draft_purchase_id: purchase.id,
+          make: purchase.make,
+          model: purchase.model,
+          year: purchase.year,
+          vin: purchase.vin,
+          plate: purchase.plate,
+          color: purchase.color,
+          stock_status: VehicleStockStatus.ON_ORDER,
+          inventory_role: VehicleInventoryRole.USED,
+          mileage: purchase.mileage,
+          location: null,
+          reserved_for_customer: null,
+          updatedAt: purchase.updatedAt,
+        })),
+        ...vehicles.map((vehicle) => ({
+          ...vehicle,
+          draft_purchase_id: null,
+        })),
+      ],
       meta: {
         total,
         page,
@@ -81,6 +185,14 @@ export class VehicleStockQueryService {
         pageCount: Math.ceil(total / limit),
       },
     };
+  }
+
+  private parseStockStatus(value?: string): VehicleStockStatus | undefined {
+    if (!value) return undefined;
+    if (!isVehicleStockStatus(value)) {
+      throw new BadRequestException('Invalid stock_status');
+    }
+    return value;
   }
 
   async detail(vehicleId: string) {

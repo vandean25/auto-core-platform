@@ -3103,6 +3103,27 @@
         "tags": [
           "vehicle-purchases"
         ]
+      },
+      "delete": {
+        "operationId": "VehiclePurchaseController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-purchases"
+        ]
       }
     },
     "/api/vehicle-purchases/{id}/receive": {
@@ -3258,7 +3279,7 @@
         "parameters": [
           {
             "name": "search",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
@@ -3266,34 +3287,64 @@
           },
           {
             "name": "stock_status",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ON_ORDER",
+                "IN_STOCK",
+                "RESERVED",
+                "IN_PREP",
+                "SOLD"
+              ]
             }
           },
           {
             "name": "page",
-            "required": true,
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
             "name": "limit",
-            "required": true,
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "pageSize",
-            "required": true,
+            "name": "sortDirection",
+            "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
