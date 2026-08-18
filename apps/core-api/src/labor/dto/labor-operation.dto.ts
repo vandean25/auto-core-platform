@@ -164,11 +164,7 @@ export class ListLaborOperationsQueryDto {
   @IsOptional()
   @IsIn(['code', 'description', 'standardAw', 'hourlyRate', 'createdAt'])
   sortField?:
-    | 'code'
-    | 'description'
-    | 'standardAw'
-    | 'hourlyRate'
-    | 'createdAt';
+    'code' | 'description' | 'standardAw' | 'hourlyRate' | 'createdAt';
 
   @ApiPropertyOptional({ description: 'Sort direction', enum: ['asc', 'desc'] })
   @IsOptional()

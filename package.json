@@ -12,7 +12,7 @@
   "scripts": {
     "build": "npm exec --workspace=core-api -- prisma generate && npm run build --workspaces --if-present",
     "test": "npm exec --workspace=core-api -- prisma generate && npm test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "npm exec --workspace=core-api -- prisma generate && npm run lint --workspaces --if-present",
     "ci": "npm run lint && npm test && npm run build"
   }
 }

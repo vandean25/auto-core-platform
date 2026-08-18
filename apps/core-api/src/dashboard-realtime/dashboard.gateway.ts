@@ -78,8 +78,7 @@ export class DashboardGateway
       void (async () => {
         try {
           const auth = socket.handshake.auth as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           const token = auth?.token;
           if (typeof token !== 'string' || token.trim().length === 0) {
             this.logger.debug(
