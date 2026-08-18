@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { DashboardGateway } from './dashboard.gateway';
 import type {
   AuthClaimsUpdatedPayload,
@@ -8,7 +8,10 @@ import type {
 
 @Injectable()
 export class DashboardRealtimeService {
-  constructor(private readonly dashboardGateway: DashboardGateway) {}
+  constructor(
+    @Inject(forwardRef(() => DashboardGateway))
+    private readonly dashboardGateway: DashboardGateway,
+  ) {}
 
   emitEntityUpdated(
     tenantId: string,
