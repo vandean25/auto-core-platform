@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { getDashboardSourceKeysForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { customerKeys } from '@/api/customers'
+import { inventoryKeys } from '@/api/inventory'
+import { mechanicQueueKeys } from '@/api/mechanic'
+import { purchaseInvoiceKeys } from '@/api/usePurchaseInvoices'
+import { purchaseOrderKeys } from '@/api/purchase-orders'
+import { salesOrderKeys } from '@/api/sales-orders'
+import { vehicleKeys } from '@/api/vehicles'
+import { vehicleStockKeys } from '@/api/vehicle-stock'
+import { vendorKeys } from '@/api/vendors'
+import { workshopKeys } from '@/api/workshop'
+import {
+  getDashboardSourceKeysForEntityType,
+  getDomainQueryKeysForEntityType,
+  isEntityUpdatedPayload,
+} from '@/features/realtime/dashboard-entity-map'
 
 describe('dashboard realtime entity mapping', () => {
   it('maps backend entity types to dashboard source keys', () => {
@@ -9,6 +23,60 @@ describe('dashboard realtime entity mapping', () => {
     expect(getDashboardSourceKeysForEntityType('VEHICLE')).toEqual(['vehicles', 'vehicle-stock'])
     expect(getDashboardSourceKeysForEntityType('VEHICLE_PURCHASE')).toEqual(['vehicle-stock'])
     expect(getDashboardSourceKeysForEntityType('VEHICLE_SALE')).toEqual(['vehicle-stock'])
+  })
+
+  it('aliases PURCHASE_INVOICE dashboard source keys to purchase-bills and purchase-invoices', () => {
+    expect(getDashboardSourceKeysForEntityType('PURCHASE_INVOICE')).toEqual([
+      'purchase-bills',
+      'purchase-invoices',
+    ])
+  })
+
+  it('maps WORKSHOP_ORDER to workshop domain query keys', () => {
+    expect(getDomainQueryKeysForEntityType('WORKSHOP_ORDER')).toEqual([
+      workshopKeys.all,
+      mechanicQueueKeys.all,
+    ])
+  })
+
+  it('maps workshop task events to workshop and mechanic queue domain query keys', () => {
+    expect(getDomainQueryKeysForEntityType('WORKSHOP_TASK')).toEqual([
+      workshopKeys.all,
+      mechanicQueueKeys.all,
+    ])
+    expect(getDomainQueryKeysForEntityType('WORKSHOP_TASK_LINE_ITEM')).toEqual([
+      workshopKeys.all,
+      mechanicQueueKeys.all,
+    ])
+    expect(getDomainQueryKeysForEntityType('WORKSHOP_MEDIA')).toEqual([
+      workshopKeys.all,
+      mechanicQueueKeys.all,
+    ])
+    expect(getDomainQueryKeysForEntityType('LABOR_ENTRY')).toEqual([
+      workshopKeys.all,
+      mechanicQueueKeys.all,
+    ])
+  })
+
+  it('maps PURCHASE_INVOICE to purchase-invoice domain query keys', () => {
+    expect(getDomainQueryKeysForEntityType('PURCHASE_INVOICE')).toEqual([purchaseInvoiceKeys.all])
+  })
+
+  it('maps remaining entity types to their domain query-key factories', () => {
+    expect(getDomainQueryKeysForEntityType('PURCHASE_ORDER')).toEqual([purchaseOrderKeys.all])
+    expect(getDomainQueryKeysForEntityType('SALES_ORDER')).toEqual([salesOrderKeys.all])
+    expect(getDomainQueryKeysForEntityType('CATALOG_ITEM')).toEqual([inventoryKeys.all])
+    expect(getDomainQueryKeysForEntityType('CUSTOMER')).toEqual([customerKeys.all])
+    expect(getDomainQueryKeysForEntityType('VENDOR')).toEqual([vendorKeys.all])
+  })
+
+  it('preserves vehicle stock domain invalidation for vehicle events', () => {
+    expect(getDomainQueryKeysForEntityType('VEHICLE')).toEqual([
+      vehicleKeys.all,
+      vehicleStockKeys.all,
+    ])
+    expect(getDomainQueryKeysForEntityType('VEHICLE_PURCHASE')).toEqual([vehicleStockKeys.all])
+    expect(getDomainQueryKeysForEntityType('VEHICLE_SALE')).toEqual([vehicleStockKeys.all])
   })
 
   it('validates entity_updated payload shape', () => {

@@ -3,6 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authSessionKeys } from '@/api/auth-session'
+import { mechanicQueueKeys } from '@/api/mechanic'
+import { purchaseInvoiceKeys } from '@/api/usePurchaseInvoices'
+import { vehicleStockKeys } from '@/api/vehicle-stock'
+import { workshopKeys } from '@/api/workshop'
 import {
   RealtimeDashboardSyncProvider,
   resolveRealtimeConnection,
@@ -281,5 +285,130 @@ describe('RealtimeDashboardSyncProvider', () => {
 
     // The handler should early-return for malformed payloads without triggering any invalidation
     expect(invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('invalidates workshop domain keys when a WORKSHOP_ORDER event is received', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'WORKSHOP_ORDER',
+        action: 'UPDATED',
+        entityId: 'order-123',
+        timestamp: '2026-05-01T10:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['dashboard-widget-data', 'workshop-orders'],
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workshopKeys.all,
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: mechanicQueueKeys.all,
+        refetchType: 'active',
+      })
+    })
+  })
+
+  it('invalidates purchase-invoice domain keys when a PURCHASE_INVOICE event is received', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'PURCHASE_INVOICE',
+        action: 'CREATED',
+        entityId: 'invoice-123',
+        timestamp: '2026-05-01T10:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['dashboard-widget-data', 'purchase-bills'],
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['dashboard-widget-data', 'purchase-invoices'],
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: purchaseInvoiceKeys.all,
+        refetchType: 'active',
+      })
+    })
+  })
+
+  it('preserves vehicle-stock domain invalidation for vehicle stock events', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    expect(entityUpdatedHandler).toBeDefined()
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'VEHICLE_PURCHASE',
+        action: 'UPDATED',
+        entityId: 'purchase-123',
+        timestamp: '2026-05-01T10:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['dashboard-widget-data', 'vehicle-stock'],
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: vehicleStockKeys.all,
+        refetchType: 'active',
+      })
+    })
   })
 })
