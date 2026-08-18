@@ -26,33 +26,26 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Install backend dependencies
+      - name: Install workspace dependencies
         run: |
           for i in 1 2 3; do
-            npm --prefix apps/core-api ci && exit 0
+            npm ci && exit 0
             echo "npm ci failed (attempt $i/3), retrying..."
             sleep 5
           done
           exit 1
 
       - name: Generate Prisma Client
-        run: npm --prefix apps/core-api exec -- prisma generate --schema=apps/core-api/prisma/schema.prisma
-
-      - name: Install frontend dependencies
-        run: |
-          for i in 1 2 3; do
-            npm --prefix apps/core-web ci && exit 0
-            echo "npm ci failed (attempt $i/3), retrying..."
-            sleep 5
-          done
-          exit 1
+        run: npm exec --workspace=core-api -- prisma generate
 
       - name: Verify backend OpenAPI contract is up to date
-        run: npm --prefix apps/core-api run openapi:check
+        run: npm run openapi:check --workspace=core-api
 
       - name: Verify frontend generated API types are up to date
-        run: npm --prefix apps/core-web run api:types:check
+        run: npm run api:types:check --workspace=core-web
 
   contract-guard:
     name: Contract Guard (API Type Drift)
@@ -230,9 +223,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    defaults:
-      run:
-        working-directory: apps/core-api
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -242,35 +232,35 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: apps/core-api/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: npm ci
 
       - name: Generate Prisma Client
-        run: npx prisma generate
+        run: npm exec --workspace=core-api -- prisma generate
 
       - name: Lint Prisma tenant isolation invariants
-        run: npm run lint:prisma-tenant
+        run: npm run lint:prisma-tenant --workspace=core-api
 
       - name: Lint backend
-        run: npm run lint
+        run: npm run lint --workspace=core-api
 
       - name: Build backend
-        run: npm run build
+        run: npm run build --workspace=core-api
 
       - name: Run unit tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
-        run: npm test -- --ci --runInBand
+        run: npm test --workspace=core-api -- --ci --runInBand
 
       - name: Run E2E tests
         timeout-minutes: 15
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
         run: |
-          npx prisma migrate deploy
-          npm run test:e2e -- --ci --runInBand
+          npm exec --workspace=core-api -- prisma migrate deploy
+          npm run test:e2e --workspace=core-api -- --ci --runInBand
 
   frontend:
     name: Frontend Build, Lint and E2E
@@ -289,9 +279,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    defaults:
-      run:
-        working-directory: apps/core-web
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -301,24 +288,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: apps/core-web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: npm ci
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: npm exec --workspace=core-web -- playwright install --with-deps chromium
 
       - name: Lint frontend
-        run: npm run lint
+        run: npm run lint --workspace=core-web
 
       - name: Build frontend
         # PR workflow uses this build for compile-time validation only.
         # It intentionally does not inject production VITE_* runtime values.
-        run: npm run build
+        run: npm run build --workspace=core-web
 
       - name: Run frontend unit tests
-        run: npm test
+        run: npm test --workspace=core-web
 
       - name: Run Playwright E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e --workspace=core-web

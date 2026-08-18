@@ -1,0 +1,18 @@
+{
+  "name": "auto-core-platform",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=9"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm exec --workspace=core-api -- prisma generate && npm run build --workspaces --if-present",
+    "test": "npm exec --workspace=core-api -- prisma generate && npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "ci": "npm run lint && npm test && npm run build"
+  }
+}

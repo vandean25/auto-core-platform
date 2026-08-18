@@ -209,9 +209,8 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 
 ### Setup Commands
 ```bash
-# Install dependencies (from root)
-npm install --prefix apps/core-api
-npm install --prefix apps/core-web
+# Install all workspace dependencies (from repo root)
+npm install
 
 # Database Initialization
 cd apps/core-api
@@ -293,7 +292,7 @@ Never commit real secret values or generated local `.env` files.
 
 ## Cursor Cloud specific instructions
 
-This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the app `package.json` scripts; only the caveats below are cloud-specific. The startup update script already runs `npm ci` for both apps plus `prisma generate`.
+This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the root `package.json` workspace scripts; only the caveats below are cloud-specific. The startup update script already runs root `npm ci` plus `prisma generate`.
 
 ### Services
 - **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.

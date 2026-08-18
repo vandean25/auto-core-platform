@@ -45,19 +45,18 @@ auto-core-platform/
 
 ### 1. Clone and Install Dependencies
 
+This repo is an npm workspaces monorepo (`apps/*`). Install once at the root:
+
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd auto-core-platform
 
-# Install backend dependencies
-cd apps/core-api
-npm install
-
-# Install frontend dependencies
-cd ../core-web
+# Install backend and frontend workspace dependencies
 npm install
 ```
+
+From the root you can then run both apps with `npm run lint`, `npm test`, `npm run build`, or `npm run ci`.
 
 ### 2. Database Setup
 
@@ -298,6 +297,18 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 ---
 
 ## Available Commands
+
+### Repository root
+
+| Command | Description |
+|---------|-------------|
+| `npm install` | Install all workspace dependencies (`apps/core-api` and `apps/core-web`) |
+| `npm run lint` | Lint both apps |
+| `npm test` | Run unit tests for both apps |
+| `npm run build` | Build both apps |
+| `npm run ci` | Lint, test, then build both apps |
+
+Workspace-specific scripts still work from the root with `--workspace=<name>` (for example `npm run start:dev --workspace=core-api`).
 
 ### Backend (`apps/core-api`)
 
