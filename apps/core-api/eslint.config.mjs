@@ -61,6 +61,7 @@ export default tseslint.config(
   {
     files: [
       '**/*.spec.ts',
+      '**/*.spec.support.ts',
       'test/**/*.ts',
       'prisma/**/*.ts',
       'scripts/**/*.ts',

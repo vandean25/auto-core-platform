@@ -46,13 +46,21 @@ import {
 } from './dto/board-response.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { WorkshopBoardService } from './workshop-board.service';
+import { WorkshopIntakeService } from './workshop-intake.service';
+import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
-import { WorkshopService } from './workshop.service';
+import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopTaskService } from './workshop-task.service';
 
 @Controller('workshop')
 export class WorkshopController {
   constructor(
-    private readonly workshopService: WorkshopService,
+    private readonly intakeService: WorkshopIntakeService,
+    private readonly taskService: WorkshopTaskService,
+    private readonly pickPartsService: WorkshopPickPartsService,
+    private readonly boardService: WorkshopBoardService,
+    private readonly invoiceService: WorkshopInvoiceService,
     private readonly pdfService: WorkshopPdfService,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -62,13 +70,13 @@ export class WorkshopController {
     schema: { type: 'object' },
   })
   register(@Body() dto: RegisterIntakeDto) {
-    return this.workshopService.register(dto);
+    return this.intakeService.register(dto);
   }
 
   @Post('orders')
   @ApiCreatedResponse({ type: WorkshopOrderResponseDto })
   create(@Body() createWorkshopOrderDto: CreateWorkshopOrderDto) {
-    return this.workshopService.create(createWorkshopOrderDto);
+    return this.intakeService.create(createWorkshopOrderDto);
   }
 
   @Get('orders')
@@ -111,7 +119,7 @@ export class WorkshopController {
       );
     }
 
-    return this.workshopService.findAll({
+    return this.intakeService.findAll({
       search,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
@@ -123,19 +131,19 @@ export class WorkshopController {
   @Get('orders/:id')
   @ApiOkResponse({ type: WorkshopOrderResponseDto })
   findOne(@Param('id') id: string) {
-    return this.workshopService.findOne(id);
+    return this.intakeService.findOne(id);
   }
 
   @Patch('orders/:id')
   @ApiOkResponse({ type: WorkshopOrderResponseDto })
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
-    return this.workshopService.updateOrder(id, dto);
+    return this.intakeService.updateOrder(id, dto);
   }
 
   @Post('orders/:id/tasks')
   @ApiCreatedResponse({ type: WorkshopTaskResponseDto })
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
-    return this.workshopService.createTask(id, dto);
+    return this.taskService.createTask(id, dto);
   }
 
   @Post('orders/:id/pick-parts')
@@ -144,7 +152,7 @@ export class WorkshopController {
     type: PickWorkshopPartsResponseDto,
   })
   pickParts(@Param('id') orderId: string, @Body() dto: PickWorkshopPartsDto) {
-    return this.workshopService.pickParts(orderId, dto);
+    return this.pickPartsService.pickParts(orderId, dto);
   }
 
   @Patch('orders/:orderId/tasks/:taskId')
@@ -154,7 +162,7 @@ export class WorkshopController {
     @Param('taskId') taskId: string,
     @Body() dto: UpdateWorkshopTaskDto,
   ) {
-    return this.workshopService.updateTask(orderId, taskId, dto);
+    return this.taskService.updateTask(orderId, taskId, dto);
   }
 
   @Delete('orders/:orderId/tasks/:taskId')
@@ -192,7 +200,7 @@ export class WorkshopController {
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
   ) {
-    return this.workshopService.deleteTask(orderId, taskId);
+    return this.taskService.deleteTask(orderId, taskId);
   }
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
@@ -202,7 +210,7 @@ export class WorkshopController {
     @Param('taskId') taskId: string,
     @Body() dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
-    return this.workshopService.replaceTaskLineItems(orderId, taskId, dto);
+    return this.taskService.replaceTaskLineItems(orderId, taskId, dto);
   }
 
   @Post('orders/:id/create-invoice')
@@ -210,7 +218,7 @@ export class WorkshopController {
     schema: { type: 'object' },
   })
   createInvoiceFromOrder(@Param('id') id: string) {
-    return this.workshopService.createInvoiceFromOrder(id);
+    return this.invoiceService.createInvoiceFromOrder(id);
   }
 
   @Get('search')
@@ -218,7 +226,7 @@ export class WorkshopController {
     schema: { type: 'object' },
   })
   search(@Query('q') q: string) {
-    return this.workshopService.search(q);
+    return this.intakeService.search(q);
   }
 
   @Post('orders/:id/pdf')
@@ -294,18 +302,18 @@ export class WorkshopController {
   @Get('resources')
   @ApiOkResponse({ type: WorkshopResourcesResponseDto })
   getBoardResources() {
-    return this.workshopService.getBoardResources();
+    return this.boardService.getBoardResources();
   }
 
   @Get('board/active')
   @ApiOkResponse({ type: BoardActiveResponseDto })
   getBoardActive() {
-    return this.workshopService.getBoardActive();
+    return this.boardService.getBoardActive();
   }
 
   @Patch('board/assign')
   @ApiOkResponse({ description: 'Updated workshop order assignment.' })
   assignBoard(@Body() dto: AssignBoardDto) {
-    return this.workshopService.assignBoard(dto);
+    return this.boardService.assignBoard(dto);
   }
 }
