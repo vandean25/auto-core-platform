@@ -67,11 +67,10 @@ This value is read from the environment at **call time**.  No code deploy is
 required to change it, but the process must be restarted (or the container
 redeployed) for the updated env var to take effect.
 
-> **Note on multi-instance deployments:** The rate-limit counters are stored
-> in the Node.js process memory of each backend instance.  In a scaled
-> multi-replica deployment this provides _per-instance_ throttling, not
-> _global_ throttling.  For global rate limiting, front the service with a
-> reverse proxy or API gateway that enforces request limits.
+Counters live in Postgres (`voice_note_rate_limits`) keyed by
+`tenant_id` + `mechanic_id`.  Every Cloud Run replica shares the same limit.
+Expired windows are overwritten on the next consume; deleting a tenant or
+mechanic cascades the row.
 
 ---
 

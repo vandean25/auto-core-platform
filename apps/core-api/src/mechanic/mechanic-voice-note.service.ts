@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -23,6 +24,7 @@ import {
 } from './dto/voice-note.dto';
 import { readAudioDurationSeconds } from './audio-duration';
 import { assertTaskAssignedToMechanic } from './mechanic-task-access';
+import { RateLimitStore } from './rate-limit/rate-limit.store';
 
 /**
  * Rate-limit configuration for the voice-note upload endpoint.
@@ -44,12 +46,6 @@ function getVoiceNoteRateLimitConfig(): { max: number; ttlMs: number } {
         ? ttlSeconds * 1000
         : 60_000,
   };
-}
-
-/** Sliding-window entry stored per-mechanic for rate limiting. */
-interface RateLimitEntry {
-  count: number;
-  windowStart: number;
 }
 
 const VOICE_NOTE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
@@ -81,20 +77,11 @@ function getVoiceNoteFilename(
 export class MechanicVoiceNoteService {
   private readonly logger = new Logger(MechanicVoiceNoteService.name);
 
-  /**
-   * Per-mechanic sliding-window rate limit map for voice-note uploads.
-   * Key: `${tenantId}:${mechanicId}`. All expired entries across every key are
-   * pruned on every check so that the map does not grow without bound in
-   * long-lived instances serving many distinct mechanics/tenants.
-   *
-   * ADR-0014 §5.3 — prevents runaway provider spend and accidental repeated uploads.
-   */
-  private readonly voiceNoteRateLimitMap = new Map<string, RateLimitEntry>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly voiceTranslationService: VoiceTranslationService,
+    @Inject(RateLimitStore) private readonly rateLimitStore: RateLimitStore,
   ) {}
 
   async uploadVoiceNote(
@@ -105,7 +92,7 @@ export class MechanicVoiceNoteService {
     const tenantId = await this.tenantContext.getTenantId();
 
     // ── Rate limiting (per mechanic, sliding window) ────────────────────────
-    this.checkVoiceNoteRateLimit(mechanicId, tenantId);
+    await this.checkVoiceNoteRateLimit(mechanicId, tenantId);
 
     const task = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
@@ -306,44 +293,30 @@ export class MechanicVoiceNoteService {
    * Enforces a per-mechanic sliding-window rate limit for voice-note uploads.
    *
    * Limit and window are read from environment variables at runtime so that
-   * operators can tune them without a code deploy.
+   * operators can tune them without a code deploy. The injected store is shared
+   * across Cloud Run instances.
    *
    * Throws HTTP 429 when the mechanic has exceeded the allowed number of
    * uploads within the current window.
    *
    * ADR-0014 §5.3 — rate and abuse controls.
    */
-  private checkVoiceNoteRateLimit(mechanicId: string, tenantId: string): void {
-    const { max, ttlMs } = getVoiceNoteRateLimitConfig();
-    const key = `${tenantId}:${mechanicId}`;
-    const now = Date.now();
+  private async checkVoiceNoteRateLimit(
+    mechanicId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const window = getVoiceNoteRateLimitConfig();
+    const decision = await this.rateLimitStore.consume(
+      { tenantId, mechanicId },
+      window,
+    );
 
-    // Prune all expired entries so the map does not grow without bound across
-    // many distinct mechanics/tenants over the lifetime of the process.
-    for (const [k, v] of this.voiceNoteRateLimitMap) {
-      if (now - v.windowStart >= ttlMs) {
-        this.voiceNoteRateLimitMap.delete(k);
-      }
-    }
-
-    const entry = this.voiceNoteRateLimitMap.get(key);
-
-    if (!entry) {
-      // Start a fresh window (either first upload or window just expired).
-      this.voiceNoteRateLimitMap.set(key, { count: 1, windowStart: now });
-      return;
-    }
-
-    if (entry.count >= max) {
-      const retryAfterSeconds = Math.ceil(
-        (ttlMs - (now - entry.windowStart)) / 1000,
-      );
+    if (!decision.allowed) {
+      const windowSeconds = Math.ceil(window.ttlMs / 1000);
       throw new HttpException(
-        `Voice note rate limit exceeded. Maximum ${max} uploads per ${Math.ceil(ttlMs / 1000)}s window. Retry after ${retryAfterSeconds}s.`,
+        `Voice note rate limit exceeded. Maximum ${window.max} uploads per ${windowSeconds}s window. Retry after ${decision.retryAfterSeconds}s.`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-
-    entry.count += 1;
   }
 }

@@ -1,11 +1,15 @@
-import { BadRequestException, INestApplication, ServiceUnavailableException, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  INestApplication,
+  ServiceUnavailableException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { VoiceTranslationService } from '../src/voice-translation/voice-translation.service';
-import { MechanicVoiceNoteService } from '../src/mechanic/mechanic-voice-note.service';
 import { WorkshopTaskStatus } from '@prisma/client';
 import {
   cleanupTestTenantGraph,
@@ -96,7 +100,9 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
       app = moduleFixture.createNestApplication();
       app.setGlobalPrefix('api');
-      app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+      app.useGlobalPipes(
+        new ValidationPipe({ transform: true, whitelist: true }),
+      );
       await app.init();
 
       basePrisma = app.get<PrismaService>(PrismaService);
@@ -242,13 +248,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     }
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    // Clear the per-mechanic rate-limit counters between tests so that each
-    // test starts with a clean slate and unrelated upstream requests don't
-    // exhaust the limit before the rate-limit test itself runs.
-    const mechanicService = app.get(MechanicVoiceNoteService);
-    (mechanicService as unknown as { voiceNoteRateLimitMap: Map<unknown, unknown> }).voiceNoteRateLimitMap.clear();
+    await runWithTenantContext(tenantId, async () => {
+      await prisma.voiceNoteRateLimit.deleteMany({});
+    });
   });
 
   // ─── Happy path ───────────────────────────────────────────────────────────
@@ -308,10 +312,13 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   // ─── Wrong tenant ─────────────────────────────────────────────────────────
 
-  it('returns 404 when the task does not belong to the caller\'s tenant', async () => {
+  it("returns 404 when the task does not belong to the caller's tenant", async () => {
     // Create a second tenant with its own order and task
     const otherTenant = await createTestTenant(basePrisma, 'voice-other');
-    const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
+    const otherPrisma = createTenantAwarePrisma(
+      basePrisma,
+      otherTenant.tenantId,
+    );
 
     const otherCust = await otherPrisma.customer.create({
       data: {
@@ -495,7 +502,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         filename: 'huge.webm',
         contentType: 'audio/webm',
       })
-      // NestJS FileInterceptor with limits throws Payload Too Large (413) 
+      // NestJS FileInterceptor with limits throws Payload Too Large (413)
       // or UnprocessableEntity (422) depending on internal mapping.
       // Usually 413 for Multer size limit.
       .expect((res) => {
@@ -750,8 +757,12 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         await basePrisma.workshopTask.deleteMany({
           where: { workshop_order_id: rlOrderId! },
         });
-        await basePrisma.workshopOrder.deleteMany({ where: { id: rlOrderId! } });
-        await basePrisma.employee.deleteMany({ where: { id: limitEmployeeId! } });
+        await basePrisma.workshopOrder.deleteMany({
+          where: { id: rlOrderId! },
+        });
+        await basePrisma.employee.deleteMany({
+          where: { id: limitEmployeeId! },
+        });
       });
       await cleanupTestUsers(basePrisma, [limitUserId!]);
     } finally {

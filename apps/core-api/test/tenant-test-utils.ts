@@ -232,6 +232,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopMedia.deleteMany({});
   await tenantPrisma.workshopTaskLineItem.deleteMany({});
   await tenantPrisma.laborEntry.deleteMany({});
+  await tenantPrisma.workshopVoiceNoteDraft.deleteMany({});
+  await tenantPrisma.voiceNoteRateLimit.deleteMany({});
   await tenantPrisma.workshopTask.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
@@ -248,11 +250,16 @@ export async function cleanupTestTenantGraph(
   const memberships = await tenantPrisma.tenantMember.findMany({
     select: { user_id: true },
   });
-  const userIds = [...new Set(memberships.map((membership) => membership.user_id))];
+  const userIds = [
+    ...new Set(memberships.map((membership) => membership.user_id)),
+  ];
   await tenantPrisma.tenantMember.deleteMany({});
   await cleanupTestUsers(prisma, userIds);
 
-  await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM audit_logs WHERE tenant_id = $1`,
+    tenantId,
+  );
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
