@@ -5,9 +5,11 @@ import { Search, Trash2, Plus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
-import { useCreateInvoice, useFinalizeInvoice } from "@/api/sales"
+import { useCreateInvoice, useFinalizeInvoice, useUpdateInvoice } from "@/api/sales"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
+import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
+import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,7 +38,17 @@ export default function InvoiceCreatePage() {
   const navigate = useNavigate()
   const editor = useInvoiceEditor()
   const createInvoiceMutation = useCreateInvoice()
+  const updateInvoiceMutation = useUpdateInvoice()
   const finalizeInvoiceMutation = useFinalizeInvoice()
+  const invoiceIdRef = React.useRef<string | null>(null)
+  const lastSavedRef = React.useRef<string | null>(null)
+  const createMutationRef = React.useRef(createInvoiceMutation)
+  const updateMutationRef = React.useRef(updateInvoiceMutation)
+
+  React.useEffect(() => {
+    createMutationRef.current = createInvoiceMutation
+    updateMutationRef.current = updateInvoiceMutation
+  })
 
   const [partSearchOpen, setPartSearchOpen] = React.useState(false)
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)
@@ -44,48 +56,85 @@ export default function InvoiceCreatePage() {
 
   const { data: inventory } = useInventory({ search: inventorySearch, pageSize: 10 })
 
-  const handleSaveDraft = async () => {
-    if (!editor.customer) return
-
-    try {
-      await createInvoiceMutation.mutateAsync({
-        customerId: editor.customer.id,
-        items: editor.items.map(item => ({
-          catalogItemId: item.catalog_item_id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          taxRate: item.tax_rate
-        })),
-        notes: "Created from web editor"
-      })
-      toast.success(`Draft saved at ${format(new Date(), 'HH:mm')}`)
-    } catch (error) {
-      toast.error("Failed to save draft")
+  const buildPayload = React.useCallback(() => {
+    if (!editor.customer) return null
+    return {
+      customerId: editor.customer.id,
+      items: editor.items.map((item) => ({
+        catalogItemId: item.catalog_item_id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        taxRate: item.tax_rate,
+      })),
+      notes: "Created from web editor",
     }
-  }
+  }, [editor.customer, editor.items])
+
+  const saveDraft = React.useCallback(
+    async (
+      payload: NonNullable<ReturnType<typeof buildPayload>>,
+      signal: AbortSignal,
+    ) => {
+      const serialized = JSON.stringify(payload)
+      if (serialized === lastSavedRef.current) return
+
+      if (invoiceIdRef.current) {
+        await updateMutationRef.current.mutateAsync({
+          id: invoiceIdRef.current,
+          payload,
+          signal,
+        })
+      } else {
+        const created = await createMutationRef.current.mutateAsync({
+          ...payload,
+          signal,
+        })
+        invoiceIdRef.current = created.id
+      }
+      lastSavedRef.current = serialized
+    },
+    [],
+  )
+
+  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
+    save: saveDraft,
+    shouldSave: (payload) =>
+      Boolean(
+        payload.customerId &&
+          payload.items.length > 0 &&
+          payload.items.every((item) => item.description.trim() !== ""),
+      ),
+  })
+
+  React.useEffect(() => {
+    const payload = buildPayload()
+    if (!payload) return
+    triggerAutoSave(payload)
+  }, [buildPayload, triggerAutoSave])
 
   const handleFinalize = async () => {
     if (!editor.customer) return
     if (!confirm("Are you sure? This will lock the invoice and deduct stock.")) return
 
-    try {
-      // First create draft/save
-      const invoice = await createInvoiceMutation.mutateAsync({
-        customerId: editor.customer.id,
-        items: editor.items.map(item => ({
-          catalogItemId: item.catalog_item_id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          taxRate: item.tax_rate
-        })),
-      })
+    clearPendingSave()
+    const payload = buildPayload()
+    if (!payload) return
 
-      // Then finalize
-      await finalizeInvoiceMutation.mutateAsync(invoice.id)
+    try {
+      if (!invoiceIdRef.current) {
+        const invoice = await createInvoiceMutation.mutateAsync(payload)
+        invoiceIdRef.current = invoice.id
+      } else {
+        await updateInvoiceMutation.mutateAsync({
+          id: invoiceIdRef.current,
+          payload,
+        })
+      }
+
+      await finalizeInvoiceMutation.mutateAsync(invoiceIdRef.current)
       toast.success("Invoice finalized and number generated!")
-      navigate("/sales/invoices") // Redirect to list
+      navigate("/sales/invoices")
     } catch (error) {
       toast.error("Failed to finalize invoice")
     }
@@ -117,16 +166,14 @@ export default function InvoiceCreatePage() {
           <h1 className="text-2xl font-semibold tracking-tight">New Invoice</h1>
           <StatusBadge status="DRAFT" />
         </div>
-        <div className="flex gap-4">
-          <Button variant="secondary" onClick={handleSaveDraft} disabled={createInvoiceMutation.isPending}>
-            {createInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Draft
-          </Button>
+        <div className="flex gap-4 items-center">
+          <DocumentSaveIndicator status={saveStatus} />
           <Button
             variant="destructive"
             onClick={handleFinalize}
             disabled={!editor.isValid || finalizeInvoiceMutation.isPending}
           >
+            {finalizeInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Finalize & Print
           </Button>
         </div>

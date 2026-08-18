@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { getErrorMessage, isAbortError } from '@/lib/error-utils'
+import { useCallback } from 'react'
+import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { AUTO_SAVE_DEBOUNCE_MS } from '../bill-utils'
 import type { PurchaseBillSaveStatus, PurchaseBillSnapshot } from '../types'
 
@@ -16,71 +15,28 @@ type UsePurchaseBillAutosaveOptions = {
 }
 
 export function usePurchaseBillAutosave({ enabled, save }: UsePurchaseBillAutosaveOptions) {
-  const [saveStatus, setSaveStatus] = useState<PurchaseBillSaveStatus>('saved')
-  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
+    useDebouncedAutoSave<Omit<PurchaseBillSnapshot, 'immediate'>>({
+      enabled,
+      initialStatus: 'saved',
+      save: async (snapshot, signal) => {
+        await save({ ...snapshot, signal })
+      },
+      shouldSave: (snapshot) =>
+        Boolean(snapshot.vendorId && snapshot.vendorInvoiceNumber.trim()),
+    })
 
-  const clearPendingSave = useCallback(() => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-      autoSaveTimeoutRef.current = null
-    }
-  }, [])
-
-  const abortInFlightSave = useCallback(() => {
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = null
-  }, [])
-
-  const performAutoSave = useCallback(async (snapshot: Omit<PurchaseBillSnapshot, 'immediate'>) => {
-    if (!snapshot.vendorId || !snapshot.vendorInvoiceNumber.trim()) return
-
-    abortInFlightSave()
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    setSaveStatus('saving')
-    try {
-      await save({ ...snapshot, signal: controller.signal })
-      if (controller.signal.aborted) return
-      setSaveStatus('saved')
-    } catch (error: unknown) {
-      if (isAbortError(error)) return
-      setSaveStatus('error')
-      toast.error('Auto-save failed', {
-        description: getErrorMessage(error, 'Please check your connection'),
-      })
-    }
-  }, [abortInFlightSave, save])
-
-  const triggerAutoSave = useCallback(
+  const triggerPurchaseBillAutoSave = useCallback(
     (snapshot: PurchaseBillSnapshot) => {
-      if (!enabled) return
-
-      clearPendingSave()
-
-      if (snapshot.immediate) {
-        void performAutoSave(snapshot)
-        return
-      }
-
-      autoSaveTimeoutRef.current = setTimeout(() => {
-        void performAutoSave(snapshot)
-      }, AUTO_SAVE_DEBOUNCE_MS)
+      const { immediate, ...rest } = snapshot
+      triggerAutoSave(rest, { immediate })
     },
-    [clearPendingSave, enabled, performAutoSave],
+    [triggerAutoSave],
   )
 
-  useEffect(() => {
-    return () => {
-      clearPendingSave()
-      abortInFlightSave()
-    }
-  }, [abortInFlightSave, clearPendingSave])
-
   return {
-    saveStatus,
-    triggerAutoSave,
+    saveStatus: saveStatus as PurchaseBillSaveStatus,
+    triggerAutoSave: triggerPurchaseBillAutoSave,
     clearPendingSave,
     abortInFlightSave,
   }

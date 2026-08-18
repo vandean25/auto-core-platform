@@ -4,19 +4,15 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
-  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
-  ApiExcludeEndpoint,
   ApiOkResponse,
   ApiProduces,
   ApiQuery,
@@ -25,7 +21,7 @@ import {
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
-import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
+import { PdfWorker } from '../common';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
@@ -47,8 +43,6 @@ import {
   BoardActiveResponseDto,
   WorkshopResourcesResponseDto,
 } from './dto/board-response.dto';
-import { Public } from '../common/decorators/public.decorator';
-import { TenantContextService } from '../common/services/tenant-context.service';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
@@ -65,7 +59,6 @@ export class WorkshopController {
     private readonly boardService: WorkshopBoardService,
     private readonly invoiceService: WorkshopInvoiceService,
     private readonly pdfService: WorkshopPdfService,
-    private readonly tenantContext: TenantContextService,
   ) {}
 
   @Post('register')
@@ -252,20 +245,10 @@ export class WorkshopController {
     };
   }
 
-  @ApiExcludeEndpoint()
-  @Public()
   @Post('orders/:id/pdf/worker')
-  @UseGuards(CloudTasksWorkerGuard)
-  @HttpCode(204)
-  async generatePdfWorker(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-tenant-id') tenantHeader: string,
-  ) {
-    if (!tenantHeader) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
-    this.tenantContext.setTenantIdForWorker(tenantHeader);
-    await this.pdfService.generateNow(id, tenantHeader);
+  @PdfWorker('workshop-order')
+  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
+    await this.pdfService.generateNow(id);
   }
 
   @Get('orders/:id/pdf')

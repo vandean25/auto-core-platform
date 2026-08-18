@@ -1,5 +1,8 @@
 \set ON_ERROR_STOP on
 
+-- NOT ROLLED OUT (AUT-154 / AUT-74). Production tables are not partitioned.
+-- Status: docs/internal/05-Runbooks/postgres-tenant-partitioning-rollout.md
+--
 -- WARNING:
 -- Execute in staging first. This script performs table renames and data copy.
 -- It keeps *_legacy tables for rollback validation.

@@ -1,11 +1,13 @@
 import { CloudTasksService } from './cloud-tasks.service';
+import { verifyPdfTaskPayload } from '../pdf/pdf-task-payload';
 
 describe('CloudTasksService', () => {
   const originalEnv = { ...process.env };
+  const workerSecret = 'worker-secret';
 
   beforeEach(() => {
     jest.restoreAllMocks();
-    process.env.CLOUD_TASKS_WORKER_SECRET = 'worker-secret';
+    process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
     process.env.CLOUD_TASKS_LOCATION = 'europe-west3';
     process.env.CLOUD_TASKS_QUEUE = 'pdf-queue';
     process.env.CLOUD_TASKS_ENABLED = 'true';
@@ -38,7 +40,13 @@ describe('CloudTasksService', () => {
     return { service, createTask, queuePath };
   }
 
-  it('creates invoice pdf tasks without a deterministic task name', async () => {
+  function decodeTaskBody(createTask: jest.Mock): unknown {
+    const request = createTask.mock.calls[0][0];
+    const body = request.task.httpRequest.body as Buffer;
+    return JSON.parse(Buffer.from(body).toString('utf8'));
+  }
+
+  it('creates invoice pdf tasks with a signed tenant payload', async () => {
     const { service, createTask } = createService();
     createTask.mockResolvedValue([
       {
@@ -48,7 +56,8 @@ describe('CloudTasksService', () => {
 
     await expect(
       service.enqueuePdfGeneration({
-        invoiceId: 'invoice-1',
+        kind: 'invoice',
+        resourceId: 'invoice-1',
         targetBaseUrl: 'https://app.example.com/api',
         tenantId: 'tenant-1',
       }),
@@ -59,9 +68,17 @@ describe('CloudTasksService', () => {
     expect(request.task.httpRequest.url).toBe(
       'https://app.example.com/api/invoices/invoice-1/pdf/worker',
     );
+    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-1');
+
+    const payload = decodeTaskBody(createTask);
+    expect(verifyPdfTaskPayload(payload, workerSecret)).toEqual({
+      kind: 'invoice',
+      resourceId: 'invoice-1',
+      tenantId: 'tenant-1',
+    });
   });
 
-  it('creates workshop pdf tasks without a deterministic task name', async () => {
+  it('creates workshop pdf tasks with a signed tenant payload', async () => {
     const { service, createTask } = createService();
     createTask.mockResolvedValue([
       {
@@ -70,8 +87,9 @@ describe('CloudTasksService', () => {
     ]);
 
     await expect(
-      service.enqueueWorkshopPdfGeneration({
-        workshopOrderId: 'workshop-1',
+      service.enqueuePdfGeneration({
+        kind: 'workshop-order',
+        resourceId: 'workshop-1',
         targetBaseUrl: 'https://app.example.com/api',
         tenantId: 'tenant-1',
       }),
@@ -82,41 +100,13 @@ describe('CloudTasksService', () => {
     expect(request.task.httpRequest.url).toBe(
       'https://app.example.com/api/workshop/orders/workshop-1/pdf/worker',
     );
-  });
+    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-1');
 
-  it('includes x-tenant-id header when tenantId is provided to enqueuePdfGeneration', async () => {
-    const { service, createTask } = createService();
-    createTask.mockResolvedValue([
-      {
-        name: 'projects/test-project/locations/europe-west3/queues/pdf-queue/tasks/generated-invoice-task',
-      },
-    ]);
-
-    await service.enqueuePdfGeneration({
-      invoiceId: 'invoice-1',
-      targetBaseUrl: 'https://app.example.com/api',
-      tenantId: 'tenant-abc',
+    const payload = decodeTaskBody(createTask);
+    expect(verifyPdfTaskPayload(payload, workerSecret)).toEqual({
+      kind: 'workshop-order',
+      resourceId: 'workshop-1',
+      tenantId: 'tenant-1',
     });
-
-    const request = createTask.mock.calls[0][0];
-    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
-  });
-
-  it('includes x-tenant-id header when tenantId is provided to enqueueWorkshopPdfGeneration', async () => {
-    const { service, createTask } = createService();
-    createTask.mockResolvedValue([
-      {
-        name: 'projects/test-project/locations/europe-west3/queues/pdf-queue/tasks/generated-workshop-task',
-      },
-    ]);
-
-    await service.enqueueWorkshopPdfGeneration({
-      workshopOrderId: 'workshop-1',
-      targetBaseUrl: 'https://app.example.com/api',
-      tenantId: 'tenant-abc',
-    });
-
-    const request = createTask.mock.calls[0][0];
-    expect(request.task.httpRequest.headers['x-tenant-id']).toBe('tenant-abc');
   });
 });

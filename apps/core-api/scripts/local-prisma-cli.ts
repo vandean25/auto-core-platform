@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 export type LocalPrismaSpawnTarget = {
@@ -17,19 +18,38 @@ export type PrismaCliSpawnInterpretation = {
   spawnErrorMessage?: string;
 };
 
+function prismaBinaryName(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? 'prisma.cmd' : 'prisma';
+}
+
+function resolvePrismaBinPath(
+  fromDirectory: string,
+  binaryName: string,
+): string {
+  const relativeBin = path.join('node_modules', '.bin', binaryName);
+  let current = path.resolve(fromDirectory);
+
+  while (true) {
+    const candidate = path.join(current, 'node_modules', '.bin', binaryName);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return relativeBin;
+    }
+    current = parent;
+  }
+}
+
 export function localPrismaSpawnTarget(
   platform: NodeJS.Platform,
+  fromDirectory: string = process.cwd(),
 ): LocalPrismaSpawnTarget {
-  if (platform === 'win32') {
-    return {
-      command: path.join('node_modules', '.bin', 'prisma.cmd'),
-      shell: true,
-    };
-  }
-
   return {
-    command: path.join('node_modules', '.bin', 'prisma'),
-    shell: false,
+    command: resolvePrismaBinPath(fromDirectory, prismaBinaryName(platform)),
+    shell: platform === 'win32',
   };
 }
 

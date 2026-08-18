@@ -3,7 +3,7 @@ trigger: always_on
 ---
 
 ## Agentic Execution Framework (Superpowers)
-You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/superpowers/skills/` directory.
+You are operating under the `obra/superpowers` methodology. Before generating any code, creating plans, or executing terminal commands, you MUST read the relevant skill from the `.agents/skills/superpowers/` directory.
 
 ### Mandatory Workflows:
 1. **Planning:** Before writing code or modifying architecture, read `.agents/skills/superpowers/writing-plans/SKILL.md` and create a checklist. Do not proceed until the user approves the plan.
@@ -15,7 +15,7 @@ Do not bypass these rules under any circumstances.
 
 ## Project Overview
 
-Auto Core Platform is a full-stack automotive parts management system designed for inventory tracking, purchase order processing, vendor management, sales invoicing, and financial reporting.
+Auto Core Platform is a multi-tenant workshop operations system: parts inventory, procurement, sales, workshop jobs, vehicle stock, finance, and auth/tenancy.
 
 ### Core Modules
 - **Inventory**: Tracks automotive parts, storage locations, and stock levels with a full audit trail (ledger-based).
@@ -24,22 +24,25 @@ Auto Core Platform is a full-stack automotive parts management system designed f
     - **CRM**: Customer management (Private/Company) with full order and vehicle history.
     - **Sales Orders**: Workflow from Draft -> Confirmed -> In Progress -> Completed -> Invoiced.
     - **Invoicing**: Generates final tax invoices from completed sales orders with real-time stock integration.
+- **Workshop**: Intake, job cards, board, parts pick, and mechanic tablet queue. Order workflow: Scheduled -> Intake -> In Progress -> Completed -> Invoiced.
+- **Vehicle stock**: Dealer-owned vehicles (purchase, stock, sale, vehicle ledger). Separate from parts inventory.
 - **Finance**: Manages global fiscal settings (lock dates, numbering) and revenue categorization for accounting exports.
+- **Auth/tenancy**: Firebase Auth + JWT guard, row-level `tenant_id` isolation, `TenantMember` roles, and platform super-admin.
 - **Brand (Master Data)**: Centralized management of vehicle makes and part manufacturers, enabling consistent categorization and smart filtering.
 - **Vendor**: Management of external stakeholders and their associated data (brands, contact info).
 
 ## Technology Stack
 
 ### Backend (`apps/core-api`)
-- **Framework**: NestJS (Node.js)
+- **Framework**: NestJS 11 (Node.js)
 - **Language**: TypeScript 5.9 (shared major with `apps/core-web`; see ADR-0017)
-- **ORM**: Prisma
+- **ORM**: Prisma 7
 - **Database**: PostgreSQL
 - **Validation**: class-validator & class-transformer
 - **Testing**: Jest (Unit & E2E)
 
 ### Frontend (`apps/core-web`)
-- **Framework**: React 19 (Vite 7)
+- **Framework**: React 19 (Vite 8)
 - **Language**: TypeScript 5.9 (shared major with `apps/core-api`; see ADR-0017)
 - **Styling**: Tailwind CSS 4
 - **UI Components**: shadcn/ui
@@ -57,12 +60,16 @@ auto-core-platform/
 │   ├── core-api/          # NestJS backend
 │   │   ├── prisma/        # Schema and migrations
 │   │   └── src/           # Modular services & controllers
+│   │       ├── auth/      # Firebase JWT + session
+│   │       ├── tenant-member/ # Tenant membership
 │   │       ├── brand/     # Brand Master Data
 │   │       ├── customer/  # CRM Module
 │   │       ├── finance/   # Finance Settings & Revenue Groups
 │   │       ├── inventory/ # Inventory & Ledger
 │   │       ├── purchase/  # Procurement
 │   │       ├── sales/     # Sales Orders & Invoices
+│   │       ├── workshop/  # Workshop orders, board, pick
+│   │       ├── vehicle-stock/ # Dealer vehicle stock
 │   │       └── vendor/    # Vendor Management
 │   └── core-web/          # React frontend
 │       ├── src/api/       # TanStack Query hooks & types
@@ -89,9 +96,9 @@ auto-core-platform/
 - **Tailwind v4**: All styling is defined in `@theme` blocks in `src/index.css`, NOT in `tailwind.config.js`. Utility classes are preferred.
 - **shadcn/ui**: Components are located in `src/components/ui/`. Import from `@/components/ui/<component-name>`. Use the `cn()` utility from `@/lib/utils` for conditional classes. Use shadcn/ui primitives when possible.
 - **Data Fetching**: Use **TanStack Query** for all API calls. Hooks go in `src/api/` (e.g., `useInventory`, `useInventoryHistory`). API types go in `src/api/types.ts`.
-- **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g., `purchaseInvoiceKeys`, `workshopOrderKeys`) in their respective hook or service files. Legacy inline arrays (like in `workshop.ts`) should be refactored to factories when those files are next touched.
+- **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g. `purchaseInvoiceKeys`, `workshopKeys` in `src/api/workshop.ts`, `vehicleStockKeys`) in their respective hook or service files.
 - **Components**: Page components in `src/pages/`, Reusable components in `src/components/`.
-- **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop).
+- **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop, Vehicle stock).
 - **ID Generation**: Always use the centralized `generateId()` utility from `@/lib/id` instead of direct `crypto.randomUUID()` calls. This ensures compatibility with automated test environments (Playwright) where `crypto.randomUUID` might be unavailable.
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
 
@@ -191,7 +198,10 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **Timestamps**: Use `createdAt` and `updatedAt` timestamps.
 - **Supersession chains**: use self-referencing relations.
 - **Centralized Brands**: Uses `Brand` entity to standardize vehicle makes and part manufacturers.
+- **Row-level tenancy**: Tenant-scoped models include `tenant_id`. Every query against those models must filter by `tenant_id` from `TenantContextService`.
 - **Ledger-based Inventory**: Every stock movement is recorded in `InventoryTransaction`.
+- **Workshop**: `WorkshopOrder` / `WorkshopTask` job cards; parts pick writes inventory transfers.
+- **Vehicle stock**: `VehiclePurchase` / `VehicleSale` / `VehicleLedgerEntry` — dealer cars, not parts inventory.
 - **Fiscal Security**: Transactions are validated against `FinanceSettings.lock_date`.
 - **Purchase Orders**: follow a strict status workflow (DRAFT -> SENT -> PARTIAL -> COMPLETED).
 - **Sales Workflow**:
@@ -211,9 +221,8 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 
 ### Setup Commands
 ```bash
-# Install dependencies (from root)
-npm install --prefix apps/core-api
-npm install --prefix apps/core-web
+# Install all workspace dependencies (from repo root)
+npm install
 
 # Database Initialization
 cd apps/core-api
@@ -295,7 +304,7 @@ Never commit real secret values or generated local `.env` files.
 
 ## Cursor Cloud specific instructions
 
-This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the app `package.json` scripts; only the caveats below are cloud-specific. The startup update script already runs `npm ci` for both apps plus `prisma generate`.
+This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the root `package.json` workspace scripts; only the caveats below are cloud-specific. The startup update script already runs root `npm ci` plus `prisma generate`.
 
 ### Services
 - **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.

@@ -1,6 +1,9 @@
 \set ON_ERROR_STOP on
 
--- Usage:
+-- NOT ROLLED OUT (AUT-154 / AUT-74). Production tables are not partitioned.
+-- Status: docs/internal/05-Runbooks/postgres-tenant-partitioning-rollout.md
+--
+-- Usage (after partitioning ships):
 --   psql "$DATABASE_URL" -v table_name='inventory_transactions' -v tenant_id='<tenant-id>' -f tools/partitioning/create-tenant-partition.sql
 
 DO $$

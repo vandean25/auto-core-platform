@@ -9,7 +9,6 @@ import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
 import { WorkshopPdfService } from './workshop-pdf.service';
-import { WorkshopPdfStorage } from './workshop-pdf.storage';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
 import { WorkshopTaskService } from './workshop-task.service';
 import { WorkshopController } from './workshop.controller';
@@ -31,7 +30,6 @@ import { WorkshopController } from './workshop.controller';
     WorkshopInvoiceService,
     WorkshopPdfService,
     WorkshopPdfRenderer,
-    WorkshopPdfStorage,
   ],
 })
 export class WorkshopModule {}

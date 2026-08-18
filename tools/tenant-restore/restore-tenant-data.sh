@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# NOT PRODUCTIZED (AUT-154). Do not run against production.
+# Status: docs/internal/05-Runbooks/single-tenant-restore-playbook.md
+# Deferral: docs/internal/.architecture/deferrals.md
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then

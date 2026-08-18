@@ -15,5 +15,4 @@ export type PlatformAuthenticatedUser = {
 };
 
 export type AuthenticatedUser =
-  | TenantAuthenticatedUser
-  | PlatformAuthenticatedUser;
+  TenantAuthenticatedUser | PlatformAuthenticatedUser;

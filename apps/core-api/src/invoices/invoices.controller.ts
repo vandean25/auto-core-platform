@@ -1,32 +1,25 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  Headers,
   HttpException,
-  HttpCode,
   Logger,
   Param,
   Patch,
   Post,
-  UseGuards,
   StreamableFile,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
-  ApiExcludeEndpoint,
   ApiOkResponse,
   ApiProduces,
 } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
-import { Public } from '../common/decorators/public.decorator';
-import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
+import { PdfWorker } from '../common';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
 
 @Controller('invoices')
 export class InvoicesController {
@@ -35,7 +28,6 @@ export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
     private readonly invoicePdfService: InvoicePdfService,
-    private readonly tenantContext: TenantContextService,
   ) {}
 
   @Post('drafts')
@@ -66,19 +58,9 @@ export class InvoicesController {
     return this.invoicePdfService.requestGeneration(id, { targetBaseUrl });
   }
 
-  @ApiExcludeEndpoint()
-  @Public()
-  @UseGuards(CloudTasksWorkerGuard)
   @Post(':id/pdf/worker')
-  @HttpCode(204)
-  async generatePdfWorker(
-    @Param('id') id: string,
-    @Headers('x-tenant-id') tenantHeader: string,
-  ) {
-    if (!tenantHeader) {
-      throw new BadRequestException('x-tenant-id header is required');
-    }
-    this.tenantContext.setTenantIdForWorker(tenantHeader);
+  @PdfWorker('invoice')
+  async generatePdfWorker(@Param('id') id: string) {
     try {
       await this.invoicePdfService.generateNow(id);
     } catch (error) {
