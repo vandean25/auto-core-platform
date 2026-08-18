@@ -26,7 +26,7 @@ type AuthenticateBearerTokenOptions = {
 export class AuthService {
   private readonly testJwtSecret =
     process.env.NODE_ENV === 'test'
-      ? (process.env.TEST_JWT_SECRET || randomBytes(32).toString('hex'))
+      ? process.env.TEST_JWT_SECRET || randomBytes(32).toString('hex')
       : undefined;
 
   constructor(
@@ -46,7 +46,7 @@ export class AuthService {
     options: AuthenticateBearerTokenOptions = {},
   ): Promise<AuthenticatedUser> {
     const token = this.extractBearerToken(authorizationHeader);
-    const claims = await this.verifyToken(token, options);
+    const claims = await this.verifyToken(token);
     const tenantUser = await this.authSessionService.resolveTenantUser(claims);
 
     if (tenantUser) {
@@ -99,15 +99,12 @@ export class AuthService {
     return token;
   }
 
-  private async verifyToken(
-    token: string,
-    options: AuthenticateBearerTokenOptions = {},
-  ): Promise<AuthClaims> {
+  private async verifyToken(token: string): Promise<AuthClaims> {
     if (process.env.NODE_ENV === 'test') {
       const payload = await this.verifyTestToken(token);
 
       if (payload) {
-        return this.assertClaims(payload, options);
+        return this.assertClaims(payload);
       }
 
       // Fall through to Firebase verification so auth-specific tests can still
@@ -116,7 +113,7 @@ export class AuthService {
 
     try {
       const decoded = await getFirebaseAdminAuth().verifyIdToken(token);
-      return this.assertClaims(this.mapFirebaseClaims(decoded), options);
+      return this.assertClaims(this.mapFirebaseClaims(decoded));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new UnauthorizedException(`Invalid or expired token: ${message}`);
@@ -139,10 +136,7 @@ export class AuthService {
     }
   }
 
-  private assertClaims(
-    payload: Partial<AuthClaims>,
-    _options: AuthenticateBearerTokenOptions = {},
-  ): AuthClaims {
+  private assertClaims(payload: Partial<AuthClaims>): AuthClaims {
     if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new UnauthorizedException(
         'Bearer token is missing one or more required claims.',

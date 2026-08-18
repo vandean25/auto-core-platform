@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { AuditLogAction } from '@prisma/client';
 
 export class QueryAuditLogsDto {
@@ -11,7 +19,12 @@ export class QueryAuditLogsDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100, description: 'Items per page' })
+  @ApiPropertyOptional({
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+    description: 'Items per page',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -19,7 +32,9 @@ export class QueryAuditLogsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Filter by entity type (e.g. Customer, SalesOrder, Invoice)' })
+  @ApiPropertyOptional({
+    description: 'Filter by entity type (e.g. Customer, SalesOrder, Invoice)',
+  })
   @IsOptional()
   @IsString()
   entityType?: string;
@@ -29,7 +44,10 @@ export class QueryAuditLogsDto {
   @IsString()
   entityId?: string;
 
-  @ApiPropertyOptional({ enum: AuditLogAction, description: 'Filter by audit action (UPDATE, DELETE)' })
+  @ApiPropertyOptional({
+    enum: AuditLogAction,
+    description: 'Filter by audit action (UPDATE, DELETE)',
+  })
   @IsOptional()
   @IsEnum(AuditLogAction)
   action?: AuditLogAction;
@@ -39,7 +57,9 @@ export class QueryAuditLogsDto {
   @IsString()
   actorUserId?: string;
 
-  @ApiPropertyOptional({ description: 'Free-text search across entityId, actorEmail, and requestId' })
+  @ApiPropertyOptional({
+    description: 'Free-text search across entityId, actorEmail, and requestId',
+  })
   @IsOptional()
   @IsString()
   search?: string;

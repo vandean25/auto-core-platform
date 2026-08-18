@@ -59,7 +59,7 @@ const redactValue = (
       continue;
     }
 
-    redactedObject[key] = redactValue(nestedValue as AuditJsonValue, path, redactedPaths);
+    redactedObject[key] = redactValue(nestedValue, path, redactedPaths);
   }
   return redactedObject;
 };

@@ -45,13 +45,9 @@ function normalizeTargetTranslationLanguage(value: string): string {
   return base;
 }
 
-function toRecognitionEncoding(mimeType: string):
-  | 'WEBM_OPUS'
-  | 'MP3'
-  | 'OGG_OPUS'
-  | 'LINEAR16'
-  | 'FLAC'
-  | undefined {
+function toRecognitionEncoding(
+  mimeType: string,
+): 'WEBM_OPUS' | 'MP3' | 'OGG_OPUS' | 'LINEAR16' | 'FLAC' | undefined {
   const normalized = mimeType.toLowerCase();
   if (normalized.includes('webm')) return 'WEBM_OPUS';
   if (normalized.includes('mpeg') || normalized.includes('mp3')) return 'MP3';
@@ -111,7 +107,9 @@ export class VoiceTranslationService {
         : dto.googleServiceAccountJson === null
           ? null
           : this.encryptCredential(
-              JSON.stringify(this.parseServiceAccount(dto.googleServiceAccountJson)),
+              JSON.stringify(
+                this.parseServiceAccount(dto.googleServiceAccountJson),
+              ),
             );
 
     const updated = await this.prisma.voiceTranslationSettings.upsert({
@@ -204,9 +202,15 @@ export class VoiceTranslationService {
         content: request.audioBuffer.toString('base64'),
       },
     });
-    const [recognizeResponse] = (await recognizeOperation.promise()) as unknown as [
-      { results?: Array<{ alternatives?: Array<{ transcript?: string }>; languageCode?: string }> },
-    ];
+    const [recognizeResponse] =
+      (await recognizeOperation.promise()) as unknown as [
+        {
+          results?: Array<{
+            alternatives?: Array<{ transcript?: string }>;
+            languageCode?: string;
+          }>;
+        },
+      ];
 
     const originalText =
       recognizeResponse.results

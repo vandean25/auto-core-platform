@@ -56,7 +56,7 @@ export class PrismaService
           return Reflect.get(target, property, receiver);
         }
 
-        return Reflect.get(target.client, property, target.client);
+        return Reflect.get(target.client, property, target.client) as unknown;
       },
     });
 

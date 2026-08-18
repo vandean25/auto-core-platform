@@ -36,7 +36,7 @@ describe('AdminLogLevelController', () => {
         userId: 'admin-super-1',
         email: 'super@admin.com',
         platformRole: 'SUPER_ADMIN',
-      } as unknown as AuthenticatedUser,
+      },
     } as Request & { user?: AuthenticatedUser };
 
     const result = controller.updateLogLevel(

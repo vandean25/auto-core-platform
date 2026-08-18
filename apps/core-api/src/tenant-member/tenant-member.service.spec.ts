@@ -67,10 +67,10 @@ describe('TenantMemberService', () => {
 
     jest
       .spyOn(
-        service as unknown as { getFirebaseAuth: () => Auth },
+        service,
         'getFirebaseAuth',
       )
-      .mockReturnValue(mockFirebaseAuth as unknown as Auth);
+      .mockReturnValue(mockFirebaseAuth);
   });
 
   it('lists tenant members with related user data in a paginated response', async () => {

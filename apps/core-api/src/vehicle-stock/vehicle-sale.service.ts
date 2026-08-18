@@ -146,7 +146,8 @@ export class VehicleSaleService {
       dueDate.setDate(dueDate.getDate() + 14);
 
       const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
-      const description = `${posted.vehicle.year} ${posted.vehicle.make} ${posted.vehicle.model} VIN ${posted.vehicle.vin ?? ''}`.trim();
+      const description =
+        `${posted.vehicle.year} ${posted.vehicle.make} ${posted.vehicle.model} VIN ${posted.vehicle.vin ?? ''}`.trim();
 
       const invoice = await tx.invoice.create({
         data: {
@@ -238,7 +239,9 @@ export class VehicleSaleService {
         tenant_id: tenantId,
         vehicle_id: vehicleId,
         purpose: WorkshopOrderPurpose.STOCK_PREP,
-        status: { notIn: [WorkshopOrderStatus.COMPLETED, WorkshopOrderStatus.INVOICED] },
+        status: {
+          notIn: [WorkshopOrderStatus.COMPLETED, WorkshopOrderStatus.INVOICED],
+        },
       },
     });
     return open > 0;
@@ -260,7 +263,10 @@ export class VehicleSaleService {
     if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
       throw new ConflictException('Vehicle is not dealer stock');
     }
-    if (!vehicle.stock_status || !SELLABLE_STATUSES.includes(vehicle.stock_status)) {
+    if (
+      !vehicle.stock_status ||
+      !SELLABLE_STATUSES.includes(vehicle.stock_status)
+    ) {
       throw new ConflictException('Vehicle is not available for sale');
     }
     if (
@@ -268,10 +274,14 @@ export class VehicleSaleService {
       vehicle.reserved_for_customer_id &&
       vehicle.reserved_for_customer_id !== buyerId
     ) {
-      throw new ConflictException('Vehicle is reserved for a different customer');
+      throw new ConflictException(
+        'Vehicle is reserved for a different customer',
+      );
     }
     if (await this.hasOpenStockPrep(vehicleId, tx)) {
-      throw new ConflictException('Vehicle has an open stock-prep workshop order');
+      throw new ConflictException(
+        'Vehicle has an open stock-prep workshop order',
+      );
     }
     const buyer = await db.customer.findFirst({
       where: { id: buyerId, tenant_id: tenantId },

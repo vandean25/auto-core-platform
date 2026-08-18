@@ -10,7 +10,11 @@ const isDecimalLike = (value: unknown): boolean => {
     return false;
   }
 
-  const decimalCandidate = value as { toFixed?: unknown; toString?: unknown; constructor?: { name?: string } };
+  const decimalCandidate = value as {
+    toFixed?: unknown;
+    toString?: unknown;
+    constructor?: { name?: string };
+  };
   return (
     typeof decimalCandidate.toFixed === 'function' ||
     decimalCandidate.constructor?.name === 'Decimal'
@@ -27,11 +31,14 @@ export const normalizeAuditValue = (value: unknown): AuditJsonValue => {
   }
 
   if (isDecimalLike(value)) {
-    return String(value);
+    const decimalValue = value as { toString: () => string };
+    return decimalValue.toString();
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => (item === undefined ? null : normalizeAuditValue(item)));
+    return value.map((item) =>
+      item === undefined ? null : normalizeAuditValue(item),
+    );
   }
 
   if (isObject(value)) {
@@ -53,10 +60,22 @@ export const normalizeAuditValue = (value: unknown): AuditJsonValue => {
     return value;
   }
 
-  return String(value);
+  if (
+    typeof value === 'bigint' ||
+    typeof value === 'symbol' ||
+    typeof value === 'undefined' ||
+    typeof value === 'function'
+  ) {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 };
 
-const isDeepEqual = (left: AuditJsonValue | undefined, right: AuditJsonValue | undefined): boolean => {
+const isDeepEqual = (
+  left: AuditJsonValue | undefined,
+  right: AuditJsonValue | undefined,
+): boolean => {
   if (left === right) {
     return true;
   }
@@ -100,7 +119,7 @@ const asTopLevelObject = (
     return {};
   }
 
-  return value as Record<string, AuditJsonValue | undefined>;
+  return value;
 };
 
 export const computeAuditDiff = (
@@ -110,7 +129,9 @@ export const computeAuditDiff = (
   const beforeObject = asTopLevelObject(before);
   const afterObject = asTopLevelObject(after);
 
-  const topLevelFields = [...new Set([...Object.keys(beforeObject), ...Object.keys(afterObject)])].sort();
+  const topLevelFields = [
+    ...new Set([...Object.keys(beforeObject), ...Object.keys(afterObject)]),
+  ].sort();
   const diff: Record<string, AuditFieldDiff> = {};
 
   for (const fieldName of topLevelFields) {
@@ -145,13 +166,21 @@ export const buildAuditChangeSet = (
 
   const redactedBefore = redactAuditSecrets(normalizedBefore);
   const redactedAfter = redactAuditSecrets(normalizedAfter);
-  const diffResult = computeAuditDiff(redactedBefore.value, redactedAfter.value);
+  const diffResult = computeAuditDiff(
+    redactedBefore.value,
+    redactedAfter.value,
+  );
 
   return {
     before: redactedBefore.value,
     after: redactedAfter.value,
     diff: diffResult.diff,
     changedFields: diffResult.changedFields,
-    redactedFields: [...new Set([...redactedBefore.redactedPaths, ...redactedAfter.redactedPaths])].sort(),
+    redactedFields: [
+      ...new Set([
+        ...redactedBefore.redactedPaths,
+        ...redactedAfter.redactedPaths,
+      ]),
+    ].sort(),
   };
 };

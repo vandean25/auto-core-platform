@@ -65,7 +65,10 @@ function concatPageWindow(
   firstCount: number,
   page: number,
   limit: number,
-): { first: { skip: number; take: number }; second: { skip: number; take: number } } {
+): {
+  first: { skip: number; take: number };
+  second: { skip: number; take: number };
+} {
   const start = (page - 1) * limit;
   const end = start + limit;
   const firstStart = Math.min(start, firstCount);
@@ -96,26 +99,33 @@ export class VehicleStockQueryService {
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const page = params.page && params.page > 0 ? params.page : 1;
-    const limit = Math.min(params.limit && params.limit > 0 ? params.limit : 25, 100);
+    const limit = Math.min(
+      params.limit && params.limit > 0 ? params.limit : 25,
+      100,
+    );
     const stockStatus = this.parseStockStatus(params.stock_status);
     const includeDrafts =
       !stockStatus || stockStatus === VehicleStockStatus.ON_ORDER;
     const sorting = params.sortField
       ? [{ field: params.sortField, direction: params.sortDirection ?? 'asc' }]
       : [];
-    const vehicleOrderBy =
-      (QueryBuilder.buildOrderBy(sorting, STOCK_SORT_WHITELIST) as
-        | Prisma.VehicleOrderByWithRelationInput[]
-        | undefined) ?? [DEFAULT_ORDER_BY];
-    const draftOrderBy =
-      (QueryBuilder.buildOrderBy(sorting, DRAFT_SORT_WHITELIST) as
-        | Prisma.VehiclePurchaseOrderByWithRelationInput[]
-        | undefined) ?? [DEFAULT_ORDER_BY];
+    const vehicleOrderBy = QueryBuilder.buildOrderBy(
+      sorting,
+      STOCK_SORT_WHITELIST,
+    ) ?? [DEFAULT_ORDER_BY];
+    const draftOrderBy = QueryBuilder.buildOrderBy(
+      sorting,
+      DRAFT_SORT_WHITELIST,
+    ) ?? [DEFAULT_ORDER_BY];
 
     const vehicleWhere: Prisma.VehicleWhereInput = {
       tenant_id: tenantId,
       inventory_role: {
-        in: [VehicleInventoryRole.USED, VehicleInventoryRole.NEW, VehicleInventoryRole.DEMO],
+        in: [
+          VehicleInventoryRole.USED,
+          VehicleInventoryRole.NEW,
+          VehicleInventoryRole.DEMO,
+        ],
       },
       ...(stockStatus ? { stock_status: stockStatus } : {}),
       ...searchClause(params.search),
@@ -128,29 +138,40 @@ export class VehicleStockQueryService {
 
     const [vehicleTotal, draftTotal] = await Promise.all([
       this.prisma.vehicle.count({ where: vehicleWhere }),
-      includeDrafts ? this.prisma.vehiclePurchase.count({ where: draftWhere }) : 0,
+      includeDrafts
+        ? this.prisma.vehiclePurchase.count({ where: draftWhere })
+        : 0,
     ]);
     const total = vehicleTotal + draftTotal;
-    const window = concatPageWindow(includeDrafts ? draftTotal : 0, page, limit);
+    const window = concatPageWindow(
+      includeDrafts ? draftTotal : 0,
+      page,
+      limit,
+    );
 
+    const emptyPurchases: Prisma.VehiclePurchaseGetPayload<object>[] = [];
+    const emptyVehicles: Prisma.VehicleGetPayload<{
+      include: typeof VEHICLE_LIST_INCLUDE;
+    }>[] = [];
     const [drafts, vehicles] = await Promise.all([
       includeDrafts && window.first.take > 0
         ? this.prisma.vehiclePurchase.findMany({
             where: draftWhere,
-            orderBy: draftOrderBy,
+            orderBy:
+              draftOrderBy as Prisma.VehiclePurchaseOrderByWithRelationInput[],
             skip: window.first.skip,
             take: window.first.take,
           })
-        : Promise.resolve([]),
+        : emptyPurchases,
       window.second.take > 0
         ? this.prisma.vehicle.findMany({
             where: vehicleWhere,
             include: VEHICLE_LIST_INCLUDE,
-            orderBy: vehicleOrderBy,
+            orderBy: vehicleOrderBy as Prisma.VehicleOrderByWithRelationInput[],
             skip: window.second.skip,
             take: window.second.take,
           })
-        : Promise.resolve([]),
+        : emptyVehicles,
     ]);
 
     return {
@@ -238,7 +259,9 @@ export class VehicleStockQueryService {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
     }
     if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
-      throw new ConflictException('Only used stock vehicles can be patched here');
+      throw new ConflictException(
+        'Only used stock vehicles can be patched here',
+      );
     }
 
     if (dto.location_id) {

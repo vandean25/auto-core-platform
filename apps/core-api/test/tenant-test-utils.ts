@@ -178,6 +178,7 @@ export async function createTestTenant(
         : 'null';
     throw new Error(
       `[createTestTenant] Failed to create tenant slug='${slug}' code=${code} meta=${meta}: ${details}`,
+      { cause: error },
     );
   }
 
@@ -212,7 +213,7 @@ export async function cleanupTestTenantGraph(
   prisma: PrismaService,
   tenantId: string,
 ): Promise<void> {
-  const tenantPrisma = createTenantAwarePrisma(prisma, tenantId) as PrismaService;
+  const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
   await tenantPrisma.vehicleLedgerEntry.deleteMany({});
   await tenantPrisma.invoiceItem.deleteMany({});

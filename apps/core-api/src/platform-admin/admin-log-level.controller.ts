@@ -21,10 +21,7 @@ import { SuperAdminGuard } from '../auth/super-admin.guard';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator';
 import { LogLevelService } from '../common/logging/log-level.service';
-import {
-  LogLevelResponseDto,
-  UpdateLogLevelDto,
-} from './dto/log-level.dto';
+import { LogLevelResponseDto, UpdateLogLevelDto } from './dto/log-level.dto';
 
 @ApiTags('admin-settings')
 @ApiBearerAuth()

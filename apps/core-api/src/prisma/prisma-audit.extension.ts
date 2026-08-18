@@ -1,14 +1,41 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { buildAuditChangeSet, normalizeAuditValue } from '../audit/audit-diff.util';
+import {
+  buildAuditChangeSet,
+  normalizeAuditValue,
+} from '../audit/audit-diff.util';
 import { redactAuditSecrets } from '../audit/audit-redaction.util';
 import {
   TenantContextStorage,
-  type AuditSource,
   type RequestMeta,
 } from '../common/services/tenant-context.storage';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { resolvePrismaModelDelegate } from './prisma-delegate';
+
+type PrismaQueryArgs = {
+  where?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type PrismaQueryFn = (args: PrismaQueryArgs) => Promise<unknown>;
+
+type AuditLogDelegate = {
+  create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function isAuditLogDelegate(value: unknown): value is AuditLogDelegate {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  return typeof (value as AuditLogDelegate).create === 'function';
+}
 
 /**
  * Tenant-scoped business models audited on single-row and batch update and delete.
@@ -96,31 +123,39 @@ function getRequiredTenantContext(): {
 function resolveAuditLogDelegate(
   ctx?: Record<string, unknown>,
   thisContext?: Record<string, unknown>,
-): { create: (args: any) => Promise<unknown> } | undefined {
+): AuditLogDelegate | undefined {
   const candidates = [
     ctx?.auditLog,
     ctx?.AuditLog,
     thisContext?.auditLog,
     thisContext?.AuditLog,
-    (ctx as any)?.$parent?.auditLog,
-    (thisContext as any)?.$parent?.auditLog,
+    asRecord(ctx?.$parent)?.auditLog,
+    asRecord(thisContext?.$parent)?.auditLog,
   ];
 
   for (const candidate of candidates) {
-    if (candidate && typeof (candidate as any).create === 'function') {
-      return candidate as { create: (args: any) => Promise<unknown> };
+    if (isAuditLogDelegate(candidate)) {
+      return candidate;
     }
   }
 
   return undefined;
 }
 
+function whereIdAsString(args: PrismaQueryArgs): string {
+  const whereId = args.where?.id;
+  if (typeof whereId === 'string' || typeof whereId === 'number') {
+    return String(whereId);
+  }
+  return '';
+}
+
 export async function applyAuditUpdate(
   this: unknown,
-  ctx: any,
+  ctx: unknown,
   model: string,
-  args: any,
-  query: (args: any) => Promise<unknown>,
+  args: PrismaQueryArgs,
+  query: PrismaQueryFn,
 ): Promise<unknown> {
   if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
     return query(args);
@@ -152,9 +187,7 @@ export async function applyAuditUpdate(
   const entityId =
     extractEntityId(afterRaw) ??
     extractEntityId(beforeRaw) ??
-    (typeof args?.where?.id === 'string' || typeof args?.where?.id === 'number'
-      ? String(args.where.id)
-      : '');
+    whereIdAsString(args);
 
   const auditLogDelegate = resolveAuditLogDelegate(
     ctx as Record<string, unknown>,
@@ -176,11 +209,11 @@ export async function applyAuditUpdate(
         source: requestMeta?.source ?? 'API',
         ip_address: requestMeta?.ip ?? null,
         user_agent: requestMeta?.userAgent ?? null,
-        before: changeSet.before as Prisma.InputJsonValue,
-        after: changeSet.after as Prisma.InputJsonValue,
-        diff: changeSet.diff as Prisma.InputJsonValue,
-        changed_fields: changeSet.changedFields as Prisma.InputJsonValue,
-        redacted_fields: changeSet.redactedFields as Prisma.InputJsonValue,
+        before: changeSet.before,
+        after: changeSet.after,
+        diff: changeSet.diff,
+        changed_fields: changeSet.changedFields,
+        redacted_fields: changeSet.redactedFields,
       },
     });
   }
@@ -190,10 +223,10 @@ export async function applyAuditUpdate(
 
 export async function applyAuditDelete(
   this: unknown,
-  ctx: any,
+  ctx: unknown,
   model: string,
-  args: any,
-  query: (args: any) => Promise<unknown>,
+  args: PrismaQueryArgs,
+  query: PrismaQueryFn,
 ): Promise<unknown> {
   if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
     return query(args);
@@ -226,9 +259,7 @@ export async function applyAuditDelete(
   const entityId =
     extractEntityId(beforeRaw) ??
     extractEntityId(deletedRaw) ??
-    (typeof args?.where?.id === 'string' || typeof args?.where?.id === 'number'
-      ? String(args.where.id)
-      : '');
+    whereIdAsString(args);
 
   const auditLogDelegate = resolveAuditLogDelegate(
     ctx as Record<string, unknown>,
@@ -250,11 +281,11 @@ export async function applyAuditDelete(
         source: requestMeta?.source ?? 'API',
         ip_address: requestMeta?.ip ?? null,
         user_agent: requestMeta?.userAgent ?? null,
-        before: redactedBefore.value as Prisma.InputJsonValue,
+        before: redactedBefore.value,
         after: null,
         diff: null,
         changed_fields: [],
-        redacted_fields: redactedBefore.redactedPaths as Prisma.InputJsonValue,
+        redacted_fields: redactedBefore.redactedPaths,
       },
     });
   }
@@ -264,10 +295,10 @@ export async function applyAuditDelete(
 
 export async function applyAuditUpdateMany(
   this: unknown,
-  ctx: any,
+  ctx: unknown,
   model: string,
-  args: any,
-  query: (args: any) => Promise<unknown>,
+  args: PrismaQueryArgs,
+  query: PrismaQueryFn,
 ): Promise<unknown> {
   if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
     return query(args);
@@ -284,10 +315,11 @@ export async function applyAuditUpdateMany(
     resolvePrismaModelDelegate(extensionContext, model);
 
   let beforeRows: unknown[] = [];
-  if (typeof (modelDelegate as any)?.findMany === 'function' && args?.where) {
+  if (typeof modelDelegate?.findMany === 'function' && args?.where) {
     beforeRows =
-      ((await (modelDelegate as any).findMany({ where: args.where })) ??
-        []) as unknown[];
+      (await modelDelegate.findMany({
+        where: args.where,
+      })) ?? [];
   }
 
   const result = (await query(args)) as { count: number };
@@ -308,13 +340,13 @@ export async function applyAuditUpdateMany(
 
     let afterRows: unknown[] = [];
     if (
-      typeof (modelDelegate as any)?.findMany === 'function' &&
+      typeof modelDelegate?.findMany === 'function' &&
       affectedIds.length > 0
     ) {
       afterRows =
-        ((await (modelDelegate as any).findMany({
+        (await modelDelegate.findMany({
           where: { id: { in: affectedIds } },
-        })) ?? []) as unknown[];
+        })) ?? [];
     }
 
     const afterMap = new Map<string, unknown>();
@@ -344,11 +376,11 @@ export async function applyAuditUpdateMany(
           source: requestMeta?.source ?? 'API',
           ip_address: requestMeta?.ip ?? null,
           user_agent: requestMeta?.userAgent ?? null,
-          before: changeSet.before as Prisma.InputJsonValue,
-          after: changeSet.after as Prisma.InputJsonValue,
-          diff: changeSet.diff as Prisma.InputJsonValue,
-          changed_fields: changeSet.changedFields as Prisma.InputJsonValue,
-          redacted_fields: changeSet.redactedFields as Prisma.InputJsonValue,
+          before: changeSet.before,
+          after: changeSet.after,
+          diff: changeSet.diff,
+          changed_fields: changeSet.changedFields,
+          redacted_fields: changeSet.redactedFields,
         },
       });
     }
@@ -359,10 +391,10 @@ export async function applyAuditUpdateMany(
 
 export async function applyAuditDeleteMany(
   this: unknown,
-  ctx: any,
+  ctx: unknown,
   model: string,
-  args: any,
-  query: (args: any) => Promise<unknown>,
+  args: PrismaQueryArgs,
+  query: PrismaQueryFn,
 ): Promise<unknown> {
   if (model === 'AuditLog' || !AUDITED_MODELS.has(model)) {
     return query(args);
@@ -379,10 +411,11 @@ export async function applyAuditDeleteMany(
     resolvePrismaModelDelegate(extensionContext, model);
 
   let beforeRows: unknown[] = [];
-  if (typeof (modelDelegate as any)?.findMany === 'function' && args?.where) {
+  if (typeof modelDelegate?.findMany === 'function' && args?.where) {
     beforeRows =
-      ((await (modelDelegate as any).findMany({ where: args.where })) ??
-        []) as unknown[];
+      (await modelDelegate.findMany({
+        where: args.where,
+      })) ?? [];
   }
 
   const result = (await query(args)) as { count: number };
@@ -416,11 +449,11 @@ export async function applyAuditDeleteMany(
           source: requestMeta?.source ?? 'API',
           ip_address: requestMeta?.ip ?? null,
           user_agent: requestMeta?.userAgent ?? null,
-          before: redactedBefore.value as Prisma.InputJsonValue,
+          before: redactedBefore.value,
           after: null,
           diff: null,
           changed_fields: [],
-          redacted_fields: redactedBefore.redactedPaths as Prisma.InputJsonValue,
+          redacted_fields: redactedBefore.redactedPaths,
         },
       });
     }
@@ -440,49 +473,44 @@ export function createAuditExtension() {
       name: 'prisma-audit',
       query: {
         $allModels: {
-          async update({ model, args, query }) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          update({ model, args, query }) {
             return applyAuditUpdate.call(
               this,
               client,
               model,
               args,
               query,
-            );
+            ) as Promise<unknown>;
           },
-          async delete({ model, args, query }) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          delete({ model, args, query }) {
             return applyAuditDelete.call(
               this,
               client,
               model,
               args,
               query,
-            );
+            ) as Promise<unknown>;
           },
-          async updateMany({ model, args, query }) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          updateMany({ model, args, query }) {
             return applyAuditUpdateMany.call(
               this,
               client,
               model,
               args,
               query,
-            );
+            ) as Promise<unknown>;
           },
-          async deleteMany({ model, args, query }) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          deleteMany({ model, args, query }) {
             return applyAuditDeleteMany.call(
               this,
               client,
               model,
               args,
               query,
-            );
+            ) as Promise<unknown>;
           },
         },
       },
     });
   });
 }
-

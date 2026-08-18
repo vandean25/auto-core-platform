@@ -135,7 +135,7 @@ function buildTenantOwnershipWhere(
  */
 export function applyTenantIsolation(
   this: unknown,
-  ctx: any,
+  ctx: unknown,
   model: string,
   operation: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -283,8 +283,7 @@ export function createTenantIsolationExtension() {
       query: {
         $allModels: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          async $allOperations({ model, operation, args, query }: any) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          $allOperations({ model, operation, args, query }: any) {
             return applyTenantIsolation.call(
               this,
               client,
@@ -292,7 +291,7 @@ export function createTenantIsolationExtension() {
               operation,
               args,
               query,
-            );
+            ) as Promise<unknown>;
           },
         },
       },

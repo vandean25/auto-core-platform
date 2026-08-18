@@ -29,10 +29,7 @@ export class VehicleLedgerService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async append(
-    input: VehicleLedgerAppendInput,
-    tx?: Prisma.TransactionClient,
-  ) {
+  async append(input: VehicleLedgerAppendInput, tx?: Prisma.TransactionClient) {
     const tenantId = await this.tenantContext.getTenantId();
     const postingDate = input.postingDate ?? new Date();
     await this.financeService.validateTransactionDate(postingDate, tx);

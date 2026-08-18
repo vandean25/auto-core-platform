@@ -7,9 +7,7 @@ function getNormalizedHeaderValue(
   value: string | string[] | undefined,
 ): string | undefined {
   if (Array.isArray(value)) {
-    return value
-      .map((entry) => entry.trim())
-      .find((entry) => entry.length > 0);
+    return value.map((entry) => entry.trim()).find((entry) => entry.length > 0);
   }
 
   const normalized = value?.trim();
@@ -22,7 +20,8 @@ export class TenantContextMiddleware implements NestMiddleware {
     TenantContextStorage.run(() => {
       // Reuse an inbound correlation ID or generate a server-side one.
       const requestId =
-        getNormalizedHeaderValue(request.headers['x-request-id']) ?? randomUUID();
+        getNormalizedHeaderValue(request.headers['x-request-id']) ??
+        randomUUID();
 
       // Echo the effective request ID back to the caller.
       response.setHeader('x-request-id', requestId);

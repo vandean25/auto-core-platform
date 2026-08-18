@@ -56,7 +56,12 @@ export class VehicleStockController {
           ? parseInt(pageSize, 10)
           : undefined,
       sortField,
-      sortDirection: sortDirection === 'desc' ? 'desc' : sortDirection === 'asc' ? 'asc' : undefined,
+      sortDirection:
+        sortDirection === 'desc'
+          ? 'desc'
+          : sortDirection === 'asc'
+            ? 'asc'
+            : undefined,
     });
   }
 

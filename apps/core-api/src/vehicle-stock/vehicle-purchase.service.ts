@@ -96,7 +96,17 @@ export class VehiclePurchaseService {
       }),
       this.prisma.vehiclePurchase.count({ where }),
     ]);
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit), pageSize: limit, pageCount: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        pageSize: limit,
+        pageCount: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string) {
@@ -121,11 +131,13 @@ export class VehiclePurchaseService {
     this.assertSeller({
       seller_type: nextSeller,
       vendor_id:
-        dto.vendor_id !== undefined ? dto.vendor_id ?? undefined : purchase.vendor_id ?? undefined,
+        dto.vendor_id !== undefined
+          ? (dto.vendor_id ?? undefined)
+          : (purchase.vendor_id ?? undefined),
       customer_id:
         dto.customer_id !== undefined
-          ? dto.customer_id ?? undefined
-          : purchase.customer_id ?? undefined,
+          ? (dto.customer_id ?? undefined)
+          : (purchase.customer_id ?? undefined),
     } as CreateVehiclePurchaseDto);
     await this.assertTenantRefs(tenantId, {
       vendor_id: dto.vendor_id,
@@ -177,7 +189,10 @@ export class VehiclePurchaseService {
     return this.prisma.$transaction(async (tx) => {
       const guarded = await tx.vehiclePurchase.updateMany({
         where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
-        data: { status: VehiclePurchaseStatus.RECEIVED, received_at: new Date() },
+        data: {
+          status: VehiclePurchaseStatus.RECEIVED,
+          received_at: new Date(),
+        },
       });
       if (guarded.count === 0) {
         throw new ConflictException('Purchase is not in DRAFT status');
@@ -312,8 +327,13 @@ export class VehiclePurchaseService {
   }
 
   private assertSeller(dto: CreateVehiclePurchaseDto) {
-    if (dto.seller_type === VehiclePurchaseSellerType.VENDOR && !dto.vendor_id) {
-      throw new BadRequestException('vendor_id is required for vendor purchases');
+    if (
+      dto.seller_type === VehiclePurchaseSellerType.VENDOR &&
+      !dto.vendor_id
+    ) {
+      throw new BadRequestException(
+        'vendor_id is required for vendor purchases',
+      );
     }
     if (
       dto.seller_type === VehiclePurchaseSellerType.CUSTOMER &&

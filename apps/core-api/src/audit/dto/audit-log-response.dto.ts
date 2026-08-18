@@ -17,28 +17,59 @@ export class AuditLogResponseDto {
   @ApiProperty({ enum: AuditLogAction, description: 'Mutation action type' })
   action!: AuditLogAction;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'User ID of the actor who performed the mutation' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'User ID of the actor who performed the mutation',
+  })
   actorUserId?: string | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'Email of the actor who performed the mutation' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Email of the actor who performed the mutation',
+  })
   actorEmail?: string | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'Role of the actor at mutation time' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Role of the actor at mutation time',
+  })
   actorRole?: string | null;
 
-  @ApiProperty({ enum: AuditActorType, description: 'Actor classification type' })
+  @ApiProperty({
+    enum: AuditActorType,
+    description: 'Actor classification type',
+  })
   actorType!: AuditActorType;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'HTTP request correlation ID' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'HTTP request correlation ID',
+  })
   requestId?: string | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'Source channel (e.g. API, JOB)' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Source channel (e.g. API, JOB)',
+  })
   source?: string | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'Client IP address' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Client IP address',
+  })
   ipAddress?: string | null;
 
-  @ApiPropertyOptional({ type: String, nullable: true, description: 'Client User-Agent header' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Client User-Agent header',
+  })
   userAgent?: string | null;
 
   @ApiPropertyOptional({
@@ -65,18 +96,33 @@ export class AuditLogResponseDto {
   })
   diff?: unknown;
 
-  @ApiPropertyOptional({ nullable: true, type: [String], description: 'List of field names that changed' })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description: 'List of field names that changed',
+  })
   changedFields?: string[] | null;
 
-  @ApiPropertyOptional({ nullable: true, type: [String], description: 'List of field names that were redacted' })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description: 'List of field names that were redacted',
+  })
   redactedFields?: string[] | null;
 
-  @ApiProperty({ type: String, format: 'date-time', description: 'Timestamp when mutation occurred' })
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    description: 'Timestamp when mutation occurred',
+  })
   occurredAt!: Date;
 }
 
 export class AuditLogPaginationMetaDto {
-  @ApiProperty({ example: 42, description: 'Total number of matching audit records' })
+  @ApiProperty({
+    example: 42,
+    description: 'Total number of matching audit records',
+  })
   total!: number;
 
   @ApiProperty({ example: 1, description: 'Current page number' })
@@ -90,9 +136,15 @@ export class AuditLogPaginationMetaDto {
 }
 
 export class AuditLogListResponseDto {
-  @ApiProperty({ type: [AuditLogResponseDto], description: 'List of audit log items' })
+  @ApiProperty({
+    type: [AuditLogResponseDto],
+    description: 'List of audit log items',
+  })
   data!: AuditLogResponseDto[];
 
-  @ApiProperty({ type: AuditLogPaginationMetaDto, description: 'Pagination metadata' })
+  @ApiProperty({
+    type: AuditLogPaginationMetaDto,
+    description: 'Pagination metadata',
+  })
   meta!: AuditLogPaginationMetaDto;
 }

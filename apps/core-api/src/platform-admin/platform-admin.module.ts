@@ -13,4 +13,3 @@ import { PlatformAdminService } from './platform-admin.service';
   exports: [PlatformAdminService],
 })
 export class PlatformAdminModule {}
-
