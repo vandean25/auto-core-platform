@@ -15,7 +15,54 @@ Framework-meta items from 2025 (Phase 2B / 3B / 4B examples, README documentatio
 
 ## Deferred Decisions
 
-Three active items, all from ADR-0016. Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+Four active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+
+### Single-tenant restore tooling
+
+**Status**: Deferred
+**Deferred Date**: 2026-08-18
+**Category**: Infrastructure
+**Priority**: High
+
+**What Was Deferred**:
+Productizing single-tenant logical restore: extracting one `tenant_id` from a Neon PITR / timestamp branch and selectively upserting it onto primary without rewriting other tenants. Draft scripts under `tools/tenant-restore/` and the playbook at `docs/internal/05-Runbooks/single-tenant-restore-playbook.md` are **not** a supported production path.
+
+**Original Proposal**:
+Systems Architect review of ADR-0013 (2026-04-18): design and document a logical backup/restore strategy (`pg_dump` with RLS or custom scripts) so a single workshop can be rescued without Cloud SQL / Neon PITR rolling back the entire platform. AUT-72 produced a playbook and draft scripts. AUT-154 required either a documented dry-run against a snapshot clone **or** an explicit deferral with measurable triggers.
+
+**Rationale for Deferring**:
+- Current need score: 4/10 (production is still effectively one live workshop; full-branch Neon PITR does not collide with another customer's writes)
+- Complexity score: 8/10 (schema-driven FK purge order, forced RLS or per-table `WHERE` export, Neon timestamp branch, two-tenant dry-run, dump hygiene for global tables)
+- Cost of waiting: Low while tenant count is 1; High the day a second production tenant has live data
+- Draft tooling is **unsafe to run**: `purge-tenant-data.sql` omits current tenant-scoped tables; table-owner `pg_dump --enable-row-security` bypasses RLS and can dump every tenant
+- PostgreSQL list-partitioning (`tools/partitioning/`) is **not rolled out** and must not be treated as a restore shortcut
+- AUT-154 option B: honest "not productized" status beats shipping an undrilled runbook
+
+**Simpler Current Approach**:
+Neon point-in-time / branch restore of the **entire** database. Tenant-specific incidents require a DBA-reviewed manual extraction, not the draft scripts. Partition attach/detach is unavailable.
+
+**Trigger Conditions** (Implement when **any** of the following is true):
+- [ ] **Tenant count:** `SELECT count(*) FROM tenants WHERE is_active` on production is **≥ 2** and at least two of those tenants have live customer/workshop/invoice rows (full PITR then has cross-tenant blast radius)
+- [ ] **Data size:** production `pg_database_size(current_database())` is **≥ 20 GiB**, **or** any one `tenant_id` has **≥ 1,000,000** rows in `inventory_transactions` or `invoice_items` (logical dump/purge then exceeds a short maintenance window)
+- [ ] **Incident:** a production tenant-specific data-loss or corruption event occurs before the two triggers above (productize immediately; do not wait for count/size)
+
+**Implementation Notes**:
+When triggered:
+1. Replace hardcoded `purge-tenant-data.sql` with information_schema + FK-ordered deletes for every table that has `tenant_id` (except `tenants`).
+2. Export via `FORCE ROW LEVEL SECURITY` plus a non-owner extractor role, **or** per-table `COPY (SELECT * FROM … WHERE tenant_id = $1)`. Never dump as table owner without FORCE.
+3. Use a Neon timestamp branch (direct endpoint, not the pooler). Do not use `gcloud sql instances clone`.
+4. Dry-run on a throwaway Neon branch with two tenants; prove the other tenant's row counts are unchanged.
+5. Flip the playbook status from "not productized" to "runnable" and update this deferral to Implemented plus ADR-0013 consequences.
+6. Do not depend on partitioning unless [postgres-tenant-partitioning-rollout.md](../05-Runbooks/postgres-tenant-partitioning-rollout.md) has actually shipped.
+
+**Related Documents**:
+- `docs/internal/01-ADR/2026-04-15-row-level-multi-tenancy.md` (ADR-0013 consequences)
+- `docs/internal/05-Runbooks/single-tenant-restore-playbook.md`
+- `docs/internal/05-Runbooks/postgres-tenant-partitioning-rollout.md`
+- `docs/internal/.architecture/reviews/systems-architect-row-level-multi-tenancy.md`
+- Linear AUT-72, AUT-154
+
+**Last Reviewed**: 2026-08-18
 
 ### Vehicle trade-in (phase B)
 
@@ -135,6 +182,7 @@ Re-read this log when:
 
 - Opening or amending a vehicle-stock ADR or feature spec
 - A tenant asks for trade-in, new-car PO, or demo/company cars
+- Opening or amending ADR-0013, the restore playbook, or onboarding a second production tenant
 - A trigger checkbox above is actually true
 
 Then update status, or cancel the phase if the product dropped it.
@@ -142,7 +190,7 @@ Then update status, or cancel the phase if the product dropped it.
 **When a trigger is met**:
 
 1. Set status to **Triggered**
-2. Create or update an ADR for that phase (do not silently grow ADR-0016's Phase A scope)
+2. Create or update an ADR (restore: ADR-0013; vehicle B/C/D: a phase ADR — do not silently grow ADR-0016's Phase A scope)
 3. Plan implementation in the next milestone
 4. After ship, set status to **Implemented**
 
@@ -154,8 +202,8 @@ Reset 2026-08-18. Counts below are **product deferrals only**. Twenty-two framew
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Total deferrals | 3 | Vehicle stock B / C / D |
-| Active deferrals | 3 | Currently deferred |
+| Total deferrals | 4 | Single-tenant restore + vehicle stock B / C / D |
+| Active deferrals | 4 | Currently deferred |
 | Triggered awaiting implementation | 0 | Need to address |
 | Implemented | 0 | Were eventually needed |
 | Cancelled | 0 | Were never needed |
