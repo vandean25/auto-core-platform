@@ -105,6 +105,48 @@ describe('SalesController (e2e)', () => {
     expect(response.body.invoice_number).toBeNull();
   });
 
+  it('/api/sales/invoices/:id (PATCH) - Update Draft', async () => {
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/sales/invoices')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId: customerId,
+        items: [
+          {
+            catalogItemId: catalogItemId,
+            description: 'Original item',
+            quantity: 1,
+            unitPrice: 10,
+            taxRate: 20,
+          },
+        ],
+      })
+      .expect(201);
+
+    const invoiceId = createResponse.body.id;
+
+    const updateResponse = await request(app.getHttpServer())
+      .patch(`/api/sales/invoices/${invoiceId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId: customerId,
+        items: [
+          {
+            catalogItemId: catalogItemId,
+            description: 'Updated item',
+            quantity: 3,
+            unitPrice: 20,
+            taxRate: 20,
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(updateResponse.body.status).toBe('DRAFT');
+    expect(updateResponse.body.total_net).toBe('60');
+    expect(updateResponse.body.items[0].description).toBe('Updated item');
+  });
+
   it('Finalize Invoice Workflow', async () => {
     // 1. Create Draft
     const createInvoiceDto = {

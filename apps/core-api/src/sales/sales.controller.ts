@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -13,6 +13,17 @@ export class SalesController {
   })
   createDraft(@Body() createInvoiceDto: CreateInvoiceDto) {
     return this.salesService.createDraft(createInvoiceDto);
+  }
+
+  @Patch('invoices/:id')
+  @ApiOkResponse({
+    schema: { type: 'object' },
+  })
+  updateDraft(
+    @Param('id') id: string,
+    @Body() createInvoiceDto: CreateInvoiceDto,
+  ) {
+    return this.salesService.updateDraft(id, createInvoiceDto);
   }
 
   @Put('invoices/:id/finalize')
