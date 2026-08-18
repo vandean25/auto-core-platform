@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
+import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import {
   Command,
   CommandList,
@@ -106,6 +108,26 @@ export default function PurchaseOrderDetail() {
   const addItems = useAddPOItems();
   const updateItem = useUpdatePOItem();
   const deleteItem = useDeletePOItem();
+  const updateItemRef = useRef(updateItem);
+  updateItemRef.current = updateItem;
+
+  const saveLineQuantity = useCallback(
+    async (snapshot: { itemId: string; quantity: number }) => {
+      if (!id) return
+      await updateItemRef.current.mutateAsync({
+        orderId: id,
+        itemId: snapshot.itemId,
+        updates: { quantity: snapshot.quantity },
+      })
+    },
+    [id],
+  )
+
+  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
+    enabled: po?.status === "DRAFT",
+    save: saveLineQuantity,
+    shouldSave: (snapshot) => Number.isFinite(snapshot.quantity) && snapshot.quantity > 0,
+  })
 
   const { data: unbilledItems = [] } = useUnbilledReceipts(po?.vendor_id);
 
@@ -252,23 +274,9 @@ export default function PurchaseOrderDetail() {
     }
 
     if (!id) return;
-    updateItem.mutate(
-      {
-        orderId: id,
-        itemId,
-        updates: { quantity: qty },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Item quantity updated");
-          setEditingItemId(null);
-          setEditingQty("");
-        },
-        onError: (error) => {
-          toast.error("Failed to update item", { description: error.message });
-        },
-      },
-    );
+    triggerAutoSave({ itemId, quantity: qty }, { immediate: true });
+    setEditingItemId(null);
+    setEditingQty("");
   };
 
   const handleDeleteItem = (itemId: string) => {
@@ -307,12 +315,14 @@ export default function PurchaseOrderDetail() {
           <p className="text-slate-500">Vendor: {po.vendor?.name}</p>
         </div>
         <div className="flex items-center space-x-4">
+          {po.status === "DRAFT" && <DocumentSaveIndicator status={saveStatus} />}
           <StatusBadge status={po.status} />
 
           {po.status === "DRAFT" && (
             <Button
               variant="default"
               onClick={() => {
+                clearPendingSave()
                 toast.promise(markAsSent.mutateAsync(po.id), {
                   loading: "Marking as sent...",
                   success: "Purchase order marked as sent",
@@ -527,7 +537,13 @@ export default function PurchaseOrderDetail() {
                                 type="number"
                                 min="1"
                                 value={editingQty}
-                                onChange={(e) => setEditingQty(e.target.value)}
+                                onChange={(e) => {
+                                  setEditingQty(e.target.value)
+                                  const qty = Number(e.target.value)
+                                  if (!Number.isFinite(qty) || qty <= 0) return
+                                  if (qty === item.quantity) return
+                                  triggerAutoSave({ itemId: item.id, quantity: qty })
+                                }}
                                 onBlur={() => {
                                   if (
                                     editingQty &&

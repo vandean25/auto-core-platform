@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
-import { useCreateSalesOrder } from '@/api/sales-orders'
+import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
+import { useCreateSalesOrder, useUpdateSalesOrder } from '@/api/sales-orders'
 import { useInventory } from '@/api/inventory'
 import { useCustomer } from '@/api/customers'
+import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
-import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import {
     Command,
@@ -42,11 +43,31 @@ interface SalesOrderForm {
     items: SalesOrderItemForm[]
 }
 
+function toSalesOrderPayload(data: SalesOrderForm) {
+    return {
+        customer_id: data.customer_id,
+        notes: data.notes,
+        items: data.items.map((item) => ({
+            ...item,
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            tax_rate: Number(item.tax_rate),
+        })),
+    }
+}
+
 export default function SalesOrderCreate() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const preselectedCustomerId = searchParams.get('customerId')
     const createMutation = useCreateSalesOrder()
+    const updateMutation = useUpdateSalesOrder()
+    const orderIdRef = useRef<string | null>(null)
+    const lastSavedRef = useRef<string | null>(null)
+    const createMutationRef = useRef(createMutation)
+    const updateMutationRef = useRef(updateMutation)
+    createMutationRef.current = createMutation
+    updateMutationRef.current = updateMutation
 
     // Fetch customer if ID is in URL
     const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
@@ -64,35 +85,56 @@ export default function SalesOrderCreate() {
         name: 'items',
     })
 
+    const customerId = form.watch('customer_id')
+    const notes = form.watch('notes')
+    const items = form.watch('items')
+
+    const saveDraft = useCallback(async (snapshot: SalesOrderForm, signal: AbortSignal) => {
+        const payload = toSalesOrderPayload(snapshot)
+        const serialized = JSON.stringify(payload)
+        if (serialized === lastSavedRef.current) return
+
+        if (orderIdRef.current) {
+            await updateMutationRef.current.mutateAsync({
+                id: orderIdRef.current,
+                data: payload,
+                signal,
+            })
+        } else {
+            const created = await createMutationRef.current.mutateAsync({ ...payload, signal })
+            orderIdRef.current = created.id
+        }
+        lastSavedRef.current = serialized
+    }, [])
+
+    const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<SalesOrderForm>({
+        save: saveDraft,
+        shouldSave: (snapshot) => Boolean(snapshot.customer_id),
+    })
+
+    useEffect(() => {
+        if (!form.formState.isDirty) return
+        triggerAutoSave({
+            customer_id: customerId,
+            notes,
+            items,
+        })
+    }, [customerId, notes, items, form.formState.isDirty, triggerAutoSave])
+
     // Set customer if loaded
     useEffect(() => {
         if (preselectedCustomer) {
-            form.setValue('customer_id', preselectedCustomer.id)
+            form.setValue('customer_id', preselectedCustomer.id, { shouldDirty: true })
         }
     }, [preselectedCustomer, form])
 
-    const onSubmit = async (data: SalesOrderForm) => {
-        if (data.items.length === 0) {
-            toast.error('Please add at least one item')
+    const handleDone = () => {
+        clearPendingSave()
+        if (orderIdRef.current) {
+            navigate(`/sales-orders/${orderIdRef.current}`)
             return
         }
-
-        try {
-            await createMutation.mutateAsync({
-                ...data,
-                // Ensure numbers are numbers
-                items: data.items.map(item => ({
-                    ...item,
-                    quantity: Number(item.quantity),
-                    unit_price: Number(item.unit_price),
-                    tax_rate: Number(item.tax_rate)
-                }))
-            })
-            toast.success('Sales order created')
-            navigate('/sales-orders')
-        } catch (error) {
-            toast.error('Failed to create sales order')
-        }
+        navigate('/sales-orders')
     }
 
     // Item Search Logic
@@ -131,10 +173,11 @@ export default function SalesOrderCreate() {
                         <p className="text-slate-500">Create a draft order for a customer.</p>
                     </div>
                 </div>
+                <DocumentSaveIndicator status={saveStatus} />
             </div>
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Customer Details</CardTitle>
@@ -161,7 +204,7 @@ export default function SalesOrderCreate() {
                                             <CustomerSearch
                                                 value={preselectedCustomer || placeholderCustomer}
                                                 onChange={(customer) => {
-                                                    field.onChange(customer?.id)
+                                                    field.onChange(customer?.id ?? '')
                                                 }}
                                             />
                                         </FormControl>
@@ -294,8 +337,8 @@ export default function SalesOrderCreate() {
                         <Button type="button" variant="outline" onClick={() => navigate('/sales-orders')}>
                             Cancel
                         </Button>
-                        <Button type="submit" size="lg" disabled={createMutation.isPending}>
-                            {createMutation.isPending ? 'Creating...' : 'Create Sales Order'}
+                        <Button type="button" size="lg" onClick={handleDone}>
+                            Done
                         </Button>
                     </div>
                 </form>

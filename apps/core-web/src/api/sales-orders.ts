@@ -55,11 +55,13 @@ export function useCreateSalesOrder() {
     const queryClient = useQueryClient()
     
     return useMutation({
-        mutationFn: async (order: SalesOrderMutationPayload) => {
+        mutationFn: async (order: SalesOrderMutationPayload & { signal?: AbortSignal }) => {
+            const { signal, ...payload } = order
             const response = await fetchWithAuth('/api/sales-orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(order),
+                body: JSON.stringify(payload),
+                signal,
             })
             if (!response.ok) throw new Error('Failed to create sales order')
             return response.json() as Promise<SalesOrder>
@@ -74,11 +76,20 @@ export function useUpdateSalesOrder() {
     const queryClient = useQueryClient()
     
     return useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: SalesOrderMutationPayload }) => {
+        mutationFn: async ({
+            id,
+            data,
+            signal,
+        }: {
+            id: string
+            data: SalesOrderMutationPayload
+            signal?: AbortSignal
+        }) => {
             const response = await fetchWithAuth(`/api/sales-orders/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
+                signal,
             })
             if (!response.ok) throw new Error('Failed to update sales order')
             return response.json() as Promise<SalesOrder>
