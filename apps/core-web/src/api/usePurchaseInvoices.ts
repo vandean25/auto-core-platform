@@ -168,6 +168,25 @@ export function usePayPurchaseInvoice() {
     })
 }
 
+export function useDeletePurchaseInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: 'Failed to delete bill' }))
+                throw new Error(error.message || 'Failed to delete bill')
+            }
+            return id
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.all })
+        },
+    })
+}
+
 export function useDeletePurchaseInvoiceLine() {
     const queryClient = useQueryClient()
     return useMutation({
