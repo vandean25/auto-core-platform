@@ -1,4 +1,7 @@
-import { spawnSync } from 'node:child_process';
+import {
+  interpretPrismaCliSpawn,
+  spawnLocalPrisma,
+} from './local-prisma-cli';
 
 export type BaselinePrismaOptions = {
   appliedMigration: string;
@@ -17,7 +20,7 @@ export function parseBaselinePrismaArgs(argv: string[]): BaselinePrismaOptions {
 }
 
 export function prismaBaselineResolveArgs(appliedMigration: string): string[] {
-  return ['prisma', 'migrate', 'resolve', '--applied', appliedMigration];
+  return ['migrate', 'resolve', '--applied', appliedMigration];
 }
 
 function runBaselinePrismaMigrationsCli(): void {
@@ -28,8 +31,12 @@ function runBaselinePrismaMigrationsCli(): void {
     'Running a manual one-shot Prisma baseline. Do not invoke this from the tag-triggered Cloud Build migrate-db step.',
   );
 
-  const result = spawnSync('npx', args, { encoding: 'utf8', stdio: 'inherit' });
-  process.exit(result.status ?? 1);
+  const result = spawnLocalPrisma(args, { stdio: 'inherit' });
+  const outcome = interpretPrismaCliSpawn(result);
+  if (outcome.spawnErrorMessage) {
+    console.error(outcome.spawnErrorMessage);
+  }
+  process.exit(outcome.exitCode);
 }
 
 function readCliOption(argv: string[], flag: string): string | undefined {

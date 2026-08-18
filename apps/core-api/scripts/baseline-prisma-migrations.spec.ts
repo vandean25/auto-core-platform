@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   parseBaselinePrismaArgs,
   prismaBaselineResolveArgs,
@@ -27,15 +29,25 @@ describe('parseBaselinePrismaArgs', () => {
 });
 
 describe('prismaBaselineResolveArgs', () => {
-  it('builds a prisma migrate resolve --applied command', () => {
+  it('builds args for the local prisma binary', () => {
     expect(
       prismaBaselineResolveArgs('20260130185623_init_sales_module'),
     ).toEqual([
-      'prisma',
       'migrate',
       'resolve',
       '--applied',
       '20260130185623_init_sales_module',
     ]);
+  });
+});
+
+describe('baseline-prisma-migrations spawn', () => {
+  it('does not spawn npx', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'baseline-prisma-migrations.ts'),
+      'utf8',
+    );
+
+    expect(source).not.toMatch(/spawnSync\(\s*['"]npx['"]/);
   });
 });

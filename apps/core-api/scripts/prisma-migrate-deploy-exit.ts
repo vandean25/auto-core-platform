@@ -1,4 +1,8 @@
-import { spawnSync } from 'node:child_process';
+import {
+  interpretPrismaCliSpawn,
+  spawnLocalPrisma,
+  type PrismaCliSpawnResult,
+} from './local-prisma-cli';
 
 export type CloudBuildMigrateExit = {
   exitCode: number;
@@ -8,10 +12,7 @@ export type CloudBuildMigrateExit = {
 export const P3005_BASELINE_HINT =
   'Prisma P3005: the database schema is not empty / not baselined. This production deploy must fail. Baseline is a manual one-shot: npm run db:baseline -- --applied <migration_name>.';
 
-export type PrismaMigrateDeployRunner = () => {
-  status: number | null;
-  output: string;
-};
+export type PrismaMigrateDeployRunner = () => PrismaCliSpawnResult;
 
 export function resolveCloudBuildMigrateExit(
   prismaExitCode: number,
@@ -38,8 +39,14 @@ export function runPrismaMigrateDeployCli(
 ): number {
   const result = runPrisma();
   writeStdout(result.output);
+  const spawnOutcome = interpretPrismaCliSpawn(result);
+  if (spawnOutcome.spawnErrorMessage) {
+    writeStderr(spawnOutcome.spawnErrorMessage);
+    return spawnOutcome.exitCode;
+  }
+
   const outcome = resolveCloudBuildMigrateExit(
-    result.status ?? 1,
+    spawnOutcome.exitCode,
     result.output,
   );
   if (outcome.message) {
@@ -48,17 +55,8 @@ export function runPrismaMigrateDeployCli(
   return outcome.exitCode;
 }
 
-function spawnPrismaMigrateDeploy(): {
-  status: number | null;
-  output: string;
-} {
-  const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], {
-    encoding: 'utf8',
-  });
-  return {
-    status: result.status,
-    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-  };
+function spawnPrismaMigrateDeploy(): PrismaCliSpawnResult {
+  return spawnLocalPrisma(['migrate', 'deploy']);
 }
 
 if (require.main === module) {

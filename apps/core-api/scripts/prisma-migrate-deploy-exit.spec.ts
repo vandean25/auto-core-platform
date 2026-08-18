@@ -96,6 +96,23 @@ describe('runPrismaMigrateDeployCli', () => {
 
     expect(exitCode).toBe(1);
   });
+
+  it('writes spawn failures to stderr and exits non-zero', () => {
+    const stderr: string[] = [];
+
+    const exitCode = runPrismaMigrateDeployCli(
+      () => ({
+        status: null,
+        output: '',
+        error: new Error('spawn npx ENOENT'),
+      }),
+      () => undefined,
+      (text) => stderr.push(text),
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toEqual(['spawn npx ENOENT']);
+  });
 });
 
 describe('cloudbuild.yaml migrate-db', () => {
@@ -125,6 +142,17 @@ describe('cloudbuild.yaml migrate-db', () => {
 
   it('does not run the one-shot baseline script', () => {
     expect(migrateStep).not.toMatch(/baseline-prisma-migrations\.ts/);
+  });
+});
+
+describe('prisma-migrate-deploy-exit spawn', () => {
+  it('does not spawn npx', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'prisma-migrate-deploy-exit.ts'),
+      'utf8',
+    );
+
+    expect(source).not.toMatch(/spawnSync\(\s*['"]npx['"]/);
   });
 });
 
