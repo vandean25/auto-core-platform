@@ -31,6 +31,10 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { LedgerService } from '../inventory/ledger.service';
 import type { RecordTransactionParams } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -141,17 +145,49 @@ export class WorkshopService {
     orderId: string,
     nextOrderStatus: WorkshopOrderStatus,
   ) {
-    const updateResult = await tx.workshopOrder.updateMany({
-      where: {
-        id: orderId,
-        tenant_id: tenantId,
-        status: { not: WorkshopOrderStatus.INVOICED },
-      },
-      data: { status: nextOrderStatus },
+    const order = await tx.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: { status: true },
     });
-    if (updateResult.count === 0) {
+    if (!order) {
+      throw new NotFoundException(`Workshop order ${orderId} not found`);
+    }
+    if (order.status === WorkshopOrderStatus.INVOICED) {
       return false;
     }
+    if (order.status === nextOrderStatus) {
+      return true;
+    }
+
+    try {
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
+        id: orderId,
+        tenantId,
+        from: order.status,
+        to: nextOrderStatus,
+        conflictMessage:
+          'Workshop order status changed concurrently. Please refresh and try again.',
+      });
+    } catch (error) {
+      if (!(error instanceof ConflictException)) {
+        throw error;
+      }
+      const latest = await tx.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        select: { status: true },
+      });
+      if (!latest) {
+        throw new NotFoundException(`Workshop order ${orderId} not found`);
+      }
+      if (latest.status === WorkshopOrderStatus.INVOICED) {
+        return false;
+      }
+      if (latest.status === nextOrderStatus) {
+        return true;
+      }
+      throw error;
+    }
+
     if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
       await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
     }
@@ -729,21 +765,40 @@ export class WorkshopService {
       }
       this.assertOrderEditable(task.workshop_order);
 
-      const taskUpdate = await tx.workshopTask.updateMany({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          workshop_order_id: orderId,
-        },
-        data: {
-          title: dto.title,
-          status: dto.status,
-          mechanic_notes: dto.mechanicNotes,
-        },
-      });
+      const fieldData: Prisma.WorkshopTaskUpdateManyMutationInput = {};
+      if (dto.title !== undefined) {
+        fieldData.title = dto.title;
+      }
+      if (dto.mechanicNotes !== undefined) {
+        fieldData.mechanic_notes = dto.mechanicNotes;
+      }
 
-      if (taskUpdate.count === 0) {
-        throw new NotFoundException(`Task ${taskId} not found for this order`);
+      const nextStatus = dto.status;
+      if (nextStatus !== undefined && nextStatus !== task.status) {
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopTask), {
+          id: taskId,
+          tenantId,
+          from: task.status,
+          to: nextStatus,
+          extraWhere: { workshop_order_id: orderId },
+          extraData: fieldData,
+          conflictMessage: `Task ${taskId} status changed concurrently. Please refresh and try again.`,
+        });
+      } else if (Object.keys(fieldData).length > 0) {
+        const taskUpdate = await tx.workshopTask.updateMany({
+          where: {
+            id: taskId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+          },
+          data: fieldData,
+        });
+
+        if (taskUpdate.count === 0) {
+          throw new NotFoundException(
+            `Task ${taskId} not found for this order`,
+          );
+        }
       }
 
       const tasks = await tx.workshopTask.findMany({

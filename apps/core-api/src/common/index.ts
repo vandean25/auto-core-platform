@@ -32,3 +32,10 @@ export {
 
 export { CloudTasksService } from './services/cloud-tasks.service';
 export { PlaywrightBrowserService } from './services/playwright-browser.service';
+export {
+  STALE_STATUS_CONFLICT_MESSAGE,
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+  type StatusUpdateMany,
+  type GuardedStatusUpdateInput,
+} from './utils/status-transition';

@@ -12,17 +12,35 @@ This document centrally maps the valid state transitions for the core workflow e
 
 ### Enforcement Mechanism
 
-All status transitions are guarded using the **atomic `updateMany` pattern** inside `prisma.$transaction`:
+All lifecycle status transitions use `guardedStatusUpdate` (ADR-0011): an atomic `updateMany` inside `prisma.$transaction` whose `WHERE` includes `id`, `tenant_id`, and the **expected current status**. `count === 0` means a race (or a stale client) and throws `ConflictException` (HTTP 409).
 
 ```typescript
-const result = await prisma.salesOrder.updateMany({
-  where: { id: orderId, status: 'CONFIRMED' }, // guard: must be in expected state
-  data:  { status: 'IN_PROGRESS' },
+await guardedStatusUpdate(bindStatusUpdateMany(tx.salesOrder), {
+  id: orderId,
+  tenantId,
+  from: 'CONFIRMED',
+  to: 'IN_PROGRESS',
 });
-if (result.count === 0) {
-  throw new ConflictException('Order was already transitioned by another request');
-}
 ```
+
+Field-only updates (title, notes, quantities) **must not** write `status` in the same payload. If a PATCH includes a new status, the write uses the current status as expected-from and rejects non-adjacent skips with `400`.
+
+### Guarded transitions by entity
+
+| Entity | Transition | Expected-from |
+|--------|------------|----------------|
+| `PurchaseOrder` | `DRAFT → SENT` (`markAsSent`) | `DRAFT` |
+| `PurchaseOrder` | receive goods | current `DRAFT`, `SENT`, or `PARTIAL` |
+| `PurchaseOrderItem` | receive quantity increment | current `quantity_received` |
+| `SalesOrder` | PATCH status | current status; only the next documented edge |
+| `Invoice` (sales finalize) | `DRAFT → FINALIZED` | `DRAFT` |
+| `SalesOrder` (on finalize) | `CONFIRMED \| IN_PROGRESS \| COMPLETED → INVOICED` | current order status |
+| `Invoice` (workshop issue) | `DRAFT → ISSUED` | `DRAFT` |
+| `WorkshopOrder` (on issue) | `COMPLETED → INVOICED` | `COMPLETED` |
+| `WorkshopTask` | advisor PATCH status | current task status |
+| `WorkshopOrder` | derived from task statuses | current order status (never from `INVOICED`) |
+
+Mechanic punch-in / pause / complete already used this pattern and remain unchanged.
 
 ### Audit Observability
 
@@ -64,13 +82,17 @@ stateDiagram-v2
     WAITING_PARTS --> IN_PROGRESS: Parts arrived (resume)
     WAITING_CUSTOMER --> IN_PROGRESS: Customer responds (resume)
     PAUSED --> IN_PROGRESS: Mechanic returns to task
-    IN_PROGRESS --> DONE: Work finished
+    IN_PROGRESS --> DONE: Work finished (or advisor marks done)
 
     DONE --> [*]
 
     note right of DONE
       All Tasks must be DONE
-      for Order to be COMPLETED
+      for Order to be COMPLETED.
+      Advisor PATCH may set DONE
+      from any non-DONE status;
+      the write is still CAS-guarded
+      on the current task status.
     end note
 
     note right of WAITING_CUSTOMER
@@ -112,6 +134,9 @@ stateDiagram-v2
       COMPLETED is a transitional state.
       The expected terminal path is
       COMPLETED → INVOICED.
+      Finalizing a sales invoice also
+      accepts CONFIRMED or IN_PROGRESS
+      and CAS-guards the current status.
     end note
 ```
 
@@ -145,6 +170,8 @@ The vendor acquisition cycle.
 stateDiagram-v2
     [*] --> DRAFT: PO built
     DRAFT --> SENT: Vendor notified
+    DRAFT --> PARTIAL: Some goods received without send
+    DRAFT --> COMPLETED: All goods received without send
     SENT --> PARTIAL: Some goods received
     PARTIAL --> PARTIAL: More goods received
     SENT --> COMPLETED: All goods received
@@ -154,7 +181,9 @@ stateDiagram-v2
 
     note right of PARTIAL
       Receipts trigger InventoryTransaction
-      (type: RECEIPT — see ADR-0002)
+      (type: RECEIPT — see ADR-0002).
+      Concurrent receives CAS on
+      quantity_received and PO status.
     end note
 ```
 
