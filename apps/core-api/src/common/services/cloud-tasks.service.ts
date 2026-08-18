@@ -5,6 +5,12 @@ import {
 } from '@nestjs/common';
 import { CloudTasksClient } from '@google-cloud/tasks';
 import * as Sentry from '@sentry/node';
+import { type PdfTaskKind, signPdfTaskPayload } from '../pdf/pdf-task-payload';
+
+const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
+  invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
+  'workshop-order': (resourceId) => `workshop/orders/${resourceId}/pdf/worker`,
+};
 
 @Injectable()
 export class CloudTasksService {
@@ -88,7 +94,8 @@ export class CloudTasksService {
   }
 
   async enqueuePdfGeneration(params: {
-    invoiceId: string;
+    kind: PdfTaskKind;
+    resourceId: string;
     targetBaseUrl: string;
     delaySeconds?: number;
     tenantId: string;
@@ -96,8 +103,9 @@ export class CloudTasksService {
     return Sentry.startSpan(
       { name: 'Enqueue PDF generation task', op: 'cloudtasks.enqueue' },
       async (span) => {
-        const { invoiceId } = params;
-        span.setAttribute('invoiceId', invoiceId);
+        const { kind, resourceId, tenantId } = params;
+        span.setAttribute('pdfKind', kind);
+        span.setAttribute('resourceId', resourceId);
 
         if (!this.isEnabled()) {
           throw new InternalServerErrorException(
@@ -124,7 +132,7 @@ export class CloudTasksService {
             ? params.targetBaseUrl
             : `${params.targetBaseUrl}/`;
 
-          url = new URL(`invoices/${invoiceId}/pdf/worker`, baseUrl).toString();
+          url = new URL(PDF_WORKER_PATH[kind](resourceId), baseUrl).toString();
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -143,6 +151,11 @@ export class CloudTasksService {
             ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
             : undefined;
 
+        const payload = signPdfTaskPayload(
+          { kind, resourceId, tenantId },
+          workerSecret,
+        );
+
         const [task] = await this.client.createTask({
           parent,
           task: {
@@ -152,9 +165,9 @@ export class CloudTasksService {
               headers: {
                 'Content-Type': 'application/json',
                 'x-cloud-tasks-secret': workerSecret,
-                'x-tenant-id': params.tenantId,
+                'x-tenant-id': tenantId,
               },
-              body: Buffer.from('{}'),
+              body: Buffer.from(JSON.stringify(payload)),
             },
             scheduleTime,
             dispatchDeadline: { seconds: 600 },
@@ -164,112 +177,17 @@ export class CloudTasksService {
         const fullTaskName = task.name;
         if (!fullTaskName) {
           this.logger.error(
-            `Cloud Tasks createTask() returned a task without a name for invoice ${invoiceId}`,
+            `Cloud Tasks createTask() returned a task without a name for ${kind} ${resourceId}`,
           );
           throw new InternalServerErrorException(
             'Cloud Tasks returned a malformed task without a name',
           );
         }
 
-        // Extract base ID to avoid leaking full resource path to clients
         const taskId = fullTaskName.split('/').pop() || fullTaskName;
 
         this.logger.log(
-          `Enqueued Cloud Task for invoice ${invoiceId} (${taskId})`,
-        );
-
-        return { taskId };
-      },
-    );
-  }
-
-  async enqueueWorkshopPdfGeneration(params: {
-    workshopOrderId: string;
-    targetBaseUrl: string;
-    delaySeconds?: number;
-    tenantId: string;
-  }): Promise<{ taskId: string }> {
-    return Sentry.startSpan(
-      { name: 'Enqueue Workshop PDF task', op: 'cloudtasks.enqueue' },
-      async (span) => {
-        const { workshopOrderId } = params;
-        span.setAttribute('workshopOrderId', workshopOrderId);
-
-        if (!this.isEnabled()) {
-          throw new InternalServerErrorException(
-            'Cloud Tasks is not enabled or not configured',
-          );
-        }
-
-        const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
-        const location = process.env.CLOUD_TASKS_LOCATION;
-        const queue = process.env.CLOUD_TASKS_QUEUE;
-
-        if (!workerSecret || !location || !queue) {
-          throw new InternalServerErrorException(
-            'Cloud Tasks is missing required config variables',
-          );
-        }
-
-        const projectId = await this.getProjectId();
-        const parent = this.client.queuePath(projectId, location, queue);
-
-        let url: string;
-        try {
-          const baseUrl = params.targetBaseUrl.endsWith('/')
-            ? params.targetBaseUrl
-            : `${params.targetBaseUrl}/`;
-
-          url = new URL(
-            `workshop/orders/${workshopOrderId}/pdf/worker`,
-            baseUrl,
-          ).toString();
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          throw new InternalServerErrorException(
-            `Invalid Cloud Tasks target base URL: ${message}`,
-          );
-        }
-
-        span.setAttribute('queue', queue);
-        span.setAttribute('location', location);
-        span.setAttribute('targetUrl', url);
-
-        const delaySeconds = Math.max(0, Math.floor(params.delaySeconds ?? 0));
-        const scheduleTime =
-          delaySeconds > 0
-            ? { seconds: Math.floor(Date.now() / 1000) + delaySeconds }
-            : undefined;
-
-        const [task] = await this.client.createTask({
-          parent,
-          task: {
-            httpRequest: {
-              httpMethod: 'POST',
-              url,
-              headers: {
-                'Content-Type': 'application/json',
-                'x-cloud-tasks-secret': workerSecret,
-                'x-tenant-id': params.tenantId,
-              },
-              body: Buffer.from('{}'),
-            },
-            scheduleTime,
-            dispatchDeadline: { seconds: 600 },
-          },
-        });
-
-        const fullTaskName = task.name;
-        if (!fullTaskName) {
-          throw new InternalServerErrorException(
-            'Cloud Tasks returned a task without a name',
-          );
-        }
-
-        const taskId = fullTaskName.split('/').pop() || fullTaskName;
-        this.logger.log(
-          `Enqueued Cloud Task for workshop order ${workshopOrderId} (${taskId})`,
+          `Enqueued Cloud Task for ${kind} ${resourceId} (${taskId})`,
         );
 
         return { taskId };

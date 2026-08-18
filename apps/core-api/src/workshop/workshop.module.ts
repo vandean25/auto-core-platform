@@ -6,7 +6,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
-import { WorkshopPdfStorage } from './workshop-pdf.storage';
 import { WorkshopController } from './workshop.controller';
 import { WorkshopService } from './workshop.service';
 
@@ -19,11 +18,6 @@ import { WorkshopService } from './workshop.service';
     VehicleStockModule,
   ],
   controllers: [WorkshopController],
-  providers: [
-    WorkshopService,
-    WorkshopPdfService,
-    WorkshopPdfRenderer,
-    WorkshopPdfStorage,
-  ],
+  providers: [WorkshopService, WorkshopPdfService, WorkshopPdfRenderer],
 })
 export class WorkshopModule {}

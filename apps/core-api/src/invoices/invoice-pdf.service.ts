@@ -12,8 +12,7 @@ import retry from 'async-retry';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
-import { InvoicePdfStorage } from './invoice-pdf.storage';
-import { CloudTasksService } from '../common';
+import { CloudTasksService, PdfStorage } from '../common';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type InvoicePdfRequestGenerationResponse = {
@@ -32,7 +31,7 @@ export class InvoicePdfService {
   constructor(
     private prisma: PrismaService,
     private renderer: InvoicePdfRenderer,
-    private storage: InvoicePdfStorage,
+    private storage: PdfStorage,
     private cloudTasks: CloudTasksService,
     private tenantContext: TenantContextService,
   ) {}
@@ -111,7 +110,8 @@ export class InvoicePdfService {
     try {
       const tenantId = await this.tenantContext.getTenantId();
       const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
-        invoiceId,
+        kind: 'invoice',
+        resourceId: invoiceId,
         targetBaseUrl: params.targetBaseUrl,
         tenantId,
       });

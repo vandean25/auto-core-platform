@@ -15,10 +15,6 @@ describe('WorkshopController', () => {
   const mockPdfService = {
     requestGeneration: jest.fn(),
   };
-  const mockTenantContextService = {
-    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
-    setTenantIdForWorker: jest.fn(),
-  };
 
   const originalTargetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL;
 
@@ -28,7 +24,10 @@ describe('WorkshopController', () => {
         WorkshopController,
         { provide: WorkshopService, useValue: mockWorkshopService },
         { provide: WorkshopPdfService, useValue: mockPdfService },
-        { provide: TenantContextService, useValue: mockTenantContextService },
+        {
+          provide: TenantContextService,
+          useValue: { setTenantIdForWorker: jest.fn() },
+        },
       ],
     }).compile();
 
