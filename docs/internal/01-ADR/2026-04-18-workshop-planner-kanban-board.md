@@ -1,5 +1,5 @@
 ---
-title: "ADR-0013: Workshop Planner Kanban Board (Real-Time Drag & Drop)"
+title: "ADR-0018: Workshop Planner Kanban Board (Real-Time Drag & Drop)"
 date: "2026-04-18"
 status: proposed
 deciders: "Product Owner, Architecture, Backend Lead, Frontend Lead"
@@ -15,11 +15,13 @@ tags:
   - api
 ---
 
-# ADR-0013: Workshop Planner Kanban Board (Real-Time Drag & Drop)
+# ADR-0018: Workshop Planner Kanban Board (Real-Time Drag & Drop)
 
 ## Status
 
 **Proposed** — 2026-04-18
+
+**Renumbered** — 2026-08-18 from ADR-0013. That number is reserved for [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md).
 
 ## Context
 
