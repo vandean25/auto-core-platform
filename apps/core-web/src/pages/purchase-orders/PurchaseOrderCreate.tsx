@@ -1,13 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useVendors } from '@/api/vendors'
 import { useCreatePO } from '@/api/purchase-orders'
 import { useBrands } from '@/api/brands'
 import { Button } from '@/components/ui/button'
+import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
+import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { toast } from "sonner"
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import type { Brand, Vendor } from '@/api/types'
+
+type PurchaseOrderDraftSnapshot = {
+    vendorId: string
+}
 
 export default function PurchaseOrderCreate() {
     const navigate = useNavigate()
@@ -40,6 +46,37 @@ export default function PurchaseOrderCreate() {
     const [selectedVendorId, setSelectedVendorId] = useState<string>(computeValidVendorId())
 
     const createPO = useCreatePO()
+    const createPORef = useRef(createPO)
+    const createdRef = useRef(false)
+
+    useEffect(() => {
+        createPORef.current = createPO
+    })
+
+    const saveDraft = useCallback(async (snapshot: PurchaseOrderDraftSnapshot) => {
+        if (!snapshot.vendorId || createdRef.current) return
+        const data = await createPORef.current.mutateAsync({
+            vendorId: snapshot.vendorId,
+            items: [],
+        })
+        createdRef.current = true
+        navigate(`/purchase-orders/${data.id}`)
+    }, [navigate])
+
+    const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<PurchaseOrderDraftSnapshot>({
+        save: saveDraft,
+        shouldSave: (snapshot) => Boolean(snapshot.vendorId),
+        onError: (error) => {
+            toast.error("Failed to create PO", {
+                description: error instanceof Error ? error.message : undefined,
+            })
+        },
+    })
+
+    useEffect(() => {
+        if (!selectedVendorId) return
+        triggerAutoSave({ vendorId: selectedVendorId })
+    }, [selectedVendorId, triggerAutoSave])
 
     const filteredVendors = vendors?.filter((v: Vendor) =>
         selectedBrand
@@ -49,17 +86,7 @@ export default function PurchaseOrderCreate() {
 
     const handleCreatePO = () => {
         if (!selectedVendorId) return
-        createPO.mutate({
-            vendorId: selectedVendorId,
-            items: [], // Create empty PO
-        }, {
-            onSuccess: (data) => navigate(`/purchase-orders/${data.id}`),
-            onError: (error) => {
-                toast.error("Failed to create PO", {
-                    description: error.message,
-                })
-            }
-        })
+        triggerAutoSave({ vendorId: selectedVendorId }, { immediate: true })
     }
 
     return (
@@ -68,6 +95,7 @@ export default function PurchaseOrderCreate() {
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Order</h1>
                 </div>
+                <DocumentSaveIndicator status={saveStatus} />
             </div>
 
             {/* Steps Indicator */}
@@ -134,7 +162,10 @@ export default function PurchaseOrderCreate() {
                     </div>
 
                     <div className="flex justify-between mt-8">
-                        <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+                        <Button variant="outline" onClick={() => {
+                            clearPendingSave()
+                            setStep(1)
+                        }}>Back</Button>
                         <Button 
                             onClick={handleCreatePO} 
                             disabled={!selectedVendorId || createPO.isPending}

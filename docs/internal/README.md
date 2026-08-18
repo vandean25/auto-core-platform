@@ -40,5 +40,5 @@ docs/internal/
 
 1. Install [Obsidian](https://obsidian.md) (free for local use).  
 2. **Open folder as vault** → select `docs/internal`.  
-3. Browse `01-ADR/` for past architectural decisions.  
+3. Browse [`01-ADR/`](01-ADR/README.md) for past architectural decisions (numbered index).  
 4. Use **Ctrl+T** (Templates) to scaffold a new Feature Spec or ADR.

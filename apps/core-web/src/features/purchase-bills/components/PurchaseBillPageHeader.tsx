@@ -1,4 +1,5 @@
-import { AlertCircle, ArrowLeft, CircleDollarSign, CloudCheck, Loader2, Package, ReceiptText } from 'lucide-react'
+import { ArrowLeft, CircleDollarSign, Loader2, Package, ReceiptText } from 'lucide-react'
+import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -65,26 +66,7 @@ export function PurchaseBillPageHeader({ form }: { form: PurchaseBillFormModel }
         <div className="flex items-center gap-4">
           {isEdit ? (
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[140px] justify-end">
-                {saveStatus === 'saving' && (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                )}
-                {saveStatus === 'saved' && (
-                  <>
-                    <CloudCheck className="h-3.5 w-3.5 text-green-600" />
-                    <span>All changes saved</span>
-                  </>
-                )}
-                {saveStatus === 'error' && (
-                  <>
-                    <AlertCircle className="h-3.5 w-3.5 text-red-600" />
-                    <span className="text-red-600 font-medium">Save failed</span>
-                  </>
-                )}
-              </div>
+              <DocumentSaveIndicator status={saveStatus} />
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>

@@ -436,22 +436,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/sales/invoices/{id}/finalize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["SalesController_finalize"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/sales/invoices/{id}": {
         parameters: {
             query?: never;
@@ -461,6 +445,22 @@ export interface paths {
         };
         get: operations["SalesController_findOne"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["SalesController_updateDraft"];
+        trace?: never;
+    };
+    "/api/sales/invoices/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["SalesController_finalize"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4182,7 +4182,7 @@ export interface operations {
             };
         };
     };
-    SalesController_finalize: {
+    SalesController_findOne: {
         parameters: {
             query?: never;
             header?: never;
@@ -4203,7 +4203,32 @@ export interface operations {
             };
         };
     };
-    SalesController_findOne: {
+    SalesController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvoiceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    SalesController_finalize: {
         parameters: {
             query?: never;
             header?: never;

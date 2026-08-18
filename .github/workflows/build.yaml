@@ -263,22 +263,10 @@ jobs:
           npm run test:e2e --workspace=core-api -- --ci --runInBand
 
   frontend:
-    name: Frontend Build, Lint and E2E
+    # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).
+    # API e2e coverage lives in the backend job (`npm run test:e2e`).
+    name: Frontend Build, Lint and UI Smoke
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: auto_core_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -307,5 +295,5 @@ jobs:
       - name: Run frontend unit tests
         run: npm test --workspace=core-web
 
-      - name: Run Playwright E2E tests
+      - name: Run Playwright UI smoke tests
         run: npm run test:e2e --workspace=core-web

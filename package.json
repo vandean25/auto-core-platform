@@ -14,5 +14,11 @@
     "test": "npm exec --workspace=core-api -- prisma generate && npm test --workspaces --if-present",
     "lint": "npm exec --workspace=core-api -- prisma generate && npm run lint --workspaces --if-present",
     "ci": "npm run lint && npm test && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  },
+  "overrides": {
+    "typescript": "$typescript"
   }
 }

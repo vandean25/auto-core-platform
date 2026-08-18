@@ -1399,9 +1399,47 @@
         ]
       }
     },
-    "/api/sales/invoices/{id}/finalize": {
-      "put": {
-        "operationId": "SalesController_finalize",
+    "/api/sales/invoices/{id}": {
+      "patch": {
+        "operationId": "SalesController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      },
+      "get": {
+        "operationId": "SalesController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -1429,9 +1467,9 @@
         ]
       }
     },
-    "/api/sales/invoices/{id}": {
-      "get": {
-        "operationId": "SalesController_findOne",
+    "/api/sales/invoices/{id}/finalize": {
+      "put": {
+        "operationId": "SalesController_finalize",
         "parameters": [
           {
             "name": "id",
