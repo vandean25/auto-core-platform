@@ -50,8 +50,8 @@ Existing related decisions:
 - [ADR-0001: Prisma `$extends` Real-Time Sync via WebSocket](2026-04-12-prisma-extends-realtime-sync.md)
 - [ADR-0006: Form Auto-Save Patterns](2026-04-12-form-auto-save-patterns.md)
 - [ADR-0012: Parts Kitting and Tote Staging End-to-End Workflow](2026-04-15-parts-kitting-and-tote-staging.md)
-- [ADR-0013: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
-- [Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md) *(linked document title: ADR-0013; use the filename/title as the stable reference until numbering is reconciled)*
+- [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
+- [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
 - [Database State Machines](../04-Database/state-machines.md)
 
 ## Decision
@@ -657,8 +657,8 @@ Required policy decisions:
 - [ADR-0001: Prisma `$extends` Real-Time Sync via WebSocket](2026-04-12-prisma-extends-realtime-sync.md)
 - [ADR-0006: Form Auto-Save Patterns](2026-04-12-form-auto-save-patterns.md)
 - [ADR-0012: Parts Kitting and Tote Staging End-to-End Workflow](2026-04-15-parts-kitting-and-tote-staging.md)
-- [ADR-0013: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
-- [Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md) *(linked document title: ADR-0013; stable reference by filename/title)*
+- [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
+- [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
 - [Database State Machines](../04-Database/state-machines.md)
 - [Deletion Policy](../../deletion-policy.md)
 - [Shared Promise Utilities](../../../apps/core-api/src/common/utils/promise.util.ts)

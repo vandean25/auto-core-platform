@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import {
+  createMockCustomer,
   createMockListResponse,
   createMockPurchaseBill,
+  createMockSalesOrder,
   createMockVendor,
 } from './utils/mock-factories';
 
@@ -120,5 +122,73 @@ test.describe('Blueprint: Auto-Save Hardening', () => {
 
     // Extra assertion: the field should reflect the saved value
     await expect(input).toHaveValue('B-NEW-789');
+  });
+
+  test('should auto-save a draft Sales Order after the debounce', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Sales Order');
+    const customer = createMockCustomer({
+      id: 'cust-auto-save-123',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+    });
+    const createdOrder = createMockSalesOrder({
+      id: 'so-save-test-123',
+      order_number: 'SO-2026-0500',
+      status: 'DRAFT',
+      customer,
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/customers'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([customer])),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([])),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales-orders'), async (route) => {
+      if (route.request().method() === 'POST') {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(createdOrder),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([])),
+      });
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/sales-orders/${createdOrder.id}`),
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(createdOrder),
+        });
+      },
+    );
+
+    await corePage.navigate('/sales-orders/new');
+
+    const autoSavePromise = corePage.waitForAutoSave('/api/sales-orders');
+    await page.getByRole('combobox').click();
+    await page.getByRole('option', { name: /Ada Lovelace/i }).click();
+    await autoSavePromise;
   });
 });

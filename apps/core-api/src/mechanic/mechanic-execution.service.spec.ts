@@ -1,101 +1,41 @@
 import {
-  BadRequestException,
-  BadGatewayException,
   ConflictException,
   ForbiddenException,
-  InternalServerErrorException,
   NotFoundException,
-  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   LaborPauseReason,
   WorkshopLineItemType,
-  WorkshopMediaUrlStrategy,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { MechanicService } from './mechanic.service';
-import { MechanicMediaStorage } from './mechanic-media.storage';
+import { MechanicExecutionService } from './mechanic-execution.service';
 import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
+import {
+  MECHANIC_ID,
+  ORDER_ID,
+  TASK_ID,
+  TENANT_ID,
+  mockEventEmitter,
+  mockPrisma,
+  mockRealtimeService,
+  mockTenantContext,
+  mockVehicleLedger,
+} from './mechanic.spec.support';
 
-const TENANT_ID = 'tenant-1';
-const MECHANIC_ID = 'mechanic-employee-1';
-const TASK_ID = 'task-1';
-const ORDER_ID = 'order-1';
-
-const mockPrisma = {
-  employee: { findFirst: jest.fn() },
-  workshopTask: {
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    update: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  workshopTaskLineItem: { create: jest.fn() },
-  workshopInspection: { findFirst: jest.fn() },
-  workshopInspectionItem: { updateMany: jest.fn() },
-  workshopMedia: { create: jest.fn() },
-  workshopVoiceNoteDraft: {
-    create: jest.fn(),
-    findFirst: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  laborEntry: {
-    findFirst: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  workshopOrder: { updateMany: jest.fn() },
-  $transaction: jest.fn(),
-} as unknown as PrismaService;
-
-const mockTenantContext = {
-  getAuthenticatedUser: jest.fn(),
-  getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
-} as unknown as TenantContextService;
-
-const mockRealtimeService = {
-  emitEntityUpdated: jest.fn(),
-} as unknown as DashboardRealtimeService;
-
-const mockEventEmitter = {
-  emit: jest.fn(),
-} as unknown as EventEmitter2;
-
-const mockMediaStorage = {
-  generateUploadPolicy: jest.fn(),
-} as unknown as MechanicMediaStorage;
-
-const mockVoiceTranslationService = {
-  getTargetLanguageCode: jest.fn().mockResolvedValue('de'),
-  translateVoiceNote: jest.fn(),
-} as unknown as import('../voice-translation/voice-translation.service').VoiceTranslationService;
-
-const mockVehicleLedger = {
-  completeStockPrep: jest.fn(),
-} as unknown as import('../vehicle-stock/vehicle-ledger.service').VehicleLedgerService;
-
-describe('MechanicService', () => {
-  let service: MechanicService;
+describe('MechanicExecutionService', () => {
+  let service: MechanicExecutionService;
 
   beforeEach(() => {
     jest.resetAllMocks();
-    // Set bucket so saveMediaMetadata tests have it available at call time.
     process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
-    service = new MechanicService(
+    service = new MechanicExecutionService(
       mockPrisma,
       mockTenantContext,
       mockRealtimeService,
       mockEventEmitter,
-      mockMediaStorage,
-      mockVoiceTranslationService,
       mockVehicleLedger,
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
@@ -105,89 +45,9 @@ describe('MechanicService', () => {
       role: 'TECH',
     });
     (mockTenantContext.getTenantId as jest.Mock).mockResolvedValue(TENANT_ID);
-    (mockVoiceTranslationService.getTargetLanguageCode as jest.Mock).mockResolvedValue(
-      'de',
-    );
-    (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue(
-      {
-        originalText: 'Original text',
-        translatedText: 'Translated text',
-        sourceLanguageCode: 'pl-PL',
-        targetLanguageCode: 'de',
-        detectedLanguageCode: 'pl-PL',
-        provider: 'google-cloud',
-        model: 'chirp_2',
-        durationSeconds: 5.2,
-      },
-    );
-    (mockPrisma.workshopVoiceNoteDraft.create as jest.Mock).mockResolvedValue({
-      id: 'draft-1',
-    });
-    // Default: transaction executes the callback
     (mockPrisma.$transaction as jest.Mock).mockImplementation(
-      (fn: (tx: PrismaService) => Promise<unknown>) => fn(mockPrisma),
+      (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
     );
-  });
-
-  // ─── resolveMechanic ────────────────────────────────────────────────────
-
-  describe('resolveMechanic()', () => {
-    it('throws ForbiddenException when authenticated user is not TECH', async () => {
-      (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
-        userId: 'firebase-uid-1',
-        email: 'advisor@workshop.at',
-        tenantId: TENANT_ID,
-        role: 'SALES',
-      });
-
-      await expect(service.resolveMechanic()).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('throws ForbiddenException when there is no authenticated user', async () => {
-      (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue(
-        undefined,
-      );
-
-      await expect(service.resolveMechanic()).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('throws ForbiddenException when no linked MECHANIC employee is found', async () => {
-      (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue(null);
-
-      await expect(service.resolveMechanic()).rejects.toThrow(NotFoundException);
-    });
-
-    it('returns the employee id when user is TECH and employee is linked', async () => {
-      (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue({
-        id: MECHANIC_ID,
-      });
-
-      await expect(service.resolveMechanic()).resolves.toBe(MECHANIC_ID);
-    });
-
-    it('queries employee by session userId (firebaseUid), tenant_id, MECHANIC role, and is_active', async () => {
-      (mockPrisma.employee.findFirst as jest.Mock).mockResolvedValue({
-        id: MECHANIC_ID,
-      });
-
-      await service.resolveMechanic();
-
-      expect(mockPrisma.employee.findFirst).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT_ID,
-          role: 'MECHANIC',
-          is_active: true,
-          user: {
-            OR: [{ firebaseUid: 'user-1' }, { email: 'tech@workshop.at' }],
-          },
-        },
-        select: { id: true },
-      });
-    });
   });
 
   // ─── getMechanicQueue ────────────────────────────────────────────────────
@@ -738,10 +598,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
@@ -759,12 +627,20 @@ describe('MechanicService', () => {
           makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
         );
       (mockPrisma.laborEntry.findFirst as jest.Mock)
-        .mockResolvedValueOnce(null)  // target has no active entry
-        .mockResolvedValueOnce(openEntryMock);  // mechanic has open entry to switch from
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(null) // target has no active entry
+        .mockResolvedValueOnce(openEntryMock); // mechanic has open entry to switch from
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       // Should not throw — IN_PROGRESS target with no active entry is resumable
       await expect(
@@ -783,10 +659,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY,
@@ -815,10 +699,18 @@ describe('MechanicService', () => {
       (mockPrisma.laborEntry.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(openEntryMock);
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({ id: 'new-entry' });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
         previousPauseReason: LaborPauseReason.WAITING_CUSTOMER,
@@ -898,10 +790,18 @@ describe('MechanicService', () => {
     it('closes labor entry and transitions task status on valid pause', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
-        .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_PARTS }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(
+          makePausableTask({ status: WorkshopTaskStatus.WAITING_PARTS }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.WAITING_PARTS,
@@ -913,10 +813,18 @@ describe('MechanicService', () => {
     it('emits WAITING_CUSTOMER event when pause reason is WAITING_CUSTOMER', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
-        .mockResolvedValueOnce(makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        .mockResolvedValueOnce(
+          makePausableTask({ status: WorkshopTaskStatus.WAITING_CUSTOMER }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.WAITING_CUSTOMER,
@@ -936,9 +844,15 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask());
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.OTHER,
@@ -1007,11 +921,21 @@ describe('MechanicService', () => {
     it('transitions task to DONE and closes open labor entry', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeCompletableTask())
-        .mockResolvedValueOnce(makeCompletableTask({ status: WorkshopTaskStatus.DONE }));
-      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({ id: 'open-entry-1' });
-      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      (mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }).updateMany = jest.fn().mockResolvedValue({ count: 0 });
+        .mockResolvedValueOnce(
+          makeCompletableTask({ status: WorkshopTaskStatus.DONE }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 0 });
 
       await service.completeTask(MECHANIC_ID, TASK_ID);
 
@@ -1085,7 +1009,9 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTaskForDiagnostics())
         .mockResolvedValueOnce({ id: TASK_ID, mechanic_notes: 'Oil leak.' });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         mechanicNotes: 'Oil leak.',
@@ -1133,14 +1059,20 @@ describe('MechanicService', () => {
           id: TASK_ID,
           mechanic_notes: 'Translated diagnostic note',
         });
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-1',
         translated_text: 'Translated diagnostic note',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 1,
       });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         voiceNoteDraftId: 'draft-1',
@@ -1161,14 +1093,20 @@ describe('MechanicService', () => {
           id: TASK_ID,
           mechanic_notes: 'Explicit mechanic note',
         });
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-2',
         translated_text: 'Draft translated text',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 1,
       });
-      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockPrisma.workshopTask.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
         voiceNoteDraftId: 'draft-2',
@@ -1187,9 +1125,9 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForDiagnostics(),
       );
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(
         service.saveDiagnostics(MECHANIC_ID, TASK_ID, {
@@ -1202,11 +1140,15 @@ describe('MechanicService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForDiagnostics(),
       );
-      (mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.findFirst as jest.Mock
+      ).mockResolvedValue({
         id: 'draft-accepted',
         translated_text: 'Already accepted text',
       });
-      (mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock).mockResolvedValue({
+      (
+        mockPrisma.workshopVoiceNoteDraft.updateMany as jest.Mock
+      ).mockResolvedValue({
         count: 0,
       });
 
@@ -1322,585 +1264,4 @@ describe('MechanicService', () => {
       expect(createCall.data).not.toHaveProperty('standard_aw');
     });
   });
-
-  // ─── createMediaUploadPolicy ───────────────────────────────────────────────
-
-  describe('createMediaUploadPolicy()', () => {
-    const makeTaskForMedia = (overrides = {}) => ({
-      id: TASK_ID,
-      status: WorkshopTaskStatus.IN_PROGRESS,
-      mechanic_id: MECHANIC_ID,
-      workshop_order_id: ORDER_ID,
-      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
-      ...overrides,
-    });
-
-    it('throws NotFoundException when task not found', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws UnprocessableEntityException when task is DONE', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia({ status: WorkshopTaskStatus.DONE }),
-      );
-
-      await expect(
-        service.createMediaUploadPolicy(MECHANIC_ID, TASK_ID, {
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('calls mediaStorage.generateUploadPolicy with tenant-scoped params', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia(),
-      );
-      const expiresAt = new Date(Date.now() + 900_000);
-      (mockMediaStorage.generateUploadPolicy as jest.Mock).mockResolvedValue({
-        uploadUrl: 'https://storage.googleapis.com/bucket',
-        formFields: { key: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg' },
-        storageBucket: 'workshop-media',
-        storageKey: 'tenants/t1/orders/o1/tasks/t1/uuid.jpg',
-        expiresAt,
-      });
-
-      const result = await service.createMediaUploadPolicy(
-        MECHANIC_ID,
-        TASK_ID,
-        {
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        },
-      );
-
-      expect(mockMediaStorage.generateUploadPolicy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tenantId: TENANT_ID,
-          orderId: ORDER_ID,
-          taskId: TASK_ID,
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      );
-      expect(result.expiresAt).toBe(expiresAt.toISOString());
-    });
-  });
-
-  describe('saveMediaMetadata()', () => {
-    const MEDIA_BUCKET = 'workshop-media-bucket';
-    const validStorageKey = `tenants/${TENANT_ID}/orders/${ORDER_ID}/tasks/${TASK_ID}/uuid.jpg`;
-
-    const makeTaskForMedia = (overrides = {}) => ({
-      id: TASK_ID,
-      status: WorkshopTaskStatus.IN_PROGRESS,
-      mechanic_id: MECHANIC_ID,
-      bay_id: null,
-      workshop_order_id: ORDER_ID,
-      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
-      ...overrides,
-    });
-
-    // Note: WORKSHOP_MEDIA_BUCKET is set by the outer beforeEach so the service
-    // constructor succeeds; no additional setup is needed here.
-
-    it('throws NotFoundException when task not found', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: validStorageKey,
-          storageBucket: MEDIA_BUCKET,
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws UnprocessableEntityException when task is DONE', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia({ status: WorkshopTaskStatus.DONE }),
-      );
-
-      await expect(
-        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: validStorageKey,
-          storageBucket: MEDIA_BUCKET,
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('throws BadRequestException when storageBucket does not match configured bucket', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia(),
-      );
-
-      await expect(
-        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: validStorageKey,
-          storageBucket: 'some-other-bucket',
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws BadRequestException when storageKey does not start with expected tenant prefix', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia(),
-      );
-
-      await expect(
-        service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-          storageKey: 'arbitrary/path/file.jpg',
-          storageBucket: MEDIA_BUCKET,
-          mimeType: 'image/jpeg',
-          sizeBytes: 1024,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('persists WorkshopMedia without manual realtime emit (extension handles it)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTaskForMedia(),
-      );
-      const now = new Date();
-      (mockPrisma.workshopMedia.create as jest.Mock).mockResolvedValue({
-        id: 'media-1',
-        workshop_order_id: ORDER_ID,
-        workshop_task_id: TASK_ID,
-        uploaded_by_employee_id: MECHANIC_ID,
-        storage_bucket: MEDIA_BUCKET,
-        storage_key: validStorageKey,
-        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
-        mime_type: 'image/jpeg',
-        size_bytes: 102400,
-        duration_seconds: null,
-        caption: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      const result = await service.saveMediaMetadata(MECHANIC_ID, TASK_ID, {
-        storageKey: validStorageKey,
-        storageBucket: MEDIA_BUCKET,
-        mimeType: 'image/jpeg',
-        sizeBytes: 102400,
-      });
-
-      expect(mockPrisma.workshopMedia.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            tenant_id: TENANT_ID,
-            workshop_order_id: ORDER_ID,
-            workshop_task_id: TASK_ID,
-            uploaded_by_employee_id: MECHANIC_ID,
-            url_strategy: WorkshopMediaUrlStrategy.SIGNED,
-            mime_type: 'image/jpeg',
-            size_bytes: 102400,
-          }),
-        }),
-      );
-      expect(result.id).toBe('media-1');
-      // The Prisma realtime extension emits the event; service no longer calls manually.
-      expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
-        TENANT_ID,
-        expect.objectContaining({ type: 'WORKSHOP_MEDIA', action: 'CREATED' }),
-      );
-    });
-  });
-
-  // ─── uploadVoiceNote ────────────────────────────────────────────────────────
-
-  describe('uploadVoiceNote()', () => {
-    /** Minimal task stub accepted by assertTaskAssignedToMechanic. */
-    const makeTask = (overrides = {}) => ({
-      id: TASK_ID,
-      status: WorkshopTaskStatus.IN_PROGRESS,
-      mechanic_id: MECHANIC_ID,
-      bay_id: null,
-      workshop_order_id: ORDER_ID,
-      workshop_order: { mechanic_id: MECHANIC_ID, bay_id: null },
-      ...overrides,
-    });
-
-    /** A valid audio file stub (>= 100 bytes, accepted MIME). */
-    const makeFile = (overrides: Partial<Express.Multer.File> = {}): Express.Multer.File =>
-      ({
-        fieldname: 'audio',
-        originalname: 'note.webm',
-        mimetype: 'audio/webm',
-        buffer: Buffer.alloc(2048, 0xaa),
-        size: 2048,
-        ...overrides,
-      }) as Express.Multer.File;
-
-    const createEbmlElement = (id: number[], data: Buffer): Buffer =>
-      Buffer.concat([Buffer.from(id), Buffer.from([0x80 | data.length]), data]);
-
-    const createUnknownSizeEbmlElement = (id: number[], data: Buffer): Buffer =>
-      Buffer.concat([
-        Buffer.from(id),
-        Buffer.from([0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
-        data,
-      ]);
-
-    const createWebmDurationFixture = (durationSeconds: number): Buffer => {
-      const duration = Buffer.alloc(8);
-      duration.writeDoubleBE(durationSeconds * 1000, 0);
-
-      const info = createEbmlElement(
-        [0x15, 0x49, 0xa9, 0x66],
-        Buffer.concat([
-          createEbmlElement([0x2a, 0xd7, 0xb1], Buffer.from([0x0f, 0x42, 0x40])),
-          createEbmlElement([0x44, 0x89], duration),
-        ]),
-      );
-
-      return Buffer.concat([
-        createUnknownSizeEbmlElement([0x18, 0x53, 0x80, 0x67], info),
-        Buffer.alloc(128),
-      ]);
-    };
-
-    it('throws NotFoundException when task does not exist', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws ForbiddenException when task is not assigned to the mechanic', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
-        makeTask({ mechanic_id: 'other-mechanic', workshop_order: { mechanic_id: 'other-mechanic', bay_id: null } }),
-      );
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
-    it('throws UnprocessableEntityException for an empty buffer', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(0) })),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('throws UnprocessableEntityException when buffer is below minimum bytes (silent)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: Buffer.alloc(50) })),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('throws UnprocessableEntityException for a disallowed MIME type', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-
-      await expect(
-        service.uploadVoiceNote(
-          MECHANIC_ID,
-          TASK_ID,
-          makeFile({ mimetype: 'application/pdf' }),
-        ),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('throws UnprocessableEntityException before transcription when parseable duration exceeds the limit', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: 'Long recording content',
-        translatedText: 'Long recording content',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        provider: 'google-cloud',
-        model: 'latest_long',
-        durationSeconds: 301,
-      });
-      const longRecording = createWebmDurationFixture(301);
-
-      await expect(
-        service.uploadVoiceNote(
-          MECHANIC_ID,
-          TASK_ID,
-          makeFile({ buffer: longRecording, size: longRecording.length }),
-        ),
-      ).rejects.toThrow(UnprocessableEntityException);
-      expect(mockVoiceTranslationService.translateVoiceNote).not.toHaveBeenCalled();
-    });
-
-    it('throws UnprocessableEntityException when transcription text is empty (silent audio)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: '',
-        translatedText: '',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        provider: 'google-cloud',
-        model: 'latest_long',
-        durationSeconds: 3.0,
-      });
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('maps BadRequestException to UnprocessableEntityException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new BadRequestException('Audio buffer must not be empty.'),
-      );
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('maps Error to BadGatewayException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new Error('Audio processing failed.'),
-      );
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(BadGatewayException);
-    });
-
-    it('maps ServiceUnavailableException to ServiceUnavailableException', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new ServiceUnavailableException('Google voice translation is not configured.'),
-      );
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(ServiceUnavailableException);
-    });
-
-    it('preserves non-mapped HttpException subclasses', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new InternalServerErrorException('Missing SECRET_ENCRYPTION_KEY'),
-      );
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-      ).rejects.toThrow(InternalServerErrorException);
-    });
-
-    it('throws UnprocessableEntityException when buffer exceeds maximum bytes (25 MiB)', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      const largeBuffer = Buffer.alloc(25 * 1024 * 1024 + 1);
-
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile({ buffer: largeBuffer })),
-      ).rejects.toThrow(UnprocessableEntityException);
-    });
-
-    it('returns a VoiceNoteDraftResponseDto for valid audio and successful transcription', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: 'Clutch bearing worn.',
-        translatedText: 'Clutch bearing worn — replace.',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        detectedLanguageCode: 'en',
-        provider: 'google-cloud',
-        model: 'latest_long',
-        durationSeconds: 9.3,
-      });
-
-      const result = await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-
-      expect(result.text).toBe('Clutch bearing worn — replace.');
-      expect(result.detectedLanguage).toBe('en');
-      expect(result.provider).toBe('google-cloud');
-      expect(result.model).toBe('latest_long');
-      expect(result.durationSeconds).toBe(9.3);
-    });
-
-    it('persists translated draft rows without mutating workshop task notes', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: 'No oil pressure detected.',
-        translatedText: 'No oil pressure detected.',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        provider: 'google-cloud',
-        model: 'latest_long',
-        durationSeconds: 5.0,
-      });
-
-      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-
-      expect(mockPrisma.workshopVoiceNoteDraft.create).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
-    });
-
-    it('passes tenant_id to the task lookup query', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: 'Test note.',
-        translatedText: 'Test note.',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        provider: 'google-cloud',
-        model: 'latest_long',
-      });
-
-      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-
-      expect(mockPrisma.workshopTask.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_ID }),
-        }),
-      );
-    });
-
-    it('zeros out the audio buffer after successful transcription', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-        originalText: 'Some diagnostic note.',
-        translatedText: 'Some diagnostic note.',
-        sourceLanguageCode: 'en',
-        targetLanguageCode: 'de',
-        provider: 'google-cloud',
-        model: 'latest_long',
-        durationSeconds: 4.0,
-      });
-
-      const file = makeFile();
-      await service.uploadVoiceNote(MECHANIC_ID, TASK_ID, file);
-
-      // Buffer must be zeroed out after transcription — audio data must not linger in memory.
-      expect(file.buffer.every((byte: number) => byte === 0)).toBe(true);
-    });
-
-    it('zeros out the audio buffer even when transcription throws', async () => {
-      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-      (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockRejectedValue(
-        new Error('Provider failure.'),
-      );
-
-      const file = makeFile();
-      await expect(
-        service.uploadVoiceNote(MECHANIC_ID, TASK_ID, file),
-      ).rejects.toThrow(BadGatewayException);
-
-      // Buffer must be zeroed out on failure too — no audio data retained.
-      expect(file.buffer.every((byte: number) => byte === 0)).toBe(true);
-    });
-
-    it('throws 429 (HttpException) when the per-mechanic rate limit is exceeded', async () => {
-      // Set a tight limit for the test.
-      const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-      const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-      process.env.VOICE_NOTE_RATE_LIMIT_MAX = '2';
-      process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '60';
-
-      try {
-        // A fresh service instance starts with an empty rate-limit map.
-        const freshService = new MechanicService(
-          mockPrisma,
-          mockTenantContext,
-          mockRealtimeService,
-          mockEventEmitter,
-          mockMediaStorage,
-          mockVoiceTranslationService,
-          mockVehicleLedger,
-        );
-
-        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-          originalText: 'Note.',
-          translatedText: 'Note.',
-          sourceLanguageCode: 'en',
-          targetLanguageCode: 'de',
-          provider: 'google-cloud',
-          model: 'latest_long',
-          durationSeconds: 2.0,
-        });
-
-        // Consume 2 allowed slots.
-        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-
-        // Third call must be rejected with HTTP 429.
-        await expect(
-          freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-        ).rejects.toThrow(expect.objectContaining({ status: 429 }));
-      } finally {
-        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
-      }
-    });
-
-    it('resets the rate-limit window after TTL expires', async () => {
-      const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-      const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-      // Use a very short TTL so we can simulate expiry without real delays.
-      process.env.VOICE_NOTE_RATE_LIMIT_MAX = '1';
-      process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '1';
-
-      try {
-        const freshService = new MechanicService(
-          mockPrisma,
-          mockTenantContext,
-          mockRealtimeService,
-          mockEventEmitter,
-          mockMediaStorage,
-          mockVoiceTranslationService,
-          mockVehicleLedger,
-        );
-
-        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(makeTask());
-        (mockVoiceTranslationService.translateVoiceNote as jest.Mock).mockResolvedValue({
-          originalText: 'Note.',
-          translatedText: 'Note.',
-          sourceLanguageCode: 'en',
-          targetLanguageCode: 'de',
-          provider: 'google-cloud',
-          model: 'latest_long',
-          durationSeconds: 2.0,
-        });
-
-        // First call consumes the only slot in the window.
-        await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
-
-        // Simulate window expiry by back-dating the internal map entry.
-        // Access the private map via bracket notation (unit-test only).
-        const rateLimitMap = (freshService as unknown as { voiceNoteRateLimitMap: Map<string, { count: number; windowStart: number }> }).voiceNoteRateLimitMap;
-        const key = `${TENANT_ID}:${MECHANIC_ID}`;
-        const entry = rateLimitMap.get(key)!;
-        entry.windowStart = Date.now() - 2000; // 2 seconds ago, past 1s TTL
-
-        // After the window resets, the call should succeed again.
-        await expect(
-          freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
-        ).resolves.toBeDefined();
-      } finally {
-        if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
-      }
-    });
-  });
-
 });

@@ -43,13 +43,21 @@ import {
   MAX_VOICE_NOTE_BYTES,
   VoiceNoteDraftResponseDto,
 } from './dto/voice-note.dto';
-import { MechanicService } from './mechanic.service';
+import { MechanicExecutionService } from './mechanic-execution.service';
+import { MechanicIdentityService } from './mechanic-identity.service';
+import { MechanicMediaService } from './mechanic-media.service';
+import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
 
 @ApiTags('mechanic')
 @MechanicAccessible()
 @Controller('mechanic')
 export class MechanicController {
-  constructor(private readonly mechanicService: MechanicService) {}
+  constructor(
+    private readonly identity: MechanicIdentityService,
+    private readonly execution: MechanicExecutionService,
+    private readonly media: MechanicMediaService,
+    private readonly voiceNotes: MechanicVoiceNoteService,
+  ) {}
 
   /**
    * Returns the active task queue for the authenticated mechanic.
@@ -62,8 +70,8 @@ export class MechanicController {
   @Get('queue')
   @ApiOkResponse({ type: MechanicQueueResponseDto })
   async getQueue(): Promise<MechanicQueueResponseDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    const data = await this.mechanicService.getMechanicQueue(mechanicId);
+    const mechanicId = await this.identity.resolveMechanic();
+    const data = await this.execution.getMechanicQueue(mechanicId);
     return { data };
   }
 
@@ -79,8 +87,8 @@ export class MechanicController {
   async getTaskDetail(
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.getMechanicTaskDetail(mechanicId, taskId);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.getMechanicTaskDetail(mechanicId, taskId);
   }
 
   /**
@@ -96,8 +104,8 @@ export class MechanicController {
   async startTask(
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.startTask(mechanicId, taskId);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.startTask(mechanicId, taskId);
   }
 
   /**
@@ -117,8 +125,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: SwitchTaskDto,
   ): Promise<MechanicTaskDetailDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.switchTask(mechanicId, taskId, dto);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.switchTask(mechanicId, taskId, dto);
   }
 
   /**
@@ -137,8 +145,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: PauseTaskDto,
   ): Promise<MechanicTaskDetailDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.pauseTask(mechanicId, taskId, dto);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.pauseTask(mechanicId, taskId, dto);
   }
 
   /**
@@ -154,8 +162,8 @@ export class MechanicController {
   async completeTask(
     @Param('taskId', ParseUUIDPipe) taskId: string,
   ): Promise<MechanicTaskDetailDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.completeTask(mechanicId, taskId);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.completeTask(mechanicId, taskId);
   }
 
   /**
@@ -175,8 +183,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: SaveDiagnosticsDto,
   ): Promise<SaveDiagnosticsResponseDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.saveDiagnostics(mechanicId, taskId, dto);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.saveDiagnostics(mechanicId, taskId, dto);
   }
 
   /**
@@ -197,8 +205,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: RequestPartDto,
   ): Promise<RequestPartResponseDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.requestPart(mechanicId, taskId, dto);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.execution.requestPart(mechanicId, taskId, dto);
   }
 
   /**
@@ -221,12 +229,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: RequestMediaUploadDto,
   ): Promise<MediaUploadPolicyDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.createMediaUploadPolicy(
-      mechanicId,
-      taskId,
-      dto,
-    );
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.media.createMediaUploadPolicy(mechanicId, taskId, dto);
   }
 
   /**
@@ -244,8 +248,8 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Body() dto: CreateMediaDto,
   ): Promise<WorkshopMediaDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.saveMediaMetadata(mechanicId, taskId, dto);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.media.saveMediaMetadata(mechanicId, taskId, dto);
   }
 
   /**
@@ -321,7 +325,7 @@ export class MechanicController {
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<VoiceNoteDraftResponseDto> {
-    const mechanicId = await this.mechanicService.resolveMechanic();
-    return this.mechanicService.uploadVoiceNote(mechanicId, taskId, file);
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.voiceNotes.uploadVoiceNote(mechanicId, taskId, file);
   }
 }

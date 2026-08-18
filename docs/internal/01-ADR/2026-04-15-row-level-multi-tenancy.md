@@ -439,20 +439,22 @@ Introduce the relational and administrative foundation required to manage tenant
 
 ### Acceptance Criteria
 
-- [ ] Prisma migrations run successfully without data loss.
-- [ ] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims.
-- [ ] Initial platform-admin bootstrap is performed only through a deployment-scoped Prisma seed / CLI path, not through a public HTTP endpoint.
-- [ ] Security-sensitive membership changes revoke Firebase refresh tokens after claims are synchronized.
-- [ ] `TenantMember` role / activation changes emit `auth:claims_updated` to the affected user's private socket room.
-- [ ] A connected frontend session silently forces a token refresh, updates the auth context, and invalidates TanStack Query caches when `auth:claims_updated` is received.
-- [ ] Existing `auth.service.ts` request middleware continues to function without modification by reading the synchronized claims.
-- [ ] Frontend query usage follows TanStack Query v5 key-factory discipline; no inline array query keys are introduced.
-- [ ] Primary list pages use the standardized shared `DataTable` component.
-- [ ] Page action buttons remain exclusively in the top-right header area.
-- [ ] Team role edits use the shared `InlineEdit` save-on-blur pattern rather than a full-page edit flow.
-- [ ] Database access uses bulk-fetch / pre-fetch-and-map patterns; no `await` calls inside loops when resolving tenant member data.
-- [ ] N+1 query prevention is verified on the backend by using `include: { user: true }` for tenant members and aggregate / relation-count queries for tenant summaries.
-- [ ] DataTable-driven admin screens render loading states with `Skeleton` rows and keep error states inside the table shell with an inline retry path.
+Reviewed against the 2026-08-18 codebase. Each item is **done**, **partial**, or **open**.
+
+- [x] Prisma migrations run successfully without data loss. **Done** — `Tenant`, `User`, `TenantMember`, `PlatformAdmin`, and `tenant_id` on domain tables exist in the Prisma schema and applied migrations.
+- [x] NestJS successfully synchronizes a membership change in PostgreSQL to Firebase Custom Claims. **Done** — `TenantMemberService.syncUserClaims()` writes Firebase custom claims after invite and update.
+- [x] Initial platform-admin bootstrap is performed only through a deployment-scoped Prisma seed / CLI path, not through a public HTTP endpoint. **Done** — `npm --prefix apps/core-api run db:seed:platform-admin` runs `scripts/seed-platform-admin.ts`. Tenant CRUD HTTP routes do not create `PlatformAdmin` rows.
+- [x] Security-sensitive membership changes revoke Firebase refresh tokens after claims are synchronized. **Done** — role changes and deactivation call `revokeRefreshTokens` after claim sync.
+- [x] `TenantMember` role / activation changes emit `auth:claims_updated` to the affected user's private socket room. **Done** — `DashboardRealtimeService.emitClaimsUpdated()` emits to `user_<firebaseUid>`.
+- [x] A connected frontend session silently forces a token refresh, updates the auth context, and invalidates TanStack Query caches when `auth:claims_updated` is received. **Done** — `RealtimeDashboardSyncProvider` calls `getIdToken(true)`, invalidates queries (including the auth session), and signs out if refresh fails.
+- [x] Existing `auth.service.ts` request middleware continues to function without modification by reading the synchronized claims. **Done** — request-time tenant auth still reads `tenantId` / `role` from the JWT. Platform-admin access additionally consults an active `PlatformAdmin` row (later hardening; JWT claims are not the platform-admin source of truth).
+- [x] Frontend query usage follows TanStack Query v5 key-factory discipline; no inline array query keys are introduced. **Done** — tenant and platform-tenant modules use `tenantMemberKeys` / `platformTenantKeys`. (Unrelated modules still have some inline keys; out of scope for this ADR.)
+- [x] Primary list pages use the standardized shared `DataTable` component. **Done** — `/platform/tenants` and Settings → Team (`/settings?tab=team`) both use `DataTable`. Team shipped as a Settings tab rather than a dedicated `/settings/team` route.
+- [x] Page action buttons remain exclusively in the top-right header area. **Done** — `+ Tenant` and `+ Member` sit in the top-right of their respective headers; create/edit use Dialog/Sheet, not full-page routes.
+- [x] Team role edits use the shared `InlineEdit` save-on-blur pattern rather than a full-page edit flow. **Done** — role is `InlineEdit` in the member detail Sheet.
+- [x] Database access uses bulk-fetch / pre-fetch-and-map patterns; no `await` calls inside loops when resolving tenant member data. **Done** — list queries `include: { user: true }`. There is no bulk-invite API yet; single-member invite is sequential by design.
+- [x] N+1 query prevention is verified on the backend by using `include: { user: true }` for tenant members and aggregate / relation-count queries for tenant summaries. **Done** — tenant list uses `_count.memberships`.
+- [ ] DataTable-driven admin screens render loading states with `Skeleton` rows and keep error states inside the table shell with an inline retry path. **Partial** — `DataTable` shows a "Loading..." cell, not `Skeleton` rows. Team and tenant list errors render a retry banner *above* the table, not inside the table shell.
 
 ---
 

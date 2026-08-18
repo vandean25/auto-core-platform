@@ -11,20 +11,39 @@ import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
 } from './shared-pg-pool';
+import {
+  createSystemPrismaTransactionClient,
+  type AssertSystemPrismaOmitsTenantModels,
+  type SystemPrismaClient,
+  type SystemPrismaTransactionClient,
+} from './system-prisma.types';
 
+/**
+ * Unextended Prisma client for global identity and two documented exceptions.
+ *
+ * Allowed callers:
+ * - AuthSessionService — User
+ * - TenantMemberService — User, TenantMember
+ * - PlatformAdminService — Tenant, FinanceSettings (new-tenant bootstrap only)
+ * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
+ *
+ * Tenant-scoped models (Customer, Vehicle, WorkshopOrder, …) are omitted from
+ * the type and undefined at runtime. Use PrismaService so isolation applies.
+ * See docs/internal/05-Runbooks/system-prisma-allowlist.md.
+ */
 @Injectable()
 export class SystemPrismaService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+  implements OnModuleInit, OnModuleDestroy, SystemPrismaClient
 {
   private readonly logger = new Logger(SystemPrismaService.name);
   private readonly pool: Pool;
+  private readonly prisma: PrismaClient;
 
   constructor() {
     const pool = getSharedRuntimePool();
     const adapter = new PrismaPg(pool);
 
-    super({
+    this.prisma = new PrismaClient({
       adapter,
       log: ['info', 'warn', 'error'],
     });
@@ -32,8 +51,37 @@ export class SystemPrismaService
     this.pool = pool;
   }
 
-  get client(): PrismaClient {
-    return this;
+  get tenant(): PrismaClient['tenant'] {
+    return this.prisma.tenant;
+  }
+
+  get user(): PrismaClient['user'] {
+    return this.prisma.user;
+  }
+
+  get tenantMember(): PrismaClient['tenantMember'] {
+    return this.prisma.tenantMember;
+  }
+
+  get platformAdmin(): PrismaClient['platformAdmin'] {
+    return this.prisma.platformAdmin;
+  }
+
+  get laborEntry(): PrismaClient['laborEntry'] {
+    return this.prisma.laborEntry;
+  }
+
+  get financeSettings(): PrismaClient['financeSettings'] {
+    return this.prisma.financeSettings;
+  }
+
+  $transaction<Result>(
+    fn: (transaction: SystemPrismaTransactionClient) => Promise<Result>,
+    options?: Parameters<SystemPrismaClient['$transaction']>[1],
+  ): Promise<Result> {
+    return this.prisma.$transaction((transaction) => {
+      return fn(createSystemPrismaTransactionClient(transaction));
+    }, options);
   }
 
   async onModuleInit() {
@@ -51,14 +99,14 @@ export class SystemPrismaService
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await this.prisma.$disconnect();
     await releaseSharedRuntimePool();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {
     for (let attempt = 0; attempt < retries; attempt += 1) {
       try {
-        await this.$connect();
+        await this.prisma.$connect();
         this.logger.log('Successfully connected to the database via Adapter.');
         return;
       } catch (error) {
@@ -77,3 +125,6 @@ export class SystemPrismaService
     }
   }
 }
+
+export const SYSTEM_PRISMA_OMITS_TENANT_MODELS =
+  true satisfies AssertSystemPrismaOmitsTenantModels<SystemPrismaService>;

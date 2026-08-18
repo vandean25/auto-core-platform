@@ -151,6 +151,145 @@ export class SalesService {
     });
   }
 
+  async updateDraft(id: string, updateInvoiceDto: CreateInvoiceDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.invoice.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (existing.status !== InvoiceStatus.DRAFT) {
+      throw new BadRequestException('Only DRAFT invoices can be updated');
+    }
+
+    const { items = [], ...invoiceData } = updateInvoiceDto;
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Invoice must have at least one item');
+    }
+
+    if (invoiceData.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: invoiceData.customerId, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException(
+          'Customer not found or belongs to another tenant',
+        );
+      }
+    }
+
+    if (invoiceData.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: invoiceData.vehicleId, tenant_id: tenantId },
+      });
+      if (!vehicle) {
+        throw new BadRequestException(
+          'Vehicle not found or belongs to another tenant',
+        );
+      }
+    }
+
+    let totalNet = 0;
+    let totalTax = 0;
+    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
+      [];
+
+    const uniqueCatalogItemIds = [
+      ...new Set(
+        items
+          .map((item) => item.catalogItemId)
+          .filter(
+            (catalogItemId): catalogItemId is string =>
+              typeof catalogItemId === 'string',
+          ),
+      ),
+    ];
+
+    const catalogItemMap = new Map<
+      string,
+      CatalogItem & { revenue_group: RevenueGroup | null }
+    >();
+    if (uniqueCatalogItemIds.length > 0) {
+      const catalogItems = await this.prisma.catalogItem.findMany({
+        where: { tenant_id: tenantId, id: { in: uniqueCatalogItemIds } },
+        include: { revenue_group: true },
+        orderBy: { id: 'asc' },
+      });
+      catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
+    }
+
+    for (const item of items) {
+      let taxRate = item.taxRate;
+      let revenueGroupName: string | null = null;
+
+      if (item.catalogItemId) {
+        const catalogItem = catalogItemMap.get(item.catalogItemId);
+        if (!catalogItem) {
+          throw new BadRequestException(
+            `Catalog item ${item.catalogItemId} not found or belongs to another tenant`,
+          );
+        }
+        if (catalogItem.revenue_group) {
+          revenueGroupName = catalogItem.revenue_group.name;
+          taxRate = Number(catalogItem.revenue_group.tax_rate);
+        }
+      }
+
+      const net = item.quantity * item.unitPrice;
+      const tax = net * (taxRate / 100);
+      totalNet += net;
+      totalTax += tax;
+
+      formattedItems.push({
+        tenant_id: tenantId,
+        catalog_item_id: item.catalogItemId,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        tax_rate: taxRate,
+        revenue_group_name: revenueGroupName,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.invoice.updateMany({
+        where: { id, tenant_id: tenantId, status: InvoiceStatus.DRAFT },
+        data: {
+          customer_id: invoiceData.customerId,
+          vehicle_id: invoiceData.vehicleId,
+          notes: invoiceData.notes,
+          internal_notes: invoiceData.internalNotes,
+          total_net: totalNet,
+          total_tax: totalTax,
+          total_gross: totalNet + totalTax,
+        },
+      });
+      if (updateResult.count === 0) {
+        throw new BadRequestException('Only DRAFT invoices can be updated');
+      }
+
+      await tx.invoiceItem.deleteMany({
+        where: { invoice_id: id, tenant_id: tenantId },
+      });
+      await tx.invoiceItem.createMany({
+        data: formattedItems.map((item) => ({
+          ...item,
+          invoice_id: id,
+        })),
+      });
+
+      const updated = await tx.invoice.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: { items: true },
+      });
+      if (!updated) {
+        throw new NotFoundException('Invoice not found');
+      }
+      return updated;
+    });
+  }
+
   async finalize(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const invoice = await this.prisma.invoice.findFirst({

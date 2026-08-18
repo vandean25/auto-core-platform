@@ -340,7 +340,10 @@ export class PurchaseService {
       return updatedPO;
     } catch (error) {
       console.error('===== receiveItems ERROR =====');
-      console.error('Error type:', error?.constructor?.name);
+      console.error(
+        'Error type:',
+        error instanceof Error ? error.constructor.name : typeof error,
+      );
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       console.error('Error message:', errorMessage);
