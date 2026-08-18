@@ -3,7 +3,11 @@ import { PurchaseService } from './purchase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 
 describe('PurchaseService', () => {
@@ -24,6 +28,7 @@ describe('PurchaseService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -71,6 +76,7 @@ describe('PurchaseService', () => {
     service = module.get<PurchaseService>(PurchaseService);
 
     jest.clearAllMocks();
+    mockPrismaService.purchaseOrder.findFirst.mockReset();
   });
 
   it('should be defined', () => {
@@ -202,7 +208,11 @@ describe('PurchaseService', () => {
       await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
 
       expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
-        where: { id: 'poi1', tenant_id: 'tenant-1' },
+        where: {
+          id: 'poi1',
+          tenant_id: 'tenant-1',
+          quantity_received: 0,
+        },
         data: { quantity_received: { increment: 5 } },
       });
 
@@ -218,6 +228,92 @@ describe('PurchaseService', () => {
           }),
         ],
         expect.anything(),
+      );
+    });
+
+    it('returns 409 when a concurrent receive already transitioned the PO', async () => {
+      const mockPO = {
+        id: 'order1',
+        order_number: 'PO-1',
+        status: PurchaseOrderStatus.SENT,
+        items: [
+          {
+            id: 'poi1',
+            catalog_item_id: 'item1',
+            quantity: 10,
+            quantity_received: 0,
+            unit_cost: 50,
+          },
+        ],
+      };
+
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce(mockPO)
+        .mockResolvedValueOnce({
+          ...mockPO,
+          items: [{ ...mockPO.items[0], quantity_received: 10 }],
+        });
+      mockPrismaService.storageLocation.findFirst.mockResolvedValue({
+        id: 'loc1',
+        type: 'warehouse',
+      });
+      mockPrismaService.purchaseOrderItem.findMany.mockResolvedValue(
+        mockPO.items,
+      );
+      mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.receiveItems('order1', [{ itemId: 'item1', quantity: 10 }]),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('markAsSent', () => {
+    it('transitions DRAFT to SENT with an expected-from guard', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockImplementation(
+        async (args: { include?: unknown }) => {
+          if (args?.include) {
+            return {
+              id: 'po-1',
+              status: PurchaseOrderStatus.SENT,
+              vendor: true,
+              items: [],
+            };
+          }
+          return {
+            id: 'po-1',
+            status: PurchaseOrderStatus.DRAFT,
+          };
+        },
+      );
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.markAsSent('po-1');
+
+      expect(mockPrismaService.purchaseOrder.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'po-1',
+          tenant_id: 'tenant-1',
+          status: PurchaseOrderStatus.DRAFT,
+        },
+        data: { status: PurchaseOrderStatus.SENT },
+      });
+    });
+
+    it('returns 409 when markAsSent loses the DRAFT race', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.DRAFT,
+      });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.markAsSent('po-1')).rejects.toBeInstanceOf(
+        ConflictException,
       );
     });
   });

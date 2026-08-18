@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service';
@@ -125,6 +125,94 @@ describe('SalesOrderService', () => {
         }),
       ],
     });
+  });
+
+  it('guards sales-order status transitions with expected-from status', async () => {
+    mockPrisma.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.DRAFT,
+      total_amount: new Prisma.Decimal(20),
+      items: [],
+    });
+    transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 1 });
+    transactionContext.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.CONFIRMED,
+      items: [],
+    });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) =>
+      callback(transactionContext),
+    );
+
+    await service.update('so-1', { status: SalesOrderStatus.CONFIRMED });
+
+    expect(transactionContext.salesOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'so-1',
+          tenant_id: 'tenant-1',
+          status: SalesOrderStatus.DRAFT,
+        },
+        data: expect.objectContaining({
+          status: SalesOrderStatus.CONFIRMED,
+        }),
+      }),
+    );
+  });
+
+  it('returns 409 when a sales-order status transition is stale', async () => {
+    mockPrisma.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.DRAFT,
+      total_amount: new Prisma.Decimal(20),
+      items: [],
+    });
+    transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) =>
+      callback(transactionContext),
+    );
+
+    await expect(
+      service.update('so-1', { status: SalesOrderStatus.CONFIRMED }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('does not write status on field-only sales order updates', async () => {
+    mockPrisma.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.DRAFT,
+      total_amount: new Prisma.Decimal(20),
+      items: [],
+    });
+    transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 1 });
+    transactionContext.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.DRAFT,
+      items: [],
+    });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) =>
+      callback(transactionContext),
+    );
+
+    await service.update('so-1', { notes: 'Call customer' });
+
+    const data = transactionContext.salesOrder.updateMany.mock.calls[0][0]
+      .data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('status');
+  });
+
+  it('rejects sales-order status skips that are not adjacent transitions', async () => {
+    mockPrisma.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      status: SalesOrderStatus.DRAFT,
+      total_amount: new Prisma.Decimal(20),
+      items: [],
+    });
+
+    await expect(
+      service.update('so-1', { status: SalesOrderStatus.INVOICED }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects replacement items that omit catalog_item_id', async () => {
