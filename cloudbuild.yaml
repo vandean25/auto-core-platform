@@ -2,6 +2,9 @@ substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _DATABASE_SECRET: DATABASE_URL_UAT
+  # Neon/PgBouncer pooler secret for Cloud Run runtime. Keep migrate-db on _DATABASE_SECRET
+  # (direct). Override this substitution to the pooler secret once it exists in GSM.
+  _DATABASE_POOLED_SECRET: DATABASE_URL_UAT
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
   _RUN_SERVICE: core-api
@@ -76,7 +79,7 @@ steps:
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \

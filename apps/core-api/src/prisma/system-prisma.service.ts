@@ -7,6 +7,10 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
+import {
+  getSharedRuntimePool,
+  releaseSharedRuntimePool,
+} from './shared-pg-pool';
 
 @Injectable()
 export class SystemPrismaService
@@ -17,8 +21,7 @@ export class SystemPrismaService
   private readonly pool: Pool;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL;
-    const pool = new Pool({ connectionString });
+    const pool = getSharedRuntimePool();
     const adapter = new PrismaPg(pool);
 
     super({
@@ -49,7 +52,7 @@ export class SystemPrismaService
 
   async onModuleDestroy() {
     await this.$disconnect();
-    await this.pool.end();
+    await releaseSharedRuntimePool();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {

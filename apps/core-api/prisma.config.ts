@@ -10,6 +10,7 @@ export default defineConfig({
     seed: "ts-node -r tsconfig-paths/register prisma/seed.ts",
   },
   datasource: {
+    // Direct Postgres URL. Migrate/seed cannot use a PgBouncer/Neon pooler endpoint.
     url: process.env["DATABASE_URL"],
   },
 });
