@@ -5,7 +5,7 @@ import type { Socket } from 'socket.io-client'
 import { authSessionKeys } from '@/api/auth-session'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
-import { getDashboardSourceKeysForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   ENTITY_UPDATED_EVENT,
@@ -104,18 +104,11 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     const onEntityUpdated = (payload: unknown) => {
       if (!isEntityUpdatedPayload(payload)) return
 
-      const sourceKeys = getDashboardSourceKeysForEntityType(payload.type)
-      for (const sourceKey of sourceKeys) {
+      for (const queryKey of getQueryKeysToInvalidateForEntityType(payload.type)) {
         void queryClient.invalidateQueries({
-          queryKey: ['dashboard-widget-data', sourceKey],
+          queryKey,
           refetchType: 'active',
         })
-        if (sourceKey === 'vehicle-stock') {
-          void queryClient.invalidateQueries({
-            queryKey: [sourceKey],
-            refetchType: 'active',
-          })
-        }
       }
     }
 
