@@ -290,3 +290,54 @@ Never commit real secret values or generated local `.env` files.
 ## Database Performance
 🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
 🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.
+
+## Cursor Cloud specific instructions
+
+This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the app `package.json` scripts; only the caveats below are cloud-specific. The startup update script already runs `npm ci` for both apps plus `prisma generate`.
+
+### Services
+- **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.
+- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires `apps/core-api/.env` (already created, gitignored) with `DATABASE_URL` and a base64 32-byte `SECRET_ENCRYPTION_KEY`; the process throws on startup if `SECRET_ENCRYPTION_KEY` is missing/invalid.
+- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. It proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
+
+### Postgres is not auto-started on boot
+`systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:
+```
+sudo pg_ctlcluster 16 main start
+```
+
+### Backend e2e tests must use a fresh, unseeded DB, serially
+CI runs e2e against an empty `auto_core_test` DB with `--ci --runInBand` (see `.github/workflows/build.yaml`). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm --prefix apps/core-api run test:e2e -- --ci --runInBand
+```
+Jest auto-sets `NODE_ENV=test`, which enables locally-signed test JWTs (no Firebase needed for tests). Unit tests (`npm test`) and the frontend Playwright e2e (`npm run test:e2e`, needs `npx playwright install chromium`) do not need a seeded DB.
+
+### The seed is not idempotent when transactional rows exist
+`prisma db seed` deletes all tenants then recreates `default-workshop` with a **new** id, but its delete order does not cover `sales_orders`, so re-seeding a DB that already has sales orders fails with an FK error. To reset the dev DB cleanly, drop and recreate it:
+```
+sudo -u postgres psql -c "DROP DATABASE core_platform WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE core_platform;"
+npm --prefix apps/core-api exec -- prisma migrate deploy
+npm --prefix apps/core-api run <or> npx prisma db seed   # from apps/core-api
+```
+
+### Interactive login with real Firebase (works, no service account required)
+All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth for project `auto-core-platform-vande`. Real interactive login works with these steps (no Google service account needed):
+
+1. Frontend config — the web config is public (shipped to browsers) and discoverable from Firebase Hosting:
+   `curl https://auto-core-platform-vande.firebaseapp.com/__/firebase/init.json`
+   Put `apiKey`, `authDomain`, `projectId`, `appId` into `apps/core-web/.env.local` as `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_APP_ID`, then restart Vite. (`cloudbuild.yaml` lists all of these except the api key.)
+2. Backend config — set `FIREBASE_PROJECT_ID=auto-core-platform-vande` in `apps/core-api/.env`. `verifyIdToken()` only needs the project id (it fetches Google's public certs); Application Default Credentials are NOT required to *verify* tokens.
+3. Authorize the user in the local DB — the session is resolved from local `User` + `TenantMember` rows, not from token claims. `npm run db:seed:tenant-member` cannot be used here because it calls Firebase Admin (`getUserByEmail`/`setCustomUserClaims`), which needs a service account. Instead insert the rows directly: create a `User` (`firebaseUid` = the sign-in `localId`, matched by email otherwise) with `active_tenant_id` = the `default-workshop` tenant id, and a `TenantMember` (role `ADMIN`, `is_active: true`) for that tenant. The test user `testauto@auto.core.at` is already linked in the current dev DB.
+
+For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMember` role must be `TECH` and — in addition — `MechanicService.resolveMechanic()` requires an active `Employee` (role `MECHANIC`, `is_active: true`) whose `user_id` points at that `User`. The queue only shows `WorkshopTask` rows assigned to that employee (`mechanic_id`) with a `scheduled_date` around today. Both `testauto@auto.core.at` (ADMIN) and `tablet-mechanic@auto.core.at` (TECH, with a linked mechanic employee and a demo `WO-DEMO-0001` order) are set up in the current dev DB.
+
+Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, tenantId, role, iss: 'local-test-fixture' }` (the guard falls back to the token's `tenantId`/`role` when no DB user exists, as long as that tenant is active).
+
+### Build/run gotcha
+The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
+
+### Lint state
+`apps/core-api` `npm run lint` runs eslint with `--fix` and currently reports pre-existing errors (and rewrites formatting on many files — revert those if you did not intend them). `apps/core-web` `npm run lint` passes with a couple of warnings.
