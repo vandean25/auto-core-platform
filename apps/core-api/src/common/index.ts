@@ -31,6 +31,16 @@ export {
 } from './logging';
 
 export { CloudTasksService } from './services/cloud-tasks.service';
+export {
+  PdfStorage,
+  PdfTaskTenantGuard,
+  PdfWorker,
+  signPdfTaskPayload,
+  verifyPdfTaskPayload,
+  type PdfTaskClaims,
+  type PdfTaskKind,
+  type SignedPdfTaskPayload,
+} from './pdf';
 export { PlaywrightBrowserService } from './services/playwright-browser.service';
 export {
   STALE_STATUS_CONFLICT_MESSAGE,

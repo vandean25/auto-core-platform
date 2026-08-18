@@ -10,8 +10,16 @@ import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
+import { signPdfTaskPayload } from '../src/common';
 import { teardownTestApp } from './test-lifecycle';
-import { createTestAuthToken, createTestTenant, cleanupTestTenantGraph } from './tenant-test-utils';
+import {
+  createTestAuthToken,
+  createTestTenant,
+  cleanupTestTenantGraph,
+} from './tenant-test-utils';
+
+const WORKER_SECRET = 'workshop-pdf-e2e-worker-secret';
+const WORKSHOP_ORDER_ID = '11111111-1111-1111-1111-111111111111';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
@@ -25,11 +33,11 @@ describe('Workshop PDF endpoints (e2e)', () => {
     generateNow: jest.fn(),
   };
 
-  beforeAll(() => {
-  });
+  beforeAll(() => {});
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    process.env.CLOUD_TASKS_WORKER_SECRET = WORKER_SECRET;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -66,7 +74,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF is ready',
@@ -83,7 +91,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
         message: 'PDF generation enqueued',
@@ -102,7 +110,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Content-Type', /application\/pdf/);
   });
@@ -114,7 +122,50 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
+  });
+
+  it('runs the worker when the signed payload tenant matches the header', async () => {
+    mockPdfService.generateNow.mockResolvedValue({
+      workshopOrderId: WORKSHOP_ORDER_ID,
+    });
+    const payload = signPdfTaskPayload(
+      {
+        kind: 'workshop-order',
+        resourceId: WORKSHOP_ORDER_ID,
+        tenantId,
+      },
+      WORKER_SECRET,
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf/worker`)
+      .set('x-cloud-tasks-secret', WORKER_SECRET)
+      .set('x-tenant-id', tenantId)
+      .send(payload)
+      .expect(204);
+
+    expect(mockPdfService.generateNow).toHaveBeenCalledWith(WORKSHOP_ORDER_ID);
+  });
+
+  it('rejects the worker when x-tenant-id differs from the signed payload tenant', async () => {
+    const payload = signPdfTaskPayload(
+      {
+        kind: 'workshop-order',
+        resourceId: WORKSHOP_ORDER_ID,
+        tenantId,
+      },
+      WORKER_SECRET,
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf/worker`)
+      .set('x-cloud-tasks-secret', WORKER_SECRET)
+      .set('x-tenant-id', '00000000-0000-0000-0000-000000000099')
+      .send(payload)
+      .expect(403);
+
+    expect(mockPdfService.generateNow).not.toHaveBeenCalled();
   });
 });

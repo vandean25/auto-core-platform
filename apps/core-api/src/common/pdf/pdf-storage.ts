@@ -7,11 +7,11 @@ import {
 import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
-import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket';
+import { resolvePdfStorageBucket } from './pdf-bucket';
 
 @Injectable()
-export class InvoicePdfStorage {
-  private readonly logger = new Logger(InvoicePdfStorage.name);
+export class PdfStorage {
+  private readonly logger = new Logger(PdfStorage.name);
   private readonly storage: Storage;
 
   constructor() {
@@ -70,11 +70,11 @@ export class InvoicePdfStorage {
           const message =
             error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Failed to upload invoice PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
+            `Failed to upload PDF to GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
             error instanceof Error ? error.stack : undefined,
           );
           throw new InternalServerErrorException(
-            'Failed to upload invoice PDF to storage',
+            'Failed to upload PDF to storage',
           );
         }
       },
@@ -95,7 +95,7 @@ export class InvoicePdfStorage {
     try {
       const [exists] = await file.exists();
       if (!exists) {
-        throw new NotFoundException('Invoice PDF not found in storage');
+        throw new NotFoundException('PDF not found in storage');
       }
 
       const [metadata] = await file.getMetadata();
@@ -114,11 +114,11 @@ export class InvoicePdfStorage {
 
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to fetch invoice PDF from GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
+        `Failed to fetch PDF from GCS (bucket=${bucketName}, key=${params.key}): ${message}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
-        'Failed to fetch invoice PDF from storage',
+        'Failed to fetch PDF from storage',
       );
     }
   }
