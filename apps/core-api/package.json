@@ -36,7 +36,7 @@
     "@google-cloud/storage": "^7.15.2",
     "@google-cloud/speech": "^7.3.1",
     "@google-cloud/tasks": "^6.2.1",
-    "@google-cloud/translate": "^9.4.1",
+    "@google-cloud/translate": "^10.0.1",
     "@nestjs/common": "^11.2.1",
     "@nestjs/core": "^11.2.1",
     "@nestjs/event-emitter": "^3.1.0",
