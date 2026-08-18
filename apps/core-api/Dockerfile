@@ -1,50 +1,43 @@
-# Stage 1: Build
+# Build from the repository root:
+#   docker build -f apps/core-api/Dockerfile -t core-api .
 FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
+COPY package.json package-lock.json ./
+COPY apps/core-api/package.json ./apps/core-api/
+COPY apps/core-web/package.json ./apps/core-web/
+COPY apps/core-api/prisma ./apps/core-api/prisma/
 
-# Install dependencies
-RUN npm ci
+RUN npm ci --workspace=core-api --include-workspace-root=false
 
-# Copy source code
-COPY . .
+COPY apps/core-api ./apps/core-api
 
-# Generate Prisma client and build application
+WORKDIR /usr/src/app/apps/core-api
+
 RUN npx prisma generate
 RUN npm run build
 
-# Stage 2: Production
 FROM mcr.microsoft.com/playwright:v1.51.0-jammy AS runner
 
 WORKDIR /usr/src/app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
-# Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
+COPY apps/core-api/package.json ./apps/core-api/
+COPY apps/core-web/package.json ./apps/core-web/
 
-# Install only production dependencies
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev --workspace=core-api --include-workspace-root=false && npm cache clean --force
 
-# Copy built assets
-COPY --from=builder /usr/src/app/dist ./dist
-
-# Copy generated Prisma client
+COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
 
-# Copy Prisma schema (optional but useful)
-COPY --from=builder /usr/src/app/prisma ./prisma
+WORKDIR /usr/src/app/apps/core-api
 
-# Playwright browser installation
-# Note: we only install chromium to keep image size reasonable
 RUN npx playwright install chromium
 
-# Expose port
 EXPOSE 3000
 
-# Start application
 CMD ["node", "dist/src/main.js"]

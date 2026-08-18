@@ -26,9 +26,35 @@ function extractGithubJob(workflow: string, jobId: string): string {
   return lines.slice(start, end).join('\n');
 }
 
+const workflow = readRepoFile('.github/workflows/build.yaml');
+const backendJob = extractGithubJob(workflow, 'backend');
+
+describe('npm workspaces (AUT-140)', () => {
+  const rootPackage = JSON.parse(readRepoFile('package.json')) as {
+    workspaces?: string[];
+    scripts?: Record<string, string>;
+  };
+
+  it('declares apps/* workspaces at the repo root', () => {
+    expect(rootPackage.workspaces).toEqual(['apps/*']);
+  });
+
+  it('exposes root lint, test, build, and ci scripts across workspaces', () => {
+    expect(rootPackage.scripts?.lint).toContain('--workspaces');
+    expect(rootPackage.scripts?.test).toContain('--workspaces');
+    expect(rootPackage.scripts?.build).toContain('--workspaces');
+    expect(rootPackage.scripts?.ci).toBe(
+      'npm run lint && npm test && npm run build',
+    );
+  });
+
+  it('installs the backend job from the root lockfile', () => {
+    expect(backendJob).toContain('cache-dependency-path: package-lock.json');
+    expect(backendJob).toMatch(/^        run: npm ci$/m);
+  });
+});
+
 describe('backend PR CI ESLint (AUT-131)', () => {
-  const workflow = readRepoFile('.github/workflows/build.yaml');
-  const backendJob = extractGithubJob(workflow, 'backend');
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(CORE_API_ROOT, 'package.json'), 'utf8'),
   ) as { scripts: Record<string, string> };
@@ -38,11 +64,15 @@ describe('backend PR CI ESLint (AUT-131)', () => {
   );
 
   it('runs npm run lint in the backend job', () => {
-    expect(backendJob).toMatch(/^        run: npm run lint$/m);
+    expect(backendJob).toMatch(
+      /^        run: npm run lint --workspace=core-api$/m,
+    );
   });
 
   it('still runs tenant unique-constraint lint', () => {
-    expect(backendJob).toMatch(/^        run: npm run lint:prisma-tenant$/m);
+    expect(backendJob).toMatch(
+      /^        run: npm run lint:prisma-tenant --workspace=core-api$/m,
+    );
   });
 
   it('does not auto-fix when linting', () => {

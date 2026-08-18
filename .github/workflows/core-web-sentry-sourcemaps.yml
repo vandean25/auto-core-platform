@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'apps/core-web/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/core-web-sentry-sourcemaps.yml'
   workflow_dispatch:
 
@@ -36,11 +38,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: apps/core-web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: npm ci
-        working-directory: apps/core-web
 
       - name: Build core-web and upload source maps
         env:
@@ -49,5 +50,4 @@ jobs:
           SENTRY_PROJECT: ${{ steps.gsm.outputs.SENTRY_PROJECT }}
           SENTRY_RELEASE: ${{ github.sha }}
           VITE_APP_VERSION: ${{ github.sha }}
-        run: npm run build
-        working-directory: apps/core-web
+        run: npm run build --workspace=core-web

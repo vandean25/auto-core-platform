@@ -36,7 +36,6 @@ availableSecrets:
 steps:
   - id: migrate-db
     name: node:22
-    dir: apps/core-api
     entrypoint: bash
     secretEnv:
       - DATABASE_URL
@@ -49,15 +48,17 @@ steps:
         # Do not skip P3005 here.
         set -euo pipefail
         npm ci
-        npx ts-node -r tsconfig-paths/register scripts/prisma-migrate-deploy-exit.ts
+        npm exec --workspace=core-api -- ts-node -r tsconfig-paths/register scripts/prisma-migrate-deploy-exit.ts
 
   - id: build-api-image
     name: gcr.io/cloud-builders/docker
     args:
       - build
+      - -f
+      - apps/core-api/Dockerfile
       - -t
       - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
-      - apps/core-api
+      - .
 
   - id: push-api-image
     name: gcr.io/cloud-builders/docker
@@ -101,7 +102,6 @@ steps:
 
   - id: build-frontend
     name: node:22
-    dir: apps/core-web
     entrypoint: bash
     secretEnv:
       - API_KEY
@@ -131,7 +131,7 @@ steps:
         export SENTRY_RELEASE="${TAG_NAME}"
         export VITE_APP_VERSION="${TAG_NAME}"
         npm ci
-        npm run build
+        npm run build --workspace=core-web
 
   - id: deploy-firebase-hosting
     name: us-docker.pkg.dev/firebase-cli/us/firebase

@@ -11,8 +11,7 @@ export interface StagingToteSeedSummary {
 }
 
 type StorageLocationSeedClient =
-  | Pick<PrismaClient, 'storageLocation'>
-  | Prisma.TransactionClient;
+  Pick<PrismaClient, 'storageLocation'> | Prisma.TransactionClient;
 
 export async function seedFixedStagingTotes(
   prisma: StorageLocationSeedClient,
