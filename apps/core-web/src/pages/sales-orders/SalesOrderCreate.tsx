@@ -66,8 +66,11 @@ export default function SalesOrderCreate() {
     const lastSavedRef = useRef<string | null>(null)
     const createMutationRef = useRef(createMutation)
     const updateMutationRef = useRef(updateMutation)
-    createMutationRef.current = createMutation
-    updateMutationRef.current = updateMutation
+
+    useEffect(() => {
+        createMutationRef.current = createMutation
+        updateMutationRef.current = updateMutation
+    })
 
     // Fetch customer if ID is in URL
     const { data: preselectedCustomer } = useCustomer(preselectedCustomerId || '')
@@ -107,7 +110,7 @@ export default function SalesOrderCreate() {
         lastSavedRef.current = serialized
     }, [])
 
-    const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<SalesOrderForm>({
+    const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<SalesOrderForm>({
         save: saveDraft,
         shouldSave: (snapshot) => Boolean(snapshot.customer_id),
     })
@@ -128,8 +131,15 @@ export default function SalesOrderCreate() {
         }
     }, [preselectedCustomer, form])
 
-    const handleDone = () => {
-        clearPendingSave()
+    const handleDone = async () => {
+        await triggerAutoSave(
+            {
+                customer_id: customerId,
+                notes,
+                items,
+            },
+            { immediate: true },
+        )
         if (orderIdRef.current) {
             navigate(`/sales-orders/${orderIdRef.current}`)
             return

@@ -45,8 +45,11 @@ export default function PurchaseOrderCreate() {
 
     const createPO = useCreatePO()
     const createPORef = useRef(createPO)
-    createPORef.current = createPO
     const createdRef = useRef(false)
+
+    useEffect(() => {
+        createPORef.current = createPO
+    })
 
     const saveDraft = useCallback(async (snapshot: PurchaseOrderDraftSnapshot) => {
         if (!snapshot.vendorId || createdRef.current) return

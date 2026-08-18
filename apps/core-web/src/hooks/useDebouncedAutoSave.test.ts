@@ -122,6 +122,45 @@ describe('useDebouncedAutoSave', () => {
     expect(result.current.saveStatus).toBe('saved')
   })
 
+  it('returns a promise that resolves after an immediate save finishes', async () => {
+    let resolveSave: (() => void) | undefined
+    const save = vi.fn().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve
+        }),
+    )
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave<Snapshot>({ enabled: true, save }),
+    )
+
+    let saveFinished = false
+    let flushPromise: Promise<void> | undefined
+    act(() => {
+      flushPromise = result.current.triggerAutoSave(
+        { notes: 'now' },
+        { immediate: true },
+      )
+      void flushPromise?.then(() => {
+        saveFinished = true
+      })
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(saveFinished).toBe(false)
+
+    await act(async () => {
+      resolveSave?.()
+      await flushPromise
+    })
+
+    expect(saveFinished).toBe(true)
+  })
+
   it('skips save when shouldSave returns false', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
     const { result } = renderHook(() =>

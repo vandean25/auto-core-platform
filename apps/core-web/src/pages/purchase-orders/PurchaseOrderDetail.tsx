@@ -109,7 +109,10 @@ export default function PurchaseOrderDetail() {
   const updateItem = useUpdatePOItem();
   const deleteItem = useDeletePOItem();
   const updateItemRef = useRef(updateItem);
-  updateItemRef.current = updateItem;
+
+  useEffect(() => {
+    updateItemRef.current = updateItem;
+  });
 
   const saveLineQuantity = useCallback(
     async (snapshot: { itemId: string; quantity: number }) => {
@@ -123,7 +126,7 @@ export default function PurchaseOrderDetail() {
     [id],
   )
 
-  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
+  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
     enabled: po?.status === "DRAFT",
     save: saveLineQuantity,
     shouldSave: (snapshot) => Number.isFinite(snapshot.quantity) && snapshot.quantity > 0,
@@ -305,6 +308,23 @@ export default function PurchaseOrderDetail() {
   if (error) return <div>Error loading order</div>;
   if (!po) return <div>Order not found</div>;
 
+  const handleMarkAsSent = async () => {
+    if (editingItemId) {
+      const quantity = Number(editingQty);
+      if (Number.isFinite(quantity) && quantity > 0) {
+        await triggerAutoSave(
+          { itemId: editingItemId, quantity },
+          { immediate: true },
+        );
+      }
+    }
+    toast.promise(markAsSent.mutateAsync(po.id), {
+      loading: "Marking as sent...",
+      success: "Purchase order marked as sent",
+      error: "Failed to mark as sent",
+    });
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between mb-8">
@@ -321,14 +341,7 @@ export default function PurchaseOrderDetail() {
           {po.status === "DRAFT" && (
             <Button
               variant="default"
-              onClick={() => {
-                clearPendingSave()
-                toast.promise(markAsSent.mutateAsync(po.id), {
-                  loading: "Marking as sent...",
-                  success: "Purchase order marked as sent",
-                  error: "Failed to mark as sent",
-                });
-              }}
+              onClick={handleMarkAsSent}
               disabled={markAsSent.isPending}
             >
               Mark as Sent

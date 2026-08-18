@@ -72,19 +72,22 @@ export function useDebouncedAutoSave<TSnapshot>({
   )
 
   const triggerAutoSave = useCallback(
-    (snapshot: TSnapshot, options?: DebouncedAutoSaveTriggerOptions) => {
-      if (!enabled) return
+    (
+      snapshot: TSnapshot,
+      options?: DebouncedAutoSaveTriggerOptions,
+    ): Promise<void> => {
+      if (!enabled) return Promise.resolve()
 
       clearPendingSave()
 
       if (options?.immediate) {
-        void performAutoSave(snapshot)
-        return
+        return performAutoSave(snapshot)
       }
 
       autoSaveTimeoutRef.current = setTimeout(() => {
         void performAutoSave(snapshot)
       }, debounceMs)
+      return Promise.resolve()
     },
     [clearPendingSave, debounceMs, enabled, performAutoSave],
   )

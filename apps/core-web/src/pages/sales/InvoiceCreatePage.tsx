@@ -44,8 +44,11 @@ export default function InvoiceCreatePage() {
   const lastSavedRef = React.useRef<string | null>(null)
   const createMutationRef = React.useRef(createInvoiceMutation)
   const updateMutationRef = React.useRef(updateInvoiceMutation)
-  createMutationRef.current = createInvoiceMutation
-  updateMutationRef.current = updateInvoiceMutation
+
+  React.useEffect(() => {
+    createMutationRef.current = createInvoiceMutation
+    updateMutationRef.current = updateInvoiceMutation
+  })
 
   const [partSearchOpen, setPartSearchOpen] = React.useState(false)
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)
