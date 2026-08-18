@@ -11,7 +11,13 @@ import { WorkshopController } from './workshop.controller';
 import { WorkshopService } from './workshop.service';
 
 @Module({
-  imports: [PrismaModule, InvoicesModule, InventoryModule, CommonModule, VehicleStockModule],
+  imports: [
+    PrismaModule,
+    InvoicesModule,
+    InventoryModule,
+    CommonModule,
+    VehicleStockModule,
+  ],
   controllers: [WorkshopController],
   providers: [
     WorkshopService,

@@ -10,7 +10,13 @@ import { MechanicController } from './mechanic.controller';
 import { MechanicService } from './mechanic.service';
 
 @Module({
-  imports: [PrismaModule, CommonModule, ScheduleModule.forRoot(), VoiceTranslationModule, VehicleStockModule],
+  imports: [
+    PrismaModule,
+    CommonModule,
+    ScheduleModule.forRoot(),
+    VoiceTranslationModule,
+    VehicleStockModule,
+  ],
   controllers: [MechanicController],
   providers: [MechanicService, MechanicSchedulerService, MechanicMediaStorage],
 })

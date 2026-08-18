@@ -69,7 +69,10 @@ function getVoiceNoteRateLimitConfig(): { max: number; ttlMs: number } {
   );
   return {
     max: Number.isFinite(max) && max > 0 ? max : 10,
-    ttlMs: Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds * 1000 : 60_000,
+    ttlMs:
+      Number.isFinite(ttlSeconds) && ttlSeconds > 0
+        ? ttlSeconds * 1000
+        : 60_000,
   };
 }
 
@@ -87,7 +90,10 @@ const VOICE_NOTE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   'audio/ogg': 'ogg',
 };
 
-function getVoiceNoteFilename(file: Express.Multer.File, mimeType: string): string {
+function getVoiceNoteFilename(
+  file: Express.Multer.File,
+  mimeType: string,
+): string {
   const originalName = file.originalname?.trim();
   if (
     originalName &&

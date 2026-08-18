@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { VehiclePurchaseService } from './vehicle-purchase.service';
 import { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
@@ -23,11 +32,7 @@ export class VehiclePurchaseController {
   ) {
     return this.purchases.findAll(
       page ? parseInt(page, 10) : 1,
-      limit
-        ? parseInt(limit, 10)
-        : pageSize
-          ? parseInt(pageSize, 10)
-          : 25,
+      limit ? parseInt(limit, 10) : pageSize ? parseInt(pageSize, 10) : 25,
       search,
     );
   }

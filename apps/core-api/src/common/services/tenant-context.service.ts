@@ -52,6 +52,6 @@ export class TenantContextService {
    * Cloud Tasks workers must call setTenantIdForWorker(tenantId) first.
    */
   async getTenantId(): Promise<string> {
-    return this.getRequiredTenantId();
+    return await Promise.resolve(this.getRequiredTenantId());
   }
 }

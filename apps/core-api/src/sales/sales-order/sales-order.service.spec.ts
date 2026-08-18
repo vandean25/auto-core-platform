@@ -85,7 +85,7 @@ describe('SalesOrderService', () => {
       id: 'so-1',
       total_amount: new Prisma.Decimal(20),
       items: [],
-    } as never);
+    });
 
     mockPrisma.catalogItem.count.mockResolvedValue(1);
     transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 1 });
@@ -132,7 +132,7 @@ describe('SalesOrderService', () => {
       id: 'so-1',
       total_amount: new Prisma.Decimal(20),
       items: [],
-    } as never);
+    });
 
     await expect(
       service.update('so-1', {
@@ -142,7 +142,7 @@ describe('SalesOrderService', () => {
             quantity: 3,
             unit_price: 10,
             tax_rate: 20,
-          } as never,
+          },
         ],
       }),
     ).rejects.toThrow('Each sales order item must include catalog_item_id');

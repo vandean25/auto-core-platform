@@ -815,7 +815,12 @@ export class WorkshopService {
       const nextOrderStatus = this.deriveOrderStatus(
         tasks.map((existingTask) => existingTask.status),
       );
-      await this.applyDerivedOrderStatus(tx, tenantId, orderId, nextOrderStatus);
+      await this.applyDerivedOrderStatus(
+        tx,
+        tenantId,
+        orderId,
+        nextOrderStatus,
+      );
     });
 
     return this.findOne(orderId);

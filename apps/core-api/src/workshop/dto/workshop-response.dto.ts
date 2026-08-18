@@ -171,7 +171,11 @@ export class WorkshopOrderResponseDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   stagingLocationId?: string | null;
 
-  @ApiProperty({ type: () => WorkshopCustomerSummaryDto, required: false, nullable: true })
+  @ApiProperty({
+    type: () => WorkshopCustomerSummaryDto,
+    required: false,
+    nullable: true,
+  })
   customer?: WorkshopCustomerSummaryDto | null;
 
   @ApiProperty({ type: () => WorkshopVehicleSummaryDto })

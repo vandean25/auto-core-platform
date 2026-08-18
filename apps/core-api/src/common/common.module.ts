@@ -22,5 +22,3 @@ import { LogLevelService } from './logging/log-level.service';
   ],
 })
 export class CommonModule {}
-
-

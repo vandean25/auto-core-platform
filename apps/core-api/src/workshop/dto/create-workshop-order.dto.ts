@@ -12,7 +12,10 @@ import {
 import { WorkshopOrderPurpose } from '@prisma/client';
 
 export class CreateWorkshopOrderDto {
-  @ValidateIf((dto: CreateWorkshopOrderDto) => dto.purpose !== WorkshopOrderPurpose.STOCK_PREP)
+  @ValidateIf(
+    (dto: CreateWorkshopOrderDto) =>
+      dto.purpose !== WorkshopOrderPurpose.STOCK_PREP,
+  )
   @IsUUID()
   @IsNotEmpty()
   customerId?: string;

@@ -192,7 +192,9 @@ export class LogLevelService {
       const expiredLevel = this.activeOverride.level;
       this.activeOverride = null;
 
-      Logger.overrideLogger(LogLevelService.getNestLogLevels(this.defaultLevel));
+      Logger.overrideLogger(
+        LogLevelService.getNestLogLevels(this.defaultLevel),
+      );
 
       this.logger.log(
         JSON.stringify({

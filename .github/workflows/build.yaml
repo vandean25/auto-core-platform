@@ -211,6 +211,9 @@ jobs:
       - name: Lint Prisma tenant isolation invariants
         run: npm run lint:prisma-tenant
 
+      - name: Lint backend
+        run: npm run lint
+
       - name: Build backend
         run: npm run build
 

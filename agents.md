@@ -340,4 +340,4 @@ Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render
 The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
 
 ### Lint state
-`apps/core-api` `npm run lint` runs eslint with `--fix` and currently reports pre-existing errors (and rewrites formatting on many files — revert those if you did not intend them). `apps/core-web` `npm run lint` passes with a couple of warnings.
+`apps/core-api` `npm run lint` runs ESLint without `--fix` (PR CI uses the same command). Use `npm run lint:fix` to apply auto-fixes locally. `apps/core-web` `npm run lint` passes with a couple of warnings.

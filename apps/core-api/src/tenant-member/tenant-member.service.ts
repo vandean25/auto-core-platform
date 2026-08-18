@@ -19,13 +19,6 @@ type TenantMemberListRecord = Prisma.TenantMemberGetPayload<{
   include: { user: true };
 }>;
 
-type UserProjectionRecord = Prisma.UserGetPayload<{
-  include: {
-    platformAdmin: true;
-    memberships: true;
-  };
-}>;
-
 @Injectable()
 export class TenantMemberService {
   constructor(
@@ -82,7 +75,7 @@ export class TenantMemberService {
     });
 
     let userId: string;
-    let hasActiveTenant = false;
+    let hasActiveTenant: boolean;
 
     if (existingUser) {
       userId = existingUser.id;

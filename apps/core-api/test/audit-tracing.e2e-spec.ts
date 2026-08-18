@@ -49,8 +49,8 @@ describe('Audit Tracing and Governance (e2e)', () => {
     tenantA = tenantResA.tenantId;
     tenantB = tenantResB.tenantId;
 
-    prismaA = createTenantAwarePrisma(prisma, tenantA) as PrismaService;
-    prismaB = createTenantAwarePrisma(prisma, tenantB) as PrismaService;
+    prismaA = createTenantAwarePrisma(prisma, tenantA);
+    prismaB = createTenantAwarePrisma(prisma, tenantB);
 
     authHeaderA = `Bearer ${createTestAuthToken(authService, tenantResA)}`;
     authHeaderB = `Bearer ${createTestAuthToken(authService, tenantResB)}`;

@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import { QueryAuditLogsDto, AuditLogListResponseDto, AuditLogResponseDto } from './dto';
+import {
+  QueryAuditLogsDto,
+  AuditLogListResponseDto,
+  AuditLogResponseDto,
+} from './dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()

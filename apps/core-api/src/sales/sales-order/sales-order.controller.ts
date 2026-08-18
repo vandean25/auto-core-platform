@@ -148,7 +148,8 @@ export class SalesOrderController {
             ? parsed.page
             : undefined,
         pageSize:
-          typeof parsed.pageSize === 'number' && Number.isFinite(parsed.pageSize)
+          typeof parsed.pageSize === 'number' &&
+          Number.isFinite(parsed.pageSize)
             ? parsed.pageSize
             : undefined,
         search: typeof parsed.search === 'string' ? parsed.search : undefined,

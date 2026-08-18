@@ -74,7 +74,7 @@ export class CreateEmployeeDto {
     type: String,
   })
   @IsOptional()
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() || null : value,
   )
   @IsString()
@@ -126,7 +126,7 @@ export class UpdateEmployeeDto {
     type: String,
   })
   @IsOptional()
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() || null : value,
   )
   @IsString()

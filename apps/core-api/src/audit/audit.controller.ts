@@ -11,7 +11,8 @@ export class AuditController {
   @Get()
   @ApiOperation({
     summary: 'List tenant audit logs',
-    description: 'Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.',
+    description:
+      'Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.',
   })
   @ApiOkResponse({
     type: AuditLogListResponseDto,
