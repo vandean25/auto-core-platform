@@ -243,7 +243,6 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.storageLocation.deleteMany({});
   await tenantPrisma.brand.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
-  await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
 
   const memberships = await tenantPrisma.tenantMember.findMany({
     select: { user_id: true },
@@ -252,6 +251,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.tenantMember.deleteMany({});
   await cleanupTestUsers(prisma, userIds);
 
+  await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 
