@@ -1,20 +1,19 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { inventoryKeys } from './inventory'
 import { laborKeys } from './labor'
 import { invoiceKeys } from './sales'
 import { workshopKeys } from './workshop'
 
-const apiDirectory = dirname(fileURLToPath(import.meta.url))
-
 const QUERY_KEY_USAGE = /(?:queryKey\s*:\s*|setQueryData\s*\()\s*(\[[\s\S]*?\])/g
 
-function apiSourceFiles() {
-  return readdirSync(apiDirectory).filter(
-    (fileName) => fileName.endsWith('.ts') && !fileName.endsWith('.test.ts') && !fileName.endsWith('.test.tsx'),
-  )
+const apiSources = import.meta.glob<string>('./*.ts', {
+  query: '?raw',
+  eager: true,
+  import: 'default',
+})
+
+function isProductionApiModule(modulePath: string) {
+  return !modulePath.endsWith('.test.ts') && !modulePath.endsWith('.test.tsx')
 }
 
 function hardcodedQueryKeyUsages(source: string) {
@@ -57,10 +56,11 @@ describe('workshop and inventory factory keys', () => {
 
 describe('src/api query-key usage', () => {
   it('does not hardcode query key arrays outside factories', () => {
-    const violations = apiSourceFiles().flatMap((fileName) => {
-      const source = readFileSync(join(apiDirectory, fileName), 'utf8')
-      return hardcodedQueryKeyUsages(source).map((snippet) => `${fileName}: ${snippet}`)
-    })
+    const violations = Object.entries(apiSources)
+      .filter(([modulePath]) => isProductionApiModule(modulePath))
+      .flatMap(([modulePath, source]) =>
+        hardcodedQueryKeyUsages(source).map((snippet) => `${modulePath}: ${snippet}`),
+      )
 
     expect(violations).toEqual([])
   })
