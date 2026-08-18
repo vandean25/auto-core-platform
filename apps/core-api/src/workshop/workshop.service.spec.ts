@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -179,6 +180,7 @@ describe('WorkshopService', () => {
   it('derives workshop order status from task updates', async () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
       id: 't-1',
+      status: WorkshopTaskStatus.IN_PROGRESS,
       workshop_order_id: 'wo-1',
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
@@ -187,6 +189,9 @@ describe('WorkshopService', () => {
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.DONE },
     ]);
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      status: WorkshopOrderStatus.IN_PROGRESS,
+    });
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
@@ -198,7 +203,7 @@ describe('WorkshopService', () => {
       where: {
         id: 'wo-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
-        status: { not: WorkshopOrderStatus.INVOICED },
+        status: WorkshopOrderStatus.IN_PROGRESS,
       },
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
@@ -211,9 +216,58 @@ describe('WorkshopService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  it('returns 409 when a task status transition loses the expected-from race', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.DONE }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith({
+      where: {
+        workshop_order_id: 'wo-1',
+        id: 't-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: WorkshopTaskStatus.IN_PROGRESS,
+      },
+      data: { status: WorkshopTaskStatus.DONE },
+    });
+    expect(mockPrisma.workshopOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not write status when updating only mechanic notes', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.findMany.mockResolvedValue([
+      { status: WorkshopTaskStatus.IN_PROGRESS },
+    ]);
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      status: WorkshopOrderStatus.IN_PROGRESS,
+    });
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await service.updateTask('wo-1', 't-1', { mechanicNotes: 'Waiting on parts' });
+
+    const updateArgs = mockPrisma.workshopTask.updateMany.mock.calls[0][0];
+    expect(updateArgs.data).toEqual({ mechanic_notes: 'Waiting on parts' });
+    expect(updateArgs.data).not.toHaveProperty('status');
+  });
+
   it('allows task updates for completed orders even when draft invoice exists', async () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
       id: 't-1',
+      status: WorkshopTaskStatus.DONE,
       workshop_order_id: 'wo-1',
       workshop_order: {
         status: WorkshopOrderStatus.COMPLETED,
@@ -225,6 +279,9 @@ describe('WorkshopService', () => {
       { status: WorkshopTaskStatus.DONE },
       { status: WorkshopTaskStatus.NOT_STARTED },
     ]);
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      status: WorkshopOrderStatus.COMPLETED,
+    });
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
@@ -265,6 +322,9 @@ describe('WorkshopService', () => {
     });
     mockPrisma.workshopTask.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTask.findMany.mockResolvedValue([]);
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      status: WorkshopOrderStatus.IN_PROGRESS,
+    });
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
@@ -279,7 +339,7 @@ describe('WorkshopService', () => {
       where: {
         id: 'wo-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
-        status: { not: WorkshopOrderStatus.INVOICED },
+        status: WorkshopOrderStatus.IN_PROGRESS,
       },
       data: { status: WorkshopOrderStatus.INTAKE },
     });

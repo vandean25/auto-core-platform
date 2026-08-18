@@ -14,6 +14,10 @@ import {
 import type { WorkshopTaskLineItem } from '@prisma/client';
 import { buildInvoiceSnapshot } from './invoice-snapshot';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -145,18 +149,20 @@ export class InvoicesService {
         );
       }
 
-      await this.financeService.validateTransactionDate(invoice.date);
-
-      const updateResult = await tx.invoice.updateMany({
-        where: { id: invoiceId, status: InvoiceStatus.DRAFT },
-        data: {
-          status: InvoiceStatus.ISSUED,
-        },
-      });
-
-      if (updateResult.count === 0) {
+      if (invoice.status !== InvoiceStatus.DRAFT) {
         throw new BadRequestException('Only DRAFT invoices can be issued');
       }
+
+      await this.financeService.validateTransactionDate(invoice.date);
+
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {
+        id: invoiceId,
+        tenantId,
+        from: InvoiceStatus.DRAFT,
+        to: InvoiceStatus.ISSUED,
+        conflictMessage:
+          'Invoice was already transitioned by another request',
+      });
 
       const invoiceNumber =
         invoice.invoice_number ??
@@ -174,9 +180,13 @@ export class InvoicesService {
         },
       });
 
-      await tx.workshopOrder.updateMany({
-        where: { id: invoice.workshop_order_id, tenant_id: tenantId },
-        data: { status: WorkshopOrderStatus.INVOICED },
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
+        id: invoice.workshop_order_id,
+        tenantId,
+        from: WorkshopOrderStatus.COMPLETED,
+        to: WorkshopOrderStatus.INVOICED,
+        conflictMessage:
+          'Workshop order was already invoiced or is no longer COMPLETED',
       });
 
       const updated = await tx.invoice.findFirst({

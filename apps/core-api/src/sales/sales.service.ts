@@ -15,6 +15,10 @@ import {
 import type { CatalogItem, RevenueGroup, InventoryStock } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition';
 
 @Injectable()
 export class SalesService {
@@ -305,19 +309,15 @@ export class SalesService {
       }
 
       // 3. Update Invoice Status and return updated invoice (Concurrency Safe)
-      const updateResult = await tx.invoice.updateMany({
-        where: { id, status: InvoiceStatus.DRAFT },
-        data: {
-          status: InvoiceStatus.FINALIZED,
-          invoice_number: invoiceNumber,
-        },
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {
+        id,
+        tenantId,
+        from: InvoiceStatus.DRAFT,
+        to: InvoiceStatus.FINALIZED,
+        extraData: { invoice_number: invoiceNumber },
+        conflictMessage:
+          'Invoice was already transitioned by another request',
       });
-
-      if (updateResult.count === 0) {
-        throw new BadRequestException(
-          'Invoice is no longer in DRAFT status or has been deleted.',
-        );
-      }
 
       const updatedInvoice = await tx.invoice.findFirst({
         where: { id },
@@ -350,9 +350,13 @@ export class SalesService {
           );
         }
 
-        await tx.salesOrder.updateMany({
-          where: { id: invoice.sales_order_id, tenant_id: tenantId },
-          data: { status: SalesOrderStatus.INVOICED },
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.salesOrder), {
+          id: invoice.sales_order_id,
+          tenantId,
+          from: salesOrder.status,
+          to: SalesOrderStatus.INVOICED,
+          conflictMessage:
+            'Sales order status changed concurrently. Please refresh and try again.',
         });
       }
 

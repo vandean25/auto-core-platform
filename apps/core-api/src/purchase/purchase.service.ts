@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,6 +11,10 @@ import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition';
 
 export type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
   include: { vendor: true; items: true };
@@ -136,6 +141,16 @@ export class PurchaseService {
         });
         if (!po) throw new NotFoundException('Purchase Order not found');
 
+        if (
+          po.status !== PurchaseOrderStatus.DRAFT &&
+          po.status !== PurchaseOrderStatus.SENT &&
+          po.status !== PurchaseOrderStatus.PARTIAL
+        ) {
+          throw new BadRequestException(
+            'Only DRAFT, SENT, or PARTIAL purchase orders can receive items',
+          );
+        }
+
         let warehouse = await tx.storageLocation.findFirst({
           where: { tenant_id: tenantId, type: 'warehouse' },
         });
@@ -188,6 +203,7 @@ export class PurchaseService {
             quantity: number;
             received: { itemId: string; quantity: number };
             poItem: Prisma.PurchaseOrderItemGetPayload<Record<string, never>>;
+            quantityReceived: number;
           }
         >();
 
@@ -214,10 +230,12 @@ export class PurchaseService {
           if (existing) {
             existing.quantity += received.quantity;
           } else {
+            const currentItem = currentItemsMap.get(poItem.id);
             aggregatedReceived.set(poItem.id, {
               quantity: received.quantity,
               received,
               poItem,
+              quantityReceived: currentItem?.quantity_received ?? 0,
             });
           }
         }
@@ -243,15 +261,19 @@ export class PurchaseService {
         // BATCH WRITES (using aggregated quantities)
         await chunkedPromiseAll(
           validatedAggregatedItems,
-          async ({ poItem, quantity, received }) => {
+          async ({ poItem, quantity, received, quantityReceived }) => {
             const updateResult = await tx.purchaseOrderItem.updateMany({
-              where: { id: poItem.id, tenant_id: tenantId },
+              where: {
+                id: poItem.id,
+                tenant_id: tenantId,
+                quantity_received: quantityReceived,
+              },
               data: { quantity_received: { increment: quantity } },
             });
 
             if (updateResult.count === 0) {
-              throw new NotFoundException(
-                `Purchase order item ${poItem.id} not found for current tenant`,
+              throw new ConflictException(
+                `Purchase order item ${poItem.id} was updated concurrently. Please refresh and try again.`,
               );
             }
 
@@ -290,10 +312,14 @@ export class PurchaseService {
         if (allReceived) newStatus = PurchaseOrderStatus.COMPLETED;
         else if (anyReceived) newStatus = PurchaseOrderStatus.PARTIAL;
 
-        if (newStatus !== updatedPO.status) {
-          await tx.purchaseOrder.updateMany({
-            where: { id: orderId, tenant_id: tenantId },
-            data: { status: newStatus },
+        if (newStatus !== po.status) {
+          await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+            id: orderId,
+            tenantId,
+            from: po.status,
+            to: newStatus,
+            conflictMessage:
+              'Purchase order status changed concurrently. Please refresh and try again.',
           });
 
           const refreshedPO = await tx.purchaseOrder.findFirst({
@@ -414,10 +440,16 @@ export class PurchaseService {
         po.status,
       );
 
-      await tx.purchaseOrder.updateMany({
-        where: { id: orderId, tenant_id: tenantId },
-        data: { status: newStatus },
-      });
+      if (newStatus !== po.status) {
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+          id: orderId,
+          tenantId,
+          from: po.status,
+          to: newStatus,
+          conflictMessage:
+            'Purchase order status changed concurrently. Please refresh and try again.',
+        });
+      }
 
       return tx.purchaseOrder.findFirst({
         where: { id: orderId, tenant_id: tenantId },
@@ -490,10 +522,16 @@ export class PurchaseService {
         po.status,
       );
 
-      await tx.purchaseOrder.updateMany({
-        where: { id: orderId, tenant_id: tenantId },
-        data: { status: newStatus },
-      });
+      if (newStatus !== po.status) {
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+          id: orderId,
+          tenantId,
+          from: po.status,
+          to: newStatus,
+          conflictMessage:
+            'Purchase order status changed concurrently. Please refresh and try again.',
+        });
+      }
 
       return tx.purchaseOrder.findFirst({
         where: { id: orderId, tenant_id: tenantId },
@@ -550,10 +588,16 @@ export class PurchaseService {
         po.status,
       );
 
-      await tx.purchaseOrder.updateMany({
-        where: { id: orderId, tenant_id: tenantId },
-        data: { status: newStatus },
-      });
+      if (newStatus !== po.status) {
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+          id: orderId,
+          tenantId,
+          from: po.status,
+          to: newStatus,
+          conflictMessage:
+            'Purchase order status changed concurrently. Please refresh and try again.',
+        });
+      }
 
       return tx.purchaseOrder.findFirst({
         where: { id: orderId, tenant_id: tenantId },
@@ -646,9 +690,20 @@ export class PurchaseService {
       );
     }
 
-    return this.prisma.purchaseOrder.update({
-      where: { id },
-      data: { status: PurchaseOrderStatus.SENT },
+    await guardedStatusUpdate(
+      bindStatusUpdateMany(this.prisma.purchaseOrder),
+      {
+        id,
+        tenantId,
+        from: PurchaseOrderStatus.DRAFT,
+        to: PurchaseOrderStatus.SENT,
+        conflictMessage:
+          'Purchase order status changed concurrently. Please refresh and try again.',
+      },
+    );
+
+    const updated = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
       include: {
         vendor: true,
         items: {
@@ -656,6 +711,12 @@ export class PurchaseService {
         },
       },
     });
+
+    if (!updated) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    return updated;
   }
 
   async remove(id: string) {

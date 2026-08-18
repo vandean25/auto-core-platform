@@ -10,6 +10,18 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service';
 import { TenantContextService } from '../../common/services/tenant-context.service';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../../common/utils/status-transition';
+
+const SALES_ORDER_NEXT_STATUS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
+  [SalesOrderStatus.DRAFT]: [SalesOrderStatus.CONFIRMED],
+  [SalesOrderStatus.CONFIRMED]: [SalesOrderStatus.IN_PROGRESS],
+  [SalesOrderStatus.IN_PROGRESS]: [SalesOrderStatus.COMPLETED],
+  [SalesOrderStatus.COMPLETED]: [SalesOrderStatus.INVOICED],
+  [SalesOrderStatus.INVOICED]: [],
+};
 
 @Injectable()
 export class SalesOrderService {
@@ -264,12 +276,6 @@ export class SalesOrderService {
         }
       }
 
-      // Delete existing items and recreate (simple approach for now)
-      // In a real app, we might want to reconcile
-
-      // This transaction logic should be inside a $transaction if we want atomicity for replace
-      // For now, I'll just rely on the update data structure
-
       newItemsData = replacementItems.map((item) => {
         const quantity = new Prisma.Decimal(item.quantity);
         const unitPrice = new Prisma.Decimal(item.unit_price);
@@ -291,20 +297,43 @@ export class SalesOrderService {
       );
     }
 
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      const updateResult = await tx.salesOrder.updateMany({
-        where: { id, tenant_id: tenantId },
-        data: {
-          customer_id: updateDto.customer_id,
-          vehicle_id: updateDto.vehicle_id,
-          notes: updateDto.notes,
-          status: updateDto.status,
-          total_amount: totalAmount,
-        },
-      });
+    const nextStatus = updateDto.status;
+    if (nextStatus !== undefined && nextStatus !== order.status) {
+      const allowed = SALES_ORDER_NEXT_STATUS[order.status] ?? [];
+      if (!allowed.includes(nextStatus)) {
+        throw new BadRequestException(
+          `Cannot transition sales order from ${order.status} to ${nextStatus}`,
+        );
+      }
+    }
 
-      if (updateResult.count === 0) {
-        throw new NotFoundException('Sales order not found');
+    const fieldData: Prisma.SalesOrderUpdateManyMutationInput = {
+      customer_id: updateDto.customer_id,
+      vehicle_id: updateDto.vehicle_id,
+      notes: updateDto.notes,
+      total_amount: totalAmount,
+    };
+
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      if (nextStatus !== undefined && nextStatus !== order.status) {
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.salesOrder), {
+          id,
+          tenantId,
+          from: order.status,
+          to: nextStatus,
+          extraData: fieldData,
+          conflictMessage:
+            'Sales order status changed concurrently. Please refresh and try again.',
+        });
+      } else {
+        const updateResult = await tx.salesOrder.updateMany({
+          where: { id, tenant_id: tenantId },
+          data: fieldData,
+        });
+
+        if (updateResult.count === 0) {
+          throw new NotFoundException('Sales order not found');
+        }
       }
 
       if (newItemsData) {
