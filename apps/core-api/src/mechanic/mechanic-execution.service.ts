@@ -1,15 +1,7 @@
 import {
-  BadRequestException,
-  BadGatewayException,
   ConflictException,
-  ForbiddenException,
-  HttpException,
-  HttpStatus,
   Injectable,
-  InternalServerErrorException,
-  Logger,
   NotFoundException,
-  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -17,7 +9,6 @@ import {
   LaborPauseReason,
   Prisma,
   WorkshopLineItemType,
-  WorkshopMediaUrlStrategy,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
@@ -26,7 +17,6 @@ import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realti
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
-import { VoiceTranslationService } from '../voice-translation/voice-translation.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
@@ -34,78 +24,11 @@ import type { SaveDiagnosticsDto } from './dto/save-diagnostics.dto';
 import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
 import type { RequestPartDto } from './dto/request-part.dto';
 import type { RequestPartResponseDto } from './dto/request-part.dto';
-import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
-import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
-import {
-  ALLOWED_VOICE_NOTE_MIME_TYPES,
-  MAX_VOICE_NOTE_BYTES,
-  MAX_VOICE_NOTE_DURATION_SECONDS,
-  MIN_VOICE_NOTE_BYTES,
-  type VoiceNoteDraftResponseDto,
-} from './dto/voice-note.dto';
-import {
-  IMAGE_MIME_TYPES,
-  MechanicMediaStorage,
-} from './mechanic-media.storage';
 import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
 } from './mechanic-events.constants';
-import { readAudioDurationSeconds } from './audio-duration';
-
-/**
- * Rate-limit configuration for the voice-note upload endpoint.
- * Configurable via environment variables (ADR-0014 §5.3 guardrails).
- *
- * VOICE_NOTE_RATE_LIMIT_MAX            — max uploads per mechanic per window (default 10)
- * VOICE_NOTE_RATE_LIMIT_TTL_SECONDS    — sliding-window length in seconds (default 60)
- */
-function getVoiceNoteRateLimitConfig(): { max: number; ttlMs: number } {
-  const max = parseInt(process.env.VOICE_NOTE_RATE_LIMIT_MAX ?? '10', 10);
-  const ttlSeconds = parseInt(
-    process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS ?? '60',
-    10,
-  );
-  return {
-    max: Number.isFinite(max) && max > 0 ? max : 10,
-    ttlMs:
-      Number.isFinite(ttlSeconds) && ttlSeconds > 0
-        ? ttlSeconds * 1000
-        : 60_000,
-  };
-}
-
-/** Sliding-window entry stored per-mechanic for rate limiting. */
-interface RateLimitEntry {
-  count: number;
-  windowStart: number;
-}
-
-const VOICE_NOTE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
-  'audio/webm': 'webm',
-  'audio/mp4': 'm4a',
-  'audio/mpeg': 'mp3',
-  'audio/wav': 'wav',
-  'audio/ogg': 'ogg',
-};
-
-function getVoiceNoteFilename(
-  file: Express.Multer.File,
-  mimeType: string,
-): string {
-  const originalName = file.originalname?.trim();
-  if (
-    originalName &&
-    originalName !== 'blob' &&
-    /\.[a-z0-9]+$/i.test(originalName)
-  ) {
-    return originalName;
-  }
-
-  const extension = VOICE_NOTE_EXTENSION_BY_MIME_TYPE[mimeType] ?? 'bin';
-  return `voice-note.${extension}`;
-}
+import { assertTaskAssignedToMechanic } from './mechanic-task-access';
 
 const QUEUE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.INTAKE,
@@ -176,114 +99,14 @@ function pauseReasonToTaskStatus(
 }
 
 @Injectable()
-export class MechanicService {
-  private readonly logger = new Logger(MechanicService.name);
-
-  /**
-   * Cached on first use; undefined when the env var is absent (e.g. during
-   * OpenAPI generation).  Methods that actually need the bucket call
-   * `getWorkshopMediaBucket()` which throws lazily so the app can still start
-   * without this var set.
-   */
-  private readonly workshopMediaBucket: string | undefined;
-
-  /**
-   * Per-mechanic sliding-window rate limit map for voice-note uploads.
-   * Key: `${tenantId}:${mechanicId}`. All expired entries across every key are
-   * pruned on every check so that the map does not grow without bound in
-   * long-lived instances serving many distinct mechanics/tenants.
-   *
-   * ADR-0014 §5.3 — prevents runaway provider spend and accidental repeated uploads.
-   */
-  private readonly voiceNoteRateLimitMap = new Map<string, RateLimitEntry>();
-
+export class MechanicExecutionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly realtimeService: DashboardRealtimeService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly mediaStorage: MechanicMediaStorage,
-    private readonly voiceTranslationService: VoiceTranslationService,
     private readonly vehicleLedger: VehicleLedgerService,
-  ) {
-    this.workshopMediaBucket = process.env.WORKSHOP_MEDIA_BUCKET;
-  }
-
-  /** Returns the configured bucket name or throws at call time (not startup). */
-  private getWorkshopMediaBucket(): string {
-    if (!this.workshopMediaBucket) {
-      throw new InternalServerErrorException(
-        'WORKSHOP_MEDIA_BUCKET environment variable is not configured.',
-      );
-    }
-    return this.workshopMediaBucket;
-  }
-
-  async resolveMechanic(): Promise<string> {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user || user.role !== 'TECH') {
-      throw new ForbiddenException(
-        'Only technicians (TECH role) may access mechanic endpoints.',
-      );
-    }
-
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        tenant_id: tenantId,
-        role: 'MECHANIC',
-        is_active: true,
-        user: {
-          OR: [{ firebaseUid: user.userId }, { email: user.email }],
-        },
-      },
-      select: { id: true },
-    });
-
-    if (!employee) {
-      throw new NotFoundException(
-        'Active mechanic employee for the authenticated user was not found in this tenant.',
-      );
-    }
-
-    return employee.id;
-  }
-
-  /**
-   * Resolves and validates the current authenticated user as a MECHANIC
-   * employee for the given tenant.
-   *
-   * Throws ForbiddenException if the user is not a TECH tenant member.
-   * Throws NotFoundException if no active MECHANIC employee exists for the
-   * given mechanicId within the tenant.
-   */
-  async assertMechanicAccess(mechanicId: string): Promise<void> {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user || user.role !== 'TECH') {
-      throw new ForbiddenException(
-        'Only technicians (TECH role) may access mechanic endpoints.',
-      );
-    }
-
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        id: mechanicId,
-        tenant_id: tenantId,
-        role: 'MECHANIC',
-        is_active: true,
-      },
-      select: { id: true },
-    });
-
-    if (!employee) {
-      throw new NotFoundException(
-        `Active mechanic employee ${mechanicId} not found in this tenant.`,
-      );
-    }
-  }
+  ) {}
 
   /**
    * Returns the active work queue for the given mechanic.
@@ -422,7 +245,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     const order = task.workshop_order;
     const vehicle = order.vehicle;
@@ -491,7 +314,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     if (task.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
@@ -617,7 +440,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(targetTask, mechanicId);
+    assertTaskAssignedToMechanic(targetTask, mechanicId);
 
     if (targetTask.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
@@ -810,7 +633,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     const openEntry = await this.prisma.laborEntry.findFirst({
       where: {
@@ -911,7 +734,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     if (task.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
@@ -1025,7 +848,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     await this.prisma.$transaction(async (tx) => {
       let acceptedDraftText: string | null = null;
@@ -1199,7 +1022,7 @@ export class MechanicService {
       throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
-    this.assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAssignedToMechanic(task, mechanicId);
 
     if (task.status === WorkshopTaskStatus.DONE) {
       throw new UnprocessableEntityException(
@@ -1241,454 +1064,5 @@ export class MechanicService {
         lineItem.part_execution_status ??
         WorkshopPartLineExecutionStatus.PENDING_PICK,
     } satisfies RequestPartResponseDto;
-  }
-
-  // ─── Media Upload Policy ───────────────────────────────────────────────────
-
-  /**
-   * Generates a short-lived GCS presigned POST upload policy for direct-to-
-   * storage upload (ADR-0014 §7.1).
-   *
-   * The client must call `POST /media` after successfully uploading to
-   * persist the metadata (ADR-0014 §7.2).
-   */
-  async createMediaUploadPolicy(
-    mechanicId: string,
-    taskId: string,
-    dto: RequestMediaUploadDto,
-  ): Promise<MediaUploadPolicyDto> {
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const task = await this.prisma.workshopTask.findFirst({
-      where: { id: taskId, tenant_id: tenantId },
-      select: {
-        id: true,
-        bay_id: true,
-        status: true,
-        mechanic_id: true,
-        workshop_order_id: true,
-        workshop_order: { select: { mechanic_id: true, bay_id: true } },
-      },
-    });
-
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    this.assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Cannot upload media for completed task ${taskId}.`,
-      );
-    }
-
-    const policy = await this.mediaStorage.generateUploadPolicy({
-      tenantId,
-      orderId: task.workshop_order_id,
-      taskId,
-      mimeType: dto.mimeType,
-      sizeBytes: dto.sizeBytes,
-      filename: dto.filename,
-    });
-
-    return {
-      uploadUrl: policy.uploadUrl,
-      formFields: policy.formFields,
-      storageBucket: policy.storageBucket,
-      storageKey: policy.storageKey,
-      expiresAt: policy.expiresAt.toISOString(),
-    } satisfies MediaUploadPolicyDto;
-  }
-
-  // ─── Media Metadata Persist ────────────────────────────────────────────────
-
-  /**
-   * Persists `WorkshopMedia` metadata after a successful direct upload.
-   *
-   * Media metadata is stored only after the upload policy was successfully
-   * used and the client confirms the upload.  File blobs are never written
-   * to Postgres (ADR-0014 §7.1).
-   */
-  async saveMediaMetadata(
-    mechanicId: string,
-    taskId: string,
-    dto: CreateMediaDto,
-  ): Promise<WorkshopMediaDto> {
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const task = await this.prisma.workshopTask.findFirst({
-      where: { id: taskId, tenant_id: tenantId },
-      select: {
-        id: true,
-        bay_id: true,
-        status: true,
-        mechanic_id: true,
-        workshop_order_id: true,
-        workshop_order: { select: { mechanic_id: true, bay_id: true } },
-      },
-    });
-
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    this.assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Cannot persist media for completed task ${taskId}.`,
-      );
-    }
-
-    // Validate that the client-supplied bucket and key refer to the expected
-    // tenant/order/task-scoped location.  This prevents callers from pointing
-    // WorkshopMedia records at arbitrary buckets or objects outside their scope
-    // (ADR-0014 §7.2 security).
-    if (dto.storageBucket !== this.getWorkshopMediaBucket()) {
-      throw new BadRequestException(
-        `Invalid storage bucket. Expected "${this.getWorkshopMediaBucket()}".`,
-      );
-    }
-    const expectedKeyPrefix = `tenants/${tenantId}/orders/${task.workshop_order_id}/tasks/${taskId}/`;
-    if (!dto.storageKey.startsWith(expectedKeyPrefix)) {
-      throw new BadRequestException(
-        `Invalid storage key. Key must start with "${expectedKeyPrefix}".`,
-      );
-    }
-
-    // Enforce the same per-MIME-type size caps used by the upload policy endpoint.
-    const isImage = IMAGE_MIME_TYPES.has(dto.mimeType);
-    const hardCap = isImage ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
-    if (dto.sizeBytes > hardCap) {
-      throw new BadRequestException(
-        `Reported file size ${dto.sizeBytes} bytes exceeds the maximum allowed for ${dto.mimeType} (${hardCap} bytes).`,
-      );
-    }
-
-    const media = await this.prisma.workshopMedia.create({
-      data: {
-        tenant_id: tenantId,
-        workshop_order_id: task.workshop_order_id,
-        workshop_task_id: taskId,
-        uploaded_by_employee_id: mechanicId,
-        storage_bucket: dto.storageBucket,
-        storage_key: dto.storageKey,
-        url_strategy: WorkshopMediaUrlStrategy.SIGNED,
-        mime_type: dto.mimeType,
-        size_bytes: dto.sizeBytes,
-        duration_seconds:
-          dto.durationSeconds != null
-            ? new Prisma.Decimal(dto.durationSeconds)
-            : null,
-        caption: dto.caption ?? null,
-      },
-    });
-
-    // The Prisma dashboard-realtime extension emits WORKSHOP_MEDIA CREATED
-    // automatically for this create; no manual emit is needed.
-
-    return {
-      id: media.id,
-      workshopOrderId: media.workshop_order_id,
-      workshopTaskId: media.workshop_task_id,
-      uploadedByEmployeeId: media.uploaded_by_employee_id,
-      storageBucket: media.storage_bucket,
-      storageKey: media.storage_key,
-      urlStrategy: media.url_strategy,
-      mimeType: media.mime_type,
-      sizeBytes: media.size_bytes,
-      durationSeconds: media.duration_seconds
-        ? Number(media.duration_seconds)
-        : null,
-      caption: media.caption,
-      createdAt: media.createdAt,
-      updatedAt: media.updatedAt,
-    } satisfies WorkshopMediaDto;
-  }
-
-  async uploadVoiceNote(
-    mechanicId: string,
-    taskId: string,
-    file: Express.Multer.File,
-  ): Promise<VoiceNoteDraftResponseDto> {
-    const tenantId = await this.tenantContext.getTenantId();
-
-    // ── Rate limiting (per mechanic, sliding window) ────────────────────────
-    this.checkVoiceNoteRateLimit(mechanicId, tenantId);
-
-    const task = await this.prisma.workshopTask.findFirst({
-      where: { id: taskId, tenant_id: tenantId },
-      select: {
-        id: true,
-        bay_id: true,
-        status: true,
-        mechanic_id: true,
-        workshop_order_id: true,
-        workshop_order: { select: { mechanic_id: true, bay_id: true } },
-      },
-    });
-
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new ForbiddenException(
-        'Cannot upload voice notes for a completed task.',
-      );
-    }
-
-    this.assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (!file || !file.buffer || file.buffer.length === 0) {
-      throw new UnprocessableEntityException(
-        'Audio file must not be empty. Include an audio file in the "audio" field.',
-      );
-    }
-
-    if (file.buffer.length < MIN_VOICE_NOTE_BYTES) {
-      throw new UnprocessableEntityException(
-        `Audio file is too small (${file.buffer.length} bytes). The recording appears to be empty or silent.`,
-      );
-    }
-
-    if (file.buffer.length > MAX_VOICE_NOTE_BYTES) {
-      throw new UnprocessableEntityException(
-        `Audio file size ${file.buffer.length} bytes exceeds the maximum of ${MAX_VOICE_NOTE_BYTES} bytes (25 MiB).`,
-      );
-    }
-
-    const normalizedMime = (file.mimetype ?? '')
-      .split(';')[0]
-      .trim()
-      .toLowerCase();
-
-    if (!ALLOWED_VOICE_NOTE_MIME_TYPES.has(normalizedMime)) {
-      throw new UnprocessableEntityException(
-        `Unsupported audio format "${file.mimetype}". Allowed formats: ${[...ALLOWED_VOICE_NOTE_MIME_TYPES].join(', ')}.`,
-      );
-    }
-
-    // Log safe operational metadata only — never log audio content or transcript text.
-    // ADR-0014 §5.3 — Observability without content logging.
-    const sizeBytes = file.buffer.length;
-    this.logger.log(
-      `voice_note_start tenantId=${tenantId} taskId=${taskId} bytes=${sizeBytes} mimeType=${normalizedMime}`,
-    );
-
-    const parsedDurationSeconds = readAudioDurationSeconds(
-      file.buffer,
-      normalizedMime,
-    );
-    if (
-      parsedDurationSeconds !== undefined &&
-      parsedDurationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
-    ) {
-      file.buffer.fill(0);
-      throw new UnprocessableEntityException(
-        `Audio recording duration ${parsedDurationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
-      );
-    }
-
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        id: mechanicId,
-        tenant_id: tenantId,
-        role: 'MECHANIC',
-      },
-      select: { mother_language_code: true },
-    });
-    const targetLanguageCode =
-      await this.voiceTranslationService.getTargetLanguageCode(tenantId);
-    const sourceLanguageCode =
-      employee?.mother_language_code || targetLanguageCode;
-
-    const startedAt = Date.now();
-    let result: {
-      originalText: string;
-      translatedText: string;
-      sourceLanguageCode: string;
-      targetLanguageCode: string;
-      detectedLanguageCode?: string;
-      provider: string;
-      model: string;
-      durationSeconds?: number;
-    };
-    try {
-      result = await this.voiceTranslationService.translateVoiceNote({
-        audioBuffer: file.buffer,
-        filename: getVoiceNoteFilename(file, normalizedMime),
-        mimeType: normalizedMime,
-        sourceLanguageCode,
-        targetLanguageCode,
-      });
-    } catch (error) {
-      // Zero out the audio buffer immediately to release sensitive data.
-      // ADR-0014 §5.3 — Audio retention minimisation.
-      file.buffer.fill(0);
-
-      const latencyMs = Date.now() - startedAt;
-      const failureClass = error instanceof Error ? error.name : 'UnknownError';
-
-      // Log only safe metadata — no transcript text, no audio content.
-      this.logger.warn(
-        `voice_note_failure tenantId=${tenantId} taskId=${taskId} latencyMs=${latencyMs} failureClass=${failureClass}`,
-      );
-
-      if (error instanceof BadRequestException) {
-        throw new UnprocessableEntityException(error.message);
-      }
-      if (error instanceof ServiceUnavailableException) {
-        throw error;
-      }
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadGatewayException(
-        'Voice-note transcription failed due to an upstream provider error. Please try again.',
-      );
-    }
-
-    // Zero out the audio buffer immediately after successful transcription.
-    // ADR-0014 §5.3 — Audio retention minimisation.
-    file.buffer.fill(0);
-    const originalText = result.originalText ?? result.translatedText ?? '';
-    const translatedText = result.translatedText ?? result.originalText ?? '';
-
-    if (
-      result.durationSeconds !== undefined &&
-      result.durationSeconds !== null &&
-      result.durationSeconds > MAX_VOICE_NOTE_DURATION_SECONDS
-    ) {
-      throw new UnprocessableEntityException(
-        `Audio recording duration ${result.durationSeconds.toFixed(1)}s exceeds the maximum of ${MAX_VOICE_NOTE_DURATION_SECONDS}s.`,
-      );
-    }
-
-    if (!originalText || originalText.trim().length === 0) {
-      throw new UnprocessableEntityException(
-        'Voice note appears to be silent - no speech was detected in the recording.',
-      );
-    }
-
-    const savedDraft = await this.prisma.workshopVoiceNoteDraft.create({
-      data: {
-        tenant_id: tenantId,
-        workshop_task_id: taskId,
-        mechanic_employee_id: mechanicId,
-        status: 'PENDING',
-        source_language_code: result.sourceLanguageCode,
-        target_language_code: result.targetLanguageCode,
-        original_text: originalText,
-        translated_text: translatedText,
-        provider: result.provider,
-        model: result.model,
-        duration_seconds:
-          result.durationSeconds != null
-            ? new Prisma.Decimal(result.durationSeconds)
-            : null,
-      },
-      select: { id: true },
-    });
-
-    const latencyMs = Date.now() - startedAt;
-    // Log only safe operational metadata — never log draft.text (transcript content).
-    // ADR-0014 §5.3 — Observability without content logging.
-    this.logger.log(
-      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${result.provider} model=${result.model} latencyMs=${latencyMs} durationSeconds=${result.durationSeconds ?? 'unknown'}`,
-    );
-
-    return {
-      draftId: savedDraft.id,
-      text: translatedText,
-      originalText: originalText,
-      sourceLanguageCode: result.sourceLanguageCode,
-      targetLanguageCode: result.targetLanguageCode,
-      detectedLanguage: result.detectedLanguageCode,
-      provider: result.provider,
-      model: result.model,
-      durationSeconds: result.durationSeconds,
-    } satisfies VoiceNoteDraftResponseDto;
-  }
-
-  /**
-   * Checks whether a task is reachable by the given mechanic per
-   * ADR-0014 §2.2 assignment-inheritance rules. Throws ForbiddenException
-   * when the task is not accessible.
-   */
-  private assertTaskAssignedToMechanic(
-    task: {
-      id: string;
-      mechanic_id: string | null;
-      bay_id: string | null;
-      workshop_order: {
-        mechanic_id: string | null;
-        bay_id: string | null;
-      };
-    },
-    mechanicId: string,
-  ): void {
-    // Rule 1: task directly assigned to this mechanic
-    if (task.mechanic_id === mechanicId) {
-      return;
-    }
-
-    // Rule 2/3: no task-level mechanic override — fall back to order assignment
-    if (
-      task.mechanic_id === null &&
-      task.workshop_order.mechanic_id === mechanicId
-    ) {
-      return;
-    }
-
-    throw new ForbiddenException(
-      `Task ${task.id} is not assigned to mechanic ${mechanicId}.`,
-    );
-  }
-
-  /**
-   * Enforces a per-mechanic sliding-window rate limit for voice-note uploads.
-   *
-   * Limit and window are read from environment variables at runtime so that
-   * operators can tune them without a code deploy.
-   *
-   * Throws HTTP 429 when the mechanic has exceeded the allowed number of
-   * uploads within the current window.
-   *
-   * ADR-0014 §5.3 — rate and abuse controls.
-   */
-  private checkVoiceNoteRateLimit(mechanicId: string, tenantId: string): void {
-    const { max, ttlMs } = getVoiceNoteRateLimitConfig();
-    const key = `${tenantId}:${mechanicId}`;
-    const now = Date.now();
-
-    // Prune all expired entries so the map does not grow without bound across
-    // many distinct mechanics/tenants over the lifetime of the process.
-    for (const [k, v] of this.voiceNoteRateLimitMap) {
-      if (now - v.windowStart >= ttlMs) {
-        this.voiceNoteRateLimitMap.delete(k);
-      }
-    }
-
-    const entry = this.voiceNoteRateLimitMap.get(key);
-
-    if (!entry) {
-      // Start a fresh window (either first upload or window just expired).
-      this.voiceNoteRateLimitMap.set(key, { count: 1, windowStart: now });
-      return;
-    }
-
-    if (entry.count >= max) {
-      const retryAfterSeconds = Math.ceil(
-        (ttlMs - (now - entry.windowStart)) / 1000,
-      );
-      throw new HttpException(
-        `Voice note rate limit exceeded. Maximum ${max} uploads per ${Math.ceil(ttlMs / 1000)}s window. Retry after ${retryAfterSeconds}s.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    entry.count += 1;
   }
 }

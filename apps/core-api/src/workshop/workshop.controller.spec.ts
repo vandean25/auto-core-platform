@@ -3,15 +3,23 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 import { WorkshopController } from './workshop.controller';
+import { WorkshopBoardService } from './workshop-board.service';
+import { WorkshopIntakeService } from './workshop-intake.service';
+import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
-import { WorkshopService } from './workshop.service';
+import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopTaskService } from './workshop-task.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto';
 
 describe('WorkshopController', () => {
   let controller: WorkshopController;
 
-  const mockWorkshopService = {};
+  const mockIntakeService = {};
+  const mockTaskService = {};
+  const mockPickPartsService = {};
+  const mockBoardService = {};
+  const mockInvoiceService = {};
   const mockPdfService = {
     requestGeneration: jest.fn(),
   };
@@ -22,7 +30,11 @@ describe('WorkshopController', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WorkshopController,
-        { provide: WorkshopService, useValue: mockWorkshopService },
+        { provide: WorkshopIntakeService, useValue: mockIntakeService },
+        { provide: WorkshopTaskService, useValue: mockTaskService },
+        { provide: WorkshopPickPartsService, useValue: mockPickPartsService },
+        { provide: WorkshopBoardService, useValue: mockBoardService },
+        { provide: WorkshopInvoiceService, useValue: mockInvoiceService },
         { provide: WorkshopPdfService, useValue: mockPdfService },
         {
           provide: TenantContextService,

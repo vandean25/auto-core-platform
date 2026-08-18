@@ -5,7 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { VoiceTranslationService } from '../src/voice-translation/voice-translation.service';
-import { MechanicService } from '../src/mechanic/mechanic.service';
+import { MechanicVoiceNoteService } from '../src/mechanic/mechanic-voice-note.service';
 import { WorkshopTaskStatus } from '@prisma/client';
 import {
   cleanupTestTenantGraph,
@@ -247,7 +247,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
     // Clear the per-mechanic rate-limit counters between tests so that each
     // test starts with a clean slate and unrelated upstream requests don't
     // exhaust the limit before the rate-limit test itself runs.
-    const mechanicService = app.get(MechanicService);
+    const mechanicService = app.get(MechanicVoiceNoteService);
     (mechanicService as unknown as { voiceNoteRateLimitMap: Map<unknown, unknown> }).voiceNoteRateLimitMap.clear();
   });
 

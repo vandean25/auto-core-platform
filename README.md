@@ -2,31 +2,49 @@
 
 # Auto Core Platform
 
-A full-stack automotive parts management platform built with NestJS (backend) and React + Vite (frontend).
+A multi-tenant workshop operations platform: parts inventory, procurement, sales, workshop jobs, vehicle stock, and finance. NestJS 11 API and React 19 + Vite 8 frontend.
+
+## Modules
+
+| Module | What it covers |
+|--------|----------------|
+| **Inventory** | Catalog items, storage locations, and ledger-based parts stock |
+| **Procurement** | Purchase orders, goods receipt, vendors, and vendor bills |
+| **Sales** | Customers, sales orders, and tax invoices |
+| **Workshop** | Intake, job cards, board, parts pick, and mechanic queue |
+| **Vehicle stock** | Dealer-owned vehicles, purchases, sales, and vehicle ledger (not parts inventory) |
+| **Finance** | Fiscal lock date, sequential numbering, and revenue groups |
+| **Auth/tenancy** | Firebase Auth, JWT guard, row-level `tenant_id` isolation, tenant members, and platform admin |
 
 ## Project Structure
 
 ```
 auto-core-platform/
 ├── apps/
-│   ├── core-api/          # NestJS backend API
-│   │   ├── prisma/        # Database schema & migrations
+│   ├── core-api/          # NestJS 11 backend API
+│   │   ├── prisma/        # Database schema & migrations (Prisma 7)
 │   │   │   ├── schema.prisma
-│   │   │   └── seed.ts    # Database seeding script
+│   │   │   └── seed.ts    # Seeds the default-workshop tenant + sample catalog
 │   │   └── src/
-│   │       ├── brand/     # Brand Master Data
-│   │       ├── customer/  # CRM & Customer Management
-│   │       ├── inventory/ # Inventory module
-│   │       ├── purchase/  # Purchase Order module
-│   │       ├── sales/     # Sales Order & Invoice module
-│   │       ├── vendor/    # Vendor management module
-│   │       └── prisma/    # Prisma service module
+│   │       ├── auth/           # Firebase JWT + session (`/api/auth`)
+│   │       ├── tenant-member/  # Tenant membership & invites
+│   │       ├── platform-admin/ # Super-admin tenant directory
+│   │       ├── inventory/      # Parts inventory & ledger
+│   │       ├── purchase/       # Procurement (POs, vendor bills)
+│   │       ├── sales/          # Sales orders & invoices
+│   │       ├── workshop/       # Workshop orders, board, pick
+│   │       ├── vehicle-stock/  # Dealer vehicle stock
+│   │       ├── finance/        # Fiscal settings & revenue groups
+│   │       ├── customer/       # CRM
+│   │       ├── vendor/         # Vendors
+│   │       └── prisma/         # Prisma service + tenant query helpers
 │   │
-│   └── core-web/          # React + Vite frontend
+│   └── core-web/          # React 19 + Vite 8 frontend
 │       ├── src/
-│       │   ├── api/       # API hooks and types
+│       │   ├── api/       # TanStack Query hooks & generated OpenAPI types
+│       │   ├── auth/      # Firebase Auth provider
 │       │   ├── components/# Reusable UI components
-│       │   ├── pages/     # Page components
+│       │   ├── pages/     # Page components (incl. workshop/, vehicle-stock/)
 │       │   └── hooks/     # Custom React hooks
 │       └── components.json # shadcn/ui configuration
 ```
@@ -103,8 +121,12 @@ npx prisma generate
 # Apply migrations (creates tables)
 npx prisma migrate dev
 
-# Seed sample data (50 automotive parts + 3 warehouses)
+# Seed sample data (default-workshop tenant, ~50 parts, warehouses)
 npx prisma db seed
+
+# Optional: link a Firebase user as a tenant member or platform admin
+npm run db:seed:tenant-member
+npm run db:seed:platform-admin
 ```
 
 ### 3. Shared Secrets via Google Secret Manager (Recommended)
@@ -213,6 +235,18 @@ The frontend uses Firebase Authentication and supports:
 
 All app routes are protected behind login in production.
 
+### Auth & Tenancy (Backend)
+
+API routes are behind a global `JwtAuthGuard`. The bearer token is a Firebase ID token (or a locally signed test JWT when `NODE_ENV=test`). Authorization is resolved from Postgres `User` + `TenantMember` rows, not from token `tenantId` / `role` claims.
+
+- `GET /api/auth/me` — current session (active tenant, memberships, platform role)
+- `POST /api/auth/switch-tenant` — switch the user's active tenant
+- `TenantContextMiddleware` sets the request tenant; tenant-scoped Prisma queries must include `tenant_id`
+- Roles: `OWNER`, `ADMIN`, `TECH`, `SALES` on `TenantMember`; `SUPER_ADMIN` on `PlatformAdmin`
+- Mechanic (tablet) sessions (`TECH`) may only call endpoints marked `@MechanicAccessible()`
+
+Seed helpers: `npm run db:seed:tenant-member` and `npm run db:seed:platform-admin` in `apps/core-api`.
+
 ### Frontend Environment Variables
 
 Set these in build/deploy environment for `apps/core-web`:
@@ -315,7 +349,10 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npx prisma studio` | Open Prisma Studio (database GUI) |
 | `npx prisma migrate dev` | Apply pending migrations |
 | `npm run db:baseline -- --applied <migration>` | One-shot Prisma baseline (`migrate resolve --applied`); not used by Cloud Build |
-| `npx prisma db seed` | Seed database with sample data |
+| `npx prisma db seed` | Seed `default-workshop` tenant and sample catalog |
+| `npm run db:seed:tenant-member` | Link a Firebase user as an active tenant member |
+| `npm run db:seed:platform-admin` | Link a Firebase user as a platform super-admin |
+| `npm run lint:prisma-tenant` | Lint tenant-scoped Prisma queries for missing `tenant_id` |
 
 ### Frontend (`apps/core-web`)
 
@@ -324,6 +361,8 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
+| `npm run test` | Run Vitest unit tests |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
 | `npm run lint` | Lint code |
 | `npm run api:types:generate` | Generate API types from backend OpenAPI |
 | `npm run api:types:check` | Regenerate API types and fail if drift is uncommitted |
@@ -384,6 +423,44 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 | `GET` | `/api/vendors/:id` | Get single vendor details |
 | `PUT` | `/api/vendors/:id` | Update vendor details |
 
+### Workshop
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/workshop/register` | Register intake (customer + vehicle) |
+| `GET` | `/api/workshop/orders` | List workshop orders (paginated) |
+| `POST` | `/api/workshop/orders` | Create a workshop order |
+| `GET` | `/api/workshop/orders/:id` | Get workshop order details |
+| `POST` | `/api/workshop/orders/:id/pick-parts` | Pick / stage parts for a job |
+| `POST` | `/api/workshop/orders/:id/create-invoice` | Invoice a completed workshop order |
+
+### Vehicle stock
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/vehicle-stock` | List dealer-owned vehicles (status filter) |
+| `GET` | `/api/vehicle-stock/:vehicleId` | Get vehicle stock detail |
+| `POST` | `/api/vehicle-purchases` | Create a vehicle purchase (intake to stock) |
+| `POST` | `/api/vehicle-sales` | Create a vehicle sale |
+
+### Finance
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/finance/settings` | Get fiscal settings (lock date, numbering) |
+| `PATCH` | `/api/finance/settings` | Update fiscal settings |
+| `GET` | `/api/finance/revenue-groups` | List revenue groups |
+
+### Auth/tenancy
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/auth/me` | Current session, active tenant, memberships |
+| `POST` | `/api/auth/switch-tenant` | Switch active tenant |
+| `GET` | `/api/tenant-members` | List members of the active tenant |
+| `POST` | `/api/tenant-members/invite` | Invite a user to the tenant |
+| `GET` | `/api/platform/tenants` | Super-admin tenant directory |
+
 ---
 
 ## Frontend Features
@@ -422,21 +499,43 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 - **Vendor Directory**: List and search vendors.
 - **Vendor Details**: Manage contact info and supported brands.
 
+### Workshop
+
+- **Intake & job cards**: Register a vehicle, create workshop orders and tasks, print job-card PDFs.
+- **Board & pick list**: Kanban board for bay/mechanic assignment; warehouse pick/stage for required parts.
+- **Mechanic tablet**: `/mechanic/queue` for `TECH` sessions (RBAC-restricted API).
+
+### Vehicle stock
+
+- **Dealer stock list**: Status-filtered list of used/stock vehicles (separate from parts inventory).
+- **Purchase & sale**: Intake a vehicle to stock; sell from stock onto a fiscal invoice.
+
+### Auth/tenancy
+
+- **Login + tenant switcher**: Firebase session, `GET /api/auth/me`, switch active tenant from the sidebar.
+- **Settings**: Tenant members, finance, brands, and storage locations on the gear-icon Settings page.
+- **Platform admin**: `/platform/tenants` for `SUPER_ADMIN`.
+
 ---
 
 ## Database Schema
 
 ### Core Models
 
+- **Tenant / User / TenantMember**: Row-level multi-tenancy; membership roles `OWNER`, `ADMIN`, `TECH`, `SALES`
 - **CatalogItem**: Product catalog with SKU, pricing, and supersession chains
 - **StorageLocation**: Hierarchical warehouse structure (warehouse → shelf → bin)
 - **InventoryStock**: Current stock levels per item/location
 - **InventoryTransaction**: Full audit trail of all stock movements
 - **Customer**: Private or Company profiles with contact info
-- **SalesOrder**: Customer orders (Job Cards)
-- **Invoice**: Fiscal documents linked to sales orders
+- **Vehicle**: VIN master (`CUSTOMER` service cars vs dealer stock)
+- **WorkshopOrder / WorkshopTask**: Job cards, labor, and parts lines
+- **VehiclePurchase / VehicleSale / VehicleLedgerEntry**: Dealer vehicle stock (not parts)
+- **SalesOrder**: Customer orders
+- **Invoice**: Fiscal documents linked to sales orders, workshop orders, or vehicle sales
 - **Vendor**: Suppliers with contact info and supported brands
 - **PurchaseOrder**: Orders to vendors with status tracking
+- **FinanceSettings / RevenueGroup**: Lock date, numbering, revenue categories
 
 ### Transaction Types
 
@@ -454,13 +553,13 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 ## Tech Stack
 
 ### Backend
-- **NestJS** - Node.js framework
-- **Prisma** - ORM with PostgreSQL
+- **NestJS 11** - Node.js framework
+- **Prisma 7** - ORM with PostgreSQL
 - **TypeScript** - Type safety
 
 ### Frontend
 - **React 19** - UI library
-- **Vite 7** - Build tool
+- **Vite 8** - Build tool
 - **TanStack Query** - Server state management
 - **TanStack Table** - Data grid
 - **Tailwind CSS 4** - Styling

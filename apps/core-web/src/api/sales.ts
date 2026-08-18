@@ -18,14 +18,45 @@ export interface CreateInvoicePayload {
 
 export function useCreateInvoice() {
     return useMutation({
-        mutationFn: async (payload: CreateInvoicePayload) => {
+        mutationFn: async ({
+            signal,
+            ...payload
+        }: CreateInvoicePayload & { signal?: AbortSignal }) => {
             const response = await fetchWithAuth('/api/sales/invoices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
+                signal,
             })
             if (!response.ok) throw new Error('Failed to create invoice')
             return response.json() as Promise<Invoice>
+        },
+    })
+}
+
+export function useUpdateInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({
+            id,
+            payload,
+            signal,
+        }: {
+            id: string
+            payload: CreateInvoicePayload
+            signal?: AbortSignal
+        }) => {
+            const response = await fetchWithAuth(`/api/sales/invoices/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal,
+            })
+            if (!response.ok) throw new Error('Failed to update invoice')
+            return response.json() as Promise<Invoice>
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['invoices', data.id] })
         },
     })
 }

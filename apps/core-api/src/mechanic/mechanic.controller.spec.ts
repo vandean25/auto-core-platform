@@ -11,7 +11,10 @@ import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
 import type { RequestPartResponseDto } from './dto/request-part.dto';
 import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
 import { MechanicController } from './mechanic.controller';
-import { MechanicService } from './mechanic.service';
+import { MechanicExecutionService } from './mechanic-execution.service';
+import { MechanicIdentityService } from './mechanic-identity.service';
+import { MechanicMediaService } from './mechanic-media.service';
+import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
 
 const MECHANIC_ID = '11111111-1111-1111-1111-111111111111';
 const TASK_ID = '22222222-2222-2222-2222-222222222222';
@@ -55,7 +58,10 @@ describe('MechanicController', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MechanicController,
-        { provide: MechanicService, useValue: mockMechanicService },
+        { provide: MechanicIdentityService, useValue: mockMechanicService },
+        { provide: MechanicExecutionService, useValue: mockMechanicService },
+        { provide: MechanicMediaService, useValue: mockMechanicService },
+        { provide: MechanicVoiceNoteService, useValue: mockMechanicService },
       ],
     }).compile();
 

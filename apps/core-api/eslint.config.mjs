@@ -55,12 +55,25 @@ export default tseslint.config(
           message:
             '[AUT-65] prisma.$executeRawUnsafe() is banned in application code. It bypasses tenant isolation (ADR-0013). Use typed Prisma queries instead.',
         },
+        {
+          selector:
+            "MemberExpression[object.name='systemPrisma'][property.name=/^(customer|vehicle|employee|workshopOrder|invoice|salesOrder|catalogItem|inventoryStock)$/]",
+          message:
+            '[AUT-135] SystemPrismaService cannot access tenant models. Use PrismaService so tenant isolation applies. See docs/internal/05-Runbooks/system-prisma-allowlist.md',
+        },
+        {
+          selector:
+            "MemberExpression[object.property.name='systemPrisma'][property.name=/^(customer|vehicle|employee|workshopOrder|invoice|salesOrder|catalogItem|inventoryStock)$/]",
+          message:
+            '[AUT-135] SystemPrismaService cannot access tenant models. Use PrismaService so tenant isolation applies. See docs/internal/05-Runbooks/system-prisma-allowlist.md',
+        },
       ],
     },
   },
   {
     files: [
       '**/*.spec.ts',
+      '**/*.spec.support.ts',
       'test/**/*.ts',
       'prisma/**/*.ts',
       'scripts/**/*.ts',

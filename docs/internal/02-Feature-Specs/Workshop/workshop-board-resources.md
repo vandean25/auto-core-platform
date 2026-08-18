@@ -16,23 +16,23 @@ tags:
 
 ## Summary
 
-> The Workshop Board requires structured resource data — **Mechanics** (human resources) and **Bays** (physical work stations) — to populate Kanban swimlane columns. This feature introduces the schema entities, the unified `GET /api/workshop/resources` endpoint, the frontend query/state layer, and the view-mode toggle that lets the board switch between mechanic-centric and bay-centric layouts. It is a prerequisite for the drag-and-drop assignment flow described in [ADR-0013](../../01-ADR/2026-04-18-workshop-planner-kanban-board.md).
+> The Workshop Board requires structured resource data — **Mechanics** (human resources) and **Bays** (physical work stations) — to populate Kanban swimlane columns. This feature introduces the schema entities, the unified `GET /api/workshop/resources` endpoint, the frontend query/state layer, and the view-mode toggle that lets the board switch between mechanic-centric and bay-centric layouts. It is a prerequisite for the drag-and-drop assignment flow described in [ADR-0018](../../01-ADR/2026-04-18-workshop-planner-kanban-board.md).
 
 ---
 
 ## Architectural Decision: Entity Strategy (Resolved)
 
 > [!NOTE]
-> **ADR-0013 Superseded (Sections 2.1–2.3)**
+> **ADR-0018 Superseded (Sections 2.1–2.3)**
 >
-> ADR-0013 originally proposed a standalone `Mechanic` model with `Bay` deferred to Phase 2 as free-text `bay_label`. This spec was approved by the Product Owner on 2026-04-18 with a different approach:
+> ADR-0018 originally proposed a standalone `Mechanic` model with `Bay` deferred to Phase 2 as free-text `bay_label`. This spec was approved by the Product Owner on 2026-04-18 with a different approach:
 > - An `Employee` model with an `EmployeeRole` enum (`MECHANIC`, `SERVICE_ADVISOR`, `PARTS_CLERK`).
 > - A first-class `Bay` entity with FK integrity from day one.
-> - **ADR-0013 sections 2.1, 2.2, and 2.3 have been amended** to reflect this decision.
+> - **ADR-0018 sections 2.1, 2.2, and 2.3 have been amended** to reflect this decision.
 
 ### Resolved Tradeoff Analysis
 
-| Dimension | ADR-0013 (Superseded) | This Spec (Approved) |
+| Dimension | ADR-0018 (Superseded) | This Spec (Approved) |
 |-----------|----------------------|----------------------|
 | **Schema scope** | Narrower — one purpose-built `Mechanic` table | Wider — general-purpose `Employee` table usable by future features (timesheets, RBAC, payroll) |
 | **Naming** | `Mechanic` is self-documenting but exclusive | `Employee` requires a `role` filter but avoids duplicate tables when other roles are needed |
@@ -124,7 +124,7 @@ model Bay {
 ```
 
 **Design notes:**
-- `name` is unique — prevents duplicate bay entries (fixing the free-text `bay_label` problem from ADR-0013).
+- `name` is unique — prevents duplicate bay entries (fixing the free-text `bay_label` problem from ADR-0018).
 - No `capacity` or `vehicle_type` constraints in this phase. Bay is purely a column label for the board.
 
 ### Modified Tables
@@ -242,7 +242,7 @@ interface BoardResource {
 
 | Method | Route | Change Description |
 |--------|-------|-------------------|
-| `PATCH` | `/api/workshop/board/assign` | Payload changes from `{ mechanicId?, bayLabel? }` (ADR-0013) to `{ mechanicId?, bayId? }` — proper FK instead of free-text |
+| `PATCH` | `/api/workshop/board/assign` | Payload changes from `{ mechanicId?, bayLabel? }` (ADR-0018) to `{ mechanicId?, bayId? }` — proper FK instead of free-text |
 
 Updated assign payload:
 
@@ -411,7 +411,7 @@ None. This feature does not introduce new statuses or modify existing state tran
 
 ## Inventory Impact
 
-None. This feature does not read or write inventory data. Parts status computation is handled by the `GET /api/workshop/board/active` endpoint (ADR-0013), not the resources endpoint.
+None. This feature does not read or write inventory data. Parts status computation is handled by the `GET /api/workshop/board/active` endpoint (ADR-0018), not the resources endpoint.
 
 ---
 
@@ -505,7 +505,7 @@ All open questions have been resolved. These rulings are **binding** for impleme
 
 ## References
 
-- [ADR-0013: Workshop Planner Kanban Board](../../01-ADR/2026-04-18-workshop-planner-kanban-board.md) — parent ADR for the board feature (sections 2.1–2.3 require amendment if this spec is approved)
+- [ADR-0018: Workshop Planner Kanban Board](../../01-ADR/2026-04-18-workshop-planner-kanban-board.md) — parent ADR for the board feature (sections 2.1–2.3 require amendment if this spec is approved)
 - [ADR-0001: Prisma $extends Real-Time Sync](../../01-ADR/2026-04-12-prisma-extends-realtime-sync.md) — WebSocket auto-emission (deferred for Employee/Bay)
 - [ADR-0005: Deletion Policy Enforcement](../../01-ADR/2026-04-12-deletion-policy-enforcement.md) — Employee and Bay deletion rules must be added
 - [Feature Spec: Workshop Order Lifecycle](workshop-order-lifecycle.md) — WorkshopOrder model context
