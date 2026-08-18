@@ -27,6 +27,7 @@
     "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
     "db:seed:platform-admin": "ts-node -r tsconfig-paths/register scripts/seed-platform-admin.ts",
     "db:seed:tenant-member": "ts-node -r tsconfig-paths/register scripts/seed-tenant-member.ts",
+    "db:baseline": "ts-node -r tsconfig-paths/register scripts/baseline-prisma-migrations.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {

@@ -40,20 +40,13 @@ steps:
     args:
       - -lc
       - |
+        # Fail this tag-triggered production deploy on any `prisma migrate deploy`
+        # non-zero exit, including Prisma P3005 (schema not empty / not baselined).
+        # Baselining is a manual one-shot: `npm run db:baseline -- --applied <migration>`.
+        # Do not skip P3005 here.
         set -euo pipefail
         npm ci
-        set +e
-        MIGRATE_OUTPUT="$$(npx prisma migrate deploy 2>&1)"
-        MIGRATE_EXIT=$?
-        set -e
-        echo "$$MIGRATE_OUTPUT"
-        if [ "$$MIGRATE_EXIT" -ne 0 ]; then
-          if echo "$$MIGRATE_OUTPUT" | grep -q "P3005"; then
-            echo "Skipping migrate deploy because the database is not baselined yet."
-          else
-            exit "$$MIGRATE_EXIT"
-          fi
-        fi
+        npx ts-node -r tsconfig-paths/register scripts/prisma-migrate-deploy-exit.ts
 
   - id: build-api-image
     name: gcr.io/cloud-builders/docker

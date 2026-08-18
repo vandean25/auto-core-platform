@@ -267,6 +267,14 @@ The release trigger deploys on tags matching `^v.*$`.
 - Build file: `cloudbuild.yaml`
 - Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
 
+Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
+
+If a non-empty database has never been baselined, run a **manual one-shot** outside the production deploy:
+
+```bash
+npm --prefix apps/core-api run db:baseline -- --applied <migration_name>
+```
+
 Release Firebase substitutions in `cloudbuild.yaml` must match the GSM-backed `core-web` values for `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID`.
 
 ### Required APIs
@@ -305,6 +313,7 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run openapi:check` | Regenerate OpenAPI and fail if spec drift is uncommitted |
 | `npx prisma studio` | Open Prisma Studio (database GUI) |
 | `npx prisma migrate dev` | Apply pending migrations |
+| `npm run db:baseline -- --applied <migration>` | One-shot Prisma baseline (`migrate resolve --applied`); not used by Cloud Build |
 | `npx prisma db seed` | Seed database with sample data |
 
 ### Frontend (`apps/core-web`)
