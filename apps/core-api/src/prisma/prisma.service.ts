@@ -13,6 +13,10 @@ import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realti
 import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension';
 import { createAuditExtension } from './prisma-audit.extension';
 import { createTenantIsolationExtension } from './tenant-isolation.extension';
+import {
+  getSharedRuntimePool,
+  releaseSharedRuntimePool,
+} from './shared-pg-pool';
 
 @Injectable()
 export class PrismaService
@@ -20,15 +24,14 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
-  private pool: Pool;
+  private readonly pool: Pool;
   public readonly client: PrismaClient;
 
   constructor(
     @Inject(forwardRef(() => DashboardRealtimeService))
     dashboardRealtime: DashboardRealtimeService,
   ) {
-    const connectionString = process.env.DATABASE_URL;
-    const pool = new Pool({ connectionString });
+    const pool = getSharedRuntimePool();
     const adapter = new PrismaPg(pool);
 
     super({
@@ -74,15 +77,12 @@ export class PrismaService
       return;
     }
 
-    // Retry logic is less relevant for the *constructor* adapter setup,
-    // but we can still try-catch the first query or keep the logic if connect() is called.
-    // With adapter, $connect is implicit usually, but explicit call verifies connection.
     await this.connectWithRetry();
   }
 
   async onModuleDestroy() {
     await this.client.$disconnect();
-    await this.pool.end();
+    await releaseSharedRuntimePool();
   }
 
   private async connectWithRetry(retries = 5, delay = 2000) {

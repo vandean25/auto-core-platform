@@ -83,7 +83,7 @@ For multi-tenant runtime stability, keep separate GSM secrets for direct and poo
 
 Recommended mapping pattern in `secrets/gsm-mapping.json`:
 
-- backend `.env` `DATABASE_URL` -> GSM `DATABASE_URL_POOLED`
-- backend `.env` `DATABASE_URL_DIRECT` -> GSM `DATABASE_URL`
+- backend `.env` `DATABASE_URL` -> GSM direct secret (`acp-core-api-database-url`)
+- backend `.env` `DATABASE_URL_POOLED` -> GSM pooled secret (`acp-core-api-database-url-pooled`)
 
-This keeps application runtime on the pool while preserving direct connectivity for operational scripts.
+NestJS runtime reads `DATABASE_URL_POOLED` and falls back to `DATABASE_URL`. Prisma migrate/seed keep using `DATABASE_URL` only. See `secrets/gsm-mapping.example.json`.
