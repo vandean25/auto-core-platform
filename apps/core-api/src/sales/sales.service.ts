@@ -315,8 +315,7 @@ export class SalesService {
         from: InvoiceStatus.DRAFT,
         to: InvoiceStatus.FINALIZED,
         extraData: { invoice_number: invoiceNumber },
-        conflictMessage:
-          'Invoice was already transitioned by another request',
+        conflictMessage: 'Invoice was already transitioned by another request',
       });
 
       const updatedInvoice = await tx.invoice.findFirst({

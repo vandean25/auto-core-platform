@@ -307,7 +307,7 @@ export class PurchaseService {
         const anyReceived = updatedPO.items.some(
           (i) => i.quantity_received > 0,
         );
-        let newStatus = po.status;
+        let newStatus: PurchaseOrderStatus = po.status;
 
         if (allReceived) newStatus = PurchaseOrderStatus.COMPLETED;
         else if (anyReceived) newStatus = PurchaseOrderStatus.PARTIAL;
@@ -690,17 +690,14 @@ export class PurchaseService {
       );
     }
 
-    await guardedStatusUpdate(
-      bindStatusUpdateMany(this.prisma.purchaseOrder),
-      {
-        id,
-        tenantId,
-        from: PurchaseOrderStatus.DRAFT,
-        to: PurchaseOrderStatus.SENT,
-        conflictMessage:
-          'Purchase order status changed concurrently. Please refresh and try again.',
-      },
-    );
+    await guardedStatusUpdate(bindStatusUpdateMany(this.prisma.purchaseOrder), {
+      id,
+      tenantId,
+      from: PurchaseOrderStatus.DRAFT,
+      to: PurchaseOrderStatus.SENT,
+      conflictMessage:
+        'Purchase order status changed concurrently. Please refresh and try again.',
+    });
 
     const updated = await this.prisma.purchaseOrder.findFirst({
       where: { id, tenant_id: tenantId },

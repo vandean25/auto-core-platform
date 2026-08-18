@@ -307,7 +307,7 @@ export class SalesOrderService {
       }
     }
 
-    const fieldData: Prisma.SalesOrderUpdateManyMutationInput = {
+    const fieldData: Prisma.SalesOrderUncheckedUpdateManyInput = {
       customer_id: updateDto.customer_id,
       vehicle_id: updateDto.vehicle_id,
       notes: updateDto.notes,

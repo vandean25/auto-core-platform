@@ -241,6 +241,52 @@ describe('WorkshopService', () => {
     expect(mockPrisma.workshopOrder.updateMany).not.toHaveBeenCalled();
   });
 
+  it('keeps the task write when a concurrent derived order update already reached the next status', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.NOT_STARTED,
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.INTAKE },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.findMany.mockResolvedValue([
+      { status: WorkshopTaskStatus.IN_PROGRESS },
+      { status: WorkshopTaskStatus.NOT_STARTED },
+    ]);
+    mockPrisma.workshopOrder.findFirst
+      .mockResolvedValueOnce({ status: WorkshopOrderStatus.INTAKE })
+      .mockResolvedValueOnce({ status: WorkshopOrderStatus.IN_PROGRESS });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 0 });
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await expect(
+      service.updateTask('wo-1', 't-1', {
+        status: WorkshopTaskStatus.IN_PROGRESS,
+      }),
+    ).resolves.toEqual({ id: 'wo-1' });
+  });
+
+  it('returns 409 when a derived order CAS loses to a different status', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.IN_PROGRESS,
+      workshop_order_id: 'wo-1',
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.findMany.mockResolvedValue([
+      { status: WorkshopTaskStatus.DONE },
+    ]);
+    mockPrisma.workshopOrder.findFirst
+      .mockResolvedValueOnce({ status: WorkshopOrderStatus.IN_PROGRESS })
+      .mockResolvedValueOnce({ status: WorkshopOrderStatus.INTAKE });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updateTask('wo-1', 't-1', { status: WorkshopTaskStatus.DONE }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('does not write status when updating only mechanic notes', async () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
       id: 't-1',

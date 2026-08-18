@@ -160,8 +160,7 @@ export class InvoicesService {
         tenantId,
         from: InvoiceStatus.DRAFT,
         to: InvoiceStatus.ISSUED,
-        conflictMessage:
-          'Invoice was already transitioned by another request',
+        conflictMessage: 'Invoice was already transitioned by another request',
       });
 
       const invoiceNumber =

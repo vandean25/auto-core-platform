@@ -159,14 +159,34 @@ export class WorkshopService {
       return true;
     }
 
-    await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
-      id: orderId,
-      tenantId,
-      from: order.status,
-      to: nextOrderStatus,
-      conflictMessage:
-        'Workshop order status changed concurrently. Please refresh and try again.',
-    });
+    try {
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
+        id: orderId,
+        tenantId,
+        from: order.status,
+        to: nextOrderStatus,
+        conflictMessage:
+          'Workshop order status changed concurrently. Please refresh and try again.',
+      });
+    } catch (error) {
+      if (!(error instanceof ConflictException)) {
+        throw error;
+      }
+      const latest = await tx.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        select: { status: true },
+      });
+      if (!latest) {
+        throw new NotFoundException(`Workshop order ${orderId} not found`);
+      }
+      if (latest.status === WorkshopOrderStatus.INVOICED) {
+        return false;
+      }
+      if (latest.status === nextOrderStatus) {
+        return true;
+      }
+      throw error;
+    }
 
     if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
       await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
