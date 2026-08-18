@@ -18,7 +18,6 @@ describe('Staging Tote Seed (e2e)', () => {
   });
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
