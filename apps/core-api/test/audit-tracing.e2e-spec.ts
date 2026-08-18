@@ -28,7 +28,6 @@ describe('Audit Tracing and Governance (e2e)', () => {
   let prismaB: PrismaService;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

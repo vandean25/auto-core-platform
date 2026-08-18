@@ -26,7 +26,6 @@ describe('Operational Log-Level Controls (e2e)', () => {
   let platformAdminUserId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

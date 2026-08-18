@@ -35,8 +35,8 @@
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.15.2",
     "@google-cloud/speech": "^7.3.1",
+    "@google-cloud/storage": "^7.15.2",
     "@google-cloud/tasks": "^6.2.1",
     "@google-cloud/translate": "^10.0.1",
     "@nestjs/common": "^11.2.1",
@@ -61,7 +61,6 @@
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.1",
     "firebase-admin": "^14.2.0",
-    "openai": "^7.4.0",
     "pg": "^8.17.2",
     "playwright": "^1.60.0",
     "reflect-metadata": "^0.2.2",

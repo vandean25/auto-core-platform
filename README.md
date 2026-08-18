@@ -219,7 +219,6 @@ Set these in build/deploy environment for `apps/core-web`:
 
 ```env
 VITE_API_BASE_URL=
-VITE_API_KEY=
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=

@@ -118,7 +118,7 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - **Method:** `POST`
 - **Route:** `/api/mechanic/tasks/:taskId/voice-notes`
 - **Request:** `multipart/form-data` audio file captured after recording stops.
-- **Behavior:** Validates tenant, mechanic assignment, MIME type, byte size, duration, and task state; sends the audio to a backend-owned speech-note adapter; returns a translated diagnostic-note draft; does not persist the draft until the mechanic accepts it through the diagnostics save flow.
+- **Behavior:** Validates tenant, mechanic assignment, MIME type, byte size, duration, and task state; sends the audio to `VoiceTranslationModule`; returns a translated diagnostic-note draft; does not persist the draft until the mechanic accepts it through the diagnostics save flow.
 - **Guardrails:** No client-side AI models, no phase-one raw audio WebSocket streaming, no provider credentials in the browser, transient raw-audio retention by default, no transcript/audio content in normal logs, per-mechanic or per-tenant rate limiting.
 
 ### OpenAPI Regeneration
