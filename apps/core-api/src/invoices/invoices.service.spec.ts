@@ -55,6 +55,7 @@ describe('InvoicesService', () => {
 
   const draftInvoice = {
     id: 'inv-1',
+    status: InvoiceStatus.DRAFT,
     workshop_order_id: 'wo-1',
     invoice_number: null,
     date: new Date('2026-04-01'),
