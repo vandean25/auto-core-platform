@@ -9,9 +9,12 @@ import { MechanicService } from '../src/mechanic/mechanic.service';
 import { WorkshopTaskStatus } from '@prisma/client';
 import {
   cleanupTestTenantGraph,
+  cleanupTestUsers,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
+  seedTestTenantMember,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -35,6 +38,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   let prisma: PrismaService;
   let basePrisma: PrismaService;
   let tenantId: string;
+  let fixtureTenant: Awaited<ReturnType<typeof createTestTenant>>;
   let mechanicId: string;
   let customerId: string;
   let vehicleId: string;
@@ -100,6 +104,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
       // Create global Tenant - bypasses isolation
       const testTenant = await createTestTenant(basePrisma, 'mech-voice');
+      fixtureTenant = testTenant;
       tenantId = testTenant.tenantId;
       prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
@@ -112,6 +117,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
             firebaseUid,
             email: `voice-mechanic-${Date.now()}@e2e.local`,
           },
+        });
+        await seedTestTenantMember(basePrisma, {
+          tenantId,
+          userId: user.id,
+          role: 'TECH',
         });
 
         authToken = authService.createTestToken({
@@ -549,12 +559,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
   // ─── Non-TECH token rejected ──────────────────────────────────────────────
 
   it('returns 403 when called with a non-TECH (ADMIN) token', async () => {
-    const adminToken = app.get(AuthService).createTestToken({
-      sub: 'admin-user',
-      email: 'admin@e2e.local',
-      tenantId,
-      role: 'ADMIN',
-    });
+    const adminToken = createTestAuthToken(app.get(AuthService), fixtureTenant);
 
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskId}/voice-notes`)
@@ -656,6 +661,11 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
           },
         });
         limitUserId = limitUser.id;
+        await seedTestTenantMember(basePrisma, {
+          tenantId,
+          userId: limitUser.id,
+          role: 'TECH',
+        });
 
         limitToken = app.get(AuthService).createTestToken({
           sub: limitFirebaseUid,
@@ -743,7 +753,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
         await basePrisma.workshopOrder.deleteMany({ where: { id: rlOrderId! } });
         await basePrisma.employee.deleteMany({ where: { id: limitEmployeeId! } });
       });
-      await basePrisma.user.deleteMany({ where: { id: limitUserId! } });
+      await cleanupTestUsers(basePrisma, [limitUserId!]);
     } finally {
       // Restore original env values regardless of test outcome.
       if (originalMax === undefined) {

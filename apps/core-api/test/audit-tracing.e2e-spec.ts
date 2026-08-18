@@ -7,6 +7,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { LogLevelService } from '../src/common/logging/log-level.service';
 import {
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
   cleanupTestTenantGraph,
 } from './tenant-test-utils';
@@ -51,8 +52,8 @@ describe('Audit Tracing and Governance (e2e)', () => {
     prismaA = createTenantAwarePrisma(prisma, tenantA) as PrismaService;
     prismaB = createTenantAwarePrisma(prisma, tenantB) as PrismaService;
 
-    authHeaderA = `Bearer ${authService.createTestToken({ tenantId: tenantA, role: 'ADMIN' })}`;
-    authHeaderB = `Bearer ${authService.createTestToken({ tenantId: tenantB, role: 'ADMIN' })}`;
+    authHeaderA = `Bearer ${createTestAuthToken(authService, tenantResA)}`;
+    authHeaderB = `Bearer ${createTestAuthToken(authService, tenantResB)}`;
   });
 
   afterAll(async () => {

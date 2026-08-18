@@ -1,9 +1,24 @@
+import type { TenantMemberRole } from '@prisma/client';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage';
 import { randomUUID } from 'node:crypto';
 
-type TestTenantResult = {
+export type TestTenantResult = {
   tenantId: string;
+  firebaseUid: string;
+  email: string;
+  role: TenantMemberRole;
+};
+
+type TestTokenFactory = {
+  createTestToken: (overrides?: {
+    sub?: string;
+    email?: string;
+    tenantId?: string;
+    role?: string;
+    platformRole?: string;
+    iss?: string;
+  }) => string;
 };
 
 function buildTestTenantIdentity(tenantId: string) {
@@ -19,6 +34,114 @@ export function runWithTenantContext<T>(tenantId: string, fn: () => T): T {
   return TenantContextStorage.run(() => {
     TenantContextStorage.setUser(buildTestTenantIdentity(tenantId));
     return fn();
+  });
+}
+
+export function createTestAuthToken(
+  authService: TestTokenFactory,
+  tenant: TestTenantResult,
+  overrides: {
+    sub?: string;
+    email?: string;
+    tenantId?: string;
+    role?: string;
+    platformRole?: string;
+    iss?: string;
+  } = {},
+): string {
+  return authService.createTestToken({
+    sub: tenant.firebaseUid,
+    email: tenant.email,
+    tenantId: tenant.tenantId,
+    role: tenant.role,
+    ...overrides,
+  });
+}
+
+export async function seedTestTenantMember(
+  prisma: PrismaService,
+  params: {
+    tenantId: string;
+    userId: string;
+    role?: TenantMemberRole;
+  },
+): Promise<void> {
+  await prisma.user.update({
+    where: { id: params.userId },
+    data: {
+      active_tenant_id: params.tenantId,
+      memberships: {
+        create: {
+          tenant_id: params.tenantId,
+          role: params.role ?? 'ADMIN',
+          is_active: true,
+        },
+      },
+    },
+  });
+}
+
+export async function createTestPlatformAdmin(
+  prisma: PrismaService,
+  options: { email?: string; firebaseUid?: string } = {},
+): Promise<{ userId: string; firebaseUid: string; email: string }> {
+  const unique = randomUUID();
+  const firebaseUid = options.firebaseUid ?? `e2e-platform-${unique}`;
+  const email = options.email ?? `e2e-platform-${unique}@example.com`;
+
+  const user = await prisma.user.create({
+    data: {
+      firebaseUid,
+      email,
+      platformAdmin: {
+        create: {
+          role: 'SUPER_ADMIN',
+          is_active: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      firebaseUid: true,
+      email: true,
+    },
+  });
+
+  return {
+    userId: user.id,
+    firebaseUid: user.firebaseUid,
+    email: user.email,
+  };
+}
+
+export async function cleanupTestUsers(
+  prisma: PrismaService,
+  userIds: string[],
+): Promise<void> {
+  if (userIds.length === 0) {
+    return;
+  }
+
+  await prisma.platformAdmin.deleteMany({
+    where: { user_id: { in: userIds } },
+  });
+
+  await Promise.all(
+    userIds.map((userId) =>
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          active_tenant_id: null,
+          memberships: {
+            deleteMany: {},
+          },
+        },
+      }),
+    ),
+  );
+
+  await prisma.user.deleteMany({
+    where: { id: { in: userIds } },
   });
 }
 
@@ -58,7 +181,31 @@ export async function createTestTenant(
     );
   }
 
-  return { tenantId: tenant.id };
+  const firebaseUid = `e2e-user-${tenant.id}`;
+  const email = `e2e-${tenant.id}@example.com`;
+  const role: TenantMemberRole = 'ADMIN';
+
+  await prisma.user.create({
+    data: {
+      firebaseUid,
+      email,
+      active_tenant_id: tenant.id,
+      memberships: {
+        create: {
+          tenant_id: tenant.id,
+          role,
+          is_active: true,
+        },
+      },
+    },
+  });
+
+  return {
+    tenantId: tenant.id,
+    firebaseUid,
+    email,
+    role,
+  };
 }
 
 export async function cleanupTestTenantGraph(
@@ -97,6 +244,14 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.brand.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
   await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
+
+  const memberships = await tenantPrisma.tenantMember.findMany({
+    select: { user_id: true },
+  });
+  const userIds = [...new Set(memberships.map((membership) => membership.user_id))];
+  await tenantPrisma.tenantMember.deleteMany({});
+  await cleanupTestUsers(prisma, userIds);
+
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
 }
 

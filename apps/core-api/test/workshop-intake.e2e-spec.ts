@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -34,7 +35,7 @@ describe('Workshop Intake Module (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma, 'workshop-intake');
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     const customer = await prisma.customer.create({
       data: {

@@ -121,10 +121,27 @@ describe('Bearer auth (e2e)', () => {
     await request(app.getHttpServer()).get('/protected').expect(401);
   });
 
-  it('accepts a valid bearer token with tenantId and role claims', async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({
-      id: 'tenant-active',
-      is_active: true,
+  it('rejects a valid bearer token with tenantId and role claims when membership is missing', async () => {
+    const token = authService.createTestToken({
+      iss: 'firebase',
+      tenantId: 'tenant-active',
+      role: 'ADMIN',
+    });
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
+
+  it('rejects a deactivated membership even when stale tenant claims remain', async () => {
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'e2e@example.com',
+      active_tenant_id: 'tenant-active',
+      platformAdmin: null,
+      memberships: [],
     });
 
     const token = authService.createTestToken({
@@ -136,28 +153,22 @@ describe('Bearer auth (e2e)', () => {
     await request(app.getHttpServer())
       .get('/protected')
       .set('Authorization', `Bearer ${token}`)
-      .expect(200, { ok: true });
+      .expect(401);
   });
 
-  it('returns 403 when the tenant is inactive', async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({
-      id: 'tenant-inactive',
-      is_active: false,
+  it('accepts platform-admin tokens only when an active PlatformAdmin row exists', async () => {
+    systemPrismaMock.user.findFirst.mockResolvedValue({
+      id: 'platform-user-1',
+      firebaseUid: 'e2e-user-id',
+      email: 'e2e@example.com',
+      active_tenant_id: null,
+      platformAdmin: {
+        is_active: true,
+        role: 'SUPER_ADMIN',
+      },
+      memberships: [],
     });
 
-    const token = authService.createTestToken({
-      iss: 'firebase',
-      tenantId: 'tenant-inactive',
-      role: 'ADMIN',
-    });
-
-    await request(app.getHttpServer())
-      .get('/protected')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(403);
-  });
-
-  it('accepts platform-admin tokens on routes marked for platform access without tenantId', async () => {
     const token = authService.createTestToken({
       tenantId: undefined,
       role: undefined,
@@ -168,6 +179,19 @@ describe('Bearer auth (e2e)', () => {
       .get('/platform/probe')
       .set('Authorization', `Bearer ${token}`)
       .expect(200, { ok: true, scope: 'platform' });
+  });
+
+  it('rejects platform-admin tokens that only have a platformRole claim', async () => {
+    const token = authService.createTestToken({
+      tenantId: undefined,
+      role: undefined,
+      platformRole: 'SUPER_ADMIN',
+    });
+
+    await request(app.getHttpServer())
+      .get('/platform/probe')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
   });
 
   it('rejects stale platform-admin claims when the database no longer grants platform access', async () => {

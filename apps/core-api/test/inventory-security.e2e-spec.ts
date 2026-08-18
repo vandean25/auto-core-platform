@@ -5,7 +5,7 @@ import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { InventoryService } from '../src/inventory/inventory.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTestTenant } from './tenant-test-utils';
+import { cleanupTestTenantGraph, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('InventoryController (e2e) Security', () => {
@@ -41,13 +41,12 @@ describe('InventoryController (e2e) Security', () => {
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'inventory-security');
     tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterEach(async () => {
     if (tenantId) {
-      await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(prisma, tenantId);
       tenantId = '';
     }
     await teardownTestApp(app, prisma);

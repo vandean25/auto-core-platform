@@ -8,8 +8,10 @@ import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
+  seedTestTenantMember,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -31,6 +33,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   let prisma: PrismaService;
   let basePrisma: PrismaService;
   let tenantId: string;
+  let fixtureTenant: Awaited<ReturnType<typeof createTestTenant>>;
   let mechanicId: string;
   let orderId: string;
   let taskId: string;
@@ -68,6 +71,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
     const authService = app.get<AuthService>(AuthService);
 
     const testTenant = await createTestTenant(basePrisma, 'mech-exec');
+    fixtureTenant = testTenant;
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
@@ -81,6 +85,11 @@ describe('Mechanic Execution Engine (e2e)', () => {
         },
       });
       mechanicUserId = user.id;
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: user.id,
+        role: 'TECH',
+      });
 
       authToken = authService.createTestToken({
         sub: firebaseUid,
@@ -206,12 +215,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   });
 
   it('GET /queue rejects non-TECH token with 403', async () => {
-    const adminToken = app.get(AuthService).createTestToken({
-      sub: 'admin-user',
-      email: 'admin@example.com',
-      tenantId,
-      role: 'ADMIN',
-    });
+    const adminToken = createTestAuthToken(app.get(AuthService), fixtureTenant);
     await request(app.getHttpServer())
       .get('/api/mechanic/queue')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -462,6 +466,11 @@ describe('Mechanic Execution Engine (e2e)', () => {
       },
     });
     otherMechanicUserId = otherUser.id;
+    await seedTestTenantMember(basePrisma, {
+      tenantId: otherTenantId,
+      userId: otherUser.id,
+      role: 'TECH',
+    });
 
     await runWithTenantContext(otherTenantId, async () => {
       await basePrisma.employee.create({

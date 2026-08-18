@@ -6,8 +6,11 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
 import { LogLevelService } from '../src/common/logging/log-level.service';
 import {
+  createTestAuthToken,
+  createTestPlatformAdmin,
   createTestTenant,
   cleanupTestTenantGraph,
+  cleanupTestUsers,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -20,6 +23,7 @@ describe('Operational Log-Level Controls (e2e)', () => {
   let tenantId: string;
   let tenantUserHeader: string;
   let superAdminHeader: string;
+  let platformAdminUserId: string;
 
   beforeAll(async () => {
     process.env.API_KEY = 'test-api-key';
@@ -40,21 +44,23 @@ describe('Operational Log-Level Controls (e2e)', () => {
     const testTenant = await createTestTenant(prisma, 'log-level-tenant');
     tenantId = testTenant.tenantId;
 
-    tenantUserHeader = `Bearer ${authService.createTestToken({
-      tenantId,
-      role: 'ADMIN',
-      email: 'tenant-admin@test.local',
-    })}`;
+    tenantUserHeader = `Bearer ${createTestAuthToken(authService, testTenant)}`;
 
-    superAdminHeader = `Bearer ${authService.createTestToken({
-      platformRole: 'SUPER_ADMIN',
+    const platformAdmin = await createTestPlatformAdmin(prisma, {
       email: 'super-admin@platform.local',
+    });
+    platformAdminUserId = platformAdmin.userId;
+    superAdminHeader = `Bearer ${authService.createTestToken({
+      sub: platformAdmin.firebaseUid,
+      email: platformAdmin.email,
+      platformRole: 'SUPER_ADMIN',
     })}`;
   });
 
   afterAll(async () => {
     logLevelService.resetLogLevel();
     await cleanupTestTenantGraph(prisma, tenantId);
+    await cleanupTestUsers(prisma, [platformAdminUserId]);
     await teardownTestApp(app, prisma);
   });
 

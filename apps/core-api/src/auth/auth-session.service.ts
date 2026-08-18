@@ -8,8 +8,11 @@ import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { getFirebaseAdminAuth } from './firebase-admin';
-import type { AuthenticatedUser } from './types/authenticated-user';
-import type { TenantAuthenticatedUser } from './types/authenticated-user';
+import type {
+  AuthenticatedUser,
+  PlatformAuthenticatedUser,
+  TenantAuthenticatedUser,
+} from './types/authenticated-user';
 
 type AuthSessionClaims = {
   sub: string;
@@ -92,6 +95,22 @@ export class AuthSessionService {
     }
 
     return nextUser;
+  }
+
+  async resolvePlatformAdmin(
+    claims: AuthSessionClaims,
+  ): Promise<PlatformAuthenticatedUser | null> {
+    const user = await this.findUserAccessRecordByIdentity(claims);
+
+    if (!user?.platformAdmin?.is_active) {
+      return null;
+    }
+
+    return {
+      userId: user.firebaseUid,
+      email: user.email,
+      platformRole: user.platformAdmin.role,
+    };
   }
 
   async getSessionForAuthenticatedUser(

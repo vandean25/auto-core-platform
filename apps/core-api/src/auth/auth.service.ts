@@ -1,14 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-  forwardRef,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
-import { PrismaService } from '../prisma/prisma.service';
 import { getFirebaseAdminAuth } from './firebase-admin';
 import { AuthSessionService } from './auth-session.service';
 import type {
@@ -37,8 +30,6 @@ export class AuthService {
       : undefined;
 
   constructor(
-    @Inject(forwardRef(() => PrismaService))
-    private readonly prisma: PrismaService,
     private readonly authSessionService: AuthSessionService,
     private readonly jwtService: JwtService,
   ) {}
@@ -58,61 +49,21 @@ export class AuthService {
     const claims = await this.verifyToken(token, options);
     const tenantUser = await this.authSessionService.resolveTenantUser(claims);
 
-    if (options.allowPlatformAdmin && typeof claims.platformRole === 'string') {
-      if (tenantUser) {
-        return tenantUser;
-      }
-
-      return {
-        userId: claims.sub,
-        email: claims.email,
-        ...(typeof claims.tenantId === 'string'
-          ? { tenantId: claims.tenantId }
-          : {}),
-        ...(typeof claims.role === 'string' ? { role: claims.role } : {}),
-        platformRole: claims.platformRole,
-      };
-    }
-
     if (tenantUser) {
       return tenantUser;
     }
 
-    if (
-      typeof claims.tenantId === 'string' &&
-      typeof claims.role === 'string'
-    ) {
-      const tenant = await this.prisma.tenant.findFirst({
-        where: { id: claims.tenantId },
-        select: { id: true, is_active: true },
-      });
+    if (options.allowPlatformAdmin) {
+      const platformAdmin =
+        await this.authSessionService.resolvePlatformAdmin(claims);
 
-      if (!tenant) {
-        throw new UnauthorizedException('Invalid tenant.');
+      if (platformAdmin) {
+        return platformAdmin;
       }
-
-      if (!tenant.is_active) {
-        throw new ForbiddenException('Tenant is inactive.');
-      }
-
-      return typeof claims.platformRole === 'string'
-        ? {
-            userId: claims.sub,
-            email: claims.email,
-            tenantId: claims.tenantId,
-            role: claims.role,
-            platformRole: claims.platformRole,
-          }
-        : {
-            userId: claims.sub,
-            email: claims.email,
-            tenantId: claims.tenantId,
-            role: claims.role,
-          };
     }
 
     throw new UnauthorizedException(
-      'Bearer token is missing one or more required claims.',
+      'No tenant membership found for authenticated user.',
     );
   }
 
@@ -190,7 +141,7 @@ export class AuthService {
 
   private assertClaims(
     payload: Partial<AuthClaims>,
-    options: AuthenticateBearerTokenOptions = {},
+    _options: AuthenticateBearerTokenOptions = {},
   ): AuthClaims {
     if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new UnauthorizedException(

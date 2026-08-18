@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -41,13 +42,11 @@ describe('Vehicle stock trading (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma, 'vehicle-stock');
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     const otherTenant = await createTestTenant(basePrisma, 'vehicle-stock-b');
     otherTenantId = otherTenant.tenantId;
-    otherAuthToken = app.get(AuthService).createTestToken({
-      tenantId: otherTenantId,
-    });
+    otherAuthToken = createTestAuthToken(app.get(AuthService), otherTenant);
 
     const vendor = await prisma.vendor.create({
       data: {

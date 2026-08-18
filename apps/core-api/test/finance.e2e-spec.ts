@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { AuthService } from './../src/auth/auth.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('FinanceModule (e2e)', () => {
@@ -31,7 +31,7 @@ describe('FinanceModule (e2e)', () => {
     const testTenant = await createTestTenant(prisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, tenantId);
-    authHeader = `Bearer ${authService.createTestToken({ tenantId })}`;
+    authHeader = `Bearer ${createTestAuthToken(authService, testTenant)}`;
   });
 
   afterAll(async () => {

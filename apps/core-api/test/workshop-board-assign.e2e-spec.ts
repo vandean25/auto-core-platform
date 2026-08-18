@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -42,12 +43,7 @@ describe('Workshop Board Assign (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma, 'board-assign');
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    authToken = authService.createTestToken({
-      sub: 'e2e-board-user',
-      email: 'e2e-board-user@example.com',
-      tenantId,
-      role: 'ADMIN',
-    });
+    authToken = createTestAuthToken(authService, testTenant);
 
     const customer = await prisma.customer.create({
       data: {

@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTestTenant } from './tenant-test-utils';
+import { cleanupTestTenantGraph, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('Security (e2e)', () => {
@@ -24,13 +24,12 @@ describe('Security (e2e)', () => {
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'security-root');
     tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterAll(async () => {
     if (tenantId) {
-      await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(prisma, tenantId);
     }
     await teardownTestApp(app, prisma);
   });

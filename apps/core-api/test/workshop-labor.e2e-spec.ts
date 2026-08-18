@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Labor Metadata (e2e)', () => {
@@ -31,7 +31,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     const customer = await prisma.customer.create({
       data: {

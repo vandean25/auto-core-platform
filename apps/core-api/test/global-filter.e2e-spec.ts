@@ -4,7 +4,7 @@ import { INestApplication, HttpStatus, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { GlobalExceptionFilter } from '../src/common';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -30,7 +30,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterAll(async () => {

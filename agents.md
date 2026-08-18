@@ -334,7 +334,7 @@ All backend routes are behind a global `JwtAuthGuard`, and the frontend login us
 
 For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMember` role must be `TECH` and — in addition — `MechanicService.resolveMechanic()` requires an active `Employee` (role `MECHANIC`, `is_active: true`) whose `user_id` points at that `User`. The queue only shows `WorkshopTask` rows assigned to that employee (`mechanic_id`) with a `scheduled_date` around today. Both `testauto@auto.core.at` (ADMIN) and `tablet-mechanic@auto.core.at` (TECH, with a linked mechanic employee and a demo `WO-DEMO-0001` order) are set up in the current dev DB.
 
-Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, tenantId, role, iss: 'local-test-fixture' }` (the guard falls back to the token's `tenantId`/`role` when no DB user exists, as long as that tenant is active).
+Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, iss: 'local-test-fixture' }` that match a seeded `User` + active `TenantMember` (request authorization is resolved from Postgres, not from token `tenantId`/`role` claims).
 
 ### Build/run gotcha
 The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
