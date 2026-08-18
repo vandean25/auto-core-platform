@@ -89,7 +89,8 @@ Both `apps/core-api` and `apps/core-web` pin **TypeScript 5.9** (`~5.9.3`) and *
 **Risk Mitigation**:
 
 - Run `npm --prefix apps/core-api run build` and `npm --prefix apps/core-web run build`.
-- Fix any new `tsc` errors with minimal source changes.
+- Fix any new `tsc` / type-aware eslint errors with minimal source changes.
+  (`receiveItems` catch logging needed an `instanceof Error` guard under 5.9.)
 
 ### Reversibility
 
