@@ -4,7 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 type CatalogSearchLaborItem = { id: string; categoryName: string | null };
@@ -33,7 +33,7 @@ describe('Catalog Module (e2e)', () => {
 
     const testTenant = await createTestTenant(basePrisma);
     prisma = createTenantAwarePrisma(basePrisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     await prisma.laborFitment.deleteMany({
       where: { labor_operation: { code: { startsWith: PREFIX } } },

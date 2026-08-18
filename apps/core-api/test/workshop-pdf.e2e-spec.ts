@@ -11,7 +11,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
 import { teardownTestApp } from './test-lifecycle';
-import { createTestTenant } from './tenant-test-utils';
+import { createTestAuthToken, createTestTenant, cleanupTestTenantGraph } from './tenant-test-utils';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
@@ -47,13 +47,12 @@ describe('Workshop PDF endpoints (e2e)', () => {
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'workshop-pdf');
     tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterEach(async () => {
     if (tenantId) {
-      await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(prisma, tenantId);
       tenantId = '';
     }
     await teardownTestApp(app, prisma);

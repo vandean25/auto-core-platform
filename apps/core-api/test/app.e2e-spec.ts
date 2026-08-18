@@ -5,7 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTestTenant } from './tenant-test-utils';
+import { createTestAuthToken, createTestTenant, cleanupTestTenantGraph } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('AppController (e2e)', () => {
@@ -28,13 +28,12 @@ describe('AppController (e2e)', () => {
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'app-root');
     tenantId = testTenant.tenantId;
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterEach(async () => {
     if (tenantId) {
-      await prisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
-      await prisma.tenant.deleteMany({ where: { id: tenantId } });
+      await cleanupTestTenantGraph(prisma, tenantId);
       tenantId = '';
     }
     await teardownTestApp(app, prisma);

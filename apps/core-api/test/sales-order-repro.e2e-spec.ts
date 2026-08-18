@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { SalesOrderStatus } from '@prisma/client';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -29,7 +29,7 @@ describe('Sales Order Filters (Repro Issue #10)', () => {
 
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId: testTenant.tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     // Clean up
     try {

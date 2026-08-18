@@ -5,7 +5,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
+import { cleanupTestTenantGraph, createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 const PREFIX = 'workflow-catalog-';
@@ -41,7 +41,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     const testTenant = await createTestTenant(basePrisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    authToken = app.get(AuthService).createTestToken({ tenantId });
+    authToken = createTestAuthToken(app.get(AuthService), testTenant);
   });
 
   afterAll(async () => {
@@ -69,9 +69,7 @@ describe('Catalog Workflow Search (e2e)', () => {
         });
       }
       if (tenantId) {
-        await prisma.financeSettings.deleteMany({});
-        await basePrisma.$executeRawUnsafe(`DELETE FROM audit_logs WHERE tenant_id = $1`, tenantId);
-        await basePrisma.tenant.deleteMany({ where: { id: tenantId } });
+        await cleanupTestTenantGraph(basePrisma, tenantId);
       }
     } finally {
       await teardownTestApp(app, basePrisma);
