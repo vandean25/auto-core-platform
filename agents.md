@@ -323,8 +323,16 @@ npm --prefix apps/core-api exec -- prisma migrate deploy
 npm --prefix apps/core-api run <or> npx prisma db seed   # from apps/core-api
 ```
 
-### Interactive login needs Firebase (not configured here)
-All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth. Without real `VITE_FIREBASE_*` (frontend) and Firebase Admin credentials (backend), you cannot log in through the UI. For UI work without Firebase, run Vite with `VITE_E2E_SKIP_AUTH=true` to render the authenticated app shell (API calls then 401 since no bearer token is attached). To exercise the real API/DB without Firebase, run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, tenantId, role, iss: 'local-test-fixture' }`; when no matching DB user exists the guard falls back to the token's `tenantId`/`role` as long as that tenant exists and is active.
+### Interactive login with real Firebase (works, no service account required)
+All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth for project `auto-core-platform-vande`. Real interactive login works with these steps (no Google service account needed):
+
+1. Frontend config — the web config is public (shipped to browsers) and discoverable from Firebase Hosting:
+   `curl https://auto-core-platform-vande.firebaseapp.com/__/firebase/init.json`
+   Put `apiKey`, `authDomain`, `projectId`, `appId` into `apps/core-web/.env.local` as `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_APP_ID`, then restart Vite. (`cloudbuild.yaml` lists all of these except the api key.)
+2. Backend config — set `FIREBASE_PROJECT_ID=auto-core-platform-vande` in `apps/core-api/.env`. `verifyIdToken()` only needs the project id (it fetches Google's public certs); Application Default Credentials are NOT required to *verify* tokens.
+3. Authorize the user in the local DB — the session is resolved from local `User` + `TenantMember` rows, not from token claims. `npm run db:seed:tenant-member` cannot be used here because it calls Firebase Admin (`getUserByEmail`/`setCustomUserClaims`), which needs a service account. Instead insert the rows directly: create a `User` (`firebaseUid` = the sign-in `localId`, matched by email otherwise) with `active_tenant_id` = the `default-workshop` tenant id, and a `TenantMember` (role `ADMIN`, `is_active: true`) for that tenant. The test user `testauto@auto.core.at` is already linked in the current dev DB.
+
+Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, tenantId, role, iss: 'local-test-fixture' }` (the guard falls back to the token's `tenantId`/`role` when no DB user exists, as long as that tenant is active).
 
 ### Build/run gotcha
 The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
