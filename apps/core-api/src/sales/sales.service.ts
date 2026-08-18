@@ -195,7 +195,10 @@ export class SalesService {
       ...new Set(
         items
           .map((item) => item.catalogItemId)
-          .filter((catalogItemId): catalogItemId is string => typeof catalogItemId === 'string'),
+          .filter(
+            (catalogItemId): catalogItemId is string =>
+              typeof catalogItemId === 'string',
+          ),
       ),
     ];
 
