@@ -138,17 +138,59 @@ jobs:
             throw new Error('Backend DTO contract changed: CreateRevenueGroupDto.tax_rate must remain number.')
           }
 
+          const generatedOpenApi = fs.readFileSync('apps/core-web/src/api/generated/openapi.ts', 'utf8')
+
+          /**
+           * Extracts a generated OpenAPI schema object literal by identifier.
+           * @param {string} src Generated openapi.ts contents.
+           * @param {string} name Schema name, e.g. InvoiceItemResponseDto.
+           * @returns {string|null} The `{ ... }` body, or null if missing.
+           */
+          function extractSchema(src, name) {
+            const match = new RegExp(`\\b${name}:\\s*\\{`).exec(src)
+            if (!match) return null
+            const brace = src.indexOf('{', match.index)
+            let depth = 0
+            for (let i = brace; i < src.length; i++) {
+              if (src[i] === '{') depth++
+              else if (src[i] === '}') {
+                depth--
+                if (depth === 0) return src.slice(brace, i + 1)
+              }
+            }
+            return null
+          }
+
+          /**
+           * Asserts a generated response schema declares required tax_rate as number.
+           * @param {string} schemaName
+           */
+          function assertGeneratedTaxRateIsNumber(schemaName) {
+            const block = extractSchema(generatedOpenApi, schemaName)
+            if (!block) {
+              throw new Error(`Generated OpenAPI schema missing: ${schemaName}`)
+            }
+            if (!/^\s*tax_rate:\s*number\s*;/m.test(block)) {
+              throw new Error(`Frontend API contract mismatch: ${schemaName}.tax_rate must be number.`)
+            }
+            if (/^\s*tax_rate\??:\s*string\b/m.test(block)) {
+              throw new Error(`tax_rate drift detected in generated OpenAPI: ${schemaName}.tax_rate must not be string.`)
+            }
+          }
+
+          assertGeneratedTaxRateIsNumber('InvoiceItemResponseDto')
+          assertGeneratedTaxRateIsNumber('SalesOrderItemResponseDto')
+          assertGeneratedTaxRateIsNumber('RevenueGroupResponseDto')
+
           const webTypes = fs.readFileSync('apps/core-web/src/api/types.ts', 'utf8')
-          const invoiceItemBlock = webTypes.match(/export interface InvoiceItem\s*{[\s\S]*?}/)
-          if (!invoiceItemBlock || !/tax_rate:\s*number\b/.test(invoiceItemBlock[0])) {
-            throw new Error('Frontend API contract mismatch: InvoiceItem.tax_rate must be number.')
+          if (!/export type InvoiceItem\s*=\s*Invoice\['items'\]\[number\]/.test(webTypes)) {
+            throw new Error('Frontend API contract mismatch: InvoiceItem must alias generated Invoice items.')
           }
-          if (!/export interface SalesOrderItem[\s\S]*tax_rate:\s*number\b/.test(webTypes)) {
-            throw new Error('Frontend API contract mismatch: SalesOrderItem.tax_rate must be number.')
+          if (!/export type SalesOrderItem\s*=\s*SalesOrder\['items'\]\[number\]/.test(webTypes)) {
+            throw new Error('Frontend API contract mismatch: SalesOrderItem must alias generated SalesOrder items.')
           }
-          const revenueGroupBlock = webTypes.match(/export interface RevenueGroup\s*{[\s\S]*?}/)
-          if (!revenueGroupBlock || !/tax_rate:\s*number\b/.test(revenueGroupBlock[0])) {
-            throw new Error('Frontend API contract mismatch: RevenueGroup.tax_rate must be number.')
+          if (!/export type RevenueGroup\s*=\s*OpenApiSchemas\['RevenueGroupResponseDto'\]/.test(webTypes)) {
+            throw new Error('Frontend API contract mismatch: RevenueGroup must alias RevenueGroupResponseDto.')
           }
           if (/tax_rate:\s*string\s*(\|\s*number)?\b/.test(webTypes)) {
             throw new Error('tax_rate drift detected in frontend shared API types: string-based tax_rate is not allowed.')
