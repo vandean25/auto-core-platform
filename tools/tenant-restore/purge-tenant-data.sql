@@ -1,6 +1,11 @@
 \set ON_ERROR_STOP on
 
--- Usage:
+-- NOT PRODUCTIZED (AUT-154). Do not run against production.
+-- This DELETE list is stale and omits current tenant-scoped tables.
+-- Status: docs/internal/05-Runbooks/single-tenant-restore-playbook.md
+-- Deferral: docs/internal/.architecture/deferrals.md
+--
+-- Usage (draft only):
 --   psql "$PRIMARY_DATABASE_URL" -v target_tenant_id='<tenant-id>' -f tools/tenant-restore/purge-tenant-data.sql
 
 SELECT set_config('app.target_tenant_id', :'target_tenant_id', false);

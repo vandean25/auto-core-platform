@@ -1,10 +1,16 @@
 # Runbook: PostgreSQL Tenant Partitioning Rollout
 
 **Owner**: Backend + DBA
-**Related Issues**: AUT-74
+**Related Issues**: AUT-74, AUT-154
+
+## Status (as of AUT-154) — not rolled out
+
+**Production is not partitioned.** SQL under `tools/partitioning/` is a staging draft only. `inventory_transactions` and `invoice_items` remain ordinary tables. Do not treat partition attach/detach/`DROP PARTITION` as an offboarding or single-tenant restore path.
+
+Single-tenant restore is separately **not productized**. See [single-tenant-restore-playbook.md](./single-tenant-restore-playbook.md) and the [deferral](../.architecture/deferrals.md#single-tenant-restore-tooling).
 
 ## Goal
-Partition high-volume append-only tables by `tenant_id` to improve index locality and enable tenant offboarding by partition operations.
+Partition high-volume append-only tables by `tenant_id` to improve index locality and enable tenant offboarding by partition operations **after this rollout is executed and validated**.
 
 Target tables:
 - `inventory_transactions`

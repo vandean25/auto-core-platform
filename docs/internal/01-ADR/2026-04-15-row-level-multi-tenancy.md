@@ -24,6 +24,8 @@ tags:
 
 **Amended** — 2026-04-22 (Hybrid Authentication & Membership Foundation)
 
+**Amended** — 2026-08-18 (AUT-154: single-tenant restore not productized; explicit deferral)
+
 ## Context
 
 Auto Core Platform is currently a **single-tenant application**: one running Cloud Run instance and one PostgreSQL database serve a single workshop customer. As we prepare to onboard additional workshop customers, we must decide on a multi-tenancy strategy.
@@ -374,6 +376,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - **Dual-write synchronization complexity.** Membership changes now touch both PostgreSQL and Firebase Custom Claims. Failure handling, retries, token refresh semantics, and selective refresh-token revocation for security-sensitive changes must be defined carefully.
 - **Token staleness is reduced, not eliminated.** Connected sessions can be forced to refresh through `auth:claims_updated`, but disconnected clients still depend on the normal token refresh or expiry cycle. Forced-refresh failure is therefore a first-class sign-out and access-loss path, not an exceptional edge case.
 - **User lifecycle becomes broader than authentication.** Placeholder invitees, deactivated memberships, and cross-tenant membership history now require explicit domain handling instead of being delegated entirely to Firebase.
+- **Single-tenant restore is not productized (AUT-154).** Shared-schema PITR is all-or-nothing: a Neon point-in-time restore rewinds every tenant. Draft files under `tools/tenant-restore/` are not a supported restore path (stale hardcoded purge list, table-owner RLS bypass, no Neon drill). PostgreSQL list-partitioning of hot tables is also **not rolled out** — do not assume `DROP PARTITION` restore or tenant offboarding exists. Current status: [single-tenant restore playbook](../05-Runbooks/single-tenant-restore-playbook.md) (banner: not productized) and [deferral with tenant-count / data-size triggers](../.architecture/deferrals.md#single-tenant-restore-tooling). Partitioning draft: [postgres-tenant-partitioning-rollout.md](../05-Runbooks/postgres-tenant-partitioning-rollout.md).
 
 ### Neutral
 
@@ -381,6 +384,7 @@ All `prisma.$queryRaw` and `prisma.$executeRaw` usages are **banned in applicati
 - The `Tenant` table is not a "domain entity" in the business sense — it is infrastructure. It does not participate in the real-time entity map (ADR-0001) and is explicitly excluded from `SUPPORTED_ENTITY_TYPES`.
 - Per-tenant `FinanceSettings` means the initial data seeding step at tenant onboarding must create a `FinanceSettings` row. Onboarding runbooks must be updated accordingly.
 - A JWT still carries only one active tenant context per session. Supporting a tenant switcher or simultaneous multi-tenant sessions is a future product decision, not part of this amendment.
+- Until two or more production tenants hold live customer data, full-branch Neon PITR is an acceptable disaster-recovery stand-in for single-tenant restore. That equivalence ends when the [deferral triggers](../.architecture/deferrals.md#single-tenant-restore-tooling) fire.
 
 ---
 
@@ -480,6 +484,8 @@ Introduce the relational and administrative foundation required to manage tenant
 - `01-ADR/2026-04-12-sequential-document-numbering.md` (ADR-0009) — All sequential counters and their uniqueness constraints become per-tenant
 - `01-ADR/2026-04-12-openapi-contract-first.md` (ADR-0010) — Auth header changes from API key to `Authorization: Bearer <JWT>`; OpenAPI spec must be regenerated
 - `01-ADR/2026-04-12-atomic-status-transition-guards.md` (ADR-0011) — `updateMany` guards gain implicit tenant scoping via isolation extension
+- `05-Runbooks/single-tenant-restore-playbook.md` — single-tenant restore is **not productized** (AUT-154); see `.architecture/deferrals.md`
+- `05-Runbooks/postgres-tenant-partitioning-rollout.md` — list-partitioning of hot tables is **not rolled out**
 
 ---
 
@@ -492,7 +498,7 @@ Introduce the relational and administrative foundation required to manage tenant
 | Milestone 2 | Phase 2 — ORM Isolation Layer (target: 2026-05-15) |
 | Milestone 3 | Phase 3 — WebSocket Tenant Scoping (target: 2026-05-22) |
 | Milestone 4 | Phase 4 — Testing and Contract (target: 2026-05-31) |
-| Issues | AUT-59, AUT-60, AUT-61, AUT-62, AUT-63, AUT-64, AUT-65, AUT-66, AUT-67, AUT-68, AUT-69, AUT-70, AUT-71, AUT-72, AUT-73, AUT-74 |
+| Issues | AUT-59, AUT-60, AUT-61, AUT-62, AUT-63, AUT-64, AUT-65, AUT-66, AUT-67, AUT-68, AUT-69, AUT-70, AUT-71, AUT-72, AUT-73, AUT-74, AUT-154 |
 
 ### Issue Breakdown
 
@@ -512,5 +518,6 @@ Introduce the relational and administrative foundation required to manage tenant
 | [AUT-70](https://linear.app/auto-core-platform/issue/AUT-70) | BE-7: Regenerate OpenAPI spec and frontend types after auth scheme change | Phase 4 | High |
 | [AUT-71](https://linear.app/auto-core-platform/issue/AUT-71) | DB-4: Build Prisma schema linter for tenant isolation in CI | Phase 1 | Urgent |
 | [AUT-72](https://linear.app/auto-core-platform/issue/AUT-72) | OPS-1: Develop Single-Tenant Restore Runbook | Phase 4 | High |
+| [AUT-154](https://linear.app/auto-core-platform/issue/AUT-154) | OPS-2: Implement or explicitly defer single-tenant restore tooling | Maintenance P2 | Medium |
 | [AUT-73](https://linear.app/auto-core-platform/issue/AUT-73) | OPS-2: Connection Pooling Strategy & Metrics | Phase 4 | High |
 | [AUT-74](https://linear.app/auto-core-platform/issue/AUT-74) | DB-5: PostgreSQL Declarative Partitioning | Phase 4 | Low |
