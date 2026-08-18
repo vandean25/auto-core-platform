@@ -82,8 +82,8 @@ describe('buildTaskLineRowKey', () => {
 
 describe('findInvoiceItemByLineItemId', () => {
   const items: InvoiceItem[] = [
-    { id: 'line-1', description: 'Oil Filter', quantity: 1, unit_price: 15, tax_rate: 21 },
-    { id: 'line-2', description: 'Labor', quantity: 0.5, unit_price: 80, tax_rate: 0 },
+    { id: 'line-1', description: 'Oil Filter', quantity: '1', unit_price: '15', tax_rate: 21 },
+    { id: 'line-2', description: 'Labor', quantity: '0.5', unit_price: '80', tax_rate: 0 },
   ]
 
   it('returns matching invoice item', () => {

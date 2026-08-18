@@ -13,6 +13,11 @@ import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { SalesOrderService } from './sales-order.service';
 import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
+import {
+  SalesOrderPaginatedResponseDto,
+  SalesOrderResponseDto,
+} from './dto/sales-order-response.dto';
+import { InvoiceResponseDto } from '../dto/invoice-response.dto';
 import { SalesOrderStatus } from '@prisma/client';
 import {
   QueryBuilder,
@@ -24,9 +29,7 @@ export class SalesOrderController {
   constructor(private readonly salesOrderService: SalesOrderService) {}
 
   @Post()
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: SalesOrderResponseDto })
   create(@Body() createDto: CreateSalesOrderDto) {
     return this.salesOrderService.create(createDto);
   }
@@ -58,9 +61,7 @@ export class SalesOrderController {
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
   @ApiQuery({ name: 'params', required: false, schema: { type: 'string' } })
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: SalesOrderPaginatedResponseDto })
   async findAll(
     @Query('status') status?: SalesOrderStatus,
     @Query('params') rawParams?: string,
@@ -160,17 +161,13 @@ export class SalesOrderController {
   }
 
   @Get(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: SalesOrderResponseDto })
   findOne(@Param('id') id: string) {
     return this.salesOrderService.findOne(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: SalesOrderResponseDto })
   update(@Param('id') id: string, @Body() updateDto: UpdateSalesOrderDto) {
     return this.salesOrderService.update(id, updateDto);
   }
@@ -181,9 +178,7 @@ export class SalesOrderController {
   }
 
   @Post(':id/create-invoice')
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: InvoiceResponseDto })
   createInvoice(@Param('id') id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
   }

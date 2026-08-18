@@ -11,6 +11,10 @@ import {
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { PurchaseInvoiceService } from './purchase-invoice.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
+import {
+  PurchaseInvoicePaginatedResponseDto,
+  PurchaseInvoiceResponseDto,
+} from './dto/purchase-invoice-response.dto';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 
 @Controller('purchase-invoices')
@@ -18,17 +22,13 @@ export class PurchaseInvoiceController {
   constructor(private readonly service: PurchaseInvoiceService) {}
 
   @Post()
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: PurchaseInvoiceResponseDto })
   create(@Body() createDto: CreatePurchaseInvoiceDto) {
     return this.service.create(createDto);
   }
 
   @Get()
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseInvoicePaginatedResponseDto })
   findAll(
     @Query('vendorId') vendorId?: string,
     @Query('status') status?: PurchaseInvoiceStatus,
@@ -60,33 +60,25 @@ export class PurchaseInvoiceController {
   }
 
   @Get(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseInvoiceResponseDto })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseInvoiceResponseDto })
   update(@Param('id') id: string, @Body() updateDto: CreatePurchaseInvoiceDto) {
     return this.service.update(id, updateDto);
   }
 
   @Patch(':id/post')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseInvoiceResponseDto })
   post(@Param('id') id: string) {
     return this.service.post(id);
   }
 
   @Patch(':id/pay')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseInvoiceResponseDto })
   pay(@Param('id') id: string) {
     return this.service.pay(id);
   }

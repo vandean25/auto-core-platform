@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { PurchaseInvoiceService } from './purchase-invoice.service';
 import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import { UnbilledReceiptItemDto } from './dto/purchase-invoice-response.dto';
 
 @Controller('vendors')
 export class VendorUnbilledController {
@@ -8,9 +9,7 @@ export class VendorUnbilledController {
 
   @Get(':vendorId/unbilled-receipts')
   @ApiQuery({ name: 'invoiceId', required: false, type: String })
-  @ApiOkResponse({
-    schema: { type: 'array', items: { type: 'object' } },
-  })
+  @ApiOkResponse({ type: [UnbilledReceiptItemDto] })
   getUnbilledReceipts(
     @Param('vendorId') vendorId: string,
     @Query('invoiceId') invoiceId?: string,

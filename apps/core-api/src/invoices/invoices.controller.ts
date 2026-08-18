@@ -24,6 +24,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { CloudTasksWorkerGuard } from '../common/guards/cloud-tasks-worker.guard';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
+import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
@@ -38,17 +39,13 @@ export class InvoicesController {
   ) {}
 
   @Post('drafts')
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: InvoiceResponseDto })
   createDraft(@Body() dto: CreateDraftInvoiceDto) {
     return this.invoicesService.createDraftInvoice(dto.workshopOrderId);
   }
 
   @Patch(':id/issue')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: InvoiceResponseDto })
   issue(@Param('id') id: string) {
     return this.invoicesService.issueInvoice(id);
   }

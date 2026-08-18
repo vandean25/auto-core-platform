@@ -66,7 +66,7 @@ export function mapInvoiceLinesToBillLines(lines: PurchaseInvoiceLine[]): BillLi
     source: line.purchase_order_item_id ? 'receipt' : 'manual',
     receiptId: line.purchase_order_item?.purchase_order?.id,
     receiptNumber: line.purchase_order_item?.purchase_order?.order_number,
-    purchaseOrderItemId: line.purchase_order_item_id,
+    purchaseOrderItemId: line.purchase_order_item_id ?? undefined,
     description: line.description,
     quantity: parseFloat(line.quantity),
     unitCost: parseFloat(line.unit_price),

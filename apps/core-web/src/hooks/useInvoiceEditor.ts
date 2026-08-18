@@ -1,10 +1,15 @@
 import { useState, useMemo } from 'react'
 import { generateId } from '@/lib/id'
-import type { InvoiceItem, Customer } from '../api/types'
+import type { Customer } from '../api/types'
 
-export interface InvoiceEditorItem extends Omit<InvoiceItem, 'id'> {
-    id?: string // Optional for new items
-    tempId: string // For React keys
+export interface InvoiceEditorItem {
+    id?: string
+    tempId: string
+    catalog_item_id?: string
+    description: string
+    quantity: number
+    unit_price: number
+    tax_rate: number
 }
 
 export function useInvoiceEditor() {

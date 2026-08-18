@@ -28,7 +28,9 @@ export default function PurchaseOrderCreate() {
         if (!vendorIdFromParams) return ''
 
         const filteredVendors = selectedBrand
-            ? vendors.filter((v: Vendor) => v.supportedBrands.some((b: Brand) => b.id === selectedBrand.id))
+            ? vendors.filter((v: Vendor) =>
+                (v.supportedBrands ?? []).some((b: Brand) => b.id === selectedBrand.id),
+              )
             : vendors
 
         const vendorExists = filteredVendors.some((v: Vendor) => v.id === vendorIdFromParams)
@@ -40,7 +42,9 @@ export default function PurchaseOrderCreate() {
     const createPO = useCreatePO()
 
     const filteredVendors = vendors?.filter((v: Vendor) =>
-        selectedBrand ? v.supportedBrands.some((b: Brand) => b.id === selectedBrand.id) : true
+        selectedBrand
+            ? (v.supportedBrands ?? []).some((b: Brand) => b.id === selectedBrand.id)
+            : true
     )
 
     const handleCreatePO = () => {

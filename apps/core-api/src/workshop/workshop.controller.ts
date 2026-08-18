@@ -39,6 +39,9 @@ import {
   WorkshopOrderResponseDto,
   WorkshopTaskResponseDto,
 } from './dto/workshop-response.dto';
+import { WorkshopSearchResponseDto } from './dto/workshop-search-response.dto';
+import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
+import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto';
 import { AssignBoardDto } from './dto/assign-board.dto';
 import {
   BoardActiveResponseDto,
@@ -58,9 +61,7 @@ export class WorkshopController {
   ) {}
 
   @Post('register')
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: VehicleListItemDto })
   register(@Body() dto: RegisterIntakeDto) {
     return this.workshopService.register(dto);
   }
@@ -206,17 +207,13 @@ export class WorkshopController {
   }
 
   @Post('orders/:id/create-invoice')
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: InvoiceResponseDto })
   createInvoiceFromOrder(@Param('id') id: string) {
     return this.workshopService.createInvoiceFromOrder(id);
   }
 
   @Get('search')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: WorkshopSearchResponseDto })
   search(@Query('q') q: string) {
     return this.workshopService.search(q);
   }

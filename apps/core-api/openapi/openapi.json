@@ -489,7 +489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -571,7 +571,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderPaginatedResponseDto"
                 }
               }
             }
@@ -611,7 +611,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -641,7 +641,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -671,7 +671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -732,7 +732,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -780,7 +780,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
                 }
               }
             }
@@ -840,7 +840,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
                 }
               }
             }
@@ -908,7 +908,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoicePaginatedResponseDto"
                 }
               }
             }
@@ -938,7 +938,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
                 }
               }
             }
@@ -976,7 +976,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
                 }
               }
             }
@@ -1027,7 +1027,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
                 }
               }
             }
@@ -1057,7 +1057,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
                 }
               }
             }
@@ -1128,7 +1128,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/UnbilledReceiptItemDto"
                   }
                 }
               }
@@ -1366,7 +1366,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -1387,7 +1387,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/InvoiceResponseDto"
                   }
                 }
               }
@@ -1418,7 +1418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -1448,7 +1448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -1699,7 +1699,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/FinanceSettingsResponseDto"
                 }
               }
             }
@@ -1728,7 +1728,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/FinanceSettingsResponseDto"
                 }
               }
             }
@@ -1751,7 +1751,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/RevenueGroupResponseDto"
                   }
                 }
               }
@@ -1781,7 +1781,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/RevenueGroupResponseDto"
                 }
               }
             }
@@ -1802,7 +1802,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/RevenueAnalyticsResponseDto"
                 }
               }
             }
@@ -1833,7 +1833,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/BrandResponseDto"
                 }
               }
             }
@@ -1871,7 +1871,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/BrandResponseDto"
                   }
                 }
               }
@@ -1902,7 +1902,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/BrandResponseDto"
                 }
               }
             }
@@ -1940,7 +1940,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/BrandResponseDto"
                 }
               }
             }
@@ -1992,7 +1992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SalesOrderResponseDto"
                 }
               }
             }
@@ -2081,7 +2081,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SalesOrderPaginatedResponseDto"
                 }
               }
             }
@@ -2111,7 +2111,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SalesOrderResponseDto"
                 }
               }
             }
@@ -2149,7 +2149,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/SalesOrderResponseDto"
                 }
               }
             }
@@ -2200,7 +2200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -2231,7 +2231,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/VehicleListItemDto"
                 }
               }
             }
@@ -2696,7 +2696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -2726,7 +2726,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/WorkshopSearchResponseDto"
                 }
               }
             }
@@ -2882,7 +2882,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -2912,7 +2912,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
                 }
               }
             }
@@ -4354,7 +4354,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/VehiclePaginatedResponseDto"
                 }
               }
             }
@@ -4379,7 +4379,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -4406,7 +4413,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/VehicleResponseDto"
                 }
               }
             }
@@ -4444,7 +4451,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/VehicleResponseDto"
                 }
               }
             }
@@ -5456,6 +5463,17 @@
           "is_superseded"
         ]
       },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "PURCHASE_RECEIPT",
+          "SALE_ISSUE",
+          "ADJUSTMENT",
+          "TRANSFER_IN",
+          "TRANSFER_OUT",
+          "INITIAL_BALANCE"
+        ]
+      },
       "InventoryTransactionItemDto": {
         "type": "object",
         "properties": {
@@ -5492,7 +5510,11 @@
             "type": "string"
           },
           "type": {
-            "type": "string"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TransactionType"
+              }
+            ]
           },
           "reference_id": {
             "type": "string",
@@ -5828,26 +5850,6 @@
         "type": "object",
         "properties": {}
       },
-      "ReceivePurchaseOrderDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "AddPurchaseOrderItemsDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdatePurchaseOrderItemDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CreatePurchaseInvoiceDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CreateVendorDto": {
-        "type": "object",
-        "properties": {}
-      },
       "BrandResponseDto": {
         "type": "object",
         "properties": {
@@ -5920,22 +5922,465 @@
           "name",
           "email",
           "account_number",
-          "supportedBrands",
           "createdAt",
           "updatedAt"
         ]
+      },
+      "PurchaseOrderStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SENT",
+          "PARTIAL",
+          "COMPLETED"
+        ]
+      },
+      "PurchaseOrderItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "catalog_item_id": {
+            "type": "string"
+          },
+          "catalog_item": {
+            "$ref": "#/components/schemas/CatalogItemResponseDto"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "quantity_received": {
+            "type": "number"
+          },
+          "unit_cost": {
+            "type": "string",
+            "example": "12.50"
+          }
+        },
+        "required": [
+          "id",
+          "catalog_item_id",
+          "quantity",
+          "quantity_received",
+          "unit_cost"
+        ]
+      },
+      "PurchaseOrderResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/VendorResponseDto"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PurchaseOrderStatus"
+              }
+            ]
+          },
+          "order_number": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderItemResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vendor_id",
+          "vendor",
+          "status",
+          "order_number",
+          "items",
+          "createdAt"
+        ]
+      },
+      "ReceivePurchaseOrderDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PurchaseOrderPaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "AddPurchaseOrderItemsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePurchaseInvoiceLineDto": {
+        "type": "object",
+        "properties": {
+          "purchaseOrderItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "taxRate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unitPrice"
+        ]
+      },
+      "CreatePurchaseInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendorInvoiceNumber": {
+            "type": "string"
+          },
+          "invoiceDate": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreatePurchaseInvoiceLineDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "vendorInvoiceNumber",
+          "invoiceDate",
+          "dueDate",
+          "items"
+        ]
+      },
+      "PurchaseInvoiceStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "POSTED",
+          "PAID"
+        ]
+      },
+      "PurchaseInvoiceLinePurchaseOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number"
+        ]
+      },
+      "PurchaseInvoiceLinePurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "type": "string"
+          },
+          "purchase_order": {
+            "$ref": "#/components/schemas/PurchaseInvoiceLinePurchaseOrderDto"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_order_id",
+          "purchase_order"
+        ]
+      },
+      "PurchaseInvoiceLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "purchase_invoice_id": {
+            "type": "string"
+          },
+          "purchase_order_item_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "purchase_order_item": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PurchaseInvoiceLinePurchaseOrderItemDto"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.00"
+          },
+          "unit_price": {
+            "type": "string",
+            "example": "10.00"
+          },
+          "tax_rate": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "string",
+            "example": "10.00"
+          }
+        },
+        "required": [
+          "id",
+          "purchase_invoice_id",
+          "description",
+          "quantity",
+          "unit_price",
+          "tax_rate",
+          "line_total"
+        ]
+      },
+      "PurchaseInvoiceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/VendorResponseDto"
+          },
+          "vendor_invoice_number": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PurchaseInvoiceStatus"
+              }
+            ]
+          },
+          "invoice_date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "due_date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total_amount": {
+            "type": "string",
+            "example": "100.00"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseInvoiceLineResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vendor_id",
+          "vendor",
+          "vendor_invoice_number",
+          "status",
+          "invoice_date",
+          "due_date",
+          "total_amount",
+          "lines",
+          "createdAt"
+        ]
+      },
+      "PurchaseInvoicePaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseInvoiceResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UnbilledReceiptItemDto": {
+        "type": "object",
+        "properties": {
+          "purchaseOrderItemId": {
+            "type": "string"
+          },
+          "purchaseOrderId": {
+            "type": "string"
+          },
+          "purchaseOrderNumber": {
+            "type": "string"
+          },
+          "catalogItemId": {
+            "type": "string"
+          },
+          "catalogItemName": {
+            "type": "string"
+          },
+          "quantityReceived": {
+            "type": "number"
+          },
+          "quantityInvoiced": {
+            "type": "number"
+          },
+          "quantityPending": {
+            "type": "number"
+          },
+          "lastUnitCost": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "purchaseOrderItemId",
+          "purchaseOrderId",
+          "purchaseOrderNumber",
+          "catalogItemId",
+          "catalogItemName",
+          "quantityReceived",
+          "quantityInvoiced",
+          "quantityPending",
+          "lastUnitCost"
+        ]
+      },
+      "CreateVendorDto": {
+        "type": "object",
+        "properties": {}
       },
       "UpdateVendorDto": {
         "type": "object",
         "properties": {}
       },
+      "CreateInvoiceItemDto": {
+        "type": "object",
+        "properties": {
+          "catalogItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "taxRate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unitPrice",
+          "taxRate"
+        ]
+      },
       "CreateInvoiceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "internalNotes": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateInvoiceItemDto"
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "items"
+        ]
       },
-      "CreateCustomerDto": {
-        "type": "object",
-        "properties": {}
+      "InvoiceStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "FINALIZED",
+          "ISSUED",
+          "PAID",
+          "CANCELLED"
+        ]
       },
       "CustomerResponseDto": {
         "type": "object",
@@ -5968,7 +6413,23 @@
             "type": "string",
             "nullable": true
           },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
           "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_country": {
             "type": "string",
             "nullable": true
           },
@@ -5985,9 +6446,285 @@
           "id",
           "type",
           "first_name",
-          "last_name",
-          "createdAt",
-          "updatedAt"
+          "last_name"
+        ]
+      },
+      "VehicleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "InvoiceTaxMode": {
+        "type": "string",
+        "enum": [
+          "STANDARD",
+          "MARGIN_SCHEME"
+        ]
+      },
+      "DiscountType": {
+        "type": "string",
+        "enum": [
+          "PERCENTAGE",
+          "FLAT_AMOUNT"
+        ]
+      },
+      "InvoiceItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "catalog_item_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.00"
+          },
+          "unit_price": {
+            "type": "string",
+            "example": "10.00"
+          },
+          "tax_rate": {
+            "type": "number"
+          },
+          "line_discount_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiscountType"
+              }
+            ]
+          },
+          "line_discount_value": {
+            "type": "string",
+            "nullable": true
+          },
+          "line_total": {
+            "type": "string",
+            "nullable": true
+          },
+          "revenue_group_name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "quantity",
+          "unit_price",
+          "tax_rate"
+        ]
+      },
+      "InvoiceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoice_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceStatus"
+              }
+            ]
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerResponseDto"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleResponseDto"
+              }
+            ]
+          },
+          "sales_order_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "workshop_order_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "due_date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total_net": {
+            "type": "string",
+            "example": "100.00"
+          },
+          "total_tax": {
+            "type": "string",
+            "example": "20.00"
+          },
+          "total_gross": {
+            "type": "string",
+            "example": "120.00"
+          },
+          "tax_mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceTaxMode"
+              }
+            ]
+          },
+          "global_discount_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiscountType"
+              }
+            ]
+          },
+          "global_discount_value": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "internal_notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdf_generated_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdf_generation_error": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceItemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "customer_id",
+          "customer",
+          "date",
+          "due_date",
+          "total_net",
+          "total_tax",
+          "total_gross",
+          "items"
+        ]
+      },
+      "CustomerType": {
+        "type": "string",
+        "enum": [
+          "PRIVATE",
+          "COMPANY"
+        ]
+      },
+      "CreateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerType"
+              }
+            ]
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "vat_id": {
+            "type": "string"
+          },
+          "address_street": {
+            "type": "string"
+          },
+          "address_city": {
+            "type": "string"
+          },
+          "address_zip": {
+            "type": "string"
+          },
+          "address_country": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name"
         ]
       },
       "VehicleSummaryDto": {
@@ -6278,39 +7015,630 @@
       },
       "UpdateCustomerDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerType"
+              }
+            ]
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "vat_id": {
+            "type": "string"
+          },
+          "address_street": {
+            "type": "string"
+          },
+          "address_city": {
+            "type": "string"
+          },
+          "address_zip": {
+            "type": "string"
+          },
+          "address_country": {
+            "type": "string"
+          }
+        }
+      },
+      "FinanceSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fiscal_year_start_month": {
+            "type": "number"
+          },
+          "lock_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_invoice_number": {
+            "type": "number"
+          },
+          "invoice_prefix": {
+            "type": "string"
+          },
+          "next_sales_order_number": {
+            "type": "number"
+          },
+          "sales_order_prefix": {
+            "type": "string"
+          },
+          "next_workshop_order_number": {
+            "type": "number"
+          },
+          "workshop_order_prefix": {
+            "type": "string"
+          },
+          "next_vehicle_purchase_number": {
+            "type": "number"
+          },
+          "vehicle_purchase_prefix": {
+            "type": "string"
+          },
+          "next_vehicle_sale_number": {
+            "type": "number"
+          },
+          "vehicle_sale_prefix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fiscal_year_start_month",
+          "next_invoice_number",
+          "invoice_prefix",
+          "next_sales_order_number",
+          "sales_order_prefix",
+          "next_workshop_order_number",
+          "workshop_order_prefix",
+          "next_vehicle_purchase_number",
+          "vehicle_purchase_prefix",
+          "next_vehicle_sale_number",
+          "vehicle_sale_prefix"
+        ]
       },
       "UpdateFinanceSettingsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "fiscal_year_start_month": {
+            "type": "number"
+          },
+          "lock_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_invoice_number": {
+            "type": "number"
+          },
+          "invoice_prefix": {
+            "type": "string"
+          }
+        }
+      },
+      "RevenueGroupResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tax_rate": {
+            "type": "number"
+          },
+          "account_number": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tax_rate",
+          "account_number",
+          "is_default"
+        ]
       },
       "CreateRevenueGroupDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "tax_rate": {
+            "type": "number"
+          },
+          "account_number": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "tax_rate",
+          "account_number"
+        ]
+      },
+      "RevenueAnalyticsSliceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "color": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "color"
+        ]
+      },
+      "RevenueAnalyticsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RevenueAnalyticsSliceDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "period": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "period"
+        ]
       },
       "CreateBrandDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isVehicleMake": {
+            "type": "boolean"
+          },
+          "isPartManufacturer": {
+            "type": "boolean"
+          },
+          "logoUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "isVehicleMake",
+          "isPartManufacturer"
+        ]
       },
       "UpdateBrandDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isVehicleMake": {
+            "type": "boolean"
+          },
+          "isPartManufacturer": {
+            "type": "boolean"
+          },
+          "logoUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateSalesOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "catalog_item_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "tax_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit_price"
+        ]
       },
       "CreateSalesOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSalesOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "customer_id",
+          "items"
+        ]
+      },
+      "SalesOrderStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "CONFIRMED",
+          "IN_PROGRESS",
+          "COMPLETED",
+          "INVOICED"
+        ]
+      },
+      "SalesOrderItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "catalog_item_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "catalog_item": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogItemResponseDto"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.00"
+          },
+          "unit_price": {
+            "type": "string",
+            "example": "10.00"
+          },
+          "total": {
+            "type": "string",
+            "example": "10.00"
+          },
+          "tax_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "quantity",
+          "unit_price",
+          "total",
+          "tax_rate"
+        ]
+      },
+      "SalesOrderInvoiceSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoice_number": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "SalesOrderResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_number": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerResponseDto"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalesOrderStatus"
+              }
+            ]
+          },
+          "total_amount": {
+            "type": "string",
+            "example": "100.00"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SalesOrderItemResponseDto"
+            }
+          },
+          "invoice": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalesOrderInvoiceSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "customer_id",
+          "customer",
+          "status",
+          "total_amount",
+          "items",
+          "createdAt"
+        ]
+      },
+      "SalesOrderPaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SalesOrderResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       },
       "UpdateSalesOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSalesOrderItemDto"
+            }
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalesOrderStatus"
+              }
+            ]
+          }
+        }
       },
       "RegisterIntakeDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "vin": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vin",
+          "plate",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "VehicleListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "WorkshopOrderPurpose": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER_REPAIR",
+          "STOCK_PREP"
+        ]
       },
       "CreateWorkshopOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopOrderPurpose"
+              }
+            ]
+          },
+          "odometer": {
+            "type": "number"
+          },
+          "fuelLevel": {
+            "type": "number"
+          },
+          "reportedIssue": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vehicleId",
+          "odometer",
+          "fuelLevel"
+        ]
       },
       "WorkshopCustomerSummaryDto": {
         "type": "object",
@@ -6629,7 +7957,14 @@
       },
       "CreateWorkshopTaskDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ]
       },
       "PickWorkshopPartsLineDto": {
         "type": "object",
@@ -6755,6 +8090,188 @@
       "ReplaceWorkshopTaskLineItemsDto": {
         "type": "object",
         "properties": {}
+      },
+      "WorkshopSearchVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "engine_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year",
+          "customer"
+        ]
+      },
+      "WorkshopSearchCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "COMPANY"
+            ]
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_country": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "first_name",
+          "last_name",
+          "vehicles"
+        ]
+      },
+      "WorkshopSearchDataDto": {
+        "type": "object",
+        "properties": {
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopSearchVehicleDto"
+            }
+          },
+          "customers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopSearchCustomerDto"
+            }
+          }
+        },
+        "required": [
+          "vehicles",
+          "customers"
+        ]
+      },
+      "WorkshopSearchMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "WorkshopSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkshopSearchDataDto"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkshopSearchMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       },
       "WorkshopPdfGenerationResponseDto": {
         "type": "object",
@@ -8765,6 +10282,24 @@
         "required": [
           "labor",
           "parts",
+          "meta"
+        ]
+      },
+      "VehiclePaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
           "meta"
         ]
       },

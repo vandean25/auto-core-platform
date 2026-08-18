@@ -1585,6 +1585,8 @@ export interface components {
             quantity_available: number;
             is_superseded: boolean;
         };
+        /** @enum {string} */
+        TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE";
         InventoryTransactionItemDto: {
             sku: string;
             name: string;
@@ -1595,7 +1597,7 @@ export interface components {
         InventoryTransactionResponseDto: {
             id: string;
             quantity: string;
-            type: string;
+            type: components["schemas"]["TransactionType"];
             reference_id?: string | null;
             cost_basis?: string | null;
             /** Format: date-time */
@@ -1680,11 +1682,6 @@ export interface components {
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
         CreatePurchaseOrderDto: Record<string, never>;
-        ReceivePurchaseOrderDto: Record<string, never>;
-        AddPurchaseOrderItemsDto: Record<string, never>;
-        UpdatePurchaseOrderItemDto: Record<string, never>;
-        CreatePurchaseInvoiceDto: Record<string, never>;
-        CreateVendorDto: Record<string, never>;
         BrandResponseDto: {
             id: number;
             name: string;
@@ -1701,15 +1698,133 @@ export interface components {
             name: string;
             email: string;
             account_number: string;
-            supportedBrands: components["schemas"]["BrandResponseDto"][];
+            supportedBrands?: components["schemas"]["BrandResponseDto"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @enum {string} */
+        PurchaseOrderStatus: "DRAFT" | "SENT" | "PARTIAL" | "COMPLETED";
+        PurchaseOrderItemResponseDto: {
+            id: string;
+            catalog_item_id: string;
+            catalog_item?: components["schemas"]["CatalogItemResponseDto"];
+            quantity: number;
+            quantity_received: number;
+            /** @example 12.50 */
+            unit_cost: string;
+        };
+        PurchaseOrderResponseDto: {
+            id: string;
+            vendor_id: string;
+            vendor: components["schemas"]["VendorResponseDto"];
+            status: components["schemas"]["PurchaseOrderStatus"];
+            order_number: string;
+            items: components["schemas"]["PurchaseOrderItemResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReceivePurchaseOrderDto: Record<string, never>;
+        PurchaseOrderPaginatedResponseDto: {
+            data: components["schemas"]["PurchaseOrderResponseDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        AddPurchaseOrderItemsDto: Record<string, never>;
+        UpdatePurchaseOrderItemDto: Record<string, never>;
+        CreatePurchaseInvoiceLineDto: {
+            /** Format: uuid */
+            purchaseOrderItemId?: string;
+            description: string;
+            quantity: number;
+            unitPrice: number;
+            taxRate?: number;
+        };
+        CreatePurchaseInvoiceDto: {
+            /** Format: uuid */
+            vendorId: string;
+            vendorInvoiceNumber: string;
+            invoiceDate: string;
+            dueDate: string;
+            items: components["schemas"]["CreatePurchaseInvoiceLineDto"][];
+        };
+        /** @enum {string} */
+        PurchaseInvoiceStatus: "DRAFT" | "POSTED" | "PAID";
+        PurchaseInvoiceLinePurchaseOrderDto: {
+            id: string;
+            order_number: string;
+        };
+        PurchaseInvoiceLinePurchaseOrderItemDto: {
+            id: string;
+            purchase_order_id: string;
+            purchase_order: components["schemas"]["PurchaseInvoiceLinePurchaseOrderDto"];
+        };
+        PurchaseInvoiceLineResponseDto: {
+            id: string;
+            purchase_invoice_id: string;
+            purchase_order_item_id?: string | null;
+            purchase_order_item?: components["schemas"]["PurchaseInvoiceLinePurchaseOrderItemDto"] | null;
+            description: string;
+            /** @example 1.00 */
+            quantity: string;
+            /** @example 10.00 */
+            unit_price: string;
+            tax_rate: number;
+            /** @example 10.00 */
+            line_total: string;
+        };
+        PurchaseInvoiceResponseDto: {
+            id: string;
+            vendor_id: string;
+            vendor: components["schemas"]["VendorResponseDto"];
+            vendor_invoice_number: string;
+            status: components["schemas"]["PurchaseInvoiceStatus"];
+            /** Format: date-time */
+            invoice_date: string;
+            /** Format: date-time */
+            due_date: string;
+            /** @example 100.00 */
+            total_amount: string;
+            lines: components["schemas"]["PurchaseInvoiceLineResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PurchaseInvoicePaginatedResponseDto: {
+            data: components["schemas"]["PurchaseInvoiceResponseDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        UnbilledReceiptItemDto: {
+            purchaseOrderItemId: string;
+            purchaseOrderId: string;
+            purchaseOrderNumber: string;
+            catalogItemId: string;
+            catalogItemName: string;
+            quantityReceived: number;
+            quantityInvoiced: number;
+            quantityPending: number;
+            lastUnitCost: number;
+        };
+        CreateVendorDto: Record<string, never>;
         UpdateVendorDto: Record<string, never>;
-        CreateInvoiceDto: Record<string, never>;
-        CreateCustomerDto: Record<string, never>;
+        CreateInvoiceItemDto: {
+            /** Format: uuid */
+            catalogItemId?: string;
+            description: string;
+            quantity: number;
+            unitPrice: number;
+            taxRate: number;
+        };
+        CreateInvoiceDto: {
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            vehicleId?: string;
+            notes?: string;
+            internalNotes?: string;
+            items: components["schemas"]["CreateInvoiceItemDto"][];
+        };
+        /** @enum {string} */
+        InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
         CustomerResponseDto: {
             id: string;
             /** @enum {string} */
@@ -1719,11 +1834,87 @@ export interface components {
             last_name: string;
             email?: string | null;
             phone?: string | null;
+            vat_id?: string | null;
+            address_street?: string | null;
             address_city?: string | null;
+            address_zip?: string | null;
+            address_country?: string | null;
             /** Format: date-time */
-            createdAt: string;
+            createdAt?: string;
             /** Format: date-time */
-            updatedAt: string;
+            updatedAt?: string;
+        };
+        VehicleResponseDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string | null;
+            vin?: string | null;
+            plate?: string | null;
+            customer_id?: string | null;
+        };
+        /** @enum {string} */
+        InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
+        /** @enum {string} */
+        DiscountType: "PERCENTAGE" | "FLAT_AMOUNT";
+        InvoiceItemResponseDto: {
+            id: string;
+            catalog_item_id?: string | null;
+            description: string;
+            /** @example 1.00 */
+            quantity: string;
+            /** @example 10.00 */
+            unit_price: string;
+            tax_rate: number;
+            line_discount_type?: components["schemas"]["DiscountType"] | null;
+            line_discount_value?: string | null;
+            line_total?: string | null;
+            revenue_group_name?: string | null;
+        };
+        InvoiceResponseDto: {
+            id: string;
+            invoice_number?: string | null;
+            status: components["schemas"]["InvoiceStatus"];
+            customer_id: string;
+            customer: components["schemas"]["CustomerResponseDto"];
+            vehicle_id?: string | null;
+            vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            sales_order_id?: string | null;
+            workshop_order_id?: string | null;
+            /** Format: date-time */
+            date: string;
+            /** Format: date-time */
+            due_date: string;
+            /** @example 100.00 */
+            total_net: string;
+            /** @example 20.00 */
+            total_tax: string;
+            /** @example 120.00 */
+            total_gross: string;
+            tax_mode?: components["schemas"]["InvoiceTaxMode"];
+            global_discount_type?: components["schemas"]["DiscountType"] | null;
+            global_discount_value?: string | null;
+            notes?: string | null;
+            internal_notes?: string | null;
+            pdf_generated_at?: string | null;
+            pdf_generation_error?: string | null;
+            items: components["schemas"]["InvoiceItemResponseDto"][];
+        };
+        /** @enum {string} */
+        CustomerType: "PRIVATE" | "COMPANY";
+        CreateCustomerDto: {
+            type?: components["schemas"]["CustomerType"];
+            company_name?: string;
+            first_name: string;
+            last_name: string;
+            email?: string;
+            phone?: string;
+            vat_id?: string;
+            address_street?: string;
+            address_city?: string;
+            address_zip?: string;
+            address_country?: string;
         };
         VehicleSummaryDto: {
             id: string;
@@ -1793,15 +1984,175 @@ export interface components {
             workshop_orders_meta: components["schemas"]["CustomerHistoryMetaDto"];
             invoices_meta: components["schemas"]["CustomerHistoryMetaDto"];
         };
-        UpdateCustomerDto: Record<string, never>;
-        UpdateFinanceSettingsDto: Record<string, never>;
-        CreateRevenueGroupDto: Record<string, never>;
-        CreateBrandDto: Record<string, never>;
-        UpdateBrandDto: Record<string, never>;
-        CreateSalesOrderDto: Record<string, never>;
-        UpdateSalesOrderDto: Record<string, never>;
-        RegisterIntakeDto: Record<string, never>;
-        CreateWorkshopOrderDto: Record<string, never>;
+        UpdateCustomerDto: {
+            type?: components["schemas"]["CustomerType"];
+            company_name?: string;
+            first_name?: string;
+            last_name?: string;
+            email?: string;
+            phone?: string;
+            vat_id?: string;
+            address_street?: string;
+            address_city?: string;
+            address_zip?: string;
+            address_country?: string;
+        };
+        FinanceSettingsResponseDto: {
+            id: string;
+            fiscal_year_start_month: number;
+            lock_date?: string | null;
+            next_invoice_number: number;
+            invoice_prefix: string;
+            next_sales_order_number: number;
+            sales_order_prefix: string;
+            next_workshop_order_number: number;
+            workshop_order_prefix: string;
+            next_vehicle_purchase_number: number;
+            vehicle_purchase_prefix: string;
+            next_vehicle_sale_number: number;
+            vehicle_sale_prefix: string;
+        };
+        UpdateFinanceSettingsDto: {
+            fiscal_year_start_month?: number;
+            lock_date?: string | null;
+            next_invoice_number?: number;
+            invoice_prefix?: string;
+        };
+        RevenueGroupResponseDto: {
+            id: number;
+            name: string;
+            tax_rate: number;
+            account_number: string;
+            is_default: boolean;
+        };
+        CreateRevenueGroupDto: {
+            name: string;
+            tax_rate: number;
+            account_number: string;
+            is_default?: boolean;
+        };
+        RevenueAnalyticsSliceDto: {
+            name: string;
+            value: number;
+            color: string;
+        };
+        RevenueAnalyticsResponseDto: {
+            data: components["schemas"]["RevenueAnalyticsSliceDto"][];
+            total: number;
+            period: string;
+        };
+        CreateBrandDto: {
+            name: string;
+            isVehicleMake: boolean;
+            isPartManufacturer: boolean;
+            logoUrl?: string;
+        };
+        UpdateBrandDto: {
+            name?: string;
+            isVehicleMake?: boolean;
+            isPartManufacturer?: boolean;
+            logoUrl?: string;
+        };
+        CreateSalesOrderItemDto: {
+            /** Format: uuid */
+            catalog_item_id?: string;
+            description: string;
+            quantity: number;
+            unit_price: number;
+            tax_rate?: number;
+        };
+        CreateSalesOrderDto: {
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            notes?: string;
+            items: components["schemas"]["CreateSalesOrderItemDto"][];
+        };
+        /** @enum {string} */
+        SalesOrderStatus: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+        SalesOrderItemResponseDto: {
+            id: string;
+            catalog_item_id?: string | null;
+            catalog_item?: components["schemas"]["CatalogItemResponseDto"] | null;
+            description: string;
+            /** @example 1.00 */
+            quantity: string;
+            /** @example 10.00 */
+            unit_price: string;
+            /** @example 10.00 */
+            total: string;
+            tax_rate: number;
+        };
+        SalesOrderInvoiceSummaryDto: {
+            id: string;
+            invoice_number?: string | null;
+        };
+        SalesOrderResponseDto: {
+            id: string;
+            order_number: string;
+            customer_id: string;
+            customer: components["schemas"]["CustomerResponseDto"];
+            vehicle_id?: string | null;
+            vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            status: components["schemas"]["SalesOrderStatus"];
+            /** @example 100.00 */
+            total_amount: string;
+            notes?: string | null;
+            items: components["schemas"]["SalesOrderItemResponseDto"][];
+            invoice?: components["schemas"]["SalesOrderInvoiceSummaryDto"] | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SalesOrderPaginatedResponseDto: {
+            data: components["schemas"]["SalesOrderResponseDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
+        UpdateSalesOrderDto: {
+            /** Format: uuid */
+            customer_id?: string;
+            /** Format: uuid */
+            vehicle_id?: string;
+            notes?: string;
+            items?: components["schemas"]["CreateSalesOrderItemDto"][];
+            status?: components["schemas"]["SalesOrderStatus"];
+        };
+        RegisterIntakeDto: {
+            vin: string;
+            plate: string;
+            make: string;
+            model: string;
+            year: number;
+            customerId?: string;
+            firstName?: string;
+            lastName?: string;
+            email?: string;
+            phone?: string;
+        };
+        VehicleListItemDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string | null;
+            vin?: string | null;
+            plate?: string | null;
+            customer_id?: string | null;
+            customer?: components["schemas"]["CustomerResponseDto"] | null;
+        };
+        /** @enum {string} */
+        WorkshopOrderPurpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
+        CreateWorkshopOrderDto: {
+            /** Format: uuid */
+            customerId?: string;
+            /** Format: uuid */
+            vehicleId: string;
+            purpose?: components["schemas"]["WorkshopOrderPurpose"];
+            odometer: number;
+            fuelLevel: number;
+            reportedIssue?: string;
+            notes?: string;
+        };
         WorkshopCustomerSummaryDto: {
             id: string;
             /** @enum {string} */
@@ -1880,7 +2231,9 @@ export interface components {
             updatedAt: string;
         };
         UpdateWorkshopOrderDto: Record<string, never>;
-        CreateWorkshopTaskDto: Record<string, never>;
+        CreateWorkshopTaskDto: {
+            title: string;
+        };
         PickWorkshopPartsLineDto: {
             /** Format: uuid */
             workshopTaskLineItemId: string;
@@ -1919,6 +2272,51 @@ export interface components {
         };
         UpdateWorkshopTaskDto: Record<string, never>;
         ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
+        WorkshopSearchVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            engine_code?: string | null;
+            vin?: string | null;
+            plate?: string | null;
+            customer_id?: string | null;
+            customer: components["schemas"]["CustomerResponseDto"] | null;
+        };
+        WorkshopSearchCustomerDto: {
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            company_name?: string | null;
+            first_name: string;
+            last_name: string;
+            email?: string | null;
+            phone?: string | null;
+            vat_id?: string | null;
+            address_street?: string | null;
+            address_city?: string | null;
+            address_zip?: string | null;
+            address_country?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            vehicles: components["schemas"]["VehicleResponseDto"][];
+        };
+        WorkshopSearchDataDto: {
+            vehicles: components["schemas"]["WorkshopSearchVehicleDto"][];
+            customers: components["schemas"]["WorkshopSearchCustomerDto"][];
+        };
+        WorkshopSearchMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        WorkshopSearchResponseDto: {
+            data: components["schemas"]["WorkshopSearchDataDto"];
+            meta: components["schemas"]["WorkshopSearchMetaDto"];
+        };
         WorkshopPdfGenerationResponseDto: {
             message: string;
             enqueued: boolean;
@@ -2552,6 +2950,10 @@ export interface components {
             labor: components["schemas"]["CatalogLaborSearchItemDto"][];
             parts: components["schemas"]["CatalogPartSearchItemDto"][];
             meta: components["schemas"]["CatalogSearchMetaDto"];
+        };
+        VehiclePaginatedResponseDto: {
+            data: components["schemas"]["VehicleListItemDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
         };
         CreateVehicleDto: {
             make: string;
@@ -3224,7 +3626,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderPaginatedResponseDto"];
                 };
             };
         };
@@ -3247,7 +3649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3272,7 +3674,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3293,7 +3695,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3314,7 +3716,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3358,7 +3760,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3404,7 +3806,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };
@@ -3430,7 +3832,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoicePaginatedResponseDto"];
                 };
             };
         };
@@ -3453,7 +3855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoiceResponseDto"];
                 };
             };
         };
@@ -3474,7 +3876,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoiceResponseDto"];
                 };
             };
         };
@@ -3518,7 +3920,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoiceResponseDto"];
                 };
             };
         };
@@ -3539,7 +3941,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoiceResponseDto"];
                 };
             };
         };
@@ -3560,7 +3962,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PurchaseInvoiceResponseDto"];
                 };
             };
         };
@@ -3603,7 +4005,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["UnbilledReceiptItemDto"][];
                 };
             };
         };
@@ -3752,7 +4154,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["InvoiceResponseDto"][];
                 };
             };
         };
@@ -3775,7 +4177,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -3796,7 +4198,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -3817,7 +4219,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -3955,7 +4357,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["FinanceSettingsResponseDto"];
                 };
             };
         };
@@ -3978,7 +4380,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["FinanceSettingsResponseDto"];
                 };
             };
         };
@@ -3997,7 +4399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["RevenueGroupResponseDto"][];
                 };
             };
         };
@@ -4020,7 +4422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RevenueGroupResponseDto"];
                 };
             };
         };
@@ -4039,7 +4441,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RevenueAnalyticsResponseDto"];
                 };
             };
         };
@@ -4061,7 +4463,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["BrandResponseDto"][];
                 };
             };
         };
@@ -4084,7 +4486,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["BrandResponseDto"];
                 };
             };
         };
@@ -4105,7 +4507,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["BrandResponseDto"];
                 };
             };
         };
@@ -4149,7 +4551,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["BrandResponseDto"];
                 };
             };
         };
@@ -4176,7 +4578,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SalesOrderPaginatedResponseDto"];
                 };
             };
         };
@@ -4199,7 +4601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SalesOrderResponseDto"];
                 };
             };
         };
@@ -4220,7 +4622,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SalesOrderResponseDto"];
                 };
             };
         };
@@ -4264,7 +4666,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SalesOrderResponseDto"];
                 };
             };
         };
@@ -4285,7 +4687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -4308,7 +4710,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["VehicleListItemDto"];
                 };
             };
         };
@@ -4579,7 +4981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -4600,7 +5002,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["WorkshopSearchResponseDto"];
                 };
             };
         };
@@ -4727,7 +5129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -4748,7 +5150,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
             };
         };
@@ -5694,7 +6096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["VehiclePaginatedResponseDto"];
                 };
             };
         };
@@ -5716,7 +6118,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["VehicleResponseDto"];
+                };
             };
         };
     };
@@ -5736,7 +6140,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["VehicleResponseDto"];
                 };
             };
         };
@@ -5761,7 +6165,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["VehicleResponseDto"];
                 };
             };
         };
