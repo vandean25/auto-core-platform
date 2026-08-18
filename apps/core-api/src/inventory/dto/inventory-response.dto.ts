@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TransactionType } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
 
 export class AvailabilityCheckResultDto {
@@ -79,8 +80,8 @@ export class InventoryTransactionResponseDto {
   @ApiProperty()
   quantity!: string;
 
-  @ApiProperty()
-  type!: string;
+  @ApiProperty({ enum: TransactionType, enumName: 'TransactionType' })
+  type!: TransactionType;
 
   @ApiProperty({ type: String, required: false, nullable: true })
   reference_id?: string | null;

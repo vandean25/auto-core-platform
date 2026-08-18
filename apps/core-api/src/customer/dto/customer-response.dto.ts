@@ -25,13 +25,25 @@ export class CustomerResponseDto {
   phone?: string | null;
 
   @ApiProperty({ type: String, required: false, nullable: true })
+  vat_id?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  address_street?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
   address_city?: string | null;
 
-  @ApiProperty()
-  createdAt!: Date;
+  @ApiProperty({ type: String, required: false, nullable: true })
+  address_zip?: string | null;
 
-  @ApiProperty()
-  updatedAt!: Date;
+  @ApiProperty({ type: String, required: false, nullable: true })
+  address_country?: string | null;
+
+  @ApiProperty({ required: false })
+  createdAt?: Date;
+
+  @ApiProperty({ required: false })
+  updatedAt?: Date;
 }
 
 export class CustomerPaginatedResponseDto {

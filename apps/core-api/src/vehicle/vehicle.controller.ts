@@ -8,10 +8,14 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import {
+  VehiclePaginatedResponseDto,
+  VehicleResponseDto,
+} from './dto/vehicle-response.dto';
 
 @Controller('vehicles')
 export class VehicleController {
@@ -35,9 +39,7 @@ export class VehicleController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: VehiclePaginatedResponseDto })
   findAll(
     @Query('search') search?: string,
     @Query('page') page?: string,
@@ -76,22 +78,19 @@ export class VehicleController {
   }
 
   @Post()
+  @ApiCreatedResponse({ type: VehicleResponseDto })
   create(@Body() createVehicleDto: CreateVehicleDto) {
     return this.vehicleService.create(createVehicleDto);
   }
 
   @Get(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: VehicleResponseDto })
   findOne(@Param('id') id: string) {
     return this.vehicleService.findOne(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: VehicleResponseDto })
   update(@Param('id') id: string, @Body() updateVehicleDto: UpdateVehicleDto) {
     return this.vehicleService.update(id, updateVehicleDto);
   }

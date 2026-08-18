@@ -127,7 +127,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem className="col-span-2">
                                             <FormLabel>Company Name</FormLabel>
                                             <FormControl>
-                                                <Input {...field} />
+                                                <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -140,7 +140,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem>
                                             <FormLabel>VAT ID</FormLabel>
                                             <FormControl>
-                                                <Input {...field} />
+                                                <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -157,7 +157,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>First Name</FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -170,7 +170,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>Last Name</FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -186,7 +186,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>Email</FormLabel>
                                         <FormControl>
-                                            <Input type="email" {...field} />
+                                            <Input type="email" {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -199,7 +199,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>Phone</FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -216,7 +216,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>Street</FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -230,7 +230,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem>
                                             <FormLabel>ZIP</FormLabel>
                                             <FormControl>
-                                                <Input {...field} />
+                                                <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -243,7 +243,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                         <FormItem className="col-span-2">
                                             <FormLabel>City</FormLabel>
                                             <FormControl>
-                                                <Input {...field} />
+                                                <Input {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -257,7 +257,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                     <FormItem>
                                         <FormLabel>Country</FormLabel>
                                         <FormControl>
-                                            <Input {...field} />
+                                            <Input {...field} value={field.value ?? ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

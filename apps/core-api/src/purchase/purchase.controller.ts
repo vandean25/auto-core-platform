@@ -17,6 +17,10 @@ import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
 import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
 import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
+import {
+  PurchaseOrderPaginatedResponseDto,
+  PurchaseOrderResponseDto,
+} from './dto/purchase-order-response.dto';
 import type { Prisma } from '@prisma/client';
 
 @Controller('purchase-orders')
@@ -24,9 +28,7 @@ export class PurchaseController {
   constructor(private readonly purchaseService: PurchaseService) {}
 
   @Post()
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
   async createPurchaseOrder(
     @Body() createPurchaseOrderDto: CreatePurchaseOrderDto,
   ) {
@@ -38,9 +40,7 @@ export class PurchaseController {
 
   @Post(':id/receive')
   @HttpCode(201)
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
   async receiveItems(
     @Param('id') orderId: string,
     @Body() receivePurchaseOrderDto: ReceivePurchaseOrderDto,
@@ -57,9 +57,7 @@ export class PurchaseController {
 
   @Post(':id/mark-as-sent')
   @HttpCode(200)
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseOrderResponseDto })
   async markAsSent(@Param('id') id: string) {
     return this.purchaseService.markAsSent(id);
   }
@@ -102,9 +100,7 @@ export class PurchaseController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseOrderPaginatedResponseDto })
   async findAll(
     @Query('status') status?: string,
     @Query('search') search?: string,
@@ -176,9 +172,7 @@ export class PurchaseController {
   }
 
   @Get(':id')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseOrderResponseDto })
   async findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
   }
@@ -189,9 +183,7 @@ export class PurchaseController {
   }
 
   @Post(':id/items')
-  @ApiCreatedResponse({
-    schema: { type: 'object' },
-  })
+  @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
   async addItems(
     @Param('id') orderId: string,
     @Body() dto: AddPurchaseOrderItemsDto,
@@ -200,9 +192,7 @@ export class PurchaseController {
   }
 
   @Patch(':id/items/:itemId')
-  @ApiOkResponse({
-    schema: { type: 'object' },
-  })
+  @ApiOkResponse({ type: PurchaseOrderResponseDto })
   async updateItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,

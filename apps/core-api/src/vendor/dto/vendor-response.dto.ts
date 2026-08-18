@@ -15,8 +15,8 @@ export class VendorResponseDto {
   @ApiProperty()
   account_number!: string;
 
-  @ApiProperty({ type: [BrandResponseDto] })
-  supportedBrands!: BrandResponseDto[];
+  @ApiProperty({ type: [BrandResponseDto], required: false })
+  supportedBrands?: BrandResponseDto[];
 
   @ApiProperty()
   createdAt!: Date;
