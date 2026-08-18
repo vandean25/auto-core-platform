@@ -32,6 +32,7 @@ Auto Core Platform is a full-stack automotive parts management system designed f
 
 ### Backend (`apps/core-api`)
 - **Framework**: NestJS (Node.js)
+- **Language**: TypeScript 5.9 (shared major with `apps/core-web`; see ADR-0017)
 - **ORM**: Prisma
 - **Database**: PostgreSQL
 - **Validation**: class-validator & class-transformer
@@ -39,6 +40,7 @@ Auto Core Platform is a full-stack automotive parts management system designed f
 
 ### Frontend (`apps/core-web`)
 - **Framework**: React 19 (Vite 7)
+- **Language**: TypeScript 5.9 (shared major with `apps/core-api`; see ADR-0017)
 - **Styling**: Tailwind CSS 4
 - **UI Components**: shadcn/ui
 - **State Management**: TanStack Query (v5)
