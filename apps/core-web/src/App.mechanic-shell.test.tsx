@@ -5,14 +5,31 @@
  *     so that no client-chosen mechanic identity can persist across upgrades.
  */
 
+import * as React from 'react'
 import { render, screen, cleanup } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { MechanicShell } from './App'
+import { MechanicShell, ShellRouter } from './App'
 import * as mechanicApi from '@/api/mechanic'
 
 vi.mock('@/api/mechanic')
+vi.mock('@/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    user: { uid: 'user-1', email: 'user@workshop.com', getIdToken: vi.fn().mockResolvedValue('token') },
+    loading: false,
+    signOutUser: vi.fn(),
+  }),
+}))
+vi.mock('@/features/realtime/RealtimeDashboardSyncProvider', () => ({
+  RealtimeDashboardSyncProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+vi.mock('./pages/DashboardPage', () => ({
+  default: () => <div>Admin dashboard</div>,
+}))
+vi.mock('./pages/platform/PlatformTenantsPage', () => ({
+  default: () => <div>Platform tenants page</div>,
+}))
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,5 +156,76 @@ describe('MechanicShell (ADR-0014 §8.2)', () => {
       )
       expect(mechanicWrites).toHaveLength(0)
     })
+  })
+})
+
+// ─── Role-aware route guards ────────────────────────────────────────────────
+
+function renderShellRouter(
+  initialPath: string,
+  opts: {
+    activeRole?: 'OWNER' | 'ADMIN' | 'TECH' | 'SALES' | null
+    platformRole?: string | null
+  } = {},
+) {
+  asMock(mechanicApi.useMechanicQueue).mockReturnValue({
+    data: { data: [] },
+    isLoading: false,
+    refetch: vi.fn(),
+  })
+
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <ShellRouter
+          userId="user-1"
+          userEmail="user@workshop.com"
+          platformRole={opts.platformRole ?? null}
+          activeTenant={{ id: 'tenant-1', name: 'Workshop A', slug: 'workshop-a' }}
+          activeRole={opts.activeRole ?? 'ADMIN'}
+          memberships={[]}
+          isSwitchingTenant={false}
+          onSwitchTenant={vi.fn()}
+          onSignOut={vi.fn()}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('role-aware shell route guards', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
+
+  it('redirects a non-TECH user from /mechanic to the admin app', async () => {
+    renderShellRouter('/mechanic', { activeRole: 'ADMIN' })
+
+    expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
+    expect(screen.queryByText(/^Mechanic$/)).not.toBeInTheDocument()
+  })
+
+  it('redirects a non-super-admin from platform tenants to the admin app', async () => {
+    renderShellRouter('/platform/tenants', { activeRole: 'ADMIN', platformRole: null })
+
+    expect(await screen.findByText('Admin dashboard')).toBeInTheDocument()
+    expect(screen.queryByText('Platform tenants page')).not.toBeInTheDocument()
+  })
+
+  it('redirects a TECH user away from back-office routes into the mechanic queue', async () => {
+    renderShellRouter('/inventory', { activeRole: 'TECH' })
+
+    expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    expect(screen.getByText('Mechanic')).toBeInTheDocument()
   })
 })

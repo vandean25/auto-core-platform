@@ -309,24 +309,60 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicSh
 
 // ─── Shell Router ─────────────────────────────────────────────────────────────
 
+const ADMIN_HOME_PATH = '/dashboard'
+const MECHANIC_HOME_PATH = '/mechanic/queue'
+const SUPER_ADMIN_ROLE = 'SUPER_ADMIN'
+const TECH_ROLE = 'TECH'
+
 type ShellRouterProps = AppShellProps & {
   onSignOut: () => void
 }
 
-function ShellRouter(props: ShellRouterProps) {
-  const location = useLocation()
+function isMechanicPath(pathname: string) {
+  return pathname === '/mechanic' || pathname.startsWith('/mechanic/')
+}
 
-  const isMechanicPath = location.pathname === '/mechanic' || location.pathname.startsWith('/mechanic/')
+function isPlatformPath(pathname: string) {
+  return pathname.startsWith('/platform/')
+}
 
-  // ADR-0014 §8.2: A mechanic-mode session (TECH role) may load only the
-  // dedicated mechanic/tablet routes. Redirect any other navigation to the
-  // mechanic queue.
-  const isMechanicMode = props.activeRole === 'TECH'
-  if (isMechanicMode && !isMechanicPath) {
-    return <Navigate to="/mechanic/queue" replace />
+function resolveShellRedirect(input: {
+  pathname: string
+  activeRole: components['schemas']['TenantMemberRole'] | null
+  platformRole: string | null
+}): string | null {
+  // Frontend-only UX gates. API authorization remains the source of truth.
+  const mechanicPath = isMechanicPath(input.pathname)
+  const mechanicMode = input.activeRole === TECH_ROLE
+
+  if (mechanicMode && !mechanicPath) {
+    return MECHANIC_HOME_PATH
   }
 
-  if (isMechanicPath) {
+  if (mechanicPath && !mechanicMode) {
+    return ADMIN_HOME_PATH
+  }
+
+  if (isPlatformPath(input.pathname) && input.platformRole !== SUPER_ADMIN_ROLE) {
+    return ADMIN_HOME_PATH
+  }
+
+  return null
+}
+
+export function ShellRouter(props: ShellRouterProps) {
+  const location = useLocation()
+  const redirectTo = resolveShellRedirect({
+    pathname: location.pathname,
+    activeRole: props.activeRole,
+    platformRole: props.platformRole,
+  })
+
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />
+  }
+
+  if (isMechanicPath(location.pathname)) {
     return (
       <MechanicShell
         activeTenant={props.activeTenant}
