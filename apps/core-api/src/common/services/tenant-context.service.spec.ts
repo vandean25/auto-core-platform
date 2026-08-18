@@ -5,18 +5,11 @@ import { TenantContextStorage } from './tenant-context.storage';
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const mockPrisma = {
-  tenant: {
-    findFirst: jest.fn(),
-  },
-} as unknown as ConstructorParameters<typeof TenantContextService>[0];
-
 describe('TenantContextService', () => {
   let service: TenantContextService;
 
   beforeEach(() => {
-    service = new TenantContextService(mockPrisma);
-    jest.clearAllMocks();
+    service = new TenantContextService();
   });
 
   describe('getRequiredTenantId()', () => {
@@ -89,6 +82,95 @@ describe('TenantContextService', () => {
 
       expect(resultA?.tenantId).toBe('tenant-a');
       expect(resultB).toBeUndefined();
+    });
+  });
+
+  describe('getTenantId()', () => {
+    const originalDefaultTenantId = process.env.DEFAULT_TENANT_ID;
+    const originalDefaultTenantSlug = process.env.DEFAULT_TENANT_SLUG;
+
+    afterEach(() => {
+      if (originalDefaultTenantId === undefined) {
+        delete process.env.DEFAULT_TENANT_ID;
+      } else {
+        process.env.DEFAULT_TENANT_ID = originalDefaultTenantId;
+      }
+
+      if (originalDefaultTenantSlug === undefined) {
+        delete process.env.DEFAULT_TENANT_SLUG;
+      } else {
+        process.env.DEFAULT_TENANT_SLUG = originalDefaultTenantSlug;
+      }
+    });
+
+    it('throws InternalServerErrorException when called outside an ALS context', async () => {
+      await expect(service.getTenantId()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+
+    it('throws when inside a context but no user has been set', async () => {
+      await TenantContextStorage.run(async () => {
+        await expect(service.getTenantId()).rejects.toThrow(
+          InternalServerErrorException,
+        );
+      });
+    });
+
+    it('throws when the authenticated user has no tenantId', async () => {
+      await TenantContextStorage.run(async () => {
+        service.setAuthenticatedUser({
+          userId: 'platform-admin-1',
+          email: 'admin@example.com',
+          platformRole: 'PLATFORM_ADMIN',
+        });
+
+        await expect(service.getTenantId()).rejects.toThrow(
+          InternalServerErrorException,
+        );
+      });
+    });
+
+    it('does not fall back to DEFAULT_TENANT_ID when ALS has no tenantId', async () => {
+      process.env.DEFAULT_TENANT_ID = 'env-default-tenant';
+
+      await TenantContextStorage.run(async () => {
+        await expect(service.getTenantId()).rejects.toThrow(
+          InternalServerErrorException,
+        );
+      });
+    });
+
+    it('does not resolve default-workshop from DEFAULT_TENANT_SLUG', async () => {
+      delete process.env.DEFAULT_TENANT_ID;
+      process.env.DEFAULT_TENANT_SLUG = 'default-workshop';
+
+      await TenantContextStorage.run(async () => {
+        await expect(service.getTenantId()).rejects.toThrow(
+          InternalServerErrorException,
+        );
+      });
+    });
+
+    it('returns the tenantId when a user is present in context', async () => {
+      await TenantContextStorage.run(async () => {
+        service.setAuthenticatedUser({
+          userId: 'user-1',
+          email: 'test@example.com',
+          tenantId: 'tenant-abc',
+          role: 'ADMIN',
+        });
+
+        await expect(service.getTenantId()).resolves.toBe('tenant-abc');
+      });
+    });
+
+    it('returns the worker tenantId after setTenantIdForWorker', async () => {
+      await TenantContextStorage.run(async () => {
+        service.setTenantIdForWorker('tenant-worker-pdf');
+
+        await expect(service.getTenantId()).resolves.toBe('tenant-worker-pdf');
+      });
     });
   });
 
