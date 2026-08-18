@@ -7,6 +7,10 @@ on:
       - 'feat/*'
   workflow_dispatch:
 
+concurrency:
+  group: pr-build-check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -216,6 +220,7 @@ jobs:
         run: npm test -- --ci --runInBand
 
       - name: Run E2E tests
+        timeout-minutes: 15
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
         run: |

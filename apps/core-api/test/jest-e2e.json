@@ -10,5 +10,6 @@
   "transformIgnorePatterns": [
     "node_modules/(?!(jose)/)"
   ],
-  "testTimeout": 60000
+  "testTimeout": 60000,
+  "forceExit": true
 }
