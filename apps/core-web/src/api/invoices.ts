@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
+import { invoiceKeys } from './sales'
 import type { DiscountType, Invoice } from './types'
+import { workshopKeys } from './workshop'
 
 const INVOICES_API = '/api/invoices'
 
@@ -34,8 +36,8 @@ export function useCreateDraftInvoice() {
       return response.json() as Promise<Invoice>
     },
     onSuccess: (_invoice, orderId) => {
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
-      queryClient.invalidateQueries({ queryKey: ['workshop', 'order', orderId] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
     },
   })
 }
@@ -67,7 +69,7 @@ export function useUpdateInvoiceDiscount() {
       return response.json() as Promise<Invoice>
     },
     onSuccess: (invoice) => {
-      queryClient.setQueryData(['invoices', invoice.id], invoice)
+      queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice)
     },
   })
 }
@@ -91,12 +93,12 @@ export function useIssueInvoice() {
       return response.json() as Promise<Invoice>
     },
     onSuccess: (invoice) => {
-      queryClient.setQueryData(['invoices', invoice.id], invoice)
+      queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice)
       if (invoice.workshop_order_id) {
         queryClient.invalidateQueries({
-          queryKey: ['workshop', 'order', invoice.workshop_order_id],
+          queryKey: workshopKeys.order(invoice.workshop_order_id),
         })
-        queryClient.invalidateQueries({ queryKey: ['workshop', 'orders'] })
+        queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       }
     },
   })

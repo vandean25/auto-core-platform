@@ -37,6 +37,8 @@ export const laborKeys = {
   operations: () => [...laborKeys.all, 'operations'] as const,
   operationsList: (queryParams?: DataTableQueryParams) => [...laborKeys.operations(), queryParams] as const,
   operation: (id: string) => [...laborKeys.all, 'operation', id] as const,
+  search: (query: string, workshopOrderId: string) =>
+    [...laborKeys.all, 'search', query, workshopOrderId] as const,
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
