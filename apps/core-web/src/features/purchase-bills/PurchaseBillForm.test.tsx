@@ -71,7 +71,6 @@ describe('PurchaseBillForm Characterization', () => {
     const input = screen.getByLabelText('Vendor Bill #')
     fireEvent.change(input, { target: { value: 'INV-UPDATED' } })
 
-    // Wait for debounce (750ms)
     await waitFor(() => {
       expect(updateMutation).toHaveBeenCalledWith(expect.objectContaining({
         payload: expect.objectContaining({
