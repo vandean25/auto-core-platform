@@ -308,7 +308,8 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm run start:prod` | Run production build |
 | `npm run test` | Run unit tests |
 | `npm run test:e2e` | Run end-to-end tests |
-| `npm run lint` | Lint and fix code |
+| `npm run lint` | Lint code (no auto-fix; used by PR CI) |
+| `npm run lint:fix` | Lint and auto-fix code |
 | `npm run openapi:generate` | Generate OpenAPI spec to `openapi/openapi.json` |
 | `npm run openapi:check` | Regenerate OpenAPI and fail if spec drift is uncommitted |
 | `npx prisma studio` | Open Prisma Studio (database GUI) |
