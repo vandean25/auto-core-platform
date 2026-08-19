@@ -25,8 +25,6 @@ describe('Workshop Board Assign (e2e)', () => {
   let authToken: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

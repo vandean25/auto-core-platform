@@ -2,9 +2,13 @@ name: PR Build Check
 
 on:
   pull_request:
+    # branches matches the PR base (target), not the head (source).
+    # PRs from feature/* into main already run via `main`. Include feature/*
+    # and feat/* so stacked PRs targeting those prefixes also run checks.
     branches:
       - main
       - 'feat/*'
+      - 'feature/*'
   workflow_dispatch:
 
 concurrency:

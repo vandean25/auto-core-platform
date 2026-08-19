@@ -7,7 +7,6 @@ describe('CloudTasksService', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
-    process.env.API_KEY = 'test-api-key';
     process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
     process.env.CLOUD_TASKS_LOCATION = 'europe-west3';
     process.env.CLOUD_TASKS_QUEUE = 'pdf-queue';

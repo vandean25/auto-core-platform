@@ -2,6 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
 
+export const invoiceKeys = {
+    all: ['invoices'] as const,
+    detail: (id: string) => [...invoiceKeys.all, id] as const,
+}
+
 export interface CreateInvoicePayload {
     customerId: string
     vehicleId?: string
@@ -56,7 +61,7 @@ export function useUpdateInvoice() {
             return response.json() as Promise<Invoice>
         },
         onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['invoices', data.id] })
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }
@@ -72,14 +77,14 @@ export function useFinalizeInvoice() {
             return response.json() as Promise<Invoice>
         },
         onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['invoices', data.id] })
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }
 
 export function useInvoice(id: string) {
     return useQuery<Invoice>({
-        queryKey: ['invoices', id],
+        queryKey: invoiceKeys.detail(id),
         queryFn: async () => {
              const response = await fetchWithAuth(`/api/sales/invoices/${id}`)
              if (!response.ok) {

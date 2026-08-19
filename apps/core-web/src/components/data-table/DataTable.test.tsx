@@ -47,4 +47,65 @@ describe('DataTable Characterization', () => {
     render(<DataTable {...defaultProps} />)
     expect(screen.getAllByText('Test Item')).toHaveLength(1)
   })
+
+  it('shows Delete on right-click when getRowContextActions returns it', () => {
+    render(
+      <DataTable
+        {...defaultProps}
+        getRowContextActions={() => [
+          {
+            label: 'Delete',
+            onClick: vi.fn(),
+            destructive: true,
+          },
+        ]}
+      />,
+    )
+
+    fireEvent.contextMenu(screen.getByText('Test Item'))
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+  })
+
+  it('does not open a context menu when getRowContextActions returns no actions', () => {
+    render(
+      <DataTable
+        {...defaultProps}
+        getRowContextActions={() => []}
+      />,
+    )
+
+    fireEvent.contextMenu(screen.getByText('Test Item'))
+
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('does not open a context menu when getRowContextActions is omitted', () => {
+    render(<DataTable {...defaultProps} />)
+
+    fireEvent.contextMenu(screen.getByText('Test Item'))
+
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('invokes the Delete action with the row when the context menu item is clicked', () => {
+    const onDelete = vi.fn()
+    render(
+      <DataTable
+        {...defaultProps}
+        getRowContextActions={() => [
+          {
+            label: 'Delete',
+            onClick: onDelete,
+            destructive: true,
+          },
+        ]}
+      />,
+    )
+
+    fireEvent.contextMenu(screen.getByText('Test Item'))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(onDelete).toHaveBeenCalledWith({ name: 'Test Item' })
+  })
 })

@@ -1,15 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import { type ColumnDef } from '@tanstack/react-table'
-import { usePurchaseInvoices } from '@/api/usePurchaseInvoices'
+import { useDeletePurchaseInvoice, usePurchaseInvoices } from '@/api/usePurchaseInvoices'
 import type { PurchaseInvoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTable } from '@/components/data-table/DataTable'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
 import { DASHBOARD_WIDGET_SOURCE_PURCHASE_BILLS } from '@/features/dashboard-widgets/sources'
+import { getErrorMessage } from '@/lib/error-utils'
 
 export default function PurchaseBillsPage() {
     const navigate = useNavigate()
@@ -19,9 +21,20 @@ export default function PurchaseBillsPage() {
     })
 
     const { data: responseData, isLoading } = usePurchaseInvoices(queryParams)
+    const deleteMutation = useDeletePurchaseInvoice()
 
     const data: PurchaseInvoice[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this bill?')) return
+        try {
+            await deleteMutation.mutateAsync(id)
+            toast.success('Bill deleted')
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Failed to delete bill'))
+        }
+    }
 
     const columns: ColumnDef<PurchaseInvoice>[] = [
         {
@@ -113,6 +126,17 @@ export default function PurchaseBillsPage() {
                 isLoading={isLoading}
                 pageCount={pageCount}
                 onRowClick={handleRowClick}
+                getRowContextActions={(row) =>
+                    row.status === 'DRAFT'
+                        ? [
+                              {
+                                  label: 'Delete',
+                                  onClick: () => void handleDelete(row.id),
+                                  destructive: true,
+                              },
+                          ]
+                        : []
+                }
                 {...tableState}
             />
         </div>

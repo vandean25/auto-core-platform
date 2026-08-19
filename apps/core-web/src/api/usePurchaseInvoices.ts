@@ -11,7 +11,8 @@ export const purchaseInvoiceKeys = {
     all: ['purchase-invoices'] as const,
     list: (params: PurchaseInvoicesParams = {}) => [...purchaseInvoiceKeys.all, 'list', params] as const,
     detail: (id: string) => [...purchaseInvoiceKeys.all, 'detail', id] as const,
-    unbilled: (vendorId?: string, invoiceId?: string) => [...purchaseInvoiceKeys.all, 'unbilled', vendorId, invoiceId] as const,
+    unbilledAll: () => [...purchaseInvoiceKeys.all, 'unbilled'] as const,
+    unbilled: (vendorId?: string, invoiceId?: string) => [...purchaseInvoiceKeys.unbilledAll(), vendorId, invoiceId] as const,
 }
 
 export function useUnbilledReceipts(vendorId: string | undefined, invoiceId?: string) {
@@ -168,6 +169,25 @@ export function usePayPurchaseInvoice() {
     })
 }
 
+export function useDeletePurchaseInvoice() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await fetchWithAuth(`/api/purchase-invoices/${id}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: 'Failed to delete bill' }))
+                throw new Error(error.message || 'Failed to delete bill')
+            }
+            return id
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.all })
+        },
+    })
+}
+
 export function useDeletePurchaseInvoiceLine() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -180,7 +200,7 @@ export function useDeletePurchaseInvoiceLine() {
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.detail(variables.id) })
-            queryClient.invalidateQueries({ queryKey: [...purchaseInvoiceKeys.all, 'unbilled'] })
+            queryClient.invalidateQueries({ queryKey: purchaseInvoiceKeys.unbilledAll() })
         },
     })
 }

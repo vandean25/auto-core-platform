@@ -17,24 +17,24 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Fetch Sentry CI secrets from GSM
         id: gsm
-        uses: google-github-actions/get-secretmanager-secrets@v2
+        uses: google-github-actions/get-secretmanager-secrets@2b5f97c5a4b9c105e64646762ad4fc3f5128e6f5
         with:
           secrets: |-
             SENTRY_AUTH_TOKEN:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_AUTH_TOKEN_SECRET }}
             SENTRY_ORG:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_ORG_SECRET }}
             SENTRY_PROJECT:${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GSM_SENTRY_PROJECT_SECRET }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
