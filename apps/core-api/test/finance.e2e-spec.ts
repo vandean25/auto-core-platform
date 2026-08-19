@@ -15,7 +15,6 @@ describe('FinanceModule (e2e)', () => {
   let tenantId: string;
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

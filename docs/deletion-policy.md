@@ -31,7 +31,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
-| PurchaseInvoice | No | Financial document; use status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
+| PurchaseInvoice | Draft-only | Allow only in `DRAFT`. Posted and paid bills are financial documents; use the status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
 | User | No direct delete | Identity record persists for auditability; deactivate memberships instead of deleting the user. |
 | TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
@@ -60,7 +60,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 ## UI Contract
 
 - Show row context `Delete` only for entities with delete support.
-- Where delete is state-dependent (for example `PurchaseOrder`, `SalesOrder`), hide the action when clearly disallowed.
+- Where delete is state-dependent (for example `PurchaseOrder`, `SalesOrder`, `PurchaseInvoice`), hide the action when clearly disallowed.
 - Always rely on backend as source of truth and surface API error messages.
 
 ## References

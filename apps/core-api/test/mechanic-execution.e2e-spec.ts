@@ -50,7 +50,6 @@ describe('Mechanic Execution Engine (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.API_KEY = 'test-api-key';
     process.env.WORKSHOP_MEDIA_BUCKET = 'test-workshop-media-bucket';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({

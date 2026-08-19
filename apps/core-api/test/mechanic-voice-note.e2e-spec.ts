@@ -89,8 +89,6 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
   beforeAll(async () => {
     try {
-      process.env.API_KEY = 'test-api-key';
-
       const moduleFixture: TestingModule = await Test.createTestingModule({
         imports: [AppModule],
       })

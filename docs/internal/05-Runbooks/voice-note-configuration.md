@@ -5,49 +5,29 @@ _ADR-0014 §5.3 — AI Voice Notes and Translation_
 This document describes all environment variables and configuration knobs that
 control the mechanic voice-note feature (POST `/api/mechanic/tasks/:taskId/voice-notes`).
 
+Transcription uses `VoiceTranslationModule` (Google Cloud Speech-to-Text and
+Translate). Provider credentials are stored per tenant in Settings → Voice
+Translation, not as a global OpenAI API key.
+
 ---
 
-## Required Environment Variables
+## Tenant provider configuration
 
-### `OPENAI_API_KEY`
+Each tenant configures:
 
-| Property | Value |
-|---|---|
-| **Required** | Yes (feature is disabled if absent) |
-| **Format** | OpenAI API key string |
-| **Example** | `sk-…` |
+- Target language (BCP-47, default `de`)
+- Google Cloud project ID and location (default `global`)
+- Encrypted Google service-account JSON
 
-The backend passes this key to the OpenAI Audio API for Whisper transcription
-and translation.  It is never forwarded to the browser or serialised into any
-API response.
+If the tenant has no Google credential, the endpoint returns **503 Service
+Unavailable** (`Google voice translation is not configured.`).
 
-If this variable is absent, the endpoint returns **503 Service Unavailable**
-with the message _"Voice-note transcription is not available. Contact your administrator."_.
+`SECRET_ENCRYPTION_KEY` (base64-encoded 32-byte key) is required to encrypt
+those credentials at rest. See `apps/core-api/.env.example`.
 
 ---
 
 ## Optional Environment Variables
-
-### `SPEECH_NOTE_LANGUAGE`
-
-| Property | Value |
-|---|---|
-| **Default** | `en` |
-| **Format** | BCP-47 language subtag, e.g. `en`, `th`, `zh-TW` |
-
-The canonical note language for the workshop.  Transcribed audio is translated
-to this language before it is returned to the mechanic.
-
-- When set to **`en`**: the Whisper `translations` endpoint is used, which
-  always produces English output regardless of the spoken source language.
-- When set to **any other BCP-47 tag**: the Whisper `transcriptions` endpoint
-  is used first (preserving the source language), and a GPT chat completion
-  translates the text when the detected language differs from the canonical
-  language.
-
-Restart the backend after changing this value.
-
----
 
 ### `VOICE_NOTE_RATE_LIMIT_MAX`
 
@@ -100,15 +80,14 @@ deploy.  They are documented here for operational awareness.
 | `MIN_VOICE_NOTE_BYTES` | 100 bytes | `apps/core-api/src/mechanic/dto/voice-note.dto.ts` |
 | `MAX_VOICE_NOTE_DURATION_SECONDS` | 300 seconds (5 minutes) | `apps/core-api/src/mechanic/dto/voice-note.dto.ts` |
 
-**MIME allow-list** (defined in `apps/core-api/src/speech-note/speech-note.service.ts`):
+**MIME allow-list** (defined in `apps/core-api/src/mechanic/dto/voice-note.dto.ts`):
 
 ```
-audio/flac  audio/m4a   audio/mp3   audio/mp4   audio/mpeg
-audio/mpga  audio/oga   audio/ogg   audio/wav   audio/wave
-audio/webm  audio/x-wav video/mp4   video/mpeg  video/webm
+audio/webm  audio/mpeg  audio/mp3  audio/ogg  audio/wav  audio/x-wav  audio/flac
 ```
 
-These correspond to the formats accepted by the OpenAI Whisper endpoint.
+These correspond to the encodings `VoiceTranslationService` maps to Google
+Speech (`WEBM_OPUS`, `MP3`, `OGG_OPUS`, `LINEAR16`, `FLAC`).
 
 ---
 
@@ -125,8 +104,8 @@ following safe operational fields:
 | `taskId` | Workshop task the note was attached to |
 | `bytes` | Audio file size in bytes |
 | `mimeType` | Normalised MIME type of the upload |
-| `provider` | AI provider name (e.g. `openai`) |
-| `model` | Transcription model (e.g. `whisper-1`) |
+| `provider` | AI provider name (e.g. `google-cloud`) |
+| `model` | Transcription model (e.g. `latest_long`) |
 | `latencyMs` | End-to-end provider call duration in milliseconds |
 | `durationSeconds` | Audio recording duration as reported by the provider |
 | `failureClass` | Error class name on failure paths |
@@ -152,12 +131,11 @@ collection.
 
 ## AI Request Payload Scope
 
-The payload sent to the OpenAI Audio API contains **only**:
+The payload sent to Google Cloud Speech contains **only**:
 
 - The audio file binary data.
-- The filename (e.g. `voice-note.webm`).
-- The MIME type.
-- The model name (`whisper-1`).
+- The recognition encoding derived from MIME type.
+- Source and target language codes.
 
 No customer data, order details, pricing information, invoice content, or other
 business aggregates are included in the AI request payload.
@@ -174,5 +152,5 @@ business aggregates are included in the AI request payload.
 | 413 Payload Too Large | Audio file exceeds the Multer size limit (25 MiB) |
 | 422 Unprocessable Entity | Bad MIME type, empty/silent audio, or duration exceeded |
 | 429 Too Many Requests | Per-mechanic rate limit exceeded |
-| 502 Bad Gateway | OpenAI API returned an error |
-| 503 Service Unavailable | `OPENAI_API_KEY` not configured |
+| 502 Bad Gateway | Google Speech/Translate returned an error |
+| 503 Service Unavailable | Tenant Google voice translation is not configured |
