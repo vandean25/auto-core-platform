@@ -69,6 +69,7 @@ model Tenant {
   workshopInspectionItems WorkshopInspectionItem[]
   workshopMedia        WorkshopMedia[]
   workshopVoiceNoteDrafts WorkshopVoiceNoteDraft[]
+  voiceNoteRateLimits  VoiceNoteRateLimit[]
   workshopOrders       WorkshopOrder[]
   workshopTasks        WorkshopTask[]
   workshopTaskLineItems WorkshopTaskLineItem[]
@@ -904,6 +905,7 @@ model Employee {
   uploadedWorkshopMedia    WorkshopMedia[] @relation("WorkshopMediaUploadedByEmployee")
   createdVoiceNoteDrafts   WorkshopVoiceNoteDraft[] @relation("CreatedVoiceNoteDrafts")
   acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
+  voiceNoteRateLimits      VoiceNoteRateLimit[]
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -1243,6 +1245,23 @@ model WorkshopVoiceNoteDraft {
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_voice_note_drafts_task")
   @@index([tenant_id, mechanic_employee_id], map: "idx_workshop_voice_note_drafts_mechanic")
   @@map("workshop_voice_note_drafts")
+}
+
+model VoiceNoteRateLimit {
+  tenant_id    String
+  tenant       Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  mechanic_id  String
+  mechanic     Employee @relation(fields: [tenant_id, mechanic_id], references: [tenant_id, id], onDelete: Cascade)
+  window_start DateTime
+  expires_at   DateTime
+  count        Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@id([tenant_id, mechanic_id])
+  @@index([tenant_id])
+  @@index([expires_at])
+  @@map("voice_note_rate_limits")
 }
 
 // ============================================================================

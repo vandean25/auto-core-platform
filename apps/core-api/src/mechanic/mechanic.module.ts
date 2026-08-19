@@ -11,6 +11,8 @@ import { MechanicMediaStorage } from './mechanic-media.storage';
 import { MechanicSchedulerService } from './mechanic-scheduler.service';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
 import { MechanicController } from './mechanic.controller';
+import { PrismaRateLimitStore } from './rate-limit/prisma-rate-limit.store';
+import { RateLimitStore } from './rate-limit/rate-limit.store';
 
 @Module({
   imports: [
@@ -28,6 +30,10 @@ import { MechanicController } from './mechanic.controller';
     MechanicVoiceNoteService,
     MechanicSchedulerService,
     MechanicMediaStorage,
+    {
+      provide: RateLimitStore,
+      useClass: PrismaRateLimitStore,
+    },
   ],
 })
 export class MechanicModule {}

@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { WorkshopTaskStatus } from '@prisma/client';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
+import { InMemoryRateLimitStore } from './rate-limit/in-memory-rate-limit.store';
+import type { Clock } from './rate-limit/rate-limit.store';
 import {
   MECHANIC_ID,
   ORDER_ID,
@@ -20,17 +22,47 @@ import {
   mockVoiceTranslationService,
 } from './mechanic.spec.support';
 
+class FakeClock implements Clock {
+  constructor(private currentMs: number) {}
+
+  now(): number {
+    return this.currentMs;
+  }
+
+  advance(ms: number): void {
+    this.currentMs += ms;
+  }
+}
+
+function createVoiceNoteService(
+  store: InMemoryRateLimitStore = new InMemoryRateLimitStore(),
+): MechanicVoiceNoteService {
+  return new MechanicVoiceNoteService(
+    mockPrisma,
+    mockTenantContext,
+    mockVoiceTranslationService,
+    store,
+  );
+}
+
+function restoreRateLimitEnv(
+  originalMax: string | undefined,
+  originalTtl: string | undefined,
+): void {
+  if (originalMax === undefined) delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+  else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
+  if (originalTtl === undefined)
+    delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+  else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+}
+
 describe('MechanicVoiceNoteService', () => {
   let service: MechanicVoiceNoteService;
 
   beforeEach(() => {
     jest.resetAllMocks();
     process.env.WORKSHOP_MEDIA_BUCKET = 'workshop-media-bucket';
-    service = new MechanicVoiceNoteService(
-      mockPrisma,
-      mockTenantContext,
-      mockVoiceTranslationService,
-    );
+    service = createVoiceNoteService();
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',
       email: 'tech@workshop.at',
@@ -428,12 +460,7 @@ describe('MechanicVoiceNoteService', () => {
       process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '60';
 
       try {
-        // A fresh service instance starts with an empty rate-limit map.
-        const freshService = new MechanicVoiceNoteService(
-          mockPrisma,
-          mockTenantContext,
-          mockVoiceTranslationService,
-        );
+        const freshService = createVoiceNoteService();
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
           makeTask(),
@@ -459,27 +486,56 @@ describe('MechanicVoiceNoteService', () => {
           freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
         ).rejects.toThrow(expect.objectContaining({ status: 429 }));
       } finally {
-        if (originalMax === undefined)
-          delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined)
-          delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+        restoreRateLimitEnv(originalMax, originalTtl);
+      }
+    });
+
+    it('shares the per-mechanic limit across two service instances using the same store', async () => {
+      const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
+      const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
+      process.env.VOICE_NOTE_RATE_LIMIT_MAX = '1';
+      process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '60';
+
+      try {
+        const sharedStore = new InMemoryRateLimitStore();
+        const instanceA = createVoiceNoteService(sharedStore);
+        const instanceB = createVoiceNoteService(sharedStore);
+
+        (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+          makeTask(),
+        );
+        (
+          mockVoiceTranslationService.translateVoiceNote as jest.Mock
+        ).mockResolvedValue({
+          originalText: 'Note.',
+          translatedText: 'Note.',
+          sourceLanguageCode: 'en',
+          targetLanguageCode: 'de',
+          provider: 'google-cloud',
+          model: 'latest_long',
+          durationSeconds: 2.0,
+        });
+
+        await instanceA.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+
+        await expect(
+          instanceB.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
+        ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+      } finally {
+        restoreRateLimitEnv(originalMax, originalTtl);
       }
     });
 
     it('resets the rate-limit window after TTL expires', async () => {
       const originalMax = process.env.VOICE_NOTE_RATE_LIMIT_MAX;
       const originalTtl = process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-      // Use a very short TTL so we can simulate expiry without real delays.
       process.env.VOICE_NOTE_RATE_LIMIT_MAX = '1';
       process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = '1';
 
       try {
-        const freshService = new MechanicVoiceNoteService(
-          mockPrisma,
-          mockTenantContext,
-          mockVoiceTranslationService,
+        const clock = new FakeClock(1_000_000);
+        const freshService = createVoiceNoteService(
+          new InMemoryRateLimitStore(clock),
         );
 
         (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
@@ -497,34 +553,14 @@ describe('MechanicVoiceNoteService', () => {
           durationSeconds: 2.0,
         });
 
-        // First call consumes the only slot in the window.
         await freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile());
+        clock.advance(1_000);
 
-        // Simulate window expiry by back-dating the internal map entry.
-        // Access the private map via bracket notation (unit-test only).
-        const rateLimitMap = (
-          freshService as unknown as {
-            voiceNoteRateLimitMap: Map<
-              string,
-              { count: number; windowStart: number }
-            >;
-          }
-        ).voiceNoteRateLimitMap;
-        const key = `${TENANT_ID}:${MECHANIC_ID}`;
-        const entry = rateLimitMap.get(key)!;
-        entry.windowStart = Date.now() - 2000; // 2 seconds ago, past 1s TTL
-
-        // After the window resets, the call should succeed again.
         await expect(
           freshService.uploadVoiceNote(MECHANIC_ID, TASK_ID, makeFile()),
         ).resolves.toBeDefined();
       } finally {
-        if (originalMax === undefined)
-          delete process.env.VOICE_NOTE_RATE_LIMIT_MAX;
-        else process.env.VOICE_NOTE_RATE_LIMIT_MAX = originalMax;
-        if (originalTtl === undefined)
-          delete process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS;
-        else process.env.VOICE_NOTE_RATE_LIMIT_TTL_SECONDS = originalTtl;
+        restoreRateLimitEnv(originalMax, originalTtl);
       }
     });
   });

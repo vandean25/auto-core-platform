@@ -28,7 +28,8 @@ async function cleanDb() {
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
         'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
-        'labor_operations', 'labor_categories', 'workshop_orders', 'vehicles', 'customers'
+        'labor_operations', 'labor_categories', 'workshop_orders', 'vehicles', 'customers',
+        'voice_note_rate_limits',
     ];
 
     const existingTables = new Set<string>();
@@ -59,6 +60,7 @@ async function cleanDb() {
     }
     // workshop_orders cascade-deletes workshop_tasks and workshop_task_line_items
     if (existingTables.has('workshop_orders')) await prisma.workshopOrder.deleteMany();
+    if (existingTables.has('voice_note_rate_limits')) await prisma.voiceNoteRateLimit.deleteMany();
     if (existingTables.has('vehicles')) await prisma.vehicle.deleteMany();
     if (existingTables.has('customers')) await prisma.customer.deleteMany();
     if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
