@@ -28,8 +28,8 @@ export const DOCUMENTED_ENV_KEYS = [
   'GOOGLE_CLOUD_PROJECT',
   'FIREBASE_PROJECT_ID',
   'GSM_MAPPING_PATH',
-  'OPENAI_API_KEY',
-  'SPEECH_NOTE_LANGUAGE',
+  'VOICE_NOTE_RATE_LIMIT_MAX',
+  'VOICE_NOTE_RATE_LIMIT_TTL_SECONDS',
 ] as const;
 
 export type DocumentedEnvKey = (typeof DOCUMENTED_ENV_KEYS)[number];
@@ -81,8 +81,8 @@ const envSchema = z
     GOOGLE_CLOUD_PROJECT: optionalString,
     FIREBASE_PROJECT_ID: optionalString,
     GSM_MAPPING_PATH: optionalString,
-    OPENAI_API_KEY: optionalString,
-    SPEECH_NOTE_LANGUAGE: optionalString,
+  VOICE_NOTE_RATE_LIMIT_MAX: optionalString,
+  VOICE_NOTE_RATE_LIMIT_TTL_SECONDS: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'test') {
