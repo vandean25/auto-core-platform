@@ -17,6 +17,7 @@ import type {
 } from './types'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
+import { laborKeys } from './labor'
 import {
   getWorkshopCustomerDisplayName,
   isWorkshopOrderPickEligible,
@@ -26,8 +27,6 @@ const WORKSHOP_API = '/api/workshop'
 const LABOR_API = '/api/labor'
 const CATALOG_API = '/api/catalog'
 const PICK_LIST_SOURCE_PAGE_SIZE = 100
-
-const workshopOrderDetailKey = (id: string) => ['workshop', 'order', id] as const
 
 type WorkshopApiError = Error & {
   status?: number
@@ -39,17 +38,11 @@ export const workshopKeys = {
   ordersPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.orders(), queryParams] as const,
   pickList: () => [...workshopKeys.all, 'pick-list'] as const,
   pickListPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.pickList(), queryParams] as const,
-  detail: (id: string) => workshopOrderDetailKey(id),
-  order: (id: string) => workshopOrderDetailKey(id),
+  detail: (id: string) => [...workshopKeys.all, 'order', id] as const,
+  order: (id: string) => workshopKeys.detail(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
   boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
   boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
-}
-
-export const laborKeys = {
-  all: ['labor'] as const,
-  search: (query: string, workshopOrderId: string) =>
-    [...laborKeys.all, 'search', query, workshopOrderId] as const,
 }
 
 export const catalogKeys = {

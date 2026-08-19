@@ -3,6 +3,7 @@ import type { PurchaseOrder } from "./types";
 import { fetchWithAuth } from "./client";
 import type { DataTableQueryParams } from "@/hooks/useDataTableQuery";
 import { buildDataTableUrl } from "./data-table-query";
+import { inventoryKeys } from "./inventory";
 
 const PO_API = "/api/purchase-orders";
 
@@ -121,7 +122,7 @@ export function useReceiveGoods() {
       queryClient.invalidateQueries({
         queryKey: purchaseOrderKeys.detail(variables.orderId),
       });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] }); // Update stock lists
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
   });
 }

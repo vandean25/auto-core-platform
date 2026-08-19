@@ -96,7 +96,7 @@ auto-core-platform/
 - **Tailwind v4**: All styling is defined in `@theme` blocks in `src/index.css`, NOT in `tailwind.config.js`. Utility classes are preferred.
 - **shadcn/ui**: Components are located in `src/components/ui/`. Import from `@/components/ui/<component-name>`. Use the `cn()` utility from `@/lib/utils` for conditional classes. Use shadcn/ui primitives when possible.
 - **Data Fetching**: Use **TanStack Query** for all API calls. Hooks go in `src/api/` (e.g., `useInventory`, `useInventoryHistory`). API types go in `src/api/types.ts`.
-- **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g. `purchaseInvoiceKeys`, `workshopKeys` in `src/api/workshop.ts`, `vehicleStockKeys`) in their respective hook or service files.
+- **Query Key Factories (Strict Enforcement)**: Never use inline hardcoded arrays for React Query keys. All domains must define a standardized factory object (e.g. `invoiceKeys`, `purchaseInvoiceKeys`, `workshopKeys`, `laborKeys`, `vehicleStockKeys`) in their respective hook or service files. Share one factory per domain — do not duplicate keys such as `laborKeys` across modules.
 - **Components**: Page components in `src/pages/`, Reusable components in `src/components/`.
 - **Navigation & Layout**: Defined in `src/App.tsx`. Navigation is grouped into domains (Sales, Inventory, Procurement, Workshop, Vehicle stock).
 - **ID Generation**: Always use the centralized `generateId()` utility from `@/lib/id` instead of direct `crypto.randomUUID()` calls. This ensures compatibility with automated test environments (Playwright) where `crypto.randomUUID` might be unavailable.
