@@ -138,10 +138,8 @@ export function applyTenantIsolation(
   ctx: unknown,
   model: string,
   operation: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  args: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query: (args: any) => Promise<unknown>,
+  args: unknown,
+  query: (args: Record<string, unknown>) => Promise<unknown>,
 ): Promise<unknown> {
   return (async () => {
     const nextArgs = normalizeRecord(args);
@@ -253,7 +251,7 @@ export function applyTenantIsolation(
       return query(nextArgs);
     }
 
-    // Passthrough for any unhandled operations (createMany, etc.)
+    // Passthrough for unhandled operations.
 
     return query(nextArgs);
   })();
@@ -282,8 +280,7 @@ export function createTenantIsolationExtension() {
       name: 'tenant-isolation',
       query: {
         $allModels: {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          $allOperations({ model, operation, args, query }: any) {
+          $allOperations({ model, operation, args, query }) {
             return applyTenantIsolation.call(
               this,
               client,
