@@ -266,6 +266,9 @@ This project uses the following MCP servers:
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
 
+### Skill trees
+Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/superpowers/`). Codex and Cursor consume that tree — do not add `.codex/skills/` or `.cursor/skills/` copies. `docs/internal/.agents/skills/` (architecture vault) and `apps/core-api/.agents/skills/` (Neon) are separate, non-duplicate trees.
+
 ### Local Project Skills
 - **Stitch Fetch Skill**: `.agents/skills/stitch-fetch/SKILL.md`
   - Use it to fetch Stitch screen metadata and download image/code assets via hosted URLs using `curl -L`.
