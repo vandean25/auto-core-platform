@@ -81,8 +81,8 @@ const envSchema = z
     GOOGLE_CLOUD_PROJECT: optionalString,
     FIREBASE_PROJECT_ID: optionalString,
     GSM_MAPPING_PATH: optionalString,
-  VOICE_NOTE_RATE_LIMIT_MAX: optionalString,
-  VOICE_NOTE_RATE_LIMIT_TTL_SECONDS: optionalString,
+    VOICE_NOTE_RATE_LIMIT_MAX: optionalString,
+    VOICE_NOTE_RATE_LIMIT_TTL_SECONDS: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'test') {
