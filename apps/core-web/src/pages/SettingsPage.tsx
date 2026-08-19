@@ -58,25 +58,31 @@ const LocationTreeItem = ({
         <div className="select-none">
             <div
                 className={cn(
-                    "flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer group",
+                    "flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md group",
                     level > 0 && "ml-4 border-l-2 border-slate-200"
                 )}
-                onClick={() => setExpanded(!expanded)}
             >
-                <div className="flex items-center gap-1 text-slate-500 w-4">
-                    {hasChildren && (
-                        expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-                    )}
-                </div>
+                <button
+                    type="button"
+                    className="flex flex-1 items-center gap-2 text-left"
+                    onClick={() => setExpanded(!expanded)}
+                    aria-expanded={expanded}
+                >
+                    <span className="flex items-center gap-1 text-slate-500 w-4">
+                        {hasChildren && (
+                            expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                        )}
+                    </span>
 
-                {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-blue-500" /> :
-                    location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
-                        <div className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
+                    {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-blue-500" /> :
+                        location.type === 'bin' ? <Box className="h-4 w-4 text-green-500" /> :
+                            <span className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
 
-                <span className="font-medium text-sm">{location.name}</span>
-                <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-400 group-hover:text-slate-600 transition-colors">
-                    {location.code}
-                </Badge>
+                    <span className="font-medium text-sm">{location.name}</span>
+                    <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-400 group-hover:text-slate-600 transition-colors">
+                        {location.code}
+                    </Badge>
+                </button>
 
                 <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
@@ -193,8 +199,9 @@ function StorageLocationsTab() {
                     <CardContent>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Name</label>
+                                <label htmlFor="location-name" className="text-sm font-medium">Name</label>
                                 <Input
+                                    id="location-name"
                                     value={newItem.name}
                                     onChange={e => setNewItem({ ...newItem, name: e.target.value })}
                                     placeholder="e.g. Main Warehouse"
@@ -203,8 +210,9 @@ function StorageLocationsTab() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Code (Unique)</label>
+                                <label htmlFor="location-code" className="text-sm font-medium">Code (Unique)</label>
                                 <Input
+                                    id="location-code"
                                     value={newItem.code}
                                     onChange={e => setNewItem({ ...newItem, code: e.target.value })}
                                     placeholder="e.g. WH-001"
@@ -213,12 +221,12 @@ function StorageLocationsTab() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Type</label>
+                                <label htmlFor="location-type" className="text-sm font-medium">Type</label>
                                 <Select
                                     value={newItem.type}
                                     onValueChange={(val: LocationType) => setNewItem({ ...newItem, type: val })}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger id="location-type">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -231,13 +239,13 @@ function StorageLocationsTab() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Parent Location</label>
+                                <label htmlFor="location-parent" className="text-sm font-medium">Parent Location</label>
                                 <Select
                                     value={newItem.parentId}
                                     onValueChange={(val) => setNewItem({ ...newItem, parentId: val === 'none' ? '' : val })}
                                     disabled={newItem.type === 'warehouse'}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger id="location-parent">
                                         <SelectValue placeholder={newItem.type === 'warehouse' ? "None (Root)" : "Select Parent"} />
                                     </SelectTrigger>
                                     <SelectContent>

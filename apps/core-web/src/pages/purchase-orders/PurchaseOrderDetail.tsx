@@ -577,7 +577,6 @@ export default function PurchaseOrderDetail() {
                                   }
                                 }}
                                 className="w-16 text-right"
-                                autoFocus
                               />
                             </motion.div>
                           ) : (
@@ -590,7 +589,8 @@ export default function PurchaseOrderDetail() {
                               transition={{ duration: 0.24, ease: "easeOut" }}
                               className="origin-center"
                             >
-                              <div
+                              <button
+                                type="button"
                                 onClick={() => {
                                   setEditingItemId(item.id);
                                   setEditingQty(item.quantity.toString());
@@ -598,7 +598,7 @@ export default function PurchaseOrderDetail() {
                                 className="cursor-pointer hover:text-primary"
                               >
                                 {item.quantity}
-                              </div>
+                              </button>
                             </motion.div>
                           )}
                         </TableCell>

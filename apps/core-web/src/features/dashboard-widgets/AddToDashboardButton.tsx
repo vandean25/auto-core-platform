@@ -68,14 +68,14 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Widget Name</label>
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Orders by Status" />
+              <label htmlFor="dashboard-widget-name" className="text-sm font-medium">Widget Name</label>
+              <Input id="dashboard-widget-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Orders by Status" />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Display Type</label>
+              <label htmlFor="dashboard-widget-display-type" className="text-sm font-medium">Display Type</label>
               <Select value={displayType} onValueChange={(value) => setDisplayType(value as DashboardWidgetDisplayType)}>
-                <SelectTrigger>
+                <SelectTrigger id="dashboard-widget-display-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -88,9 +88,9 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
 
             {displayType === 'donut' ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium">Group By</label>
+                <label htmlFor="dashboard-widget-group-by" className="text-sm font-medium">Group By</label>
                 <Select value={groupByField} onValueChange={setGroupByField}>
-                  <SelectTrigger>
+                  <SelectTrigger id="dashboard-widget-group-by">
                     <SelectValue placeholder="Select grouping column" />
                   </SelectTrigger>
                   <SelectContent>
@@ -107,12 +107,12 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
             {displayType === 'metric' ? (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Calculate</label>
+                  <label htmlFor="dashboard-widget-calculation" className="text-sm font-medium">Calculate</label>
                   <Select
                     value={metricCalculation}
                     onValueChange={(value) => setMetricCalculation(value as DashboardWidgetMetricCalculation)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="dashboard-widget-calculation">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -124,9 +124,9 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
 
                 {metricCalculation === 'sum' ? (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Sum Column</label>
-                    <Select value={metricField} onValueChange={setMetricField}>
-                      <SelectTrigger>
+                  <label htmlFor="dashboard-widget-metric-field" className="text-sm font-medium">Sum Column</label>
+                  <Select value={metricField} onValueChange={setMetricField}>
+                    <SelectTrigger id="dashboard-widget-metric-field">
                         <SelectValue placeholder="Select numeric column" />
                       </SelectTrigger>
                       <SelectContent>

@@ -211,9 +211,20 @@ function TaskAccordionRow({
     <div
       data-workshop-task-row='true'
       className='w-full rounded-lg border transition-colors hover:bg-accent'
-      onClick={onToggleExpanded}
     >
-      <div className='flex items-center gap-3 px-3 py-2.5 text-left'>
+      <div
+        className='flex items-center gap-3 px-3 py-2.5 text-left'
+        role='button'
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={onToggleExpanded}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onToggleExpanded()
+          }
+        }}
+      >
         <Checkbox
           checked={task.done}
           onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
@@ -239,7 +250,6 @@ function TaskAccordionRow({
       {isExpanded && (
         <div
           className='space-y-4 border-t px-3 py-4'
-          onClick={(event) => event.stopPropagation()}
         >
           <div className='flex items-center justify-between gap-3'>
             <div>
