@@ -25,7 +25,7 @@ export default defineConfig([
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
       '@typescript-eslint/no-explicit-any': 'error',
-      'jsx-a11y/label-has-associated-control': ['error', { controlComponents: ['Input', 'Select'] }],
+      'jsx-a11y/label-has-associated-control': ['error', { controlComponents: ['Input'] }],
       'react-refresh/only-export-components': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/preserve-manual-memoization': 'off',

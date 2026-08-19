@@ -212,11 +212,17 @@ function TaskAccordionRow({
       data-workshop-task-row='true'
       className='w-full rounded-lg border transition-colors hover:bg-accent'
     >
-      <div
-        className='flex items-center gap-3 px-3 py-2.5 text-left'
-        role='button'
-        tabIndex={0}
-        aria-expanded={isExpanded}
+      <div className='flex items-center gap-3 px-3 py-2.5 text-left'>
+        <Checkbox
+          checked={task.done}
+          onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
+          disabled={isLocked}
+          onClick={(event) => event.stopPropagation()}
+        />
+        <button
+          type='button'
+          className='flex flex-1 items-center gap-3 text-left'
+          aria-expanded={isExpanded}
         onClick={onToggleExpanded}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -225,19 +231,14 @@ function TaskAccordionRow({
           }
         }}
       >
-        <Checkbox
-          checked={task.done}
-          onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
-          disabled={isLocked}
-          onClick={(event) => event.stopPropagation()}
-        />
-        <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-          {task.title}
-        </span>
-        <span className='ml-auto flex items-center gap-2'>
-          <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
-          <StatusBadge status={task.status} />
-        </span>
+          <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
+            {task.title}
+          </span>
+          <span className='ml-auto flex items-center gap-2'>
+            <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
+            <StatusBadge status={task.status} />
+          </span>
+        </button>
       </div>
       <div className='px-3 pb-2.5 pl-10 text-xs text-muted-foreground'>
         {partsCount} {partsCount === 1 ? 'part' : 'parts'} · {laborCount}{' '}

@@ -152,6 +152,7 @@ export default function PurchaseOrderCreate() {
                                             "w-full p-4 border rounded text-left hover:bg-muted/50",
                                             selectedVendorId === vendor.id ? "border-primary bg-muted/50" : ""
                                         )}
+                                        aria-pressed={selectedVendorId === vendor.id}
                                         onClick={() => setSelectedVendorId(vendor.id)}
                                     >
                                         <span className="block font-bold">{vendor.name}</span>

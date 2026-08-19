@@ -66,7 +66,7 @@ const LocationTreeItem = ({
                     type="button"
                     className="flex flex-1 items-center gap-2 text-left"
                     onClick={() => setExpanded(!expanded)}
-                    aria-expanded={expanded}
+                    aria-expanded={hasChildren ? expanded : undefined}
                 >
                     <span className="flex items-center gap-1 text-slate-500 w-4">
                         {hasChildren && (

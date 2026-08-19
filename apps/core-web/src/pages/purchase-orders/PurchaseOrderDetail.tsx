@@ -82,6 +82,18 @@ export default function PurchaseOrderDetail() {
 
   const itemInputRef = useRef<HTMLInputElement | null>(null);
   const qtyInputRef = useRef<HTMLInputElement | null>(null);
+  const editingQtyInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!editingItemId) return;
+
+    const frame = requestAnimationFrame(() => {
+      editingQtyInputRef.current?.focus();
+      editingQtyInputRef.current?.select();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [editingItemId]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -547,6 +559,7 @@ export default function PurchaseOrderDetail() {
                               className="origin-center"
                             >
                               <Input
+                                ref={editingQtyInputRef}
                                 type="number"
                                 min="1"
                                 value={editingQty}
