@@ -3,6 +3,7 @@ import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
+import { isMechanicPath } from '@/lib/shell-paths'
 
 export type AuthSession = components['schemas']['AuthSessionResponseDto']
 export type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
@@ -26,6 +27,13 @@ const e2eAuthSession: AuthSession = {
   memberships: [],
 }
 
+function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
+  return {
+    ...e2eAuthSession,
+    activeRole: isMechanicPath(pathname) ? 'TECH' : 'ADMIN',
+  }
+}
+
 function getCurrentUserKey(explicitUserKey?: string | null) {
   if (explicitUserKey) {
     return explicitUserKey
@@ -47,7 +55,7 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
     enabled: enabled && Boolean(resolvedUserKey),
     queryFn: async () => {
       if (isE2EAuthBypassEnabled()) {
-        return e2eAuthSession
+        return getE2EAuthSession()
       }
 
       const response = await fetchWithAuth('/api/auth/me')

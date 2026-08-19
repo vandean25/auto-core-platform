@@ -13,6 +13,7 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
+import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { PageLoader } from '@/components/ui/PageLoader'
 
@@ -316,14 +317,6 @@ const TECH_ROLE = 'TECH'
 
 type ShellRouterProps = AppShellProps & {
   onSignOut: () => void
-}
-
-function isMechanicPath(pathname: string) {
-  return pathname === '/mechanic' || pathname.startsWith('/mechanic/')
-}
-
-function isPlatformPath(pathname: string) {
-  return pathname.startsWith('/platform/')
 }
 
 function resolveShellRedirect(input: {
