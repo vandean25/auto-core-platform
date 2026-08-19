@@ -1,6 +1,6 @@
 import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -24,6 +24,13 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'app-root');
@@ -45,5 +52,18 @@ describe('AppController (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Hello World!');
+  });
+
+  it('rejects unknown properties on validated DTOs', async () => {
+    await request(app.getHttpServer())
+      .post('/api/inventory/locations')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: 'Test location',
+        code: 'TEST',
+        type: 'warehouse',
+        unexpected: true,
+      })
+      .expect(400);
   });
 });
