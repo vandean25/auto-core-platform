@@ -158,7 +158,7 @@ describe('prisma-migrate-deploy-exit spawn', () => {
 
 function extractStep(yaml: string, stepId: string): string {
   const match = yaml.match(
-    new RegExp(`- id: ${stepId}\\n([\\s\\S]*?)(?=\\n  - id: |$)`),
+    new RegExp(`- id: ${stepId}\\r?\\n([\\s\\S]*?)(?=\\r?\\n  - id: |$)`),
   );
   if (!match) {
     throw new Error(`Cloud Build step '${stepId}' not found`);

@@ -131,6 +131,20 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ NODE_ENV: 'test' })).not.toThrow();
     expect(() => validateEnv({ NODE_ENV: 'test', DATABASE_URL: '' })).not.toThrow();
   });
+
+  it('parses optional REDIS_URL when provided', () => {
+    const env = validateEnv(
+      productionEnv({
+        REDIS_URL: 'redis://10.0.0.3:6379',
+      }),
+    );
+    expect(env.REDIS_URL).toBe('redis://10.0.0.3:6379');
+  });
+
+  it('allows REDIS_URL to be undefined in development and production', () => {
+    const env = validateEnv(productionEnv());
+    expect(env.REDIS_URL).toBeUndefined();
+  });
 });
 
 describe('DOCUMENTED_ENV_KEYS', () => {
