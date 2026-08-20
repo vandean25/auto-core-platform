@@ -248,15 +248,21 @@ Seed helpers: `npm run db:seed:tenant-member` and `npm run db:seed:platform-admi
 
 ### Frontend Environment Variables
 
-Set these in build/deploy environment for `apps/core-web`:
+Set these in the build/deploy environment for `apps/core-web`:
 
 ```env
-VITE_API_BASE_URL=
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
 ```
+
+Production does not require `VITE_API_BASE_URL`. Cloud Build intentionally
+leaves it unset so the browser keeps API requests relative to the Firebase
+Hosting origin. Firebase Hosting rewrites `/api/**` to the `core-api` Cloud Run
+service in `europe-west3`; REST calls use `/api/...` and the production
+Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
+requests through `/api` and Socket.IO through `/socket.io` to the local API.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -268,6 +274,15 @@ VITE_FIREBASE_APP_ID=
 ```
 
 After editing env values, restart the Vite dev server.
+
+Before relying on realtime connections in production, verify the Socket.IO
+WebSocket upgrade on a staging Hosting channel. Cloud Run supports WebSockets
+directly, but Hosting Cloud Run rewrites are documented primarily for HTTP
+requests and must be validated for this upgrade. If Hosting cannot proxy the
+upgrade reliably, use an explicitly configured direct Cloud Run origin as a
+temporary deployment fallback; do not move NestJS to Cloud Functions. Keep
+`VITE_API_BASE_URL` empty in the normal production build so REST remains
+same-origin.
 
 ### Create Login User (Email/Password)
 

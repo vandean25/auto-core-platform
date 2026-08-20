@@ -2,7 +2,7 @@ import { firebaseAuth } from '@/lib/firebase'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 
-function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
+export function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
   if (!API_BASE_URL) return input
 
   if (typeof input === 'string' && input.startsWith('/api/')) {

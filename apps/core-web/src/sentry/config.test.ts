@@ -29,4 +29,13 @@ describe('createSentryOptions', () => {
     expect(options.release).toBeUndefined()
     expect(options.tracesSampleRate).toBe(1)
   })
+
+  it('does not add an empty API base URL to trace propagation targets', () => {
+    const options = createSentryOptions({
+      MODE: 'production',
+      VITE_API_BASE_URL: '',
+    })
+
+    expect(options.tracePropagationTargets).toEqual(['localhost'])
+  })
 })
