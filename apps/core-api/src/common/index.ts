@@ -42,6 +42,7 @@ export {
   type SignedPdfTaskPayload,
 } from './pdf';
 export { PlaywrightBrowserService } from './services/playwright-browser.service';
+export { createGlobalValidationPipe } from './validation.pipe';
 export {
   STALE_STATUS_CONFLICT_MESSAGE,
   bindStatusUpdateMany,

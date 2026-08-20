@@ -10,7 +10,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { VoiceTranslationService } from '../src/voice-translation/voice-translation.service';
 import { WorkshopTaskStatus } from '@prisma/client';
-import { createGlobalValidationPipe } from '../src/common/validation.pipe';
+import { createGlobalValidationPipe } from '../src/common';
 import {
   cleanupTestTenantGraph,
   cleanupTestUsers,

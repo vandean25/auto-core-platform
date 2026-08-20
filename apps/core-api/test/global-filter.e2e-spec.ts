@@ -1,11 +1,14 @@
 import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, HttpStatus, ValidationPipe } from '@nestjs/common';
+import { INestApplication, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
-import { GlobalExceptionFilter } from '../src/common';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('GlobalExceptionFilter (e2e)', () => {
@@ -20,13 +23,7 @@ describe('GlobalExceptionFilter (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 

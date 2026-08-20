@@ -3,7 +3,6 @@ import {
   Get,
   Req,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -14,6 +13,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../src/auth/super-admin.guard';
 import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admin.decorator';
+import { createGlobalValidationPipe } from '../src/common';
 import type { AuthenticatedUser } from '../src/auth/types/authenticated-user';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SystemPrismaService } from '../src/prisma/system-prisma.service';
@@ -94,13 +94,7 @@ describe('Bearer auth (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     authService = app.get(AuthService);

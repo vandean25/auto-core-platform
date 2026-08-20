@@ -1,8 +1,9 @@
 import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { createGlobalValidationPipe } from './../src/common';
 import { PrismaService } from './../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
@@ -29,13 +30,7 @@ describe('PurchaseInvoice (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
     basePrisma = app.get<PrismaService>(PrismaService);
 
