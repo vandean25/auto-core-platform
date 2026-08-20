@@ -93,8 +93,14 @@ describe('dead code hygiene (AUT-139)', () => {
       path.join(CORE_API_ROOT, '.env.example'),
       'utf8',
     );
+    const envConfig = fs.readFileSync(
+      path.join(CORE_API_ROOT, 'src/config/env.ts'),
+      'utf8',
+    );
     expect(envExample).not.toMatch(/SPEECH_NOTE/);
     expect(envExample).not.toMatch(/OPENAI_API_KEY/);
+    expect(envConfig).not.toMatch(/SPEECH_NOTE/);
+    expect(envConfig).not.toMatch(/OPENAI_API_KEY/);
   });
 
   it('does not depend on openai after SpeechNote removal', () => {
