@@ -34,9 +34,11 @@ COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
 
-WORKDIR /usr/src/app/apps/core-api
+WORKDIR /usr/src/app
 
-RUN npx playwright install chromium
+RUN npm exec --workspace=core-api -- playwright install chromium
+
+WORKDIR /usr/src/app/apps/core-api
 
 EXPOSE 3000
 
