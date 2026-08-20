@@ -59,6 +59,12 @@ describe('WorkshopPdfService.requestGeneration', () => {
 
     expect(generateNow).not.toHaveBeenCalled();
     expect(renderer.render).not.toHaveBeenCalled();
+    expect(enqueuePdfGeneration).toHaveBeenCalledWith({
+      kind: 'workshop-order',
+      resourceId: workshopOrderId,
+      tenantId,
+      targetBaseUrl: 'https://worker.example.com/api',
+    });
   });
 
   function createService(options: { cloudTasksEnabled: boolean }) {

@@ -60,6 +60,12 @@ describe('InvoicePdfService.requestGeneration', () => {
 
     expect(generateNow).not.toHaveBeenCalled();
     expect(renderer.render).not.toHaveBeenCalled();
+    expect(enqueuePdfGeneration).toHaveBeenCalledWith({
+      kind: 'invoice',
+      resourceId: invoiceId,
+      targetBaseUrl: 'https://worker.example.com/api',
+      tenantId,
+    });
   });
 
   function createService(options: { cloudTasksEnabled: boolean }) {

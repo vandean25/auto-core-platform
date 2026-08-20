@@ -74,7 +74,8 @@ export class WorkshopPdfService {
       };
     }
 
-    const shouldEnqueue = this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
+    const shouldEnqueue =
+      this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
 
     if (!shouldEnqueue) {
       if (process.env.NODE_ENV === 'production') {

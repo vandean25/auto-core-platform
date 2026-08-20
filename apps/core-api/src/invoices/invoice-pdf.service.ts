@@ -79,7 +79,8 @@ export class InvoicePdfService {
       );
     }
 
-    const shouldEnqueue = this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
+    const shouldEnqueue =
+      this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
 
     if (!shouldEnqueue) {
       if (process.env.NODE_ENV === 'production') {
@@ -105,7 +106,6 @@ export class InvoicePdfService {
     }
 
     try {
-      const tenantId = await this.tenantContext.getTenantId();
       const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
         kind: 'invoice',
         resourceId: invoiceId,
