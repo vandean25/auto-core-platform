@@ -680,6 +680,7 @@ export function LaborCategoriesTab() {
                       ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                       : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                   )}
+                  aria-label={`Active: ${addForm.is_active ? "on" : "off"}`}
                 >
                   {addForm.is_active ? "Active" : "Inactive"}
                 </button>
@@ -808,6 +809,7 @@ export function LaborCategoriesTab() {
                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                     : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                 )}
+                aria-label={`Active: ${editForm.is_active ? "on" : "off"}`}
               >
                 {editForm.is_active ? "Active" : "Inactive"}
               </button>
