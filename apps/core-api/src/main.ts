@@ -20,7 +20,10 @@ async function bootstrap() {
   app.useGlobalPipes(createGlobalValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new HttpLoggingInterceptor());
-  configureHttpSecurity(app, env);
+  configureHttpSecurity(app, {
+    frontendUrl: env.FRONTEND_URL,
+    nodeEnv: env.NODE_ENV,
+  });
 
   const port = env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
