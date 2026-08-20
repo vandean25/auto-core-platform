@@ -143,16 +143,18 @@ gcloud run deploy core-api \
 
 ## 4. Verification & Diagnostics
 
-### Checking Server Logs
-When `core-api` starts with `REDIS_URL` configured, `DashboardGateway` logs:
-```
-[DashboardGateway] Attached Redis adapter to Socket.IO for cross-instance fan-out.
-```
-
-If Redis connection fails or disconnects, errors are logged with structured context:
-```
-[DashboardGateway] Redis pub client error: connect ECONNREFUSED ...
-```
+### Eager Connection & Fail-Closed Safety
+When `core-api` boots with `REDIS_URL` set:
+1. `DashboardGateway` eagerly connects `pubClient` and `subClient` before attaching the adapter.
+2. The success log is ONLY emitted once both Redis clients have successfully connected:
+   ```
+   [DashboardGateway] Attached Redis adapter to Socket.IO for cross-instance fan-out.
+   ```
+3. **Fail-Closed in Production**: In `NODE_ENV=production`, if `REDIS_URL` is specified but cannot connect (e.g. invalid host, VPC connector missing, or bad credentials), `DashboardGateway` throws a `CRITICAL` startup error to prevent silent split-brain operation under multi-instance deployments.
+4. If a connection drops post-startup, client errors are logged:
+   ```
+   [DashboardGateway] Redis pub client error: connect ECONNREFUSED ...
+   ```
 
 ### Multi-Instance Realtime Verification
 1. Connect Browser Client A to Replica 1 and Browser Client B to Replica 2 (both logged into Tenant A).

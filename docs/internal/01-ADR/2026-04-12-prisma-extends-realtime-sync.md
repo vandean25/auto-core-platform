@@ -198,11 +198,11 @@ sequenceDiagram
 - **Type-safe** — Both backend and frontend use strict union types (`DashboardEntityType`, `DashboardEntityAction`) preventing typo-based bugs.
 - **Selective invalidation** — Only active dashboard queries for the affected entity type are refetched, minimizing network overhead.
 - **Extensible** — Adding a new entity to real-time sync requires just two changes: add to `SUPPORTED_ENTITY_TYPES` (backend) and `entityToDashboardSourceKeys` (frontend).
+- **Tenant & User Room Scoping** — Events are routed to tenant-isolated rooms (`tenant_{tenantId}`) and user-specific rooms (`user_{userId}`), preventing cross-tenant data leaks and targeting cache invalidation accurately.
 
 ### Negative
 
 - **Prisma coupling** — The extension mechanism is tightly coupled to Prisma's `$extends` API. A future ORM migration would require reimplementing this layer.
-- **Broadcast-only** — Events are broadcast to all connected clients. There is no per-user or per-room filtering; every dashboard user receives every event.
 - **No guaranteed delivery** — WebSocket events are fire-and-forget. If a client disconnects during an event, that update is lost (mitigated by TanStack Query's background refetching on reconnect).
 - **Upsert overhead** — The `upsert` handler performs an extra `findFirst` query to distinguish create from update, adding a minor DB round-trip.
 

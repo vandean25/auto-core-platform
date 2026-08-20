@@ -8,7 +8,18 @@ import {
   type AuthClaimsUpdatedPayload,
   type DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
-import { DashboardGateway, resolveCorsOrigins } from './dashboard.gateway';
+import {
+  DashboardGateway,
+  resolveCorsOrigins,
+  resolveRedisUrl,
+} from './dashboard.gateway';
+
+const mockPubQuit = jest.fn().mockResolvedValue('OK');
+const mockPubConnect = jest.fn().mockResolvedValue('OK');
+const mockSubQuit = jest.fn().mockResolvedValue('OK');
+const mockSubConnect = jest.fn().mockResolvedValue('OK');
+const mockPubOn = jest.fn();
+const mockSubOn = jest.fn();
 
 jest.mock('@socket.io/redis-adapter', () => ({
   createAdapter: jest.fn(() => 'mock-redis-adapter'),
@@ -17,12 +28,28 @@ jest.mock('@socket.io/redis-adapter', () => ({
 jest.mock('ioredis', () => {
   return jest.fn().mockImplementation(() => ({
     duplicate: jest.fn().mockReturnValue({
-      on: jest.fn(),
-      quit: jest.fn().mockResolvedValue('OK'),
+      on: mockSubOn,
+      connect: mockSubConnect,
+      quit: mockSubQuit,
     }),
-    on: jest.fn(),
-    quit: jest.fn().mockResolvedValue('OK'),
+    on: mockPubOn,
+    connect: mockPubConnect,
+    quit: mockPubQuit,
   }));
+});
+
+describe('resolveRedisUrl', () => {
+  it('returns undefined when REDIS_URL is undefined or empty', () => {
+    expect(resolveRedisUrl(undefined)).toBeUndefined();
+    expect(resolveRedisUrl('')).toBeUndefined();
+    expect(resolveRedisUrl('   ')).toBeUndefined();
+  });
+
+  it('returns trimmed URL when REDIS_URL is provided', () => {
+    expect(resolveRedisUrl('  redis://10.0.0.3:6379  ')).toBe(
+      'redis://10.0.0.3:6379',
+    );
+  });
 });
 
 describe('resolveCorsOrigins', () => {
@@ -66,7 +93,7 @@ describe('DashboardGateway', () => {
   let gateway: DashboardGateway;
   let middleware: (socket: any, next: (err?: Error) => void) => void;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     authService = {
       authenticateBearerToken: jest.fn(),
     };
@@ -77,7 +104,7 @@ describe('DashboardGateway', () => {
         middleware = fn;
       }),
     };
-    gateway.afterInit(mockServer as unknown as Server);
+    await gateway.afterInit(mockServer as unknown as Server);
   });
 
   describe('middleware authentication', () => {
@@ -224,33 +251,86 @@ describe('DashboardGateway', () => {
   });
 
   describe('Redis adapter initialization', () => {
-    it('attaches Redis adapter when REDIS_URL is provided', () => {
+    it('attaches Redis adapter when REDIS_URL is provided and connect succeeds', async () => {
       jest.clearAllMocks();
-      const gatewayWithRedis = new DashboardGateway(
-        authService,
-        'redis://10.0.0.3:6379',
-      );
+      const gatewayWithRedis = new DashboardGateway(authService);
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
       };
 
-      gatewayWithRedis.afterInit(mockServer as unknown as Server);
+      await gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
 
-      expect(Redis).toHaveBeenCalledWith('redis://10.0.0.3:6379');
+      expect(Redis).toHaveBeenCalledWith('redis://10.0.0.3:6379', {
+        lazyConnect: true,
+      });
+      expect(mockPubConnect).toHaveBeenCalled();
+      expect(mockSubConnect).toHaveBeenCalled();
       expect(createAdapter).toHaveBeenCalled();
       expect(mockServer.adapter).toHaveBeenCalledWith('mock-redis-adapter');
     });
 
-    it('keeps default in-memory adapter when REDIS_URL is unset', () => {
+    it('does not attach adapter or log success when connect fails outside production', async () => {
       jest.clearAllMocks();
-      const gatewayWithoutRedis = new DashboardGateway(authService, undefined);
+      mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const gatewayWithRedis = new DashboardGateway(authService);
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
       };
 
-      gatewayWithoutRedis.afterInit(mockServer as unknown as Server);
+      await gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+
+      expect(createAdapter).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+    });
+
+    it('throws critical error when connect fails in production', async () => {
+      jest.clearAllMocks();
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      try {
+        await expect(
+          gatewayWithRedis.afterInit(
+            mockServer as unknown as Server,
+            'redis://10.0.0.3:6379',
+          ),
+        ).rejects.toThrow(/CRITICAL: Failed to connect to Redis at redis:\/\/10.0.0.3:6379/);
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+
+      expect(createAdapter).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+    });
+
+    it('keeps default in-memory adapter when REDIS_URL is unset', async () => {
+      jest.clearAllMocks();
+      const gatewayWithoutRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      await gatewayWithoutRedis.afterInit(
+        mockServer as unknown as Server,
+        undefined,
+      );
 
       expect(createAdapter).not.toHaveBeenCalled();
       expect(mockServer.adapter).not.toHaveBeenCalled();
@@ -258,20 +338,20 @@ describe('DashboardGateway', () => {
 
     it('cleans up Redis clients on module destroy', async () => {
       jest.clearAllMocks();
-      const gatewayWithRedis = new DashboardGateway(
-        authService,
-        'redis://10.0.0.3:6379',
-      );
+      const gatewayWithRedis = new DashboardGateway(authService);
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
       };
 
-      gatewayWithRedis.afterInit(mockServer as unknown as Server);
+      await gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
       await gatewayWithRedis.onModuleDestroy();
 
-      expect((gatewayWithRedis as any).pubClient.quit).toHaveBeenCalled();
-      expect((gatewayWithRedis as any).subClient.quit).toHaveBeenCalled();
+      expect(mockPubQuit).toHaveBeenCalled();
+      expect(mockSubQuit).toHaveBeenCalled();
     });
   });
 });

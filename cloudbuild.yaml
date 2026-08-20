@@ -80,6 +80,9 @@ steps:
       - |
         set -euo pipefail
         IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
+        # Realtime WebSocket stability: keep min-instances 1 and continuous CPU for Socket.IO heartbeats.
+        # Keep max-instances 1 (single-instance safe mode) until Memorystore Redis is provisioned and REDIS_URL is mounted.
+        # When merging PR 373 (PDF worker), ensure these flags apply only to core-api and NOT the Playwright worker.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
           --region "${_REGION}" \

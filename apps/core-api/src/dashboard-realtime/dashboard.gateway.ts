@@ -1,7 +1,6 @@
 import {
   Inject,
   Logger,
-  Optional,
   forwardRef,
   type OnModuleDestroy,
 } from '@nestjs/common';
@@ -55,6 +54,13 @@ export function resolveCorsOrigins(
   return configuredOrigins;
 }
 
+export function resolveRedisUrl(
+  redisUrl: string | undefined = process.env.REDIS_URL,
+): string | undefined {
+  const trimmed = redisUrl?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
 const allowedOrigins = resolveCorsOrigins();
 
 @Public()
@@ -83,17 +89,17 @@ export class DashboardGateway
   constructor(
     @Inject(forwardRef(() => AuthService))
     private readonly authService: AuthService,
-    @Optional()
-    private readonly redisUrl: string | undefined = process.env.REDIS_URL,
   ) {}
 
   @WebSocketServer()
   server!: Server;
 
-  afterInit(server: Server) {
-    if (this.redisUrl && this.redisUrl.trim().length > 0) {
+  async afterInit(server: Server, redisUrl = resolveRedisUrl()) {
+    if (redisUrl) {
       try {
-        const pubClient = new Redis(this.redisUrl.trim());
+        const pubClient = new Redis(redisUrl, {
+          lazyConnect: true,
+        });
         const subClient = pubClient.duplicate();
 
         pubClient.on('error', (err) => {
@@ -112,6 +118,8 @@ export class DashboardGateway
           );
         });
 
+        await Promise.all([pubClient.connect(), subClient.connect()]);
+
         server.adapter(createAdapter(pubClient, subClient));
         this.pubClient = pubClient;
         this.subClient = subClient;
@@ -123,6 +131,12 @@ export class DashboardGateway
         this.logger.error(
           `Failed to initialize Socket.IO Redis adapter: ${message}`,
         );
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error(
+            `CRITICAL: Failed to connect to Redis at ${redisUrl} in production: ${message}`,
+            { cause: err },
+          );
+        }
       }
     }
 
