@@ -62,8 +62,8 @@ The Node `pg.Pool` used at runtime is capped at 10 connections per instance (`--
 7. Run SQL health checks from `tools/pooling/check-pool-settings.sql` against a
    pooled session and archive the output.
 8. Confirm the structured startup event reports a `-pooler` host distinct from
-   the direct host. On the next deploy, optionally set
-   `DATABASE_POOLER_REQUIRED=true` to make that check fail closed.
+   the direct host. On the next deploy, optionally override Cloud Build
+   `_DATABASE_POOLER_REQUIRED=true` to make that check fail closed.
 9. Promote the same setup to production.
 
 ## Monitoring and Alerts

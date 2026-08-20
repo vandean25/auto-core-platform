@@ -104,8 +104,8 @@ Before overriding Cloud Build `_DATABASE_POOLED_SECRET`:
    on the secret.
 4. Deploy and verify the startup structured log plus
    `tools/pooling/check-pool-settings.sql`.
-5. Set `DATABASE_POOLER_REQUIRED=true` only after the pooled host and SQL
-   evidence are confirmed.
+5. Override Cloud Build `_DATABASE_POOLER_REQUIRED=true` only after the pooled
+   host and SQL evidence are confirmed.
 
 The checked-in Cloud Build default remains the existing UAT secret until the
 operator confirms this dedicated secret exists. This prevents a tag deploy from

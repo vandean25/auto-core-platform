@@ -61,8 +61,8 @@ export function logRuntimeDatabaseUrlStatus(
         ? 'WARNING'
         : 'INFO',
     nodeEnvironment: status.nodeEnvironment,
-    directHost: status.directHost,
-    pooledHost: status.pooledHost,
+    directHost: status.directHost ?? null,
+    pooledHost: status.pooledHost ?? null,
     pooledConfigured: status.pooledConfigured,
     pooledHostContainsPooler: status.pooledHostContainsPooler,
     pooledHostEqualsDirect: status.pooledHostEqualsDirect,
