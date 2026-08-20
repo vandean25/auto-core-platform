@@ -103,6 +103,15 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 
+  it('defaults a blank production pooler requirement flag to disabled', () => {
+    const env = validateEnv(
+      productionEnv({
+        DATABASE_POOLER_REQUIRED: '   ',
+      }),
+    );
+    expect(env.DATABASE_POOLER_REQUIRED).toBeUndefined();
+  });
+
   it('rejects invalid values for the production pooler requirement flag', () => {
     const validationError = expectEnvError(
       productionEnv({
@@ -145,6 +154,20 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ NODE_ENV: 'test', DATABASE_URL: '' }),
     ).not.toThrow();
+  });
+
+  it('parses optional REDIS_URL when provided', () => {
+    const env = validateEnv(
+      productionEnv({
+        REDIS_URL: 'redis://10.0.0.3:6379',
+      }),
+    );
+    expect(env.REDIS_URL).toBe('redis://10.0.0.3:6379');
+  });
+
+  it('allows REDIS_URL to be undefined in development and production', () => {
+    const env = validateEnv(productionEnv());
+    expect(env.REDIS_URL).toBeUndefined();
   });
 });
 

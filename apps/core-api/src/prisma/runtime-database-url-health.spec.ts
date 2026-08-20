@@ -92,6 +92,20 @@ describe('requireRuntimePooler', () => {
       ),
     ).toThrow(/DATABASE_POOLER_REQUIRED/);
   });
+
+  it('allows a distinct pooler host when production explicitly requires it', () => {
+    expect(() =>
+      requireRuntimePooler(
+        inspectRuntimeDatabaseUrls({
+          NODE_ENV: 'production',
+          DATABASE_POOLER_REQUIRED: 'true',
+          DATABASE_URL: 'postgresql://user:direct@ep-main.eu.neon.tech/core',
+          DATABASE_URL_POOLED:
+            'postgresql://user:pooled@ep-main-pooler.eu.neon.tech/core',
+        }),
+      ),
+    ).not.toThrow();
+  });
 });
 
 describe('logRuntimeDatabaseUrlStatus', () => {
