@@ -17,9 +17,7 @@ export const AUTH_SWITCH_TENANT_RATE_LIMIT = {
 export function shouldThrottleAuthRoute(
   request: Pick<Request, 'method' | 'originalUrl' | 'url'>,
 ): boolean {
-  const requestPath = (
-    request.originalUrl ?? request.url ?? ''
-  ).split('?')[0];
+  const requestPath = (request.originalUrl ?? request.url ?? '').split('?')[0];
   const pathWithoutApiPrefix = requestPath.replace(/^\/api(?=\/|$)/, '');
 
   return (
