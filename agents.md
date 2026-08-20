@@ -242,7 +242,7 @@ The Playwright browser installation is required before the frontend UI smoke tes
 ## Building and Running
 
 ### Prerequisites
-- Node.js v20+ (v22 recommended)
+- Node.js v22+
 - PostgreSQL v15+
 - npm v9+
 

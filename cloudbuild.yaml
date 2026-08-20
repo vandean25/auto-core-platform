@@ -62,6 +62,8 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - build
+      - --target
+      - api
       - -f
       - apps/core-api/Dockerfile
       - -t
@@ -74,6 +76,24 @@ steps:
       - push
       - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
 
+  - id: build-pdf-worker-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --target
+      - worker
+      - -f
+      - apps/core-api/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}
+      - .
+
+  - id: push-pdf-worker-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}
+
   - id: deploy-pdf-worker
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
@@ -81,7 +101,7 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
+        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}"
         # Worker is IAM-protected (--no-allow-unauthenticated). It validates HMAC worker
         # requests but does NOT receive CLOUD_TASKS_ENABLED/QUEUE/TARGET_BASE_URL (no self-enqueue).
         gcloud run deploy "${_PDF_WORKER_SERVICE}" \
