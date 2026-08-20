@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { AuthService } from '../src/auth/auth.service';
 import { InventoryService } from '../src/inventory/inventory.service';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -34,9 +35,7 @@ describe('InventoryController (e2e) Security', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'inventory-security');

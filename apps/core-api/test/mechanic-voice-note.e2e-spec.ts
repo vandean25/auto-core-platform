@@ -2,7 +2,6 @@ import {
   BadRequestException,
   INestApplication,
   ServiceUnavailableException,
-  ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -11,6 +10,7 @@ import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { VoiceTranslationService } from '../src/voice-translation/voice-translation.service';
 import { WorkshopTaskStatus } from '@prisma/client';
+import { createGlobalValidationPipe } from '../src/common';
 import {
   cleanupTestTenantGraph,
   cleanupTestUsers,
@@ -98,9 +98,7 @@ describe('Mechanic Voice Note Upload (e2e)', () => {
 
       app = moduleFixture.createNestApplication();
       app.setGlobalPrefix('api');
-      app.useGlobalPipes(
-        new ValidationPipe({ transform: true, whitelist: true }),
-      );
+      app.useGlobalPipes(createGlobalValidationPipe());
       await app.init();
 
       basePrisma = app.get<PrismaService>(PrismaService);

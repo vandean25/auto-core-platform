@@ -1,8 +1,9 @@
 import { AuthService } from '../src/auth/auth.service';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -22,9 +23,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
@@ -23,6 +24,7 @@ describe('Staging Tote Seed (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);

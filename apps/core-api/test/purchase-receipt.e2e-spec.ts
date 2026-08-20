@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
@@ -28,6 +29,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     basePrisma = app.get<PrismaService>(PrismaService);

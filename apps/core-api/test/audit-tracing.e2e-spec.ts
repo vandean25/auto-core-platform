@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
 import { LogLevelService } from '../src/common/logging/log-level.service';
@@ -33,9 +34,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);

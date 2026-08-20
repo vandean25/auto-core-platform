@@ -2,7 +2,6 @@ import { AuthService } from '../src/auth/auth.service';
 import {
   INestApplication,
   NotFoundException,
-  ValidationPipe,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -10,7 +9,10 @@ import { Readable } from 'node:stream';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
-import { signPdfTaskPayload } from '../src/common';
+import {
+  createGlobalValidationPipe,
+  signPdfTaskPayload,
+} from '../src/common';
 import { teardownTestApp } from './test-lifecycle';
 import {
   createTestAuthToken,
@@ -48,9 +50,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'workshop-pdf');

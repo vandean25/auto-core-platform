@@ -1,7 +1,8 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -36,9 +37,7 @@ describe('Workshop Domain Models (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ transform: true, whitelist: true }),
-    );
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     const basePrisma = app.get<PrismaService>(PrismaService);

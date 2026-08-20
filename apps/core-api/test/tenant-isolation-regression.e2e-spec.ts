@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
+import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   createTenantAwarePrisma,
@@ -24,6 +25,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
