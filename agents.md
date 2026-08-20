@@ -206,6 +206,18 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
 ```
 The E2E check must use a fresh, unseeded `auto_core_test` database, migrate it before the test, and run serially. Follow the existing [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions) for the database setup and E2E guidance.
 
+### Mandatory frontend checks before creating a PR
+All of the following CI-equivalent frontend checks must pass before creating a PR:
+```bash
+npm exec --workspace=core-web -- playwright install --with-deps chromium
+npm run lint --workspace=core-web
+npm run build --workspace=core-web
+npm test --workspace=core-web
+npm run test:e2e --workspace=core-web
+npm run api:types:check --workspace=core-web
+```
+The Playwright browser installation is required before the frontend UI smoke tests. The API types check is also required when backend API contracts change, alongside the generated OpenAPI artifacts described above.
+
 ## Database Schema Highlights
 
 - **Tables**: use snake_case via `@@map()` directive.
