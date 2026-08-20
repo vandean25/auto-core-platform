@@ -8,6 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Public } from '../common/decorators/public.decorator';
+import { resolveCorsOrigins } from '../common/http/cors-origins';
 import { AuthService } from '../auth/auth.service';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -16,36 +17,7 @@ import {
   DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
 
-const setupLogger = new Logger('DashboardGatewaySetup');
-const DEVELOPMENT_DEFAULT_ORIGINS = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-];
-
-export function resolveCorsOrigins(
-  frontendUrl = process.env.FRONTEND_URL,
-  nodeEnv = process.env.NODE_ENV,
-): string[] {
-  const configuredOrigins = frontendUrl
-    ?.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-  if (!configuredOrigins || configuredOrigins.length === 0) {
-    if (nodeEnv === 'production') {
-      throw new Error(
-        'CRITICAL: Starting the server without FRONTEND_URL is a critical misconfiguration. It must contain the allowed frontend origin(s) for the dashboard-realtime gateway.',
-      );
-    }
-
-    setupLogger.warn(
-      `WARNING: CORS origins are empty because FRONTEND_URL is not set. Falling back to development origins: ${DEVELOPMENT_DEFAULT_ORIGINS.join(', ')}`,
-    );
-    return DEVELOPMENT_DEFAULT_ORIGINS;
-  }
-
-  return configuredOrigins;
-}
+export { resolveCorsOrigins } from '../common/http/cors-origins';
 
 const allowedOrigins = resolveCorsOrigins();
 
