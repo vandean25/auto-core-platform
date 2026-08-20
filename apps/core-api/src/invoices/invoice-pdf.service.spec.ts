@@ -50,7 +50,7 @@ describe('InvoicePdfService.requestGeneration', () => {
       prisma as unknown as PrismaService,
       {} as InvoicePdfRenderer,
       {} as PdfStorage,
-      cloudTasks as unknown as CloudTasksService,
+      cloudTasks,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,

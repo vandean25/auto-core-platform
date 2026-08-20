@@ -50,7 +50,7 @@ describe('WorkshopPdfService.requestGeneration', () => {
       prisma as unknown as PrismaService,
       {} as WorkshopPdfRenderer,
       {} as PdfStorage,
-      cloudTasks as unknown as CloudTasksService,
+      cloudTasks,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
       } as unknown as TenantContextService,

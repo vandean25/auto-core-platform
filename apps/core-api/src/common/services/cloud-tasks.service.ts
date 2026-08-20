@@ -165,7 +165,9 @@ export class CloudTasksService {
           workerSecret,
         );
 
-        const oidcAudience = resolveCloudTasksOidcAudience(params.targetBaseUrl);
+        const oidcAudience = resolveCloudTasksOidcAudience(
+          params.targetBaseUrl,
+        );
 
         const [task] = await this.client.createTask({
           parent,
