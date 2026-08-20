@@ -191,6 +191,33 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   ```
 - This is faster, more reliable, and avoids UI-related issues or authentication problems
 
+### Mandatory backend checks before creating a PR
+All of the following CI-equivalent backend checks must pass before creating a PR:
+```bash
+npm exec --workspace=core-api -- prisma generate
+npm run lint:prisma-tenant --workspace=core-api
+npm run lint --workspace=core-api
+npm run build --workspace=core-api
+npm test --workspace=core-api -- --ci --runInBand
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm exec --workspace=core-api -- prisma migrate deploy
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm run test:e2e --workspace=core-api -- --ci --runInBand
+```
+The E2E check must use a fresh, unseeded `auto_core_test` database, migrate it before the test, and run serially. Follow the existing [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions) for the database setup and E2E guidance.
+
+### Mandatory frontend checks before creating a PR
+All of the following CI-equivalent frontend checks must pass before creating a PR:
+```bash
+npm exec --workspace=core-web -- playwright install --with-deps chromium
+npm run lint --workspace=core-web
+npm run build --workspace=core-web
+npm test --workspace=core-web
+npm run test:e2e --workspace=core-web
+npm run api:types:check --workspace=core-web
+```
+The Playwright browser installation is required before the frontend UI smoke tests. The API types check is also required when backend API contracts change, alongside the generated OpenAPI artifacts described above.
+
 ## Database Schema Highlights
 
 - **Tables**: use snake_case via `@@map()` directive.
@@ -321,8 +348,10 @@ sudo pg_ctlcluster 16 main start
 ```
 
 ### Backend e2e tests must use a fresh, unseeded DB, serially
-CI runs e2e against an empty `auto_core_test` DB with `--ci --runInBand` (see `.github/workflows/build.yaml`). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
+CI runs e2e against a fresh, unseeded `auto_core_test` DB, applies migrations before the test, and uses `--ci --runInBand` (see `.github/workflows/build.yaml`). Running e2e against the **seeded** `core_platform` DB, or in parallel, causes non-deterministic failures (leftover tenants / cross-suite `deleteMany`). Run e2e like CI:
 ```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm --prefix apps/core-api exec -- prisma migrate deploy
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
   npm --prefix apps/core-api run test:e2e -- --ci --runInBand
 ```
