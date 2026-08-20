@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { applyTenantIsolation } from './tenant-isolation.extension';
@@ -27,6 +29,19 @@ function call(
 }
 
 describe('applyTenantIsolation', () => {
+  it('does not use any in Prisma tenant or audit extensions', () => {
+    const extensionFiles = [
+      'tenant-isolation.extension.ts',
+      'prisma-audit.extension.ts',
+    ];
+
+    for (const extensionFile of extensionFiles) {
+      const source = readFileSync(join(__dirname, extensionFile), 'utf8');
+
+      expect(source).not.toMatch(/\bany\b/);
+    }
+  });
+
   describe('GLOBAL_MODELS', () => {
     it('passes through Tenant queries without injecting tenant_id', async () => {
       const query = jest.fn().mockResolvedValue([]);
