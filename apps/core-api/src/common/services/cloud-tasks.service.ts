@@ -12,6 +12,13 @@ const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   'workshop-order': (resourceId) => `workshop/orders/${resourceId}/pdf/worker`,
 };
 
+export function resolveCloudTasksOidcAudience(targetBaseUrl: string): string {
+  const normalized = targetBaseUrl.endsWith('/')
+    ? targetBaseUrl
+    : `${targetBaseUrl}/`;
+  return new URL(normalized).origin;
+}
+
 @Injectable()
 export class CloudTasksService {
   private readonly logger = new Logger(CloudTasksService.name);
@@ -81,7 +88,8 @@ export class CloudTasksService {
     const configured =
       Boolean(process.env.CLOUD_TASKS_LOCATION) &&
       Boolean(process.env.CLOUD_TASKS_QUEUE) &&
-      Boolean(process.env.CLOUD_TASKS_WORKER_SECRET);
+      Boolean(process.env.CLOUD_TASKS_WORKER_SECRET) &&
+      Boolean(process.env.CLOUD_TASKS_INVOKER_SA);
     if (!configured) {
       return false;
     }
@@ -116,8 +124,9 @@ export class CloudTasksService {
         const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
         const location = process.env.CLOUD_TASKS_LOCATION;
         const queue = process.env.CLOUD_TASKS_QUEUE;
+        const invokerServiceAccount = process.env.CLOUD_TASKS_INVOKER_SA;
 
-        if (!workerSecret || !location || !queue) {
+        if (!workerSecret || !location || !queue || !invokerServiceAccount) {
           throw new InternalServerErrorException(
             'Cloud Tasks is missing required configuration environment variables',
           );
@@ -156,6 +165,8 @@ export class CloudTasksService {
           workerSecret,
         );
 
+        const oidcAudience = resolveCloudTasksOidcAudience(params.targetBaseUrl);
+
         const [task] = await this.client.createTask({
           parent,
           task: {
@@ -168,6 +179,10 @@ export class CloudTasksService {
                 'x-tenant-id': tenantId,
               },
               body: Buffer.from(JSON.stringify(payload)),
+              oidcToken: {
+                serviceAccountEmail: invokerServiceAccount,
+                audience: oidcAudience,
+              },
             },
             scheduleTime,
             dispatchDeadline: { seconds: 600 },

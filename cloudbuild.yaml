@@ -9,6 +9,7 @@ substitutions:
   _REGION: europe-west3
   _RUN_SERVICE: core-api
   _PDF_WORKER_SERVICE: core-api-pdf-worker
+  _CLOUD_TASKS_INVOKER_SA: cloud-tasks-pdf-invoker@auto-core-platform.iam.gserviceaccount.com
   _AR_REPO: core-services
   _FRONTEND_URL: https://auto-core-platform-vande.web.app
   _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform-vande.firebaseapp.com
@@ -81,11 +82,13 @@ steps:
       - |
         set -euo pipefail
         IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
+        # Worker is IAM-protected (--no-allow-unauthenticated). It validates HMAC worker
+        # requests but does NOT receive CLOUD_TASKS_ENABLED/QUEUE/TARGET_BASE_URL (no self-enqueue).
         gcloud run deploy "${_PDF_WORKER_SERVICE}" \
           --image "$$IMAGE" \
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
-          --allow-unauthenticated \
+          --no-allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
           --cpu 1 \
@@ -121,7 +124,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
           --cpu 1 \
           --memory 512Mi \
