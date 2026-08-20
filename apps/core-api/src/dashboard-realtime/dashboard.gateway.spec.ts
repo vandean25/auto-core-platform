@@ -227,7 +227,7 @@ describe('DashboardGateway', () => {
     it('attaches Redis adapter when REDIS_URL is provided', () => {
       jest.clearAllMocks();
       const gatewayWithRedis = new DashboardGateway(
-        authService as unknown as AuthService,
+        authService,
         'redis://10.0.0.3:6379',
       );
       const mockServer = {
@@ -244,10 +244,7 @@ describe('DashboardGateway', () => {
 
     it('keeps default in-memory adapter when REDIS_URL is unset', () => {
       jest.clearAllMocks();
-      const gatewayWithoutRedis = new DashboardGateway(
-        authService as unknown as AuthService,
-        undefined,
-      );
+      const gatewayWithoutRedis = new DashboardGateway(authService, undefined);
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
@@ -262,7 +259,7 @@ describe('DashboardGateway', () => {
     it('cleans up Redis clients on module destroy', async () => {
       jest.clearAllMocks();
       const gatewayWithRedis = new DashboardGateway(
-        authService as unknown as AuthService,
+        authService,
         'redis://10.0.0.3:6379',
       );
       const mockServer = {
