@@ -191,6 +191,19 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   ```
 - This is faster, more reliable, and avoids UI-related issues or authentication problems
 
+### Mandatory backend checks before creating a PR
+All of the following CI-equivalent backend checks must pass before creating a PR:
+```bash
+npm exec --workspace=core-api -- prisma generate
+npm run lint:prisma-tenant --workspace=core-api
+npm run lint --workspace=core-api
+npm run build --workspace=core-api
+npm test --workspace=core-api -- --ci --runInBand
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm run test:e2e --workspace=core-api -- --ci --runInBand
+```
+The E2E check must use the fresh, unseeded `auto_core_test` database and serial execution. Follow the existing [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions) for the database setup and E2E guidance.
+
 ## Database Schema Highlights
 
 - **Tables**: use snake_case via `@@map()` directive.
