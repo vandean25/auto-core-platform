@@ -80,6 +80,16 @@ describe('dead code hygiene (AUT-139)', () => {
     );
   });
 
+  it('does not inject retired API_KEY values in Cloud Build', () => {
+    const cloudBuild = fs.readFileSync(
+      path.join(REPO_ROOT, 'cloudbuild.yaml'),
+      'utf8',
+    );
+    expect(cloudBuild).not.toMatch(/API_KEY/);
+    expect(cloudBuild).not.toMatch(/VITE_API_KEY/);
+    expect(cloudBuild).toContain('VITE_FIREBASE_API_KEY');
+  });
+
   it('has no leftover one-off repro or fix-syntax entrypoints', () => {
     const present = LEFTOVER_ENTRYPOINTS.filter((relativePath) =>
       fs.existsSync(path.join(CORE_API_ROOT, relativePath)),
