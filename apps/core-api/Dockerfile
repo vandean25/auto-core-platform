@@ -18,7 +18,8 @@ WORKDIR /usr/src/app/apps/core-api
 RUN npx prisma generate
 RUN npm run build
 
-FROM mcr.microsoft.com/playwright:v1.51.0-jammy AS runner
+# Keep this tag aligned with the exact `playwright` dependency in package.json.
+FROM mcr.microsoft.com/playwright:v1.62.1-jammy AS runner
 
 WORKDIR /usr/src/app
 

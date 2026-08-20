@@ -74,13 +74,12 @@ export class WorkshopPdfService {
       };
     }
 
-    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
-    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+    const shouldEnqueue = this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
 
-    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
-      if (cloudTasksEnabled) {
+    if (!shouldEnqueue) {
+      if (process.env.NODE_ENV === 'production') {
         throw new InternalServerErrorException(
-          'Cloud Tasks is enabled but not correctly configured',
+          'Cloud Tasks is not configured for production PDF generation',
         );
       }
 

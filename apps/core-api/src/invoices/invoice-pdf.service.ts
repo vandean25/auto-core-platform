@@ -79,18 +79,15 @@ export class InvoicePdfService {
       );
     }
 
-    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
-    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+    const shouldEnqueue = this.cloudTasks.isEnabled() && Boolean(params.targetBaseUrl);
 
-    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
-      // If explicitly enabled but misconfigured, fail closed to prevent resource exhaustion
-      if (cloudTasksEnabled) {
+    if (!shouldEnqueue) {
+      if (process.env.NODE_ENV === 'production') {
         throw new InternalServerErrorException(
-          'Cloud Tasks is enabled but not correctly configured (missing queue, location, or base URL)',
+          'Cloud Tasks is not configured for production PDF generation',
         );
       }
 
-      // Fallback to inline generation for local/dev or when disabled
       const generated = await this.generateNow(invoiceId);
       return { mode: 'generated', ...generated };
     }
