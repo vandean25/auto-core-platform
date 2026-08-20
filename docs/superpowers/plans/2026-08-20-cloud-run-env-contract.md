@@ -18,7 +18,7 @@
 
 - [ ] **Step 1: Write the test against the expected production contract**
 
-Import the checker’s `readCloudRunDeployContract` and `REQUIRED_CORE_API_PRODUCTION_ENV_KEYS`. Read the repository `cloudbuild.yaml`, assert every required key is present in the `core-api` contract, and assert `WORKSHOP_MEDIA_BUCKET` is present as a secret mapping to `WORKSHOP_MEDIA_BUCKET:latest`. Add a second assertion that the PDF worker block does not contain `WORKSHOP_MEDIA_BUCKET` or Cloud Tasks enqueue keys.
+Import the checker’s `parseCloudBuildDeployContracts` and `REQUIRED_CORE_API_PRODUCTION_ENV_KEYS`. Read the repository `cloudbuild.yaml`, assert every required key is present in the `core-api` contract, and assert `WORKSHOP_MEDIA_BUCKET` is present as a secret mapping to `WORKSHOP_MEDIA_BUCKET:latest`. Add a second assertion that the PDF worker block does not contain `WORKSHOP_MEDIA_BUCKET` or Cloud Tasks enqueue keys.
 
 - [ ] **Step 2: Run the new test and verify it fails**
 
