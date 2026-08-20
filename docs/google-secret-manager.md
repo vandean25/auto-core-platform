@@ -87,3 +87,38 @@ Recommended mapping pattern in `secrets/gsm-mapping.json`:
 - backend `.env` `DATABASE_URL_POOLED` -> GSM pooled secret (`acp-core-api-database-url-pooled`)
 
 NestJS runtime reads `DATABASE_URL_POOLED` and falls back to `DATABASE_URL`. Prisma migrate/seed keep using `DATABASE_URL` only. See `secrets/gsm-mapping.example.json`.
+
+## 8. Workshop Media Storage
+
+The `core-api` Cloud Run service receives the workshop media bucket through
+Google Secret Manager. The deploy contract requires the secret name to be
+exactly `WORKSHOP_MEDIA_BUCKET`:
+
+```bash
+gcloud secrets create WORKSHOP_MEDIA_BUCKET --replication-policy=automatic
+printf '%s' '<bucket-name>' | \
+  gcloud secrets versions add WORKSHOP_MEDIA_BUCKET --data-file=-
+```
+
+Create the bucket in `europe-west3` if it does not already exist:
+
+```bash
+gcloud storage buckets create gs://<bucket-name> \
+  --location=europe-west3 \
+  --project=auto-core-platform
+```
+
+Grant the Cloud Run runtime service account access to the bucket. Use
+`roles/storage.objectAdmin`, or a narrower role set that still permits the
+mechanic media operations:
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://<bucket-name> \
+  --member=serviceAccount:<cloud-run-runtime-service-account> \
+  --role=roles/storage.objectAdmin \
+  --project=auto-core-platform
+```
+
+Do not commit the bucket's private objects or the secret value. The API keeps
+`WORKSHOP_MEDIA_BUCKET` optional during boot and fails closed at the mechanic
+media use site when storage is not configured.
