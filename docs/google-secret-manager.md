@@ -95,9 +95,13 @@ Google Secret Manager. The deploy contract requires the secret name to be
 exactly `WORKSHOP_MEDIA_BUCKET`:
 
 ```bash
-gcloud secrets create WORKSHOP_MEDIA_BUCKET --replication-policy=automatic
+gcloud secrets create WORKSHOP_MEDIA_BUCKET \
+  --replication-policy=automatic \
+  --project=auto-core-platform
 printf '%s' '<bucket-name>' | \
-  gcloud secrets versions add WORKSHOP_MEDIA_BUCKET --data-file=-
+  gcloud secrets versions add WORKSHOP_MEDIA_BUCKET \
+  --data-file=- \
+  --project=auto-core-platform
 ```
 
 Create the bucket in `europe-west3` if it does not already exist:

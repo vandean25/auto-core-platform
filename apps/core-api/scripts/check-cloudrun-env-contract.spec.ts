@@ -24,6 +24,9 @@ describe('Cloud Run environment contract', () => {
     const source = readFileSync(cloudBuildPath, 'utf8');
     const { pdfWorker } = parseCloudBuildDeployContracts(source);
 
+    expect(pdfWorker.get('INVOICE_PDF_BUCKET')).toBe(
+      'INVOICE_PDF_BUCKET:latest',
+    );
     expect(pdfWorker.has('WORKSHOP_MEDIA_BUCKET')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_ENABLED')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_LOCATION')).toBe(false);

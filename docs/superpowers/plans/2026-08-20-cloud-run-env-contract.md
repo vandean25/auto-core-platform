@@ -85,7 +85,6 @@ Expected: both commands pass and report the complete `core-api` production contr
 - Modify: `cloudbuild.yaml`
 - Modify: `secrets/gsm-mapping.example.json`
 - Modify: `docs/google-secret-manager.md`
-- Modify: `README.md`
 
 - [ ] **Step 1: Add the exact secret mapping only to `core-api`**
 
@@ -133,7 +132,7 @@ are independently complete:
 ```bash
 git add apps/core-api/scripts apps/core-api/package.json
 git commit -m "test: guard Cloud Run environment contract"
-git add cloudbuild.yaml secrets/gsm-mapping.example.json docs/google-secret-manager.md README.md
+git add cloudbuild.yaml secrets/gsm-mapping.example.json docs/google-secret-manager.md
 git commit -m "fix: wire workshop media bucket on core api"
 git push -u origin feature/infra-8-cloud-run-env-contract-5623
 ```
