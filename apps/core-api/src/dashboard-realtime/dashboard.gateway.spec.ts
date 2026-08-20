@@ -10,6 +10,8 @@ import {
 } from './dashboard-events.types';
 import {
   DashboardGateway,
+  REDIS_CONNECT_TIMEOUT_MS,
+  connectRedisClients,
   resolveCorsOrigins,
   resolveRedisUrl,
 } from './dashboard.gateway';
@@ -93,7 +95,7 @@ describe('DashboardGateway', () => {
   let gateway: DashboardGateway;
   let middleware: (socket: any, next: (err?: Error) => void) => void;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     authService = {
       authenticateBearerToken: jest.fn(),
     };
@@ -104,7 +106,7 @@ describe('DashboardGateway', () => {
         middleware = fn;
       }),
     };
-    await gateway.afterInit(mockServer as unknown as Server);
+    gateway.afterInit(mockServer as unknown as Server);
   });
 
   describe('middleware authentication', () => {
@@ -250,7 +252,28 @@ describe('DashboardGateway', () => {
     expect(emit).toHaveBeenCalledWith(AUTH_CLAIMS_UPDATED_EVENT, payload);
   });
 
+  describe('connectRedisClients', () => {
+    it('rejects when connect does not finish before the timeout', async () => {
+      await expect(
+        connectRedisClients(() => new Promise(() => {}), 20),
+      ).rejects.toThrow(/Redis connect timed out after 20ms/);
+    });
+
+    it('resolves when connect finishes before the timeout', async () => {
+      await expect(
+        connectRedisClients(() => Promise.resolve(), 200),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   describe('Redis adapter initialization', () => {
+    afterEach(() => {
+      mockPubConnect.mockReset();
+      mockPubConnect.mockResolvedValue('OK');
+      mockSubConnect.mockReset();
+      mockSubConnect.mockResolvedValue('OK');
+    });
+
     it('attaches Redis adapter when REDIS_URL is provided and connect succeeds', async () => {
       jest.clearAllMocks();
       const gatewayWithRedis = new DashboardGateway(authService);
@@ -259,13 +282,15 @@ describe('DashboardGateway', () => {
         adapter: jest.fn(),
       };
 
-      await gatewayWithRedis.afterInit(
+      gatewayWithRedis.afterInit(
         mockServer as unknown as Server,
         'redis://10.0.0.3:6379',
       );
+      await gatewayWithRedis.onApplicationBootstrap();
 
       expect(Redis).toHaveBeenCalledWith('redis://10.0.0.3:6379', {
         lazyConnect: true,
+        connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
       });
       expect(mockPubConnect).toHaveBeenCalled();
       expect(mockSubConnect).toHaveBeenCalled();
@@ -283,16 +308,46 @@ describe('DashboardGateway', () => {
         adapter: jest.fn(),
       };
 
-      await gatewayWithRedis.afterInit(
+      gatewayWithRedis.afterInit(
         mockServer as unknown as Server,
         'redis://10.0.0.3:6379',
       );
+      await gatewayWithRedis.onApplicationBootstrap();
 
       expect(createAdapter).not.toHaveBeenCalled();
       expect(mockServer.adapter).not.toHaveBeenCalled();
     });
 
-    it('throws critical error when connect fails in production', async () => {
+    it('registers handshake auth before Redis connect completes', async () => {
+      jest.clearAllMocks();
+      let releaseConnect: (() => void) | undefined;
+      mockPubConnect.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseConnect = () => resolve('OK');
+          }),
+      );
+
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+
+      expect(mockServer.use).toHaveBeenCalled();
+      expect(createAdapter).not.toHaveBeenCalled();
+
+      releaseConnect?.();
+      await gatewayWithRedis.onApplicationBootstrap();
+      expect(createAdapter).toHaveBeenCalled();
+    });
+
+    it('fails closed from onApplicationBootstrap when Redis connect fails in production', async () => {
       jest.clearAllMocks();
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
@@ -305,12 +360,15 @@ describe('DashboardGateway', () => {
       };
 
       try {
+        gatewayWithRedis.afterInit(
+          mockServer as unknown as Server,
+          'redis://10.0.0.3:6379',
+        );
         await expect(
-          gatewayWithRedis.afterInit(
-            mockServer as unknown as Server,
-            'redis://10.0.0.3:6379',
-          ),
-        ).rejects.toThrow(/CRITICAL: Failed to connect to Redis at redis:\/\/10.0.0.3:6379/);
+          gatewayWithRedis.onApplicationBootstrap(),
+        ).rejects.toThrow(
+          /CRITICAL: Failed to connect to Redis at redis:\/\/10.0.0.3:6379/,
+        );
       } finally {
         process.env.NODE_ENV = originalEnv;
       }
@@ -319,7 +377,7 @@ describe('DashboardGateway', () => {
       expect(mockServer.adapter).not.toHaveBeenCalled();
     });
 
-    it('keeps default in-memory adapter when REDIS_URL is unset', async () => {
+    it('keeps default in-memory adapter when REDIS_URL is unset', () => {
       jest.clearAllMocks();
       const gatewayWithoutRedis = new DashboardGateway(authService);
       const mockServer = {
@@ -327,7 +385,7 @@ describe('DashboardGateway', () => {
         adapter: jest.fn(),
       };
 
-      await gatewayWithoutRedis.afterInit(
+      gatewayWithoutRedis.afterInit(
         mockServer as unknown as Server,
         undefined,
       );
@@ -344,10 +402,11 @@ describe('DashboardGateway', () => {
         adapter: jest.fn(),
       };
 
-      await gatewayWithRedis.afterInit(
+      gatewayWithRedis.afterInit(
         mockServer as unknown as Server,
         'redis://10.0.0.3:6379',
       );
+      await gatewayWithRedis.onApplicationBootstrap();
       await gatewayWithRedis.onModuleDestroy();
 
       expect(mockPubQuit).toHaveBeenCalled();

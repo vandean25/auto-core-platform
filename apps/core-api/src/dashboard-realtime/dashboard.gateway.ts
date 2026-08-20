@@ -2,6 +2,7 @@ import {
   Inject,
   Logger,
   forwardRef,
+  type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
@@ -61,6 +62,29 @@ export function resolveRedisUrl(
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
+export const REDIS_CONNECT_TIMEOUT_MS = 10_000;
+
+export async function connectRedisClients(
+  connect: () => Promise<unknown>,
+  timeoutMs = REDIS_CONNECT_TIMEOUT_MS,
+): Promise<void> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      connect(),
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`Redis connect timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle !== undefined) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 const allowedOrigins = resolveCorsOrigins();
 
 @Public()
@@ -77,6 +101,7 @@ export class DashboardGateway
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnGatewayInit,
+    OnApplicationBootstrap,
     OnModuleDestroy
 {
   private readonly logger = new Logger(DashboardGateway.name);
@@ -85,6 +110,7 @@ export class DashboardGateway
 
   private pubClient?: Redis;
   private subClient?: Redis;
+  private redisAdapterReady: Promise<void> = Promise.resolve();
 
   constructor(
     @Inject(forwardRef(() => AuthService))
@@ -94,52 +120,18 @@ export class DashboardGateway
   @WebSocketServer()
   server!: Server;
 
-  async afterInit(server: Server, redisUrl = resolveRedisUrl()) {
+  afterInit(server: Server, redisUrl = resolveRedisUrl()) {
+    this.installAuthMiddleware(server);
     if (redisUrl) {
-      try {
-        const pubClient = new Redis(redisUrl, {
-          lazyConnect: true,
-        });
-        const subClient = pubClient.duplicate();
-
-        pubClient.on('error', (err) => {
-          const message = err instanceof Error ? err.message : String(err);
-          this.logger.error(
-            `Redis pub client error: ${message}`,
-            err instanceof Error ? err.stack : undefined,
-          );
-        });
-
-        subClient.on('error', (err) => {
-          const message = err instanceof Error ? err.message : String(err);
-          this.logger.error(
-            `Redis sub client error: ${message}`,
-            err instanceof Error ? err.stack : undefined,
-          );
-        });
-
-        await Promise.all([pubClient.connect(), subClient.connect()]);
-
-        server.adapter(createAdapter(pubClient, subClient));
-        this.pubClient = pubClient;
-        this.subClient = subClient;
-        this.logger.log(
-          'Attached Redis adapter to Socket.IO for cross-instance fan-out.',
-        );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `Failed to initialize Socket.IO Redis adapter: ${message}`,
-        );
-        if (process.env.NODE_ENV === 'production') {
-          throw new Error(
-            `CRITICAL: Failed to connect to Redis at ${redisUrl} in production: ${message}`,
-            { cause: err },
-          );
-        }
-      }
+      this.redisAdapterReady = this.attachRedisAdapter(server, redisUrl);
     }
+  }
 
+  async onApplicationBootstrap() {
+    await this.redisAdapterReady;
+  }
+
+  private installAuthMiddleware(server: Server) {
     server.use((socket, next) => {
       void (async () => {
         try {
@@ -159,7 +151,6 @@ export class DashboardGateway
 
           const normalizedToken = token.trim();
 
-          // Prepend 'Bearer ' if not present to satisfy authenticateBearerToken
           const authHeader = normalizedToken.startsWith('Bearer ')
             ? normalizedToken
             : `Bearer ${normalizedToken}`;
@@ -187,6 +178,56 @@ export class DashboardGateway
         }
       })();
     });
+  }
+
+  private async attachRedisAdapter(server: Server, redisUrl: string) {
+    const pubClient = new Redis(redisUrl, {
+      lazyConnect: true,
+      connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+    });
+    const subClient = pubClient.duplicate();
+
+    pubClient.on('error', (err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Redis pub client error: ${message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    });
+
+    subClient.on('error', (err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Redis sub client error: ${message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    });
+
+    try {
+      await connectRedisClients(() =>
+        Promise.all([pubClient.connect(), subClient.connect()]),
+      );
+
+      server.adapter(createAdapter(pubClient, subClient));
+      this.pubClient = pubClient;
+      this.subClient = subClient;
+      this.logger.log(
+        'Attached Redis adapter to Socket.IO for cross-instance fan-out.',
+      );
+    } catch (err) {
+      await pubClient.quit().catch(() => {});
+      await subClient.quit().catch(() => {});
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Failed to initialize Socket.IO Redis adapter: ${message}`,
+      );
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          `CRITICAL: Failed to connect to Redis at ${redisUrl} in production: ${message}`,
+          { cause: err },
+        );
+      }
+    }
   }
 
   async handleConnection(client: Socket) {

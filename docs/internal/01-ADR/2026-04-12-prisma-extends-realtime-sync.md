@@ -210,7 +210,7 @@ sequenceDiagram
 
 - The `@Global()` module decorator makes `DashboardRealtimeService` available to all modules without explicit imports.
 - The extension runs after the Prisma query completes (post-query hook), so it never blocks or delays the original database operation.
-- **Horizontal Multi-Instance Scaling**: `DashboardGateway` supports horizontal scale-out across multiple instances using `@socket.io/redis-adapter` when `REDIS_URL` is set. When unset, it uses the standard in-memory adapter for local dev and e2e testing. See runbook `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`.
+- **Horizontal Multi-Instance Scaling**: Production uses Upstash (`rediss://` in GSM `REDIS_URL`) with `@socket.io/redis-adapter`. Cloud Run does not use Memorystore or a VPC connector. When `REDIS_URL` is unset, the in-memory adapter is used for local dev and e2e. See `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`.
 
 ## Alternatives Considered
 
