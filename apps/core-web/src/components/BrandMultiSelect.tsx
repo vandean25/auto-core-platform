@@ -70,6 +70,7 @@ export function BrandMultiSelect({
           <div
             role="combobox"
             aria-expanded={open}
+            aria-controls="brand-options"
             aria-label={ariaLabel}
             tabIndex={0}
             className={cn(
@@ -117,7 +118,7 @@ export function BrandMultiSelect({
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command>
             <CommandInput placeholder="Search brands..." className="h-9" />
-            <CommandList>
+            <CommandList id="brand-options">
               <CommandEmpty>No brand found.</CommandEmpty>
               <CommandGroup>
                 {brands

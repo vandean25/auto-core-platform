@@ -602,10 +602,11 @@ export function LaborCategoriesTab() {
           <CardContent>
             <form onSubmit={e => void handleAdd(e)} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">
+                <label htmlFor="add-category-name" className="text-sm font-medium">
                   Name <span className="text-red-500">*</span>
                 </label>
                 <Input
+                  id="add-category-name"
                   value={addForm.name}
                   onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Engine Repair"
@@ -614,8 +615,9 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
+                <label htmlFor="add-category-description" className="text-sm font-medium">Description</label>
                 <Input
+                  id="add-category-description"
                   value={addForm.description}
                   onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Optional description"
@@ -623,12 +625,12 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Parent Category</label>
+                <label htmlFor="add-category-parent" className="text-sm font-medium">Parent Category</label>
                 <Select
                   value={addForm.parent_id}
                   onValueChange={val => setAddForm(f => ({ ...f, parent_id: val }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="add-category-parent">
                     <SelectValue placeholder="None (Top Level)" />
                   </SelectTrigger>
                   <SelectContent>
@@ -643,8 +645,9 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Default Hourly Rate</label>
+                <label htmlFor="add-category-rate" className="text-sm font-medium">Default Hourly Rate</label>
                 <Input
+                  id="add-category-rate"
                   value={addForm.default_hourly_rate}
                   onChange={e => setAddForm(f => ({ ...f, default_hourly_rate: e.target.value }))}
                   type="number"
@@ -655,8 +658,9 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Sort Order</label>
+                <label htmlFor="add-category-sort-order" className="text-sm font-medium">Sort Order</label>
                 <Input
+                  id="add-category-sort-order"
                   value={addForm.sort_order}
                   onChange={e => setAddForm(f => ({ ...f, sort_order: e.target.value }))}
                   type="number"
@@ -666,7 +670,7 @@ export function LaborCategoriesTab() {
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Active</label>
+                <span className="text-sm font-medium">Active</span>
                 <button
                   type="button"
                   onClick={() => setAddForm(f => ({ ...f, is_active: !f.is_active }))}
@@ -676,6 +680,7 @@ export function LaborCategoriesTab() {
                       ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                       : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                   )}
+                  aria-label={`Active: ${addForm.is_active ? "on" : "off"}`}
                 >
                   {addForm.is_active ? "Active" : "Inactive"}
                 </button>
@@ -702,9 +707,9 @@ export function LaborCategoriesTab() {
         <div
           className="fixed z-50 bg-white border rounded-md shadow-lg py-1 min-w-[130px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={e => e.stopPropagation()}
         >
           <button
+            type="button"
             className="w-full px-3 py-1.5 text-sm text-left text-red-600 hover:bg-red-50 hover:text-red-700"
             onClick={handleDeleteClick}
           >
@@ -725,10 +730,11 @@ export function LaborCategoriesTab() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">
+              <label htmlFor="edit-category-name" className="text-sm font-medium">
                 Name <span className="text-red-500">*</span>
               </label>
               <Input
+                id="edit-category-name"
                 value={editForm.name}
                 onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                 required
@@ -736,8 +742,9 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
+              <label htmlFor="edit-category-description" className="text-sm font-medium">Description</label>
               <Input
+                id="edit-category-description"
                 value={editForm.description}
                 onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Optional description"
@@ -745,12 +752,12 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Parent Category</label>
+              <label htmlFor="edit-category-parent" className="text-sm font-medium">Parent Category</label>
               <Select
                 value={editForm.parent_id}
                 onValueChange={val => setEditForm(f => ({ ...f, parent_id: val }))}
               >
-                <SelectTrigger>
+                <SelectTrigger id="edit-category-parent">
                   <SelectValue placeholder="None (Top Level)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -767,8 +774,9 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Default Hourly Rate</label>
+              <label htmlFor="edit-category-rate" className="text-sm font-medium">Default Hourly Rate</label>
               <Input
+                id="edit-category-rate"
                 value={editForm.default_hourly_rate}
                 onChange={e => setEditForm(f => ({ ...f, default_hourly_rate: e.target.value }))}
                 type="number"
@@ -779,8 +787,9 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sort Order</label>
+              <label htmlFor="edit-category-sort-order" className="text-sm font-medium">Sort Order</label>
               <Input
+                id="edit-category-sort-order"
                 value={editForm.sort_order}
                 onChange={e => setEditForm(f => ({ ...f, sort_order: e.target.value }))}
                 type="number"
@@ -790,7 +799,7 @@ export function LaborCategoriesTab() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Active</label>
+              <span className="text-sm font-medium">Active</span>
               <button
                 type="button"
                 onClick={() => setEditForm(f => ({ ...f, is_active: !f.is_active }))}
@@ -800,6 +809,7 @@ export function LaborCategoriesTab() {
                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                     : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200",
                 )}
+                aria-label={`Active: ${editForm.is_active ? "on" : "off"}`}
               >
                 {editForm.is_active ? "Active" : "Inactive"}
               </button>

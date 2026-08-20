@@ -211,35 +211,42 @@ function TaskAccordionRow({
     <div
       data-workshop-task-row='true'
       className='w-full rounded-lg border transition-colors hover:bg-accent'
-      onClick={onToggleExpanded}
     >
-      <div className='flex items-center gap-3 px-3 py-2.5 text-left'>
+      <div className='flex items-start gap-3 px-3 py-2.5'>
         <Checkbox
           checked={task.done}
           onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
           disabled={isLocked}
           onClick={(event) => event.stopPropagation()}
         />
-        <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
-          {task.title}
-        </span>
-        <span className='ml-auto flex items-center gap-2'>
-          <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
-          <StatusBadge status={task.status} />
-        </span>
-      </div>
-      <div className='px-3 pb-2.5 pl-10 text-xs text-muted-foreground'>
-        {partsCount} {partsCount === 1 ? 'part' : 'parts'} · {laborCount}{' '}
-        {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
-        {formatCurrency(taskTotals.parts)} · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
-        {taskTotals.laborStandardHours.toFixed(2)}h · Actual{' '}
-        {taskTotals.laborActualHours.toFixed(2)}h
+        <button
+          type='button'
+          className='flex min-w-0 flex-1 flex-col gap-1 border-0 bg-transparent p-0 text-left'
+          aria-expanded={isExpanded}
+          onClick={onToggleExpanded}
+        >
+          <span className='flex w-full items-center gap-3'>
+            <span className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>
+              {task.title}
+            </span>
+            <span className='ml-auto flex items-center gap-2'>
+              <span className='text-sm font-semibold'>{formatCurrency(taskTotals.total)}</span>
+              <StatusBadge status={task.status} />
+            </span>
+          </span>
+          <span className='w-full text-xs text-muted-foreground'>
+            {partsCount} {partsCount === 1 ? 'part' : 'parts'} · {laborCount}{' '}
+            {laborCount === 1 ? 'labor line' : 'labor lines'} · Parts{' '}
+            {formatCurrency(taskTotals.parts)} · Labor {formatCurrency(taskTotals.labor)} · Std{' '}
+            {taskTotals.laborStandardHours.toFixed(2)}h · Actual{' '}
+            {taskTotals.laborActualHours.toFixed(2)}h
+          </span>
+        </button>
       </div>
 
       {isExpanded && (
         <div
           className='space-y-4 border-t px-3 py-4'
-          onClick={(event) => event.stopPropagation()}
         >
           <div className='flex items-center justify-between gap-3'>
             <div>

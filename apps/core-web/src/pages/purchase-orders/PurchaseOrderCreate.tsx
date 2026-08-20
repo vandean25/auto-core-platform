@@ -145,17 +145,19 @@ export default function PurchaseOrderCreate() {
                         ) : (
                             <div className="grid grid-cols-1 gap-2">
                                 {filteredVendors?.map((vendor: Vendor) => (
-                                    <div
+                                    <button
+                                        type="button"
                                         key={vendor.id}
                                         className={cn(
-                                            "p-4 border rounded cursor-pointer hover:bg-muted/50",
+                                            "w-full p-4 border rounded text-left hover:bg-muted/50",
                                             selectedVendorId === vendor.id ? "border-primary bg-muted/50" : ""
                                         )}
+                                        aria-pressed={selectedVendorId === vendor.id}
                                         onClick={() => setSelectedVendorId(vendor.id)}
                                     >
-                                        <div className="font-bold">{vendor.name}</div>
-                                        <div className="text-sm text-muted-foreground">{vendor.email}</div>
-                                    </div>
+                                        <span className="block font-bold">{vendor.name}</span>
+                                        <span className="block text-sm text-muted-foreground">{vendor.email}</span>
+                                    </button>
                                 ))}
                             </div>
                         )}

@@ -242,21 +242,23 @@ export function DataTable<TData extends object, TValue>({
       </div>
 
       {contextMenu && (
-        <div
-          className="fixed inset-0 z-50"
-          onClick={() => setContextMenu(null)}
-          onContextMenu={(event) => {
-            event.preventDefault()
-            setContextMenu(null)
-          }}
-        >
+        <>
+          <button
+            type="button"
+            aria-label="Close context menu"
+            className="fixed inset-0 z-50 cursor-default"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              setContextMenu(null)
+            }}
+          />
           <div
             className="fixed z-50 min-w-40 rounded-md border bg-popover p-1 shadow-md"
             style={{
               top: menuPosition?.top ?? contextMenu.y,
               left: menuPosition?.left ?? contextMenu.x,
             }}
-            onClick={(event) => event.stopPropagation()}
             ref={menuRef}
           >
             {getRowContextActions?.(contextMenu.row).map((action) => (
@@ -275,7 +277,7 @@ export function DataTable<TData extends object, TValue>({
               </button>
             ))}
           </div>
-        </div>
+        </>
       )}
     </div>
   )

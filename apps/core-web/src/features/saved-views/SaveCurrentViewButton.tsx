@@ -95,7 +95,6 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="col-span-3"
-                autoFocus
               />
             </div>
           </div>
