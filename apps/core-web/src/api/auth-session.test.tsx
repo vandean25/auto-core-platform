@@ -50,6 +50,16 @@ function SessionProbe() {
   return <div>{sessionQuery.data?.activeTenant.name ?? 'No session'}</div>
 }
 
+function RoleProbe() {
+  const sessionQuery = useAuthSession()
+
+  if (sessionQuery.isLoading) {
+    return <div>Loading session</div>
+  }
+
+  return <div>{sessionQuery.data?.activeRole ?? 'No role'}</div>
+}
+
 function MutationProbe() {
   const switchTenant = useSwitchTenant()
 
@@ -87,6 +97,7 @@ describe('useSwitchTenant', () => {
   })
 
   afterEach(() => {
+    window.history.pushState({}, '', '/')
     vi.unstubAllEnvs()
     vi.clearAllMocks()
   })
@@ -104,6 +115,20 @@ describe('useSwitchTenant', () => {
     })
 
     expect(mocks.fetchWithAuth).not.toHaveBeenCalled()
+  })
+
+  it('uses TECH for the E2E session on mechanic routes', async () => {
+    vi.stubEnv('MODE', 'test')
+    vi.stubEnv('VITE_E2E_SKIP_AUTH', 'true')
+    window.history.pushState({}, '', '/mechanic/queue')
+
+    const queryClient = createQueryClient()
+
+    render(<RoleProbe />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(screen.getByText('TECH')).toBeInTheDocument()
+    })
   })
 
   it('does not reuse a cached auth session from a different user', async () => {
