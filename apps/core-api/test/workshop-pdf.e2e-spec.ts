@@ -149,6 +149,26 @@ describe('Workshop PDF endpoints (e2e)', () => {
     expect(mockPdfService.generateNow).toHaveBeenCalledWith(WORKSHOP_ORDER_ID);
   });
 
+  it('rejects the worker when x-cloud-tasks-secret is invalid', async () => {
+    const payload = signPdfTaskPayload(
+      {
+        kind: 'workshop-order',
+        resourceId: WORKSHOP_ORDER_ID,
+        tenantId,
+      },
+      WORKER_SECRET,
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf/worker`)
+      .set('x-cloud-tasks-secret', 'wrong-secret')
+      .set('x-tenant-id', tenantId)
+      .send(payload)
+      .expect(401);
+
+    expect(mockPdfService.generateNow).not.toHaveBeenCalled();
+  });
+
   it('rejects the worker when x-tenant-id differs from the signed payload tenant', async () => {
     const payload = signPdfTaskPayload(
       {

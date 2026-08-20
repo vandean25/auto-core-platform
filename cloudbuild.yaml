@@ -8,6 +8,8 @@ substitutions:
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
   _RUN_SERVICE: core-api
+  _PDF_WORKER_SERVICE: core-api-pdf-worker
+  _CLOUD_TASKS_INVOKER_SA: cloud-tasks-pdf-invoker@auto-core-platform.iam.gserviceaccount.com
   _AR_REPO: core-services
   _FRONTEND_URL: https://auto-core-platform-vande.web.app
   _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform-vande.firebaseapp.com
@@ -72,6 +74,42 @@ steps:
       - push
       - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
 
+  - id: deploy-pdf-worker
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
+        # Worker is IAM-protected (--no-allow-unauthenticated). It validates HMAC worker
+        # requests but does NOT receive CLOUD_TASKS_ENABLED/QUEUE/TARGET_BASE_URL (no self-enqueue).
+        gcloud run deploy "${_PDF_WORKER_SERVICE}" \
+          --image "$$IMAGE" \
+          --region "${_REGION}" \
+          --project "${_BACKEND_PROJECT}" \
+          --no-allow-unauthenticated \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
+          --cpu 1 \
+          --memory 2Gi \
+          --concurrency 1 \
+          --min-instances 0 \
+          --max-instances 2 \
+          --quiet
+
+  - id: export-pdf-worker-url
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        gcloud run services describe "${_PDF_WORKER_SERVICE}" \
+          --region "${_REGION}" \
+          --project "${_BACKEND_PROJECT}" \
+          --format='value(status.url)' > /workspace/.pdf_worker_url
+
   - id: deploy-cloud-run
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
@@ -80,16 +118,17 @@ steps:
       - |
         set -euo pipefail
         IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
-        # Realtime WebSocket stability: keep min-instances 1 and continuous CPU for Socket.IO heartbeats.
-        # REDIS_URL is mounted from Secret Manager to support cross-replica fan-out up to max-instances 5.
-        # When merging PR 373 (PDF worker), ensure these flags apply only to core-api and NOT the Playwright worker.
+        WORKER_URL="$$(cat /workspace/.pdf_worker_url)"
+        # Socket.IO: min-instances 1 + continuous CPU for heartbeats. REDIS_URL is Upstash
+        # (public TLS) from GSM — no VPC connector. These flags apply only to core-api,
+        # not core-api-pdf-worker.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,REDIS_URL=REDIS_URL:latest" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,REDIS_URL=REDIS_URL:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
