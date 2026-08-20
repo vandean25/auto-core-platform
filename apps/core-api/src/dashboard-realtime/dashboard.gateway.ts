@@ -1,4 +1,10 @@
-import { Inject, Logger, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  Logger,
+  Optional,
+  forwardRef,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -7,6 +13,8 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import Redis from 'ioredis';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from '../auth/auth.service';
 import {
@@ -59,21 +67,65 @@ const allowedOrigins = resolveCorsOrigins();
   },
 })
 export class DashboardGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnGatewayInit,
+    OnModuleDestroy
 {
   private readonly logger = new Logger(DashboardGateway.name);
   private static readonly TENANT_ROOM_PREFIX = 'tenant_';
   private static readonly USER_ROOM_PREFIX = 'user_';
 
+  private pubClient?: Redis;
+  private subClient?: Redis;
+
   constructor(
     @Inject(forwardRef(() => AuthService))
     private readonly authService: AuthService,
+    @Optional()
+    private readonly redisUrl: string | undefined = process.env.REDIS_URL,
   ) {}
 
   @WebSocketServer()
   server!: Server;
 
   afterInit(server: Server) {
+    if (this.redisUrl && this.redisUrl.trim().length > 0) {
+      try {
+        const pubClient = new Redis(this.redisUrl.trim());
+        const subClient = pubClient.duplicate();
+
+        pubClient.on('error', (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `Redis pub client error: ${message}`,
+            err instanceof Error ? err.stack : undefined,
+          );
+        });
+
+        subClient.on('error', (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `Redis sub client error: ${message}`,
+            err instanceof Error ? err.stack : undefined,
+          );
+        });
+
+        server.adapter(createAdapter(pubClient, subClient));
+        this.pubClient = pubClient;
+        this.subClient = subClient;
+        this.logger.log(
+          'Attached Redis adapter to Socket.IO for cross-instance fan-out.',
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Failed to initialize Socket.IO Redis adapter: ${message}`,
+        );
+      }
+    }
+
     server.use((socket, next) => {
       void (async () => {
         try {
@@ -207,5 +259,14 @@ export class DashboardGateway
         claimReason: payload.reason,
       }),
     );
+  }
+
+  async onModuleDestroy() {
+    if (this.pubClient) {
+      await this.pubClient.quit().catch(() => {});
+    }
+    if (this.subClient) {
+      await this.subClient.quit().catch(() => {});
+    }
   }
 }

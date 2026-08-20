@@ -210,6 +210,7 @@ sequenceDiagram
 
 - The `@Global()` module decorator makes `DashboardRealtimeService` available to all modules without explicit imports.
 - The extension runs after the Prisma query completes (post-query hook), so it never blocks or delays the original database operation.
+- **Horizontal Multi-Instance Scaling**: `DashboardGateway` supports horizontal scale-out across multiple instances using `@socket.io/redis-adapter` when `REDIS_URL` is set. When unset, it uses the standard in-memory adapter for local dev and e2e testing. See runbook `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`.
 
 ## Alternatives Considered
 
@@ -230,6 +231,7 @@ sequenceDiagram
 
 - [Prisma Client Extensions docs](https://www.prisma.io/docs/orm/prisma-client/client-extensions)
 - `RealtimeDashboardSyncProvider` implementation: `apps/core-web/src/features/realtime/RealtimeDashboardSyncProvider.tsx`
+- Runbook: `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`
 - Source files:
   - `apps/core-api/src/prisma/prisma-dashboard-realtime.extension.ts`
   - `apps/core-api/src/dashboard-realtime/dashboard-realtime.service.ts`

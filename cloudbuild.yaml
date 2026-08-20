@@ -90,8 +90,9 @@ steps:
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
-          --min-instances 0 \
-          --max-instances 5 \
+          --min-instances 1 \
+          --no-cpu-throttling \
+          --max-instances 1 \
           --quiet
 
   - id: export-run-url
