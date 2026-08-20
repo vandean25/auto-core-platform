@@ -8,6 +8,8 @@ type SentryEnv = {
   VITE_SENTRY_TRACES_SAMPLE_RATE?: string
 }
 
+const API_PATH_PROPAGATION_TARGET = /\/api(?:\/|$)/
+
 export function createSentryOptions(env: SentryEnv): BrowserOptions {
   const dsn = env.VITE_SENTRY_DSN ?? ''
   const environment = env.MODE ?? 'development'
@@ -16,7 +18,7 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
   const tracesSampleRate = Number.isFinite(configuredRate) ? configuredRate : 0.1
 
   const apiBaseUrl = env.VITE_API_BASE_URL
-  const propagationTargets: (string | RegExp)[] = ['localhost']
+  const propagationTargets: (string | RegExp)[] = ['localhost', API_PATH_PROPAGATION_TARGET]
   if (apiBaseUrl) {
     propagationTargets.push(apiBaseUrl)
   }

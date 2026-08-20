@@ -15,7 +15,11 @@ describe('createSentryOptions', () => {
     expect(options.release).toBe('core-web@1.2.3')
     expect(options.sendDefaultPii).toBe(false)
     expect(options.tracesSampleRate).toBe(0.1)
-    expect(options.tracePropagationTargets).toEqual(['localhost', 'https://api.example.com'])
+    expect(options.tracePropagationTargets).toEqual([
+      'localhost',
+      /\/api(?:\/|$)/,
+      'https://api.example.com',
+    ])
     expect(options.replaysSessionSampleRate).toBe(0.1)
     expect(options.replaysOnErrorSampleRate).toBe(1)
     expect(options.enableLogs).toBe(true)
@@ -36,6 +40,6 @@ describe('createSentryOptions', () => {
       VITE_API_BASE_URL: '',
     })
 
-    expect(options.tracePropagationTargets).toEqual(['localhost'])
+    expect(options.tracePropagationTargets).toEqual(['localhost', /\/api(?:\/|$)/])
   })
 })

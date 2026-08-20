@@ -264,6 +264,15 @@ service in `europe-west3`; REST calls use `/api/...` and the production
 Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
 requests through `/api` and Socket.IO through `/socket.io` to the local API.
 
+Firebase Hosting Cloud Run rewrites resolve `serviceId` in the same GCP project
+as the Hosting site. Before deploying this rewrite, ensure the Cloud Run
+service and Hosting site are project-aligned; the current pipeline declares
+`auto-core-platform` as `_BACKEND_PROJECT` and
+`auto-core-platform-vande` as `_FRONTEND_PROJECT`. Same-organization IAM alone
+does not make a rewrite cross-project, so otherwise use a same-project proxy
+or align the deployment projects. Do not replace the NestJS service with
+Cloud Functions.
+
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
 ```env
