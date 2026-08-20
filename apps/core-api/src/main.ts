@@ -8,9 +8,18 @@ import {
   LogLevelService,
 } from './common';
 import { validateEnv } from './config/env';
+import {
+  inspectRuntimeDatabaseUrls,
+  logRuntimeDatabaseUrlStatus,
+  requireRuntimePooler,
+} from './prisma/runtime-database-url-health';
 
 async function bootstrap() {
   const env = validateEnv();
+  const runtimeDatabaseUrlStatus = inspectRuntimeDatabaseUrls();
+  logRuntimeDatabaseUrlStatus(runtimeDatabaseUrlStatus);
+  requireRuntimePooler(runtimeDatabaseUrlStatus);
+
   const app = await NestFactory.create(AppModule, {
     logger: LogLevelService.getInitialNestLogLevels(),
   });

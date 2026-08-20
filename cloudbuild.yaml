@@ -2,8 +2,9 @@ substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _DATABASE_SECRET: DATABASE_URL_UAT
-  # Neon/PgBouncer pooler secret for Cloud Run runtime. Keep migrate-db on _DATABASE_SECRET
-  # (direct). Override this substitution to the pooler secret once it exists in GSM.
+  # Safe fallback until the operator confirms the dedicated GSM secret exists.
+  # Override this in staging/production with acp-core-api-database-url-pooled
+  # before enabling DATABASE_POOLER_REQUIRED. Keep migrate-db on _DATABASE_SECRET.
   _DATABASE_POOLED_SECRET: DATABASE_URL_UAT
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
@@ -21,6 +22,8 @@ options:
 
 availableSecrets:
   secretManager:
+    # Only migrate-db needs this build-time secret. Cloud Run receives the
+    # runtime pooled secret directly through --set-secrets below.
     - versionName: projects/${_BACKEND_PROJECT}/secrets/${_DATABASE_SECRET}/versions/latest
       env: DATABASE_URL
     # Leftover from retired ApiKeyGuard. Cloud Run still receives API_KEY and the

@@ -6,6 +6,7 @@ const REQUIRED_ISSUE = 'Required';
 export const DOCUMENTED_ENV_KEYS = [
   'DATABASE_URL',
   'DATABASE_URL_POOLED',
+  'DATABASE_POOLER_REQUIRED',
   'PORT',
   'NODE_ENV',
   'LOG_LEVEL',
@@ -46,6 +47,11 @@ const optionalString = z
     return trimmed === '' ? undefined : trimmed;
   });
 
+const optionalBooleanString = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim() : value),
+  z.enum(['true', 'false']).optional(),
+);
+
 const nodeEnvSchema = z.preprocess(
   (value) => {
     if (value === 'production' || value === 'test' || value === 'development') {
@@ -61,6 +67,7 @@ const envSchema = z
     NODE_ENV: nodeEnvSchema,
     DATABASE_URL: optionalString,
     DATABASE_URL_POOLED: optionalString,
+    DATABASE_POOLER_REQUIRED: optionalBooleanString,
     PORT: optionalString,
     LOG_LEVEL: optionalString,
     FRONTEND_URL: optionalString,
