@@ -85,8 +85,8 @@ describe('dead code hygiene (AUT-139)', () => {
       path.join(REPO_ROOT, 'cloudbuild.yaml'),
       'utf8',
     );
-    expect(cloudBuild).not.toMatch(/API_KEY/);
-    expect(cloudBuild).not.toMatch(/VITE_API_KEY/);
+    expect(cloudBuild).not.toMatch(/(?:^|[^A-Z0-9_])API_KEY(?:[^A-Z0-9_]|$)/);
+    expect(cloudBuild).not.toMatch(/\bVITE_API_KEY\b/);
     expect(cloudBuild).toContain('VITE_FIREBASE_API_KEY');
   });
 
