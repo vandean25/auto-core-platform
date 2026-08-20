@@ -28,7 +28,7 @@ availableSecrets:
     # the GSM secret; do not set API_KEY in e2e.
     - versionName: projects/${_BACKEND_PROJECT}/secrets/API_KEY/versions/latest
       env: API_KEY
-    - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-firebase-api-key/versions/latest
+    - versionName: projects/${_FRONTEND_PROJECT}/secrets/acp-web-firebase-api-key/versions/latest
       env: VITE_FIREBASE_API_KEY
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-dsn/versions/latest
       env: VITE_SENTRY_DSN
