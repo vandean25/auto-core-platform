@@ -29,8 +29,7 @@ export interface CloudBuildDeployContracts {
 }
 
 const DEPLOY_STEP_PATTERN = /^  - id: ([^\r\n]+)\r?$/gm;
-const SET_ARGUMENT_PATTERN =
-  /--set-(?:env-vars|secrets)\s+"([^"]+)"/g;
+const SET_ARGUMENT_PATTERN = /--set-(?:env-vars|secrets)\s+"([^"]+)"/g;
 
 export function parseCloudBuildDeployContracts(
   cloudBuild: string,
@@ -61,9 +60,7 @@ function extractBuildStep(cloudBuild: string, stepId: string): string {
   return cloudBuild.slice(contentStart, contentEnd);
 }
 
-function parseDeployEnvironment(
-  deployStep: string,
-): CloudRunDeployEnvironment {
+function parseDeployEnvironment(deployStep: string): CloudRunDeployEnvironment {
   const environment = new Map<string, string>();
   const setArguments = [...deployStep.matchAll(SET_ARGUMENT_PATTERN)];
 
