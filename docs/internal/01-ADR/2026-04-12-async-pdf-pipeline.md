@@ -66,12 +66,13 @@ The security boundary for PDF generation is the **worker task execution path**, 
 
 ### Negative
 
-- **Infrastructure Complexity:** Requires managing Google Cloud Tasks queues, GCS Buckets, and Headless Chromium layers in the deployment container.
+- **Infrastructure Complexity:** Requires managing Google Cloud Tasks queues, GCS Buckets, Headless Chromium layers in the deployment container, and a dedicated `core-api-pdf-worker` Cloud Run service that runs Playwright separately from the user-facing `core-api` service.
 - **Testing Difficulty:** Automated tests for PDF visual regressions are brittle and difficult to assert programmatically.
 - **Error Handling UX:** If a background task exhausts all Cloud Tasks retries (default: 5 attempts with exponential backoff), the entity's `pdf_generation_error` field is set to the last failure reason and `pdf_generated_at` remains `null`. The frontend detects this null state after a configurable timeout and renders a "Retry Generation" button that re-enqueues the task. The schema fields involved are `pdf_storage_key` (nullable string), `pdf_generated_at` (nullable timestamp), and `pdf_generation_error` (nullable string) — present on both `Invoice` and `WorkshopOrder` tables. A dedicated Feature Spec is required before implementing the "Retry Generation" UI.
 
 ### Neutral
 
+- Production deploys two Cloud Run services from the same Playwright-capable image: `core-api` (enqueue-only, 512Mi) and `core-api-pdf-worker` (render worker, 2Gi, concurrency 1). Cloud Tasks `CLOUD_TASKS_TARGET_BASE_URL` points at the worker service URL with `/api` prefix.
 - A dedicated render route must be maintained for each new entity type added to the pipeline (one route per document type).
 - Playwright and headless Chromium add significant size to the deployment container image (~300 MB). This is a fixed cost regardless of PDF generation volume.
 - GCS storage costs scale linearly with document volume. Retention policy for archived PDFs (e.g., delete after 7 years per legal requirement) must be configured at the bucket level, not in application code.

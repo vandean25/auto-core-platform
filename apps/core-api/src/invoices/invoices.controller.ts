@@ -48,13 +48,6 @@ export class InvoicesController {
   })
   generatePdf(@Param('id') id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
-
-    if (!targetBaseUrl) {
-      this.logger.warn(
-        'CLOUD_TASKS_TARGET_BASE_URL is not configured; falling back to inline PDF generation',
-      );
-    }
-
     return this.invoicePdfService.requestGeneration(id, { targetBaseUrl });
   }
 

@@ -11,3 +11,7 @@ export {
 } from './pdf-task-payload';
 export { PdfTaskTenantGuard } from './pdf-task-tenant.guard';
 export { PdfWorker } from './pdf-worker.decorator';
+export {
+  resolvePdfGenerationDispatch,
+  type PdfGenerationDispatchMode,
+} from './pdf-generation-dispatch';

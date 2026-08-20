@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { CloudTasksService, PdfStorage } from '../common';
+import { resolvePdfGenerationDispatch } from '../common/pdf/pdf-generation-dispatch';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type InvoicePdfRequestGenerationResponse = {
@@ -79,18 +80,13 @@ export class InvoicePdfService {
       );
     }
 
-    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
-    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+    const dispatch = resolvePdfGenerationDispatch({
+      cloudTasksEnabled: this.cloudTasks.isEnabled(),
+      targetBaseUrl: params.targetBaseUrl,
+      nodeEnv: process.env.NODE_ENV,
+    });
 
-    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
-      // If explicitly enabled but misconfigured, fail closed to prevent resource exhaustion
-      if (cloudTasksEnabled) {
-        throw new InternalServerErrorException(
-          'Cloud Tasks is enabled but not correctly configured (missing queue, location, or base URL)',
-        );
-      }
-
-      // Fallback to inline generation for local/dev or when disabled
+    if (dispatch === 'inline') {
       const generated = await this.generateNow(invoiceId);
       return { mode: 'generated', ...generated };
     }
