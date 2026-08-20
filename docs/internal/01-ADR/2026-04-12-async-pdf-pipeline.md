@@ -47,13 +47,32 @@ Any future entity requiring PDF support (e.g., `PurchaseOrder`) must be explicit
 
 ### Security Model for PDF Generation
 
-The security boundary for PDF generation is the **worker task execution path**, not a dedicated internal render route. The current implementation relies on the following controls:
+Production uses a **split deployment** between the user-facing API and a dedicated PDF worker. Authentication spans two layers: Cloud Run IAM (transport) and application HMAC (payload integrity + tenant binding).
 
-1. **Worker-only execution:** PDF generation is initiated asynchronously through Cloud Tasks and processed by the backend worker path responsible for rendering. There is no separately exposed `/render/:entity/:id` endpoint used by Playwright in the current system.
-2. **Entity and status validation:** The worker only renders entity types explicitly registered in this pipeline and only when their status is one of the allowed final statuses documented above (`ISSUED`/`PAID` for `Invoice`, `INVOICED` for `WorkshopOrder`). Tasks for unsupported entities or invalid statuses must be rejected rather than rendered.
-3. **Server-side HTML generation:** Because the PDF is produced from server-generated HTML passed to `page.setContent(...)`, there is no browser navigation to an internal backend route and therefore no route-level guard in this flow.
+#### Roles
 
-> ⚠️ **Invariant:** Any future change that introduces an HTTP-based render endpoint, cross-service rendering, or a split deployment between task worker and renderer **must** define explicit authentication and authorization for that boundary before shipping. This ADR documents the current in-process HTML-to-PDF pipeline only.
+| Service | Responsibility | Cloud Tasks config |
+|---------|----------------|-------------------|
+| `core-api` | Enqueues PDF tasks; never launches Chromium in production | `CLOUD_TASKS_ENABLED`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_TARGET_BASE_URL`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORKER_SECRET` |
+| `core-api-pdf-worker` | Renders PDFs via Playwright; validates worker requests | `CLOUD_TASKS_WORKER_SECRET` only (must **not** receive enqueue env vars — it must not enqueue to itself) |
+
+#### Transport authentication (Cloud Run IAM + OIDC)
+
+1. **`core-api-pdf-worker` is not public.** Deployed with `--no-allow-unauthenticated`. Ingress remains open so Cloud Tasks can reach the service URL; unauthenticated browser traffic is rejected by Cloud Run IAM.
+2. **Cloud Tasks OIDC token.** When `core-api` enqueues a task, `cloud-tasks.service.ts` sets `httpRequest.oidcToken` with `serviceAccountEmail` = `CLOUD_TASKS_INVOKER_SA` and `audience` = the worker origin (`scheme://host`, not the `/pdf/worker` path).
+3. **Invoker IAM.** Create `cloud-tasks-pdf-invoker@auto-core-platform.iam.gserviceaccount.com` if it does not exist. That OIDC service account must hold `roles/run.invoker` on `core-api-pdf-worker`. The `core-api` Cloud Run runtime service account that creates tasks must hold `iam.serviceAccounts.actAs` on the invoker SA **and** permission to enqueue on `pdf-queue` in `europe-west3` (`roles/cloudtasks.enqueuer` on the queue, or `cloudtasks.tasks.create` on that queue resource).
+
+#### Application authentication (HMAC + tenant binding)
+
+4. **HMAC worker secret.** Every task carries `x-cloud-tasks-secret` (shared GSM secret) and a signed JSON body `{ kind, resourceId, tenantId, signature }`. `CloudTasksWorkerGuard` and `PdfTaskTenantGuard` validate the secret and bind tenant context before rendering.
+5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`ISSUED`/`PAID` for `Invoice`, `INVOICED` for `WorkshopOrder`).
+6. **Server-side HTML generation.** PDFs are produced from server-generated HTML via `page.setContent(...)` — no browser navigation to an internal render route.
+
+#### Fail-closed production behavior
+
+If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target URL, invoker SA, or worker secret), PDF `requestGeneration` throws in production rather than falling back to inline Playwright.
+
+> ⚠️ **Invariant:** Any future change to this split worker/renderer boundary must preserve explicit transport **and** application authentication before shipping.
 
 ## Consequences
 
@@ -66,12 +85,13 @@ The security boundary for PDF generation is the **worker task execution path**, 
 
 ### Negative
 
-- **Infrastructure Complexity:** Requires managing Google Cloud Tasks queues, GCS Buckets, and Headless Chromium layers in the deployment container.
+- **Infrastructure Complexity:** Requires managing Google Cloud Tasks queues, GCS Buckets, Headless Chromium layers in the deployment container, and a dedicated `core-api-pdf-worker` Cloud Run service that runs Playwright separately from the user-facing `core-api` service.
 - **Testing Difficulty:** Automated tests for PDF visual regressions are brittle and difficult to assert programmatically.
 - **Error Handling UX:** If a background task exhausts all Cloud Tasks retries (default: 5 attempts with exponential backoff), the entity's `pdf_generation_error` field is set to the last failure reason and `pdf_generated_at` remains `null`. The frontend detects this null state after a configurable timeout and renders a "Retry Generation" button that re-enqueues the task. The schema fields involved are `pdf_storage_key` (nullable string), `pdf_generated_at` (nullable timestamp), and `pdf_generation_error` (nullable string) — present on both `Invoice` and `WorkshopOrder` tables. A dedicated Feature Spec is required before implementing the "Retry Generation" UI.
 
 ### Neutral
 
+- Production deploys two Cloud Run services from the same Playwright-capable image: `core-api` (enqueue-only, 512Mi) and `core-api-pdf-worker` (render worker, 2Gi, concurrency 1). Cloud Tasks `CLOUD_TASKS_TARGET_BASE_URL` points at the worker service URL with `/api` prefix.
 - A dedicated render route must be maintained for each new entity type added to the pipeline (one route per document type).
 - Playwright and headless Chromium add significant size to the deployment container image (~300 MB). This is a fixed cost regardless of PDF generation volume.
 - GCS storage costs scale linearly with document volume. Retention policy for archived PDFs (e.g., delete after 7 years per legal requirement) must be configured at the bucket level, not in application code.

@@ -18,7 +18,7 @@ WORKDIR /usr/src/app/apps/core-api
 RUN npx prisma generate
 RUN npm run build
 
-FROM mcr.microsoft.com/playwright:v1.51.0-jammy AS runner
+FROM mcr.microsoft.com/playwright:v1.62.1-jammy AS runner
 
 WORKDIR /usr/src/app
 

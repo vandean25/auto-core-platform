@@ -10,6 +10,7 @@ import retry from 'async-retry';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
 import { CloudTasksService, PdfStorage } from '../common';
+import { resolvePdfGenerationDispatch } from '../common/pdf/pdf-generation-dispatch';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type WorkshopPdfRequestGenerationResponse = {
@@ -74,16 +75,13 @@ export class WorkshopPdfService {
       };
     }
 
-    const cloudTasksEnabled = process.env.CLOUD_TASKS_ENABLED === 'true';
-    const isCloudTasksConfigured = this.cloudTasks.isEnabled();
+    const dispatch = resolvePdfGenerationDispatch({
+      cloudTasksEnabled: this.cloudTasks.isEnabled(),
+      targetBaseUrl: params.targetBaseUrl,
+      nodeEnv: process.env.NODE_ENV,
+    });
 
-    if (!isCloudTasksConfigured || !params.targetBaseUrl) {
-      if (cloudTasksEnabled) {
-        throw new InternalServerErrorException(
-          'Cloud Tasks is enabled but not correctly configured',
-        );
-      }
-
+    if (dispatch === 'inline') {
       const generated = await this.generateNow(workshopOrderId, tenantId);
       return { mode: 'generated', ...generated };
     }
