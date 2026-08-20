@@ -81,7 +81,7 @@ steps:
         set -euo pipefail
         IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
         # Realtime WebSocket stability: keep min-instances 1 and continuous CPU for Socket.IO heartbeats.
-        # Keep max-instances 1 (single-instance safe mode) until Memorystore Redis is provisioned and REDIS_URL is mounted.
+        # REDIS_URL is mounted from Secret Manager to support cross-replica fan-out up to max-instances 5.
         # When merging PR 373 (PDF worker), ensure these flags apply only to core-api and NOT the Playwright worker.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
@@ -89,13 +89,13 @@ steps:
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,REDIS_URL=REDIS_URL:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
           --min-instances 1 \
           --no-cpu-throttling \
-          --max-instances 1 \
+          --max-instances 5 \
           --quiet
 
   - id: export-run-url
