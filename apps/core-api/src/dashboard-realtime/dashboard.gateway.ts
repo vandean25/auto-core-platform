@@ -85,6 +85,24 @@ export async function connectRedisClients(
   }
 }
 
+export function getRootSocketServer(server: unknown): Server | undefined {
+  if (!server || typeof server !== 'object') {
+    return undefined;
+  }
+  const candidate = server as Record<string, unknown>;
+  if (typeof candidate.adapter === 'function') {
+    return candidate as unknown as Server;
+  }
+  if (
+    candidate.server &&
+    typeof candidate.server === 'object' &&
+    typeof (candidate.server as Record<string, unknown>).adapter === 'function'
+  ) {
+    return candidate.server as Server;
+  }
+  return undefined;
+}
+
 const allowedOrigins = resolveCorsOrigins();
 
 @Public()
@@ -208,7 +226,14 @@ export class DashboardGateway
         Promise.all([pubClient.connect(), subClient.connect()]),
       );
 
-      server.adapter(createAdapter(pubClient, subClient));
+      const rootServer = getRootSocketServer(server);
+      if (!rootServer) {
+        throw new Error(
+          'Socket.IO root Server instance could not be resolved from gateway',
+        );
+      }
+
+      rootServer.adapter(createAdapter(pubClient, subClient));
       this.pubClient = pubClient;
       this.subClient = subClient;
       this.logger.log(
