@@ -57,22 +57,18 @@ Release consistency rule:
 
 ## 6. Sentry Source Map CI Secrets
 
-To upload frontend source maps to Sentry during CI builds, keep these values in GSM:
+To upload frontend source maps to Sentry for tagged production builds, keep
+these values in GSM:
 
 - `SENTRY_AUTH_TOKEN`
 - `SENTRY_ORG`
 - `SENTRY_PROJECT`
 
-The GitHub Actions workflow `.github/workflows/core-web-sentry-sourcemaps.yml` fetches those secrets from GSM using workload identity and injects them into the `core-web` build step.
-
-Required GitHub repository secrets for GSM access:
-
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
-- `GCP_PROJECT_ID`
-- `GSM_SENTRY_AUTH_TOKEN_SECRET`
-- `GSM_SENTRY_ORG_SECRET`
-- `GSM_SENTRY_PROJECT_SECRET`
+The tag-triggered Cloud Build `build-frontend` step reads these values through
+`availableSecrets` and injects them into the `core-web` build. Cloud Build is
+the sole production source-map uploader. It sets both `SENTRY_RELEASE` and
+`VITE_APP_VERSION` to `${TAG_NAME}`, so the browser release and Cloud Run API
+release use the same git tag.
 
 ## 7. Database Pooling Secrets (Multi-Tenant)
 
