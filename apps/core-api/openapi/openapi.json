@@ -5884,9 +5884,51 @@
         "type": "object",
         "properties": {}
       },
+      "PurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "catalogItemId": {
+            "type": "string",
+            "description": "Catalog item ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity ordered",
+            "example": 5
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Unit cost",
+            "example": 10.5
+          }
+        },
+        "required": [
+          "catalogItemId",
+          "quantity",
+          "unitCost"
+        ]
+      },
       "CreatePurchaseOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "description": "Vendor ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "items": {
+            "description": "Items to include in the purchase order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "items"
+        ]
       },
       "BrandResponseDto": {
         "type": "object",
@@ -6071,11 +6113,33 @@
       },
       "AddPurchaseOrderItemsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "items": {
+            "description": "Items to add to the purchase order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "UpdatePurchaseOrderItemDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "description": "Updated quantity",
+            "example": 10
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Updated unit cost",
+            "example": 25.5
+          }
+        }
       },
       "CreatePurchaseInvoiceLineDto": {
         "type": "object",
