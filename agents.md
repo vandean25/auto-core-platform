@@ -103,7 +103,7 @@ auto-core-platform/
 - **Settings**: All configuration (Finance, Revenue Groups, Brands, Storage Locations) is consolidated into a unified tabbed page at `src/pages/SettingsPage.tsx`, accessible via the gear icon.
 
 ### Page Layout Defaults
-- **Main Container**: Wrap page content in `<div className="w-full max-w-7xl mx-auto p-6 space-y-6">` (adjust `space-y-` based on need, `space-y-6` or `space-y-8` is common).
+- **Main Container**: Admin routes are wrapped by `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Adjust width via `--container-page` in `src/index.css`. Pages should not repeat that wrapper — use `space-y-6` / `space-y-8` on a root fragment or inner div when vertical spacing is needed.
 - **Header Section**: Use a flex container for titles and actions:
   ```tsx
   <div className="flex items-center justify-between mb-8">

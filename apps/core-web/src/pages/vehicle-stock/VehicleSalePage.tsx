@@ -119,7 +119,7 @@ export default function VehicleSalePage() {
   const costPreview = existing?.cost_basis_preview ?? vehicle?.cost_basis
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button

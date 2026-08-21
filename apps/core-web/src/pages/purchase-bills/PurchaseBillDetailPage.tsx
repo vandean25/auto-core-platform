@@ -41,18 +41,16 @@ export default function PurchaseBillDetailPage() {
 
     if (invoice.status === 'DRAFT') {
         return (
-            <div className="w-full max-w-7xl mx-auto p-6">
-                <PurchaseBillForm 
-                    initialData={invoice} 
-                    onSuccess={() => {}} 
-                    onCancel={() => navigate('/purchase-bills')} 
-                />
-            </div>
+            <PurchaseBillForm 
+                initialData={invoice} 
+                onSuccess={() => {}} 
+                onCancel={() => navigate('/purchase-bills')} 
+            />
         )
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
+        <div className="w-full max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <Button variant="outline" onClick={() => navigate('/purchase-bills')}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
