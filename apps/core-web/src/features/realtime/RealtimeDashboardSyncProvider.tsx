@@ -21,18 +21,22 @@ type RealtimeConnection = {
 
 type ResolveRealtimeConnectionOptions = {
   apiBaseUrl?: string
+  socketBaseUrl?: string
   currentOrigin?: string
   isDev?: boolean
 }
 
 export function resolveRealtimeConnection({
   apiBaseUrl = API_BASE_URL,
+  socketBaseUrl = import.meta.env.VITE_SOCKET_BASE_URL?.replace(/\/$/, ''),
   currentOrigin = typeof window !== 'undefined' ? window.location.origin : undefined,
   isDev = import.meta.env.DEV,
 }: ResolveRealtimeConnectionOptions = {}): RealtimeConnection | undefined {
-  if (apiBaseUrl) {
+  const targetBaseUrl = socketBaseUrl || apiBaseUrl
+
+  if (targetBaseUrl) {
     return {
-      url: `${apiBaseUrl}/dashboard-realtime`,
+      url: `${targetBaseUrl}/dashboard-realtime`,
       path: '/api/socket.io',
     }
   }
@@ -44,7 +48,7 @@ export function resolveRealtimeConnection({
     }
   }
 
-  console.warn('Unable to resolve realtime base URL: neither API_BASE_URL nor window.location.origin are available.')
+  console.warn('Unable to resolve realtime base URL: neither socketBaseUrl, apiBaseUrl nor window.location.origin are available.')
   return undefined
 }
 
