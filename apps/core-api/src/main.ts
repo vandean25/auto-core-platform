@@ -8,9 +8,19 @@ import {
   LogLevelService,
 } from './common';
 import { validateEnv } from './config/env';
+import { configureHttpSecurity } from './common/http/http-security';
+import {
+  inspectRuntimeDatabaseUrls,
+  logRuntimeDatabaseUrlStatus,
+  requireRuntimePooler,
+} from './prisma/runtime-database-url-health';
 
 async function bootstrap() {
   const env = validateEnv();
+  const runtimeDatabaseUrlStatus = inspectRuntimeDatabaseUrls();
+  logRuntimeDatabaseUrlStatus(runtimeDatabaseUrlStatus);
+  requireRuntimePooler(runtimeDatabaseUrlStatus);
+
   const app = await NestFactory.create(AppModule, {
     logger: LogLevelService.getInitialNestLogLevels(),
   });
@@ -19,14 +29,10 @@ async function bootstrap() {
   app.useGlobalPipes(createGlobalValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new HttpLoggingInterceptor());
-
-  if (env.FRONTEND_URL) {
-    app.enableCors({
-      origin: env.FRONTEND_URL,
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-      credentials: true,
-    });
-  }
+  configureHttpSecurity(app, {
+    frontendUrl: env.FRONTEND_URL,
+    nodeEnv: env.NODE_ENV,
+  });
 
   const port = env.PORT || 3000;
   await app.listen(port, '0.0.0.0');

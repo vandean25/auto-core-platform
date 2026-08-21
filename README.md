@@ -246,6 +246,16 @@ API routes are behind a global `JwtAuthGuard`. The bearer token is a Firebase ID
 
 Seed helpers: `npm run db:seed:tenant-member` and `npm run db:seed:platform-admin` in `apps/core-api`.
 
+### Cloud Run Edge
+
+The Cloud Run API remains publicly reachable while Firebase Hosting rewrites
+are not yet in place. JWT bearer authentication is the API authorization
+boundary; the retired `API_KEY`/`VITE_API_KEY` path is no longer shipped.
+After deploying this cleanup, operators should delete the retired `API_KEY`
+secret from Google Secret Manager, including any frontend-project copy if one
+exists. Cloud Armor is an optional operator follow-up once Hosting rewrites or
+an HTTPS load balancer is available; it is not configured by this repository.
+
 ### Frontend Environment Variables
 
 Set these in the build/deploy environment for `apps/core-web`:

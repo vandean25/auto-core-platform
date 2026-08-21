@@ -1,4 +1,6 @@
 import type { Socket, Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import Redis from 'ioredis';
 import type { AuthService } from '../auth/auth.service';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
@@ -6,7 +8,51 @@ import {
   type AuthClaimsUpdatedPayload,
   type DashboardEntityUpdatedPayload,
 } from './dashboard-events.types';
-import { DashboardGateway, resolveCorsOrigins } from './dashboard.gateway';
+import {
+  DashboardGateway,
+  REDIS_CONNECT_TIMEOUT_MS,
+  connectRedisClients,
+  resolveCorsOrigins,
+  resolveRedisUrl,
+} from './dashboard.gateway';
+
+const mockPubQuit = jest.fn().mockResolvedValue('OK');
+const mockPubConnect = jest.fn().mockResolvedValue('OK');
+const mockSubQuit = jest.fn().mockResolvedValue('OK');
+const mockSubConnect = jest.fn().mockResolvedValue('OK');
+const mockPubOn = jest.fn();
+const mockSubOn = jest.fn();
+
+jest.mock('@socket.io/redis-adapter', () => ({
+  createAdapter: jest.fn(() => 'mock-redis-adapter'),
+}));
+
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    duplicate: jest.fn().mockReturnValue({
+      on: mockSubOn,
+      connect: mockSubConnect,
+      quit: mockSubQuit,
+    }),
+    on: mockPubOn,
+    connect: mockPubConnect,
+    quit: mockPubQuit,
+  }));
+});
+
+describe('resolveRedisUrl', () => {
+  it('returns undefined when REDIS_URL is undefined or empty', () => {
+    expect(resolveRedisUrl(undefined)).toBeUndefined();
+    expect(resolveRedisUrl('')).toBeUndefined();
+    expect(resolveRedisUrl('   ')).toBeUndefined();
+  });
+
+  it('returns trimmed URL when REDIS_URL is provided', () => {
+    expect(resolveRedisUrl('  redis://10.0.0.3:6379  ')).toBe(
+      'redis://10.0.0.3:6379',
+    );
+  });
+});
 
 describe('resolveCorsOrigins', () => {
   it('falls back to localhost dev origins when FRONTEND_URL is unset outside production', () => {
@@ -204,5 +250,190 @@ describe('DashboardGateway', () => {
 
     expect(to).toHaveBeenCalledWith('user_user-1');
     expect(emit).toHaveBeenCalledWith(AUTH_CLAIMS_UPDATED_EVENT, payload);
+  });
+
+  describe('connectRedisClients', () => {
+    it('rejects when connect does not finish before the timeout', async () => {
+      await expect(
+        connectRedisClients(() => new Promise(() => {}), 20),
+      ).rejects.toThrow(/Redis connect timed out after 20ms/);
+    });
+
+    it('resolves when connect finishes before the timeout', async () => {
+      await expect(
+        connectRedisClients(() => Promise.resolve(), 200),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('Redis adapter initialization', () => {
+    afterEach(() => {
+      mockPubConnect.mockReset();
+      mockPubConnect.mockResolvedValue('OK');
+      mockSubConnect.mockReset();
+      mockSubConnect.mockResolvedValue('OK');
+    });
+
+    it('attaches Redis adapter when REDIS_URL is provided and connect succeeds', async () => {
+      jest.clearAllMocks();
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+      await gatewayWithRedis.onApplicationBootstrap();
+
+      expect(Redis).toHaveBeenCalledWith('redis://10.0.0.3:6379', {
+        lazyConnect: true,
+        connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+      });
+      expect(mockPubConnect).toHaveBeenCalled();
+      expect(mockSubConnect).toHaveBeenCalled();
+      expect(createAdapter).toHaveBeenCalled();
+      expect(mockServer.adapter).toHaveBeenCalledWith('mock-redis-adapter');
+    });
+
+    it('attaches Redis adapter to root server when afterInit receives a Namespace object', async () => {
+      jest.clearAllMocks();
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const rootServer = {
+        adapter: jest.fn(),
+      };
+      const mockNamespace = {
+        name: '/dashboard-realtime',
+        adapter: { rooms: new Map(), sids: new Map() }, // Namespace.adapter is an Adapter instance, not a function
+        server: rootServer,
+        use: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockNamespace as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+      await gatewayWithRedis.onApplicationBootstrap();
+
+      expect(createAdapter).toHaveBeenCalled();
+      expect(rootServer.adapter).toHaveBeenCalledWith('mock-redis-adapter');
+    });
+
+    it('does not attach adapter or log success when connect fails outside production', async () => {
+      jest.clearAllMocks();
+      mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+      await gatewayWithRedis.onApplicationBootstrap();
+
+      expect(createAdapter).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+    });
+
+    it('registers handshake auth before Redis connect completes', async () => {
+      jest.clearAllMocks();
+      let releaseConnect: (() => void) | undefined;
+      mockPubConnect.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseConnect = () => resolve('OK');
+          }),
+      );
+
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+
+      expect(mockServer.use).toHaveBeenCalled();
+      expect(createAdapter).not.toHaveBeenCalled();
+
+      releaseConnect?.();
+      await gatewayWithRedis.onApplicationBootstrap();
+      expect(createAdapter).toHaveBeenCalled();
+    });
+
+    it('fails closed from onApplicationBootstrap when Redis connect fails in production', async () => {
+      jest.clearAllMocks();
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      try {
+        gatewayWithRedis.afterInit(
+          mockServer as unknown as Server,
+          'redis://10.0.0.3:6379',
+        );
+        await expect(
+          gatewayWithRedis.onApplicationBootstrap(),
+        ).rejects.toThrow(
+          /CRITICAL: Failed to connect to Redis at redis:\/\/10.0.0.3:6379/,
+        );
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+
+      expect(createAdapter).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+    });
+
+    it('keeps default in-memory adapter when REDIS_URL is unset', () => {
+      jest.clearAllMocks();
+      const gatewayWithoutRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithoutRedis.afterInit(
+        mockServer as unknown as Server,
+        undefined,
+      );
+
+      expect(createAdapter).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+    });
+
+    it('cleans up Redis clients on module destroy', async () => {
+      jest.clearAllMocks();
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const mockServer = {
+        use: jest.fn(),
+        adapter: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockServer as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+      await gatewayWithRedis.onApplicationBootstrap();
+      await gatewayWithRedis.onModuleDestroy();
+
+      expect(mockPubQuit).toHaveBeenCalled();
+      expect(mockSubQuit).toHaveBeenCalled();
+    });
   });
 });
