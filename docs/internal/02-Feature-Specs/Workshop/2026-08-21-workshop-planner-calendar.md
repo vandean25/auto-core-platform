@@ -649,7 +649,9 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 
 ## Implementation sequence (after spec approval)
 
-Do not start this until Product Owner marks this spec **approved**. Then write a task-level plan (superpowers writing-plans) and implement in this order:
+Task-level plan: [2026-08-21-workshop-planner-calendar-implementation-plan.md](2026-08-21-workshop-planner-calendar-implementation-plan.md).
+
+Do not start application code until Product Owner marks this spec **approved**, unless a follow-up explicitly continues implementation. Then execute the plan in this order:
 
 1. Prisma models + migration + settings seed on first GET (weekdays empty of holidays).
 2. Settings API + Hours settings tab (weekdays + holiday CRUD + OpenHolidays import).
