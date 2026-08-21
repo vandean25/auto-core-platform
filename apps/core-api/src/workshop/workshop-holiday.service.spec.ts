@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { WorkshopHolidayService } from './workshop-holiday.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
+import { OPENHOLIDAYS_FETCH } from './openholidays.client';
 import {
   mockPrisma,
   mockTenantContext,
@@ -39,6 +41,7 @@ describe('WorkshopHolidayService', () => {
   const settingsService = {
     getOrCreateSettings: jest.fn(),
   };
+  const fetchMock = jest.fn();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -47,6 +50,7 @@ describe('WorkshopHolidayService', () => {
         workshopPrismaProvider,
         workshopTenantProvider,
         { provide: WorkshopSettingsService, useValue: settingsService },
+        { provide: OPENHOLIDAYS_FETCH, useValue: fetchMock },
       ],
     }).compile();
 
@@ -56,6 +60,7 @@ describe('WorkshopHolidayService', () => {
     mockTenantContext.getAuthenticatedUser.mockReturnValue(adminUser);
     settingsService.getOrCreateSettings.mockResolvedValue(settings);
     mockPrisma.workshopHoliday.findMany.mockResolvedValue([]);
+    fetchMock.mockReset();
   });
 
   it('creates a closed manual holiday', async () => {
@@ -175,5 +180,80 @@ describe('WorkshopHolidayService', () => {
         observedOn: '2026-12-24',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('imports nationwide public days without overwriting MANUAL rows', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'oh-1',
+          startDate: '2026-01-01',
+          endDate: '2026-01-01',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Neujahr' }],
+        },
+        {
+          id: 'oh-2',
+          startDate: '2026-12-24',
+          endDate: '2026-12-24',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Heiliger Abend' }],
+        },
+      ],
+    });
+    mockPrisma.workshopHoliday.findMany.mockResolvedValue([
+      {
+        id: 'manual-1',
+        observed_on: new Date('2026-12-24T00:00:00.000Z'),
+        repeats_annually: false,
+        source: 'MANUAL',
+        name: 'Betriebsurlaub',
+      },
+    ]);
+    mockPrisma.workshopHoliday.create.mockResolvedValue({
+      id: 'imported-1',
+    });
+
+    const result = await service.importPublicHolidays({});
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(mockPrisma.workshopHoliday.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.workshopHoliday.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: 'Neujahr',
+          source: 'IMPORTED',
+          repeats_annually: false,
+          is_closed: true,
+          external_id: 'oh-1',
+        }),
+      }),
+    );
+  });
+
+  it('returns 502 when OpenHolidays times out', async () => {
+    fetchMock.mockImplementation((_url: string, init?: RequestInit) => {
+      return new Promise((_, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+    });
+
+    jest.useFakeTimers();
+    const pending = service.importPublicHolidays({});
+    const assertion = expect(pending).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    await jest.advanceTimersByTimeAsync(3000);
+    await assertion;
+    jest.useRealTimers();
+    expect(mockPrisma.workshopHoliday.create).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module';
+import { OPENHOLIDAYS_FETCH } from './openholidays.client';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopHolidayService } from './workshop-holiday.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
@@ -34,6 +35,7 @@ import { WorkshopController } from './workshop.controller';
     WorkshopPdfRenderer,
     WorkshopSettingsService,
     WorkshopHolidayService,
+    { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
 })
 export class WorkshopModule {}

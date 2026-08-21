@@ -1,7 +1,9 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,9 +12,18 @@ import { TenantContextService } from '../common/services/tenant-context.service'
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateWorkshopHolidayDto,
+  ImportWorkshopHolidaysDto,
+  ImportWorkshopHolidaysResponseDto,
   UpdateWorkshopHolidayDto,
   WorkshopHolidayDto,
 } from './dto/workshop-holiday.dto';
+import {
+  OPENHOLIDAYS_FETCH,
+  OpenHolidaysTimeoutError,
+  OpenHolidaysUnavailableError,
+  fetchPublicHolidays,
+  type OpenHolidaysFetch,
+} from './openholidays.client';
 import { isOpenWindowValid } from './workshop-hours.defaults';
 import { WorkshopSettingsService } from './workshop-settings.service';
 
@@ -65,6 +76,7 @@ export class WorkshopHolidayService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly settingsService: WorkshopSettingsService,
+    @Inject(OPENHOLIDAYS_FETCH) private readonly openHolidaysFetch: OpenHolidaysFetch,
   ) {}
 
   async listHolidays(from?: string, to?: string): Promise<{ data: WorkshopHolidayDto[] }> {
@@ -180,6 +192,89 @@ export class WorkshopHolidayService {
     }
   }
 
+  async importPublicHolidays(
+    dto: ImportWorkshopHolidaysDto,
+  ): Promise<ImportWorkshopHolidaysResponseDto> {
+    this.assertTenantAdminAccess();
+    const tenantId = await this.tenantContext.getTenantId();
+    const settings = await this.settingsService.getOrCreateSettings(tenantId);
+    const yearFrom = this.calendarYear(settings.timezone);
+    const yearTo = yearFrom + 1;
+    const countryIsoCode = dto.countryIsoCode ?? settings.holiday_country_iso;
+    const subdivisionCode =
+      dto.subdivisionCode === undefined
+        ? settings.holiday_subdivision_code
+        : dto.subdivisionCode;
+
+    let days;
+    try {
+      days = await fetchPublicHolidays(
+        {
+          countryIsoCode,
+          subdivisionCode,
+          validFrom: `${yearFrom}-01-01`,
+          validTo: `${yearTo}-12-31`,
+        },
+        this.openHolidaysFetch,
+      );
+    } catch (error) {
+      if (
+        error instanceof OpenHolidaysTimeoutError ||
+        error instanceof OpenHolidaysUnavailableError
+      ) {
+        throw new BadGatewayException(error.message);
+      }
+      throw error;
+    }
+
+    const existing = await this.prisma.workshopHoliday.findMany({
+      where: { tenant_id: tenantId },
+    });
+    const existingByDate = new Map(
+      existing.map((row) => [formatUtcDateOnly(row.observed_on), row]),
+    );
+
+    let imported = 0;
+    let skipped = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const day of days) {
+        const current = existingByDate.get(day.observedOn);
+        if (current?.source === WorkshopHolidaySource.MANUAL) {
+          skipped += 1;
+          continue;
+        }
+        if (current) {
+          await tx.workshopHoliday.update({
+            where: { id: current.id },
+            data: {
+              name: day.name,
+              external_id: day.externalId,
+              source: WorkshopHolidaySource.IMPORTED,
+            },
+          });
+          skipped += 1;
+          continue;
+        }
+        await tx.workshopHoliday.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_settings_id: settings.id,
+            name: day.name,
+            observed_on: toUtcDateOnly(day.observedOn),
+            repeats_annually: false,
+            is_closed: true,
+            source: WorkshopHolidaySource.IMPORTED,
+            external_id: day.externalId,
+          },
+        });
+        imported += 1;
+      }
+    });
+
+    return { imported, skipped, yearFrom, yearTo };
+  }
+
   private async assertNoCollision(
     tenantId: string,
     candidate: { observedOn: Date; repeatsAnnually: boolean },
@@ -211,6 +306,15 @@ export class WorkshopHolidayService {
     }
   }
 
+  private calendarYear(timeZone: string): number {
+    return Number(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+      }).format(new Date()),
+    );
+  }
+
   private resolveListRange(
     timeZone: string,
     from?: string,
@@ -219,12 +323,7 @@ export class WorkshopHolidayService {
     if (from && to) {
       return { from: from.slice(0, 10), to: to.slice(0, 10) };
     }
-    const year = Number(
-      new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        year: 'numeric',
-      }).format(new Date()),
-    );
+    const year = this.calendarYear(timeZone);
     return { from: `${year}-01-01`, to: `${year + 1}-12-31` };
   }
 

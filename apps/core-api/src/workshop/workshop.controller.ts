@@ -48,6 +48,8 @@ import {
 } from './dto/board-response.dto';
 import {
   CreateWorkshopHolidayDto,
+  ImportWorkshopHolidaysDto,
+  ImportWorkshopHolidaysResponseDto,
   UpdateWorkshopHolidayDto,
   WorkshopHolidayDto,
   WorkshopHolidayListResponseDto,
@@ -102,6 +104,12 @@ export class WorkshopController {
   @ApiCreatedResponse({ type: WorkshopHolidayDto })
   createHoliday(@Body() dto: CreateWorkshopHolidayDto) {
     return this.holidayService.createHoliday(dto);
+  }
+
+  @Post('holidays/import')
+  @ApiOkResponse({ type: ImportWorkshopHolidaysResponseDto })
+  importHolidays(@Body() dto: ImportWorkshopHolidaysDto) {
+    return this.holidayService.importPublicHolidays(dto);
   }
 
   @Patch('holidays/:id')
