@@ -134,4 +134,3 @@ git status --short
 ```
 
 Expected: Cloud Build is the only listed production release owner, tag values are aligned, hidden sourcemaps remain, the diff has no whitespace errors, and the working tree is clean after committing.
-
