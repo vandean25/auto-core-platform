@@ -17,6 +17,12 @@ read from `auto-core-platform-vande` through per-secret `projectId` mappings.
 The project split is intentional: Firebase Auth/Hosting is not the Cloud Run
 project.
 
+The example local backend mapping keeps the direct development URL
+`acp-core-api-database-url` explicitly in `auto-core-platform-vande`; the
+pooled runtime URL is read from `acp-core-api-database-url-pooled` in
+`auto-core-platform`. Release Cloud Run migrations use the separate
+`DATABASE_URL_UAT`/`DATABASE_URL_PROD` names from `cloudbuild.yaml`.
+
 ## 2. Configure Mapping
 
 1. Copy mapping template:

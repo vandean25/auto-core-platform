@@ -12,7 +12,7 @@ pipeline is therefore a release/UAT pipeline and is not called production.
 
 | Environment | Git ref | Cloud Build trigger | Cloud Run service | Neon branch / database | Firebase Hosting site | Database GSM secret |
 |---|---|---|---|---|---|---|
-| Staging/UAT | `main` | Operator must create a push trigger for `cloudbuild.staging.yaml` | `core-api-staging` | UAT branch / UAT database; the actual Neon names remain in the GSM URL | Hosting preview channel on `auto-core-platform-vande` until a dedicated site is provisioned | `DATABASE_URL_UAT`; current pooled secret is `acp-core-api-database-url-pooled` |
+| Staging/UAT | `main` | Not enabled until the production cutover; then create a push trigger for `cloudbuild.staging.yaml` | `core-api-staging` | UAT branch / UAT database; the actual Neon names remain in the GSM URL | Hosting preview channel on `auto-core-platform-vande` until a dedicated site is provisioned | `DATABASE_URL_UAT`; current pooled secret is `acp-core-api-database-url-pooled` |
 | Production | `^v.*$` | Existing tag trigger is currently UAT/live; switch it to production only after the operator steps below | `core-api` | Production branch / production database; operator must provision these separately from UAT | `auto-core-platform-vande` | `DATABASE_URL_PROD`; pooled URL `acp-core-api-database-url-pooled-prod` |
 
 Neon branch and database names are intentionally not hard-coded in this
@@ -22,6 +22,10 @@ describe the required separation, not resources created by this change.
 Firebase Hosting remains a single known site for now. A staging preview
 channel is not a separate Firebase project and does not change the cross-project
 Hosting-to-Cloud-Run rewrite limitation documented in the root README.
+
+The staging template intentionally disables Cloud Tasks and Redis realtime and
+scales from zero to two instances. It is a low-cost deployment/schema
+validation target, not the environment for realtime acceptance testing.
 
 ## Deployment ownership
 
@@ -69,11 +73,12 @@ review IAM for the deployment identity.
 4. Confirm the production Neon branch/database, run the migration baseline
    procedure if required, and verify the pooled host and SQL settings.
 5. Update the tag trigger substitution from `DATABASE_URL_UAT` to
-   `DATABASE_URL_PROD` only after steps 1–4. Keep the UAT substitution for the
-   staging/UAT trigger.
-6. Create a staging Cloud Build trigger for pushes to `main`, using
-   `cloudbuild.staging.yaml`, `core-api-staging`, and the UAT secret names.
-   The trigger is not created by this repository change.
+   `DATABASE_URL_PROD` only after steps 1 through 4. Keep the UAT substitution
+   for the staging/UAT trigger.
+6. Only after step 5, create a staging Cloud Build trigger for pushes to
+   `main`, using `cloudbuild.staging.yaml`, `core-api-staging`, and the UAT
+   secret names. Creating this trigger earlier would migrate the live UAT
+   database from `main` before the tagged service is updated.
 7. If a separate staging Hosting site is later created, update the matrix,
    `firebase.json`, and the relevant Cloud Build substitutions together.
 

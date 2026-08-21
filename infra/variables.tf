@@ -13,7 +13,6 @@ variable "region" {
 variable "service_name" {
   description = "Cloud Run service name."
   type        = string
-  default     = "core-api"
 }
 
 variable "container_image" {
@@ -24,7 +23,6 @@ variable "container_image" {
 variable "deployment_environment" {
   description = "Application environment represented by this service."
   type        = string
-  default     = "uat"
 
   validation {
     condition     = contains(["staging", "uat", "production"], var.deployment_environment)
@@ -46,11 +44,16 @@ variable "firebase_project_id" {
 variable "sentry_release" {
   description = "Release identifier reported to Sentry."
   type        = string
-  default     = ""
 }
 
 variable "cloud_tasks_enabled" {
   description = "Whether the API should enqueue PDF tasks."
+  type        = bool
+  default     = true
+}
+
+variable "realtime_enabled" {
+  description = "Whether to inject Redis and enable cross-instance Socket.IO fan-out."
   type        = bool
   default     = true
 }
@@ -100,13 +103,11 @@ variable "cpu_idle" {
 variable "database_secret_name" {
   description = "GSM secret containing the direct database URL for migrations and runtime fallback."
   type        = string
-  default     = "DATABASE_URL_UAT"
 }
 
 variable "database_pooled_secret_name" {
   description = "GSM secret containing the pooled database URL for runtime connections."
   type        = string
-  default     = "acp-core-api-database-url-pooled"
 }
 
 variable "sentry_dsn_secret_name" {

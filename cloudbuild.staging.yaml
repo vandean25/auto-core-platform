@@ -1,5 +1,9 @@
-# Staging/UAT API-only pipeline. The operator must create a push trigger for
-# main and provide any environment-specific substitution overrides.
+# Staging/UAT API-only pipeline template.
+#
+# SAFETY GATE: Do not create or enable the main push trigger until the tag
+# pipeline uses DATABASE_URL_PROD. Before that cutover, this file would run
+# prisma migrate deploy against the only live UAT database ahead of the
+# tagged service. After the cutover, DATABASE_URL_UAT is isolated to staging.
 substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
