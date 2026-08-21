@@ -23,7 +23,7 @@ export default function VehicleStockDetail() {
 
   if (isLoading || !vehicle) {
     return (
-      <div className="w-full max-w-7xl mx-auto p-6">
+      <div className="w-full max-w-page mx-auto p-6">
         <p className="text-slate-500">Loading stock vehicle...</p>
       </div>
     )
@@ -68,7 +68,7 @@ export default function VehicleStockDetail() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+    <div className="w-full max-w-page mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/vehicle-stock')}>

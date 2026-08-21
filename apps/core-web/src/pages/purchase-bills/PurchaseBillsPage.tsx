@@ -107,7 +107,7 @@ export default function PurchaseBillsPage() {
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6">
+        <div className="w-full max-w-page mx-auto p-6">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Purchase Bills</h1>

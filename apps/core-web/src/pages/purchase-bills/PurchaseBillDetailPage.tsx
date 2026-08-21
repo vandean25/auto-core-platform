@@ -41,7 +41,7 @@ export default function PurchaseBillDetailPage() {
 
     if (invoice.status === 'DRAFT') {
         return (
-            <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="w-full max-w-page mx-auto p-6">
                 <PurchaseBillForm 
                     initialData={invoice} 
                     onSuccess={() => {}} 

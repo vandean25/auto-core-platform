@@ -27,6 +27,9 @@
   --color-ring: hsl(222.2 84% 4.9%);
 
   --radius: 0.5rem;
+
+  /* Main page content width — wider than legacy max-w-7xl (80rem) for list/detail views */
+  --container-page: 96rem;
 }
 
 @layer base {

@@ -120,7 +120,7 @@ export function WorkshopOrderDetails() {
 
   if (!order) {
     return (
-      <div className='w-full max-w-7xl mx-auto p-6'>
+      <div className='w-full max-w-page mx-auto p-6'>
         <Card>
           <CardHeader>
             <CardTitle className='text-base font-semibold'>Workshop order not found</CardTitle>
@@ -475,7 +475,7 @@ export function WorkshopOrderDetails() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className='w-full max-w-7xl mx-auto space-y-6 p-6'>
+    <div className='w-full max-w-page mx-auto space-y-6 p-6'>
       <motion.div className='w-full min-w-0 space-y-6'>
           <OrderTopBar
             order={order}
