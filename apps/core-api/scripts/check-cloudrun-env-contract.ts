@@ -18,6 +18,7 @@ export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'CLOUD_TASKS_TARGET_BASE_URL',
   'CLOUD_TASKS_INVOKER_SA',
   'CLOUD_TASKS_WORKER_SECRET',
+  'REDIS_URL',
 ] as const;
 
 export type CloudRunDeployEnvironment = Map<string, string>;

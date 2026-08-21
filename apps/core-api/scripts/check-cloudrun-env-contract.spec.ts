@@ -18,6 +18,7 @@ describe('Cloud Run environment contract', () => {
     expect(coreApi.get('WORKSHOP_MEDIA_BUCKET')).toBe(
       'WORKSHOP_MEDIA_BUCKET:latest',
     );
+    expect(coreApi.get('REDIS_URL')).toBe('REDIS_URL:latest');
   });
 
   it('keeps mechanic media and enqueue settings off the PDF worker', () => {
@@ -28,6 +29,7 @@ describe('Cloud Run environment contract', () => {
       'INVOICE_PDF_BUCKET:latest',
     );
     expect(pdfWorker.has('WORKSHOP_MEDIA_BUCKET')).toBe(false);
+    expect(pdfWorker.has('REDIS_URL')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_ENABLED')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_LOCATION')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_QUEUE')).toBe(false);
