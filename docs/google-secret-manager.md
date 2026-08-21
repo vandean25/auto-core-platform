@@ -126,6 +126,7 @@ gcloud storage buckets add-iam-policy-binding gs://<bucket-name> \
 Do not commit the bucket's private objects or the secret value. The API keeps
 `WORKSHOP_MEDIA_BUCKET` optional during boot and fails closed at the mechanic
 media use site when storage is not configured.
+
 ## 9. Neon pooler cutover
 
 The Cloud Run runtime pooled secret should be a separate GSM secret named
