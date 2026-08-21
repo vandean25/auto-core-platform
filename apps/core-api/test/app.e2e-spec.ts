@@ -49,6 +49,13 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
+  it('/health (GET) is public and does not require a token', () => {
+    return request(app.getHttpServer())
+      .get('/api/health')
+      .expect(200)
+      .expect({ status: 'ok' });
+  });
+
   it('rejects unknown properties on validated DTOs', async () => {
     await request(app.getHttpServer())
       .post('/api/inventory/locations')

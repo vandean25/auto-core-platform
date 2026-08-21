@@ -36,6 +36,15 @@ export class HttpLoggingInterceptor implements NestInterceptor {
 
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest<Request>();
+    const requestPath = (request?.originalUrl ?? request?.url ?? '/').split(
+      '?',
+      1,
+    )[0];
+
+    if (requestPath === '/api/health') {
+      return next.handle();
+    }
+
     const response = httpContext.getResponse<Response>();
 
     const start = Date.now();
