@@ -8,9 +8,14 @@ This project supports pulling local `.env` files from Google Secret Manager (GSM
 2. Login:
    - `gcloud auth login`
 3. Set default project:
-   - `gcloud config set project auto-core-platform-vande`
+   - `gcloud config set project auto-core-platform`
 4. Ensure your account can access the required secrets:
    - IAM role typically needed: `Secret Manager Secret Accessor`
+
+The default project is the Cloud Run/backend project. Firebase web secrets are
+read from `auto-core-platform-vande` through per-secret `projectId` mappings.
+The project split is intentional: Firebase Auth/Hosting is not the Cloud Run
+project.
 
 ## 2. Configure Mapping
 
@@ -41,6 +46,8 @@ Release consistency rule:
 
 - The release values in `cloudbuild.yaml` for `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID` must match the GSM secrets used by the `core-web` target.
 - The backend `FIREBASE_PROJECT_ID` used by release Cloud Run and local `core-api` env pulls must resolve to the same Firebase project as the browser token audience.
+- The current tag-triggered release is the UAT/live environment and uses `DATABASE_URL_UAT`; it is not production.
+- A future production cutover must use a separately provisioned `DATABASE_URL_PROD` secret and a production pooled secret. Never point both environment names at the same secret without an explicit operator decision.
 
 ## 4. Outputs
 

@@ -1,6 +1,8 @@
 substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
+  # The current tag-triggered release is UAT/live. Production requires a
+  # separately provisioned DATABASE_URL_PROD secret and substitution.
   _DATABASE_SECRET: DATABASE_URL_UAT
   # Runtime pooled endpoint (Neon -pooler). migrate-db stays on _DATABASE_SECRET.
   # Enable _DATABASE_POOLER_REQUIRED=true only after startup logs and SQL checks pass.
@@ -46,7 +48,7 @@ steps:
     args:
       - -lc
       - |
-        # Fail this tag-triggered production deploy on any `prisma migrate deploy`
+        # Fail this tag-triggered release/UAT deploy on any `prisma migrate deploy`
         # non-zero exit, including Prisma P3005 (schema not empty / not baselined).
         # Baselining is a manual one-shot: `npm run db:baseline -- --applied <migration>`.
         # Do not skip P3005 here.

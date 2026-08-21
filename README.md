@@ -136,6 +136,7 @@ Use GSM so all machines/agents pull the same credentials without committing secr
 
 ```bash
 gcloud auth login
+# Backend GSM secrets, including DATABASE_URL_UAT, live in the Cloud Run project.
 gcloud config set project auto-core-platform
 ```
 
@@ -219,11 +220,16 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 ## Production Hosting & Auth
 
-### Firebase Project
+### GCP and Firebase project map
 
-- **Backend + Cloud Build + Hosting + Firebase Auth Project**: `auto-core-platform-vande`
+| Concern | Project or site | Notes |
+|---------|-----------------|-------|
+| Cloud Run API, Artifact Registry, Cloud Build release trigger, backend GSM | `auto-core-platform` | `_BACKEND_PROJECT` in `cloudbuild.yaml` |
+| Firebase Authentication and Firebase Hosting | `auto-core-platform-vande` | `_BACKEND_FIREBASE_PROJECT_ID` and `_FRONTEND_PROJECT`; Hosting site is `auto-core-platform-vande` |
+| Cloud Build deployer service account | `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com` | Account is owned by the Cloud Run project and needs explicitly granted Firebase access |
 
-The application now uses a single Firebase/GCP project for backend deployment, frontend hosting, and Firebase Authentication.
+The backend and Firebase projects are intentionally separate. Do not infer that
+Firebase Hosting rewrites can target a Cloud Run service across projects.
 
 ### Firebase Auth (Frontend)
 
@@ -335,7 +341,7 @@ The release trigger deploys on tags matching `^v.*$`.
 
 Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
 
-If a non-empty database has never been baselined, run a **manual one-shot** outside the production deploy:
+If a non-empty database has never been baselined, run a **manual one-shot** outside the tag-triggered release/UAT deploy:
 
 ```bash
 npm --prefix apps/core-api run db:baseline -- --applied <migration_name>
@@ -345,9 +351,9 @@ Release Firebase substitutions in `cloudbuild.yaml` must match the GSM-backed `c
 
 ### Required APIs
 
-In project `auto-core-platform-vande`:
+Enable `cloudbuild.googleapis.com` in `auto-core-platform` and these Firebase
+APIs in `auto-core-platform-vande`:
 
-- `cloudbuild.googleapis.com`
 - `firebase.googleapis.com` (Firebase Management API)
 - `firebasehosting.googleapis.com` (Firebase Hosting API)
 - `identitytoolkit.googleapis.com`
