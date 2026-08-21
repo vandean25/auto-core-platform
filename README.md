@@ -218,7 +218,7 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 ---
 
-## Production Hosting & Auth
+## Hosting, Auth & Deployment Environments
 
 ### GCP and Firebase project map
 
