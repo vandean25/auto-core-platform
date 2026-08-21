@@ -2,10 +2,9 @@ substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _DATABASE_SECRET: DATABASE_URL_UAT
-  # Safe fallback until the operator confirms the dedicated GSM secret exists.
-  # Override this in staging/production with acp-core-api-database-url-pooled
-  # before enabling DATABASE_POOLER_REQUIRED. Keep migrate-db on _DATABASE_SECRET.
-  _DATABASE_POOLED_SECRET: DATABASE_URL_UAT
+  # Runtime pooled endpoint (Neon -pooler). migrate-db stays on _DATABASE_SECRET.
+  # Enable _DATABASE_POOLER_REQUIRED=true only after startup logs and SQL checks pass.
+  _DATABASE_POOLED_SECRET: acp-core-api-database-url-pooled
   _DATABASE_POOLER_REQUIRED: "false"
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
