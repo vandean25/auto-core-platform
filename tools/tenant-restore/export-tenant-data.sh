@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NOT PRODUCTIZED (AUT-154). Do not run against production.
+# NOT PRODUCTIZED (AUT-154/AUT-171). Do not run against production.
 # Status: docs/internal/05-Runbooks/single-tenant-restore-playbook.md
 # Deferral: docs/internal/.architecture/deferrals.md
 set -euo pipefail
@@ -14,22 +14,25 @@ TENANT_ID="$2"
 OUTPUT_FILE="$3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "[tenant-restore] Applying tenant RLS policies on clone for tenant ${TENANT_ID}"
-psql "${CLONE_DATABASE_URL}" \
-  -v target_tenant_id="${TENANT_ID}" \
-  -f "${SCRIPT_DIR}/apply-tenant-rls.sql"
+source "${SCRIPT_DIR}/restore-common.sh"
+tenant_restore_validate_target "${CLONE_DATABASE_URL}" "${TENANT_ID}"
 
-# Use a dedicated extractor connection string if available.
-EXTRACT_DATABASE_URL="${TENANT_EXTRACTOR_DATABASE_URL:-${CLONE_DATABASE_URL}}"
+if [[ "${DRY_RUN:-1}" == "1" ]]; then
+  echo "[tenant-restore] Would verify the live schema and export tenant ${TENANT_ID} to ${OUTPUT_FILE}"
+  exit 0
+fi
+
+echo "[tenant-restore] Verifying clone schema against generated restore manifest"
+psql "${CLONE_DATABASE_URL}" \
+  -X \
+  -v ON_ERROR_STOP=1 \
+  -v target_tenant_id="${TENANT_ID}" \
+  -f "${SCRIPT_DIR}/verify-tenant-schema.sql" >/dev/null
 
 echo "[tenant-restore] Exporting tenant-scoped data to ${OUTPUT_FILE}"
-pg_dump "${EXTRACT_DATABASE_URL}" \
-  --data-only \
-  --inserts \
-  --column-inserts \
-  --no-owner \
-  --no-privileges \
-  --enable-row-security \
-  --file "${OUTPUT_FILE}"
+node "${SCRIPT_DIR}/export-tenant-data.mjs" \
+  "${CLONE_DATABASE_URL}" \
+  "${TENANT_ID}" \
+  "${OUTPUT_FILE}"
 
 echo "[tenant-restore] Export complete: ${OUTPUT_FILE}"

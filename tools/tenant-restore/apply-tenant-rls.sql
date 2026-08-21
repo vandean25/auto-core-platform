@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- NOT PRODUCTIZED (AUT-154). Do not run against production.
+-- NOT PRODUCTIZED (AUT-154/AUT-171). Do not run against production.
 -- Status: docs/internal/05-Runbooks/single-tenant-restore-playbook.md
 -- Deferral: docs/internal/.architecture/deferrals.md
 --
@@ -31,6 +31,12 @@ BEGIN
     );
 
     EXECUTE format(
+      'ALTER TABLE %I.%I FORCE ROW LEVEL SECURITY',
+      table_row.table_schema,
+      table_row.table_name
+    );
+
+    EXECUTE format(
       'DROP POLICY IF EXISTS %I ON %I.%I',
       policy_name,
       table_row.table_schema,
@@ -47,6 +53,7 @@ BEGIN
 END
 $$;
 
--- Optional hardening for dedicated extractor role.
--- Run this once after creating the tenant_extractor role.
--- ALTER ROLE tenant_extractor SET row_security = on;
+-- This file is retained only for clone experiments. The export script uses
+-- per-table COPY (SELECT ... WHERE tenant_id = ...) and never pg_dump.
+-- If an operator uses RLS manually, FORCE is required because table owners
+-- otherwise bypass policies. A table-owner pg_dump is forbidden.
