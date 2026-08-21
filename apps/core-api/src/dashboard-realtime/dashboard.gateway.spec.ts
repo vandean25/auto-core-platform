@@ -298,6 +298,29 @@ describe('DashboardGateway', () => {
       expect(mockServer.adapter).toHaveBeenCalledWith('mock-redis-adapter');
     });
 
+    it('attaches Redis adapter to root server when afterInit receives a Namespace object', async () => {
+      jest.clearAllMocks();
+      const gatewayWithRedis = new DashboardGateway(authService);
+      const rootServer = {
+        adapter: jest.fn(),
+      };
+      const mockNamespace = {
+        name: '/dashboard-realtime',
+        adapter: { rooms: new Map(), sids: new Map() }, // Namespace.adapter is an Adapter instance, not a function
+        server: rootServer,
+        use: jest.fn(),
+      };
+
+      gatewayWithRedis.afterInit(
+        mockNamespace as unknown as Server,
+        'redis://10.0.0.3:6379',
+      );
+      await gatewayWithRedis.onApplicationBootstrap();
+
+      expect(createAdapter).toHaveBeenCalled();
+      expect(rootServer.adapter).toHaveBeenCalledWith('mock-redis-adapter');
+    });
+
     it('does not attach adapter or log success when connect fails outside production', async () => {
       jest.clearAllMocks();
       mockPubConnect.mockRejectedValueOnce(new Error('Connection refused'));
