@@ -301,3 +301,24 @@ jobs:
 
       - name: Run Playwright UI smoke tests
         run: npm run test:e2e --workspace=core-web
+
+  infrastructure:
+    name: Terraform Infrastructure Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.15.9
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Initialize Terraform providers
+        run: terraform -chdir=infra init -backend=false -input=false
+
+      - name: Validate Terraform configuration
+        run: terraform -chdir=infra validate
