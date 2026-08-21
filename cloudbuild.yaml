@@ -56,39 +56,35 @@ steps:
 
   - id: build-api-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - --target
-      - api
-      - -f
-      - apps/core-api/Dockerfile
-      - -t
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
-      - .
-
-  - id: push-api-image
-    name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
+      - -ceu
+      - |
+        docker buildx create --driver docker-container --use
+        docker buildx build \
+          --push \
+          --target api \
+          --cache-from type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:cache \
+          --cache-to type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:cache,mode=max \
+          -f apps/core-api/Dockerfile \
+          -t ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME} \
+          .
 
   - id: build-pdf-worker-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - --target
-      - worker
-      - -f
-      - apps/core-api/Dockerfile
-      - -t
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}
-      - .
-
-  - id: push-pdf-worker-image
-    name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}
+      - -ceu
+      - |
+        docker buildx create --driver docker-container --use
+        docker buildx build \
+          --push \
+          --target worker \
+          --cache-from type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:cache \
+          --cache-to type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:cache,mode=max \
+          -f apps/core-api/Dockerfile \
+          -t ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME} \
+          .
 
   - id: deploy-pdf-worker
     name: gcr.io/cloud-builders/gcloud
@@ -150,6 +146,7 @@ steps:
           --concurrency 40 \
           --min-instances 1 \
           --no-cpu-throttling \
+          --startup-probe "httpGet.path=/api/health,httpGet.port=8080" \
           --max-instances 5 \
           --quiet
 
