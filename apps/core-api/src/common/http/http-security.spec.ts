@@ -15,7 +15,7 @@ class HealthController {
 class HealthModule {}
 
 describe('configureHttpSecurity', () => {
-  it('adds production Helmet headers without API CSP', async () => {
+  it('adds production Helmet headers with a safe API CSP', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [HealthModule],
     }).compile();
@@ -36,7 +36,9 @@ describe('configureHttpSecurity', () => {
       expect(response.headers['referrer-policy']).toBe(
         'no-referrer',
       );
-      expect(response.headers['content-security-policy']).toBeUndefined();
+      expect(response.headers['content-security-policy']).toContain(
+        "default-src 'self'",
+      );
       expect(
         (
           app.getHttpAdapter().getInstance() as {
