@@ -9,6 +9,7 @@ import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
@@ -40,6 +41,7 @@ describe('WorkshopController', () => {
         { provide: WorkshopPdfService, useValue: mockPdfService },
         { provide: WorkshopSettingsService, useValue: {} },
         { provide: WorkshopHolidayService, useValue: {} },
+        { provide: WorkshopPlannerService, useValue: {} },
         {
           provide: TenantContextService,
           useValue: { setTenantIdForWorker: jest.fn() },

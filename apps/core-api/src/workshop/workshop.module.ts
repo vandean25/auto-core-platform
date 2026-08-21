@@ -12,6 +12,7 @@ import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
 import { WorkshopController } from './workshop.controller';
@@ -35,6 +36,7 @@ import { WorkshopController } from './workshop.controller';
     WorkshopPdfRenderer,
     WorkshopSettingsService,
     WorkshopHolidayService,
+    WorkshopPlannerService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
 })

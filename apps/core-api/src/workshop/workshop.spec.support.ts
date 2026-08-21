@@ -56,6 +56,12 @@ export const mockPrisma = {
     update: jest.fn(),
     deleteMany: jest.fn(),
   },
+  bay: {
+    findMany: jest.fn(),
+  },
+  employee: {
+    findFirst: jest.fn(),
+  },
   storageLocation: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),

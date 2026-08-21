@@ -55,10 +55,14 @@ import {
   WorkshopHolidayListResponseDto,
 } from './dto/workshop-holiday.dto';
 import {
+  PlannerGridResponseDto,
+} from './dto/workshop-planner.dto';
+import {
   UpdateWorkshopSettingsDto,
   WorkshopSettingsResponseDto,
 } from './dto/workshop-settings.dto';
 import { WorkshopHolidayService } from './workshop-holiday.service';
+import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
@@ -78,6 +82,7 @@ export class WorkshopController {
     private readonly pdfService: WorkshopPdfService,
     private readonly settingsService: WorkshopSettingsService,
     private readonly holidayService: WorkshopHolidayService,
+    private readonly plannerService: WorkshopPlannerService,
   ) {}
 
   @Get('settings')
@@ -126,6 +131,19 @@ export class WorkshopController {
   @ApiNoContentResponse()
   deleteHoliday(@Param('id', ParseUUIDPipe) id: string) {
     return this.holidayService.deleteHoliday(id);
+  }
+
+  @Get('planner')
+  @ApiQuery({ name: 'from', required: true, schema: { type: 'string' } })
+  @ApiQuery({ name: 'to', required: true, schema: { type: 'string' } })
+  @ApiQuery({ name: 'bayId', required: false, schema: { type: 'string' } })
+  @ApiOkResponse({ type: PlannerGridResponseDto })
+  getPlanner(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('bayId') bayId?: string,
+  ) {
+    return this.plannerService.getPlanner({ from: from ?? '', to: to ?? '', bayId });
   }
 
   @Post('register')
