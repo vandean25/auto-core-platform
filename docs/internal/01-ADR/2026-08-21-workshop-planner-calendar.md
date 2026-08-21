@@ -36,7 +36,7 @@ The Service Advisor already has three workshop doors:
 
 The next module is a Service Advisor **planner**:
 
-1. Define when this tenant's workshop is open (hours + slot size).
+1. Define when this tenant's workshop is open (hours + slot size + holidays).
 2. See which bay is free at a given time.
 3. Create a workshop order in that free spot.
 
@@ -49,7 +49,8 @@ Without a separate time surface, advisors will keep booking in a list, double-bo
 - **Primary module:** Workshop.
 - **New frontend surface:** `/workshop/planner` — sidebar label **Workshop Planner**.
 - **Existing board stays** `/workshop/board` — sidebar label **Workshop Board**. Do not merge the calendar into the kanban.
-- **Does not introduce:** a separate `Appointment` entity, pre-generated slot rows, customer self-booking, recurring series, holiday calendar, or labor-AW duration engine.
+- **Does not introduce:** a separate `Appointment` entity, pre-generated slot rows, customer self-booking, recurring *job* series, or labor-AW duration engine.
+- **Does introduce:** tenant-owned **holidays** (closed days and short days) as an override of weekday hours. No auto-import of country public-holiday packs.
 - **Cross-module dependencies:** CRM (customer + vehicle search already used by intake), Dashboard/Realtime (`WORKSHOP_ORDER` already broadcasts), Settings (new hours tab).
 
 ### 2. Occupancy is the workshop order
@@ -67,7 +68,7 @@ Free space is the inverse of those intervals against tenant opening hours. No `A
 
 ### 3. Hours are tenant settings, not FinanceSettings
 
-New singleton `WorkshopSettings` + child `WorkshopOpeningHour` rows (one per weekday). Do **not** hang operational hours off `FinanceSettings`. Fiscal lock date and invoice prefixes are a different concern.
+New singleton `WorkshopSettings` + child `WorkshopOpeningHour` rows (one per weekday) + `WorkshopHoliday` rows (tenant-owned closed or short days). Do **not** hang operational hours off `FinanceSettings`. Fiscal lock date and invoice prefixes are a different concern.
 
 Defaults for a new workshop tenant:
 
@@ -76,8 +77,11 @@ Defaults for a new workshop tenant:
 - Mon–Fri `07:30–17:00`
 - Saturday `08:00–12:00`
 - Sunday closed
+- Holidays: **empty list**. The shop adds Nationalfeiertag, Betriebsurlaub, Christmas Eve, etc. No AT/DE pack is seeded.
 
-The planner grid is derived from these settings. Advisors may still book outside hours (rush job); the UI warns, the API does not 422. This matches ADR-0018's "never block operational flow" for *hours*, while still hard-blocking *bay collisions* (section 5).
+**Effective hours for a local date:** matching holiday wins (closed all day, or holiday `open_time`/`close_time`). Else the weekday row. Annual holidays match month+day every year; 29 Feb is skipped in non-leap years.
+
+The planner grid is derived from these settings. Advisors may still book outside hours, on Sunday, or on a holiday (rush job); the UI warns, the API does not 422. The grid must still *look* closed or shortened so a stall does not appear free. This matches ADR-0018's "never block operational flow" for *hours*, while still hard-blocking *bay collisions* (section 5).
 
 ### 4. Create path for scheduled work
 
@@ -99,12 +103,12 @@ Walk-in intake is unchanged: omit schedule fields → `INTAKE` as today.
 |----------|-------------------|-----------|
 | **Bay** | HTTP `409` | Physical stall. Two cars do not fit. |
 | **Mechanic** | Allowed; amber warning on the planner | Same ruling as ADR-0018 §7. A lead tech can be double-booked for a rush. |
-| **Opening hours** | Allowed; amber warning | After-hours / Saturday overflow is a real shop move. |
+| **Opening hours / holidays** | Allowed; amber warning | After-hours, Sunday, or holiday overflow is a real shop move. |
 
 Overlap set: orders in `SCHEDULED`, `INTAKE`, `IN_PROGRESS` with non-null `bay_id`.
 
 - **Timed:** both schedule timestamps set → occupy `[scheduled_start_at, scheduled_end_at)`.
-- **Unscheduled on-floor:** `INTAKE` or `IN_PROGRESS` with a bay and null timestamps → occupy that bay for **today in the tenant timezone** (open → close). Walk-ins must not make a stall look empty on the planner.
+- **Unscheduled on-floor:** `INTAKE` or `IN_PROGRESS` with a bay and null timestamps → occupy that bay for **today in the tenant timezone** using effective hours (holiday override included). If today is fully closed, occupy local midnight→next midnight. Walk-ins must not make a stall look empty on the planner.
 
 `COMPLETED` / `INVOICED` do not occupy the bay.
 
@@ -124,8 +128,8 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 
 ### 7. Real-time, deletion, fiscal, inventory
 
-- **Realtime:** reuse `WORKSHOP_ORDER` WebSocket events. Add planner query keys to `dashboard-entity-map.ts`. `WorkshopSettings` changes are rare; refetch on navigating back from Settings (same as Employee/Bay in the board spec).
-- **Deletion:** `SCHEDULED` orders may be deleted (no-show / cancelled booking). Aligns with current deletion-policy language for pre-work states. No new `CANCELLED` status in Phase 1.
+- **Deletion:** `SCHEDULED` orders may be deleted (no-show / cancelled booking). Aligns with current deletion-policy language for pre-work states. No new `CANCELLED` status in Phase 1. `WorkshopHoliday` may be hard-deleted; it is not referenced by orders.
+- **Realtime:** reuse `WORKSHOP_ORDER` WebSocket events. Add planner query keys to `dashboard-entity-map.ts`. `WorkshopSettings`, opening hours, and holidays are rare; refetch on navigating back from Settings (same as Employee/Bay in the board spec).
 - **Fiscal:** none. Booking does not create invoices or touch `lock_date`.
 - **Inventory:** none. Planner does not read or write stock.
 
@@ -135,7 +139,7 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 
 - Advisors get a clock and a free-stall picture without replacing the board.
 - One document number from booking through invoice.
-- Hours are first-class tenant setup for a new workshop.
+- Hours are first-class tenant setup for a new workshop, including holidays.
 - Bay integrity is enforced where physics requires it.
 
 ### Negative
@@ -157,6 +161,7 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 | **B. Separate `Appointment` → convert at intake** | Clean CRM booking without dummy odometer | Two lifecycles, conversion bugs, numbering |
 | **C. Generated `WorkshopSlot` rows** | Trivial "is this cell free?" | Slot explosion, regen on hour changes, multi-slot jobs |
 | **D. Stretch the kanban with a time axis** | One page | Board is "who has the car now"; mixing clocks destroys scanability |
+| **E. Auto-seed AT/DE public holidays** | Fewer clicks for Austrian shops | Wrong for other countries; stale when laws change. Tenant list + annual flag is enough. |
 
 ## References
 

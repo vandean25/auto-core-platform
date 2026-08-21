@@ -36,8 +36,8 @@ Source of truth: [Feature Spec: Workshop Planner Calendar](../../02-Feature-Spec
 
 - `Button`, `ToggleGroup` (Day/Week)
 - `Sheet` for create (not Dialog)
-- `Alert` for outside-hours and mechanic-overlap warnings
-- `Card` for empty states (no bays / closed day)
+- `Alert` for outside-hours (including holiday) and mechanic-overlap warnings
+- `Card` for empty states (no bays / closed weekday / closed holiday)
 - `StatusBadge` for order status
 - `Skeleton` while planner query loads
 
@@ -52,12 +52,13 @@ Icons: `lucide-react` only (`Calendar`, `ChevronLeft`, `ChevronRight`, `Wrench`)
 | Drag `SCHEDULED` block | `PATCH` new start/end/bay; optimistic; rollback on 409 |
 | Drag `INTAKE` / `IN_PROGRESS` / `UNSCHEDULED_ON_FLOOR` | Disabled |
 | Closed weekday | Empty card + `Go to Settings`; still render after-hours / on-floor blocks |
+| Closed holiday | Empty card `Closed — {name}` + `Go to Settings`; still render after-hours / on-floor blocks |
 
 `localStorage` key `workshop-planner-view` stores `day` \| `week`. Default `day`.
 
 ## Query keys
 
-Use `workshopKeys.planner(from, to, bayId?)` and `workshopKeys.settings()`. Invalidate from `dashboard-entity-map.ts` on `WORKSHOP_ORDER`.
+Use `workshopKeys.planner(from, to, bayId?)`, `workshopKeys.settings()`, and `workshopKeys.holidays(...)`. Invalidate planner keys from `dashboard-entity-map.ts` on `WORKSHOP_ORDER`. Holiday edits refetch on return from Settings.
 
 ## Related
 

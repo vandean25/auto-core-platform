@@ -21,9 +21,9 @@ The Service Advisor needs a place to **set when this workshop is open**, **see w
 
 ACP already has a kanban **Workshop Board** (`/workshop/board`, ADR-0018) for assigning cars that are on the floor. That board has no clock. `SCHEDULED` exists on the order state machine as "future appointment", but create always writes `INTAKE`, and there is no start/end time.
 
-This module adds a **Workshop Planner** calendar at `/workshop/planner`. A booking is a `WorkshopOrder` with `status = SCHEDULED`, a bay, and a time window. Opening hours are tenant settings so a new workshop can define its week before the first job lands. Walk-in intake stays as it is; when the booked car arrives, intake **promotes** the scheduled order instead of minting a second `WO-` number.
+This module adds a **Workshop Planner** calendar at `/workshop/planner`. A booking is a `WorkshopOrder` with `status = SCHEDULED`, a bay, and a time window. Opening hours **and holidays** are tenant settings so a new workshop can define its week and closed days before the first job lands. Walk-in intake stays as it is; when the booked car arrives, intake **promotes** the scheduled order instead of minting a second `WO-` number.
 
-**Out of scope (Phase 1):** customer self-booking, recurring appointments, holiday calendar, waitlist, labor-AW duration engine, mechanic-hour hard limits, merging planner into the kanban.
+**Out of scope (Phase 1):** customer self-booking, recurring *job* series, waitlist, labor-AW duration engine, mechanic-hour hard limits, merging planner into the kanban, auto-import of country public-holiday packs.
 
 ---
 
@@ -42,6 +42,7 @@ Architecture detail lives in [ADR-0019](../../01-ADR/2026-08-21-workshop-planner
 ## User Stories
 
 - As a **Service Advisor**, I want to **set this workshop's opening hours and slot size** so that **the planner grid matches how we actually work**.
+- As a **Service Advisor**, I want to **mark holidays (closed or short days)** so that **those dates do not look like free stalls**.
 - As a **Service Advisor**, I want to **see bays against a day or week clock** so that **I can tell which stall is free**.
 - As a **Service Advisor**, I want to **click a free slot and create a workshop order there** so that **the booking holds the bay until the car arrives**.
 - As a **Service Advisor**, I want **the same order to become INTAKE when the car arrives** so that **I do not create a duplicate job card**.
@@ -53,7 +54,7 @@ Architecture detail lives in [ADR-0019](../../01-ADR/2026-08-21-workshop-planner
 
 ```mermaid
 flowchart LR
-  Hours["Settings: Workshop hours"]
+  Hours["Settings: Hours + holidays"]
   Planner["Planner /workshop/planner"]
   Intake["Intake /workshop/intake"]
   Orders["Order detail"]
@@ -88,12 +89,13 @@ These are binding for implementation unless Product Owner overrides them in revi
 2. **Day view default, week view in Phase 1.** Day is the advisor's booking surface. Week is for scanning load. Month is out of scope.
 3. **Slot size 30 minutes, default job 60 minutes.** Start-cell click spans two slots. Advisor can change end time in the create sheet.
 4. **Bay overlap = 409.** Mechanic overlap = amber warning, still allowed (ADR-0018 capacity ruling).
-5. **Hours overflow = warning, not 422.** After-hours booking is a real shop move.
+5. **Hours overflow = warning, not 422.** After-hours, Sunday, and **holiday** booking is a real shop move. The grid still shows the day as closed or shortened so it does not look free.
 6. **Timezone `Europe/Vienna`** as tenant default. Store UTC timestamptz; render in `WorkshopSettings.timezone`.
 7. **No `CANCELLED` status in Phase 1.** Delete is allowed on `SCHEDULED` only (no-show).
 8. **Walk-in create unchanged.** Planner is an additional door, not a replacement for `+ Order` / Start Service.
 9. **Odometer/fuel stay required `Int` columns.** Planner persists `0` until intake. Do not nullable-migrate a hot table for placeholders.
 10. **Walk-ins still occupy the bay today.** `INTAKE` / `IN_PROGRESS` with a `bay_id` and no time window occupy that bay for the current local day so the planner cannot show a stall as free while a car is in it.
+11. **Holidays override weekday hours.** A matching holiday wins over Mon–Sun. Closed holiday → empty grid with the holiday name. Short holiday (e.g. Christmas Eve) → grid uses that day's `openTime`/`closeTime`. No country pack is seeded; the tenant adds its own dates. Annual flag repeats the same month-day every year.
 
 ---
 
@@ -120,6 +122,7 @@ model WorkshopSettings {
   timezone     String   @default("Europe/Vienna")
   slot_minutes Int      @default(30)
   openingHours WorkshopOpeningHour[]
+  holidays     WorkshopHoliday[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -173,13 +176,60 @@ Seed seven rows on settings upsert (same pattern as `FinanceSettings` create). D
 
 `open_time` / `close_time` are stored as `HH:mm` strings, not Postgres `time`, so Prisma stays simple and the values are wall-clock in `timezone`. Conversion to UTC instants happens in the planner service.
 
+#### `WorkshopHoliday`
+
+Date-specific override of weekday hours. Empty on a new tenant — the shop adds its own list (public holidays, Betriebsurlaub, Christmas Eve).
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| `id` | `String @id @default(uuid())` | No | UUID | Primary key |
+| `tenant_id` | `String` | No | — | Tenant isolation. |
+| `workshop_settings_id` | `String` | No | — | Parent singleton. |
+| `name` | `String` | No | — | Display label, e.g. `Nationalfeiertag`. |
+| `observed_on` | `DateTime @db.Date` | No | — | Calendar date. For annual rows, month+day is what matches; year is ignored at query time. |
+| `repeats_annually` | `Boolean` | No | `false` | If true, every year on the same month+day. |
+| `is_closed` | `Boolean` | No | `true` | All-day closed. If false, `open_time`/`close_time` are required and replace weekday hours. |
+| `open_time` | `String?` | Yes | — | `HH:mm` when `is_closed = false`. |
+| `close_time` | `String?` | Yes | — | `HH:mm` when `is_closed = false`. Must be > `open_time`. |
+
+```prisma
+model WorkshopHoliday {
+  id                   String           @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
+  workshop_settings_id String
+  workshop_settings    WorkshopSettings @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
+  name                 String
+  observed_on          DateTime         @db.Date
+  repeats_annually     Boolean          @default(false)
+  is_closed            Boolean          @default(true)
+  open_time            String?
+  close_time           String?
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, observed_on])
+  @@index([tenant_id])
+  @@map("workshop_holidays")
+}
+```
+
+**Matching a local calendar date `D`:**
+
+1. One-off row with `repeats_annually = false` and `observed_on = D` wins.
+2. Else an annual row whose month+day equals `D` (year ignored).
+3. Else weekday `WorkshopOpeningHour`.
+
+Reject create if another row would expand to the same date in any year (annual vs annual same month-day; annual vs one-off on that month-day). `observed_on` unique already blocks two one-offs on the same date. 29 February annual rows are skipped in non-leap years.
+
+Do **not** seed AT/DE public holidays. Multi-tenant shops are not all Austria; a wrong pack is worse than an empty list.
+
 ### Modified Tables
 
 | Table | Change | Migration Required? |
 |-------|--------|---------------------|
 | `WorkshopOrder` | Add nullable `scheduled_start_at DateTime?` | Yes — additive |
 | `WorkshopOrder` | Add nullable `scheduled_end_at DateTime?` | Yes — additive |
-| `Tenant` | Relation to `WorkshopSettings` / `WorkshopOpeningHour` | Yes |
+| `Tenant` | Relation to `WorkshopSettings` / `WorkshopOpeningHour` / `WorkshopHoliday` | Yes |
 
 ```prisma
 model WorkshopOrder {
@@ -205,6 +255,7 @@ Add to `docs/deletion-policy.md` at implementation time:
 |--------|----------------|------|
 | `WorkshopSettings` | No | Singleton configuration; update in place only. |
 | `WorkshopOpeningHour` | No | Replaced by updating the seven weekday rows; never deleted independently. |
+| `WorkshopHoliday` | Yes | Hard delete allowed. Not referenced by orders. Removing a holiday only changes future grid hours. |
 | `WorkshopOrder` | Unchanged, with clarification | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. |
 
 ---
@@ -232,6 +283,10 @@ A `SCHEDULED` order cannot start mechanic execution. Mechanic queue already excl
 |--------|-------|---------|----------|------|
 | `GET` | `/api/workshop/settings` | — | `WorkshopSettingsResponse` | Tenant member (OWNER/ADMIN/SALES). TECH does not use this UI. |
 | `PUT` | `/api/workshop/settings` | `UpdateWorkshopSettingsDto` | `WorkshopSettingsResponse` | OWNER/ADMIN |
+| `GET` | `/api/workshop/holidays` | Optional `from`/`to` as `YYYY-MM-DD` (tenant calendar dates). Default: current local year. | `{ data: WorkshopHolidayDto[] }` | OWNER/ADMIN/SALES |
+| `POST` | `/api/workshop/holidays` | `CreateWorkshopHolidayDto` | `WorkshopHolidayDto` | OWNER/ADMIN |
+| `PATCH` | `/api/workshop/holidays/:id` | Partial holiday fields | `WorkshopHolidayDto` | OWNER/ADMIN |
+| `DELETE` | `/api/workshop/holidays/:id` | — | `204` | OWNER/ADMIN |
 | `GET` | `/api/workshop/planner` | Query: `from`, `to` (ISO instants), optional `bayId` | `PlannerGridResponse` | OWNER/ADMIN/SALES |
 
 `from`/`to` are required and bounded: max range **8 days** (week view + timezone slop). Reject wider windows with `400`.
@@ -259,7 +314,30 @@ interface UpdateWorkshopSettingsDto {
 }
 ```
 
-`PUT` replaces all seven weekdays in one transaction. Reject if the array is not exactly weekdays 1–7. Validate IANA timezone against a server allowlist (Node `Intl` / `Intl.supportedValuesOf('timeZone')` where available).
+`PUT` replaces all seven weekdays in one transaction. Reject if the array is not exactly weekdays 1–7. Validate IANA timezone against a server allowlist (Node `Intl` / `Intl.supportedValuesOf('timeZone')` where available). Holidays are **not** in this PUT — they have their own CRUD so a long holiday list does not ride on hours save.
+
+```typescript
+interface WorkshopHolidayDto {
+  id: string
+  name: string
+  observedOn: string // YYYY-MM-DD
+  repeatsAnnually: boolean
+  isClosed: boolean
+  openTime: string | null
+  closeTime: string | null
+}
+
+interface CreateWorkshopHolidayDto {
+  name: string
+  observedOn: string
+  repeatsAnnually?: boolean // default false
+  isClosed?: boolean        // default true
+  openTime?: string         // required when isClosed is false
+  closeTime?: string
+}
+```
+
+Holiday write validation: `isClosed = false` requires both times and `closeTime > openTime`. `409` if the date collides with another holiday after annual expansion. `GET /holidays` without range returns the current tenant-year plus the next year so the Hours tab can edit upcoming dates in one list.
 
 #### Planner grid
 
@@ -274,6 +352,13 @@ interface PlannerGridResponse {
     isClosed: boolean
     openTime: string
     closeTime: string
+  }>
+  holidays: Array<{
+    date: string // YYYY-MM-DD in tenant timezone, expanded into the requested range
+    name: string
+    isClosed: boolean
+    openTime: string | null
+    closeTime: string | null
   }>
   bookings: PlannerBooking[]
 }
@@ -295,13 +380,13 @@ interface PlannerBooking {
 
 **Query strategy (no N+1):**
 
-1. `Promise.all`: active bays, settings+hours, orders in range.
+1. `Promise.all`: active bays, settings+hours, holidays (one-offs in range + all annual rows), orders in range.
 2. Orders filter: `tenant_id`, `status in (SCHEDULED, INTAKE, IN_PROGRESS)`, `bay_id` not null (and `bayId` if queried), and either:
    - timed: `scheduled_start_at < :to AND scheduled_end_at > :from`, or
    - unscheduled on-floor: timestamps null, status `INTAKE` or `IN_PROGRESS`, and the query range intersects **today** in the tenant timezone.
-3. Include customer, vehicle, mechanic. Zero per-row awaits. For `UNSCHEDULED_ON_FLOOR`, the API synthesizes `scheduledStartAt`/`scheduledEndAt` as today's open→close (not persisted).
+3. Include customer, vehicle, mechanic. Zero per-row awaits. For `UNSCHEDULED_ON_FLOOR`, the API synthesizes `scheduledStartAt`/`scheduledEndAt` as today's **effective** open→close (holiday override included). If today is fully closed, synthesize local midnight→next midnight so the stall cannot look free.
 
-The frontend paints the grid from `openings` + `slotMinutes` and overlays `bookings`. The API does **not** return a cell matrix.
+The frontend paints the grid from `openings` + `holidays` + `slotMinutes` and overlays `bookings`. For each local date, apply holiday override first (ruling 11), then weekday hours. The API does **not** return a cell matrix.
 
 ### Modified Endpoints
 
@@ -360,7 +445,7 @@ Do not silently create a second active job for the same vehicle while one is `SC
 - [ ] Top-left: title **Workshop Planner**, subtitle in `text-slate-500` (selected date / week range).
 - [ ] Header uses `text-2xl font-semibold tracking-tight`.
 - [ ] Route `/workshop/planner`. Sidebar item after Workshop Board, Calendar icon (`lucide-react`).
-- [ ] Settings tab **Hours** (or **Workshop hours**) in existing `SettingsPage.tsx`. Create/save of hours is a short form submit, not 750 ms autosave. `+` button rules do not apply (singleton).
+- [ ] Settings tab **Hours** (or **Workshop hours**) in existing `SettingsPage.tsx`. Weekday save is a short form submit, not 750 ms autosave. Holidays on the same tab use a DataTable with `+ Holiday`.
 
 ### Planner canvas (not a DataTable)
 
@@ -369,8 +454,9 @@ This is a grid, not a list page. DataTable rules do not apply to the canvas.
 **Day view**
 
 - Rows: active bays (`sort_order`, then name), same source as `GET /api/workshop/resources`.
-- Columns: slots from that weekday's open→close in `slot_minutes` steps.
-- Closed weekday: empty state card "Workshop closed" + `Go to Settings` (Hours tab), still show any after-hours bookings so rush jobs remain visible.
+- Columns: slots from that day's **effective** open→close (`holiday` override, else weekday) in `slot_minutes` steps.
+- Closed weekday **or closed holiday**: empty state card. Weekday copy: "Workshop closed". Holiday copy: `Closed — {name}`. Both include `Go to Settings` (Hours tab). Still show any after-hours / on-floor bookings so rush jobs remain visible.
+- Short holiday: grid spans only `openTime`–`closeTime`. Booking outside that window is the same outside-hours warning as ruling 5.
 - Empty cell: click opens create **Sheet** (not centered dialog) prefilled with bay + start; end = start + 60 minutes (clamped to close time as a default only).
 - Occupied block: spans duration; click opens existing order (navigate to `/workshop/orders/:id` or Sheet — prefer navigate for Phase 1, same as board card click today).
 - Drag occupied `SCHEDULED` block to another cell: `PATCH` schedule + bay; rollback + toast on `409`.
@@ -379,7 +465,8 @@ This is a grid, not a list page. DataTable rules do not apply to the canvas.
 **Week view**
 
 - Columns: days in range. Rows: bays. Blocks show start time + plate/order number.
-- Click empty region: same create Sheet with that day + bay; start defaults to opening time.
+- Closed holiday columns use the same `Closed — {name}` treatment as day view (dimmed / empty, bookings still visible).
+- Click empty region: same create Sheet with that day + bay; start defaults to **effective** opening time (holiday short hours if set).
 
 **Create Sheet fields**
 
@@ -388,7 +475,7 @@ This is a grid, not a list page. DataTable rules do not apply to the canvas.
 - Optional mechanic.
 - Reported issue (optional).
 - Primary action top-right of `SheetHeader`: `+ Workshop Order`.
-- Outside-hours and mechanic-overlap: non-blocking `Alert`, submit still enabled.
+- Outside-hours (including closed/short holiday) and mechanic-overlap: non-blocking `Alert`, submit still enabled.
 - Bay overlap: disable submit if the client already sees a collision; server `409` is still the source of truth.
 
 **Empty resources**
@@ -398,13 +485,14 @@ If no active bays: centered Card "No bays configured" + `Go to Settings` (Bays t
 ### Form Handling
 
 - [ ] Hours settings: explicit Save (seven weekdays). Not autosave.
+- [ ] Holiday create/edit: short form submit (`+ Holiday`). Inline name edit may use save-on-blur.
 - [ ] Create booking: explicit submit on the Sheet.
 - [ ] Reschedule drag: optimistic + rollback (board pattern).
 
 ### Real-Time Sync
 
 - [ ] `WorkshopOrder` already in `SUPPORTED_ENTITY_TYPES`. Planner query keys must be invalidated from `dashboard-entity-map.ts` (`workshopKeys.planner(...)`).
-- [ ] `WorkshopSettings` / `WorkshopOpeningHour`: **defer** WebSocket. Refetch when returning from Settings.
+- [ ] `WorkshopSettings` / `WorkshopOpeningHour` / `WorkshopHoliday`: **defer** WebSocket. Refetch when returning from Settings.
 
 ---
 
@@ -417,7 +505,8 @@ If no active bays: centered Card "No bays configured" + `Go to Settings` (Bays t
 | `PlannerWeekGrid` | `apps/core-web/src/components/workshop/planner/PlannerWeekGrid.tsx` | Bay × day canvas for a week. |
 | `PlannerBookingBlock` | `apps/core-web/src/components/workshop/planner/PlannerBookingBlock.tsx` | Occupied interval; StatusBadge; drag handle if SCHEDULED. |
 | `PlannerCreateSheet` | `apps/core-web/src/components/workshop/planner/PlannerCreateSheet.tsx` | Sheet: customer/vehicle + times + bay. |
-| `WorkshopHoursSettingsTab` | Settings tabs | Timezone, slot size, seven weekdays. |
+| `WorkshopHoursSettingsTab` | Settings tabs | Timezone, slot size, seven weekdays, holidays DataTable. |
+| `WorkshopHolidayDialog` | Settings / Hours | Create/edit one holiday (date, name, annual, closed vs short hours). |
 
 Query keys (extend `workshopKeys`, do not invent a second factory):
 
@@ -425,6 +514,8 @@ Query keys (extend `workshopKeys`, do not invent a second factory):
 planner: (from: string, to: string, bayId?: string) =>
   [...workshopKeys.all, 'planner', from, to, bayId ?? 'all'] as const,
 settings: () => [...workshopKeys.all, 'settings'] as const,
+holidays: (from?: string, to?: string) =>
+  [...workshopKeys.all, 'holidays', from ?? 'year', to ?? 'year'] as const,
 ```
 
 Reuse `@dnd-kit/core` already on the board. No new calendar library in Phase 1 (FullCalendar etc. are YAGNI and fight design-system rules).
@@ -448,7 +539,7 @@ None. No invoice, no `lock_date`, no numbering beyond the existing `WO-` sequenc
 | Role | Planner | Hours settings |
 |------|---------|----------------|
 | OWNER / ADMIN | Full | Full |
-| SALES (Service Advisor login) | Full | Read; write OWNER/ADMIN only |
+| SALES (Service Advisor login) | Full | Hours: read; write OWNER/ADMIN. Holidays: same (read, no write). |
 | TECH | No (mechanic shell already blocks core app) | No |
 
 SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; TECH never sees it.
@@ -461,6 +552,10 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 
 - [ ] Settings upsert seeds seven weekdays with documented defaults.
 - [ ] `PUT /settings` rejects missing weekday, invalid `slotMinutes`, `close_time <= open_time` on an open day.
+- [ ] Holiday CRUD: closed day, short day, annual repeat expands into next year on `GET /planner`.
+- [ ] Holiday create colliding with an existing one-off or annual month-day → 409.
+- [ ] 29 Feb annual holiday is omitted from non-leap years on `GET /planner`.
+- [ ] `GET /planner` on a closed holiday returns that date in `holidays` with `isClosed: true` and still returns after-hours bookings.
 - [ ] `GET /planner` returns bookings that overlap the window, excludes `COMPLETED`/`INVOICED`, excludes null schedules.
 - [ ] `GET /planner` with range > 8 days → 400.
 - [ ] Create `SCHEDULED` with bay + window succeeds; walk-in without schedule still creates `INTAKE`.
@@ -468,7 +563,7 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 - [ ] Unscheduled `INTAKE` on a bay blocks a same-day timed booking on that bay → 409; next local day is allowed.
 - [ ] Same-time different bays → 200.
 - [ ] Mechanic double-book → 200.
-- [ ] After-hours booking → 200.
+- [ ] After-hours booking → 200 (including a closed holiday date).
 - [ ] Reschedule `PATCH` into a taken slot → 409; into a free slot → 200.
 - [ ] Start Service on a vehicle with one `SCHEDULED` order promotes it (same `order_number`, status `INTAKE`); does not increment workshop sequence a second time.
 - [ ] Concurrent promote: second request 409 or lands on the already-INTAKE order, never two actives.
@@ -479,6 +574,9 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 - [ ] Playwright: open planner, see bay rows, click empty slot, create booking, block appears.
 - [ ] Collision: attempting a taken cell shows error toast; grid unchanged.
 - [ ] Closed Sunday empty state + Settings link.
+- [ ] Closed holiday empty state shows holiday name + Settings link.
+- [ ] Short holiday grid uses holiday hours, not weekday hours.
+- [ ] Hours tab: `+ Holiday` create, annual toggle, delete.
 - [ ] No bays empty state + Settings link.
 - [ ] Day/Week toggle persists `localStorage` key `workshop-planner-view`.
 - [ ] Hours tab save round-trips timezone and weekday hours.
@@ -489,8 +587,8 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 
 Do not start this until Product Owner marks this spec **approved**. Then write a task-level plan (superpowers writing-plans) and implement in this order:
 
-1. Prisma models + migration + settings seed on first GET.
-2. Settings API + Hours settings tab.
+1. Prisma models + migration + settings seed on first GET (weekdays empty of holidays).
+2. Settings API + Hours settings tab (weekdays + holiday CRUD).
 3. Planner GET (occupancy query).
 4. Create/patch schedule + bay overlap in a transaction.
 5. Intake promote `SCHEDULED → INTAKE`.
@@ -512,8 +610,9 @@ Recorded as proposed rulings above. Confirm or override:
 2. Hard bay 409 vs advisory (ruling: 409).
 3. Delete `SCHEDULED` vs add `CANCELLED` (ruling: delete).
 4. Default duration 60 vs 30 vs labor-AW (ruling: 60; labor-AW is Phase 2).
-6. Duplicate active-order guard on the same vehicle (ruling: yes, block second active job).
-7. Unscheduled on-floor occupancy for today (ruling: yes).
+5. Duplicate active-order guard on the same vehicle (ruling: yes, block second active job).
+6. Unscheduled on-floor occupancy for today (ruling: yes).
+7. Holidays in Phase 1 (ruling: yes — tenant-owned list, annual flag, no country pack).
 
 ---
 
