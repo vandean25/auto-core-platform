@@ -13,7 +13,7 @@
     "build": "npm exec --workspace=core-api -- prisma generate && npm run build --workspaces --if-present",
     "test": "npm exec --workspace=core-api -- prisma generate && npm test --workspaces --if-present",
     "lint": "npm exec --workspace=core-api -- prisma generate && npm run lint --workspaces --if-present",
-    "tenant-restore:verify": "node tools/tenant-restore/verify-table-list.mjs && node --test tools/tenant-restore/tenant-schema.test.mjs tools/tenant-restore/restore-guards.test.mjs",
+    "tenant-restore:verify": "node tools/tenant-restore/verify-table-list.mjs && node --test tools/tenant-restore/tenant-schema.test.mjs tools/tenant-restore/restore-guards.test.mjs tools/tenant-restore/dump-validation.test.mjs",
     "ci": "npm run lint && npm test && npm run build"
   },
   "devDependencies": {

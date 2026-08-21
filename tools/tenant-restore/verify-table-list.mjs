@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import {
-  buildTenantRestoreManifest,
+  buildTenantRestoreManifestFromFiles,
   renderPurgeSql,
   renderSchemaCheckSql,
 } from './tenant-schema.mjs';
@@ -15,8 +15,14 @@ const schemaPath = path.resolve(
   scriptDirectory,
   '../../apps/core-api/prisma/schema.prisma',
 );
-const schema = fs.readFileSync(schemaPath, 'utf8');
-const manifest = buildTenantRestoreManifest(schema);
+const migrationsDirectory = path.resolve(
+  scriptDirectory,
+  '../../apps/core-api/prisma/migrations',
+);
+const manifest = buildTenantRestoreManifestFromFiles(
+  schemaPath,
+  migrationsDirectory,
+);
 const expectedFiles = new Map([
   ['purge-tenant-data.sql', renderPurgeSql(manifest)],
   ['verify-tenant-schema.sql', renderSchemaCheckSql(manifest)],

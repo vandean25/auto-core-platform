@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildTenantRestoreManifest,
+  parseMigrationForeignKeyActions,
   renderExportQuery,
   renderPurgeSql,
 } from './tenant-schema.mjs';
@@ -58,6 +59,19 @@ test('includes tenant tables, tenant-only children, and implicit join tables', (
   ]);
   assert.deepEqual(manifest.prePurgeMutations, []);
   assert.deepEqual(manifest.selfReferences, []);
+  assert.deepEqual(
+    manifest.foreignKeys.find(
+      (foreignKey) => foreignKey.childTable === 'fitments',
+    ),
+    {
+      childTable: 'fitments',
+      parentTable: 'tenant_records',
+      childColumns: ['record_id'],
+      parentColumns: ['id'],
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+  );
 });
 
 test('includes global user cleanup without treating users as tenant data', () => {
@@ -177,6 +191,8 @@ test('renders fail-closed purge SQL for dependent and global rows', () => {
     /DELETE FROM public\."fitments" AS child[\s\S]*FROM public\."tenant_records" AS parent/,
   );
   assert.match(sql, /tenant_restore_expected_tables/);
+  assert.match(sql, /tenant_restore_expected_foreign_keys/);
+  assert.match(sql, /pg_constraint/);
   assert.match(sql, /tenant_records/);
 });
 
@@ -232,6 +248,7 @@ test('keeps runtime schema-check temp tables alive for the full check', () => {
     ],
     prePurgeMutations: [],
     selfReferences: [],
+    foreignKeys: [],
   });
 
   assert.ok(
@@ -239,5 +256,25 @@ test('keeps runtime schema-check temp tables alive for the full check', () => {
   );
   assert.ok(
     sql.indexOf('COMMIT;') < sql.lastIndexOf('BEGIN;'),
+  );
+});
+
+test('uses migration FK actions when Prisma defaults are not the live contract', () => {
+  const actions = parseMigrationForeignKeyActions(`
+    ALTER TABLE "invoices"
+      ADD CONSTRAINT "invoices_tenant_id_sales_order_id_fkey"
+      FOREIGN KEY ("tenant_id", "sales_order_id")
+      REFERENCES "sales_orders"("tenant_id", "id")
+      ON DELETE RESTRICT ON UPDATE CASCADE;
+  `);
+
+  assert.deepEqual(
+    actions.get(
+      'invoices|sales_orders|tenant_id,sales_order_id|tenant_id,id',
+    ),
+    {
+      onDelete: 'RESTRICT',
+      onUpdate: 'CASCADE',
+    },
   );
 });

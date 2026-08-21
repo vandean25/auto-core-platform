@@ -28,6 +28,8 @@ Until the deferral triggers, a tenant-specific incident is a DBA-reviewed manual
 - Nullable self-references are nulled before deletion, including `catalog_items.superseded_by_id`, `storage_locations.parent_id`, and `labor_categories.parent_id`.
 - `users.active_tenant_id` is cleared for the target tenant; users are never purged.
 - Export uses per-table filtered `COPY (SELECT ...)` queries. It does not use `pg_dump`; table-owner `pg_dump --enable-row-security` remains forbidden because table owners bypass RLS unless `FORCE ROW LEVEL SECURITY` is enabled.
+- Export preflights tenant-scoped parent links that do not carry `tenant_id` in the FK, and the generated dump is bound to the source UUID and checked for unexpected SQL/tables before restore.
+- Restore keeps purge and import in one database transaction, so an import failure rolls the purge back.
 - Every wrapper defaults to `DRY_RUN=1`, requires `CONFIRM_TENANT_ID` to equal the target UUID, rejects Neon pooler URLs, and requires `I_UNDERSTAND_CROSS_TENANT_BLAST_RADIUS=yes` for `neon.tech` hosts. `DRY_RUN=0` is still an explicit, untested draft operation.
 
 ---
@@ -43,6 +45,7 @@ The systems-architect review of ADR-0013 called this gap **critical**. AUT-154 r
 - `tools/tenant-restore/apply-tenant-rls.sql`
 - `tools/tenant-restore/export-tenant-data.sh`
 - `tools/tenant-restore/export-tenant-data.mjs`
+- `tools/tenant-restore/verify-dump.mjs`
 - `tools/tenant-restore/purge-tenant-data.sql`
 - `tools/tenant-restore/verify-tenant-schema.sql`
 - `tools/tenant-restore/generate-tenant-restore-sql.mjs`

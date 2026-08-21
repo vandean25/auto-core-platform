@@ -22,6 +22,15 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function normalizeReferentialAction(action) {
+  if (!action) return undefined;
+  const normalized = action.toUpperCase().replaceAll('_', ' ');
+  return {
+    SETNULL: 'SET NULL',
+    SETDEFAULT: 'SET DEFAULT',
+  }[normalized.replaceAll(' ', '')] ?? normalized;
+}
+
 function parseModels(schema) {
   const models = [];
   const modelPattern = /^\s*model\s+(\w+)\s*\{([\s\S]*?)^\s*\}/gm;
@@ -66,6 +75,8 @@ function parseModels(schema) {
       const referencesMatch = relationArgs.match(
         /references:\s*\[([^\]]+)\]/,
       );
+      const onDelete = relationArgs.match(/onDelete:\s*(\w+)/)?.[1];
+      const onUpdate = relationArgs.match(/onUpdate:\s*(\w+)/)?.[1];
 
       relations.push({
         field,
@@ -73,6 +84,8 @@ function parseModels(schema) {
         relationName: quotedName,
         fields: fieldsMatch ? parseList(fieldsMatch[1]) : [],
         references: referencesMatch ? parseList(referencesMatch[1]) : [],
+        onDelete: normalizeReferentialAction(onDelete),
+        onUpdate: normalizeReferentialAction(onUpdate),
       });
     }
 
@@ -88,7 +101,7 @@ function tableForModel(models, modelName) {
 
 function dbFields(model, fieldNames) {
   return fieldNames.map(
-    (fieldName) => model.fields.get(fieldName)?.dbField ?? fieldName,
+    (fieldName) => model?.fields.get(fieldName)?.dbField ?? fieldName,
   );
 }
 
@@ -96,17 +109,28 @@ function explicitRelations(models) {
   return models.flatMap((model) =>
     model.relations
       .filter((relation) => relation.fields.length > 0)
-      .map((relation) => ({
-        ...relation,
-        model: model.name,
-        table: model.table,
-        targetTable: tableForModel(models, relation.targetModel),
-        columns: dbFields(model, relation.fields),
-        parentColumns: dbFields(
-          models.find((candidate) => candidate.name === relation.targetModel),
-          relation.references,
-        ),
-      })),
+      .map((relation) => {
+        const targetModel = models.find(
+          (candidate) => candidate.name === relation.targetModel,
+        );
+        const nonTenantFields = relation.fields.filter(
+          (field) => model.fields.get(field)?.dbField !== 'tenant_id',
+        );
+        const optionalRelation =
+          nonTenantFields.length > 0 &&
+          nonTenantFields.every((field) => model.fields.get(field)?.nullable);
+        return {
+          ...relation,
+          model: model.name,
+          table: model.table,
+          targetTable: targetModel?.table,
+          columns: dbFields(model, relation.fields),
+          parentColumns: dbFields(targetModel, relation.references),
+          onDelete:
+            relation.onDelete ?? (optionalRelation ? 'SET NULL' : 'RESTRICT'),
+          onUpdate: relation.onUpdate ?? 'CASCADE',
+        };
+      }),
   );
 }
 
@@ -293,6 +317,126 @@ function prePurgeMutations(models) {
     }));
 }
 
+function foreignKeySignatures(
+  relations,
+  implicitJoins,
+  migrationActions = new Map(),
+) {
+  return foreignKeySignaturesWithActions(
+    relations,
+    implicitJoins,
+    migrationActions,
+  );
+}
+
+function foreignKeyKey(childTable, parentTable, childColumns, parentColumns) {
+  return [
+    childTable,
+    parentTable,
+    childColumns.join(','),
+    parentColumns.join(','),
+  ].join('|');
+}
+
+export function parseMigrationForeignKeyActions(migrationSql) {
+  const actions = new Map();
+  const foreignKeyPattern =
+    /ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"[^"]+"\s+FOREIGN KEY\s+\(([^)]+)\)\s+REFERENCES\s+"([^"]+)"\s*\(([^)]+)\)(?:\s+ON DELETE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT))?(?:\s+ON UPDATE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT))?\s*;/g;
+
+  for (const match of migrationSql.matchAll(foreignKeyPattern)) {
+    const [
+      ,
+      childTable,
+      childColumns,
+      parentTable,
+      parentColumns,
+      onDelete = 'NO ACTION',
+      onUpdate = 'NO ACTION',
+    ] = match;
+    const normalizeColumns = (columns) =>
+      columns.split(',').map((column) => column.trim().replaceAll('"', ''));
+    actions.set(
+      foreignKeyKey(
+        childTable,
+        parentTable,
+        normalizeColumns(childColumns),
+        normalizeColumns(parentColumns),
+      ),
+      {
+        onDelete,
+        onUpdate,
+      },
+    );
+  }
+
+  return actions;
+}
+
+function foreignKeySignaturesWithActions(
+  relations,
+  implicitJoins,
+  migrationActions = new Map(),
+) {
+  const explicit = relations
+    .filter((relation) => relation.targetTable)
+    .map((relation) => {
+      const action = migrationActions.get(
+        foreignKeyKey(
+          relation.table,
+          relation.targetTable,
+          relation.columns,
+          relation.parentColumns,
+        ),
+      );
+      return {
+        childTable: relation.table,
+        parentTable: relation.targetTable,
+        childColumns: relation.columns,
+        parentColumns: relation.parentColumns,
+        onDelete: action?.onDelete ?? relation.onDelete,
+        onUpdate: action?.onUpdate ?? relation.onUpdate,
+      };
+    });
+  const implicit = implicitJoins.flatMap((join) =>
+    join.scopeRelations.map((relation) => {
+      const action = migrationActions.get(
+        foreignKeyKey(
+          join.table,
+          relation.parentTable,
+          relation.columns,
+          relation.parentColumns,
+        ),
+      );
+      return {
+        childTable: join.table,
+        parentTable: relation.parentTable,
+        childColumns: relation.columns,
+        parentColumns: relation.parentColumns,
+        onDelete: action?.onDelete ?? 'CASCADE',
+        onUpdate: action?.onUpdate ?? 'CASCADE',
+      };
+    }),
+  );
+
+  return [...explicit, ...implicit].sort((left, right) =>
+    [
+      left.childTable,
+      left.parentTable,
+      left.childColumns.join(','),
+      left.parentColumns.join(','),
+    ]
+      .join('|')
+      .localeCompare(
+        [
+          right.childTable,
+          right.parentTable,
+          right.childColumns.join(','),
+          right.parentColumns.join(','),
+        ].join('|'),
+      ),
+  );
+}
+
 function quoteIdentifier(identifier) {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
@@ -374,6 +518,21 @@ export function renderSchemaCheckSql(manifest) {
   const allowedGlobalRows = manifest.prePurgeMutations
     .map((mutation) => `  (${quoteLiteral(mutation.table)})`)
     .join(',\n');
+  const expectedForeignKeyRows = manifest.foreignKeys
+    .map(
+      (foreignKey) =>
+        `  (${[
+          foreignKey.childTable,
+          foreignKey.parentTable,
+          foreignKey.childColumns.join(','),
+          foreignKey.parentColumns.join(','),
+          foreignKey.onDelete,
+          foreignKey.onUpdate,
+        ]
+          .map(quoteLiteral)
+          .join(', ')})`,
+    )
+    .join(',\n');
 
   return `-- GENERATED FILE. Run node tools/tenant-restore/generate-tenant-restore-sql.mjs
 -- The expected table set is derived from apps/core-api/prisma/schema.prisma.
@@ -406,6 +565,98 @@ CREATE TEMP TABLE tenant_restore_allowed_global_tables (
 INSERT INTO tenant_restore_allowed_global_tables (table_name)
 VALUES
 ${allowedGlobalRows || '  (NULL)'};
+
+CREATE TEMP TABLE tenant_restore_expected_foreign_keys (
+  child_table text NOT NULL,
+  parent_table text NOT NULL,
+  child_columns text NOT NULL,
+  parent_columns text NOT NULL,
+  on_delete text NOT NULL,
+  on_update text NOT NULL,
+  PRIMARY KEY (
+    child_table,
+    parent_table,
+    child_columns,
+    parent_columns
+  )
+) ON COMMIT DROP;
+
+INSERT INTO tenant_restore_expected_foreign_keys (
+  child_table,
+  parent_table,
+  child_columns,
+  parent_columns,
+  on_delete,
+  on_update
+)
+VALUES
+${expectedForeignKeyRows};
+
+CREATE TEMP TABLE tenant_restore_live_foreign_keys (
+  child_table text NOT NULL,
+  parent_table text NOT NULL,
+  child_columns text NOT NULL,
+  parent_columns text NOT NULL,
+  on_delete text NOT NULL,
+  on_update text NOT NULL,
+  PRIMARY KEY (
+    child_table,
+    parent_table,
+    child_columns,
+    parent_columns
+  )
+) ON COMMIT DROP;
+
+INSERT INTO tenant_restore_live_foreign_keys (
+  child_table,
+  parent_table,
+  child_columns,
+  parent_columns,
+  on_delete,
+  on_update
+)
+SELECT
+  child.relname,
+  parent.relname,
+  string_agg(child_column.attname, ',' ORDER BY child_key.ordinality),
+  string_agg(parent_column.attname, ',' ORDER BY parent_key.ordinality),
+  CASE constraint_row.confdeltype
+    WHEN 'a' THEN 'NO ACTION'
+    WHEN 'r' THEN 'RESTRICT'
+    WHEN 'c' THEN 'CASCADE'
+    WHEN 'n' THEN 'SET NULL'
+    WHEN 'd' THEN 'SET DEFAULT'
+  END,
+  CASE constraint_row.confupdtype
+    WHEN 'a' THEN 'NO ACTION'
+    WHEN 'r' THEN 'RESTRICT'
+    WHEN 'c' THEN 'CASCADE'
+    WHEN 'n' THEN 'SET NULL'
+    WHEN 'd' THEN 'SET DEFAULT'
+  END
+FROM pg_constraint constraint_row
+JOIN pg_class child ON child.oid = constraint_row.conrelid
+JOIN pg_namespace child_schema ON child_schema.oid = child.relnamespace
+JOIN pg_class parent ON parent.oid = constraint_row.confrelid
+JOIN pg_namespace parent_schema ON parent_schema.oid = parent.relnamespace
+CROSS JOIN LATERAL unnest(constraint_row.conkey) WITH ORDINALITY AS child_key(attnum, ordinality)
+CROSS JOIN LATERAL unnest(constraint_row.confkey) WITH ORDINALITY AS parent_key(attnum, ordinality)
+JOIN pg_attribute child_column
+  ON child_column.attrelid = child.oid
+ AND child_column.attnum = child_key.attnum
+JOIN pg_attribute parent_column
+  ON parent_column.attrelid = parent.oid
+ AND parent_column.attnum = parent_key.attnum
+WHERE constraint_row.contype = 'f'
+  AND child_schema.nspname = 'public'
+  AND parent_schema.nspname = 'public'
+  AND child_key.ordinality = parent_key.ordinality
+GROUP BY
+  constraint_row.oid,
+  child.relname,
+  parent.relname,
+  constraint_row.confdeltype,
+  constraint_row.confupdtype;
 
 DO $$
 DECLARE
@@ -470,6 +721,33 @@ BEGIN
   IF unexpected IS NOT NULL THEN
     RAISE EXCEPTION 'tenant-dependent tables missing from restore manifest: %', unexpected;
   END IF;
+
+  SELECT string_agg(
+    format(
+      '%s(%s)->%s(%s) %s/%s',
+      child_table,
+      child_columns,
+      parent_table,
+      parent_columns,
+      on_delete,
+      on_update
+    ),
+    '; ' ORDER BY child_table, parent_table, child_columns
+  )
+  INTO unexpected
+  FROM (
+    SELECT * FROM tenant_restore_expected_foreign_keys
+    EXCEPT
+    SELECT * FROM tenant_restore_live_foreign_keys
+    UNION
+    SELECT * FROM tenant_restore_live_foreign_keys
+    EXCEPT
+    SELECT * FROM tenant_restore_expected_foreign_keys
+  ) foreign_key_drift;
+
+  IF unexpected IS NOT NULL THEN
+    RAISE EXCEPTION 'foreign-key signatures differ from restore manifest: %', unexpected;
+  END IF;
 END
 $$;
 
@@ -517,11 +795,17 @@ ${selfStatements}
 
 ${deletes}
 
+\\if :{?tenant_restore_in_transaction}
+\\else
 COMMIT;
+\\endif
 `;
 }
 
-export function buildTenantRestoreManifest(schema) {
+export function buildTenantRestoreManifest(
+  schema,
+  migrationActions = new Map(),
+) {
   const models = parseModels(schema);
   const directModels = directTenantModels(models);
   const selectedModels = dependentModels(models, directModels);
@@ -566,7 +850,34 @@ export function buildTenantRestoreManifest(schema) {
     ),
     prePurgeMutations: prePurgeMutations(models),
     selfReferences: selfReferences(models, selectedModels),
+    foreignKeys: foreignKeySignatures(
+      relations,
+      implicitJoins,
+      migrationActions,
+    ),
   };
+}
+
+export function buildTenantRestoreManifestFromFiles(
+  schemaPath,
+  migrationsDirectory,
+) {
+  const migrationSql = fs
+    .readdirSync(migrationsDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) =>
+      fs.readFileSync(
+        path.join(migrationsDirectory, entry.name, 'migration.sql'),
+        'utf8',
+      ),
+    )
+    .join('\n');
+
+  return buildTenantRestoreManifest(
+    fs.readFileSync(schemaPath, 'utf8'),
+    parseMigrationForeignKeyActions(migrationSql),
+  );
 }
 
 if (process.argv[1] === import.meta.filename) {

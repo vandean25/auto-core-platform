@@ -78,6 +78,31 @@ test('rejects Neon pooler URLs before any database command', () => {
   assert.equal(fs.existsSync(markerPath), false);
 });
 
+test('requires Neon acknowledgement regardless of hostname casing', () => {
+  const markerPath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'tenant-restore-marker-')),
+    'commands.log',
+  );
+  const fakeCommands = createFakeCommandDirectory(markerPath);
+  const result = runExport(
+    [
+      'postgresql://EP-EXAMPLE.EU-CENTRAL-1.AWS.NEON.TECH./clone',
+      tenantId,
+      '/tmp/tenant.sql',
+    ],
+    {
+      PATH: `${fakeCommands.directory}:${process.env.PATH}`,
+      FAKE_COMMAND_MARKER: markerPath,
+      CONFIRM_TENANT_ID: tenantId,
+      DRY_RUN: '1',
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /I_UNDERSTAND/);
+  assert.equal(fs.existsSync(markerPath), false);
+});
+
 test('defaults to dry-run and does not invoke database commands', () => {
   const markerPath = path.join(
     fs.mkdtempSync(path.join(os.tmpdir(), 'tenant-restore-marker-')),

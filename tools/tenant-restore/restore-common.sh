@@ -29,6 +29,8 @@ tenant_restore_validate_target() {
   host="${database_url#*://}"
   host="${host##*@}"
   host="${host%%[:/?]*}"
+  host="${host,,}"
+  host="${host%.}"
 
   if [[ "$host" == *-pooler* ]]; then
     echo "[tenant-restore] Refusing to run: use a direct database URL, not a Neon pooler URL." >&2
