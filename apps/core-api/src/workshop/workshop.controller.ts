@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -14,6 +15,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiProduces,
   ApiQuery,
@@ -45,9 +47,16 @@ import {
   WorkshopResourcesResponseDto,
 } from './dto/board-response.dto';
 import {
+  CreateWorkshopHolidayDto,
+  UpdateWorkshopHolidayDto,
+  WorkshopHolidayDto,
+  WorkshopHolidayListResponseDto,
+} from './dto/workshop-holiday.dto';
+import {
   UpdateWorkshopSettingsDto,
   WorkshopSettingsResponseDto,
 } from './dto/workshop-settings.dto';
+import { WorkshopHolidayService } from './workshop-holiday.service';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
@@ -66,6 +75,7 @@ export class WorkshopController {
     private readonly invoiceService: WorkshopInvoiceService,
     private readonly pdfService: WorkshopPdfService,
     private readonly settingsService: WorkshopSettingsService,
+    private readonly holidayService: WorkshopHolidayService,
   ) {}
 
   @Get('settings')
@@ -78,6 +88,36 @@ export class WorkshopController {
   @ApiOkResponse({ type: WorkshopSettingsResponseDto })
   updateSettings(@Body() dto: UpdateWorkshopSettingsDto) {
     return this.settingsService.updateSettings(dto);
+  }
+
+  @Get('holidays')
+  @ApiQuery({ name: 'from', required: false, schema: { type: 'string' } })
+  @ApiQuery({ name: 'to', required: false, schema: { type: 'string' } })
+  @ApiOkResponse({ type: WorkshopHolidayListResponseDto })
+  listHolidays(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.holidayService.listHolidays(from, to);
+  }
+
+  @Post('holidays')
+  @ApiCreatedResponse({ type: WorkshopHolidayDto })
+  createHoliday(@Body() dto: CreateWorkshopHolidayDto) {
+    return this.holidayService.createHoliday(dto);
+  }
+
+  @Patch('holidays/:id')
+  @ApiOkResponse({ type: WorkshopHolidayDto })
+  updateHoliday(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateWorkshopHolidayDto,
+  ) {
+    return this.holidayService.updateHoliday(id, dto);
+  }
+
+  @Delete('holidays/:id')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  deleteHoliday(@Param('id', ParseUUIDPipe) id: string) {
+    return this.holidayService.deleteHoliday(id);
   }
 
   @Post('register')

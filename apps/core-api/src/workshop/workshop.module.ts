@@ -5,6 +5,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module';
 import { WorkshopBoardService } from './workshop-board.service';
+import { WorkshopHolidayService } from './workshop-holiday.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
@@ -32,6 +33,7 @@ import { WorkshopController } from './workshop.controller';
     WorkshopPdfService,
     WorkshopPdfRenderer,
     WorkshopSettingsService,
+    WorkshopHolidayService,
   ],
 })
 export class WorkshopModule {}
