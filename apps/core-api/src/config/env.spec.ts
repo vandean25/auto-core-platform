@@ -1,17 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  DOCUMENTED_ENV_KEYS,
-  EnvValidationError,
-  validateEnv,
-} from './env';
+import { DOCUMENTED_ENV_KEYS, EnvValidationError, validateEnv } from './env';
 
 const VALID_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
 const SHORT_ENCRYPTION_KEY = Buffer.alloc(16, 9).toString('base64');
 
-function productionEnv(
-  overrides: NodeJS.ProcessEnv = {},
-): NodeJS.ProcessEnv {
+function productionEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/core',
@@ -99,6 +93,34 @@ describe('validateEnv', () => {
     expect(() => validateEnv(productionEnv())).not.toThrow();
   });
 
+  it('accepts the optional production pooler requirement flag', () => {
+    expect(() =>
+      validateEnv(
+        productionEnv({
+          DATABASE_POOLER_REQUIRED: 'true',
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('defaults a blank production pooler requirement flag to disabled', () => {
+    const env = validateEnv(
+      productionEnv({
+        DATABASE_POOLER_REQUIRED: '   ',
+      }),
+    );
+    expect(env.DATABASE_POOLER_REQUIRED).toBeUndefined();
+  });
+
+  it('rejects invalid values for the production pooler requirement flag', () => {
+    const validationError = expectEnvError(
+      productionEnv({
+        DATABASE_POOLER_REQUIRED: 'yes',
+      }),
+    );
+    expect(validationError.invalid).toContain('DATABASE_POOLER_REQUIRED');
+  });
+
   it('rejects SECRET_ENCRYPTION_KEY values that are not 32-byte base64', () => {
     const validationError = expectEnvError(
       productionEnv({
@@ -129,7 +151,9 @@ describe('validateEnv', () => {
 
   it('allows the existing test/e2e fixture env with no production secrets', () => {
     expect(() => validateEnv({ NODE_ENV: 'test' })).not.toThrow();
-    expect(() => validateEnv({ NODE_ENV: 'test', DATABASE_URL: '' })).not.toThrow();
+    expect(() =>
+      validateEnv({ NODE_ENV: 'test', DATABASE_URL: '' }),
+    ).not.toThrow();
   });
 
   it('parses optional REDIS_URL when provided', () => {
@@ -157,9 +181,7 @@ describe('DOCUMENTED_ENV_KEYS', () => {
       ),
     );
 
-    expect([...DOCUMENTED_ENV_KEYS].sort()).toEqual(
-      [...exampleKeys].sort(),
-    );
+    expect([...DOCUMENTED_ENV_KEYS].sort()).toEqual([...exampleKeys].sort());
   });
 });
 
