@@ -10,11 +10,9 @@ export default function PurchaseBillCreatePage() {
     }
 
     return (
-        <div className="w-full max-w-page mx-auto p-6">
-            <PurchaseBillForm 
-                onSuccess={handleSuccess} 
-                onCancel={() => navigate('/purchase-bills')} 
-            />
-        </div>
+        <PurchaseBillForm 
+            onSuccess={handleSuccess} 
+            onCancel={() => navigate('/purchase-bills')} 
+        />
     )
 }

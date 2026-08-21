@@ -86,7 +86,7 @@ export default function VehicleList() {
   ], [])
 
   return (
-    <div className='w-full max-w-page mx-auto p-6'>
+    <>
       <div className='flex items-center justify-between mb-8'>
         <div>
           <h1 className='text-2xl font-semibold tracking-tight'>Vehicles</h1>
@@ -110,6 +110,6 @@ export default function VehicleList() {
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         {...tableState}
       />
-    </div>
+    </>
   )
 }

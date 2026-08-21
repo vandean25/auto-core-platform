@@ -15,6 +15,7 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
+import { PageContainer } from '@/components/layout/PageContainer'
 import { PageLoader } from '@/components/ui/PageLoader'
 
 const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
@@ -117,20 +118,17 @@ type AppMainProps = {
 }
 
 function AppMain({ sidebarCollapsed }: AppMainProps) {
-  const location = useLocation()
-  const isWorkshopOrderDetails = /^\/workshop\/orders\/[^/]+$/.test(location.pathname)
-
   return (
     <main
       id="main-content"
       className={cn('min-h-screen transition-[padding-left] duration-200', sidebarCollapsed ? 'pl-20' : 'pl-72')}
       tabIndex={-1}
     >
-      <div className={isWorkshopOrderDetails ? 'w-full py-8 px-0' : 'w-full py-8 px-4'}>
+      <PageContainer>
         <GlobalErrorBoundary>
           <AppRoutes />
         </GlobalErrorBoundary>
-      </div>
+      </PageContainer>
       <Toaster />
     </main>
   )

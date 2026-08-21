@@ -347,7 +347,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="w-full max-w-page mx-auto p-6 space-y-6">
+        <div className="space-y-6">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>

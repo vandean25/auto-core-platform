@@ -120,17 +120,15 @@ export function WorkshopOrderDetails() {
 
   if (!order) {
     return (
-      <div className='w-full max-w-page mx-auto p-6'>
-        <Card>
-          <CardHeader>
-            <CardTitle className='text-base font-semibold'>Workshop order not found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className='text-sm text-muted-foreground mb-4'>The selected workshop order does not exist.</p>
-            <Button onClick={() => navigate('/workshop/orders')}>Back to Workshop Orders</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className='text-base font-semibold'>Workshop order not found</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className='text-sm text-muted-foreground mb-4'>The selected workshop order does not exist.</p>
+          <Button onClick={() => navigate('/workshop/orders')}>Back to Workshop Orders</Button>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -475,7 +473,7 @@ export function WorkshopOrderDetails() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className='w-full max-w-page mx-auto space-y-6 p-6'>
+    <div className='space-y-6'>
       <motion.div className='w-full min-w-0 space-y-6'>
           <OrderTopBar
             order={order}

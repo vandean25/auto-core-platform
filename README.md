@@ -195,7 +195,7 @@ The frontend runs at **http://localhost:5173**
 
 Use this as the default blueprint whenever creating or refactoring list pages.
 
-- **Container/layout**: `w-full max-w-page mx-auto p-6` with standard header spacing (`mb-8`). Page max width is centralized in `src/index.css` (`--container-page`).
+- **Container/layout**: Admin shell applies `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Width is centralized in `src/index.css` (`--container-page`). Use standard header spacing (`mb-8`) inside page content.
 - **Header typography**: title uses `text-2xl font-semibold tracking-tight`; subtitle uses `text-slate-500`.
 - **Top-right create action**: use plus icon with entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.
 - **Table implementation**: use shared `DataTable` + `DataTableColumnHeader` patterns instead of ad-hoc tables for list views.
