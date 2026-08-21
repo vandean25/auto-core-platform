@@ -122,6 +122,12 @@ variable "invoice_pdf_bucket_secret_name" {
   default     = "INVOICE_PDF_BUCKET"
 }
 
+variable "workshop_media_bucket_secret_name" {
+  description = "GSM secret containing the workshop media bucket name."
+  type        = string
+  default     = "WORKSHOP_MEDIA_BUCKET"
+}
+
 variable "secret_encryption_key_secret_name" {
   description = "GSM secret containing the application encryption key."
   type        = string

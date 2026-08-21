@@ -22,6 +22,7 @@ locals {
       DATABASE_URL_POOLED   = var.database_pooled_secret_name
       SENTRY_DSN            = var.sentry_dsn_secret_name
       INVOICE_PDF_BUCKET    = var.invoice_pdf_bucket_secret_name
+      WORKSHOP_MEDIA_BUCKET = var.workshop_media_bucket_secret_name
       SECRET_ENCRYPTION_KEY = var.secret_encryption_key_secret_name
     },
     var.cloud_tasks_enabled ? {
@@ -48,6 +49,13 @@ resource "google_cloud_run_v2_service" "core_api" {
 
     containers {
       image = var.container_image
+
+      startup_probe {
+        http_get {
+          path = "/api/health"
+          port = 8080
+        }
+      }
 
       resources {
         limits = {

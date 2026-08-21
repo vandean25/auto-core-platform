@@ -68,10 +68,11 @@ steps:
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
           --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${SHORT_SHA},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,WORKSHOP_MEDIA_BUCKET=WORKSHOP_MEDIA_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
           --min-instances 0 \
           --max-instances 2 \
+          --startup-probe "httpGet.path=/api/health,httpGet.port=8080" \
           --quiet

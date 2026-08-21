@@ -70,22 +70,18 @@ Release consistency rule:
 
 ## 6. Sentry Source Map CI Secrets
 
-To upload frontend source maps to Sentry during CI builds, keep these values in GSM:
+To upload frontend source maps to Sentry for tagged production builds, keep
+these values in GSM:
 
 - `SENTRY_AUTH_TOKEN`
 - `SENTRY_ORG`
 - `SENTRY_PROJECT`
 
-The GitHub Actions workflow `.github/workflows/core-web-sentry-sourcemaps.yml` fetches those secrets from GSM using workload identity and injects them into the `core-web` build step.
-
-Required GitHub repository secrets for GSM access:
-
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
-- `GCP_PROJECT_ID`
-- `GSM_SENTRY_AUTH_TOKEN_SECRET`
-- `GSM_SENTRY_ORG_SECRET`
-- `GSM_SENTRY_PROJECT_SECRET`
+The tag-triggered Cloud Build `build-frontend` step reads these values through
+`availableSecrets` and injects them into the `core-web` build. Cloud Build is
+the sole production source-map uploader. It sets both `SENTRY_RELEASE` and
+`VITE_APP_VERSION` to `${TAG_NAME}`, so the browser release and Cloud Run API
+release use the same git tag.
 
 ## 7. Database Pooling Secrets (Multi-Tenant)
 
@@ -101,7 +97,85 @@ Recommended mapping pattern in `secrets/gsm-mapping.json`:
 
 NestJS runtime reads `DATABASE_URL_POOLED` and falls back to `DATABASE_URL`. Prisma migrate/seed keep using `DATABASE_URL` only. See `secrets/gsm-mapping.example.json`.
 
-### 8. Neon pooler cutover
+## 8. Workshop Media Storage
+
+The `core-api` Cloud Run service receives the workshop media bucket through
+Google Secret Manager. The deploy contract requires the secret name to be
+exactly `WORKSHOP_MEDIA_BUCKET`:
+
+```bash
+gcloud secrets create WORKSHOP_MEDIA_BUCKET \
+  --replication-policy=automatic \
+  --project=auto-core-platform
+printf '%s' 'acp-workshop-media' | \
+  gcloud secrets versions add WORKSHOP_MEDIA_BUCKET \
+  --data-file=- \
+  --project=auto-core-platform
+```
+
+Grant the Cloud Run runtime service account (`430221429044-compute@developer.gserviceaccount.com`) Secret Accessor:
+
+```bash
+gcloud secrets add-iam-policy-binding WORKSHOP_MEDIA_BUCKET \
+  --member=serviceAccount:430221429044-compute@developer.gserviceaccount.com \
+  --role=roles/secretmanager.secretAccessor \
+  --project=auto-core-platform
+```
+
+Create the bucket in `europe-west3` if it does not already exist:
+
+```bash
+gcloud storage buckets create gs://acp-workshop-media \
+  --location=europe-west3 \
+  --project=auto-core-platform \
+  --uniform-bucket-level-access
+```
+
+Grant the Cloud Run runtime service account access to the bucket (`roles/storage.objectAdmin`, or a narrower equivalent):
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://acp-workshop-media \
+  --member=serviceAccount:430221429044-compute@developer.gserviceaccount.com \
+  --role=roles/storage.objectAdmin \
+  --project=auto-core-platform
+```
+
+### Bucket CORS for Direct Client Uploads
+
+Mechanic media uses short-lived GCS signed POST policies (ADR-0014 §7.1) for direct browser-to-bucket uploads. Apply a CORS policy on `gs://acp-workshop-media` allowing signed POST from the web app origin:
+
+```json
+[
+  {
+    "origin": [
+      "https://auto-core-platform-vande.web.app",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173"
+    ],
+    "method": ["GET", "POST", "OPTIONS", "HEAD"],
+    "responseHeader": ["*"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+Apply the CORS configuration:
+
+```bash
+gcloud storage buckets update gs://acp-workshop-media \
+  --cors-file=cors.json \
+  --project=auto-core-platform
+```
+
+### Local Development Mapping
+
+In `secrets/gsm-mapping.example.json`, `WORKSHOP_MEDIA_BUCKET` explicitly targets `projectId: "auto-core-platform"` because production storage credentials live in the core project. Local `npm --prefix apps/core-api run secrets:pull` requires the user to have Secret Accessor permissions on `projects/auto-core-platform/secrets/WORKSHOP_MEDIA_BUCKET`.
+
+Do not commit the bucket's private objects or the secret value. The API keeps
+`WORKSHOP_MEDIA_BUCKET` optional during boot and fails closed at the mechanic
+media use site when storage is not configured.
+
+## 9. Neon pooler cutover
 
 The Cloud Run runtime pooled secret should be a separate GSM secret named
 `acp-core-api-database-url-pooled`. Its value must be a Neon pooled connection
