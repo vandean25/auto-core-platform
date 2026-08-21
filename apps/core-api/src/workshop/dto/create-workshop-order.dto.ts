@@ -10,7 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { WorkshopOrderPurpose } from '@prisma/client';
+import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
 
 export class CreateWorkshopOrderDto {
   @ApiPropertyOptional({ format: 'uuid' })
@@ -35,16 +35,52 @@ export class CreateWorkshopOrderDto {
   @IsEnum(WorkshopOrderPurpose)
   purpose?: WorkshopOrderPurpose;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    enum: [WorkshopOrderStatus.SCHEDULED, WorkshopOrderStatus.INTAKE],
+    enumName: 'WorkshopOrderStatus',
+  })
+  @IsOptional()
+  @IsEnum(WorkshopOrderStatus)
+  status?: WorkshopOrderStatus;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  bayId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, type: String })
+  @IsOptional()
+  @IsUUID()
+  mechanicId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  scheduledStartAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  scheduledEndAt?: string;
+
+  @ApiPropertyOptional()
+  @ValidateIf(
+    (dto: CreateWorkshopOrderDto) =>
+      dto.status !== WorkshopOrderStatus.SCHEDULED,
+  )
   @IsInt()
   @Min(0)
-  odometer!: number;
+  odometer?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf(
+    (dto: CreateWorkshopOrderDto) =>
+      dto.status !== WorkshopOrderStatus.SCHEDULED,
+  )
   @IsInt()
   @Min(0)
   @Max(100)
-  fuelLevel!: number;
+  fuelLevel?: number;
 
   @ApiPropertyOptional()
   @IsString()

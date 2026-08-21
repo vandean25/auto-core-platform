@@ -22,6 +22,7 @@ import {
   assertOrderEditable,
   type WorkshopOrderWithRelations,
 } from './workshop-order.helpers';
+import { WorkshopScheduleService } from './workshop-schedule.service';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -33,6 +34,7 @@ export class WorkshopIntakeService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    private readonly scheduleService: WorkshopScheduleService,
   ) {}
 
   private async generateOrderNumber(tx?: Prisma.TransactionClient) {
@@ -166,6 +168,14 @@ export class WorkshopIntakeService {
       }
     }
 
+    const isScheduled = dto.status === WorkshopOrderStatus.SCHEDULED;
+    if (
+      !isScheduled &&
+      (dto.odometer === undefined || dto.fuelLevel === undefined)
+    ) {
+      throw new BadRequestException('odometer and fuelLevel are required');
+    }
+
     const order = await this.prisma.$transaction(async (tx) => {
       if (purpose === WorkshopOrderPurpose.STOCK_PREP) {
         const flipped = await tx.vehicle.updateMany({
@@ -185,6 +195,10 @@ export class WorkshopIntakeService {
         }
       }
 
+      const booked = isScheduled
+        ? await this.scheduleService.assertCanBook(dto, undefined, tx)
+        : null;
+
       const orderNumber = await this.generateOrderNumber(tx);
       return tx.workshopOrder.create({
         data: {
@@ -196,11 +210,17 @@ export class WorkshopIntakeService {
               ? dto.customerId
               : null,
           vehicle_id: dto.vehicleId,
-          odometer: dto.odometer,
-          fuel_level: dto.fuelLevel,
+          odometer: dto.odometer ?? 0,
+          fuel_level: dto.fuelLevel ?? 0,
           reported_issue: dto.reportedIssue,
           notes: dto.notes,
-          status: WorkshopOrderStatus.INTAKE,
+          status: booked
+            ? WorkshopOrderStatus.SCHEDULED
+            : WorkshopOrderStatus.INTAKE,
+          bay_id: booked?.bayId,
+          mechanic_id: booked?.mechanicId,
+          scheduled_start_at: booked?.start,
+          scheduled_end_at: booked?.end,
         },
         include: {
           customer: true,

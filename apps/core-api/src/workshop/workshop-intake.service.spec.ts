@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service';
+import { WorkshopScheduleService } from './workshop-schedule.service';
 import {
   mockPrisma,
   resetWorkshopMocks,
@@ -21,6 +22,10 @@ describe('WorkshopIntakeService', () => {
         WorkshopIntakeService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        {
+          provide: WorkshopScheduleService,
+          useValue: { assertCanBook: jest.fn() },
+        },
       ],
     }).compile();
 
