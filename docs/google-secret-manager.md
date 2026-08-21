@@ -87,3 +87,28 @@ Recommended mapping pattern in `secrets/gsm-mapping.json`:
 - backend `.env` `DATABASE_URL_POOLED` -> GSM pooled secret (`acp-core-api-database-url-pooled`)
 
 NestJS runtime reads `DATABASE_URL_POOLED` and falls back to `DATABASE_URL`. Prisma migrate/seed keep using `DATABASE_URL` only. See `secrets/gsm-mapping.example.json`.
+
+### 8. Neon pooler cutover
+
+The Cloud Run runtime pooled secret should be a separate GSM secret named
+`acp-core-api-database-url-pooled`. Its value must be a Neon pooled connection
+string whose hostname contains `-pooler`. Do not put that value in
+`DATABASE_URL`: Prisma migrations use the direct endpoint and cannot use a
+transaction-mode pooler.
+
+Before overriding Cloud Build `_DATABASE_POOLED_SECRET`:
+
+1. Create the secret in the `auto-core-platform` project.
+2. Add the pooled Neon URL as its version.
+3. Grant the Cloud Run runtime service account `Secret Manager Secret Accessor`
+   on the secret.
+4. Deploy and verify the startup structured log plus
+   `tools/pooling/check-pool-settings.sql`.
+5. Override Cloud Build `_DATABASE_POOLER_REQUIRED=true` only after the pooled
+   host and SQL evidence are confirmed.
+
+The checked-in Cloud Build default remains the existing UAT secret until the
+operator confirms this dedicated secret exists. This prevents a tag deploy from
+referencing an uncreated GSM secret. The startup diagnostic warns in production
+when the pooled URL is missing, is not a `-pooler` host, or equals the direct
+host; enforcement is opt-in through `DATABASE_POOLER_REQUIRED`.

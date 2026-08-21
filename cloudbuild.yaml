@@ -2,9 +2,11 @@ substitutions:
   _BACKEND_PROJECT: auto-core-platform
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   _DATABASE_SECRET: DATABASE_URL_UAT
-  # Neon/PgBouncer pooler secret for Cloud Run runtime. Keep migrate-db on _DATABASE_SECRET
-  # (direct). Override this substitution to the pooler secret once it exists in GSM.
+  # Safe fallback until the operator confirms the dedicated GSM secret exists.
+  # Override this in staging/production with acp-core-api-database-url-pooled
+  # before enabling DATABASE_POOLER_REQUIRED. Keep migrate-db on _DATABASE_SECRET.
   _DATABASE_POOLED_SECRET: DATABASE_URL_UAT
+  _DATABASE_POOLER_REQUIRED: "false"
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
   _RUN_SERVICE: core-api
@@ -21,6 +23,8 @@ options:
 
 availableSecrets:
   secretManager:
+    # Only migrate-db needs this build-time secret. Cloud Run receives the
+    # runtime pooled secret directly through --set-secrets below.
     - versionName: projects/${_BACKEND_PROJECT}/secrets/${_DATABASE_SECRET}/versions/latest
       env: DATABASE_URL
     # Leftover from retired ApiKeyGuard. Cloud Run still receives API_KEY and the
@@ -109,7 +113,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --no-allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
           --cpu 1 \
           --memory 2Gi \
@@ -147,7 +151,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA}" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,REDIS_URL=REDIS_URL:latest" \
           --cpu 1 \
           --memory 512Mi \
