@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -43,11 +44,16 @@ import {
   BoardActiveResponseDto,
   WorkshopResourcesResponseDto,
 } from './dto/board-response.dto';
+import {
+  UpdateWorkshopSettingsDto,
+  WorkshopSettingsResponseDto,
+} from './dto/workshop-settings.dto';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
 
 @Controller('workshop')
@@ -59,7 +65,20 @@ export class WorkshopController {
     private readonly boardService: WorkshopBoardService,
     private readonly invoiceService: WorkshopInvoiceService,
     private readonly pdfService: WorkshopPdfService,
+    private readonly settingsService: WorkshopSettingsService,
   ) {}
+
+  @Get('settings')
+  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
+  getSettings() {
+    return this.settingsService.getSettings();
+  }
+
+  @Put('settings')
+  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
+  updateSettings(@Body() dto: UpdateWorkshopSettingsDto) {
+    return this.settingsService.updateSettings(dto);
+  }
 
   @Post('register')
   @ApiCreatedResponse({ type: VehicleListItemDto })
