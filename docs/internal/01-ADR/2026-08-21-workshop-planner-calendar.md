@@ -50,7 +50,7 @@ Without a separate time surface, advisors will keep booking in a list, double-bo
 - **New frontend surface:** `/workshop/planner` — sidebar label **Workshop Planner**.
 - **Existing board stays** `/workshop/board` — sidebar label **Workshop Board**. Do not merge the calendar into the kanban.
 - **Does not introduce:** a separate `Appointment` entity, pre-generated slot rows, customer self-booking, recurring *job* series, or labor-AW duration engine.
-- **Does introduce:** tenant-owned **holidays** (closed days and short days) as an override of weekday hours. No auto-import of country public-holiday packs.
+- **Does introduce:** tenant-owned **holidays** (closed days and short days) as an override of weekday hours, plus an on-demand **OpenHolidays API** import that copies nationwide public holidays into those rows. Planner reads never call the vendor.
 - **Cross-module dependencies:** CRM (customer + vehicle search already used by intake), Dashboard/Realtime (`WORKSHOP_ORDER` already broadcasts), Settings (new hours tab).
 
 ### 2. Occupancy is the workshop order
@@ -77,7 +77,18 @@ Defaults for a new workshop tenant:
 - Mon–Fri `07:30–17:00`
 - Saturday `08:00–12:00`
 - Sunday closed
-- Holidays: **empty list**. The shop adds Nationalfeiertag, Betriebsurlaub, Christmas Eve, etc. No AT/DE pack is seeded.
+- Holidays: **empty until import or manual add**. Default import country `AT`. No hardcoded AT/DE table in our repo.
+
+**Public-holiday import — OpenHolidays, not Nager.Date.**
+
+| | OpenHolidays | Nager.Date |
+|---|--------------|------------|
+| AT 2026 nationwide public days | 13, German names (`Nationalfeiertag`) | 20 if unfiltered (Sundays + regional school/patron days); v4 English-only |
+| Auth / cost | None, ODbL, commercial OK | Community API, no key |
+| Localization | `languageIsoCode=DE` | v3 `localName`; v4 `name` is English |
+| Fit | DACH open data, OpenAPI, hosted in DE | Better if we needed 200 countries |
+
+Import is `POST /api/workshop/holidays/import`: server fetches `GET https://openholidaysapi.org/PublicHolidays`, keeps `type=Public` nationwide (plus optional subdivision), copies into `WorkshopHoliday` with `source=IMPORTED` and `repeats_annually=false`. Timeout 3s → 502. Easter Monday is a dated row for that year; re-import next year. Manual Betriebsurlaub is never overwritten.
 
 **Effective hours for a local date:** matching holiday wins (closed all day, or holiday `open_time`/`close_time`). Else the weekday row. Annual holidays match month+day every year; 29 Feb is skipped in non-leap years.
 
@@ -161,7 +172,8 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 | **B. Separate `Appointment` → convert at intake** | Clean CRM booking without dummy odometer | Two lifecycles, conversion bugs, numbering |
 | **C. Generated `WorkshopSlot` rows** | Trivial "is this cell free?" | Slot explosion, regen on hour changes, multi-slot jobs |
 | **D. Stretch the kanban with a time axis** | One page | Board is "who has the car now"; mixing clocks destroys scanability |
-| **E. Auto-seed AT/DE public holidays** | Fewer clicks for Austrian shops | Wrong for other countries; stale when laws change. Tenant list + annual flag is enough. |
+| **E. Nager.Date as import source** | 200+ countries, no key | v4 English names; AT feed includes school/Sunday rows we would have to filter. Worse DACH fit. |
+| **F. Hardcoded AT/DE table in-repo** | No vendor | Stale when laws change; wrong for non-AT tenants. |
 
 ## References
 
@@ -169,6 +181,8 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 - [ADR-0014: Mechanic Digital Repair Order Tablet RBAC](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md) — `scheduled_date` is queue date, not booking time
 - [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
 - [Feature Spec: Workshop Planner Calendar](../02-Feature-Specs/Workshop/2026-08-21-workshop-planner-calendar.md)
+- [OpenHolidays API](https://www.openholidaysapi.org/en/) — chosen public-holiday import
+- [Nager.Date](https://date.nager.at/api) — considered and rejected
 - [Feature Spec: Workshop Board Resources](../02-Feature-Specs/Workshop/workshop-board-resources.md)
 - [Feature Spec: Workshop Order Lifecycle](../02-Feature-Specs/Workshop/workshop-order-lifecycle.md)
 

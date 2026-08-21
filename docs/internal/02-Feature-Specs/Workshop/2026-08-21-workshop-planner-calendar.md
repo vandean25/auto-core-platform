@@ -23,7 +23,7 @@ ACP already has a kanban **Workshop Board** (`/workshop/board`, ADR-0018) for as
 
 This module adds a **Workshop Planner** calendar at `/workshop/planner`. A booking is a `WorkshopOrder` with `status = SCHEDULED`, a bay, and a time window. Opening hours **and holidays** are tenant settings so a new workshop can define its week and closed days before the first job lands. Walk-in intake stays as it is; when the booked car arrives, intake **promotes** the scheduled order instead of minting a second `WO-` number.
 
-**Out of scope (Phase 1):** customer self-booking, recurring *job* series, waitlist, labor-AW duration engine, mechanic-hour hard limits, merging planner into the kanban, auto-import of country public-holiday packs.
+**Out of scope (Phase 1):** customer self-booking, recurring *job* series, waitlist, labor-AW duration engine, mechanic-hour hard limits, merging planner into the kanban, school-holiday calendars, live third-party holiday lookups on every planner paint.
 
 ---
 
@@ -42,7 +42,7 @@ Architecture detail lives in [ADR-0019](../../01-ADR/2026-08-21-workshop-planner
 ## User Stories
 
 - As a **Service Advisor**, I want to **set this workshop's opening hours and slot size** so that **the planner grid matches how we actually work**.
-- As a **Service Advisor**, I want to **mark holidays (closed or short days)** so that **those dates do not look like free stalls**.
+- As a **Service Advisor**, I want to **import this country's public holidays** so that **I do not type Nationalfeiertag by hand every year**.
 - As a **Service Advisor**, I want to **see bays against a day or week clock** so that **I can tell which stall is free**.
 - As a **Service Advisor**, I want to **click a free slot and create a workshop order there** so that **the booking holds the bay until the car arrives**.
 - As a **Service Advisor**, I want **the same order to become INTAKE when the car arrives** so that **I do not create a duplicate job card**.
@@ -95,7 +95,8 @@ These are binding for implementation unless Product Owner overrides them in revi
 8. **Walk-in create unchanged.** Planner is an additional door, not a replacement for `+ Order` / Start Service.
 9. **Odometer/fuel stay required `Int` columns.** Planner persists `0` until intake. Do not nullable-migrate a hot table for placeholders.
 10. **Walk-ins still occupy the bay today.** `INTAKE` / `IN_PROGRESS` with a `bay_id` and no time window occupy that bay for the current local day so the planner cannot show a stall as free while a car is in it.
-11. **Holidays override weekday hours.** A matching holiday wins over Mon–Sun. Closed holiday → empty grid with the holiday name. Short holiday (e.g. Christmas Eve) → grid uses that day's `openTime`/`closeTime`. No country pack is seeded; the tenant adds its own dates. Annual flag repeats the same month-day every year.
+11. **Holidays override weekday hours.** A matching holiday wins over Mon–Sun. Closed holiday → empty grid with the holiday name. Short holiday (e.g. Christmas Eve) → grid uses that day's `openTime`/`closeTime`.
+12. **Public-holiday import uses OpenHolidays API**, copied into `WorkshopHoliday`. Planner never calls the vendor at read time. Import nationwide `type=Public` for the tenant country (default `AT`) for the current and next calendar year. Easter-dependent days are stored as one-off dates, not `repeats_annually`. Manual rows (Betriebsurlaub) stay allowed. School holidays are not imported.
 
 ---
 
@@ -111,6 +112,8 @@ These are binding for implementation unless Product Owner overrides them in revi
 | `tenant_id` | `String` | No | — | Unique. Tenant-scoped singleton. |
 | `timezone` | `String` | No | `"Europe/Vienna"` | IANA tz. |
 | `slot_minutes` | `Int` | No | `30` | Grid quantum. Allowed values: 15, 30, 60. |
+| `holiday_country_iso` | `String` | No | `"AT"` | ISO 3166-1 alpha-2 for OpenHolidays import. |
+| `holiday_subdivision_code` | `String?` | Yes | — | Optional ISO 3166-2 (e.g. `DE-BY`). Null = nationwide only. |
 | `createdAt` | `DateTime` | No | `now()` | |
 | `updatedAt` | `DateTime` | No | `@updatedAt` | |
 
@@ -121,6 +124,8 @@ model WorkshopSettings {
   tenant       Tenant   @relation(fields: [tenant_id], references: [id])
   timezone     String   @default("Europe/Vienna")
   slot_minutes Int      @default(30)
+  holiday_country_iso        String  @default("AT")
+  holiday_subdivision_code   String?
   openingHours WorkshopOpeningHour[]
   holidays     WorkshopHoliday[]
   createdAt    DateTime @default(now())
@@ -178,7 +183,7 @@ Seed seven rows on settings upsert (same pattern as `FinanceSettings` create). D
 
 #### `WorkshopHoliday`
 
-Date-specific override of weekday hours. Empty on a new tenant — the shop adds its own list (public holidays, Betriebsurlaub, Christmas Eve).
+Date-specific override of weekday hours. Empty until the advisor imports public holidays or adds a manual row (Betriebsurlaub, Christmas Eve short day).
 
 | Column | Type | Nullable | Default | Notes |
 |--------|------|----------|---------|-------|
@@ -187,24 +192,33 @@ Date-specific override of weekday hours. Empty on a new tenant — the shop adds
 | `workshop_settings_id` | `String` | No | — | Parent singleton. |
 | `name` | `String` | No | — | Display label, e.g. `Nationalfeiertag`. |
 | `observed_on` | `DateTime @db.Date` | No | — | Calendar date. For annual rows, month+day is what matches; year is ignored at query time. |
-| `repeats_annually` | `Boolean` | No | `false` | If true, every year on the same month+day. |
+| `repeats_annually` | `Boolean` | No | `false` | If true, every year on the same month+day. **Imported public holidays are always `false`** (Easter moves). |
 | `is_closed` | `Boolean` | No | `true` | All-day closed. If false, `open_time`/`close_time` are required and replace weekday hours. |
 | `open_time` | `String?` | Yes | — | `HH:mm` when `is_closed = false`. |
 | `close_time` | `String?` | Yes | — | `HH:mm` when `is_closed = false`. Must be > `open_time`. |
+| `source` | `WorkshopHolidaySource` | No | `MANUAL` | `MANUAL` or `IMPORTED`. |
+| `external_id` | `String?` | Yes | — | OpenHolidays holiday UUID when imported. |
 
 ```prisma
+enum WorkshopHolidaySource {
+  MANUAL
+  IMPORTED
+}
+
 model WorkshopHoliday {
-  id                   String           @id @default(uuid())
+  id                   String                 @id @default(uuid())
   tenant_id            String
-  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
+  tenant               Tenant                 @relation(fields: [tenant_id], references: [id])
   workshop_settings_id String
-  workshop_settings    WorkshopSettings @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
+  workshop_settings    WorkshopSettings       @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
   name                 String
-  observed_on          DateTime         @db.Date
-  repeats_annually     Boolean          @default(false)
-  is_closed            Boolean          @default(true)
+  observed_on          DateTime               @db.Date
+  repeats_annually     Boolean                @default(false)
+  is_closed            Boolean                @default(true)
   open_time            String?
   close_time           String?
+  source               WorkshopHolidaySource  @default(MANUAL)
+  external_id          String?
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, observed_on])
@@ -221,7 +235,47 @@ model WorkshopHoliday {
 
 Reject create if another row would expand to the same date in any year (annual vs annual same month-day; annual vs one-off on that month-day). `observed_on` unique already blocks two one-offs on the same date. 29 February annual rows are skipped in non-leap years.
 
-Do **not** seed AT/DE public holidays. Multi-tenant shops are not all Austria; a wrong pack is worse than an empty list.
+#### Public-holiday import (OpenHolidays API)
+
+**Provider:** [OpenHolidays API](https://www.openholidaysapi.org/en/) (`https://openholidaysapi.org`). Open data, ODbL, no API key, hosted in Germany. Official OpenAPI at `https://openholidaysapi.org/swagger/v1/swagger.json`.
+
+**Why not Nager.Date:** Nager covers 200+ countries, but ACP is DACH-first. Nager v4 names are English-only. Nager v3 AT 2026 mixes nationwide public days with Ostersonntag/Pfingstsonntag and regional school/patron days (`Josefstag`, `Leopolditag`). OpenHolidays AT 2026 returns the 13 nationwide public holidays with German names (`Nationalfeiertag`, `Christtag`) and `type=Public` only.
+
+**Contract with the vendor (server-side only):**
+
+```
+GET https://openholidaysapi.org/PublicHolidays
+  ?countryIsoCode={holiday_country_iso}
+  &languageIsoCode=DE
+  &validFrom={year}-01-01
+  &validTo={year+1}-12-31
+  &subdivisionCode={holiday_subdivision_code}   // omit when null
+```
+
+Timeout 3s. On failure, import returns `502` with a toast; planner reads stay on local rows.
+
+**Keep / skip:**
+
+| Keep | Skip |
+|------|------|
+| `type === "Public"` | `School` and other types |
+| `nationwide === true`, or a subdivision row matching `holiday_subdivision_code` | Optional observances |
+| Single-day `startDate === endDate` | Multi-day ranges (none expected for AT public days) |
+
+**Copy, do not live-query.** Each kept row upserts a `WorkshopHoliday`:
+
+- `name` = German `name[].text` where `language=DE`
+- `observed_on` = `startDate`
+- `repeats_annually = false`
+- `is_closed = true`
+- `source = IMPORTED`
+- `external_id` = OpenHolidays `id`
+
+Idempotent: skip (or refresh name on) an existing row with the same `observed_on`. Never overwrite a `MANUAL` row on that date — leave it, count as skipped. Re-import next year is how Easter Monday lands on the right day.
+
+**Attribution:** ODbL. We store a per-tenant working copy for scheduling; we do not republish OpenHolidays as our own public API. Document the source in Settings copy: "Public holidays from OpenHolidays API."
+
+Production egress must allow `openholidaysapi.org`.
 
 ### Modified Tables
 
@@ -285,6 +339,7 @@ A `SCHEDULED` order cannot start mechanic execution. Mechanic queue already excl
 | `PUT` | `/api/workshop/settings` | `UpdateWorkshopSettingsDto` | `WorkshopSettingsResponse` | OWNER/ADMIN |
 | `GET` | `/api/workshop/holidays` | Optional `from`/`to` as `YYYY-MM-DD` (tenant calendar dates). Default: current local year. | `{ data: WorkshopHolidayDto[] }` | OWNER/ADMIN/SALES |
 | `POST` | `/api/workshop/holidays` | `CreateWorkshopHolidayDto` | `WorkshopHolidayDto` | OWNER/ADMIN |
+| `POST` | `/api/workshop/holidays/import` | `{ countryIsoCode?: string, subdivisionCode?: string \| null }` omitted fields use `WorkshopSettings` | `{ imported: number, skipped: number, yearFrom: number, yearTo: number }` | OWNER/ADMIN |
 | `PATCH` | `/api/workshop/holidays/:id` | Partial holiday fields | `WorkshopHolidayDto` | OWNER/ADMIN |
 | `DELETE` | `/api/workshop/holidays/:id` | — | `204` | OWNER/ADMIN |
 | `GET` | `/api/workshop/planner` | Query: `from`, `to` (ISO instants), optional `bayId` | `PlannerGridResponse` | OWNER/ADMIN/SALES |
@@ -304,12 +359,16 @@ interface WorkshopOpeningHourDto {
 interface WorkshopSettingsResponse {
   timezone: string
   slotMinutes: 15 | 30 | 60
+  holidayCountryIso: string
+  holidaySubdivisionCode: string | null
   openingHours: WorkshopOpeningHourDto[] // always length 7
 }
 
 interface UpdateWorkshopSettingsDto {
   timezone: string
   slotMinutes: 15 | 30 | 60
+  holidayCountryIso: string
+  holidaySubdivisionCode: string | null
   openingHours: WorkshopOpeningHourDto[]
 }
 ```
@@ -325,6 +384,7 @@ interface WorkshopHolidayDto {
   isClosed: boolean
   openTime: string | null
   closeTime: string | null
+  source: 'MANUAL' | 'IMPORTED'
 }
 
 interface CreateWorkshopHolidayDto {
@@ -445,7 +505,7 @@ Do not silently create a second active job for the same vehicle while one is `SC
 - [ ] Top-left: title **Workshop Planner**, subtitle in `text-slate-500` (selected date / week range).
 - [ ] Header uses `text-2xl font-semibold tracking-tight`.
 - [ ] Route `/workshop/planner`. Sidebar item after Workshop Board, Calendar icon (`lucide-react`).
-- [ ] Settings tab **Hours** (or **Workshop hours**) in existing `SettingsPage.tsx`. Weekday save is a short form submit, not 750 ms autosave. Holidays on the same tab use a DataTable with `+ Holiday`.
+- [ ] Settings tab **Hours** (or **Workshop hours**) in existing `SettingsPage.tsx`. Weekday save is a short form submit, not 750 ms autosave. Holidays on the same tab use a DataTable with `+ Holiday` (top-right of that section) and **Import public holidays**.
 
 ### Planner canvas (not a DataTable)
 
@@ -505,7 +565,7 @@ If no active bays: centered Card "No bays configured" + `Go to Settings` (Bays t
 | `PlannerWeekGrid` | `apps/core-web/src/components/workshop/planner/PlannerWeekGrid.tsx` | Bay × day canvas for a week. |
 | `PlannerBookingBlock` | `apps/core-web/src/components/workshop/planner/PlannerBookingBlock.tsx` | Occupied interval; StatusBadge; drag handle if SCHEDULED. |
 | `PlannerCreateSheet` | `apps/core-web/src/components/workshop/planner/PlannerCreateSheet.tsx` | Sheet: customer/vehicle + times + bay. |
-| `WorkshopHoursSettingsTab` | Settings tabs | Timezone, slot size, seven weekdays, holidays DataTable. |
+| `WorkshopHoursSettingsTab` | Settings tabs | Timezone, slot size, country for import, seven weekdays, holidays DataTable. |
 | `WorkshopHolidayDialog` | Settings / Hours | Create/edit one holiday (date, name, annual, closed vs short hours). |
 
 Query keys (extend `workshopKeys`, do not invent a second factory):
@@ -553,6 +613,10 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 - [ ] Settings upsert seeds seven weekdays with documented defaults.
 - [ ] `PUT /settings` rejects missing weekday, invalid `slotMinutes`, `close_time <= open_time` on an open day.
 - [ ] Holiday CRUD: closed day, short day, annual repeat expands into next year on `GET /planner`.
+- [ ] `POST /holidays/import` for AT current+next year inserts the 13 nationwide public days with German names, `source=IMPORTED`, `repeatsAnnually=false`.
+- [ ] Re-import is idempotent (second call `imported=0` or only new years).
+- [ ] Import does not overwrite a MANUAL row on the same date.
+- [ ] Import `502` when OpenHolidays times out; existing holidays unchanged.
 - [ ] Holiday create colliding with an existing one-off or annual month-day → 409.
 - [ ] 29 Feb annual holiday is omitted from non-leap years on `GET /planner`.
 - [ ] `GET /planner` on a closed holiday returns that date in `holidays` with `isClosed: true` and still returns after-hours bookings.
@@ -576,7 +640,7 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 - [ ] Closed Sunday empty state + Settings link.
 - [ ] Closed holiday empty state shows holiday name + Settings link.
 - [ ] Short holiday grid uses holiday hours, not weekday hours.
-- [ ] Hours tab: `+ Holiday` create, annual toggle, delete.
+- [ ] Hours tab: `+ Holiday` create, annual toggle, delete, **Import public holidays**.
 - [ ] No bays empty state + Settings link.
 - [ ] Day/Week toggle persists `localStorage` key `workshop-planner-view`.
 - [ ] Hours tab save round-trips timezone and weekday hours.
@@ -588,7 +652,7 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 Do not start this until Product Owner marks this spec **approved**. Then write a task-level plan (superpowers writing-plans) and implement in this order:
 
 1. Prisma models + migration + settings seed on first GET (weekdays empty of holidays).
-2. Settings API + Hours settings tab (weekdays + holiday CRUD).
+2. Settings API + Hours settings tab (weekdays + holiday CRUD + OpenHolidays import).
 3. Planner GET (occupancy query).
 4. Create/patch schedule + bay overlap in a transaction.
 5. Intake promote `SCHEDULED → INTAKE`.
@@ -612,7 +676,7 @@ Recorded as proposed rulings above. Confirm or override:
 4. Default duration 60 vs 30 vs labor-AW (ruling: 60; labor-AW is Phase 2).
 5. Duplicate active-order guard on the same vehicle (ruling: yes, block second active job).
 6. Unscheduled on-floor occupancy for today (ruling: yes).
-7. Holidays in Phase 1 (ruling: yes — tenant-owned list, annual flag, no country pack).
+7. Holidays in Phase 1 (ruling: yes — tenant-owned list + OpenHolidays import, not Nager.Date).
 
 ---
 
@@ -625,7 +689,8 @@ Recorded as proposed rulings above. Confirm or override:
 - [ADR-0006: Form auto-save](../../01-ADR/2026-04-12-form-auto-save-patterns.md)
 - [Feature Spec: Workshop Board Resources](workshop-board-resources.md)
 - [Feature Spec: Workshop Order Lifecycle](workshop-order-lifecycle.md)
-- [Deletion Policy](../../../deletion-policy.md)
+- [OpenHolidays API](https://www.openholidaysapi.org/en/) — public-holiday import source
+- [Nager.Date](https://date.nager.at/api) — considered; rejected for DACH naming and extra school/Sunday rows
 - `apps/core-api/src/workshop/workshop-intake.service.ts` — create currently hard-codes `INTAKE`
 - `apps/core-web/src/pages/workshop/WorkshopBoard.tsx` — spatial planner to keep separate
 - `apps/core-web/src/components/navigation/AppSidebar.tsx`

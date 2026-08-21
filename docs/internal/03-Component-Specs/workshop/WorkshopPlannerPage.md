@@ -64,3 +64,4 @@ Use `workshopKeys.planner(from, to, bayId?)`, `workshopKeys.settings()`, and `wo
 
 - `WorkshopBoard.tsx` — do not reuse kanban columns here
 - Intake search UI — reuse for customer/vehicle in the create Sheet
+- Settings Hours tab — `+ Holiday` and **Import public holidays** (OpenHolidays), not this page
