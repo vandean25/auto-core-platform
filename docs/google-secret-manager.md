@@ -107,8 +107,6 @@ Before overriding Cloud Build `_DATABASE_POOLED_SECRET`:
 5. Override Cloud Build `_DATABASE_POOLER_REQUIRED=true` only after the pooled
    host and SQL evidence are confirmed.
 
-The checked-in Cloud Build default remains the existing UAT secret until the
-operator confirms this dedicated secret exists. This prevents a tag deploy from
-referencing an uncreated GSM secret. The startup diagnostic warns in production
-when the pooled URL is missing, is not a `-pooler` host, or equals the direct
-host; enforcement is opt-in through `DATABASE_POOLER_REQUIRED`.
+The checked-in Cloud Build default now points `_DATABASE_POOLED_SECRET` at
+`acp-core-api-database-url-pooled` after the operator creates that GSM secret.
+Override `_DATABASE_POOLER_REQUIRED=true` only after deploy verification.
