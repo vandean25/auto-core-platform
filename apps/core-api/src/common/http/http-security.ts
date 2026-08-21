@@ -18,7 +18,7 @@ export function configureHttpSecurity(
   expressApplication.set('trust proxy', true);
 
   if (options.nodeEnv === 'production') {
-    app.use(helmet({ contentSecurityPolicy: false }));
+    app.use(helmet());
   }
 
   app.enableCors({

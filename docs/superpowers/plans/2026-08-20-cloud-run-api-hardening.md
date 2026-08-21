@@ -200,8 +200,7 @@ exist.
 Implement `configureHttpSecurity(app, options)` so it:
 
 1. calls `app.getHttpAdapter().getInstance().set('trust proxy', true)`;
-2. calls `app.use(helmet({ contentSecurityPolicy: false }))` only when
-   `options.nodeEnv === 'production'`;
+2. calls `app.use(helmet())` only when `options.nodeEnv === 'production'`;
 3. calls `app.enableCors` with
    `origin: resolveCorsOrigins(options.frontendUrl, options.nodeEnv)`,
    `methods: 'GET,HEAD,PUT,PATCH,POST,DELETE'`, and `credentials: true`.
@@ -220,7 +219,8 @@ Run:
 npm --prefix apps/core-api test -- --runInBand src/common/http/http-security.spec.ts src/common/http/cors-origins.spec.ts
 ```
 
-Expected: PASS with no CSP header and with the expected Helmet headers.
+Expected: PASS with Helmet's default CSP header and the expected baseline
+security headers.
 
 - [ ] **Step 6: Commit**
 

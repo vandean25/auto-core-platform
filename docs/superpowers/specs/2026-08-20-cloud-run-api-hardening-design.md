@@ -34,9 +34,11 @@ will continue to allow credentials and the existing methods.
 ### HTTP security middleware
 
 `main.ts` will call a small HTTP security configurator in production. The
-configurator will install Helmet with content security policy disabled because
-this is a JSON API, while retaining Helmet's baseline headers including
-`X-Frame-Options`, `Referrer-Policy`, and removal of `X-Powered-By`.
+configurator will install Helmet's default security policy, which is safe for
+JSON API responses because it does not govern frontend resources. It will
+retain Helmet's baseline headers including `X-Frame-Options`,
+`Referrer-Policy`, and removal of `X-Powered-By`; frontend CSP remains
+out-of-scope for INFRA-10.
 
 The configurator will be independently testable without enabling Helmet for
 the whole Jest `NODE_ENV=test` suite.
