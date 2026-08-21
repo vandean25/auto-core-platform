@@ -153,18 +153,6 @@ steps:
           --max-instances 5 \
           --quiet
 
-  - id: export-run-url
-    name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
-    args:
-      - -lc
-      - |
-        set -euo pipefail
-        gcloud run services describe "${_RUN_SERVICE}" \
-          --region "${_REGION}" \
-          --project "${_BACKEND_PROJECT}" \
-          --format='value(status.url)' > /workspace/.run_url
-
   - id: build-frontend
     name: node:22
     entrypoint: bash
@@ -178,8 +166,6 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        RUN_URL="$$(cat /workspace/.run_url)"
-        export VITE_API_BASE_URL="$$RUN_URL"
         export VITE_FIREBASE_API_KEY="$$VITE_FIREBASE_API_KEY"
         export VITE_FIREBASE_AUTH_DOMAIN="${_VITE_FIREBASE_AUTH_DOMAIN}"
         export VITE_FIREBASE_PROJECT_ID="${_VITE_FIREBASE_PROJECT_ID}"

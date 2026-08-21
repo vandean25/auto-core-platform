@@ -114,6 +114,19 @@ describe('RealtimeDashboardSyncProvider', () => {
     })
   })
 
+  it('uses the Hosting socket path for an empty API base in production', () => {
+    expect(
+      resolveRealtimeConnection({
+        apiBaseUrl: '',
+        currentOrigin: 'https://auto-core-platform-vande.web.app',
+        isDev: false,
+      }),
+    ).toEqual({
+      url: 'https://auto-core-platform-vande.web.app/dashboard-realtime',
+      path: '/api/socket.io',
+    })
+  })
+
   it('uses the backend socket path when an API base URL is configured', () => {
     expect(
       resolveRealtimeConnection({
