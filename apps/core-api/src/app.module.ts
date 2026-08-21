@@ -5,6 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -12,6 +13,7 @@ import { TenantContextMiddleware } from './common/services/tenant-context.middle
 import { InventoryModule } from './inventory/inventory.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { AUTH_THROTTLER_OPTIONS } from './auth/auth-throttling';
 
 import { PurchaseModule } from './purchase/purchase.module';
 import { VendorModule } from './vendor/vendor.module';
@@ -40,6 +42,7 @@ import { AuditModule } from './audit/audit.module';
   imports: [
     forwardRef(() => PrismaModule),
     EventEmitterModule.forRoot(),
+    ThrottlerModule.forRoot([AUTH_THROTTLER_OPTIONS]),
     InventoryModule,
     PurchaseModule,
     VendorModule,
@@ -67,6 +70,10 @@ import { AuditModule } from './audit/audit.module';
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
