@@ -72,6 +72,9 @@ export const AUDITED_MODELS = new Set([
   'VehiclePurchase',
   'VehicleSale',
   'VehicleLedgerEntry',
+  'WorkshopSettings',
+  'WorkshopOpeningHour',
+  'WorkshopHoliday',
 ]);
 
 function extractEntityId(value: unknown): string | undefined {
