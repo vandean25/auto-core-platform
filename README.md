@@ -136,7 +136,7 @@ Use GSM so all machines/agents pull the same credentials without committing secr
 
 ```bash
 gcloud auth login
-gcloud config set project auto-core-platform
+gcloud config set project auto-core-platform-vande
 ```
 
 2. Create local mapping file from template:
@@ -251,12 +251,14 @@ Seed helpers: `npm run db:seed:tenant-member` and `npm run db:seed:platform-admi
 Set these in build/deploy environment for `apps/core-web`:
 
 ```env
-VITE_API_BASE_URL=
+VITE_SOCKET_BASE_URL=
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
 ```
+
+> **Note on API routing:** `VITE_API_BASE_URL` is omitted in production because Firebase Hosting rewrites `/api/**` directly to Cloud Run `core-api`. `VITE_SOCKET_BASE_URL` can be provided if WebSocket upgrades must bypass Hosting and connect directly to Cloud Run.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -297,7 +299,7 @@ In Firebase project `auto-core-platform-vande`:
 The release trigger deploys on tags matching `^v.*$`.
 
 - Build file: `cloudbuild.yaml`
-- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
+- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`, with `/api/**` rewritten to Cloud Run `core-api`)
 
 Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
 
@@ -314,18 +316,26 @@ Release Firebase substitutions in `cloudbuild.yaml` must match the GSM-backed `c
 In project `auto-core-platform-vande`:
 
 - `cloudbuild.googleapis.com`
+- `run.googleapis.com` (Cloud Run Admin API)
+- `cloudtasks.googleapis.com` (Cloud Tasks API)
+- `secretmanager.googleapis.com` (Secret Manager API)
+- `artifactregistry.googleapis.com` (Artifact Registry API)
 - `firebase.googleapis.com` (Firebase Management API)
 - `firebasehosting.googleapis.com` (Firebase Hosting API)
 - `identitytoolkit.googleapis.com`
-
 
 ### Required IAM for build service account
 
 Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
 
+- `roles/editor`
+- `roles/artifactregistry.writer`
+- `roles/run.admin`
+- `roles/secretmanager.secretAccessor`
 - `roles/firebase.admin`
 - `roles/firebasehosting.admin`
 - `roles/serviceusage.apiKeysViewer`
+- `roles/iam.serviceAccountUser`
 
 ---
 
