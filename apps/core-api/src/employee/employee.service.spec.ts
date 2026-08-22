@@ -357,6 +357,22 @@ describe('EmployeeService', () => {
     });
   });
 
+  it('soft-disables active employees even when HR rows exist', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.attendanceEvent.count.mockResolvedValue(1);
+    mockPrisma.employee.update.mockResolvedValue({
+      ...baseEmployee,
+      is_active: false,
+    });
+
+    const result = await service.remove('emp-1');
+
+    expect(result.isActive).toBe(false);
+    expect(mockPrisma.employee.update).toHaveBeenCalled();
+    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+  });
+
   it('blocks hard delete when an HR row references the employee', async () => {
     mockPrisma.employee.findFirst.mockResolvedValue({
       ...baseEmployee,
