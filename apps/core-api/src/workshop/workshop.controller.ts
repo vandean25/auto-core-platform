@@ -4,15 +4,18 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiProduces,
   ApiQuery,
@@ -43,11 +46,31 @@ import {
   BoardActiveResponseDto,
   WorkshopResourcesResponseDto,
 } from './dto/board-response.dto';
+import {
+  CreateWorkshopHolidayDto,
+  ImportWorkshopHolidaysDto,
+  ImportWorkshopHolidaysResponseDto,
+  ListWorkshopHolidaysQueryDto,
+  UpdateWorkshopHolidayDto,
+  WorkshopHolidayDto,
+  WorkshopHolidayListResponseDto,
+} from './dto/workshop-holiday.dto';
+import {
+  PlannerGridResponseDto,
+  PlannerQueryDto,
+} from './dto/workshop-planner.dto';
+import {
+  UpdateWorkshopSettingsDto,
+  WorkshopSettingsResponseDto,
+} from './dto/workshop-settings.dto';
+import { WorkshopHolidayService } from './workshop-holiday.service';
+import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopBoardService } from './workshop-board.service';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopInvoiceService } from './workshop-invoice.service';
 import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
 
 @Controller('workshop')
@@ -59,7 +82,62 @@ export class WorkshopController {
     private readonly boardService: WorkshopBoardService,
     private readonly invoiceService: WorkshopInvoiceService,
     private readonly pdfService: WorkshopPdfService,
+    private readonly settingsService: WorkshopSettingsService,
+    private readonly holidayService: WorkshopHolidayService,
+    private readonly plannerService: WorkshopPlannerService,
   ) {}
+
+  @Get('settings')
+  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
+  getSettings() {
+    return this.settingsService.getSettings();
+  }
+
+  @Put('settings')
+  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
+  updateSettings(@Body() dto: UpdateWorkshopSettingsDto) {
+    return this.settingsService.updateSettings(dto);
+  }
+
+  @Get('holidays')
+  @ApiOkResponse({ type: WorkshopHolidayListResponseDto })
+  listHolidays(@Query() query: ListWorkshopHolidaysQueryDto) {
+    return this.holidayService.listHolidays(query.from, query.to);
+  }
+
+  @Post('holidays')
+  @ApiCreatedResponse({ type: WorkshopHolidayDto })
+  createHoliday(@Body() dto: CreateWorkshopHolidayDto) {
+    return this.holidayService.createHoliday(dto);
+  }
+
+  @Post('holidays/import')
+  @ApiOkResponse({ type: ImportWorkshopHolidaysResponseDto })
+  importHolidays(@Body() dto: ImportWorkshopHolidaysDto) {
+    return this.holidayService.importPublicHolidays(dto);
+  }
+
+  @Patch('holidays/:id')
+  @ApiOkResponse({ type: WorkshopHolidayDto })
+  updateHoliday(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateWorkshopHolidayDto,
+  ) {
+    return this.holidayService.updateHoliday(id, dto);
+  }
+
+  @Delete('holidays/:id')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  deleteHoliday(@Param('id', ParseUUIDPipe) id: string) {
+    return this.holidayService.deleteHoliday(id);
+  }
+
+  @Get('planner')
+  @ApiOkResponse({ type: PlannerGridResponseDto })
+  getPlanner(@Query() query: PlannerQueryDto) {
+    return this.plannerService.getPlanner(query);
+  }
 
   @Post('register')
   @ApiCreatedResponse({ type: VehicleListItemDto })

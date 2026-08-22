@@ -236,6 +236,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.voiceNoteRateLimit.deleteMany({});
   await tenantPrisma.workshopTask.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
+  await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});
   await tenantPrisma.inspectionTemplate.deleteMany({});
   await tenantPrisma.employee.deleteMany({});
@@ -245,6 +246,9 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.vendor.deleteMany({});
   await tenantPrisma.storageLocation.deleteMany({});
   await tenantPrisma.brand.deleteMany({});
+  await tenantPrisma.workshopHoliday.deleteMany({});
+  await tenantPrisma.workshopOpeningHour.deleteMany({});
+  await tenantPrisma.workshopSettings.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
 
   const memberships = await tenantPrisma.tenantMember.findMany({

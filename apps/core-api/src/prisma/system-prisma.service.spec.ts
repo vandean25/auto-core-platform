@@ -14,6 +14,7 @@ const TENANT_MODEL_DELEGATES = [
   'vehicle',
   'employee',
   'workshopOrder',
+  'workshopSettings',
   'invoice',
   'salesOrder',
   'catalogItem',

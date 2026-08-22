@@ -32,8 +32,37 @@ export const mockPrisma = {
     create: jest.fn(),
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  workshopSettings: {
+    findFirst: jest.fn(),
+    findFirstOrThrow: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  workshopOpeningHour: {
+    findMany: jest.fn(),
+    createMany: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  workshopHoliday: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  bay: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  employee: {
+    findFirst: jest.fn(),
   },
   storageLocation: {
     findUnique: jest.fn(),
@@ -87,6 +116,15 @@ export const mockTenantContext = {
   getTenantId: jest
     .fn()
     .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+  getRequiredTenantId: jest
+    .fn()
+    .mockReturnValue('00000000-0000-0000-0000-000000000001'),
+  getAuthenticatedUser: jest.fn().mockReturnValue({
+    userId: 'u-1',
+    email: 'admin@example.com',
+    tenantId: '00000000-0000-0000-0000-000000000001',
+    role: 'ADMIN',
+  }),
 };
 
 export function resetWorkshopMocks() {
