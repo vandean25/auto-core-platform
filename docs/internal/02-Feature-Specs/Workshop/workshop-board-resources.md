@@ -509,6 +509,7 @@ All open questions have been resolved. These rulings are **binding** for impleme
 - [ADR-0001: Prisma $extends Real-Time Sync](../../01-ADR/2026-04-12-prisma-extends-realtime-sync.md) — WebSocket auto-emission (deferred for Employee/Bay)
 - [ADR-0005: Deletion Policy Enforcement](../../01-ADR/2026-04-12-deletion-policy-enforcement.md) — Employee and Bay deletion rules must be added
 - [Feature Spec: Workshop Order Lifecycle](workshop-order-lifecycle.md) — WorkshopOrder model context
+- [Feature Spec: Workshop Planner Calendar](2026-08-21-workshop-planner-calendar.md) — time-axis booking is a **separate** surface (`/workshop/planner`). This spec remains bay/mechanic columns for the kanban only.
 - [Deletion Policy](../../../deletion-policy.md) — must be updated with Employee and Bay rows
 - `apps/core-web/src/api/workshop.ts` — existing `workshopKeys` factory to extend
 - `apps/core-web/src/pages/SettingsPage.tsx` — target for Employee/Bay management tabs

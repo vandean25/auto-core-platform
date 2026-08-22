@@ -1,10 +1,13 @@
 substitutions:
   _BACKEND_PROJECT: auto-core-platform-vande
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
+  # The current tag-triggered release is UAT/live. Production requires a
+  # separately provisioned DATABASE_URL_PROD secret and substitution.
   _DATABASE_SECRET: DATABASE_URL_UAT
-  # Neon/PgBouncer pooler secret for Cloud Run runtime. Keep migrate-db on _DATABASE_SECRET
-  # (direct). Override this substitution to the pooler secret once it exists in GSM.
-  _DATABASE_POOLED_SECRET: DATABASE_URL_UAT
+  # Runtime pooled endpoint (Neon -pooler). migrate-db stays on _DATABASE_SECRET.
+  # Enable _DATABASE_POOLER_REQUIRED=true only after startup logs and SQL checks pass.
+  _DATABASE_POOLED_SECRET: acp-core-api-database-url-pooled
+  _DATABASE_POOLER_REQUIRED: "false"
   _FRONTEND_PROJECT: auto-core-platform-vande
   _REGION: europe-west3
   _RUN_SERVICE: core-api
@@ -21,15 +24,10 @@ options:
 
 availableSecrets:
   secretManager:
+    # Only migrate-db needs this build-time secret. Cloud Run receives the
+    # runtime pooled secret directly through --set-secrets below.
     - versionName: projects/${_BACKEND_PROJECT}/secrets/${_DATABASE_SECRET}/versions/latest
       env: DATABASE_URL
-    # Leftover from retired ApiKeyGuard. Cloud Run still receives API_KEY and the
-    # frontend build still sets VITE_API_KEY, but Nest uses JwtAuthGuard globally
-    # and Cloud Tasks use CLOUD_TASKS_WORKER_SECRET. Frontend source does not
-    # read VITE_API_KEY. Keep injecting until a dedicated deploy cleanup removes
-    # the GSM secret; do not set API_KEY in e2e.
-    - versionName: projects/${_BACKEND_PROJECT}/secrets/API_KEY/versions/latest
-      env: API_KEY
     - versionName: projects/${_FRONTEND_PROJECT}/secrets/acp-web-firebase-api-key/versions/latest
       env: VITE_FIREBASE_API_KEY
     - versionName: projects/${_BACKEND_PROJECT}/secrets/acp-web-sentry-dsn/versions/latest
@@ -50,7 +48,7 @@ steps:
     args:
       - -lc
       - |
-        # Fail this tag-triggered production deploy on any `prisma migrate deploy`
+        # Fail this tag-triggered release/UAT deploy on any `prisma migrate deploy`
         # non-zero exit, including Prisma P3005 (schema not empty / not baselined).
         # Baselining is a manual one-shot: `npm run db:baseline -- --applied <migration>`.
         # Do not skip P3005 here.
@@ -60,19 +58,35 @@ steps:
 
   - id: build-api-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - -f
-      - apps/core-api/Dockerfile
-      - -t
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
-      - .
+      - -ceu
+      - |
+        docker buildx create --driver docker-container --use
+        docker buildx build \
+          --push \
+          --target api \
+          --cache-from type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:cache \
+          --cache-to type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:cache,mode=max \
+          -f apps/core-api/Dockerfile \
+          -t ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME} \
+          .
 
-  - id: push-api-image
+  - id: build-pdf-worker-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - push
-      - ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}
+      - -ceu
+      - |
+        docker buildx create --driver docker-container --use
+        docker buildx build \
+          --push \
+          --target worker \
+          --cache-from type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:cache \
+          --cache-to type=registry,ref=${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:cache,mode=max \
+          -f apps/core-api/Dockerfile \
+          -t ${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME} \
+          .
 
   - id: deploy-pdf-worker
     name: gcr.io/cloud-builders/gcloud
@@ -81,7 +95,7 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
+        IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_PDF_WORKER_SERVICE}:${TAG_NAME}"
         # Worker is IAM-protected (--no-allow-unauthenticated). It validates HMAC worker
         # requests but does NOT receive CLOUD_TASKS_ENABLED/QUEUE/TARGET_BASE_URL (no self-enqueue).
         gcloud run deploy "${_PDF_WORKER_SERVICE}" \
@@ -89,8 +103,8 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --no-allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest" \
           --cpu 1 \
           --memory 2Gi \
           --concurrency 1 \
@@ -127,33 +141,21 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA}" \
-          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,API_KEY=API_KEY:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,REDIS_URL=REDIS_URL:latest" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,WORKSHOP_MEDIA_BUCKET=WORKSHOP_MEDIA_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,REDIS_URL=REDIS_URL:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
           --min-instances 1 \
           --no-cpu-throttling \
+          --startup-probe "httpGet.path=/api/health,httpGet.port=8080" \
           --max-instances 5 \
           --quiet
-
-  - id: export-run-url
-    name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
-    args:
-      - -lc
-      - |
-        set -euo pipefail
-        gcloud run services describe "${_RUN_SERVICE}" \
-          --region "${_REGION}" \
-          --project "${_BACKEND_PROJECT}" \
-          --format='value(status.url)' > /workspace/.run_url
 
   - id: build-frontend
     name: node:22
     entrypoint: bash
     secretEnv:
-      - API_KEY
       - VITE_FIREBASE_API_KEY
       - VITE_SENTRY_DSN
       - SENTRY_AUTH_TOKEN
@@ -163,9 +165,6 @@ steps:
       - -lc
       - |
         set -euo pipefail
-        RUN_URL="$$(cat /workspace/.run_url)"
-        export VITE_SOCKET_BASE_URL="$$RUN_URL"
-        export VITE_API_KEY="$$API_KEY"
         export VITE_FIREBASE_API_KEY="$$VITE_FIREBASE_API_KEY"
         export VITE_FIREBASE_AUTH_DOMAIN="${_VITE_FIREBASE_AUTH_DOMAIN}"
         export VITE_FIREBASE_PROJECT_ID="${_VITE_FIREBASE_PROJECT_ID}"
@@ -174,6 +173,7 @@ steps:
         export SENTRY_AUTH_TOKEN="$$SENTRY_AUTH_TOKEN"
         export SENTRY_ORG="$$SENTRY_ORG"
         export SENTRY_PROJECT="$$SENTRY_PROJECT"
+        # Tagged production builds use the git tag as the shared Sentry release ID.
         export SENTRY_RELEASE="${TAG_NAME}"
         export VITE_APP_VERSION="${TAG_NAME}"
         npm ci

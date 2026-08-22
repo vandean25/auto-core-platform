@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { CarFront, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
@@ -86,7 +86,7 @@ export default function VehicleList() {
   ], [])
 
   return (
-    <div className='w-full max-w-7xl mx-auto p-6'>
+    <>
       <div className='flex items-center justify-between mb-8'>
         <div>
           <h1 className='text-2xl font-semibold tracking-tight'>Vehicles</h1>
@@ -110,6 +110,6 @@ export default function VehicleList() {
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         {...tableState}
       />
-    </div>
+    </>
   )
 }

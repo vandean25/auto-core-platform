@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useNavigate } from 'react-router-dom'
 import { useDeleteVendor, useVendors } from '@/api/vendors'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,7 @@ export default function VendorList() {
     const deleteMutation = useDeleteVendor()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-    const data = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const data: Vendor[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {
@@ -65,7 +65,7 @@ export default function VendorList() {
     ]
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6">
+        <>
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
@@ -97,6 +97,6 @@ export default function VendorList() {
             />
 
             <VendorDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
-        </div>
+        </>
     )
 }

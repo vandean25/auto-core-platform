@@ -58,3 +58,8 @@ docs/superpowers/
 
 # Worktrees
 .worktrees/
+
+# Terraform
+infra/.terraform/
+*.tfstate
+*.tfstate.*

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Car, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -97,7 +97,7 @@ export default function VehicleStockList() {
   )
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6">
+    <>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Vehicle Stock</h1>
@@ -129,6 +129,6 @@ export default function VehicleStockList() {
         }}
         {...tableState}
       />
-    </div>
+    </>
   )
 }

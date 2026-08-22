@@ -75,6 +75,9 @@ model Tenant {
   workshopTaskLineItems WorkshopTaskLineItem[]
   employees            Employee[]
   bays                 Bay[]
+  workshopSettings     WorkshopSettings?
+  workshopOpeningHours WorkshopOpeningHour[]
+  workshopHolidays     WorkshopHoliday[]
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
   laborEntries         LaborEntry[]
@@ -939,6 +942,68 @@ model Bay {
   @@map("bays")
 }
 
+enum WorkshopHolidaySource {
+  MANUAL
+  IMPORTED
+}
+
+model WorkshopSettings {
+  id                         String                @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                @relation(fields: [tenant_id], references: [id])
+  timezone                   String                @default("Europe/Vienna")
+  slot_minutes               Int                   @default(30)
+  holiday_country_iso        String                @default("AT")
+  holiday_subdivision_code   String?
+  openingHours               WorkshopOpeningHour[]
+  holidays                   WorkshopHoliday[]
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  @@unique([tenant_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("workshop_settings")
+}
+
+model WorkshopOpeningHour {
+  id                   String           @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
+  workshop_settings_id String
+  workshop_settings    WorkshopSettings @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
+  weekday              Int
+  is_closed            Boolean          @default(false)
+  open_time            String           @default("07:30")
+  close_time           String           @default("17:00")
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, weekday])
+  @@index([tenant_id])
+  @@map("workshop_opening_hours")
+}
+
+model WorkshopHoliday {
+  id                   String                 @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                 @relation(fields: [tenant_id], references: [id])
+  workshop_settings_id String
+  workshop_settings    WorkshopSettings       @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
+  name                 String
+  observed_on          DateTime               @db.Date
+  repeats_annually     Boolean                @default(false)
+  is_closed            Boolean                @default(true)
+  open_time            String?
+  close_time           String?
+  source               WorkshopHolidaySource  @default(MANUAL)
+  external_id          String?
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, observed_on])
+  @@index([tenant_id])
+  @@map("workshop_holidays")
+}
+
 model WorkshopOrder {
   id           String              @id @default(uuid())
   tenant_id    String
@@ -962,6 +1027,8 @@ model WorkshopOrder {
   fuel_level   Int                 // 0-100
   reported_issue String?
   notes        String?
+  scheduled_start_at DateTime?
+  scheduled_end_at   DateTime?
   inspections  WorkshopInspection[]
   media        WorkshopMedia[]
   tasks        WorkshopTask[]
@@ -982,6 +1049,7 @@ model WorkshopOrder {
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
+  @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
   @@map("workshop_orders")
 }
 

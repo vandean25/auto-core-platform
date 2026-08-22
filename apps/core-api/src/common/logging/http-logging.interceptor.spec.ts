@@ -114,7 +114,7 @@ describe('HttpLoggingInterceptor', () => {
     expect(loggedRaw).not.toContain('secret-key');
   });
 
-  it('handles unauthenticated requests gracefully without throwing', async () => {
+  it('skips logging for unauthenticated health probes', async () => {
     const context = createMockExecutionContext({
       method: 'GET',
       url: '/api/health',
@@ -135,19 +135,7 @@ describe('HttpLoggingInterceptor', () => {
       });
     });
 
-    expect(mockLoggerLog).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(mockLoggerLog.mock.calls[0][0]);
-
-    expect(logged).toEqual(
-      expect.objectContaining({
-        type: 'http_request',
-        method: 'GET',
-        path: '/api/health',
-        statusCode: 200,
-      }),
-    );
-    expect(logged.tenantId).toBeUndefined();
-    expect(logged.actorId).toBeUndefined();
+    expect(mockLoggerLog).not.toHaveBeenCalled();
   });
 
   it('logs failed request with error status and duration', async () => {

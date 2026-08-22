@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Navigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { toast } from 'sonner'
 
 import { useAuthSession } from '@/api/auth-session'
@@ -239,7 +239,7 @@ export default function PlatformTenantsPage() {
   }
 
   return (
-    <div className='w-full max-w-7xl mx-auto p-6 space-y-6'>
+    <div className='space-y-6'>
       <div className='flex items-center justify-between mb-8'>
         <div>
           <h1 className='text-2xl font-semibold tracking-tight'>Tenants</h1>

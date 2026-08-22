@@ -176,6 +176,7 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - ADR-0009: Sequential Document Numbering — `WO-2026-XXXX` assigned at creation/intake; invoice `RE-2026-XXXX` at `COMPLETED → INVOICED`
 - ADR-0011: Atomic Status Transition Guards — all Workshop Order and Task status transitions use the `updateMany` guard pattern
 - ADR-0014: Mechanic Digital Repair Order Tablet RBAC — mechanic tablet execution, restricted projections, and AI voice-note guardrails
+- ADR-0019: Workshop Planner Calendar — `SCHEDULED` as a real booking with bay + time window; intake promotes the booking instead of creating a second order. See [Workshop Planner Calendar](2026-08-21-workshop-planner-calendar.md).
 
 ---
 

@@ -194,7 +194,7 @@ The frontend runs at **http://localhost:5173**
 
 Use this as the default blueprint whenever creating or refactoring list pages.
 
-- **Container/layout**: `w-full max-w-7xl mx-auto p-6` with standard header spacing (`mb-8`).
+- **Container/layout**: Admin shell applies `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Width is centralized in `src/index.css` (`--container-page`). Use standard header spacing (`mb-8`) inside page content.
 - **Header typography**: title uses `text-2xl font-semibold tracking-tight`; subtitle uses `text-slate-500`.
 - **Top-right create action**: use plus icon with entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.
 - **Table implementation**: use shared `DataTable` + `DataTableColumnHeader` patterns instead of ad-hoc tables for list views.
@@ -217,13 +217,17 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 ---
 
-## Production Hosting & Auth
+## Hosting, Auth & Deployment Environments
 
-### Firebase Project
+### GCP and Firebase project map
 
-- **Backend + Cloud Build + Hosting + Firebase Auth Project**: `auto-core-platform-vande`
+| Concern | Project or site | Notes |
+|---------|-----------------|-------|
+| Cloud Run API, Artifact Registry, Cloud Build release trigger, backend GSM | `auto-core-platform-vande` | `_BACKEND_PROJECT` in `cloudbuild.yaml` |
+| Firebase Authentication and Firebase Hosting | `auto-core-platform-vande` | `_BACKEND_FIREBASE_PROJECT_ID` and `_FRONTEND_PROJECT`; Hosting site is `auto-core-platform-vande` |
+| Cloud Build deployer service account | `cbuild-deployer@auto-core-platform-vande.iam.gserviceaccount.com` | Service account used by Cloud Build release trigger |
 
-The application now uses a single Firebase/GCP project for backend deployment, frontend hosting, and Firebase Authentication.
+Cloud Run and Firebase Hosting are project-aligned on `auto-core-platform-vande`, enabling direct Firebase Hosting Cloud Run rewrites for `/api/**`.
 
 ### Firebase Auth (Frontend)
 
@@ -246,9 +250,19 @@ API routes are behind a global `JwtAuthGuard`. The bearer token is a Firebase ID
 
 Seed helpers: `npm run db:seed:tenant-member` and `npm run db:seed:platform-admin` in `apps/core-api`.
 
+### Cloud Run Edge
+
+The Cloud Run API remains publicly reachable while Firebase Hosting rewrites
+are not yet in place. JWT bearer authentication is the API authorization
+boundary; the retired `API_KEY`/`VITE_API_KEY` path is no longer shipped.
+After deploying this cleanup, operators should delete the retired `API_KEY`
+secret from Google Secret Manager, including any frontend-project copy if one
+exists. Cloud Armor is an optional operator follow-up once Hosting rewrites or
+an HTTPS load balancer is available; it is not configured by this repository.
+
 ### Frontend Environment Variables
 
-Set these in build/deploy environment for `apps/core-web`:
+Set these in the build/deploy environment for `apps/core-web`:
 
 ```env
 VITE_SOCKET_BASE_URL=
@@ -258,7 +272,15 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-> **Note on API routing:** `VITE_API_BASE_URL` is omitted in production because Firebase Hosting rewrites `/api/**` directly to Cloud Run `core-api`. `VITE_SOCKET_BASE_URL` can be provided if WebSocket upgrades must bypass Hosting and connect directly to Cloud Run.
+Production does not require `VITE_API_BASE_URL`. Cloud Build intentionally
+leaves it unset so the browser keeps API requests relative to the Firebase
+Hosting origin. Firebase Hosting rewrites `/api/**` to the `core-api` Cloud Run
+service in `europe-west3`; REST calls use `/api/...` and the production
+Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
+requests through `/api` and Socket.IO through `/socket.io` to the local API.
+
+`VITE_SOCKET_BASE_URL` can be provided if WebSocket upgrades must bypass
+Hosting and connect directly to Cloud Run.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -270,6 +292,15 @@ VITE_FIREBASE_APP_ID=
 ```
 
 After editing env values, restart the Vite dev server.
+
+Before relying on realtime connections in production, verify the Socket.IO
+WebSocket upgrade on a staging Hosting channel. Cloud Run supports WebSockets
+directly, but Hosting Cloud Run rewrites are documented primarily for HTTP
+requests and must be validated for this upgrade. If Hosting cannot proxy the
+upgrade reliably, use an explicitly configured direct Cloud Run origin as a
+temporary deployment fallback; do not move NestJS to Cloud Functions. Keep
+`VITE_API_BASE_URL` empty in the normal production build so REST remains
+same-origin.
 
 ### Create Login User (Email/Password)
 
@@ -303,7 +334,7 @@ The release trigger deploys on tags matching `^v.*$`.
 
 Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
 
-If a non-empty database has never been baselined, run a **manual one-shot** outside the production deploy:
+If a non-empty database has never been baselined, run a **manual one-shot** outside the tag-triggered release/UAT deploy:
 
 ```bash
 npm --prefix apps/core-api run db:baseline -- --applied <migration_name>
@@ -326,7 +357,7 @@ In project `auto-core-platform-vande`:
 
 ### Required IAM for build service account
 
-Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
+Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform-vande.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
 
 - `roles/editor`
 - `roles/artifactregistry.writer`

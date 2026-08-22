@@ -21,7 +21,7 @@ export function IntakeDashboard() {
   const [selectedVehicle, setSelectedVehicle] = useState<{ id: string, description: string, customerId: string } | null>(null)
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Workshop Intake</h1>

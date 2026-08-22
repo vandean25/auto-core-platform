@@ -151,7 +151,7 @@ export default function PurchaseInvoiceCreatePage() {
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6">
+        <>
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Create Purchase Invoice</h1>
@@ -282,6 +282,6 @@ export default function PurchaseInvoiceCreatePage() {
                 onAdd={handleImport}
                 preSelectPoId={poId}
             />
-        </div>
+        </>
     )
 }

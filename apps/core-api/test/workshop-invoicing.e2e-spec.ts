@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AuthService } from '../src/auth/auth.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -53,13 +54,15 @@ describe('Workshop Invoicing (e2e)', () => {
       },
     });
     customerId = customer.id;
+  });
 
+  beforeEach(async () => {
     const vehicle = await prisma.vehicle.create({
       data: {
         make: 'BMW',
         model: 'X3',
         year: 2021,
-        vin: `VIN-${Date.now()}`,
+        vin: `VIN-INV-${randomUUID()}`,
         customer_id: customerId,
       },
     });

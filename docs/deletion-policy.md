@@ -38,7 +38,10 @@ This document defines when deletion is allowed in Auto Core Platform.
 | PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
 | Employee | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.mechanic_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
-| WorkshopOrder | Conditional (future API) | Prefer cancel/archive flow; if delete is added, limit to pre-work intake states only. |
+| WorkshopSettings | No | Singleton configuration record; never deleted. Update in place only. |
+| WorkshopOpeningHour | No | Seven weekday rows; replaced by updating hours, never deleted independently. |
+| WorkshopHoliday | Yes | Hard delete allowed. Not referenced by orders. Removing a holiday only changes future grid hours. |
+| WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, and no `LaborEntry` records exist for the task. |
 | InspectionTemplate | Conditional | Cannot delete if any `WorkshopInspection` references it; deactivate or supersede it instead. |
 | InspectionTemplateItem | Conditional | Cannot delete if any `WorkshopInspectionItem` references it; change future template versions instead. |

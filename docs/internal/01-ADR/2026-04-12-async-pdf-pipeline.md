@@ -91,9 +91,9 @@ If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target 
 
 ### Neutral
 
-- Production deploys two Cloud Run services from the same Playwright-capable image: `core-api` (enqueue-only, 512Mi) and `core-api-pdf-worker` (render worker, 2Gi, concurrency 1). Cloud Tasks `CLOUD_TASKS_TARGET_BASE_URL` points at the worker service URL with `/api` prefix.
+- Production deploys two Cloud Run services from the same compiled Nest application but separate images: `core-api` uses a Node 22 slim image without browser binaries (enqueue-only, 512Mi), while `core-api-pdf-worker` uses the pinned Playwright image (render worker, 2Gi, concurrency 1). Cloud Tasks `CLOUD_TASKS_TARGET_BASE_URL` points at the worker service URL with `/api` prefix.
 - A dedicated render route must be maintained for each new entity type added to the pipeline (one route per document type).
-- Playwright and headless Chromium add significant size to the deployment container image (~300 MB). This is a fixed cost regardless of PDF generation volume.
+- Playwright and headless Chromium add significant size to the PDF worker image (~300 MB); the user-facing API image does not carry those browser binaries.
 - GCS storage costs scale linearly with document volume. Retention policy for archived PDFs (e.g., delete after 7 years per legal requirement) must be configured at the bucket level, not in application code.
 - PDF generation is idempotent: re-triggering for the same entity overwrites the existing GCS object and updates `pdf_storage_key`. Historical copies are not versioned by default unless GCS object versioning is enabled on the bucket.
 

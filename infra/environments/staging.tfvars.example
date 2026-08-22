@@ -1,0 +1,18 @@
+# Staging/UAT is the only live non-production environment at present.
+project_id                       = "auto-core-platform"
+region                           = "europe-west3"
+service_name                     = "core-api-staging"
+deployment_environment           = "staging"
+container_image                  = "europe-west3-docker.pkg.dev/auto-core-platform/core-services/core-api:REPLACE_WITH_TAG"
+frontend_url                     = "https://auto-core-platform-vande.web.app"
+sentry_release                   = "REPLACE_WITH_COMMIT_SHA"
+cloud_tasks_enabled              = false
+cloud_tasks_target_base_url      = ""
+realtime_enabled                 = false
+min_instance_count               = 0
+max_instance_count               = 2
+cpu_idle                         = true
+database_secret_name             = "DATABASE_URL_UAT"
+database_pooled_secret_name      = "acp-core-api-database-url-pooled"
+database_pooler_required         = false
+firebase_project_id              = "auto-core-platform-vande"

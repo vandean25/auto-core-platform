@@ -15,7 +15,11 @@ describe('createSentryOptions', () => {
     expect(options.release).toBe('core-web@1.2.3')
     expect(options.sendDefaultPii).toBe(false)
     expect(options.tracesSampleRate).toBe(0.1)
-    expect(options.tracePropagationTargets).toEqual(['localhost', 'https://api.example.com'])
+    expect(options.tracePropagationTargets).toEqual([
+      'localhost',
+      /\/api(?:\/|$)/,
+      'https://api.example.com',
+    ])
     expect(options.replaysSessionSampleRate).toBe(0.1)
     expect(options.replaysOnErrorSampleRate).toBe(1)
     expect(options.enableLogs).toBe(true)
@@ -28,5 +32,14 @@ describe('createSentryOptions', () => {
     expect(options.environment).toBe('development')
     expect(options.release).toBeUndefined()
     expect(options.tracesSampleRate).toBe(1)
+  })
+
+  it('does not add an empty API base URL to trace propagation targets', () => {
+    const options = createSentryOptions({
+      MODE: 'production',
+      VITE_API_BASE_URL: '',
+    })
+
+    expect(options.tracePropagationTargets).toEqual(['localhost', /\/api(?:\/|$)/])
   })
 })

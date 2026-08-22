@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service';
+import { WorkshopScheduleService } from './workshop-schedule.service';
 import {
   mockPrisma,
   resetWorkshopMocks,
@@ -21,6 +22,10 @@ describe('WorkshopIntakeService', () => {
         WorkshopIntakeService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        {
+          provide: WorkshopScheduleService,
+          useValue: { assertCanBook: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -61,6 +66,27 @@ describe('WorkshopIntakeService', () => {
       }),
     );
     expect(result.order_number).toBe('WO-2026-0001');
+  });
+
+  it('rejects a second active order on the same vehicle', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-live',
+      order_number: 'WO-2026-0007',
+    });
+
+    await expect(
+      service.create({
+        customerId: 'c-1',
+        vehicleId: 'v-1',
+        odometer: 10000,
+        fuelLevel: 50,
+      }),
+    ).rejects.toMatchObject({
+      message: 'Vehicle already has active order WO-2026-0007',
+    });
+    expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
   });
 
   it('normalizes labor metadata fields in workshop order response', async () => {

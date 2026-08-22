@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { type ColumnDef } from "@tanstack/react-table"
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useCustomers, useDeleteCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
@@ -120,7 +120,7 @@ export default function CustomerList() {
     ]
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6">
+        <>
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
@@ -155,6 +155,6 @@ export default function CustomerList() {
                 onOpenChange={setIsDialogOpen}
                 customer={selectedCustomer}
             />
-        </div>
+        </>
     )
 }
