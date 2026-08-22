@@ -354,10 +354,12 @@ export class WorkshopPickPartsService {
         .map((i) => i.sourceLocationId)
         .filter(Boolean) as string[];
 
-      const preFetchedLocations = new Map<
-        string,
-        { id: string; type: string; deletedAt: Date | null }
-      >();
+      type PreFetchedLocation = {
+        id: string;
+        type: string;
+        deletedAt: Date | null;
+      };
+      const preFetchedLocations = new Map<string, PreFetchedLocation>();
       if (requestedSourceLocationIds.length > 0) {
         const locations = await tx.storageLocation.findMany({
           where: {
@@ -371,7 +373,7 @@ export class WorkshopPickPartsService {
           },
         });
         for (const loc of locations) {
-          preFetchedLocations.set(loc.id, loc);
+          preFetchedLocations.set(loc.id, loc as PreFetchedLocation);
         }
       }
 
@@ -386,14 +388,12 @@ export class WorkshopPickPartsService {
           };
         });
 
-      const explicitSourceStocks = new Map<
-        string,
-        {
-          catalog_item_id: string;
-          location_id: string;
-          quantity_on_hand: number;
-        }
-      >();
+      type ExplicitSourceStock = {
+        catalog_item_id: string;
+        location_id: string;
+        quantity_on_hand: number;
+      };
+      const explicitSourceStocks = new Map<string, ExplicitSourceStock>();
       if (explicitItemSourcePairs.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
@@ -412,7 +412,7 @@ export class WorkshopPickPartsService {
               stock.catalog_item_id,
               stock.location_id,
             ),
-            stock,
+            stock as ExplicitSourceStock,
           );
         }
       }
@@ -425,15 +425,13 @@ export class WorkshopPickPartsService {
           return catalogItem.id;
         });
 
-      const autoAllocationStocks = new Map<
-        string,
-        {
-          catalog_item_id: string;
-          location_id: string;
-          quantity_on_hand: number;
-          createdAt: Date;
-        }[]
-      >();
+      type AutoAllocationStock = {
+        catalog_item_id: string;
+        location_id: string;
+        quantity_on_hand: number;
+        createdAt: Date;
+      };
+      const autoAllocationStocks = new Map<string, AutoAllocationStock[]>();
       if (autoAllocationItems.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
@@ -455,7 +453,7 @@ export class WorkshopPickPartsService {
         });
         for (const stock of stocks) {
           const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
-          list.push(stock);
+          list.push(stock as AutoAllocationStock);
           autoAllocationStocks.set(stock.catalog_item_id, list);
         }
       }
@@ -507,8 +505,18 @@ export class WorkshopPickPartsService {
           allocations = [
             { sourceLocationId, quantity: requestedItem.quantity },
           ];
+          reservations.set(
+            reservationKey,
+            reservedQuantity + requestedItem.quantity,
+          );
         } else {
-          const sourceStocks = autoAllocationStocks.get(catalogItem.id) ?? [];
+          const sourceStocks = (
+            autoAllocationStocks.get(catalogItem.id) ?? []
+          ).sort((a, b) => {
+            const dateCompare = a.createdAt.getTime() - b.createdAt.getTime();
+            if (dateCompare !== 0) return dateCompare;
+            return a.location_id.localeCompare(b.location_id);
+          });
           let remaining = requestedItem.quantity;
 
           for (const stock of sourceStocks) {
@@ -531,6 +539,11 @@ export class WorkshopPickPartsService {
               quantity: allocatedQuantity,
             });
             remaining -= allocatedQuantity;
+            // IMMEDIATELY RECORD THIS AUTO-ALLOCATION SO SUBSEQUENT ITEMS SEE IT
+            reservations.set(
+              reservationKey,
+              reservedQuantity + allocatedQuantity,
+            );
           }
 
           if (remaining > 0) {
@@ -538,17 +551,6 @@ export class WorkshopPickPartsService {
               `Insufficient stock for auto-allocation. Missing quantity ${remaining}.`,
             );
           }
-        }
-
-        for (const allocation of allocations) {
-          const reservationKey = this.getAllocationReservationKey(
-            catalogItem.id,
-            allocation.sourceLocationId,
-          );
-          reservations.set(
-            reservationKey,
-            (reservations.get(reservationKey) ?? 0) + allocation.quantity,
-          );
         }
 
         const allocationSummaries: Array<{
