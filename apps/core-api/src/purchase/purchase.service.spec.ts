@@ -33,6 +33,7 @@ describe('PurchaseService', () => {
       deleteMany: jest.fn(),
     },
     purchaseOrderItem: {
+      create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
       findMany: jest.fn().mockResolvedValue([
@@ -437,6 +438,198 @@ describe('PurchaseService', () => {
         mockPrismaService.purchaseOrderItem.deleteMany,
       ).not.toHaveBeenCalled();
       expect(mockPrismaService.purchaseOrder.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('addItemsToPurchaseOrder', () => {
+    it('should throw if purchase order not found', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.addItemsToPurchaseOrder('po-unknown', [
+          { catalogItemId: 'item-1', quantity: 1, unitCost: 10 },
+        ]),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw on duplicate items in request', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        vendor: { supportedBrands: [] },
+        items: [],
+      });
+
+      await expect(
+        service.addItemsToPurchaseOrder('po-1', [
+          { catalogItemId: 'item-1', quantity: 1, unitCost: 10 },
+          { catalogItemId: 'item-1', quantity: 2, unitCost: 10 },
+        ]),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if item is already in purchase order', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        vendor: {
+          supportedBrands: [{ id: 'brand-1', name: 'Brand 1' }],
+        },
+        items: [{ catalog_item_id: 'item-1' }],
+      });
+      mockPrismaService.catalogItem.findMany.mockResolvedValue([
+        {
+          id: 'item-1',
+          name: 'Oil Filter',
+          brand_id: 'brand-1',
+          brand: { id: 'brand-1', name: 'Brand 1' },
+        },
+      ]);
+
+      await expect(
+        service.addItemsToPurchaseOrder('po-1', [
+          { catalogItemId: 'item-1', quantity: 1, unitCost: 10 },
+        ]),
+      ).rejects.toThrow('already in this purchase order');
+    });
+
+    it('should add items successfully', async () => {
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          vendor: {
+            id: 'v-1',
+            name: 'Vendor',
+            supportedBrands: [{ id: 'brand-1', name: 'Brand 1' }],
+          },
+          items: [],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          items: [{ quantity: 2, quantity_received: 0 }],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          items: [{ id: 'poi-new', catalog_item_id: 'item-1' }],
+        });
+
+      mockPrismaService.catalogItem.findMany.mockResolvedValue([
+        {
+          id: 'item-1',
+          brand_id: 'brand-1',
+          brand: { id: 'brand-1', name: 'Brand 1' },
+        },
+      ]);
+      mockPrismaService.purchaseOrderItem.create.mockResolvedValue({
+        id: 'poi-new',
+      });
+
+      const result = await service.addItemsToPurchaseOrder('po-1', [
+        { catalogItemId: 'item-1', quantity: 2, unitCost: 15 },
+      ]);
+
+      expect(result).toBeDefined();
+      expect(mockPrismaService.purchaseOrderItem.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: 'tenant-1',
+          purchase_order_id: 'po-1',
+          catalog_item_id: 'item-1',
+          quantity: 2,
+          unit_cost: 15,
+        }),
+      });
+    });
+  });
+
+  describe('updatePurchaseOrderItem', () => {
+    it('should update item quantity and unit cost', async () => {
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          items: [{ id: 'item-1', quantity: 5, quantity_received: 0 }],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          items: [{ id: 'item-1', quantity: 10, quantity_received: 0 }],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          items: [{ id: 'item-1', quantity: 10, quantity_received: 0 }],
+        });
+
+      mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.updatePurchaseOrderItem('po-1', 'item-1', {
+        quantity: 10,
+        unitCost: 20,
+      });
+
+      expect(result).toBeDefined();
+      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith(
+        {
+          where: { id: 'item-1', tenant_id: 'tenant-1' },
+          data: { quantity: 10, unit_cost: 20 },
+        },
+      );
+    });
+
+    it('should reject reducing quantity below received quantity', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.PARTIAL,
+        items: [{ id: 'item-1', quantity: 10, quantity_received: 5 }],
+      });
+
+      await expect(
+        service.updatePurchaseOrderItem('po-1', 'item-1', { quantity: 3 }),
+      ).rejects.toThrow('Cannot reduce quantity below 5 already received');
+    });
+  });
+
+  describe('deleteItemFromPurchaseOrder', () => {
+    it('should reject deleting received item', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.PARTIAL,
+        items: [{ id: 'item-1', quantity: 10, quantity_received: 2 }],
+      });
+
+      await expect(
+        service.deleteItemFromPurchaseOrder('po-1', 'item-1'),
+      ).rejects.toThrow('Cannot delete an item that has already been received');
+    });
+
+    it('should delete unreceived item', async () => {
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          items: [{ id: 'item-1', quantity: 10, quantity_received: 0 }],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          status: PurchaseOrderStatus.DRAFT,
+          items: [],
+        })
+        .mockResolvedValueOnce({
+          id: 'po-1',
+          items: [],
+        });
+
+      mockPrismaService.purchaseOrderItem.deleteMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.deleteItemFromPurchaseOrder('po-1', 'item-1');
+      expect(result).toBeDefined();
+      expect(mockPrismaService.purchaseOrderItem.deleteMany).toHaveBeenCalledWith(
+        {
+          where: { id: 'item-1', tenant_id: 'tenant-1' },
+        },
+      );
     });
   });
 });

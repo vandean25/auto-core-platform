@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NOT PRODUCTIZED (AUT-154). Do not run against production.
+# NOT PRODUCTIZED (AUT-154/AUT-171). Do not run against production.
 # Status: docs/internal/05-Runbooks/single-tenant-restore-playbook.md
 # Deferral: docs/internal/.architecture/deferrals.md
 set -euo pipefail
@@ -14,32 +14,42 @@ TENANT_ID="$2"
 DUMP_FILE="$3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+source "${SCRIPT_DIR}/restore-common.sh"
+tenant_restore_validate_target "${PRIMARY_DATABASE_URL}" "${TENANT_ID}"
+
+if [[ "${DRY_RUN:-1}" == "1" ]]; then
+  echo "[tenant-restore] Would verify schema, purge tenant ${TENANT_ID}, and import ${DUMP_FILE}"
+  exit 0
+fi
+
 if [[ ! -f "${DUMP_FILE}" ]]; then
   echo "Dump file not found: ${DUMP_FILE}"
   exit 1
 fi
 
-echo "[tenant-restore] Purging existing tenant rows for ${TENANT_ID}"
+node "${SCRIPT_DIR}/verify-dump.mjs" "${DUMP_FILE}" "${TENANT_ID}"
+
+echo "[tenant-restore] Verifying primary schema against generated restore manifest"
 psql "${PRIMARY_DATABASE_URL}" \
+  -X \
+  -v ON_ERROR_STOP=1 \
   -v target_tenant_id="${TENANT_ID}" \
-  -f "${SCRIPT_DIR}/purge-tenant-data.sql"
+  -f "${SCRIPT_DIR}/verify-tenant-schema.sql" >/dev/null
 
-echo "[tenant-restore] Importing tenant dump ${DUMP_FILE}"
-psql "${PRIMARY_DATABASE_URL}" -f "${DUMP_FILE}"
+COMBINED_SQL="$(mktemp "${TMPDIR:-/tmp}/tenant-restore.XXXXXX.sql")"
+trap 'rm -f "${COMBINED_SQL}"' EXIT
+{
+  cat "${SCRIPT_DIR}/purge-tenant-data.sql"
+  cat "${DUMP_FILE}"
+  printf '\nCOMMIT;\n'
+} > "${COMBINED_SQL}"
 
-echo "[tenant-restore] Verifying tenant row counts"
-psql "${PRIMARY_DATABASE_URL}" -c "
-SELECT table_name, count(*)
-FROM (
-  SELECT 'catalog_items'::text AS table_name, count(*)::bigint AS count FROM catalog_items WHERE tenant_id='${TENANT_ID}'
-  UNION ALL
-  SELECT 'inventory_transactions', count(*)::bigint FROM inventory_transactions WHERE tenant_id='${TENANT_ID}'
-  UNION ALL
-  SELECT 'invoices', count(*)::bigint FROM invoices WHERE tenant_id='${TENANT_ID}'
-  UNION ALL
-  SELECT 'invoice_items', count(*)::bigint FROM invoice_items WHERE tenant_id='${TENANT_ID}'
-) t
-ORDER BY table_name;
-"
+echo "[tenant-restore] Purging and importing tenant ${TENANT_ID} in one transaction"
+psql "${PRIMARY_DATABASE_URL}" \
+  -X \
+  -v ON_ERROR_STOP=1 \
+  -v target_tenant_id="${TENANT_ID}" \
+  -v tenant_restore_in_transaction=1 \
+  -f "${COMBINED_SQL}"
 
 echo "[tenant-restore] Restore complete for tenant ${TENANT_ID}"

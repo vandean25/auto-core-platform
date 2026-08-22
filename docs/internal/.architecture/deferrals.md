@@ -47,13 +47,18 @@ Neon point-in-time / branch restore of the **entire** database. Tenant-specific 
 - [ ] **Incident:** a production tenant-specific data-loss or corruption event occurs before the two triggers above (productize immediately; do not wait for count/size)
 
 **Implementation Notes**:
+AUT-171 completed the hardening items without triggering productization:
+1. The generated manifest covers every mapped table with `tenant_id` except `tenants`, tenant-dependent FK children such as `labor_fitments`, and Prisma implicit join tables. It emits FK-safe purge order and nullable self-FK nullification.
+2. `verify-tenant-schema.sql` reads `information_schema` and fails closed when live tenant tables or tenant-dependent FKs are outside the generated manifest. `verify-table-list.mjs` fails CI when checked-in SQL is stale.
+3. Export uses per-table `COPY (SELECT … WHERE tenant_id = :'target_tenant_id')` (or parent joins for dependent/join rows). It does not use table-owner `pg_dump`; RLS is forced only in the retained clone-experiment SQL.
+4. Export rejects cross-tenant parent links for single-column tenant FKs; dumps carry the source tenant UUID and are format-validated before restore. Purge and import run in one transaction.
+5. Wrappers default to `DRY_RUN=1`, require exact `CONFIRM_TENANT_ID`, reject pooler URLs, and require `I_UNDERSTAND_CROSS_TENANT_BLAST_RADIUS=yes` for `neon.tech`.
+
 When triggered:
-1. Replace hardcoded `purge-tenant-data.sql` with information_schema + FK-ordered deletes for every table that has `tenant_id` (except `tenants`).
-2. Export via `FORCE ROW LEVEL SECURITY` plus a non-owner extractor role, **or** per-table `COPY (SELECT * FROM … WHERE tenant_id = $1)`. Never dump as table owner without FORCE.
-3. Use a Neon timestamp branch (direct endpoint, not the pooler). Do not use `gcloud sql instances clone`.
-4. Dry-run on a throwaway Neon branch with two tenants; prove the other tenant's row counts are unchanged.
-5. Flip the playbook status from "not productized" to "runnable" and update this deferral to Implemented plus ADR-0013 consequences.
-6. Do not depend on partitioning unless [postgres-tenant-partitioning-rollout.md](../05-Runbooks/postgres-tenant-partitioning-rollout.md) has actually shipped.
+6. Use a Neon timestamp branch (direct endpoint, not the pooler). Do not use `gcloud sql instances clone`.
+7. Dry-run on a throwaway Neon branch with two tenants; prove the other tenant's row counts are unchanged.
+8. Flip the playbook status from "not productized" to "runnable" and update this deferral to Implemented plus ADR-0013 consequences.
+9. Do not depend on partitioning unless [postgres-tenant-partitioning-rollout.md](../05-Runbooks/postgres-tenant-partitioning-rollout.md) has actually shipped.
 
 **Related Documents**:
 - `docs/internal/01-ADR/2026-04-15-row-level-multi-tenancy.md` (ADR-0013 consequences)

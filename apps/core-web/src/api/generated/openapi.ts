@@ -1777,7 +1777,32 @@ export interface components {
         };
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
-        CreatePurchaseOrderDto: Record<string, never>;
+        PurchaseOrderItemDto: {
+            /**
+             * @description Catalog item ID
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            catalogItemId: string;
+            /**
+             * @description Quantity ordered
+             * @example 5
+             */
+            quantity: number;
+            /**
+             * @description Unit cost
+             * @example 10.5
+             */
+            unitCost: number;
+        };
+        CreatePurchaseOrderDto: {
+            /**
+             * @description Vendor ID
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            vendorId: string;
+            /** @description Items to include in the purchase order */
+            items: components["schemas"]["PurchaseOrderItemDto"][];
+        };
         BrandResponseDto: {
             id: number;
             name: string;
@@ -1826,8 +1851,22 @@ export interface components {
             data: components["schemas"]["PurchaseOrderResponseDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
         };
-        AddPurchaseOrderItemsDto: Record<string, never>;
-        UpdatePurchaseOrderItemDto: Record<string, never>;
+        AddPurchaseOrderItemsDto: {
+            /** @description Items to add to the purchase order */
+            items: components["schemas"]["PurchaseOrderItemDto"][];
+        };
+        UpdatePurchaseOrderItemDto: {
+            /**
+             * @description Updated quantity
+             * @example 10
+             */
+            quantity?: number;
+            /**
+             * @description Updated unit cost
+             * @example 25.5
+             */
+            unitCost?: number;
+        };
         CreatePurchaseInvoiceLineDto: {
             /** Format: uuid */
             purchaseOrderItemId?: string;

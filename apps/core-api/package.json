@@ -36,7 +36,7 @@
     "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
   },
   "dependencies": {
-    "@google-cloud/speech": "^7.3.1",
+    "@google-cloud/speech": "^8.0.1",
     "@google-cloud/storage": "^8.0.0",
     "@google-cloud/tasks": "^7.0.0",
     "@google-cloud/translate": "^10.0.1",
@@ -86,7 +86,7 @@
     "@types/node": "^26.2.0",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^7.2.0",
-    "eslint": "^10.4.0",
+    "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.6.0",
