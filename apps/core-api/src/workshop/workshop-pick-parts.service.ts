@@ -347,21 +347,180 @@ export class WorkshopPickPartsService {
             `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
           );
         }
+      }
 
-        const allocations = requestedItem.sourceLocationId
-          ? await this.allocateFromExplicitSource(
-              tx,
-              catalogItem.id,
-              requestedItem.sourceLocationId,
-              requestedItem.quantity,
-              reservations,
-            )
-          : await this.allocateAcrossSources(
-              tx,
-              catalogItem.id,
-              requestedItem.quantity,
-              reservations,
+      // Pre-fetch source locations and stocks in bulk to eliminate N+1 queries
+      const requestedSourceLocationIds = Array.from(aggregatedItems.values())
+        .map((i) => i.sourceLocationId)
+        .filter(Boolean) as string[];
+
+      const preFetchedLocations = new Map<string, any>();
+      if (requestedSourceLocationIds.length > 0) {
+        const locations = await tx.storageLocation.findMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: Array.from(new Set(requestedSourceLocationIds)) },
+          },
+          select: {
+            id: true,
+            type: true,
+            deletedAt: true,
+          },
+        });
+        for (const loc of locations) {
+          preFetchedLocations.set(loc.id, loc);
+        }
+      }
+
+      const explicitItemSourcePairs = Array.from(aggregatedItems.values())
+        .filter((i) => i.sourceLocationId)
+        .map((i) => {
+          const lineItem = lineItemById.get(i.workshopTaskLineItemId)!;
+          const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
+          return {
+            catalog_item_id: catalogItem.id,
+            location_id: i.sourceLocationId!,
+          };
+        });
+
+      const explicitSourceStocks = new Map<string, any>();
+      if (explicitItemSourcePairs.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: {
+            tenant_id: tenantId,
+            OR: explicitItemSourcePairs,
+          },
+          select: {
+            catalog_item_id: true,
+            location_id: true,
+            quantity_on_hand: true,
+          },
+        });
+        for (const stock of stocks) {
+          explicitSourceStocks.set(
+            this.getAllocationReservationKey(
+              stock.catalog_item_id,
+              stock.location_id,
+            ),
+            stock,
+          );
+        }
+      }
+
+      const autoAllocationItems = Array.from(aggregatedItems.values())
+        .filter((i) => !i.sourceLocationId)
+        .map((i) => {
+          const lineItem = lineItemById.get(i.workshopTaskLineItemId)!;
+          const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
+          return catalogItem.id;
+        });
+
+      const autoAllocationStocks = new Map<string, any[]>();
+      if (autoAllocationItems.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: {
+            tenant_id: tenantId,
+            catalog_item_id: { in: Array.from(new Set(autoAllocationItems)) },
+            quantity_on_hand: { gt: 0 },
+            location: {
+              type: 'bin',
+              deletedAt: null,
+            },
+          },
+          select: {
+            catalog_item_id: true,
+            location_id: true,
+            quantity_on_hand: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
+        });
+        for (const stock of stocks) {
+          const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
+          list.push(stock);
+          autoAllocationStocks.set(stock.catalog_item_id, list);
+        }
+      }
+
+      for (const requestedItem of aggregatedItems.values()) {
+        const lineItem = lineItemById.get(
+          requestedItem.workshopTaskLineItemId,
+        )!;
+        const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
+
+        let allocations: SourceAllocation[] = [];
+
+        if (requestedItem.sourceLocationId) {
+          const sourceLocationId = requestedItem.sourceLocationId;
+          const sourceLocation = preFetchedLocations.get(sourceLocationId);
+
+          if (!sourceLocation || sourceLocation.deletedAt) {
+            throw new NotFoundException(
+              `Source location ${sourceLocationId} not found`,
             );
+          }
+
+          if (sourceLocation.type !== 'bin') {
+            throw new UnprocessableEntityException(
+              `sourceLocationId must reference a BIN location. Received ${sourceLocation.type}.`,
+            );
+          }
+
+          const stockKey = this.getAllocationReservationKey(
+            catalogItem.id,
+            sourceLocationId,
+          );
+          const sourceStock = explicitSourceStocks.get(stockKey);
+
+          const reservationKey = this.getAllocationReservationKey(
+            catalogItem.id,
+            sourceLocationId,
+          );
+          const reservedQuantity = reservations.get(reservationKey) ?? 0;
+          const available =
+            (sourceStock?.quantity_on_hand ?? 0) - reservedQuantity;
+
+          if (available < requestedItem.quantity) {
+            throw new UnprocessableEntityException(
+              `Insufficient stock in location ${sourceLocationId}. Requested ${requestedItem.quantity}, available ${Math.max(available, 0)}.`,
+            );
+          }
+
+          allocations = [
+            { sourceLocationId, quantity: requestedItem.quantity },
+          ];
+        } else {
+          const sourceStocks = autoAllocationStocks.get(catalogItem.id) ?? [];
+          let remaining = requestedItem.quantity;
+
+          for (const stock of sourceStocks) {
+            if (remaining <= 0) break;
+
+            const reservationKey = this.getAllocationReservationKey(
+              catalogItem.id,
+              stock.location_id,
+            );
+            const reservedQuantity = reservations.get(reservationKey) ?? 0;
+            const availableQuantity = stock.quantity_on_hand - reservedQuantity;
+
+            if (availableQuantity <= 0) continue;
+
+            const allocatedQuantity = Math.min(remaining, availableQuantity);
+            if (allocatedQuantity <= 0) continue;
+
+            allocations.push({
+              sourceLocationId: stock.location_id,
+              quantity: allocatedQuantity,
+            });
+            remaining -= allocatedQuantity;
+          }
+
+          if (remaining > 0) {
+            throw new UnprocessableEntityException(
+              `Insufficient stock for auto-allocation. Missing quantity ${remaining}.`,
+            );
+          }
+        }
 
         for (const allocation of allocations) {
           const reservationKey = this.getAllocationReservationKey(
