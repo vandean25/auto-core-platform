@@ -8,7 +8,7 @@
 
 ## Why SystemPrisma Is Narrow
 
-`PrismaService` runs the tenant-isolation extension. `SystemPrismaService` does not — it exists for global identity tables and two jobs that cannot use request tenant context.
+`PrismaService` runs the tenant-isolation extension. `SystemPrismaService` does not — it exists for global identity tables and three jobs that cannot use request tenant context.
 
 Calling it on a tenant model (for example `systemPrisma.customer`) silently bypasses isolation. The public type therefore exposes only allowlisted delegates. TypeScript rejects the rest; interactive `$transaction` clients are wrapped the same way at runtime.
 

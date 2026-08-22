@@ -19,7 +19,7 @@ import {
 } from './system-prisma.types';
 
 /**
- * Unextended Prisma client for global identity and two documented exceptions.
+ * Unextended Prisma client for global identity and three documented exceptions.
  *
  * Allowed callers:
  * - AuthSessionService — User
