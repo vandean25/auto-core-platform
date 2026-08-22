@@ -34,6 +34,7 @@ VALUES
   ('tenant_members'),
   ('vendors'),
   ('voice_translation_settings'),
+  ('workshop_settings'),
   ('_VendorBrands'),
   ('catalog_items'),
   ('inspection_template_items'),
@@ -42,6 +43,8 @@ VALUES
   ('purchase_orders'),
   ('vehicles'),
   ('voice_note_rate_limits'),
+  ('workshop_holidays'),
+  ('workshop_opening_hours'),
   ('inventory_stocks'),
   ('inventory_transactions'),
   ('labor_fitments'),
@@ -180,6 +183,8 @@ VALUES
   ('voice_note_rate_limits', 'employees', 'tenant_id,mechanic_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('voice_note_rate_limits', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
   ('voice_translation_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_holidays', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_holidays', 'workshop_settings', 'tenant_id,workshop_settings_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('workshop_inspection_items', 'inspection_template_items', 'tenant_id,inspection_template_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_inspection_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_inspection_items', 'workshop_inspections', 'tenant_id,workshop_inspection_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
@@ -191,12 +196,15 @@ VALUES
   ('workshop_media', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_media', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('workshop_media', 'workshop_tasks', 'tenant_id,workshop_task_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('workshop_opening_hours', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_opening_hours', 'workshop_settings', 'tenant_id,workshop_settings_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('workshop_orders', 'bays', 'bay_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'employees', 'mechanic_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'storage_locations', 'staging_location_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_task_line_items', 'labor_operations', 'labor_operation_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_task_line_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_task_line_items', 'workshop_tasks', 'tenant_id,workshop_task_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
@@ -426,6 +434,10 @@ DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_opening_hours"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_holidays"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_note_rate_limits"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicles"
@@ -443,6 +455,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."_VendorBrands" AS child
 WHERE EXISTS (SELECT 1 FROM public."brands" AS parent_0 WHERE parent_0."id" = child."A" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'))
   AND EXISTS (SELECT 1 FROM public."vendors" AS parent_1 WHERE parent_1."id" = child."B" AND parent_1."tenant_id" = current_setting('app.target_tenant_id'));
+DELETE FROM public."workshop_settings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vendors"
