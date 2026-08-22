@@ -189,32 +189,34 @@ export class EmployeeService {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
 
-    const [linkedOrders, attendanceEvents, leaveRequests, leaveBalances] =
-      await Promise.all([
-        this.prisma.workshopOrder.count({ where: { mechanic_id: id } }),
-        this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
-        this.prisma.leaveRequest.count({ where: { employee_id: id } }),
-        this.prisma.employeeLeaveBalance.count({
-          where: { employee_id: id },
-        }),
-      ]);
+    const linkedOrders = await this.prisma.workshopOrder.count({
+      where: { mechanic_id: id },
+    });
     if (linkedOrders > 0) {
       throw new ConflictException(
         `Cannot delete employee with ${linkedOrders} linked workshop orders`,
       );
     }
-    if (attendanceEvents > 0 || leaveRequests > 0 || leaveBalances > 0) {
-      throw new ConflictException(
-        'Cannot delete employee with attendance, leave, or balance records',
-      );
-    }
-
     if (existing.is_active) {
       const updated = await this.prisma.employee.update({
         where: { id },
         data: { is_active: false },
       });
       return { id: updated.id, isActive: updated.is_active };
+    }
+
+    const [attendanceEvents, leaveRequests, leaveBalances] =
+      await Promise.all([
+        this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
+        this.prisma.leaveRequest.count({ where: { employee_id: id } }),
+        this.prisma.employeeLeaveBalance.count({
+          where: { employee_id: id },
+        }),
+      ]);
+    if (attendanceEvents > 0 || leaveRequests > 0 || leaveBalances > 0) {
+      throw new ConflictException(
+        'Cannot delete employee with attendance, leave, or balance records',
+      );
     }
 
     await this.prisma.employee.delete({ where: { id } });
