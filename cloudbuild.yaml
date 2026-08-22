@@ -1,5 +1,5 @@
 substitutions:
-  _BACKEND_PROJECT: auto-core-platform
+  _BACKEND_PROJECT: auto-core-platform-vande
   _BACKEND_FIREBASE_PROJECT_ID: auto-core-platform-vande
   # The current tag-triggered release is UAT/live. Production requires a
   # separately provisioned DATABASE_URL_PROD secret and substitution.
@@ -12,7 +12,7 @@ substitutions:
   _REGION: europe-west3
   _RUN_SERVICE: core-api
   _PDF_WORKER_SERVICE: core-api-pdf-worker
-  _CLOUD_TASKS_INVOKER_SA: cloud-tasks-pdf-invoker@auto-core-platform.iam.gserviceaccount.com
+  _CLOUD_TASKS_INVOKER_SA: cloud-tasks-pdf-invoker@auto-core-platform-vande.iam.gserviceaccount.com
   _AR_REPO: core-services
   _FRONTEND_URL: https://auto-core-platform-vande.web.app
   _VITE_FIREBASE_AUTH_DOMAIN: auto-core-platform-vande.firebaseapp.com

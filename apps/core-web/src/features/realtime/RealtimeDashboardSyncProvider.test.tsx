@@ -139,6 +139,19 @@ describe('RealtimeDashboardSyncProvider', () => {
     })
   })
 
+  it('uses socketBaseUrl for websocket connection when apiBaseUrl is empty', () => {
+    expect(
+      resolveRealtimeConnection({
+        apiBaseUrl: '',
+        socketBaseUrl: 'https://core-api-895976476759.europe-west3.run.app',
+        currentOrigin: 'https://auto-core-platform-vande.web.app',
+      }),
+    ).toEqual({
+      url: 'https://core-api-895976476759.europe-west3.run.app/dashboard-realtime',
+      path: '/api/socket.io',
+    })
+  })
+
   it('refreshes claims and invalidates active queries when auth claims change', async () => {
     const queryClient = createQueryClient()
     const removeQueries = vi.spyOn(queryClient, 'removeQueries')

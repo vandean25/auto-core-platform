@@ -79,7 +79,7 @@ The GSM secret name must be exactly `REDIS_URL`. Value is the Upstash TLS URL, f
 echo -n "rediss://default:<TOKEN>@<HOST>.upstash.io:6379" | \
   gcloud secrets versions add REDIS_URL \
     --data-file=- \
-    --project=auto-core-platform
+    --project=auto-core-platform-vande
 ```
 
 If the secret does not exist yet:
@@ -88,16 +88,16 @@ If the secret does not exist yet:
 echo -n "rediss://default:<TOKEN>@<HOST>.upstash.io:6379" | \
   gcloud secrets create REDIS_URL \
     --data-file=- \
-    --project=auto-core-platform
+    --project=auto-core-platform-vande
 ```
 
 Grant the Cloud Run service account access:
 
 ```bash
 gcloud secrets add-iam-policy-binding REDIS_URL \
-  --member="serviceAccount:<SERVICE_ACCOUNT>@auto-core-platform.iam.gserviceaccount.com" \
+  --member="serviceAccount:<SERVICE_ACCOUNT>@auto-core-platform-vande.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor" \
-  --project=auto-core-platform
+  --project=auto-core-platform-vande
 ```
 
 `cloudbuild.yaml` already maps `--set-secrets …,REDIS_URL=REDIS_URL:latest` on `core-api` only.

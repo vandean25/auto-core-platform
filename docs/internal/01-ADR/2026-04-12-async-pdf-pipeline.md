@@ -60,7 +60,7 @@ Production uses a **split deployment** between the user-facing API and a dedicat
 
 1. **`core-api-pdf-worker` is not public.** Deployed with `--no-allow-unauthenticated`. Ingress remains open so Cloud Tasks can reach the service URL; unauthenticated browser traffic is rejected by Cloud Run IAM.
 2. **Cloud Tasks OIDC token.** When `core-api` enqueues a task, `cloud-tasks.service.ts` sets `httpRequest.oidcToken` with `serviceAccountEmail` = `CLOUD_TASKS_INVOKER_SA` and `audience` = the worker origin (`scheme://host`, not the `/pdf/worker` path).
-3. **Invoker IAM.** Create `cloud-tasks-pdf-invoker@auto-core-platform.iam.gserviceaccount.com` if it does not exist. That OIDC service account must hold `roles/run.invoker` on `core-api-pdf-worker`. The `core-api` Cloud Run runtime service account that creates tasks must hold `iam.serviceAccounts.actAs` on the invoker SA **and** permission to enqueue on `pdf-queue` in `europe-west3` (`roles/cloudtasks.enqueuer` on the queue, or `cloudtasks.tasks.create` on that queue resource).
+3. **Invoker IAM.** Create `cloud-tasks-pdf-invoker@auto-core-platform-vande.iam.gserviceaccount.com` if it does not exist. That OIDC service account must hold `roles/run.invoker` on `core-api-pdf-worker`. The `core-api` Cloud Run runtime service account that creates tasks must hold `iam.serviceAccounts.actAs` on the invoker SA **and** permission to enqueue on `pdf-queue` in `europe-west3` (`roles/cloudtasks.enqueuer` on the queue, or `cloudtasks.tasks.create` on that queue resource).
 
 #### Application authentication (HMAC + tenant binding)
 

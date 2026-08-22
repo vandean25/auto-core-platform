@@ -136,8 +136,7 @@ Use GSM so all machines/agents pull the same credentials without committing secr
 
 ```bash
 gcloud auth login
-# Backend GSM secrets, including DATABASE_URL_UAT, live in the Cloud Run project.
-gcloud config set project auto-core-platform
+gcloud config set project auto-core-platform-vande
 ```
 
 2. Create local mapping file from template:
@@ -224,12 +223,11 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 | Concern | Project or site | Notes |
 |---------|-----------------|-------|
-| Cloud Run API, Artifact Registry, Cloud Build release trigger, backend GSM | `auto-core-platform` | `_BACKEND_PROJECT` in `cloudbuild.yaml` |
+| Cloud Run API, Artifact Registry, Cloud Build release trigger, backend GSM | `auto-core-platform-vande` | `_BACKEND_PROJECT` in `cloudbuild.yaml` |
 | Firebase Authentication and Firebase Hosting | `auto-core-platform-vande` | `_BACKEND_FIREBASE_PROJECT_ID` and `_FRONTEND_PROJECT`; Hosting site is `auto-core-platform-vande` |
-| Cloud Build deployer service account | `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com` | Account is owned by the Cloud Run project and needs explicitly granted Firebase access |
+| Cloud Build deployer service account | `cbuild-deployer@auto-core-platform-vande.iam.gserviceaccount.com` | Service account used by Cloud Build release trigger |
 
-The backend and Firebase projects are intentionally separate. Do not infer that
-Firebase Hosting rewrites can target a Cloud Run service across projects.
+Cloud Run and Firebase Hosting are project-aligned on `auto-core-platform-vande`, enabling direct Firebase Hosting Cloud Run rewrites for `/api/**`.
 
 ### Firebase Auth (Frontend)
 
@@ -267,6 +265,7 @@ an HTTPS load balancer is available; it is not configured by this repository.
 Set these in the build/deploy environment for `apps/core-web`:
 
 ```env
+VITE_SOCKET_BASE_URL=
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
@@ -280,14 +279,8 @@ service in `europe-west3`; REST calls use `/api/...` and the production
 Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
 requests through `/api` and Socket.IO through `/socket.io` to the local API.
 
-Firebase Hosting Cloud Run rewrites resolve `serviceId` in the same GCP project
-as the Hosting site. Before deploying this rewrite, ensure the Cloud Run
-service and Hosting site are project-aligned; the current pipeline declares
-`auto-core-platform` as `_BACKEND_PROJECT` and
-`auto-core-platform-vande` as `_FRONTEND_PROJECT`. Same-organization IAM alone
-does not make a rewrite cross-project, so otherwise use a same-project proxy
-or align the deployment projects. Do not replace the NestJS service with
-Cloud Functions.
+`VITE_SOCKET_BASE_URL` can be provided if WebSocket upgrades must bypass
+Hosting and connect directly to Cloud Run.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -337,7 +330,7 @@ In Firebase project `auto-core-platform-vande`:
 The release trigger deploys on tags matching `^v.*$`.
 
 - Build file: `cloudbuild.yaml`
-- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`)
+- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`, with `/api/**` rewritten to Cloud Run `core-api`)
 
 Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
 
@@ -351,21 +344,29 @@ Release Firebase substitutions in `cloudbuild.yaml` must match the GSM-backed `c
 
 ### Required APIs
 
-Enable `cloudbuild.googleapis.com` in `auto-core-platform` and these Firebase
-APIs in `auto-core-platform-vande`:
+In project `auto-core-platform-vande`:
 
+- `cloudbuild.googleapis.com`
+- `run.googleapis.com` (Cloud Run Admin API)
+- `cloudtasks.googleapis.com` (Cloud Tasks API)
+- `secretmanager.googleapis.com` (Secret Manager API)
+- `artifactregistry.googleapis.com` (Artifact Registry API)
 - `firebase.googleapis.com` (Firebase Management API)
 - `firebasehosting.googleapis.com` (Firebase Hosting API)
 - `identitytoolkit.googleapis.com`
 
-
 ### Required IAM for build service account
 
-Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
+Cloud Build service account used by trigger (currently `cbuild-deployer@auto-core-platform-vande.iam.gserviceaccount.com`) needs access on `auto-core-platform-vande`:
 
+- `roles/editor`
+- `roles/artifactregistry.writer`
+- `roles/run.admin`
+- `roles/secretmanager.secretAccessor`
 - `roles/firebase.admin`
 - `roles/firebasehosting.admin`
 - `roles/serviceusage.apiKeysViewer`
+- `roles/iam.serviceAccountUser`
 
 ---
 
