@@ -36,9 +36,12 @@ VALUES
   ('voice_translation_settings'),
   ('workshop_settings'),
   ('_VendorBrands'),
+  ('attendance_events'),
   ('catalog_items'),
+  ('employee_leave_balances'),
   ('inspection_template_items'),
   ('labor_operations'),
+  ('leave_requests'),
   ('purchase_invoices'),
   ('purchase_orders'),
   ('vehicles'),
@@ -100,6 +103,8 @@ INSERT INTO tenant_restore_expected_foreign_keys (
 VALUES
   ('_VendorBrands', 'brands', 'A', 'id', 'CASCADE', 'CASCADE'),
   ('_VendorBrands', 'vendors', 'B', 'id', 'CASCADE', 'CASCADE'),
+  ('attendance_events', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('attendance_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('audit_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('bays', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('brands', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -108,6 +113,8 @@ VALUES
   ('catalog_items', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('catalog_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('employee_leave_balances', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('employee_leave_balances', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
   ('finance_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -138,6 +145,8 @@ VALUES
   ('labor_fitments', 'labor_operations', 'labor_operation_id', 'id', 'CASCADE', 'CASCADE'),
   ('labor_operations', 'labor_categories', 'category_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_operations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('leave_requests', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('leave_requests', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('local_inventories', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('part_fitments', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('platform_admins', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -446,11 +455,17 @@ DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."leave_requests"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."employee_leave_balances"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."attendance_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."_VendorBrands" AS child
 WHERE EXISTS (SELECT 1 FROM public."brands" AS parent_0 WHERE parent_0."id" = child."A" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'))

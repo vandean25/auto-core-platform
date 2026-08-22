@@ -78,6 +78,9 @@ model Tenant {
   workshopSettings     WorkshopSettings?
   workshopOpeningHours WorkshopOpeningHour[]
   workshopHolidays     WorkshopHoliday[]
+  employeeLeaveBalances EmployeeLeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  attendanceEvents     AttendanceEvent[]
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
   laborEntries         LaborEntry[]
@@ -909,6 +912,11 @@ model Employee {
   createdVoiceNoteDrafts   WorkshopVoiceNoteDraft[] @relation("CreatedVoiceNoteDrafts")
   acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
   voiceNoteRateLimits      VoiceNoteRateLimit[]
+  hired_on                DateTime?       @db.Date
+  annual_leave_days       Int             @default(25)
+  leaveBalances           EmployeeLeaveBalance[]
+  leaveRequests           LeaveRequest[]
+  attendanceEvents        AttendanceEvent[]
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -917,6 +925,81 @@ model Employee {
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
   @@map("employees")
+}
+
+enum LeaveRequestStatus {
+  BOOKED
+  CANCELLED
+}
+
+model EmployeeLeaveBalance {
+  id             String   @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant   @relation(fields: [tenant_id], references: [id])
+  employee_id    String
+  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  year           Int
+  allowance_days Int
+  carryover_days Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, employee_id, year])
+  @@index([tenant_id])
+  @@map("employee_leave_balances")
+}
+
+model LeaveRequest {
+  id                  String             @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant             @relation(fields: [tenant_id], references: [id])
+  employee_id         String
+  employee            Employee           @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  start_on            DateTime           @db.Date
+  end_on              DateTime           @db.Date
+  status              LeaveRequestStatus @default(BOOKED)
+  days_charged        Int
+  note                String?
+  created_by_user_id  String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([tenant_id, employee_id, start_on])
+  @@map("leave_requests")
+}
+
+enum AttendanceEventType {
+  CLOCK_IN
+  PAUSE
+  DOCTOR
+  CLOCK_OUT
+}
+
+enum AttendanceEventSource {
+  SELF
+  MANAGER
+  AUTO_SHIFT_CLOSE
+}
+
+model AttendanceEvent {
+  id           String                @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant                @relation(fields: [tenant_id], references: [id])
+  employee_id  String
+  employee     Employee              @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  type         AttendanceEventType
+  source       AttendanceEventSource @default(SELF)
+  occurred_at  DateTime
+  note         String?
+  createdAt    DateTime              @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([tenant_id, employee_id, occurred_at])
+  @@map("attendance_events")
 }
 
 enum WorkshopVoiceNoteDraftStatus {

@@ -3263,6 +3263,10 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays: number;
+            remainingLeaveDays: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -3293,6 +3297,9 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays?: number;
         };
         UpdateEmployeeDto: {
             name?: string;
@@ -3309,6 +3316,9 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays?: number;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
@@ -6753,7 +6763,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmployeeDeleteResponseDto"];
                 };
             };
-            /** @description Employee is referenced by workshop orders */
+            /** @description Employee is referenced by workshop orders, work records, or HR records */
             409: {
                 headers: {
                     [name: string]: unknown;

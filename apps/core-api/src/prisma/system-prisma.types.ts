@@ -8,6 +8,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - tenantMember: membership join table for auth / tenant-admin invites
  * - laborEntry: MechanicSchedulerService nightly cross-tenant close only
  * - financeSettings: PlatformAdminService tenant-provisioning bootstrap only
+ * - attendanceEvent: HrAttendanceSchedulerService nightly close only
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -16,6 +17,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'platformAdmin',
   'laborEntry',
   'financeSettings',
+  'attendanceEvent',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -69,5 +71,6 @@ export function createSystemPrismaTransactionClient(
     platformAdmin: client.platformAdmin,
     laborEntry: client.laborEntry,
     financeSettings: client.financeSettings,
+    attendanceEvent: client.attendanceEvent,
   };
 }

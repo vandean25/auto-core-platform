@@ -67,7 +67,8 @@ export class EmployeeController {
   @Delete(':id')
   @ApiOkResponse({ type: EmployeeDeleteResponseDto })
   @ApiConflictResponse({
-    description: 'Employee is referenced by workshop orders',
+    description:
+      'Employee is referenced by workshop orders, work records, or HR records',
   })
   remove(@Param('id') id: string) {
     return this.employeeService.remove(id);

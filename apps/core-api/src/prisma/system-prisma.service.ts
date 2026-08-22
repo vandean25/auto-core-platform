@@ -19,13 +19,14 @@ import {
 } from './system-prisma.types';
 
 /**
- * Unextended Prisma client for global identity and two documented exceptions.
+ * Unextended Prisma client for global identity and three documented exceptions.
  *
  * Allowed callers:
  * - AuthSessionService — User
  * - TenantMemberService — User, TenantMember
  * - PlatformAdminService — Tenant, FinanceSettings (new-tenant bootstrap only)
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
+ * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
  *
  * Tenant-scoped models (Customer, Vehicle, WorkshopOrder, …) are omitted from
  * the type and undefined at runtime. Use PrismaService so isolation applies.
@@ -73,6 +74,10 @@ export class SystemPrismaService
 
   get financeSettings(): PrismaClient['financeSettings'] {
     return this.prisma.financeSettings;
+  }
+
+  get attendanceEvent(): PrismaClient['attendanceEvent'] {
+    return this.prisma.attendanceEvent;
   }
 
   $transaction<Result>(
