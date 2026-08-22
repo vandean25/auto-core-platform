@@ -19,7 +19,7 @@ tags:
 
 **Accepted** — 2026-08-22
 
-PO review approved the Feature Spec. Implementation must follow identity ruling 12 (Firebase UID match, never `Employee.user_id = session.userId`) and auto-close ruling 13 (`occurred_at = now()`, not local midnight).
+PO review approved the Feature Spec (second pass 2026-08-22). Implementation must follow identity ruling 12 (Firebase UID match, never `Employee.user_id = session.userId`), auto-close ruling 13 (`occurred_at = now()`, not local midnight), and ruling 7 (PATCH `annualLeaveDays` keeps current-year `allowance_days` in sync).
 
 ## Context
 
@@ -80,6 +80,8 @@ allowance_days + carryover_days − SUM(days_charged WHERE status = BOOKED AND y
 
 Chargeable days skip closed weekdays and closed `WorkshopHoliday` dates (ADR-0019 effective hours). Public holidays therefore do not consume Urlaub. Short shop days still count as one leave day. Half-days deferred.
 
+`Employee.annual_leave_days` is the live entitlement. The yearly row snapshots `allowance_days` on first leave read/create. Changing this year's entitlement (employee PATCH `annualLeaveDays` or leave-balance PATCH `allowanceDays` for the current local year) must write **both** so remaining cannot diverge from the Leave days column. Past years stay snapshotted. Carryover is only on the yearly row; the office UI is the employee sheet, not `PATCH /leave/:id`.
+
 Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if remaining and overlap checks pass.
 
 **Why not `WorkshopHoliday`?** That entity overrides **bay** opening hours for every advisor. One mechanic on holiday must not empty the planner grid.
@@ -94,12 +96,13 @@ Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if rem
 - Clock and leave live under `/api/hr` and `@MechanicAccessible()` only on `/api/hr/me/*`.
 - Resolve "me" via linked `User.firebaseUid` / `email` (session `userId` is Firebase UID). Do not call `MechanicIdentityService.resolveMechanic()` (TECH + MECHANIC only).
 - OWNER/ADMIN book leave for any employee with `POST /api/hr/leave`. Mechanic shell has no leave UI in Phase 1.
+- OWNER/ADMIN punch for another employee with `POST /api/hr/attendance` (`occurredAt` now in the UI). SALES may still write roster fields on `/api/employees` but not `hiredOn` / `annualLeaveDays`.
 - Workday math lives in `HrWorkdayService` that **reads** workshop hours/holidays. Do not call OpenHolidays from HR. Do not grow `workshop-planner.service.ts` with leave booking.
 
 ### 6. Real-time, deletion, fiscal, inventory
 
 - **Realtime:** opt-in `ATTENDANCE_EVENT` and `LEAVE_REQUEST`. Leave also invalidates planner query keys.
-- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when HR rows exist.
+- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when attendance, leave, or balance rows exist.
 - **Fiscal / inventory:** none.
 
 ## Consequences

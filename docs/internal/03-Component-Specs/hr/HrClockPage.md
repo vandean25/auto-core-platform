@@ -44,12 +44,12 @@ Reuse the Settings employees DataTable. Additional columns:
 
 | Column | Control |
 |--------|---------|
-| Hire date | Inline date, save-on-blur (`hiredOn`) |
-| Leave days | Inline int ≥ 0 (`annualLeaveDays`) |
+| Hire date | Inline date, save-on-blur (`hiredOn`). OWNER/ADMIN only; SALES read-only. |
+| Leave days | Inline int ≥ 0 (`annualLeaveDays`). OWNER/ADMIN only; SALES read-only. |
 | Remaining | Read-only computed `remainingLeaveDays` |
 | Login | Existing linked user (unchanged) |
 
-Search includes name, role, hire date, remaining. Row click opens a sheet with the same fields. Right-click Delete unchanged.
+Search includes name, role, hire date, remaining. Row click opens a sheet with the same fields plus **Carryover (this year)** (number, OWNER/ADMIN, `PATCH /api/hr/employees/:id/leave-balance` `{ year: currentLocalYear, carryoverDays }`). Right-click Delete unchanged.
 
 Settings → Employees renders this same table so there is not a second roster.
 
@@ -63,7 +63,7 @@ Shared by `HrClockPage` and the mechanic queue header.
 |------|------|---------|----------|-------------|
 | `state` | `'CLOCKED_OUT' \| 'CLOCKED_IN' \| 'PAUSED' \| 'AT_DOCTOR'` | — | Yes | Derived server state |
 | `pending` | `boolean` | `false` | No | Mutation in flight |
-| `onPunch` | `(type: 'CLOCK_IN' \| 'PAUSE' \| 'DOCTOR' \| 'CLOCK_OUT') => void` | — | Yes | POST `/api/hr/me/clock` |
+| `onPunch` | `(type: 'CLOCK_IN' \| 'PAUSE' \| 'DOCTOR' \| 'CLOCK_OUT') => void` | — | Yes | Parent posts `/api/hr/me/clock` (self) or `/api/hr/attendance` (OWNER/ADMIN punch-for-other) |
 
 ### Buttons (left to right)
 
@@ -89,6 +89,7 @@ Icons: `lucide-react` only (`LogIn`, `Pause`, `Stethoscope`, `LogOut`).
 ## HrClockPage
 
 - Punch bar top-right of the tab content (page action).
+- OWNER/ADMIN: employee select next to the punch bar. Selected self → `POST /api/hr/me/clock`. Selected other employee → `POST /api/hr/attendance` with that `employeeId` and no `occurredAt` (server uses now). SALES/self: no selector.
 - Timeline: today's events, newest last, time in tenant timezone.
 - OWNER/ADMIN: employee filter + `GET /api/hr/attendance` table for the selected day (DataTable). SALES/self: own timeline only.
 

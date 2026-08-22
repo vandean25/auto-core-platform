@@ -175,8 +175,9 @@ Place these immediately **before** `await tenantPrisma.employee.deleteMany({})`.
 
 - `AUDITED_MODELS`: add `EmployeeLeaveBalance`, `LeaveRequest`. Do **not** add `AttendanceEvent`.
 - `SYSTEM_PRISMA_MODEL_DELEGATES`: add `'attendanceEvent'` with comment "HrAttendanceSchedulerService nightly close only". Update `createSystemPrismaTransactionClient`, add getter on `SystemPrismaService`, extend the fake client in the spec. Update `docs/internal/05-Runbooks/system-prisma-allowlist.md` Allowed Delegates + Allowed Callers (`HrAttendanceSchedulerService` → `attendanceEvent`).
-- `docs/deletion-policy.md`: rows from the feature spec Deletion Policy Impact.
+- `docs/deletion-policy.md`: rows from the feature spec Deletion Policy Impact. Employee hard delete `409` if attendance, leave, or balance rows exist.
 - Restore SQL: add `attendance_events`, `leave_requests`, `employee_leave_balances` to table lists and FK checks (purge **before** `employees`).
+- Auto-close inserts must copy `tenant_id` from the latest event row.
 
 - [ ] **Step 7: Re-run schema test — expect PASS. Commit.**
 
@@ -266,6 +267,8 @@ remainingLeaveDays!: number;
 5. remaining = `(balance?.allowance_days ?? employee.annual_leave_days) + (balance?.carryover_days ?? 0) - (sum ?? 0)`
 
 Persist `hired_on` / `annual_leave_days` on create/update. Default `annual_leave_days` to 25.
+
+If the payload includes `hiredOn` or `annualLeaveDays`, `assertTenantAdminAccess()` (OWNER/ADMIN). SALES may still PATCH name/role/active/userId. If `annualLeaveDays` is set and a current local-year balance row exists, update that row's `allowance_days` in the same transaction. Do **not** upsert a balance from `findAll` / `findOne`.
 
 - [ ] **Step 4: Run test — PASS. Commit.**
 
@@ -465,7 +468,7 @@ Query strategy (no N+1): `findMany` orderBy `occurred_at desc`, then keep first 
 
 Cron: `@Cron('59 23 * * *', { name: 'hr-shift-close' })` — separate name from `mechanic-shift-close`.
 
-Manager `POST /api/hr/attendance`: `assertOwnerAdmin()`, `occurredAt` must be `>` previous `occurred_at` else `409`. `source = MANAGER`.
+Manager `POST /api/hr/attendance`: `assertOwnerAdmin()`, `occurredAt` optional (default `now()`). If provided, must be `>` previous `occurred_at` else `409`. `source = MANAGER`.
 
 `GET /api/hr/attendance?from&to&employeeId`: max 31 days else `400`. OWNER/ADMIN only.
 
@@ -535,13 +538,13 @@ Upsert balance on first `GET /me/leave` or first create: `allowance_days = emplo
 
 `POST /api/hr/leave/:id/cancel`: employee may cancel own if `start_on >= today` (tenant tz); OWNER/ADMIN any.
 
-`PATCH /api/hr/leave/:id`: OWNER/ADMIN, recompute `days_charged`, re-check overlap + remaining excluding this row.
+`PATCH /api/hr/leave/:id`: OWNER/ADMIN, recompute `days_charged`, re-check overlap + remaining excluding this row. Same year-span `400` as create.
 
-`PATCH /api/hr/employees/:id/leave-balance`: OWNER/ADMIN upsert.
+`PATCH /api/hr/employees/:id/leave-balance`: OWNER/ADMIN upsert. If `year` is the current local year and `allowanceDays` is set, also write `Employee.annual_leave_days`.
 
 - [ ] **Step 2–4: FAIL, implement, PASS.**
 
-- [ ] **Step 5: E2E** `apps/core-api/test/hr-leave.e2e-spec.ts` — create employee+user, book 2 days, remaining drops, cancel restores; OWNER/ADMIN `POST /api/hr/leave` for another employee; TECH 403 on `GET /api/hr/leave`. `apps/core-api/test/hr-attendance.e2e-spec.ts` — punch in/out; illegal pause 409; TECH 403 on `GET /api/hr/attendance`. Identity e2e: linked employee punches via firebase UID, not Postgres `user_id` in the JWT.
+- [ ] **Step 5: E2E** `apps/core-api/test/hr-leave.e2e-spec.ts` — create employee+user, book 2 days, remaining drops, cancel restores; OWNER/ADMIN `POST /api/hr/leave` for another employee; TECH 403 on `GET /api/hr/leave`. `apps/core-api/test/hr-attendance.e2e-spec.ts` — punch in/out; illegal pause 409; TECH 403 on `GET /api/hr/attendance`. Identity e2e: linked employee punches via firebase UID, not Postgres `user_id` in the JWT. Also: after `GET /me/leave` upserts a balance, `PATCH annualLeaveDays` to 30 changes remaining; SALES `PATCH annualLeaveDays` → 403; SALES `PATCH` name → 200; hard delete with a balance row → 409.
 
 ```
 git commit -m "feat(hr): add leave booking, remaining days, and cancel"
@@ -553,7 +556,7 @@ git commit -m "feat(hr): add leave booking, remaining days, and cancel"
 
 - [ ] **Step 1:** `npm --prefix apps/core-api run openapi:generate`
 - [ ] **Step 2:** `npm --prefix apps/core-web run api:types:generate`
-- [ ] **Step 3:** Create `apps/core-web/src/api/hr.ts` with `hrKeys` **exactly** as in the feature spec, plus `useHrMeClock`, `usePunchClock`, `useMyLeave`, `useCreateLeave`, `useCreateEmployeeLeave` (`POST /api/hr/leave`), `useCancelLeave`, `useTeamLeave`, `useHrAttendance` using `fetchWithAuth` and generated DTO types (`import type`).
+- [ ] **Step 3:** Create `apps/core-web/src/api/hr.ts` with `hrKeys` **exactly** as in the feature spec, plus `useHrMeClock`, `usePunchClock`, `usePunchEmployeeClock` (`POST /api/hr/attendance`), `useMyLeave`, `useCreateLeave`, `useCreateEmployeeLeave` (`POST /api/hr/leave`), `useCancelLeave`, `useTeamLeave`, `useHrAttendance`, `usePatchLeaveBalance` using `fetchWithAuth` and generated DTO types (`import type`).
 - [ ] **Step 4:** Commit both OpenAPI artifacts and `hr.ts`.
 
 ```
@@ -636,9 +639,9 @@ TECH never sees this sidebar (`ShellRouter` already swaps the mechanic shell).
 
 - [ ] **Step 2: `HrLayout`** — title HR, shadcn Tabs synced to the three paths, `Outlet`.
 
-- [ ] **Step 3: Employees** — extract shared table from `EmployeeSettingsTab` into `apps/core-web/src/components/hr/EmployeeTable.tsx` (or keep the tab and import it from `HrEmployeesPage`). Add hire date, leave days, remaining columns. `+ Employee` top-right.
+- [ ] **Step 3: Employees** — extract shared table from `EmployeeSettingsTab` into `apps/core-web/src/components/hr/EmployeeTable.tsx` (or keep the tab and import it from `HrEmployeesPage`). Add hire date, leave days, remaining columns (OWNER/ADMIN editable; SALES read-only). Employee sheet: carryover this year. `+ Employee` top-right.
 
-- [ ] **Step 4: Clock page** — large `AttendancePunchBar`, today timeline from `todayEvents`. OWNER/ADMIN: day picker + team `DataTable` from `useHrAttendance`.
+- [ ] **Step 4: Clock page** — large `AttendancePunchBar`, today timeline from `todayEvents`. OWNER/ADMIN: employee select (self → `/me/clock`, other → `POST /api/hr/attendance` with no `occurredAt`), day picker + team `DataTable` from `useHrAttendance`.
 
 - [ ] **Step 5: Leave page** — remaining chip, `+ Leave` opens `LeaveBookingSheet`, list with StatusBadge, Cancel. OWNER/ADMIN/SALES: `TeamLeaveMonthGrid` (CSS grid). No FullCalendar.
 
@@ -733,6 +736,10 @@ git commit -m "docs(hr): add HR time and leave user guide"
 | Realtime | 10 |
 | Mintlify | 11 |
 | Deletion + SystemPrisma allowlist | 1 |
+| Leave days column vs yearly balance | 2, 6, 9 |
+| Carryover on employee sheet | 6, 9 |
+| SALES cannot write HR fields | 2 e2e |
+| Manager punch-for-other | 5, 9 |
 | No LaborEntry / WorkshopHoliday reuse | all tasks |
 
 ## Type consistency

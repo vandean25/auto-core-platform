@@ -99,16 +99,17 @@ These are binding for implementation unless Product Owner overrides them in revi
 4. **Doctor is a mid-shift clock state**, not Krankenstand. Full sick-leave days are Phase 2.
 5. **Leave is employee self-service.** Book a date range; remaining updates immediately (computed from BOOKED rows). No REQUESTED → APPROVED in Phase 1. OWNER/ADMIN can edit or cancel any booking. An employee may cancel their own leave when `start_on` is today or later.
 6. **Remaining days = allowance + carryover − sum(`days_charged`) of BOOKED leave in that calendar year.** Closed weekdays and closed `WorkshopHoliday` dates are **not** charged. Short shop days still count as `1`. Half-days out of scope. `days_charged` is snapshotted at book time; later hours/holiday edits do not rewrite old bookings. A booking may not span two calendar years (`400`) — book December and January as two ranges.
-7. **Default allowance 25 days** (AT-style), stored on `Employee.annual_leave_days` and copied onto the year's `EmployeeLeaveBalance` on first access. Manager types `carryover_days`. No year-end job.
+7. **Default allowance 25 days** (AT-style), stored on `Employee.annual_leave_days`. Copied onto that year's `EmployeeLeaveBalance.allowance_days` on first `GET /api/hr/me/leave` or first leave create — **not** on `GET /api/employees`. Manager types **Carryover (this year)** on the employee sheet (`PATCH /api/hr/employees/:id/leave-balance`). No year-end job. **Do not let remaining fork from the Leave days column:** `POST/PATCH /api/employees` that sets `annualLeaveDays` must also set current local-year `allowance_days` when a balance row exists (other years stay snapshotted; `carryover_days` unchanged). `PATCH .../leave-balance` `allowanceDays` for the current local year must also set `Employee.annual_leave_days`.
 8. **Planner overlay is a warning, not 409.** BOOKED leave on a mechanic is amber on `GET /api/workshop/planner`. Bays can still be booked. Same spirit as mechanic double-book in ADR-0019.
 9. **Clocking in does not start a job; starting a job does not require being clocked in** in Phase 1.
-10. **RBAC.** OWNER/ADMIN: full HR, including punching or correcting another employee and booking leave for any employee. SALES: own clock, own leave, read team leave calendar. TECH: `/api/hr/me/*` only, plus clock buttons on `/mechanic/queue`. Mechanic shell is **clock-only** — managers book mechanic leave from HR. No shared-door PIN kiosk.
+10. **RBAC.** OWNER/ADMIN: full HR, including punching another employee from the Time Clock tab and booking leave for any employee. SALES: own clock, own leave, read team leave calendar. SALES keeps today's roster write on `/api/employees` (name / role / active / user link). `hiredOn`, `annualLeaveDays`, and leave-balance writes are OWNER/ADMIN only (`403` if SALES sends those fields). TECH: `/api/hr/me/*` only, plus clock buttons on `/mechanic/queue`. Mechanic shell is **clock-only** — managers book mechanic leave from HR. No shared-door PIN kiosk. Backdated `occurredAt` corrections stay API-only (`POST /api/hr/attendance`); the office UI punches with `occurredAt = now()`.
 11. **Out of scope:** payroll, overtime, works council, school holidays, OpenHolidays from HR (planner import already exists), merging HR into the kanban.
 12. **Session identity is Firebase UID, not `Employee.user_id`.** `AuthenticatedUser.userId` is `User.firebaseUid` (see `AuthSessionService`). Resolve "me" the same way `MechanicIdentityService` finds the User row: `Employee.user.firebaseUid = session.userId` OR `Employee.user.email = session.email`, plus `is_active`. Do **not** query `employee.user_id = session.userId` (Postgres UUID vs Firebase UID). Do **not** call `resolveMechanic()` for HR — that requires `TenantMember.role = TECH` and `EmployeeRole.MECHANIC`.
 13. **Nightly auto-close matches `LaborEntry`.** Cron `59 23 * * *`, insert `CLOCK_OUT` / `AUTO_SHIFT_CLOSE` with `occurred_at = now()`. Do not compute local midnight; that would require `WorkshopSettings` on SystemPrisma.
 14. **Clock-in is allowed on a BOOKED leave day.** Floor stays unblocked. No 409 from leave onto attendance.
 15. **Chargeable leave days are shop-open days**, including Saturday when `WorkshopOpeningHour` says open. Closed Sundays and closed `WorkshopHoliday` dates are not charged.
 16. **`remainingLeaveDays` is always a number.** If no balance row exists, use `annualLeaveDays + 0 carryover − 0 booked`. Never return null.
+17. **`created_by_user_id` is Postgres `User.id`**, resolved with the same firebaseUid/email lookup as ruling 12. Do not store `session.userId` (Firebase UID). Nullable; no FK.
 
 ---
 
@@ -170,7 +171,7 @@ model EmployeeLeaveBalance {
 | `status` | `LeaveRequestStatus` | No | `BOOKED` | `BOOKED` \| `CANCELLED` |
 | `days_charged` | `Int` | No | — | Snapshot of chargeable workdays at book/patch time |
 | `note` | `String?` | Yes | — | Optional |
-| `created_by_user_id` | `String?` | Yes | — | Session user who created the row |
+| `created_by_user_id` | `String?` | Yes | — | Postgres `User.id` of the creator (not Firebase UID) |
 | `createdAt` | `DateTime` | No | `now()` | |
 | `updatedAt` | `DateTime` | No | `@updatedAt` | |
 
@@ -277,7 +278,7 @@ Anything else → `409 Conflict` with the current state in the message.
 
 **Nightly auto-close:** for each employee whose latest event is not `CLOCK_OUT`, insert `CLOCK_OUT` / `source = AUTO_SHIFT_CLOSE` with `occurred_at = now()`, same cadence as `MechanicSchedulerService` (`@Cron('59 23 * * *')`, separate job name `hr-shift-close`). Implement in `HrAttendanceSchedulerService`. Do not write HR rows from `MechanicSchedulerService`. Do not add `workshopSettings` to SystemPrisma.
 
-**One open day:** self-punch `occurred_at` is `now()`. Manager corrections may pass an explicit `occurredAt` that must be after the previous event.
+**One open day:** self-punch `occurred_at` is `now()`. Manager `POST /api/hr/attendance` may omit `occurredAt` (defaults to `now()`) or pass an explicit timestamp that must be after the previous event.
 
 ### Workday counting
 
@@ -296,7 +297,7 @@ Update `docs/deletion-policy.md` when schema ships:
 
 | Entity | Delete Allowed | Rule |
 |--------|----------------|------|
-| Employee | Soft-disable preferred | Hard delete blocked if any `AttendanceEvent` or `LeaveRequest` exists (in addition to workshop-order references). |
+| Employee | Soft-disable preferred | Hard delete blocked if any `AttendanceEvent`, `LeaveRequest`, or `EmployeeLeaveBalance` exists (in addition to workshop-order references). Restrict FKs would fail anyway; the API must `409` with that reason. |
 | EmployeeLeaveBalance | No API delete | Replaced by PATCH of allowance/carryover. Cascade only with tenant purge. |
 | LeaveRequest | Soft-cancel | Set `status = CANCELLED`. No hard delete through the API. |
 | AttendanceEvent | No | Immutable punch log. Corrections are additional events. |
@@ -311,7 +312,7 @@ Keep `/api/employees` as the employee CRUD surface (board and Settings already u
 
 | Method | Route | Change |
 |--------|-------|--------|
-| `GET/POST/PATCH /api/employees` | Add `hiredOn` (`YYYY-MM-DD` \| null), `annualLeaveDays` (int, default 25). List/detail also return computed `remainingLeaveDays` (always a number: allowance + carryover − BOOKED days this local year). |
+| `GET/POST/PATCH /api/employees` | Add `hiredOn` (`YYYY-MM-DD` \| null), `annualLeaveDays` (int, default 25). List/detail also return computed `remainingLeaveDays` (always a number: allowance + carryover − BOOKED days this local year). Write of `hiredOn` / `annualLeaveDays` is OWNER/ADMIN only; SALES may still PATCH roster fields. Setting `annualLeaveDays` updates current-year `allowance_days` when that balance row exists. |
 | `GET /api/workshop/planner` | Add `employeesAway: { employeeId, name, startOn, endOn, leaveId }[]` for BOOKED leave overlapping `[from, to]`. |
 
 ### New Endpoints
@@ -322,7 +323,7 @@ Keep `/api/employees` as the employee CRUD surface (board and Settings already u
 | `GET` | `/api/hr/me/clock` | — | `{ state, todayEvents[], lastEvent }` | Same |
 | `POST` | `/api/hr/me/clock` | `{ type: AttendanceEventType }` | Created event + new `state` | Same |
 | `GET` | `/api/hr/attendance` | `from`, `to`, optional `employeeId` | Events in range (max 31 days) | OWNER/ADMIN |
-| `POST` | `/api/hr/attendance` | `{ employeeId, type, occurredAt, note? }` | Created event | OWNER/ADMIN (manager correction) |
+| `POST` | `/api/hr/attendance` | `{ employeeId, type, occurredAt?, note? }` | Created event | OWNER/ADMIN (punch-for-other or correction). `occurredAt` optional; default `now()`. |
 | `GET` | `/api/hr/me/leave` | optional `year` | `{ year, allowanceDays, carryoverDays, remainingDays, bookings[] }` | Linked employee; TECH allowed |
 | `POST` | `/api/hr/me/leave` | `{ startOn, endOn, note? }` | Created `LeaveRequest` for the linked employee | Linked employee; TECH allowed |
 | `POST` | `/api/hr/leave` | `{ employeeId, startOn, endOn, note? }` | Created `LeaveRequest` for that employee | OWNER/ADMIN (book on behalf, including mechanics with no office login) |
@@ -336,7 +337,7 @@ Leave create errors:
 - Overlap with another BOOKED range for that employee → `409`
 - `daysCharged > remainingDays` → `409` (`Not enough remaining leave days`)
 - `endOn < startOn` → `400`
-- `startOn` and `endOn` in different calendar years → `400`
+- `startOn` and `endOn` in different calendar years → `400` (same rule on `PATCH /api/hr/leave/:id`)
 - Zero chargeable days → `400`
 - Unlinked user calling `/me/*` → `403` (`No employee record linked to this account`)
 
@@ -362,13 +363,13 @@ Clock create errors:
 
 ### List Pages
 
-- [ ] Employees: `+ Employee`, search across visible columns, sortable headers, `StatusBadge` for Active/Inactive, row click opens employee sheet (hire date, allowance, remaining, linked login). Right-click Delete stays the existing deactivate/delete behavior.
+- [ ] Employees: `+ Employee`, search across visible columns, sortable headers, `StatusBadge` for Active/Inactive, row click opens employee sheet (hire date, leave days, **carryover this year**, remaining, linked login). Hire date / leave days / carryover inputs are OWNER/ADMIN only (SALES sees read-only). Right-click Delete stays the existing deactivate/delete behavior.
 - [ ] Leave list: `+ Leave` for self (or for a selected employee when OWNER/ADMIN). StatusBadge `BOOKED` / `CANCELLED`.
 
 ### Form Handling
 
 - [ ] Employee hire date + leave days: save-on-blur / select (same as current Settings employees).
-- [ ] Clock: explicit button submit, not autosave.
+- [ ] Clock: explicit button submit, not autosave. OWNER/ADMIN: employee select; punching another person uses `POST /api/hr/attendance` with `occurredAt` omitted/now. Self uses `POST /api/hr/me/clock`.
 - [ ] Leave booking: explicit submit on the sheet.
 
 ### Real-Time Sync
@@ -432,6 +433,10 @@ Sidebar: one `coreModules` entry `id: 'hr'`, label `HR`, `to: '/hr/employees'`, 
 - [ ] Cross-tenant attendance/leave IDs → `404`.
 - [ ] Planner `employeesAway` includes overlapping BOOKED leave and excludes CANCELLED.
 - [ ] Employee list `remainingLeaveDays` matches allowance + carryover − booked.
+- [ ] After a balance row exists, `PATCH annualLeaveDays` updates current-year remaining (allowance stays in sync).
+- [ ] `PATCH` leave that spans two years → `400`.
+- [ ] SALES `PATCH /api/employees/:id` with `annualLeaveDays` → `403`; SALES `PATCH` name still `200`.
+- [ ] Hard delete employee with a leave balance and no orders → `409`.
 
 ### Frontend
 
@@ -460,9 +465,9 @@ None. Attendance and leave are not invoices and do not touch `lock_date`.
 
 | Role | Employees | Own clock | Team timesheet | Own leave | Team leave | Balance edit | Planner away |
 |------|-----------|-----------|----------------|-----------|------------|--------------|--------------|
-| OWNER / ADMIN | Full | Yes (if linked) | Full + corrections | Yes (if linked) | Full | Yes | Read (already) |
-| SALES | Read | Yes (if linked) | No | Yes | Read | No | Read |
-| TECH | No (mechanic shell) | Yes | No | Yes | No | No | No |
+| OWNER / ADMIN | Full (including hire/allowance/carryover) | Yes (if linked) | Full + punch-for-other (`occurredAt = now()`) | Yes (if linked) | Full | Yes | Read (already) |
+| SALES | Roster write as today; HR fields read-only | Yes (if linked) | No | Yes | Read | No | Read |
+| TECH | No (mechanic shell) | Yes | No | API only (no UI) | No | No | No |
 
 Resolve "me" in `HrIdentityService`: active `Employee` whose linked `User` matches `firebaseUid = session.userId` or `email = session.email`. Do not use `resolveMechanic()` (TECH + MECHANIC only). Do not compare `Employee.user_id` to `session.userId`.
 
@@ -489,7 +494,7 @@ Spec approved 2026-08-22. Implementation may start at AUT-180.
 
 ## Open Questions
 
-**Resolved 2026-08-22 (PO review).** Rulings 1–16 above are binding. Spec status: **approved**.
+**Resolved 2026-08-22 (PO review).** Rulings 1–17 above are binding. Spec status: **approved**.
 
 1. HR sidebar as one item with tabs vs three sidebar entries — one item + tabs.
 2. Leave approval workflow — none in Phase 1; instant BOOKED.
@@ -500,6 +505,9 @@ Spec approved 2026-08-22. Implementation may start at AUT-180.
 7. Session identity — Firebase UID match via User, not `Employee.user_id = session.userId`.
 8. Mechanic leave UI on tablet — not in Phase 1; OWNER/ADMIN book via `POST /api/hr/leave`.
 9. Auto-close timestamp — `now()` at 23:59, same as `LaborEntry`.
+10. Leave days column vs yearly balance — PATCH `annualLeaveDays` updates current-year `allowance_days`; remaining must not fork.
+11. Carryover — employee sheet, current year, not a column on the roster table.
+12. SALES employee access — keep roster write; lock HR fields to OWNER/ADMIN.
 
 ---
 
