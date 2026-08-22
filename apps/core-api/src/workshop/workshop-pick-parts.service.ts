@@ -383,7 +383,14 @@ export class WorkshopPickPartsService {
           };
         });
 
-      const explicitSourceStocks = new Map<string, any>();
+      const explicitSourceStocks = new Map<
+        string,
+        {
+          catalog_item_id: string;
+          location_id: string;
+          quantity_on_hand: number;
+        }
+      >();
       if (explicitItemSourcePairs.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
@@ -415,7 +422,15 @@ export class WorkshopPickPartsService {
           return catalogItem.id;
         });
 
-      const autoAllocationStocks = new Map<string, any[]>();
+      const autoAllocationStocks = new Map<
+        string,
+        {
+          catalog_item_id: string;
+          location_id: string;
+          quantity_on_hand: number;
+          createdAt: Date;
+        }[]
+      >();
       if (autoAllocationItems.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
