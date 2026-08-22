@@ -27,6 +27,18 @@ const mockPrisma = {
   attendanceEvent: {
     count: jest.fn(),
   },
+  workshopTask: {
+    count: jest.fn(),
+  },
+  workshopMedia: {
+    count: jest.fn(),
+  },
+  workshopVoiceNoteDraft: {
+    count: jest.fn(),
+  },
+  laborEntry: {
+    count: jest.fn(),
+  },
   workshopSettings: {
     findFirst: jest.fn(),
   },
@@ -74,6 +86,10 @@ describe('EmployeeService', () => {
     mockPrisma.leaveRequest.groupBy.mockResolvedValue([]);
     mockPrisma.employeeLeaveBalance.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.attendanceEvent.count.mockResolvedValue(0);
+    mockPrisma.workshopTask.count.mockResolvedValue(0);
+    mockPrisma.workshopMedia.count.mockResolvedValue(0);
+    mockPrisma.workshopVoiceNoteDraft.count.mockResolvedValue(0);
+    mockPrisma.laborEntry.count.mockResolvedValue(0);
     mockPrisma.leaveRequest.count.mockResolvedValue(0);
     mockPrisma.employeeLeaveBalance.count.mockResolvedValue(0);
     service = new EmployeeService(
@@ -384,6 +400,18 @@ describe('EmployeeService', () => {
     });
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.employeeLeaveBalance.count.mockResolvedValue(1);
+
+    await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
+    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+  });
+
+  it('blocks hard delete when a restrictive work record references the employee', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue({
+      ...baseEmployee,
+      is_active: false,
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.laborEntry.count.mockResolvedValue(1);
 
     await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
     expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
