@@ -2,9 +2,9 @@
 title: "HR Time and Leave"
 date: "2026-08-22"
 module: "HR"
-status: draft
+status: approved
 linear-project: "HR Time and Leave"
-linear-milestone: "Spec review"
+linear-milestone: "Spec review (approved 2026-08-22)"
 tags:
   - feature-spec
   - hr
@@ -102,8 +102,13 @@ These are binding for implementation unless Product Owner overrides them in revi
 7. **Default allowance 25 days** (AT-style), stored on `Employee.annual_leave_days` and copied onto the year's `EmployeeLeaveBalance` on first access. Manager types `carryover_days`. No year-end job.
 8. **Planner overlay is a warning, not 409.** BOOKED leave on a mechanic is amber on `GET /api/workshop/planner`. Bays can still be booked. Same spirit as mechanic double-book in ADR-0019.
 9. **Clocking in does not start a job; starting a job does not require being clocked in** in Phase 1.
-10. **RBAC.** OWNER/ADMIN: full HR, including punching or correcting another employee. SALES: own clock, own leave, read team leave calendar. TECH: `/api/hr/me/*` only, plus clock buttons on `/mechanic/queue`. No shared-door PIN kiosk.
+10. **RBAC.** OWNER/ADMIN: full HR, including punching or correcting another employee and booking leave for any employee. SALES: own clock, own leave, read team leave calendar. TECH: `/api/hr/me/*` only, plus clock buttons on `/mechanic/queue`. Mechanic shell is **clock-only** — managers book mechanic leave from HR. No shared-door PIN kiosk.
 11. **Out of scope:** payroll, overtime, works council, school holidays, OpenHolidays from HR (planner import already exists), merging HR into the kanban.
+12. **Session identity is Firebase UID, not `Employee.user_id`.** `AuthenticatedUser.userId` is `User.firebaseUid` (see `AuthSessionService`). Resolve "me" the same way `MechanicIdentityService` finds the User row: `Employee.user.firebaseUid = session.userId` OR `Employee.user.email = session.email`, plus `is_active`. Do **not** query `employee.user_id = session.userId` (Postgres UUID vs Firebase UID). Do **not** call `resolveMechanic()` for HR — that requires `TenantMember.role = TECH` and `EmployeeRole.MECHANIC`.
+13. **Nightly auto-close matches `LaborEntry`.** Cron `59 23 * * *`, insert `CLOCK_OUT` / `AUTO_SHIFT_CLOSE` with `occurred_at = now()`. Do not compute local midnight; that would require `WorkshopSettings` on SystemPrisma.
+14. **Clock-in is allowed on a BOOKED leave day.** Floor stays unblocked. No 409 from leave onto attendance.
+15. **Chargeable leave days are shop-open days**, including Saturday when `WorkshopOpeningHour` says open. Closed Sundays and closed `WorkshopHoliday` dates are not charged.
+16. **`remainingLeaveDays` is always a number.** If no balance row exists, use `annualLeaveDays + 0 carryover − 0 booked`. Never return null.
 
 ---
 
@@ -270,7 +275,7 @@ Derived from the employee's **latest event by `occurred_at`** (not only today's)
 
 Anything else → `409 Conflict` with the current state in the message.
 
-**Nightly auto-close:** for each employee whose latest event is not `CLOCK_OUT`, insert `CLOCK_OUT` / `source = AUTO_SHIFT_CLOSE` at the end of that event's local day (tenant `WorkshopSettings.timezone`, default `Europe/Vienna`). Reuse the existing mechanic scheduler cadence; implement in `HrAttendanceSchedulerService`, do not write HR rows from `MechanicSchedulerService`.
+**Nightly auto-close:** for each employee whose latest event is not `CLOCK_OUT`, insert `CLOCK_OUT` / `source = AUTO_SHIFT_CLOSE` with `occurred_at = now()`, same cadence as `MechanicSchedulerService` (`@Cron('59 23 * * *')`, separate job name `hr-shift-close`). Implement in `HrAttendanceSchedulerService`. Do not write HR rows from `MechanicSchedulerService`. Do not add `workshopSettings` to SystemPrisma.
 
 **One open day:** self-punch `occurred_at` is `now()`. Manager corrections may pass an explicit `occurredAt` that must be after the previous event.
 
@@ -306,7 +311,7 @@ Keep `/api/employees` as the employee CRUD surface (board and Settings already u
 
 | Method | Route | Change |
 |--------|-------|--------|
-| `GET/POST/PATCH /api/employees` | Add `hiredOn` (`YYYY-MM-DD` \| null), `annualLeaveDays` (int, default 25). List/detail also return computed `remainingLeaveDays` for the current local year (null if no balance row yet — treat as `annualLeaveDays` with 0 carryover and 0 booked). |
+| `GET/POST/PATCH /api/employees` | Add `hiredOn` (`YYYY-MM-DD` \| null), `annualLeaveDays` (int, default 25). List/detail also return computed `remainingLeaveDays` (always a number: allowance + carryover − BOOKED days this local year). |
 | `GET /api/workshop/planner` | Add `employeesAway: { employeeId, name, startOn, endOn, leaveId }[]` for BOOKED leave overlapping `[from, to]`. |
 
 ### New Endpoints
@@ -319,10 +324,11 @@ Keep `/api/employees` as the employee CRUD surface (board and Settings already u
 | `GET` | `/api/hr/attendance` | `from`, `to`, optional `employeeId` | Events in range (max 31 days) | OWNER/ADMIN |
 | `POST` | `/api/hr/attendance` | `{ employeeId, type, occurredAt, note? }` | Created event | OWNER/ADMIN (manager correction) |
 | `GET` | `/api/hr/me/leave` | optional `year` | `{ year, allowanceDays, carryoverDays, remainingDays, bookings[] }` | Linked employee; TECH allowed |
-| `POST` | `/api/hr/me/leave` | `{ startOn, endOn, note? }` | Created `LeaveRequest` | Linked employee; TECH allowed |
+| `POST` | `/api/hr/me/leave` | `{ startOn, endOn, note? }` | Created `LeaveRequest` for the linked employee | Linked employee; TECH allowed |
+| `POST` | `/api/hr/leave` | `{ employeeId, startOn, endOn, note? }` | Created `LeaveRequest` for that employee | OWNER/ADMIN (book on behalf, including mechanics with no office login) |
 | `POST` | `/api/hr/leave/:id/cancel` | — | Updated request `CANCELLED` | Owner of future leave, or OWNER/ADMIN |
 | `GET` | `/api/hr/leave` | `from`, `to`, optional `employeeId` | Team BOOKED (+ optional cancelled) ranges | OWNER/ADMIN full; SALES read |
-| `PATCH` | `/api/hr/leave/:id` | `{ startOn?, endOn?, note?, carryoverDays? }` | Updated booking; recomputes `daysCharged` | OWNER/ADMIN |
+| `PATCH` | `/api/hr/leave/:id` | `{ startOn?, endOn?, note? }` | Updated booking; recomputes `daysCharged` | OWNER/ADMIN |
 | `PATCH` | `/api/hr/employees/:id/leave-balance` | `{ year, allowanceDays?, carryoverDays? }` | Upserted balance | OWNER/ADMIN |
 
 Leave create errors:
@@ -382,7 +388,7 @@ Clock create errors:
 | `HrClockPage` | `apps/core-web/src/pages/hr/HrClockPage.tsx` | Four punch buttons + today timeline |
 | `AttendancePunchBar` | `apps/core-web/src/components/hr/AttendancePunchBar.tsx` | Shared Come / Pause / Doctor / Home |
 | `HrLeavePage` | `apps/core-web/src/pages/hr/HrLeavePage.tsx` | Remaining chip, book sheet, list; admin month grid |
-| `LeaveBookingSheet` | `apps/core-web/src/components/hr/LeaveBookingSheet.tsx` | Range + note + days-to-charge preview |
+| `LeaveBookingSheet` | `apps/core-web/src/components/hr/LeaveBookingSheet.tsx` | Range + note; `daysCharged` shown after submit on the list (no preview API) |
 | `TeamLeaveMonthGrid` | `apps/core-web/src/components/hr/TeamLeaveMonthGrid.tsx` | CSS grid, no FullCalendar |
 | Mechanic queue header | `apps/core-web/src/pages/mechanic/` queue | Renders `AttendancePunchBar` |
 
@@ -414,6 +420,8 @@ Sidebar: one `coreModules` entry `id: 'hr'`, label `HR`, `to: '/hr/employees'`, 
 - [ ] Second `CLOCK_IN` while `CLOCKED_IN` → `409`.
 - [ ] TECH can `POST /api/hr/me/clock`; TECH cannot `GET /api/hr/attendance`.
 - [ ] Unlinked user `/api/hr/me/clock` → `403`.
+- [ ] "Me" resolves via `User.firebaseUid` / email, not `Employee.user_id = session.userId`.
+- [ ] OWNER/ADMIN `POST /api/hr/leave` books for another employee.
 - [ ] Auto-close inserts `CLOCK_OUT` / `AUTO_SHIFT_CLOSE` and leaves already-closed employees alone.
 - [ ] Workday helper: Mon–Fri open, Sunday closed → 5 days for a Mon–Sun range.
 - [ ] Closed `WorkshopHoliday` inside a leave range is not charged.
@@ -428,7 +436,7 @@ Sidebar: one `coreModules` entry `id: 'hr'`, label `HR`, `to: '/hr/employees'`, 
 ### Frontend
 
 - [ ] Vitest: punch bar disables illegal buttons from `state`.
-- [ ] Vitest: leave sheet shows preview days from API/workday preview.
+- [ ] Vitest: leave sheet submit sends `startOn` / `endOn` (and `employeeId` when OWNER/ADMIN).
 - [ ] Playwright (office): punch Come to work, timeline shows event, Go home.
 - [ ] Playwright: book two days, remaining drops, cancel restores.
 - [ ] Playwright mechanic: queue shows punch bar; Come to work succeeds.
@@ -456,7 +464,7 @@ None. Attendance and leave are not invoices and do not touch `lock_date`.
 | SALES | Read | Yes (if linked) | No | Yes | Read | No | Read |
 | TECH | No (mechanic shell) | Yes | No | Yes | No | No | No |
 
-Resolve "me": `Employee` where `user_id = session.userId`. TECH continues to use `MechanicIdentityService.resolveMechanic()` which is that same employee id.
+Resolve "me" in `HrIdentityService`: active `Employee` whose linked `User` matches `firebaseUid = session.userId` or `email = session.email`. Do not use `resolveMechanic()` (TECH + MECHANIC only). Do not compare `Employee.user_id` to `session.userId`.
 
 ---
 
@@ -464,7 +472,7 @@ Resolve "me": `Employee` where `user_id = session.userId`. TECH continues to use
 
 Task-level plan: [2026-08-22-hr-time-and-leave-implementation-plan.md](2026-08-22-hr-time-and-leave-implementation-plan.md).
 
-Do not start application code until Product Owner marks this spec **approved**.
+Spec approved 2026-08-22. Implementation may start at AUT-180.
 
 1. Prisma + employee columns + deletion policy + tenant cleanup.
 2. Employee DTO fields + remaining computation.
@@ -481,14 +489,17 @@ Do not start application code until Product Owner marks this spec **approved**.
 
 ## Open Questions
 
-Recorded as proposed rulings above. Confirm or override:
+**Resolved 2026-08-22 (PO review).** Rulings 1–16 above are binding. Spec status: **approved**.
 
-1. HR sidebar as one item with tabs vs three sidebar entries (ruling: one item + tabs).
-2. Leave approval workflow (ruling: none in Phase 1; instant BOOKED).
-3. Doctor as clock vs sick-leave day (ruling: clock state).
-4. Hard-block job start unless clocked in (ruling: no).
-5. PIN kiosk (ruling: no).
-6. Default 25 days (ruling: yes, editable).
+1. HR sidebar as one item with tabs vs three sidebar entries — one item + tabs.
+2. Leave approval workflow — none in Phase 1; instant BOOKED.
+3. Doctor as clock vs sick-leave day — clock state.
+4. Hard-block job start unless clocked in — no.
+5. PIN kiosk — no.
+6. Default 25 days — yes, editable.
+7. Session identity — Firebase UID match via User, not `Employee.user_id = session.userId`.
+8. Mechanic leave UI on tablet — not in Phase 1; OWNER/ADMIN book via `POST /api/hr/leave`.
+9. Auto-close timestamp — `now()` at 23:59, same as `LaborEntry`.
 
 ---
 

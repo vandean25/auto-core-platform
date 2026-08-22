@@ -1,7 +1,7 @@
 ---
 title: "ADR-0020: HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday)"
 date: "2026-08-22"
-status: proposed
+status: accepted
 deciders: "Product Owner, Architecture, Backend Lead, Frontend Lead"
 linear-project: "HR Time and Leave"
 linear-milestone: "Spec review"
@@ -17,7 +17,9 @@ tags:
 
 ## Status
 
-**Proposed** — 2026-08-22
+**Accepted** — 2026-08-22
+
+PO review approved the Feature Spec. Implementation must follow identity ruling 12 (Firebase UID match, never `Employee.user_id = session.userId`) and auto-close ruling 13 (`occurred_at = now()`, not local midnight).
 
 ## Context
 
@@ -58,7 +60,7 @@ The product request is an **HR module**: add employees, punch Come / Pause / Doc
 
 `AttendanceEvent` is append-only: `CLOCK_IN`, `PAUSE`, `DOCTOR`, `CLOCK_OUT`, with `source` `SELF` | `MANAGER` | `AUTO_SHIFT_CLOSE`.
 
-Current state is derived from the latest event by `occurred_at`. Illegal transitions return `409`. Nightly close inserts `CLOCK_OUT` / `AUTO_SHIFT_CLOSE` at local day end (tenant timezone from `WorkshopSettings`, default `Europe/Vienna`).
+Current state is derived from the latest event by `occurred_at`. Illegal transitions return `409`. Nightly close inserts `CLOCK_OUT` / `AUTO_SHIFT_CLOSE` with `occurred_at = now()` at `59 23 * * *`, same pattern as `LaborEntry` / `MechanicSchedulerService`. Do not load `WorkshopSettings` from SystemPrisma.
 
 **Why not `LaborEntry`?** That row requires `workshop_task_id` and drives task status (`WAITING_PARTS`, etc.). HR pause is not a job pause.
 
@@ -90,6 +92,8 @@ Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if rem
 
 - Keep `/api/employees` for roster CRUD (board, Settings, HR table). Add HR fields there — do not create `/api/hr/employees` as a second CRUD.
 - Clock and leave live under `/api/hr` and `@MechanicAccessible()` only on `/api/hr/me/*`.
+- Resolve "me" via linked `User.firebaseUid` / `email` (session `userId` is Firebase UID). Do not call `MechanicIdentityService.resolveMechanic()` (TECH + MECHANIC only).
+- OWNER/ADMIN book leave for any employee with `POST /api/hr/leave`. Mechanic shell has no leave UI in Phase 1.
 - Workday math lives in `HrWorkdayService` that **reads** workshop hours/holidays. Do not call OpenHolidays from HR. Do not grow `workshop-planner.service.ts` with leave booking.
 
 ### 6. Real-time, deletion, fiscal, inventory

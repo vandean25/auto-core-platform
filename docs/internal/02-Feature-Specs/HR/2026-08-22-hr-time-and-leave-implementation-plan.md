@@ -16,7 +16,7 @@
 
 **Linear:** [HR Time and Leave](https://linear.app/auto-core-platform/project/hr-time-and-leave-7e0299d12e1f) — AUT-179 approval, AUT-180 schema, AUT-181 clock, AUT-182 leave, AUT-183 HR UI, AUT-184 mechanic/planner, AUT-185 Mintlify.
 
-**Do not:** start app code until the spec is **approved**. Do not store leave as `WorkshopHoliday`. Do not punch HR into `LaborEntry`. Do not call OpenHolidays from HR. Do not require clock-in to start a job. Do not add a PIN kiosk.
+**Do not:** store leave as `WorkshopHoliday`. Punch HR into `LaborEntry`. Call OpenHolidays from HR. Require clock-in to start a job. Add a PIN kiosk. Compare `Employee.user_id` to `session.userId`. Load `WorkshopSettings` from SystemPrisma.
 
 ---
 
@@ -355,6 +355,8 @@ it('second CLOCK_IN while CLOCKED_IN returns 409', async () => {
 
 Legal next types — copy the table from the feature spec into `ALLOWED_NEXT: Record<AttendanceState, AttendanceEventType[]>`.
 
+Also add `hr-identity.service.spec.ts` asserting `findFirst` is called with `user: { OR: [{ firebaseUid: user.userId }, { email: user.email }] }`, not `user_id: user.userId`.
+
 - [ ] **Step 2: Run — FAIL**
 
 - [ ] **Step 3: Implement**
@@ -363,10 +365,17 @@ Legal next types — copy the table from the feature spec into `ALLOWED_NEXT: Re
 
 ```ts
 async resolveMe(): Promise<{ employeeId: string }> {
-  const user = this.tenantContext.getUser();
-  if (!user?.userId) throw new ForbiddenException('No employee record linked to this account');
+  const user = this.tenantContext.getAuthenticatedUser();
+  if (!user?.userId) {
+    throw new ForbiddenException('No employee record linked to this account');
+  }
   const employee = await this.prisma.employee.findFirst({
-    where: { user_id: user.userId, is_active: true },
+    where: {
+      is_active: true,
+      user: {
+        OR: [{ firebaseUid: user.userId }, { email: user.email }],
+      },
+    },
     select: { id: true },
   });
   if (!employee) {
@@ -374,9 +383,13 @@ async resolveMe(): Promise<{ employeeId: string }> {
   }
   return { employeeId: employee.id };
 }
+```
 
+`session.userId` is `User.firebaseUid`, not `Employee.user_id`. Do not call `MechanicIdentityService.resolveMechanic()` (requires TECH + MECHANIC).
+
+```ts
 assertOwnerAdmin() {
-  const role = this.tenantContext.getUser()?.role;
+  const role = this.tenantContext.getAuthenticatedUser()?.role;
   if (role !== 'OWNER' && role !== 'ADMIN') {
     throw new ForbiddenException('Tenant admin access is required.');
   }
@@ -406,7 +419,7 @@ export class HrController {
 
 `PunchClockDto`: `{ type: AttendanceEventType }` with `@IsEnum`.
 
-Register `HrModule` in `app.module.ts`. Export nothing to MechanicModule; identity uses `Employee.user_id` (works for TECH because that is the same link `resolveMechanic` uses).
+Register `HrModule` in `app.module.ts`. Do not inject `MechanicIdentityService` into HR.
 
 - [ ] **Step 4: PASS unit tests. Commit.**
 
@@ -448,7 +461,7 @@ it('skips employees whose last event is CLOCK_OUT', async () => {
 });
 ```
 
-Query strategy (no N+1): `findMany` orderBy `occurred_at desc`, then keep first row per `employee_id` in JS (or Prisma `distinct` if available). Insert close at end of that event's local day using `WorkshopSettings.timezone` — if loading settings per tenant is heavy, default `Europe/Vienna` for Phase 1 scheduler and document it; prefer joining tenant settings in one query via `systemPrisma` only if `workshopSettings` is **not** added to the allowlist. **Do not** add `workshopSettings` to SystemPrisma. Use Vienna default for auto-close timestamp in Phase 1 (spec timezone default).
+Query strategy (no N+1): `findMany` orderBy `occurred_at desc`, then keep first row per `employee_id` in JS. Insert `CLOCK_OUT` with `occurred_at` equal to the scheduler's `now` argument (same as `MechanicSchedulerService` closing labor with `ended_at = now()`). **Do not** add `workshopSettings` to SystemPrisma. **Do not** compute local midnight.
 
 Cron: `@Cron('59 23 * * *', { name: 'hr-shift-close' })` — separate name from `mechanic-shift-close`.
 
@@ -518,6 +531,8 @@ Ensure year: `startOn.slice(0, 4) === endOn.slice(0, 4)`.
 
 Upsert balance on first `GET /me/leave` or first create: `allowance_days = employee.annual_leave_days`, `carryover_days = 0`.
 
+`POST /api/hr/leave` (OWNER/ADMIN): `{ employeeId, startOn, endOn, note? }` — same overlap/remaining/year rules as `createMine`.
+
 `POST /api/hr/leave/:id/cancel`: employee may cancel own if `start_on >= today` (tenant tz); OWNER/ADMIN any.
 
 `PATCH /api/hr/leave/:id`: OWNER/ADMIN, recompute `days_charged`, re-check overlap + remaining excluding this row.
@@ -526,7 +541,7 @@ Upsert balance on first `GET /me/leave` or first create: `allowance_days = emplo
 
 - [ ] **Step 2–4: FAIL, implement, PASS.**
 
-- [ ] **Step 5: E2E** `apps/core-api/test/hr-leave.e2e-spec.ts` — create employee+user, book 2 days, remaining drops, cancel restores; TECH 403 on `GET /api/hr/leave`. `apps/core-api/test/hr-attendance.e2e-spec.ts` — punch in/out; illegal pause 409; TECH 403 on `GET /api/hr/attendance`.
+- [ ] **Step 5: E2E** `apps/core-api/test/hr-leave.e2e-spec.ts` — create employee+user, book 2 days, remaining drops, cancel restores; OWNER/ADMIN `POST /api/hr/leave` for another employee; TECH 403 on `GET /api/hr/leave`. `apps/core-api/test/hr-attendance.e2e-spec.ts` — punch in/out; illegal pause 409; TECH 403 on `GET /api/hr/attendance`. Identity e2e: linked employee punches via firebase UID, not Postgres `user_id` in the JWT.
 
 ```
 git commit -m "feat(hr): add leave booking, remaining days, and cancel"
@@ -538,7 +553,7 @@ git commit -m "feat(hr): add leave booking, remaining days, and cancel"
 
 - [ ] **Step 1:** `npm --prefix apps/core-api run openapi:generate`
 - [ ] **Step 2:** `npm --prefix apps/core-web run api:types:generate`
-- [ ] **Step 3:** Create `apps/core-web/src/api/hr.ts` with `hrKeys` **exactly** as in the feature spec, plus `useHrMeClock`, `usePunchClock`, `useMyLeave`, `useCreateLeave`, `useCancelLeave`, `useTeamLeave`, `useHrAttendance` using `fetchWithAuth` and generated DTO types (`import type`).
+- [ ] **Step 3:** Create `apps/core-web/src/api/hr.ts` with `hrKeys` **exactly** as in the feature spec, plus `useHrMeClock`, `usePunchClock`, `useMyLeave`, `useCreateLeave`, `useCreateEmployeeLeave` (`POST /api/hr/leave`), `useCancelLeave`, `useTeamLeave`, `useHrAttendance` using `fetchWithAuth` and generated DTO types (`import type`).
 - [ ] **Step 4:** Commit both OpenAPI artifacts and `hr.ts`.
 
 ```

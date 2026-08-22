@@ -104,7 +104,8 @@ Empty state if `/api/hr/me` is 403: Card "No employee record linked" + link to H
 
 - `Sheet` (not Dialog). Primary action top-right of `SheetHeader`: `+ Leave`.
 - Fields: employee (locked to self unless OWNER/ADMIN), start, end, note.
-- Preview line: `{n} workdays will be charged` (from POST error or a `daysCharged` on the successful create; client may count via the same remaining endpoint after picking dates by calling POST only on submit — no extra preview API in Phase 1).
+- Preview line: none in Phase 1 (no extra preview API). After submit, the leave list shows `daysCharged`.
+- OWNER/ADMIN sheet includes employee select and submits `POST /api/hr/leave`. Self-service submits `POST /api/hr/me/leave`.
 - Insufficient remaining or overlap: toast from `409` message; sheet stays open.
 
 ## Mechanic queue
