@@ -14,7 +14,7 @@ describe('generateId', () => {
   afterEach(() => {
     // Restore randomUUID after each test
     if (typeof crypto !== 'undefined') {
-      Object.defineProperty(global.crypto, 'randomUUID', {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', {
         value: originalRandomUUID,
         writable: true,
         configurable: true
@@ -30,7 +30,7 @@ describe('generateId', () => {
   it('generates a valid UUID v4 format using fallback when crypto.randomUUID is not available', () => {
     // Mock crypto.randomUUID to be undefined to force fallback
     if (typeof crypto !== 'undefined') {
-      Object.defineProperty(global.crypto, 'randomUUID', {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', {
         value: undefined,
         writable: true,
         configurable: true
@@ -43,7 +43,7 @@ describe('generateId', () => {
 
   it('generates reasonably unique IDs using fallback', () => {
     if (typeof crypto !== 'undefined') {
-      Object.defineProperty(global.crypto, 'randomUUID', {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', {
         value: undefined,
         writable: true,
         configurable: true
