@@ -270,6 +270,99 @@ describe('WorkshopHolidayService', () => {
     );
   });
 
+  it('skips an imported day that collides with an annual MANUAL holiday', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'oh-xmas',
+          startDate: '2027-12-25',
+          endDate: '2027-12-25',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Weihnachten' }],
+        },
+      ],
+    });
+    mockPrisma.workshopHoliday.findMany.mockResolvedValue([
+      {
+        id: 'manual-annual',
+        observed_on: new Date('2020-12-25T00:00:00.000Z'),
+        repeats_annually: true,
+        source: 'MANUAL',
+        name: 'Weihnachten geschlossen',
+      },
+    ]);
+
+    const result = await service.importPublicHolidays({});
+
+    expect(result.imported).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(mockPrisma.workshopHoliday.create).not.toHaveBeenCalled();
+  });
+
+  it('imports only one row when the vendor repeats the same date', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'oh-dup-1',
+          startDate: '2026-01-01',
+          endDate: '2026-01-01',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Neujahr' }],
+        },
+        {
+          id: 'oh-dup-2',
+          startDate: '2026-01-01',
+          endDate: '2026-01-01',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Neujahr (dup)' }],
+        },
+      ],
+    });
+    mockPrisma.workshopHoliday.create.mockResolvedValue({ id: 'imported-1' });
+
+    const result = await service.importPublicHolidays({});
+
+    expect(result.imported).toBe(1);
+    expect(mockPrisma.workshopHoliday.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts an IMPORTED name refresh as imported, not skipped', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'oh-1',
+          startDate: '2026-01-01',
+          endDate: '2026-01-01',
+          type: 'Public',
+          nationwide: true,
+          name: [{ language: 'DE', text: 'Neujahr' }],
+        },
+      ],
+    });
+    mockPrisma.workshopHoliday.findMany.mockResolvedValue([
+      {
+        id: 'imported-1',
+        observed_on: new Date('2026-01-01T00:00:00.000Z'),
+        repeats_annually: false,
+        source: 'IMPORTED',
+        name: 'Old name',
+      },
+    ]);
+
+    const result = await service.importPublicHolidays({});
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(mockPrisma.workshopHoliday.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.workshopHoliday.create).not.toHaveBeenCalled();
+  });
+
   it('returns 502 when OpenHolidays times out', async () => {
     fetchMock.mockImplementation((_url: string, init?: RequestInit) => {
       return new Promise((_, reject) => {

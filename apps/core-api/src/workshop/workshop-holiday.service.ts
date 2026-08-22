@@ -86,6 +86,19 @@ export function holidayCollides(
   });
 }
 
+function uniquePublicHolidayDays(days: PublicHolidayDay[]): PublicHolidayDay[] {
+  const unique: PublicHolidayDay[] = [];
+  const seen = new Set<string>();
+  for (const day of days) {
+    if (seen.has(day.observedOn)) {
+      continue;
+    }
+    seen.add(day.observedOn);
+    unique.push(day);
+  }
+  return unique;
+}
+
 @Injectable()
 export class WorkshopHolidayService {
   constructor(
@@ -260,17 +273,26 @@ export class WorkshopHolidayService {
     const existingByDate = new Map(
       existing.map((row) => [formatUtcDateOnly(row.observed_on), row]),
     );
+    const manualRows = existing.filter(
+      (row) => row.source === WorkshopHolidaySource.MANUAL,
+    );
 
     let imported = 0;
     let skipped = 0;
 
     await this.prisma.$transaction(async (tx) => {
-      for (const day of days) {
-        const current = existingByDate.get(day.observedOn);
-        if (current?.source === WorkshopHolidaySource.MANUAL) {
+      for (const day of uniquePublicHolidayDays(days)) {
+        const observedOn = toUtcDateOnly(day.observedOn);
+        if (
+          holidayCollides(manualRows, {
+            observedOn,
+            repeatsAnnually: false,
+          })
+        ) {
           skipped += 1;
           continue;
         }
+        const current = existingByDate.get(day.observedOn);
         if (current) {
           await tx.workshopHoliday.update({
             where: { id: current.id },
@@ -280,7 +302,7 @@ export class WorkshopHolidayService {
               source: WorkshopHolidaySource.IMPORTED,
             },
           });
-          skipped += 1;
+          imported += 1;
           continue;
         }
         await tx.workshopHoliday.create({
@@ -288,7 +310,7 @@ export class WorkshopHolidayService {
             tenant_id: tenantId,
             workshop_settings_id: settings.id,
             name: day.name,
-            observed_on: toUtcDateOnly(day.observedOn),
+            observed_on: observedOn,
             repeats_annually: false,
             is_closed: true,
             source: WorkshopHolidaySource.IMPORTED,

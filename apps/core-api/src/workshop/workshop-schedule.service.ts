@@ -67,10 +67,11 @@ export class WorkshopScheduleService {
 
     const tenantId = await this.tenantContext.getTenantId();
     const db = tx ?? this.prisma;
-    const bay = await db.bay.findFirst({
+    const locked = await db.bay.updateMany({
       where: { id: dto.bayId, tenant_id: tenantId, is_active: true },
+      data: { updatedAt: new Date() },
     });
-    if (!bay) {
+    if (locked.count === 0) {
       throw new NotFoundException(`Bay ${dto.bayId} not found`);
     }
 

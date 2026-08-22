@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsUUID,
   IsEnum,
+  IsIn,
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -40,7 +41,7 @@ export class CreateWorkshopOrderDto {
     enumName: 'WorkshopOrderStatus',
   })
   @IsOptional()
-  @IsEnum(WorkshopOrderStatus)
+  @IsIn([WorkshopOrderStatus.SCHEDULED, WorkshopOrderStatus.INTAKE])
   status?: WorkshopOrderStatus;
 
   @ApiPropertyOptional({ format: 'uuid' })

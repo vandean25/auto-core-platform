@@ -60,6 +60,7 @@ describe('WorkshopScheduleService', () => {
       id: 'bay-1',
       is_active: true,
     });
+    mockPrisma.bay.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
     mockPrisma.workshopHoliday.findMany.mockResolvedValue([]);
   });
@@ -88,6 +89,24 @@ describe('WorkshopScheduleService', () => {
       start: new Date('2026-08-21T08:00:00.000Z'),
       end: new Date('2026-08-21T09:00:00.000Z'),
     });
+  });
+
+  it('locks the bay row before reading occupancy', async () => {
+    await service.assertCanBook({
+      status: WorkshopOrderStatus.SCHEDULED,
+      vehicleId: 'v-1',
+      bayId: 'bay-1',
+      scheduledStartAt: '2026-08-21T08:00:00.000Z',
+      scheduledEndAt: '2026-08-21T09:00:00.000Z',
+    });
+
+    expect(mockPrisma.bay.updateMany).toHaveBeenCalledWith({
+      where: { id: 'bay-1', tenant_id: TENANT_ID, is_active: true },
+      data: { updatedAt: expect.any(Date) },
+    });
+    expect(
+      mockPrisma.bay.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockPrisma.workshopOrder.findMany.mock.invocationCallOrder[0]);
   });
 
   it('throws 409 when the same bay already has an overlapping booking', async () => {

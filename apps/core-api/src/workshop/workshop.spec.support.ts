@@ -59,6 +59,7 @@ export const mockPrisma = {
   bay: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    updateMany: jest.fn(),
   },
   employee: {
     findFirst: jest.fn(),

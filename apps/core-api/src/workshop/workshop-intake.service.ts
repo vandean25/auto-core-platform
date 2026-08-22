@@ -77,6 +77,33 @@ export class WorkshopIntakeService {
     ).padStart(4, '0');
     return `${prefix}${paddedSequence}`;
   }
+
+  private async assertNoLiveOrderForVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+  ): Promise<void> {
+    const live = await tx.workshopOrder.findFirst({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: vehicleId,
+        status: {
+          in: [
+            WorkshopOrderStatus.SCHEDULED,
+            WorkshopOrderStatus.INTAKE,
+            WorkshopOrderStatus.IN_PROGRESS,
+          ],
+        },
+      },
+      select: { order_number: true },
+    });
+    if (live) {
+      throw new ConflictException(
+        `Vehicle already has active order ${live.order_number}`,
+      );
+    }
+  }
+
   async register(dto: RegisterIntakeDto) {
     const tenantId = await this.tenantContext.getTenantId();
     let customerId = dto.customerId;
@@ -177,6 +204,8 @@ export class WorkshopIntakeService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
+      await this.assertNoLiveOrderForVehicle(tx, tenantId, dto.vehicleId);
+
       if (purpose === WorkshopOrderPurpose.STOCK_PREP) {
         const flipped = await tx.vehicle.updateMany({
           where: {
