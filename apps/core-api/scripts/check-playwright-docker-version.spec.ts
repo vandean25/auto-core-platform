@@ -59,10 +59,10 @@ describe('Production image version pins (AUT-167)', () => {
     expect(dockerTagVersion).toBe(packageVersion);
   });
 
-  it('uses Node 22 slim for the API target', () => {
+  it('uses Node 26 slim for the API target', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
-    expect(dockerfile).toMatch(/^FROM node:22-slim AS api$/m);
+    expect(dockerfile).toMatch(/^FROM node:26-slim AS api$/m);
   });
 
   it('uses Node 22 in Cloud Build', () => {
