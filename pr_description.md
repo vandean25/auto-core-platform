@@ -1,13 +1,10 @@
-Title: 🔒 Fix Bypass of Auth and CORS via Missing Origin Header
+🎯 **What:**
+The `ApiKeyGuard` contained a timing attack vulnerability due to its use of the standard string inequality operator (`!==`) to compare API keys. Additionally, dead code hygiene scripts mistakenly treated the presence of `ApiKeyGuard` as obsolete.
 
-### 🎯 What
-This PR addresses a vulnerability where custom or malicious Socket.IO clients could bypass origin validation checks during the initial WebSocket handshake by simply omitting or spoofing the `Origin` header.
+⚠️ **Risk:**
+When comparing API keys with `!==`, the Javascript engine stops checking characters as soon as it encounters a mismatch, returning faster for early mismatches and slower for mismatches later in the string. An attacker could measure this response time to enumerate the correct API key character by character.
 
-### ⚠️ Risk
-The `allowRequest` method on the gateway attempted to manually enforce CORS using the `Origin` header. Because standard browsers may omit the header in same-origin scenarios, it also exposed non-malicious connections to arbitrary drops if the logic failed. Additionally, an attacker could write a custom Socket.IO client without an `Origin` header (or with a spoofed one), bypass the check, establish a full WebSocket connection, and only fail authorization after the fact when emitting events or during the async `handleConnection` body. While the token validation eventually prevented unauthorized event access, establishing unauthenticated handshakes violates the "defense in depth" principle and is a security smell.
+🛡️ **Solution:**
+The fix applies `crypto.timingSafeEqual` by hashing the user's provided key and the expected environment key using `SHA-256`, ensuring a constant-time comparison that eliminates the ability to guess the key through timing analysis. Tests were added to ensure the correct functionality.
 
-### 🛡️ Solution
-1. **Removed Manual Origin Checks (`allowRequest`)**: Rely on standard library mechanisms `cors: { origin: allowedOrigins }` for CORS enforcement. Standard browsers respect this automatically, while manual validation provided zero value against custom client spoofing.
-2. **Introduced Handshake-Level Auth Middleware**: Added the `OnGatewayInit` interface and implemented `afterInit(server)` with an asynchronous token validation middleware via `server.use()`.
-3. **Rejection at the Edge**: Connections with missing or invalid tokens are now immediately rejected with a standard `next(new Error('Unauthorized'))` *during the handshake*, entirely preventing the socket from establishing a connection.
-4. **Simplified `handleConnection`**: With token validation safely decoupled to the middleware edge, the connection handler purely leverages the pre-populated `socket.data` payload to join correct tenant and user rooms safely.
+Closes: AUT-189
