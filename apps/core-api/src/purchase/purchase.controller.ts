@@ -20,6 +20,7 @@ import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto
 import {
   PurchaseOrderPaginatedResponseDto,
   PurchaseOrderResponseDto,
+  PurchaseOrderItemResponseDto,
 } from './dto/purchase-order-response.dto';
 import type { Prisma } from '@prisma/client';
 
@@ -171,6 +172,7 @@ export class PurchaseController {
     };
   }
 
+  // GET endpoint for fetching a single purchase order
   @Get(':id')
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
   async findOne(@Param('id') id: string) {
@@ -180,6 +182,21 @@ export class PurchaseController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.purchaseService.remove(id);
+  }
+
+  @Get(':id/items')
+  @ApiOkResponse({ type: [PurchaseOrderItemResponseDto] })
+  async getPurchaseOrderItems(@Param('id') id: string) {
+    return this.purchaseService.getPurchaseOrderItems(id);
+  }
+
+  @Get(':id/items/:itemId')
+  @ApiOkResponse({ type: PurchaseOrderItemResponseDto })
+  async getPurchaseOrderItem(
+    @Param('id') orderId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.purchaseService.getPurchaseOrderItem(orderId, itemId);
   }
 
   @Post(':id/items')

@@ -616,6 +616,47 @@ export class PurchaseService {
     return updatedOrder;
   }
 
+  async getPurchaseOrderItems(orderId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      include: {
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+
+    if (!po) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    return po.items;
+  }
+
+  async getPurchaseOrderItem(orderId: string, itemId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      include: {
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+
+    if (!po) {
+      throw new NotFoundException('Purchase Order not found');
+    }
+
+    const item = po.items.find((i) => i.id === itemId);
+    if (!item) {
+      throw new NotFoundException('Purchase order item not found');
+    }
+
+    return item;
+  }
+
   async findAll(
     params?: Prisma.PurchaseOrderFindManyArgs | string,
   ): Promise<PaginatedPurchaseOrderResult> {
