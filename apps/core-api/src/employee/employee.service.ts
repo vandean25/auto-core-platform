@@ -189,12 +189,36 @@ export class EmployeeService {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
 
-    const linkedOrders = await this.prisma.workshopOrder.count({
-      where: { mechanic_id: id },
-    });
+    const [
+      linkedOrders,
+      linkedTasks,
+      linkedMedia,
+      linkedVoiceNotes,
+      linkedLaborEntries,
+    ] = await Promise.all([
+      this.prisma.workshopOrder.count({ where: { mechanic_id: id } }),
+      this.prisma.workshopTask.count({ where: { mechanic_id: id } }),
+      this.prisma.workshopMedia.count({
+        where: { uploaded_by_employee_id: id },
+      }),
+      this.prisma.workshopVoiceNoteDraft.count({
+        where: { mechanic_employee_id: id },
+      }),
+      this.prisma.laborEntry.count({ where: { employee_id: id } }),
+    ]);
     if (linkedOrders > 0) {
       throw new ConflictException(
         `Cannot delete employee with ${linkedOrders} linked workshop orders`,
+      );
+    }
+    if (
+      linkedTasks > 0 ||
+      linkedMedia > 0 ||
+      linkedVoiceNotes > 0 ||
+      linkedLaborEntries > 0
+    ) {
+      throw new ConflictException(
+        'Cannot delete employee with linked work records',
       );
     }
     if (existing.is_active) {
@@ -218,7 +242,19 @@ export class EmployeeService {
       );
     }
 
-    await this.prisma.employee.delete({ where: { id } });
+    try {
+      await this.prisma.employee.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'Cannot delete employee because linked records were created concurrently',
+        );
+      }
+      throw error;
+    }
     return { id, deleted: true };
   }
 

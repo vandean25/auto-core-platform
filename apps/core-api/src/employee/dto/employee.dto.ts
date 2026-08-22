@@ -33,6 +33,7 @@ function parseOptionalNumber(value: unknown): unknown {
 }
 
 const LANGUAGE_CODE_RE = /^[a-z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export class CreateEmployeeDto {
   @ApiProperty()
@@ -85,6 +86,7 @@ export class CreateEmployeeDto {
   @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
   @IsOptional()
   @IsDateString()
+  @Matches(DATE_ONLY_RE)
   hiredOn?: string | null;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 365 })
@@ -149,6 +151,7 @@ export class UpdateEmployeeDto {
   @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
   @IsOptional()
   @IsDateString()
+  @Matches(DATE_ONLY_RE)
   hiredOn?: string | null;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 365 })
