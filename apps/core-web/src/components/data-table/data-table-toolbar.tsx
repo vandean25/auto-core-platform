@@ -1,4 +1,4 @@
-import type { Table } from "@tanstack/react-table"
+import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewBut
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableViewOptions } from "./data-table-view-options"
 
-interface DataTableToolbarProps<TData> {
+interface DataTableToolbarProps<TData extends object> {
   table: Table<TData>
   searchColumn?: string
   placeholder?: string
@@ -16,7 +16,7 @@ interface DataTableToolbarProps<TData> {
   dashboardSource?: DashboardWidgetTableSource
 }
 
-export function DataTableToolbar<TData>({
+export function DataTableToolbar<TData extends object>({
   table,
   searchColumn,
   placeholder = "Filter...",

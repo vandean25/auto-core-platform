@@ -1,4 +1,4 @@
-import { type ColumnDef } from '@tanstack/react-table'
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useDeleteSalesOrder, useSalesOrders } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -19,7 +19,7 @@ export default function SalesOrderList() {
     const { data: responseData, isLoading } = useSalesOrders(queryParams)
     const deleteMutation = useDeleteSalesOrder()
 
-    const data = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const data: SalesOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {

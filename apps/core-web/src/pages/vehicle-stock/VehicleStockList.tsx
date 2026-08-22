@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Car, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '@/components/data-table/DataTable'
