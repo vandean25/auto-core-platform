@@ -76,11 +76,13 @@ describe('WorkshopPickPartsService', () => {
         id: 'stock-1',
         location_id: 'bin-a',
         quantity_on_hand: 2,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
       },
       {
         id: 'stock-2',
         location_id: 'bin-b',
         quantity_on_hand: 3,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
       },
     ]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
@@ -143,11 +145,13 @@ describe('WorkshopPickPartsService', () => {
         id: 'stock-1',
         location_id: 'bin-a',
         quantity_on_hand: 1,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
       },
       {
         id: 'stock-2',
         location_id: 'bin-b',
         quantity_on_hand: 1,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
       },
     ]);
     mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
