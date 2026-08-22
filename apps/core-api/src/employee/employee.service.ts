@@ -25,19 +25,22 @@ export class EmployeeService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  private mapEmployee(employee: {
-    id: string;
-    name: string;
-    role: EmployeeRole;
-    is_active: boolean;
-    sort_order: number;
-    user_id?: string | null;
-    mother_language_code?: string | null;
-    hired_on: Date | null;
-    annual_leave_days: number;
-    createdAt: Date;
-    updatedAt: Date;
-  }, remainingLeaveDays = employee.annual_leave_days) {
+  private mapEmployee(
+    employee: {
+      id: string;
+      name: string;
+      role: EmployeeRole;
+      is_active: boolean;
+      sort_order: number;
+      user_id?: string | null;
+      mother_language_code?: string | null;
+      hired_on: Date | null;
+      annual_leave_days: number;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    remainingLeaveDays = employee.annual_leave_days,
+  ) {
     return {
       id: employee.id,
       name: employee.name,
@@ -270,10 +273,7 @@ export class EmployeeService {
       const carryoverDays = balance?.carryover_days ?? 0;
       const booked = bookedDaysByEmployee.get(employee.id) ?? 0;
 
-      return this.mapEmployee(
-        employee,
-        allowanceDays + carryoverDays - booked,
-      );
+      return this.mapEmployee(employee, allowanceDays + carryoverDays - booked);
     });
   }
 
