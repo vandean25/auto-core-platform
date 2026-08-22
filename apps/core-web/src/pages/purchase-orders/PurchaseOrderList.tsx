@@ -1,4 +1,4 @@
-import { type ColumnDef } from '@tanstack/react-table'
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useDeletePurchaseOrder, usePurchaseOrders } from '@/api/purchase-orders'
 import { Button } from '@/components/ui/button'
 import { Link, useNavigate } from 'react-router-dom'
@@ -19,7 +19,7 @@ export default function PurchaseOrderList() {
     const { data: responseData, isLoading } = usePurchaseOrders(queryParams)
     const deleteMutation = useDeletePurchaseOrder()
 
-    const data = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const data: PurchaseOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
 
     const handleDelete = async (id: string) => {

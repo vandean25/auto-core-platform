@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { type ColumnDef } from '@tanstack/react-table'
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { useInventory } from '@/api/inventory'

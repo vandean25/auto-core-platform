@@ -1,5 +1,5 @@
 import * as React from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
 import { Eye, ShieldAlert, User, Server, Terminal, Filter } from 'lucide-react'
 import type { AuditLog } from '@/api/audit'

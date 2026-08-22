@@ -4,7 +4,7 @@ import type {
   ColumnFiltersState,
   PaginationState,
   SortingState,
-} from "@tanstack/react-table"
+} from '@tanstack/react-table'
 
 interface UseDataTableQueryOptions {
   defaultPageSize?: number

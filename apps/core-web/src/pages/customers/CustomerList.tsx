@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { type ColumnDef } from "@tanstack/react-table"
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useCustomers, useDeleteCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'

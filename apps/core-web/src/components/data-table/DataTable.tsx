@@ -1,13 +1,15 @@
 import {
-  type ColumnDef,
+  type LegacyColumnDef as ColumnDef,
+  getCoreRowModel,
+  useLegacyTable as useReactTable,
+} from '@tanstack/react-table/legacy'
+import {
   type ColumnFiltersState,
   type PaginationState,
   type SortingState,
   type OnChangeFn,
   flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+} from '@tanstack/react-table'
 import { useEffect, useRef, useState } from "react"
 
 import {
@@ -28,8 +30,8 @@ type DataTableRowContextAction<TData extends object> = {
   destructive?: boolean
 }
 
-interface DataTableProps<TData extends object, TValue> {
-  columns: ColumnDef<TData, TValue>[]
+interface DataTableProps<TData extends object> {
+  columns: ColumnDef<TData>[]
   data: TData[]
   pageCount?: number
   isLoading?: boolean
@@ -49,7 +51,7 @@ interface DataTableProps<TData extends object, TValue> {
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
 }
 
-export function DataTable<TData extends object, TValue>({
+export function DataTable<TData extends object>({
   columns,
   data,
   pageCount = -1,
@@ -68,7 +70,7 @@ export function DataTable<TData extends object, TValue>({
   searchPlaceholder,
   onRowClick,
   getRowContextActions,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const [contextMenu, setContextMenu] = useState<{
     row: TData
     x: number
@@ -177,10 +179,10 @@ export function DataTable<TData extends object, TValue>({
                   key={row.id}
                   data-table-row="true"
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onRowClick?.(row.original)}
+                  onClick={() => onRowClick?.(row.original as TData)}
                   onContextMenu={(event) => {
                     event.preventDefault()
-                    openRowContextMenu(row.original, event.clientX, event.clientY)
+                    openRowContextMenu(row.original as TData, event.clientX, event.clientY)
                   }}
                   onKeyDown={(event) => {
                     if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) {
@@ -188,9 +190,9 @@ export function DataTable<TData extends object, TValue>({
                     }
                     const rect = event.currentTarget.getBoundingClientRect()
                     event.preventDefault()
-                    openRowContextMenu(row.original, rect.left + 12, rect.top + rect.height / 2)
+                    openRowContextMenu(row.original as TData, rect.left + 12, rect.top + rect.height / 2)
                   }}
-                  tabIndex={getRowContextActions?.(row.original)?.length ? 0 : undefined}
+                  tabIndex={getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -261,7 +263,7 @@ export function DataTable<TData extends object, TValue>({
             }}
             ref={menuRef}
           >
-            {getRowContextActions?.(contextMenu.row).map((action) => (
+            {getRowContextActions?.(contextMenu.row).map((action: DataTableRowContextAction<TData>) => (
               <button
                 key={action.label}
                 type="button"

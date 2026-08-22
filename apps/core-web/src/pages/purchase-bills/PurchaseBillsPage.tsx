@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { type ColumnDef } from '@tanstack/react-table'
+import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useDeletePurchaseInvoice, usePurchaseInvoices } from '@/api/usePurchaseInvoices'
 import type { PurchaseInvoice } from '@/api/types'
 import { Button } from '@/components/ui/button'
