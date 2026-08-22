@@ -21,5 +21,8 @@
   },
   "overrides": {
     "typescript": "$typescript"
+  },
+  "dependencies": {
+    "glob": "^13.0.6"
   }
 }
