@@ -221,6 +221,76 @@ describe('EmployeeService', () => {
     await expect(
       service.update('emp-1', { annualLeaveDays: 30 }),
     ).rejects.toThrow('Tenant admin access is required.');
+    await expect(
+      service.update('emp-1', { hiredOn: '2026-05-01' }),
+    ).rejects.toThrow('Tenant admin access is required.');
+  });
+
+  it('rejects SALES when creating an employee with hire or leave fields', async () => {
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      userId: 'sales-1',
+      email: 'sales@example.com',
+      tenantId: 'tenant-1',
+      role: 'SALES',
+    });
+
+    await expect(
+      service.create({
+        name: 'New',
+        role: EmployeeRole.OFFICE,
+        annualLeaveDays: 30,
+      }),
+    ).rejects.toThrow('Tenant admin access is required.');
+    await expect(
+      service.create({
+        name: 'New',
+        role: EmployeeRole.OFFICE,
+        hiredOn: '2026-05-01',
+      }),
+    ).rejects.toThrow('Tenant admin access is required.');
+  });
+
+  it('allows SALES to update roster fields without tenant admin access', async () => {
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      userId: 'sales-1',
+      email: 'sales@example.com',
+      tenantId: 'tenant-1',
+      role: 'SALES',
+    });
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+    mockPrisma.employee.update.mockResolvedValue({
+      ...baseEmployee,
+      name: 'Jane Updated',
+      role: EmployeeRole.OFFICE,
+      is_active: false,
+      sort_order: 2,
+      user_id: 'user-2',
+      mother_language_code: 'de',
+    });
+
+    const result = await service.update('emp-1', {
+      name: 'Jane Updated',
+      role: EmployeeRole.OFFICE,
+      isActive: false,
+      sortOrder: 2,
+      userId: 'user-2',
+      motherLanguageCode: 'de',
+    });
+
+    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
+      where: { id: 'emp-1' },
+      data: {
+        name: 'Jane Updated',
+        role: EmployeeRole.OFFICE,
+        is_active: false,
+        sort_order: 2,
+        user_id: 'user-2',
+        mother_language_code: 'de',
+      },
+    });
+    expect(result.name).toBe('Jane Updated');
+    expect(result.role).toBe(EmployeeRole.OFFICE);
+    expect(result.isActive).toBe(false);
   });
 
   it('updates an existing current-year balance with annual leave changes', async () => {
@@ -390,6 +460,28 @@ describe('EmployeeService', () => {
 
     expect(result.isActive).toBe(false);
     expect(mockPrisma.employee.update).toHaveBeenCalled();
+    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+  });
+
+  it('soft-disables active employees even when linked work records exist', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.laborEntry.count.mockResolvedValue(1);
+    mockPrisma.workshopTask.count.mockResolvedValue(1);
+    mockPrisma.workshopMedia.count.mockResolvedValue(1);
+    mockPrisma.workshopVoiceNoteDraft.count.mockResolvedValue(1);
+    mockPrisma.employee.update.mockResolvedValue({
+      ...baseEmployee,
+      is_active: false,
+    });
+
+    const result = await service.remove('emp-1');
+
+    expect(result.isActive).toBe(false);
+    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
+      where: { id: 'emp-1' },
+      data: { is_active: false },
+    });
     expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
   });
 

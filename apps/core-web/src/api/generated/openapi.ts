@@ -6763,7 +6763,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmployeeDeleteResponseDto"];
                 };
             };
-            /** @description Employee is referenced by workshop orders */
+            /** @description Employee is referenced by workshop orders, work records, or HR records */
             409: {
                 headers: {
                     [name: string]: unknown;

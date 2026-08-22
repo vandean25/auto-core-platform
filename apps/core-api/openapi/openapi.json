@@ -4968,7 +4968,7 @@
             }
           },
           "409": {
-            "description": "Employee is referenced by workshop orders"
+            "description": "Employee is referenced by workshop orders, work records, or HR records"
           }
         },
         "tags": [
