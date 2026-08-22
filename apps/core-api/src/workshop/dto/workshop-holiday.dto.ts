@@ -32,7 +32,10 @@ export class WorkshopHolidayDto {
   @ApiPropertyOptional({ nullable: true, type: String })
   closeTime!: string | null;
 
-  @ApiProperty({ enum: WorkshopHolidaySource, enumName: 'WorkshopHolidaySource' })
+  @ApiProperty({
+    enum: WorkshopHolidaySource,
+    enumName: 'WorkshopHolidaySource',
+  })
   source!: WorkshopHolidaySource;
 }
 
@@ -107,6 +110,18 @@ export class UpdateWorkshopHolidayDto {
 export class WorkshopHolidayListResponseDto {
   @ApiProperty({ type: [WorkshopHolidayDto] })
   data!: WorkshopHolidayDto[];
+}
+
+export class ListWorkshopHolidaysQueryDto {
+  @ApiPropertyOptional({ example: '2026-01-01' })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({ example: '2027-12-31' })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }
 
 export class ImportWorkshopHolidaysDto {

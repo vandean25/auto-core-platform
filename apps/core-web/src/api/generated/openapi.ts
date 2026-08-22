@@ -644,6 +644,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getSettings"];
+        put: operations["WorkshopController_updateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_listHolidays"];
+        put?: never;
+        post: operations["WorkshopController_createHoliday"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/holidays/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_importHolidays"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/holidays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["WorkshopController_deleteHoliday"];
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_updateHoliday"];
+        trace?: never;
+    };
+    "/api/workshop/planner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getPlanner"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/register": {
         parameters: {
             query?: never;
@@ -2133,6 +2213,131 @@ export interface components {
             items?: components["schemas"]["CreateSalesOrderItemDto"][];
             status?: components["schemas"]["SalesOrderStatus"];
         };
+        WorkshopOpeningHourDto: {
+            weekday: number;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime: string;
+            /** @example 17:00 */
+            closeTime: string;
+        };
+        WorkshopSettingsResponseDto: {
+            timezone: string;
+            /** @enum {number} */
+            slotMinutes: 15 | 30 | 60;
+            /** @example AT */
+            holidayCountryIso: string;
+            holidaySubdivisionCode?: string | null;
+            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
+        };
+        UpdateWorkshopSettingsDto: {
+            /** @example Europe/Vienna */
+            timezone: string;
+            /** @enum {number} */
+            slotMinutes: 15 | 30 | 60;
+            /** @example AT */
+            holidayCountryIso: string;
+            holidaySubdivisionCode?: string | null;
+            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
+        };
+        /** @enum {string} */
+        WorkshopHolidaySource: "MANUAL" | "IMPORTED";
+        WorkshopHolidayDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @example 2026-12-24 */
+            observedOn: string;
+            repeatsAnnually: boolean;
+            isClosed: boolean;
+            openTime?: string | null;
+            closeTime?: string | null;
+            source: components["schemas"]["WorkshopHolidaySource"];
+        };
+        WorkshopHolidayListResponseDto: {
+            data: components["schemas"]["WorkshopHolidayDto"][];
+        };
+        CreateWorkshopHolidayDto: {
+            name: string;
+            /** @example 2026-12-24 */
+            observedOn: string;
+            repeatsAnnually?: boolean;
+            isClosed?: boolean;
+            openTime?: string;
+            closeTime?: string;
+        };
+        ImportWorkshopHolidaysDto: {
+            /** @example AT */
+            countryIsoCode?: string;
+            subdivisionCode?: string | null;
+        };
+        ImportWorkshopHolidaysResponseDto: {
+            imported: number;
+            skipped: number;
+            yearFrom: number;
+            yearTo: number;
+        };
+        UpdateWorkshopHolidayDto: {
+            name?: string;
+            /** @example 2026-12-24 */
+            observedOn?: string;
+            repeatsAnnually?: boolean;
+            isClosed?: boolean;
+            openTime?: string | null;
+            closeTime?: string | null;
+        };
+        PlannerRangeDto: {
+            from: string;
+            to: string;
+        };
+        PlannerBayDto: {
+            id: string;
+            name: string;
+            sortOrder: number;
+        };
+        PlannerHolidayDto: {
+            /** @example 2026-10-26 */
+            date: string;
+            name: string;
+            isClosed: boolean;
+            openTime?: string | null;
+            closeTime?: string | null;
+        };
+        PlannerCustomerDto: {
+            id: string;
+            displayName: string;
+        };
+        PlannerVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            plate?: string;
+        };
+        PlannerBookingDto: {
+            orderId: string;
+            orderNumber: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            /** @enum {string} */
+            occupancyKind: "BOOKING" | "UNSCHEDULED_ON_FLOOR";
+            bayId: string;
+            mechanicId?: string | null;
+            mechanicName?: string | null;
+            scheduledStartAt: string;
+            scheduledEndAt: string;
+            customer?: components["schemas"]["PlannerCustomerDto"] | null;
+            vehicle: components["schemas"]["PlannerVehicleDto"];
+        };
+        PlannerGridResponseDto: {
+            timezone: string;
+            slotMinutes: number;
+            range: components["schemas"]["PlannerRangeDto"];
+            bays: components["schemas"]["PlannerBayDto"][];
+            openings: components["schemas"]["WorkshopOpeningHourDto"][];
+            holidays: components["schemas"]["PlannerHolidayDto"][];
+            bookings: components["schemas"]["PlannerBookingDto"][];
+        };
         RegisterIntakeDto: {
             vin: string;
             plate: string;
@@ -2158,14 +2363,23 @@ export interface components {
         };
         /** @enum {string} */
         WorkshopOrderPurpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
+        /** @enum {string} */
+        WorkshopOrderStatus: "SCHEDULED" | "INTAKE";
         CreateWorkshopOrderDto: {
             /** Format: uuid */
             customerId?: string;
             /** Format: uuid */
             vehicleId: string;
             purpose?: components["schemas"]["WorkshopOrderPurpose"];
-            odometer: number;
-            fuelLevel: number;
+            status?: components["schemas"]["WorkshopOrderStatus"];
+            /** Format: uuid */
+            bayId?: string;
+            /** Format: uuid */
+            mechanicId?: string | null;
+            scheduledStartAt?: string;
+            scheduledEndAt?: string;
+            odometer?: number;
+            fuelLevel?: number;
             reportedIssue?: string;
             notes?: string;
         };
@@ -4751,6 +4965,183 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_listHolidays: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopHolidayListResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_createHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkshopHolidayDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopHolidayDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_importHolidays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportWorkshopHolidaysDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportWorkshopHolidaysResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_deleteHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopController_updateHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopHolidayDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopHolidayDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getPlanner: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                bayId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannerGridResponseDto"];
                 };
             };
         };

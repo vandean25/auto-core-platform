@@ -83,7 +83,7 @@ describe('OpenHolidays client', () => {
         validFrom: '2026-01-01',
         validTo: '2027-12-31',
       },
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
     const assertion = expect(pending).rejects.toBeInstanceOf(
       OpenHolidaysTimeoutError,
@@ -106,7 +106,7 @@ describe('OpenHolidays client', () => {
           validFrom: '2026-01-01',
           validTo: '2027-12-31',
         },
-        fetchMock as unknown as typeof fetch,
+        fetchMock,
       ),
     ).rejects.toBeInstanceOf(OpenHolidaysUnavailableError);
   });

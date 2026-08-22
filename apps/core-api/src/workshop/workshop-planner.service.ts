@@ -84,7 +84,10 @@ export class WorkshopPlannerService {
               scheduled_start_at: null,
               scheduled_end_at: null,
               status: {
-                in: [WorkshopOrderStatus.INTAKE, WorkshopOrderStatus.IN_PROGRESS],
+                in: [
+                  WorkshopOrderStatus.INTAKE,
+                  WorkshopOrderStatus.IN_PROGRESS,
+                ],
               },
             },
           ],
@@ -111,7 +114,8 @@ export class WorkshopPlannerService {
       settings.openingHours,
     );
     const todayWindow = this.syntheticWindow(timezone, todayLocal, todayHours);
-    const rangeIntersectsToday = todayWindow.start < to && todayWindow.end > from;
+    const rangeIntersectsToday =
+      todayWindow.start < to && todayWindow.end > from;
 
     const bookings = orders.flatMap((order) => {
       if (!order.bay_id || !order.vehicle) {
@@ -149,14 +153,12 @@ export class WorkshopPlannerService {
         name: bay.name,
         sortOrder: bay.sort_order,
       })),
-      openings: settings.openingHours.map(
-        (hour): WorkshopOpeningHourDto => ({
-          weekday: hour.weekday,
-          isClosed: hour.is_closed,
-          openTime: hour.open_time,
-          closeTime: hour.close_time,
-        }),
-      ),
+      openings: settings.openingHours.map((hour): WorkshopOpeningHourDto => ({
+        weekday: hour.weekday,
+        isClosed: hour.is_closed,
+        openTime: hour.open_time,
+        closeTime: hour.close_time,
+      })),
       holidays: expandedHolidays,
       bookings,
     };
@@ -170,8 +172,7 @@ export class WorkshopPlannerService {
     const { year, month, day } = parseLocalDate(isoDate);
     const oneOff = holidays.find(
       (row) =>
-        !row.repeats_annually &&
-        formatUtcDate(row.observed_on) === isoDate,
+        !row.repeats_annually && formatUtcDate(row.observed_on) === isoDate,
     );
     const annual = holidays.find((row) => {
       if (!row.repeats_annually) {
@@ -183,7 +184,9 @@ export class WorkshopPlannerService {
           return false;
         }
       }
-      return observed.getUTCMonth() + 1 === month && observed.getUTCDate() === day;
+      return (
+        observed.getUTCMonth() + 1 === month && observed.getUTCDate() === day
+      );
     });
     const holiday = oneOff ?? annual;
     if (holiday) {

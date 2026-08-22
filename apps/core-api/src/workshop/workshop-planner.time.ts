@@ -1,4 +1,8 @@
-export function isoWeekdayFromUtcDate(year: number, month: number, day: number): number {
+export function isoWeekdayFromUtcDate(
+  year: number,
+  month: number,
+  day: number,
+): number {
   const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return jsDay === 0 ? 7 : jsDay;
 }

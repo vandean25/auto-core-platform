@@ -23,6 +23,7 @@ import {
   OpenHolidaysUnavailableError,
   fetchPublicHolidays,
   type OpenHolidaysFetch,
+  type PublicHolidayDay,
 } from './openholidays.client';
 import { isOpenWindowValid } from './workshop-hours.defaults';
 import { WorkshopSettingsService } from './workshop-settings.service';
@@ -43,6 +44,21 @@ export function toUtcDateOnly(isoDate: string): Date {
 
 export function formatUtcDateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+export function calendarDateQuery(
+  value: unknown,
+  field: string,
+): string | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (Array.isArray(value) || typeof value !== 'string') {
+    throw new BadRequestException(
+      `${field} must be a single YYYY-MM-DD string`,
+    );
+  }
+  return value.slice(0, 10);
 }
 
 export function monthDayKey(value: Date): string {
@@ -76,10 +92,14 @@ export class WorkshopHolidayService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly settingsService: WorkshopSettingsService,
-    @Inject(OPENHOLIDAYS_FETCH) private readonly openHolidaysFetch: OpenHolidaysFetch,
+    @Inject(OPENHOLIDAYS_FETCH)
+    private readonly openHolidaysFetch: OpenHolidaysFetch,
   ) {}
 
-  async listHolidays(from?: string, to?: string): Promise<{ data: WorkshopHolidayDto[] }> {
+  async listHolidays(
+    from?: string,
+    to?: string,
+  ): Promise<{ data: WorkshopHolidayDto[] }> {
     const tenantId = await this.tenantContext.getTenantId();
     const settings = await this.settingsService.getOrCreateSettings(tenantId);
     const range = this.resolveListRange(settings.timezone, from, to);
@@ -104,7 +124,9 @@ export class WorkshopHolidayService {
     return { data: rows.map((row) => this.toDto(row)) };
   }
 
-  async createHoliday(dto: CreateWorkshopHolidayDto): Promise<WorkshopHolidayDto> {
+  async createHoliday(
+    dto: CreateWorkshopHolidayDto,
+  ): Promise<WorkshopHolidayDto> {
     this.assertTenantAdminAccess();
     const isClosed = dto.isClosed ?? true;
     this.assertHolidayWindow(isClosed, dto.openTime, dto.closeTime);
@@ -150,10 +172,15 @@ export class WorkshopHolidayService {
     }
 
     const isClosed = dto.isClosed ?? existing.is_closed;
-    const openTime = dto.openTime === undefined ? existing.open_time : dto.openTime;
+    const openTime =
+      dto.openTime === undefined ? existing.open_time : dto.openTime;
     const closeTime =
       dto.closeTime === undefined ? existing.close_time : dto.closeTime;
-    this.assertHolidayWindow(isClosed, openTime ?? undefined, closeTime ?? undefined);
+    this.assertHolidayWindow(
+      isClosed,
+      openTime ?? undefined,
+      closeTime ?? undefined,
+    );
 
     const observedOn = dto.observedOn
       ? toUtcDateOnly(dto.observedOn.slice(0, 10))
@@ -206,7 +233,7 @@ export class WorkshopHolidayService {
         ? settings.holiday_subdivision_code
         : dto.subdivisionCode;
 
-    let days;
+    let days: PublicHolidayDay[];
     try {
       days = await fetchPublicHolidays(
         {
@@ -320,8 +347,10 @@ export class WorkshopHolidayService {
     from?: string,
     to?: string,
   ): { from: string; to: string } {
-    if (from && to) {
-      return { from: from.slice(0, 10), to: to.slice(0, 10) };
+    const fromDate = calendarDateQuery(from, 'from');
+    const toDate = calendarDateQuery(to, 'to');
+    if (fromDate && toDate) {
+      return { from: fromDate, to: toDate };
     }
     const year = this.calendarYear(timeZone);
     return { from: `${year}-01-01`, to: `${year + 1}-12-31` };

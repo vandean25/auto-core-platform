@@ -1,7 +1,8 @@
 export const OPENHOLIDAYS_FETCH = 'OPENHOLIDAYS_FETCH';
 export type OpenHolidaysFetch = typeof fetch;
 
-export const OPENHOLIDAYS_BASE_URL = 'https://openholidaysapi.org/PublicHolidays';
+export const OPENHOLIDAYS_BASE_URL =
+  'https://openholidaysapi.org/PublicHolidays';
 export const OPENHOLIDAYS_TIMEOUT_MS = 3000;
 
 export class OpenHolidaysTimeoutError extends Error {

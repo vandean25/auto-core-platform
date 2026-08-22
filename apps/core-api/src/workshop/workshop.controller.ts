@@ -50,12 +50,14 @@ import {
   CreateWorkshopHolidayDto,
   ImportWorkshopHolidaysDto,
   ImportWorkshopHolidaysResponseDto,
+  ListWorkshopHolidaysQueryDto,
   UpdateWorkshopHolidayDto,
   WorkshopHolidayDto,
   WorkshopHolidayListResponseDto,
 } from './dto/workshop-holiday.dto';
 import {
   PlannerGridResponseDto,
+  PlannerQueryDto,
 } from './dto/workshop-planner.dto';
 import {
   UpdateWorkshopSettingsDto,
@@ -98,11 +100,9 @@ export class WorkshopController {
   }
 
   @Get('holidays')
-  @ApiQuery({ name: 'from', required: false, schema: { type: 'string' } })
-  @ApiQuery({ name: 'to', required: false, schema: { type: 'string' } })
   @ApiOkResponse({ type: WorkshopHolidayListResponseDto })
-  listHolidays(@Query('from') from?: string, @Query('to') to?: string) {
-    return this.holidayService.listHolidays(from, to);
+  listHolidays(@Query() query: ListWorkshopHolidaysQueryDto) {
+    return this.holidayService.listHolidays(query.from, query.to);
   }
 
   @Post('holidays')
@@ -134,16 +134,9 @@ export class WorkshopController {
   }
 
   @Get('planner')
-  @ApiQuery({ name: 'from', required: true, schema: { type: 'string' } })
-  @ApiQuery({ name: 'to', required: true, schema: { type: 'string' } })
-  @ApiQuery({ name: 'bayId', required: false, schema: { type: 'string' } })
   @ApiOkResponse({ type: PlannerGridResponseDto })
-  getPlanner(
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('bayId') bayId?: string,
-  ) {
-    return this.plannerService.getPlanner({ from: from ?? '', to: to ?? '', bayId });
+  getPlanner(@Query() query: PlannerQueryDto) {
+    return this.plannerService.getPlanner(query);
   }
 
   @Post('register')

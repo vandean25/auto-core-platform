@@ -158,6 +158,41 @@ describe('WorkshopHolidayService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('lists holidays for an explicit from/to window', async () => {
+    mockPrisma.workshopHoliday.findMany.mockResolvedValue([]);
+
+    await service.listHolidays('2026-01-01', '2027-12-31');
+
+    expect(mockPrisma.workshopHoliday.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              repeats_annually: false,
+              observed_on: {
+                gte: new Date('2026-01-01T00:00:00.000Z'),
+                lte: new Date('2027-12-31T00:00:00.000Z'),
+              },
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('rejects array from/to query values', async () => {
+    await expect(
+      service.listHolidays(
+        ['2026-01-01', '2026-06-01'] as unknown as string,
+        '2026-12-31',
+      ),
+    ).rejects.toMatchObject({
+      message: 'from must be a single YYYY-MM-DD string',
+    });
+    expect(mockPrisma.workshopHoliday.findMany).not.toHaveBeenCalled();
+  });
+
   it('deletes a holiday for this tenant', async () => {
     mockPrisma.workshopHoliday.deleteMany.mockResolvedValue({ count: 1 });
 

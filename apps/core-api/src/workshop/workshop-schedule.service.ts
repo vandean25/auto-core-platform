@@ -4,15 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  EmployeeRole,
-  WorkshopOrderStatus,
-  type Prisma,
-} from '@prisma/client';
+import { EmployeeRole, WorkshopOrderStatus, type Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
-import { formatLocalDate, zonedWallClockToUtc, parseHhMm, parseLocalDate } from './workshop-planner.time';
+import {
+  formatLocalDate,
+  zonedWallClockToUtc,
+  parseHhMm,
+  parseLocalDate,
+} from './workshop-planner.time';
 import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 
@@ -54,8 +55,14 @@ export class WorkshopScheduleService {
 
     const start = new Date(dto.scheduledStartAt);
     const end = new Date(dto.scheduledEndAt);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      throw new BadRequestException('scheduledEndAt must be after scheduledStartAt');
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime()) ||
+      end <= start
+    ) {
+      throw new BadRequestException(
+        'scheduledEndAt must be after scheduledStartAt',
+      );
     }
 
     const tenantId = await this.tenantContext.getTenantId();
@@ -67,7 +74,7 @@ export class WorkshopScheduleService {
       throw new NotFoundException(`Bay ${dto.bayId} not found`);
     }
 
-    let mechanicId: string | null = dto.mechanicId ?? null;
+    const mechanicId: string | null = dto.mechanicId ?? null;
     if (mechanicId) {
       const mechanic = await db.employee.findFirst({
         where: {
@@ -78,7 +85,9 @@ export class WorkshopScheduleService {
         },
       });
       if (!mechanic) {
-        throw new BadRequestException('Mechanic must be an active MECHANIC employee');
+        throw new BadRequestException(
+          'Mechanic must be an active MECHANIC employee',
+        );
       }
     }
 
@@ -118,7 +127,9 @@ export class WorkshopScheduleService {
       },
     });
 
-    const settings = await this.settingsService.getOrCreateSettings(input.tenantId);
+    const settings = await this.settingsService.getOrCreateSettings(
+      input.tenantId,
+    );
     const holidays = await input.db.workshopHoliday.findMany({
       where: { tenant_id: input.tenantId },
     });
@@ -129,29 +140,44 @@ export class WorkshopScheduleService {
       settings.openingHours,
     );
     const { year, month, day } = parseLocalDate(todayLocal);
-    const todayWindow = todayHours.isClosed || !todayHours.openTime || !todayHours.closeTime
-      ? {
-          start: zonedWallClockToUtc(settings.timezone, year, month, day, 0, 0),
-          end: zonedWallClockToUtc(settings.timezone, year, month, day + 1, 0, 0),
-        }
-      : {
-          start: zonedWallClockToUtc(
-            settings.timezone,
-            year,
-            month,
-            day,
-            parseHhMm(todayHours.openTime).hour,
-            parseHhMm(todayHours.openTime).minute,
-          ),
-          end: zonedWallClockToUtc(
-            settings.timezone,
-            year,
-            month,
-            day,
-            parseHhMm(todayHours.closeTime).hour,
-            parseHhMm(todayHours.closeTime).minute,
-          ),
-        };
+    const todayWindow =
+      todayHours.isClosed || !todayHours.openTime || !todayHours.closeTime
+        ? {
+            start: zonedWallClockToUtc(
+              settings.timezone,
+              year,
+              month,
+              day,
+              0,
+              0,
+            ),
+            end: zonedWallClockToUtc(
+              settings.timezone,
+              year,
+              month,
+              day + 1,
+              0,
+              0,
+            ),
+          }
+        : {
+            start: zonedWallClockToUtc(
+              settings.timezone,
+              year,
+              month,
+              day,
+              parseHhMm(todayHours.openTime).hour,
+              parseHhMm(todayHours.openTime).minute,
+            ),
+            end: zonedWallClockToUtc(
+              settings.timezone,
+              year,
+              month,
+              day,
+              parseHhMm(todayHours.closeTime).hour,
+              parseHhMm(todayHours.closeTime).minute,
+            ),
+          };
 
     for (const order of occupying) {
       const window =

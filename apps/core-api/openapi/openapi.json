@@ -2279,6 +2279,264 @@
         ]
       }
     },
+    "/api/workshop/settings": {
+      "get": {
+        "operationId": "WorkshopController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "put": {
+        "operationId": "WorkshopController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/holidays": {
+      "get": {
+        "operationId": "WorkshopController_listHolidays",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-01-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2027-12-31",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopHolidayListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "post": {
+        "operationId": "WorkshopController_createHoliday",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkshopHolidayDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopHolidayDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/holidays/import": {
+      "post": {
+        "operationId": "WorkshopController_importHolidays",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportWorkshopHolidaysDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportWorkshopHolidaysResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/holidays/{id}": {
+      "patch": {
+        "operationId": "WorkshopController_updateHoliday",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopHolidayDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopHolidayDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "delete": {
+        "operationId": "WorkshopController_deleteHoliday",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/planner": {
+      "get": {
+        "operationId": "WorkshopController_getPlanner",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bayId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerGridResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/register": {
       "post": {
         "operationId": "WorkshopController_register",
@@ -7574,6 +7832,479 @@
           }
         }
       },
+      "WorkshopOpeningHourDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "example": "17:00"
+          }
+        },
+        "required": [
+          "weekday",
+          "isClosed",
+          "openTime",
+          "closeTime"
+        ]
+      },
+      "WorkshopSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              60
+            ]
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "slotMinutes",
+          "holidayCountryIso",
+          "openingHours"
+        ]
+      },
+      "UpdateWorkshopSettingsDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              60
+            ]
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "slotMinutes",
+          "holidayCountryIso",
+          "openingHours"
+        ]
+      },
+      "WorkshopHolidaySource": {
+        "type": "string",
+        "enum": [
+          "MANUAL",
+          "IMPORTED"
+        ]
+      },
+      "WorkshopHolidayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "observedOn": {
+            "type": "string",
+            "example": "2026-12-24"
+          },
+          "repeatsAnnually": {
+            "type": "boolean"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "closeTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopHolidaySource"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "observedOn",
+          "repeatsAnnually",
+          "isClosed",
+          "source"
+        ]
+      },
+      "WorkshopHolidayListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopHolidayDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateWorkshopHolidayDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "observedOn": {
+            "type": "string",
+            "example": "2026-12-24"
+          },
+          "repeatsAnnually": {
+            "type": "boolean"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string"
+          },
+          "closeTime": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "observedOn"
+        ]
+      },
+      "ImportWorkshopHolidaysDto": {
+        "type": "object",
+        "properties": {
+          "countryIsoCode": {
+            "type": "string",
+            "example": "AT"
+          },
+          "subdivisionCode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ImportWorkshopHolidaysResponseDto": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "number"
+          },
+          "skipped": {
+            "type": "number"
+          },
+          "yearFrom": {
+            "type": "number"
+          },
+          "yearTo": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "imported",
+          "skipped",
+          "yearFrom",
+          "yearTo"
+        ]
+      },
+      "UpdateWorkshopHolidayDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "observedOn": {
+            "type": "string",
+            "example": "2026-12-24"
+          },
+          "repeatsAnnually": {
+            "type": "boolean"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "closeTime": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PlannerRangeDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "PlannerBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sortOrder"
+        ]
+      },
+      "PlannerHolidayDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-10-26"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "closeTime": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "date",
+          "name",
+          "isClosed"
+        ]
+      },
+      "PlannerCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName"
+        ]
+      },
+      "PlannerVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "plate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year"
+        ]
+      },
+      "PlannerBookingDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "INTAKE",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "INVOICED"
+            ]
+          },
+          "occupancyKind": {
+            "type": "string",
+            "enum": [
+              "BOOKING",
+              "UNSCHEDULED_ON_FLOOR"
+            ]
+          },
+          "bayId": {
+            "type": "string"
+          },
+          "mechanicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mechanicName": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduledStartAt": {
+            "type": "string"
+          },
+          "scheduledEndAt": {
+            "type": "string"
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlannerCustomerDto"
+              }
+            ]
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/PlannerVehicleDto"
+          }
+        },
+        "required": [
+          "orderId",
+          "orderNumber",
+          "status",
+          "occupancyKind",
+          "bayId",
+          "scheduledStartAt",
+          "scheduledEndAt",
+          "vehicle"
+        ]
+      },
+      "PlannerGridResponseDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          },
+          "slotMinutes": {
+            "type": "number"
+          },
+          "range": {
+            "$ref": "#/components/schemas/PlannerRangeDto"
+          },
+          "bays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannerBayDto"
+            }
+          },
+          "openings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
+            }
+          },
+          "holidays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannerHolidayDto"
+            }
+          },
+          "bookings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannerBookingDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "slotMinutes",
+          "range",
+          "bays",
+          "openings",
+          "holidays",
+          "bookings"
+        ]
+      },
       "RegisterIntakeDto": {
         "type": "object",
         "properties": {
@@ -7671,6 +8402,13 @@
           "STOCK_PREP"
         ]
       },
+      "WorkshopOrderStatus": {
+        "type": "string",
+        "enum": [
+          "SCHEDULED",
+          "INTAKE"
+        ]
+      },
       "CreateWorkshopOrderDto": {
         "type": "object",
         "properties": {
@@ -7689,6 +8427,28 @@
               }
             ]
           },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopOrderStatus"
+              }
+            ]
+          },
+          "bayId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mechanicId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "scheduledStartAt": {
+            "type": "string"
+          },
+          "scheduledEndAt": {
+            "type": "string"
+          },
           "odometer": {
             "type": "number"
           },
@@ -7703,9 +8463,7 @@
           }
         },
         "required": [
-          "vehicleId",
-          "odometer",
-          "fuelLevel"
+          "vehicleId"
         ]
       },
       "WorkshopCustomerSummaryDto": {

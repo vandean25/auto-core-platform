@@ -33,6 +33,11 @@ export function isValidHhMm(value: string): boolean {
   return HH_MM.test(value);
 }
 
-export function isOpenWindowValid(openTime: string, closeTime: string): boolean {
-  return isValidHhMm(openTime) && isValidHhMm(closeTime) && closeTime > openTime;
+export function isOpenWindowValid(
+  openTime: string,
+  closeTime: string,
+): boolean {
+  return (
+    isValidHhMm(openTime) && isValidHhMm(closeTime) && closeTime > openTime
+  );
 }

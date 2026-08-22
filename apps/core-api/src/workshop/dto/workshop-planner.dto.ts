@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WorkshopOrderStatus } from '@prisma/client';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { WorkshopOpeningHourDto } from './workshop-settings.dto';
 
 export class PlannerRangeDto {
@@ -122,7 +123,18 @@ export class PlannerGridResponseDto {
 }
 
 export class PlannerQueryDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   from!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
   to!: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
   bayId?: string;
 }
