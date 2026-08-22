@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { formatLocalDate } from '../workshop/workshop-planner.time';
 import { EmployeeService } from './employee.service';
 
 const mockPrisma = {
@@ -215,8 +216,11 @@ describe('EmployeeService', () => {
 
     await service.update('emp-1', { annualLeaveDays: 30 });
 
+    const currentYear = Number(
+      formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
+    );
     expect(mockPrisma.employeeLeaveBalance.updateMany).toHaveBeenCalledWith({
-      where: { employee_id: 'emp-1', year: 2026 },
+      where: { employee_id: 'emp-1', year: currentYear },
       data: { allowance_days: 30 },
     });
   });
