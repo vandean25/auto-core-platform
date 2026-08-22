@@ -354,7 +354,10 @@ export class WorkshopPickPartsService {
         .map((i) => i.sourceLocationId)
         .filter(Boolean) as string[];
 
-      const preFetchedLocations = new Map<string, any>();
+      const preFetchedLocations = new Map<
+        string,
+        { id: string; type: string; deletedAt: Date | null }
+      >();
       if (requestedSourceLocationIds.length > 0) {
         const locations = await tx.storageLocation.findMany({
           where: {
