@@ -205,14 +205,13 @@ export class EmployeeService {
       return { id: updated.id, isActive: updated.is_active };
     }
 
-    const [attendanceEvents, leaveRequests, leaveBalances] =
-      await Promise.all([
-        this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
-        this.prisma.leaveRequest.count({ where: { employee_id: id } }),
-        this.prisma.employeeLeaveBalance.count({
-          where: { employee_id: id },
-        }),
-      ]);
+    const [attendanceEvents, leaveRequests, leaveBalances] = await Promise.all([
+      this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
+      this.prisma.leaveRequest.count({ where: { employee_id: id } }),
+      this.prisma.employeeLeaveBalance.count({
+        where: { employee_id: id },
+      }),
+    ]);
     if (attendanceEvents > 0 || leaveRequests > 0 || leaveBalances > 0) {
       throw new ConflictException(
         'Cannot delete employee with attendance, leave, or balance records',
