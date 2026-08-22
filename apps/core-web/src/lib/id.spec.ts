@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { generateId } from './id'
 
 describe('generateId', () => {
-  let originalRandomUUID: any;
+  let originalRandomUUID: typeof crypto.randomUUID | undefined;
 
   beforeEach(() => {
     // Save the original randomUUID function
