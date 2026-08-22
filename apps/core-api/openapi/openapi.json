@@ -5609,6 +5609,165 @@
           "Audit Logs"
         ]
       }
+    },
+    "/api/hr/me": {
+      "get": {
+        "operationId": "HrController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrMeResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get current linked employee profile and attendance state",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/me/clock": {
+      "get": {
+        "operationId": "HrController_clock",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get current attendance clock state and today events",
+        "tags": [
+          "HR"
+        ]
+      },
+      "post": {
+        "operationId": "HrController_punch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PunchClockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PunchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Punch attendance clock (Come to work, Pause, Doctor, Go home)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/attendance": {
+      "get": {
+        "operationId": "HrController_getAttendance",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-22",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttendanceEventResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get team attendance event log for date range (OWNER/ADMIN only, max 31 days)",
+        "tags": [
+          "HR"
+        ]
+      },
+      "post": {
+        "operationId": "HrController_punchEmployee",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHrAttendanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PunchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Punch attendance or create correction for employee (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      }
     }
   },
   "info": {
@@ -12145,6 +12304,230 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "HrMeEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EmployeeRole"
+              }
+            ]
+          },
+          "hiredOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "annualLeaveDays": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "annualLeaveDays"
+        ]
+      },
+      "AttendanceState": {
+        "type": "string",
+        "enum": [
+          "CLOCKED_OUT",
+          "CLOCKED_IN",
+          "PAUSED",
+          "AT_DOCTOR"
+        ]
+      },
+      "HrMeResponseDto": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/HrMeEmployeeDto"
+          },
+          "clockState": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceState"
+              }
+            ]
+          },
+          "remainingLeaveDays": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "employee",
+          "clockState",
+          "remainingLeaveDays"
+        ]
+      },
+      "AttendanceEventType": {
+        "type": "string",
+        "enum": [
+          "CLOCK_IN",
+          "PAUSE",
+          "DOCTOR",
+          "CLOCK_OUT"
+        ]
+      },
+      "AttendanceEventSource": {
+        "type": "string",
+        "enum": [
+          "SELF",
+          "MANAGER",
+          "AUTO_SHIFT_CLOSE"
+        ]
+      },
+      "AttendanceEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceEventType"
+              }
+            ]
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceEventSource"
+              }
+            ]
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "type",
+          "source",
+          "occurredAt",
+          "createdAt"
+        ]
+      },
+      "ClockResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceState"
+              }
+            ]
+          },
+          "lastEvent": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceEventResponseDto"
+              }
+            ]
+          },
+          "todayEvents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttendanceEventResponseDto"
+            }
+          }
+        },
+        "required": [
+          "state",
+          "todayEvents"
+        ]
+      },
+      "PunchClockDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceEventType"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "PunchResponseDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceState"
+              }
+            ]
+          },
+          "event": {
+            "$ref": "#/components/schemas/AttendanceEventResponseDto"
+          }
+        },
+        "required": [
+          "state",
+          "event"
+        ]
+      },
+      "CreateHrAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceEventType"
+              }
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "employeeId",
+          "type"
         ]
       }
     }
