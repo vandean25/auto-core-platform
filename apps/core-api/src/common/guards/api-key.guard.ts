@@ -39,12 +39,12 @@ export class ApiKeyGuard implements CanActivate {
     const providedHeader = Array.isArray(apiKey) ? apiKey[0] : apiKey;
     const providedKey =
       typeof providedHeader === 'string' ? providedHeader : '';
-    // codeql[js/insecure-password-hashing] - false positive: we are hashing an API key for constant-time comparison, not storing a password
+    // lgtm [js/insecure-password-hashing]
     const expectedHash = crypto
       .createHash('sha256')
       .update(validApiKey)
       .digest();
-    // codeql[js/insecure-password-hashing] - false positive: hashing an API key for comparison
+    // lgtm [js/insecure-password-hashing]
     const providedHash = crypto
       .createHash('sha256')
       .update(providedKey)
