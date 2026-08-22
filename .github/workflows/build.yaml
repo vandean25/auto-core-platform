@@ -244,6 +244,9 @@ jobs:
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
+      - name: Verify tenant restore manifest
+        run: npm run tenant-restore:verify
+
       - name: Lint Prisma tenant isolation invariants
         run: npm run lint:prisma-tenant --workspace=core-api
 
