@@ -164,12 +164,12 @@ export default function WorkshopBoard() {
     return [...mechanicTargets, ...bayTargets]
   }, [resourcesData])
 
-  const resources =
+  const resources = React.useMemo(() =>
     viewMode === 'mechanic'
       ? (resourcesData?.mechanics ?? [])
-      : (resourcesData?.bays ?? [])
+      : (resourcesData?.bays ?? []), [resourcesData, viewMode])
 
-  const orders = boardData?.data ?? []
+  const orders = React.useMemo(() => boardData?.data ?? [], [boardData])
 
   // Build columns: resource columns + always-present Unassigned
   const columns = React.useMemo(() => {
