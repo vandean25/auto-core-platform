@@ -1,10 +1,4 @@
-﻿import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Query,
-} from '@nestjs/common';
+﻿import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
 import {

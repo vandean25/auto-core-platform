@@ -229,9 +229,7 @@ export class HrAttendanceService {
         id: me.id,
         name: me.name,
         role: me.role,
-        hiredOn: me.hired_on
-          ? formatLocalDate(me.hired_on, 'UTC')
-          : null,
+        hiredOn: me.hired_on ? formatLocalDate(me.hired_on, 'UTC') : null,
         annualLeaveDays: me.annual_leave_days,
       },
       clockState,
@@ -246,7 +244,11 @@ export class HrAttendanceService {
     const tenantId = await this.tenantContext.getTenantId();
     const timezone = await this.getTenantTimezone(tenantId);
 
-    const { year: fromY, month: fromM, day: fromD } = parseLocalDate(query.from);
+    const {
+      year: fromY,
+      month: fromM,
+      day: fromD,
+    } = parseLocalDate(query.from);
     const { year: toY, month: toM, day: toD } = parseLocalDate(query.to);
 
     const startUtcGuess = Date.UTC(fromY, fromM - 1, fromD);
@@ -265,14 +267,7 @@ export class HrAttendanceService {
     }
 
     const rangeStart = zonedWallClockToUtc(timezone, fromY, fromM, fromD, 0, 0);
-    const nextToStart = zonedWallClockToUtc(
-      timezone,
-      toY,
-      toM,
-      toD + 1,
-      0,
-      0,
-    );
+    const nextToStart = zonedWallClockToUtc(timezone, toY, toM, toD + 1, 0, 0);
     const rangeEnd = new Date(nextToStart.getTime() - 1);
 
     const events = await this.prisma.attendanceEvent.findMany({
@@ -290,9 +285,7 @@ export class HrAttendanceService {
     return events.map(mapAttendanceEvent);
   }
 
-  async punchEmployee(
-    dto: CreateHrAttendanceDto,
-  ): Promise<PunchResponseDto> {
+  async punchEmployee(dto: CreateHrAttendanceDto): Promise<PunchResponseDto> {
     this.identity.assertOwnerAdmin();
     const tenantId = await this.tenantContext.getTenantId();
 

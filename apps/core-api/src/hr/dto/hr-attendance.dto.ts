@@ -1,6 +1,12 @@
-﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AttendanceEventType } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class QueryHrAttendanceDto {
   @ApiProperty({ type: String, format: 'date', example: '2026-08-01' })
@@ -31,7 +37,7 @@ export class CreateHrAttendanceDto {
   @IsDateString()
   occurredAt?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String })
   @IsOptional()
   @IsString()
   note?: string;

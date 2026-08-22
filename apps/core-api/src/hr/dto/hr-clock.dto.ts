@@ -1,4 +1,4 @@
-﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   AttendanceEventSource,
   AttendanceEventType,
@@ -20,7 +20,7 @@ export class PunchClockDto {
   @IsEnum(AttendanceEventType)
   type!: AttendanceEventType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String })
   @IsOptional()
   @IsString()
   note?: string;
@@ -45,7 +45,7 @@ export class AttendanceEventResponseDto {
   @ApiProperty()
   occurredAt!: Date;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   note!: string | null;
 
   @ApiProperty()
