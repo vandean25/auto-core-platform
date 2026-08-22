@@ -25,5 +25,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0017 | Shared TypeScript 5.9 Major Across core-api and core-web | Accepted | 2026-08-18 | [2026-08-18-typescript-5-9-shared-major.md](2026-08-18-typescript-5-9-shared-major.md) |
 | ADR-0018 | Workshop Planner Kanban Board (Real-Time Drag & Drop) | Proposed | 2026-04-18 | [2026-04-18-workshop-planner-kanban-board.md](2026-04-18-workshop-planner-kanban-board.md) |
 | ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Proposed | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
+| ADR-0020 | HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday) | Proposed | 2026-08-22 | [2026-08-22-hr-time-and-leave.md](2026-08-22-hr-time-and-leave.md) |
 
-Next free number: **ADR-0020**.
+Next free number: **ADR-0021**.

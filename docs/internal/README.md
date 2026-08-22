@@ -18,7 +18,8 @@ docs/internal/
 │   ├── Brand/
 │   ├── Vehicle/
 │   ├── Labor/
-│   └── Dashboard/
+│   ├── Dashboard/
+│   └── HR/
 ├── 03-Component-Specs/    ← Shared UI & backend component docs
 ├── 04-Database/           ← Schema docs, migration notes, ERDs
 ├── 05-Runbooks/           ← Operational playbooks & checklists
