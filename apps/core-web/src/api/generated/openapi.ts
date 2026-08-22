@@ -3263,6 +3263,10 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays: number;
+            remainingLeaveDays: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -3293,6 +3297,9 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays?: number;
         };
         UpdateEmployeeDto: {
             name?: string;
@@ -3309,6 +3316,9 @@ export interface components {
              * @example pl-PL
              */
             motherLanguageCode?: string | null;
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays?: number;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */

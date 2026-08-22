@@ -11297,6 +11297,17 @@
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "example": "pl-PL"
           },
+          "hiredOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "annualLeaveDays": {
+            "type": "number"
+          },
+          "remainingLeaveDays": {
+            "type": "number"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -11312,6 +11323,8 @@
           "role",
           "isActive",
           "sortOrder",
+          "annualLeaveDays",
+          "remainingLeaveDays",
           "createdAt",
           "updatedAt"
         ]
@@ -11388,6 +11401,16 @@
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "nullable": true,
             "example": "pl-PL"
+          },
+          "hiredOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365
           }
         },
         "required": [
@@ -11426,6 +11449,16 @@
             "description": "Preferred source language for this employee voice notes (BCP-47).",
             "nullable": true,
             "example": "pl-PL"
+          },
+          "hiredOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365
           }
         }
       },
