@@ -54,7 +54,12 @@ export function useCreatePO() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create PO");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to create PO" }));
+        throw new Error(error.message || "Failed to create PO");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -67,11 +72,13 @@ export function usePurchaseOrder(id: string) {
   return useQuery({
     queryKey: purchaseOrderKeys.detail(id),
     queryFn: async () => {
-      // The endpoint isn't explicitly defined in my previous view_file of controller, but usually we need one.
-      // I see `receiveItems` uses `:id/receive`.
-      // I should probably add `@Get(':id')` to backend too.
       const res = await fetchWithAuth(`${PO_API}/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch PO");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to fetch PO" }));
+        throw new Error(error.message || "Failed to fetch PO");
+      }
       return res.json() as Promise<PurchaseOrder>;
     },
     enabled: !!id,
@@ -115,7 +122,12 @@ export function useReceiveGoods() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
       });
-      if (!res.ok) throw new Error("Failed to receive goods");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to receive goods" }));
+        throw new Error(error.message || "Failed to receive goods");
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
@@ -140,9 +152,14 @@ export function useAddPOItems() {
       const res = await fetchWithAuth(`${PO_API}/${orderId}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(items),
+        body: JSON.stringify({ items }),
       });
-      if (!res.ok) throw new Error("Failed to add items to PO");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to add items to PO" }));
+        throw new Error(error.message || "Failed to add items to PO");
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
@@ -171,7 +188,12 @@ export function useUpdatePOItem() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error("Failed to update PO item");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to update PO item" }));
+        throw new Error(error.message || "Failed to update PO item");
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
@@ -196,7 +218,12 @@ export function useDeletePOItem() {
       const res = await fetchWithAuth(`${PO_API}/${orderId}/items/${itemId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete PO item");
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ message: "Failed to delete PO item" }));
+        throw new Error(error.message || "Failed to delete PO item");
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
