@@ -11,7 +11,6 @@ const LEFTOVER_ENTRYPOINTS = [
   'scripts/fix-syntax.cjs',
   'scripts/fix-syntax2.cjs',
   'scripts/migrate-auth.mjs',
-  'scripts/migrate-auth-v2.mjs',
   'test/sales-order-repro.e2e-spec.ts',
 ] as const;
 
