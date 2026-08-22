@@ -39,6 +39,7 @@ function parseModels(schema) {
     const [, name, body] = match;
     const fields = new Map();
     const relations = [];
+    let keyFields = [];
     let table = name;
 
     for (const rawLine of body.split('\n')) {
@@ -48,6 +49,12 @@ function parseModels(schema) {
       const mapMatch = line.match(/^@@map\("([^"]+)"\)/);
       if (mapMatch) {
         table = mapMatch[1];
+        continue;
+      }
+
+      const idMatch = line.match(/^@@id\(\[([^\]]+)\]/);
+      if (idMatch) {
+        keyFields = parseList(idMatch[1]);
         continue;
       }
 
@@ -64,6 +71,7 @@ function parseModels(schema) {
       fields.set(field, {
         dbField,
         nullable: modifier === '?' || type.endsWith('?'),
+        primaryKey: attributes.includes('@id'),
       });
 
       const relationMatch = attributes.match(/@relation\((.*)\)/);
@@ -89,7 +97,13 @@ function parseModels(schema) {
       });
     }
 
-    models.push({ name, table, fields, relations });
+    if (keyFields.length === 0) {
+      keyFields = [...fields.entries()]
+        .filter(([, field]) => field.primaryKey)
+        .map(([field]) => field);
+    }
+
+    models.push({ name, table, fields, relations, keyFields });
   }
 
   return models;
@@ -293,6 +307,7 @@ function selfReferences(models, selectedModels) {
       return {
         table: model.table,
         columns,
+        keyColumns: dbFields(model, model.keyFields),
         nullable,
       };
     })
@@ -475,14 +490,26 @@ function renderScopeCondition(definition) {
     .join('\n  AND ');
 }
 
-export function renderExportQuery(definition) {
+export function renderExportQuery(
+  definition,
+  { columns = null, nullColumns = [] } = {},
+) {
   const exportTenantCondition = (alias) =>
     `${alias ? `${alias}.` : ''}${quoteIdentifier(
       'tenant_id',
     )} = :'target_tenant_id'`;
+  const projection = columns
+    ? columns
+        .map((column) =>
+          nullColumns.includes(column)
+            ? `NULL AS ${quoteIdentifier(column)}`
+            : quoteIdentifier(column),
+        )
+        .join(', ')
+    : '*';
 
   if (definition.kind === 'tenant') {
-    return `COPY (SELECT * FROM ${publicTable(
+    return `COPY (SELECT ${projection} FROM ${publicTable(
       definition.table,
     )} WHERE ${exportTenantCondition('')}) TO STDOUT WITH (FORMAT csv);`;
   }
@@ -506,7 +533,17 @@ export function renderExportQuery(definition) {
     })
     .join('\n  AND ');
 
-  return `COPY (SELECT child.* FROM ${publicTable(
+  return `COPY (SELECT ${
+    columns
+      ? columns
+          .map((column) =>
+            nullColumns.includes(column)
+              ? `NULL AS ${quoteIdentifier(column)}`
+              : `child.${quoteIdentifier(column)}`,
+          )
+          .join(', ')
+      : 'child.*'
+  } FROM ${publicTable(
     definition.table,
   )} AS child WHERE ${scope}) TO STDOUT WITH (FORMAT csv);`;
 }

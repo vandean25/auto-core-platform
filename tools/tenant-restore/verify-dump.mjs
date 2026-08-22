@@ -44,11 +44,26 @@ export function validateTenantDump(content, tenantId, manifest) {
       continue;
     }
 
+    if (
+      /^CREATE TEMP TABLE pg_temp\."[^"]+" AS SELECT .+ FROM public\."[^"]+" WITH NO DATA;$/.test(
+        line,
+      ) ||
+      /^UPDATE public\."[^"]+" AS target SET .+ FROM pg_temp\."[^"]+" AS stage WHERE .+;$/.test(
+        line,
+      )
+    ) {
+      continue;
+    }
+
     const copyMatch = line.match(
-      /^COPY public\."([^"]+)" \(.+\) FROM STDIN WITH \(FORMAT csv\);$/,
+      /^COPY (public|pg_temp)\."([^"]+)" \(.+\) FROM STDIN WITH \(FORMAT csv\);$/,
     );
     if (copyMatch) {
-      const [, table] = copyMatch;
+      const [, schema, table] = copyMatch;
+      if (schema === 'pg_temp') {
+        inCopy = true;
+        continue;
+      }
       if (!manifest.tables.includes(table)) {
         throw new Error(`unexpected dump table: ${table}`);
       }

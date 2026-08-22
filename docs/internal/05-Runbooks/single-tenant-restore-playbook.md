@@ -5,9 +5,9 @@
 **Related Issues**: AUT-72, AUT-154
 **Related ADR**: [ADR-0013 (Row-Level Multi-Tenancy)](../01-ADR/2026-04-15-row-level-multi-tenancy.md)
 
-## Status (as of AUT-171) — not productized
+## Status (as of AUT-171) - not productized
 
-**Do not run this playbook against production.** Draft scripts exist under `tools/tenant-restore/` but they have never been drilled, they do not cover the current schema, and they are not a supported restore path.
+**Do not run this playbook against production.** Draft scripts exist under `tools/tenant-restore/` but they have never been drilled on Neon and are not a supported restore path.
 
 | Claim in older drafts | Reality |
 | --- | --- |

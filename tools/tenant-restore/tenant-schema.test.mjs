@@ -137,6 +137,7 @@ test('includes nullable self-references as pre-delete nullifications', () => {
     {
       table: 'categories',
       columns: ['parent_id'],
+      keyColumns: ['id'],
       nullable: true,
     },
   ]);
@@ -233,6 +234,46 @@ test('renders filtered COPY queries instead of pg_dump commands', () => {
     renderExportQuery(manifest.definitions[1]),
     /parent_0\."tenant_id" = :'target_tenant_id'/,
   );
+});
+
+test('exports self-FKs in two passes with null-first rows and key staging', () => {
+  const schema = `
+    model Tenant {
+      id String @id
+      categories Category[]
+      @@map("tenants")
+    }
+
+    model Category {
+      id String @id
+      tenant_id String
+      tenant Tenant @relation(fields: [tenant_id], references: [id])
+      parent_id String?
+      parent Category? @relation("CategoryTree", fields: [parent_id], references: [id])
+      children Category[] @relation("CategoryTree")
+      @@map("categories")
+    }
+  `;
+  const manifest = buildTenantRestoreManifest(schema);
+  const category = manifest.definitions.find(
+    (definition) => definition.table === 'categories',
+  );
+
+  assert.match(
+    renderExportQuery(category, {
+      columns: ['id', 'tenant_id', 'parent_id'],
+      nullColumns: ['parent_id'],
+    }),
+    /SELECT "id", "tenant_id", NULL AS "parent_id" FROM public\."categories"/,
+  );
+  assert.deepEqual(manifest.selfReferences, [
+    {
+      table: 'categories',
+      columns: ['parent_id'],
+      keyColumns: ['id'],
+      nullable: true,
+    },
+  ]);
 });
 
 test('keeps runtime schema-check temp tables alive for the full check', () => {
