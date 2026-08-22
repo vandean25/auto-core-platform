@@ -100,6 +100,7 @@ describe('createSystemPrismaTransactionClient', () => {
     platformAdmin: { findFirst: jest.fn() },
     laborEntry: { findMany: jest.fn() },
     financeSettings: { create: jest.fn() },
+    attendanceEvent: { findMany: jest.fn() },
     customer: { findMany: jest.fn() },
     vehicle: { findMany: jest.fn() },
   };
@@ -111,6 +112,7 @@ describe('createSystemPrismaTransactionClient', () => {
     expect(tx.tenant).toBe(fakeClient.tenant);
     expect(tx.laborEntry).toBe(fakeClient.laborEntry);
     expect(tx.financeSettings).toBe(fakeClient.financeSettings);
+    expect(tx.attendanceEvent).toBe(fakeClient.attendanceEvent);
   });
 
   it('rejects tenant-scoped delegates on the transaction client', () => {

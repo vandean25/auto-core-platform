@@ -75,6 +75,8 @@ export const AUDITED_MODELS = new Set([
   'WorkshopSettings',
   'WorkshopOpeningHour',
   'WorkshopHoliday',
+  'EmployeeLeaveBalance',
+  'LeaveRequest',
 ]);
 
 function extractEntityId(value: unknown): string | undefined {

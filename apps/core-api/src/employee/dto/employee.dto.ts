@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -80,6 +81,18 @@ export class CreateEmployeeDto {
   @IsString()
   @Matches(LANGUAGE_CODE_RE)
   motherLanguageCode?: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  hiredOn?: string | null;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 365 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  annualLeaveDays?: number;
 }
 
 export class UpdateEmployeeDto {
@@ -132,6 +145,18 @@ export class UpdateEmployeeDto {
   @IsString()
   @Matches(LANGUAGE_CODE_RE)
   motherLanguageCode?: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  hiredOn?: string | null;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 365 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  annualLeaveDays?: number;
 }
 
 export class ListEmployeesQueryDto {
@@ -199,6 +224,15 @@ export class EmployeeResponseDto {
     type: String,
   })
   motherLanguageCode!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  hiredOn!: string | null;
+
+  @ApiProperty()
+  annualLeaveDays!: number;
+
+  @ApiProperty()
+  remainingLeaveDays!: number;
 
   @ApiProperty()
   createdAt!: Date;

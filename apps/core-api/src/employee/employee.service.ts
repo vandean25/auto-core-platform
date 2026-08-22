@@ -1,9 +1,12 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { EmployeeRole, Prisma } from '@prisma/client';
+import { formatLocalDate } from '../workshop/workshop-planner.time';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateEmployeeDto,
@@ -11,9 +14,16 @@ import {
   UpdateEmployeeDto,
 } from './dto/employee.dto';
 
+const DEFAULT_ANNUAL_LEAVE_DAYS = 25;
+const DEFAULT_TIME_ZONE = 'Europe/Vienna';
+const TENANT_ADMIN_ROLES = new Set(['OWNER', 'ADMIN']);
+
 @Injectable()
 export class EmployeeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   private mapEmployee(employee: {
     id: string;
@@ -23,9 +33,11 @@ export class EmployeeService {
     sort_order: number;
     user_id?: string | null;
     mother_language_code?: string | null;
+    hired_on: Date | null;
+    annual_leave_days: number;
     createdAt: Date;
     updatedAt: Date;
-  }) {
+  }, remainingLeaveDays = employee.annual_leave_days) {
     return {
       id: employee.id,
       name: employee.name,
@@ -34,6 +46,11 @@ export class EmployeeService {
       sortOrder: employee.sort_order,
       userId: employee.user_id ?? null,
       motherLanguageCode: employee.mother_language_code ?? null,
+      hiredOn: employee.hired_on
+        ? employee.hired_on.toISOString().slice(0, 10)
+        : null,
+      annualLeaveDays: employee.annual_leave_days,
+      remainingLeaveDays,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };
@@ -60,7 +77,7 @@ export class EmployeeService {
     ]);
 
     return {
-      data: employees.map((employee) => this.mapEmployee(employee)),
+      data: await this.attachRemaining(employees),
       meta: {
         total,
         page,
@@ -75,10 +92,11 @@ export class EmployeeService {
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
-    return this.mapEmployee(employee);
+    return (await this.attachRemaining([employee]))[0];
   }
 
   async create(dto: CreateEmployeeDto) {
+    this.assertTenantAdminForHrFields(dto);
     try {
       const created = await this.prisma.employee.create({
         data: {
@@ -86,6 +104,10 @@ export class EmployeeService {
           role: dto.role,
           is_active: dto.isActive ?? true,
           sort_order: dto.sortOrder ?? 0,
+          annual_leave_days: dto.annualLeaveDays ?? DEFAULT_ANNUAL_LEAVE_DAYS,
+          ...(dto.hiredOn !== undefined && {
+            hired_on: this.toDateOnly(dto.hiredOn),
+          }),
           ...(dto.userId !== undefined && { user_id: dto.userId }),
           ...(dto.motherLanguageCode !== undefined && {
             mother_language_code: dto.motherLanguageCode,
@@ -93,7 +115,7 @@ export class EmployeeService {
         } as Prisma.EmployeeUncheckedCreateInput,
       });
 
-      return this.mapEmployee(created);
+      return (await this.attachRemaining([created]))[0];
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -112,23 +134,39 @@ export class EmployeeService {
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
+    this.assertTenantAdminForHrFields(dto);
 
     try {
-      const updated = await this.prisma.employee.update({
-        where: { id },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.role !== undefined && { role: dto.role }),
-          ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-          ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
-          ...(dto.userId !== undefined && { user_id: dto.userId }),
-          ...(dto.motherLanguageCode !== undefined && {
-            mother_language_code: dto.motherLanguageCode,
-          }),
-        },
-      });
+      const updateData = {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.role !== undefined && { role: dto.role }),
+        ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+        ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
+        ...(dto.hiredOn !== undefined && {
+          hired_on: this.toDateOnly(dto.hiredOn),
+        }),
+        ...(dto.annualLeaveDays !== undefined && {
+          annual_leave_days: dto.annualLeaveDays,
+        }),
+        ...(dto.userId !== undefined && { user_id: dto.userId }),
+        ...(dto.motherLanguageCode !== undefined && {
+          mother_language_code: dto.motherLanguageCode,
+        }),
+      };
 
-      return this.mapEmployee(updated);
+      const updated =
+        dto.annualLeaveDays === undefined
+          ? await this.prisma.employee.update({
+              where: { id },
+              data: updateData,
+            })
+          : await this.updateEmployeeAndCurrentLeaveBalance(
+              id,
+              dto.annualLeaveDays,
+              updateData,
+            );
+
+      return (await this.attachRemaining([updated]))[0];
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -148,12 +186,23 @@ export class EmployeeService {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
 
-    const linkedOrders = await this.prisma.workshopOrder.count({
-      where: { mechanic_id: id },
-    });
+    const [linkedOrders, attendanceEvents, leaveRequests, leaveBalances] =
+      await Promise.all([
+        this.prisma.workshopOrder.count({ where: { mechanic_id: id } }),
+        this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
+        this.prisma.leaveRequest.count({ where: { employee_id: id } }),
+        this.prisma.employeeLeaveBalance.count({
+          where: { employee_id: id },
+        }),
+      ]);
     if (linkedOrders > 0) {
       throw new ConflictException(
         `Cannot delete employee with ${linkedOrders} linked workshop orders`,
+      );
+    }
+    if (attendanceEvents > 0 || leaveRequests > 0 || leaveBalances > 0) {
+      throw new ConflictException(
+        'Cannot delete employee with attendance, leave, or balance records',
       );
     }
 
@@ -167,5 +216,113 @@ export class EmployeeService {
 
     await this.prisma.employee.delete({ where: { id } });
     return { id, deleted: true };
+  }
+
+  private async attachRemaining(
+    employees: Awaited<ReturnType<PrismaService['employee']['findMany']>>,
+  ) {
+    if (employees.length === 0) {
+      return [];
+    }
+
+    const year = await this.getCurrentLocalYear();
+    const employeeIds = employees.map((employee) => employee.id);
+    const [balances, bookedDays] = await Promise.all([
+      this.prisma.employeeLeaveBalance.findMany({
+        where: {
+          employee_id: { in: employeeIds },
+          year,
+        },
+        select: {
+          employee_id: true,
+          allowance_days: true,
+          carryover_days: true,
+        },
+      }),
+      this.prisma.leaveRequest.groupBy({
+        by: ['employee_id'],
+        where: {
+          employee_id: { in: employeeIds },
+          status: 'BOOKED',
+          start_on: {
+            gte: new Date(Date.UTC(year, 0, 1)),
+            lt: new Date(Date.UTC(year + 1, 0, 1)),
+          },
+        },
+        _sum: { days_charged: true },
+      }),
+    ]);
+
+    const balanceByEmployee = new Map(
+      balances.map((balance) => [balance.employee_id, balance]),
+    );
+    const bookedDaysByEmployee = new Map(
+      bookedDays.map((booking) => [
+        booking.employee_id,
+        booking._sum.days_charged ?? 0,
+      ]),
+    );
+
+    return employees.map((employee) => {
+      const balance = balanceByEmployee.get(employee.id);
+      const allowanceDays =
+        balance?.allowance_days ?? employee.annual_leave_days;
+      const carryoverDays = balance?.carryover_days ?? 0;
+      const booked = bookedDaysByEmployee.get(employee.id) ?? 0;
+
+      return this.mapEmployee(
+        employee,
+        allowanceDays + carryoverDays - booked,
+      );
+    });
+  }
+
+  private async getCurrentLocalYear(): Promise<number> {
+    const settings = await this.prisma.workshopSettings.findFirst({
+      select: { timezone: true },
+    });
+    const localDate = formatLocalDate(
+      new Date(),
+      settings?.timezone ?? DEFAULT_TIME_ZONE,
+    );
+    return Number(localDate.slice(0, 4));
+  }
+
+  private async updateEmployeeAndCurrentLeaveBalance(
+    id: string,
+    annualLeaveDays: number,
+    updateData: Prisma.EmployeeUpdateInput,
+  ) {
+    const currentYear = await this.getCurrentLocalYear();
+    return this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.employee.update({
+        where: { id },
+        data: updateData,
+      });
+      await transaction.employeeLeaveBalance.updateMany({
+        where: { employee_id: id, year: currentYear },
+        data: { allowance_days: annualLeaveDays },
+      });
+      return updated;
+    });
+  }
+
+  private assertTenantAdminForHrFields(
+    dto: CreateEmployeeDto | UpdateEmployeeDto,
+  ): void {
+    const includesHrFields =
+      dto.hiredOn !== undefined || dto.annualLeaveDays !== undefined;
+    if (!includesHrFields) {
+      return;
+    }
+
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (!role || !TENANT_ADMIN_ROLES.has(role)) {
+      throw new ForbiddenException('Tenant admin access is required.');
+    }
+  }
+
+  private toDateOnly(value: string | null): Date | null {
+    return value === null ? null : new Date(`${value}T00:00:00.000Z`);
   }
 }

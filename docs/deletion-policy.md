@@ -36,7 +36,6 @@ This document defines when deletion is allowed in Auto Core Platform.
 | User | No direct delete | Identity record persists for auditability; deactivate memberships instead of deleting the user. |
 | TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
 | PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
-| Employee | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.mechanic_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | WorkshopSettings | No | Singleton configuration record; never deleted. Update in place only. |
 | WorkshopOpeningHour | No | Seven weekday rows; replaced by updating hours, never deleted independently. |
@@ -57,7 +56,10 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
-| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.mechanic_id` references this employee. |
+| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, `AttendanceEvent`, `LeaveRequest`, or `EmployeeLeaveBalance` references this employee. |
+| EmployeeLeaveBalance | No API delete | Update allowance/carryover through the leave-balance API. Rows are removed only during tenant purge. |
+| LeaveRequest | Soft-cancel | Set `status = CANCELLED`; no hard-delete API. |
+| AttendanceEvent | No delete | Immutable attendance log; corrections are additional events. |
 | Bay | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.bay_id` references this bay. |
 
 ## UI Contract

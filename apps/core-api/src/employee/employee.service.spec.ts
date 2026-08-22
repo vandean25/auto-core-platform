@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { EmployeeRole, Prisma } from '@prisma/client';
+import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmployeeService } from './employee.service';
 
@@ -13,13 +14,32 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  employeeLeaveBalance: {
+    findMany: jest.fn(),
+    updateMany: jest.fn(),
+    count: jest.fn(),
+  },
+  leaveRequest: {
+    groupBy: jest.fn(),
+    count: jest.fn(),
+  },
+  attendanceEvent: {
+    count: jest.fn(),
+  },
+  workshopSettings: {
+    findFirst: jest.fn(),
+  },
   workshopOrder: {
     count: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 describe('EmployeeService', () => {
   let service: EmployeeService;
+  const mockTenantContext = {
+    getAuthenticatedUser: jest.fn(),
+  };
 
   const baseEmployee = {
     id: 'emp-1',
@@ -28,13 +48,37 @@ describe('EmployeeService', () => {
     is_active: true,
     sort_order: 1,
     user_id: null,
+    hired_on: new Date('2024-03-01T00:00:00.000Z'),
+    annual_leave_days: 25,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
   };
 
   beforeEach(() => {
-    service = new EmployeeService(mockPrisma as unknown as PrismaService);
     jest.clearAllMocks();
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      userId: 'user-1',
+      email: 'admin@example.com',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (transaction: typeof mockPrisma) => unknown) =>
+        callback(mockPrisma),
+    );
+    mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+      timezone: 'Europe/Vienna',
+    });
+    mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([]);
+    mockPrisma.leaveRequest.groupBy.mockResolvedValue([]);
+    mockPrisma.employeeLeaveBalance.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.attendanceEvent.count.mockResolvedValue(0);
+    mockPrisma.leaveRequest.count.mockResolvedValue(0);
+    mockPrisma.employeeLeaveBalance.count.mockResolvedValue(0);
+    service = new EmployeeService(
+      mockPrisma as unknown as PrismaService,
+      mockTenantContext as unknown as TenantContextService,
+    );
   });
 
   it('lists active employees by default', async () => {
@@ -94,6 +138,87 @@ describe('EmployeeService', () => {
     const result = await service.findAll({});
 
     expect(result.data[0].userId).toBe('user-uuid-abc');
+  });
+
+  it('maps hiredOn, annualLeaveDays, and remainingLeaveDays', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
+    mockPrisma.employee.count.mockResolvedValue(1);
+    mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([
+      { employee_id: 'emp-1', allowance_days: 25, carryover_days: 2 },
+    ]);
+    mockPrisma.leaveRequest.groupBy.mockResolvedValue([
+      { employee_id: 'emp-1', _sum: { days_charged: 5 } },
+    ]);
+
+    const result = await service.findAll({});
+
+    expect(result.data[0].hiredOn).toBe('2024-03-01');
+    expect(result.data[0].annualLeaveDays).toBe(25);
+    expect(result.data[0].remainingLeaveDays).toBe(22);
+  });
+
+  it('returns annual allowance when no current-year balance exists', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
+    mockPrisma.employee.count.mockResolvedValue(1);
+
+    const result = await service.findAll({});
+
+    expect(result.data[0].remainingLeaveDays).toBe(25);
+  });
+
+  it('persists hire and leave fields when creating an employee', async () => {
+    const createdEmployee = {
+      ...baseEmployee,
+      id: 'emp-new',
+      hired_on: new Date('2026-02-03T00:00:00.000Z'),
+      annual_leave_days: 30,
+    };
+    mockPrisma.employee.create.mockResolvedValue(createdEmployee);
+
+    await service.create({
+      name: 'New Mechanic',
+      role: EmployeeRole.MECHANIC,
+      hiredOn: '2026-02-03',
+      annualLeaveDays: 30,
+    });
+
+    expect(mockPrisma.employee.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          hired_on: new Date('2026-02-03T00:00:00.000Z'),
+          annual_leave_days: 30,
+        }),
+      }),
+    );
+  });
+
+  it('rejects SALES when updating hire or leave fields', async () => {
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      userId: 'sales-1',
+      email: 'sales@example.com',
+      tenantId: 'tenant-1',
+      role: 'SALES',
+    });
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+
+    await expect(
+      service.update('emp-1', { annualLeaveDays: 30 }),
+    ).rejects.toThrow('Tenant admin access is required.');
+  });
+
+  it('updates an existing current-year balance with annual leave changes', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
+    mockPrisma.employee.update.mockResolvedValue({
+      ...baseEmployee,
+      annual_leave_days: 30,
+    });
+
+    await service.update('emp-1', { annualLeaveDays: 30 });
+
+    expect(mockPrisma.employeeLeaveBalance.updateMany).toHaveBeenCalledWith({
+      where: { employee_id: 'emp-1', year: 2026 },
+      data: { allowance_days: 30 },
+    });
   });
 
   it('throws not found on update missing employee', async () => {
@@ -230,5 +355,17 @@ describe('EmployeeService', () => {
     expect(mockPrisma.employee.delete).toHaveBeenCalledWith({
       where: { id: 'emp-1' },
     });
+  });
+
+  it('blocks hard delete when an HR row references the employee', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue({
+      ...baseEmployee,
+      is_active: false,
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.employeeLeaveBalance.count.mockResolvedValue(1);
+
+    await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
+    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
   });
 });
