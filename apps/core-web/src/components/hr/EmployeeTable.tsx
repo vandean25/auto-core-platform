@@ -436,12 +436,14 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
           carryoverDays: parsedCarryoverDays,
         },
       })
+      const carryoverDelta = updatedBalance.carryoverDays - selectedEmployee.carryoverDays
       setSelectedEmployee((current) =>
         current?.id === selectedEmployee.id
           ? {
               ...current,
               carryoverDays: updatedBalance.carryoverDays,
               leaveBalanceYear: updatedBalance.year,
+              remainingLeaveDays: current.remainingLeaveDays + carryoverDelta,
             }
           : current,
       )

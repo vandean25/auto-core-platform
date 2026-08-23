@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -224,12 +224,16 @@ describe('EmployeeTable', () => {
 
     fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
+    const detailSheet = screen.getByTestId('employee-detail-sheet')
+
+    expect(within(detailSheet).getByText('22')).toBeInTheDocument()
 
     fireEvent.change(carryoverInput, { target: { value: '4' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(1)
+      expect(within(detailSheet).getByText('23')).toBeInTheDocument()
     })
 
     fireEvent.change(carryoverInput, { target: { value: '3' } })
@@ -237,6 +241,7 @@ describe('EmployeeTable', () => {
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(2)
+      expect(within(detailSheet).getByText('22')).toBeInTheDocument()
     })
     expect(patchLeaveBalance).toHaveBeenLastCalledWith({
       employeeId: employeeFixture.id,
