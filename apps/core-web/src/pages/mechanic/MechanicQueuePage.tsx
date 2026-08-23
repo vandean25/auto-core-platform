@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { AttendancePunchBar } from '@/components/hr/AttendancePunchBar'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { useMechanicQueue } from '@/api/mechanic'
 import type { MechanicQueueItem } from '@/api/mechanic'
+import { useHrMeClock, usePunchClock } from '@/api/hr'
+import { getErrorStatus } from '@/lib/error-utils'
 
 // ─── Queue Row ────────────────────────────────────────────────────────────────
 
@@ -28,6 +31,8 @@ export default function MechanicQueuePage() {
   const navigate = useNavigate()
 
   const { data: queueResponse, isLoading, refetch } = useMechanicQueue()
+  const { data: clockResponse, error: clockError } = useHrMeClock()
+  const { mutate: punchClock, isPending: isPunchPending } = usePunchClock()
 
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
 
@@ -118,6 +123,14 @@ export default function MechanicQueuePage() {
           <p className="text-slate-500">Your active work orders — tap a task to open it.</p>
         </div>
         <div className="flex items-center gap-2">
+          {clockResponse && getErrorStatus(clockError) !== 403 ? (
+            <AttendancePunchBar
+              state={clockResponse.state}
+              pending={isPunchPending}
+              size="compact"
+              onPunch={(type) => punchClock({ type })}
+            />
+          ) : null}
           <Button
             variant="outline"
             size="sm"

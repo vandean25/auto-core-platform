@@ -1,12 +1,22 @@
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { MechanicQueueItem } from '@/api/mechanic'
 import * as mechanicApi from '@/api/mechanic'
+import type { HrClockResponse } from '@/api/hr'
+import * as hrApi from '@/api/hr'
+import { toast } from 'sonner'
 import MechanicQueuePage from './MechanicQueuePage'
 
 vi.mock('@/api/mechanic')
+vi.mock('@/api/hr')
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -38,10 +48,33 @@ function createQueryMock<T>(data: T) {
   return { data, isLoading: false, refetch: vi.fn() }
 }
 
+function createClockQueryMock(
+  data: HrClockResponse | undefined = undefined,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    data,
+    error: null,
+    isLoading: false,
+    refetch: vi.fn(),
+    ...overrides,
+  }
+}
+
+function createPunchMutationMock(overrides: Record<string, unknown> = {}) {
+  return {
+    mutate: vi.fn(),
+    isPending: false,
+    ...overrides,
+  }
+}
+
 function setupDefaultMocks(items: MechanicQueueItem[] = [makeQueueItem()]) {
   asMock(mechanicApi.useMechanicQueue).mockReturnValue(
     createQueryMock({ data: items }),
   )
+  asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock())
+  asMock(hrApi.usePunchClock).mockReturnValue(createPunchMutationMock())
 }
 
 function renderQueuePage(initialPath = '/mechanic/queue') {
@@ -160,6 +193,66 @@ describe('MechanicQueuePage', () => {
       renderQueuePage()
 
       expect(screen.queryByText('Switch Mechanic')).not.toBeInTheDocument()
+    })
+  })
+
+  // ─── Attendance clock integration ──────────────────────────────────────────
+
+  describe('attendance clock integration', () => {
+    const linkedClock: HrClockResponse = {
+      state: 'CLOCKED_OUT',
+      lastEvent: null,
+      todayEvents: [],
+    }
+
+    it('renders punch controls when linked employee clock data is available', () => {
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock(linkedClock))
+
+      renderQueuePage()
+
+      expect(screen.getByRole('button', { name: 'Come to work' })).toBeInTheDocument()
+    })
+
+    it('punches CLOCK_IN when Come to work is clicked', () => {
+      const mutate = vi.fn()
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock(linkedClock))
+      asMock(hrApi.usePunchClock).mockReturnValue(createPunchMutationMock({ mutate }))
+
+      renderQueuePage()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Come to work' }))
+
+      expect(mutate).toHaveBeenCalledWith({ type: 'CLOCK_IN' })
+    })
+
+    it('disables punch controls while a clock mutation is pending', () => {
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock(linkedClock))
+      asMock(hrApi.usePunchClock).mockReturnValue(
+        createPunchMutationMock({ isPending: true }),
+      )
+
+      renderQueuePage()
+
+      expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    })
+
+    it('silently hides punch controls when the clock query returns 403', () => {
+      const forbiddenError = Object.assign(new Error('No employee record linked'), {
+        status: 403,
+      })
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(
+        createClockQueryMock(undefined, { error: forbiddenError }),
+      )
+
+      renderQueuePage()
+
+      expect(screen.queryByRole('button', { name: 'Come to work' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument()
+      expect(toast.error).not.toHaveBeenCalled()
     })
   })
 
