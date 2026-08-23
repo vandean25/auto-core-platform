@@ -133,8 +133,7 @@ export class HrController {
 
   @Post('leave/:id/cancel')
   @ApiOperation({
-    summary:
-      'Cancel a leave booking (own future leave or OWNER/ADMIN)',
+    summary: 'Cancel a leave booking (own future leave or OWNER/ADMIN)',
   })
   @ApiResponse({ status: 200, type: LeaveRequestResponseDto })
   async cancelLeave(@Param('id') id: string): Promise<LeaveRequestResponseDto> {

@@ -88,9 +88,7 @@ export class HrWorkdayService {
         if (obs.getUTCMonth() + 1 === 2 && obs.getUTCDate() === 29) {
           if (!isLeapYear(year)) return false;
         }
-        return (
-          obs.getUTCMonth() + 1 === month && obs.getUTCDate() === day
-        );
+        return obs.getUTCMonth() + 1 === month && obs.getUTCDate() === day;
       });
 
       const holiday = oneOff ?? annual;

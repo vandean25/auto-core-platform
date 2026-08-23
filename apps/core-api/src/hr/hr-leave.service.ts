@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LeaveRequest, LeaveRequestStatus, Prisma } from '@prisma/client';
+import {
+  EmployeeRole,
+  LeaveRequest,
+  LeaveRequestStatus,
+  Prisma,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatLocalDate } from '../workshop/workshop-planner.time';
@@ -542,7 +547,7 @@ export class HrLeaveService {
 
   private toDto(
     booking: LeaveRequest & {
-      employee?: { id: string; name: string; role: any };
+      employee?: { id: string; name: string; role: EmployeeRole };
     },
   ): LeaveRequestResponseDto {
     return {
