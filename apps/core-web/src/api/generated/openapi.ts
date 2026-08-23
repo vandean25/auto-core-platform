@@ -3767,6 +3767,7 @@ export interface components {
             createdAt: string;
         };
         ClockResponseDto: {
+            timezone: string;
             state: components["schemas"]["AttendanceState"];
             lastEvent?: components["schemas"]["AttendanceEventResponseDto"] | null;
             todayEvents: components["schemas"]["AttendanceEventResponseDto"][];

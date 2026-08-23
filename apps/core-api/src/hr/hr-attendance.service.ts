@@ -130,6 +130,7 @@ export class HrAttendanceService {
     const state = deriveAttendanceState(lastEvent?.type);
 
     return {
+      timezone,
       state,
       lastEvent: lastEvent ? mapAttendanceEvent(lastEvent) : null,
       todayEvents: todayEvents.map(mapAttendanceEvent),

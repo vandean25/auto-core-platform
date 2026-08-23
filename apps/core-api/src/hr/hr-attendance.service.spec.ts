@@ -298,6 +298,22 @@ describe('HrAttendanceService', () => {
     });
   });
 
+  describe('clock response timezone', () => {
+    it('includes the tenant timezone for self clock state', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      prisma.attendanceEvent.findMany.mockResolvedValue([]);
+      prisma.attendanceEvent.findFirst.mockResolvedValue(null);
+
+      const result = await service.getMyClock();
+
+      expect(result).toEqual(expect.objectContaining({
+        timezone: 'America/Los_Angeles',
+      }));
+    });
+  });
+
   describe('getAttendance', () => {
     it('returns attendance events in range for OWNER/ADMIN', async () => {
       const events = [
@@ -346,6 +362,9 @@ describe('HrAttendanceService', () => {
 
   describe('getEmployeeClock', () => {
     it('returns the target employee current state independently of the selected history range', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
       prisma.employee.findFirst.mockResolvedValue({ id: 'emp-2' });
       prisma.attendanceEvent.findMany.mockResolvedValue([
         {
@@ -376,6 +395,9 @@ describe('HrAttendanceService', () => {
       expect(result.state).toBe('CLOCKED_IN');
       expect(result.lastEvent?.id).toBe('evt-current');
       expect(result.todayEvents[0]?.id).toBe('evt-today');
+      expect(result).toEqual(expect.objectContaining({
+        timezone: 'America/Los_Angeles',
+      }));
       expect(prisma.employee.findFirst).toHaveBeenCalledWith({
         where: { id: 'emp-2', tenant_id: 'tenant-1', is_active: true },
         select: { id: true },

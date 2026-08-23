@@ -33,9 +33,10 @@ vi.mock('@/api/employees', () => ({
 }))
 
 vi.mock('@/components/data-table/DataTable', () => ({
-  DataTable: ({ searchPlaceholder }: { searchPlaceholder?: string }) => (
+  DataTable: ({ searchPlaceholder, data }: { searchPlaceholder?: string; data?: Array<{ time?: string }> }) => (
     <div data-testid='attendance-table'>
       <input placeholder={searchPlaceholder} />
+      {data?.map((row, index) => <span key={index}>{row.time}</span>)}
       <span>Attendance rows</span>
     </div>
   ),
@@ -194,7 +195,7 @@ describe('HrClockPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('08:05')).toBeInTheDocument()
+    expect(screen.getAllByText('08:05')).toHaveLength(2)
     expect(screen.getByLabelText('Attendance day')).toHaveValue('2026-08-24')
     expect(apiMocks.useHrAttendance).toHaveBeenCalledWith(
       '2026-08-24',
@@ -305,6 +306,38 @@ describe('HrClockPage', () => {
     expect(screen.getByRole('button', { name: 'Pause' })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
     expect(apiMocks.useHrEmployeeClock).toHaveBeenLastCalledWith(secondEmployee.id)
+  })
+
+  it('uses the selected clock response timezone for an unlinked manager', () => {
+    setupMocks('ADMIN')
+    const forbiddenError = Object.assign(new Error('No employee record linked to this account'), {
+      status: 403,
+    })
+    const selectedEmployeeEvent = {
+      ...todayEvents[0],
+      employeeId: secondEmployee.id,
+      occurredAt: '2026-08-24T06:05:00.000Z',
+      createdAt: '2026-08-24T06:05:00.000Z',
+    }
+
+    apiMocks.useHrMe.mockReturnValue(createQueryResult(undefined, { error: forbiddenError }))
+    apiMocks.useHrMeClock.mockReturnValue(createQueryResult(undefined, { error: forbiddenError }))
+    apiMocks.useEmployees.mockReturnValue(
+      createQueryResult({ data: [secondEmployee], meta: { total: 1 } }),
+    )
+    apiMocks.useHrEmployeeClock.mockReturnValue(
+      createQueryResult({
+        state: 'CLOCKED_IN',
+        lastEvent: selectedEmployeeEvent,
+        todayEvents: [],
+        timezone: 'America/Los_Angeles',
+      }),
+    )
+    apiMocks.useHrAttendance.mockReturnValue(createQueryResult([selectedEmployeeEvent]))
+
+    renderPage()
+
+    expect(screen.getByText('23:05')).toBeInTheDocument()
   })
 
   it('uses the self clock mutation with only the event type', () => {

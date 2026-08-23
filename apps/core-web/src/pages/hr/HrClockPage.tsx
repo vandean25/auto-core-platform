@@ -295,7 +295,6 @@ export default function HrClockPage() {
   const clockResponse = clockQuery.data
   const todayEvents = clockResponse?.todayEvents ?? []
   const meEmployeeId = meQuery.data?.employee.id ?? ''
-  const timezone = meQuery.data?.timezone ?? 'Europe/Vienna'
   const { data: employeeResponse, isLoading: isEmployeesLoading } = useEmployees({
     includeInactive: false,
     limit: 100,
@@ -319,6 +318,9 @@ export default function HrClockPage() {
   const selectedEmployeeClockQuery = useHrEmployeeClock(
     selectedEmployeeId && selectedEmployeeId !== meEmployeeId ? selectedEmployeeId : null,
   )
+  const selectedClockResponse = selectedEmployeeId === meEmployeeId
+    ? clockResponse
+    : selectedEmployeeClockQuery.data
   const selectedEmployeeState = selectedEmployeeId === meEmployeeId && meEmployeeId
     ? clockResponse?.state
     : selectedEmployeeClockQuery.data?.state
@@ -330,6 +332,9 @@ export default function HrClockPage() {
         Boolean(selectedEmployeeClockQuery.error) ||
         !selectedEmployeeClockQuery.data
   )
+  const timezone = selectedClockResponse?.timezone ??
+    meQuery.data?.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone
   const today = getTenantLocalToday(todayEvents, timezone)
   const isMissingEmployee = !canManageAttendance && (
     getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
