@@ -12,12 +12,12 @@ const mockPrisma = {
     count: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
+    updateMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   employeeLeaveBalance: {
     findMany: jest.fn(),
-    updateMany: jest.fn(),
+    upsert: jest.fn(),
     count: jest.fn(),
   },
   leaveRequest: {
@@ -86,7 +86,17 @@ describe('EmployeeService', () => {
     });
     mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([]);
     mockPrisma.leaveRequest.groupBy.mockResolvedValue([]);
-    mockPrisma.employeeLeaveBalance.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
+      id: 'balance-1',
+      employee_id: 'emp-1',
+      year: 2026,
+      allowance_days: 25,
+      carryover_days: 0,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+    });
+    mockPrisma.employee.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.employee.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.attendanceEvent.count.mockResolvedValue(0);
     mockPrisma.workshopTask.count.mockResolvedValue(0);
     mockPrisma.workshopMedia.count.mockResolvedValue(0);
@@ -243,6 +253,7 @@ describe('EmployeeService', () => {
     expect(mockPrisma.employee.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          tenant_id: 'tenant-1',
           hired_on: new Date('2026-02-03T00:00:00.000Z'),
           annual_leave_days: 30,
         }),
@@ -299,7 +310,7 @@ describe('EmployeeService', () => {
       role: 'SALES',
     });
     mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
-    mockPrisma.employee.update.mockResolvedValue({
+    const updatedEmployee = {
       ...baseEmployee,
       name: 'Jane Updated',
       role: EmployeeRole.OFFICE,
@@ -307,7 +318,10 @@ describe('EmployeeService', () => {
       sort_order: 2,
       user_id: 'user-2',
       mother_language_code: 'de',
-    });
+    };
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(baseEmployee)
+      .mockResolvedValueOnce(updatedEmployee);
 
     const result = await service.update('emp-1', {
       name: 'Jane Updated',
@@ -318,8 +332,8 @@ describe('EmployeeService', () => {
       motherLanguageCode: 'de',
     });
 
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: {
         name: 'Jane Updated',
         role: EmployeeRole.OFFICE,
@@ -335,24 +349,73 @@ describe('EmployeeService', () => {
   });
 
   it('updates an existing current-year balance with annual leave changes', async () => {
-    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
-    mockPrisma.employee.update.mockResolvedValue({
+    const updatedEmployee = {
       ...baseEmployee,
       annual_leave_days: 30,
-    });
+    };
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(baseEmployee)
+      .mockResolvedValueOnce(updatedEmployee);
 
     await service.update('emp-1', { annualLeaveDays: 30 });
 
     const currentYear = Number(
       formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
     );
-    expect(mockPrisma.employeeLeaveBalance.updateMany).toHaveBeenCalledWith({
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
+      data: { annual_leave_days: 30 },
+    });
+    expect(mockPrisma.employeeLeaveBalance.upsert).toHaveBeenCalledWith({
       where: {
+        tenant_id_employee_id_year: {
+          tenant_id: 'tenant-1',
+          employee_id: 'emp-1',
+          year: currentYear,
+        },
+      },
+      create: {
         tenant_id: 'tenant-1',
         employee_id: 'emp-1',
         year: currentYear,
+        allowance_days: 30,
+        carryover_days: 0,
       },
-      data: { allowance_days: 30 },
+      update: { allowance_days: 30 },
+    });
+  });
+
+  it('creates a missing current-year balance with zero carryover', async () => {
+    const updatedEmployee = {
+      ...baseEmployee,
+      annual_leave_days: 30,
+    };
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(baseEmployee)
+      .mockResolvedValueOnce(updatedEmployee);
+
+    const currentYear = Number(
+      formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
+    );
+
+    await service.update('emp-1', { annualLeaveDays: 30 });
+
+    expect(mockPrisma.employeeLeaveBalance.upsert).toHaveBeenCalledWith({
+      where: {
+        tenant_id_employee_id_year: {
+          tenant_id: 'tenant-1',
+          employee_id: 'emp-1',
+          year: currentYear,
+        },
+      },
+      create: {
+        tenant_id: 'tenant-1',
+        employee_id: 'emp-1',
+        year: currentYear,
+        allowance_days: 30,
+        carryover_days: 0,
+      },
+      update: { allowance_days: 30 },
     });
   });
 
@@ -365,14 +428,15 @@ describe('EmployeeService', () => {
   });
 
   it('links a userId when provided in update', async () => {
-    mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
     const linkedEmployee = { ...baseEmployee, user_id: 'user-uuid-xyz' };
-    mockPrisma.employee.update.mockResolvedValue(linkedEmployee);
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(baseEmployee)
+      .mockResolvedValueOnce(linkedEmployee);
 
     const result = await service.update('emp-1', { userId: 'user-uuid-xyz' });
 
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: { user_id: 'user-uuid-xyz' },
     });
     expect(result.userId).toBe('user-uuid-xyz');
@@ -380,16 +444,18 @@ describe('EmployeeService', () => {
 
   it('unlinks a userId when null is provided in update', async () => {
     const linkedEmployee = { ...baseEmployee, user_id: 'user-uuid-xyz' };
-    mockPrisma.employee.findFirst.mockResolvedValue(linkedEmployee);
-    mockPrisma.employee.update.mockResolvedValue({
+    const updatedEmployee = {
       ...baseEmployee,
       user_id: null,
-    });
+    };
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(linkedEmployee)
+      .mockResolvedValueOnce(updatedEmployee);
 
     const result = await service.update('emp-1', { userId: null });
 
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: { user_id: null },
     });
     expect(result.userId).toBeNull();
@@ -403,7 +469,7 @@ describe('EmployeeService', () => {
         clientVersion: '0',
       }),
     );
-    mockPrisma.employee.update.mockRejectedValue(p2002);
+    mockPrisma.employee.updateMany.mockRejectedValue(p2002);
 
     await expect(
       service.update('emp-1', { userId: 'user-uuid-taken' }),
@@ -453,16 +519,12 @@ describe('EmployeeService', () => {
   it('soft-disables employee on first delete when unreferenced', async () => {
     mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
-    mockPrisma.employee.update.mockResolvedValue({
-      ...baseEmployee,
-      is_active: false,
-    });
 
     const result = await service.remove('emp-1');
 
     expect(result.isActive).toBe(false);
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: { is_active: false },
     });
   });
@@ -472,8 +534,11 @@ describe('EmployeeService', () => {
     mockPrisma.workshopOrder.count.mockResolvedValue(1);
 
     await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
-    expect(mockPrisma.employee.update).not.toHaveBeenCalled();
-    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopOrder.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', mechanic_id: 'emp-1' },
+    });
   });
 
   it('hard deletes only when already inactive and unreferenced', async () => {
@@ -482,13 +547,33 @@ describe('EmployeeService', () => {
       is_active: false,
     });
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
-    mockPrisma.employee.delete.mockResolvedValue({ id: 'emp-1' });
 
     const result = await service.remove('emp-1');
 
     expect(result).toEqual({ id: 'emp-1', deleted: true });
-    expect(mockPrisma.employee.delete).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
+    });
+    expect(mockPrisma.workshopTask.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', mechanic_id: 'emp-1' },
+    });
+    expect(mockPrisma.workshopMedia.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', uploaded_by_employee_id: 'emp-1' },
+    });
+    expect(mockPrisma.workshopVoiceNoteDraft.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', mechanic_employee_id: 'emp-1' },
+    });
+    expect(mockPrisma.laborEntry.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', employee_id: 'emp-1' },
+    });
+    expect(mockPrisma.attendanceEvent.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', employee_id: 'emp-1' },
+    });
+    expect(mockPrisma.leaveRequest.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', employee_id: 'emp-1' },
+    });
+    expect(mockPrisma.employeeLeaveBalance.count).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', employee_id: 'emp-1' },
     });
   });
 
@@ -496,16 +581,12 @@ describe('EmployeeService', () => {
     mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
     mockPrisma.attendanceEvent.count.mockResolvedValue(1);
-    mockPrisma.employee.update.mockResolvedValue({
-      ...baseEmployee,
-      is_active: false,
-    });
 
     const result = await service.remove('emp-1');
 
     expect(result.isActive).toBe(false);
-    expect(mockPrisma.employee.update).toHaveBeenCalled();
-    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalled();
+    expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
   });
 
   it('soft-disables active employees even when linked work records exist', async () => {
@@ -515,19 +596,15 @@ describe('EmployeeService', () => {
     mockPrisma.workshopTask.count.mockResolvedValue(1);
     mockPrisma.workshopMedia.count.mockResolvedValue(1);
     mockPrisma.workshopVoiceNoteDraft.count.mockResolvedValue(1);
-    mockPrisma.employee.update.mockResolvedValue({
-      ...baseEmployee,
-      is_active: false,
-    });
 
     const result = await service.remove('emp-1');
 
     expect(result.isActive).toBe(false);
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith({
-      where: { id: 'emp-1' },
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
+      where: { id: 'emp-1', tenant_id: 'tenant-1' },
       data: { is_active: false },
     });
-    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
   });
 
   it('blocks hard delete when an HR row references the employee', async () => {
@@ -539,7 +616,7 @@ describe('EmployeeService', () => {
     mockPrisma.employeeLeaveBalance.count.mockResolvedValue(1);
 
     await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
-    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
   });
 
   it('blocks hard delete when a restrictive work record references the employee', async () => {
@@ -551,6 +628,6 @@ describe('EmployeeService', () => {
     mockPrisma.laborEntry.count.mockResolvedValue(1);
 
     await expect(service.remove('emp-1')).rejects.toThrow(ConflictException);
-    expect(mockPrisma.employee.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
   });
 });

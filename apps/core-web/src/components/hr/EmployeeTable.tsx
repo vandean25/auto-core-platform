@@ -429,13 +429,23 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
     if (parsedCarryoverDays === selectedEmployee.carryoverDays) return
 
     try {
-      await patchLeaveBalanceMutation.mutateAsync({
+      const updatedBalance = await patchLeaveBalanceMutation.mutateAsync({
         employeeId: selectedEmployee.id,
         data: {
           year: selectedEmployee.leaveBalanceYear,
           carryoverDays: parsedCarryoverDays,
         },
       })
+      setSelectedEmployee((current) =>
+        current?.id === selectedEmployee.id
+          ? {
+              ...current,
+              carryoverDays: updatedBalance.carryoverDays,
+              leaveBalanceYear: updatedBalance.year,
+            }
+          : current,
+      )
+      setCarryoverDays(String(updatedBalance.carryoverDays))
       toast.success('Leave carryover updated')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to update leave carryover'))

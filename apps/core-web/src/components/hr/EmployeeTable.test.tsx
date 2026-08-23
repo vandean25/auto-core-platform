@@ -40,15 +40,18 @@ const employeeWithoutCarryover: Employee = {
 }
 
 const updateEmployee = vi.fn().mockResolvedValue(employeeFixture)
-const patchLeaveBalance = vi.fn().mockResolvedValue({
-  id: 'balance-1',
-  employeeId: employeeFixture.id,
-  year: 2026,
-  allowanceDays: 25,
-  carryoverDays: 3,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-})
+const patchLeaveBalance = vi.fn().mockImplementation(
+  ({ data }: { data: { year: number; carryoverDays: number } }) =>
+    Promise.resolve({
+      id: 'balance-1',
+      employeeId: employeeFixture.id,
+      year: data.year,
+      allowanceDays: 25,
+      carryoverDays: data.carryoverDays,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }),
+)
 
 vi.mock('@/api/employees', () => ({
   useEmployees: vi.fn(),
@@ -214,6 +217,34 @@ describe('EmployeeTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     expect(patchLeaveBalance).not.toHaveBeenCalled()
+  })
+
+  it('allows carryover to be changed back after a successful save', async () => {
+    renderEmployeeTable('OWNER')
+
+    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    const carryoverInput = await screen.findByLabelText('Carryover this year')
+
+    fireEvent.change(carryoverInput, { target: { value: '4' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+
+    await waitFor(() => {
+      expect(patchLeaveBalance).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.change(carryoverInput, { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+
+    await waitFor(() => {
+      expect(patchLeaveBalance).toHaveBeenCalledTimes(2)
+    })
+    expect(patchLeaveBalance).toHaveBeenLastCalledWith({
+      employeeId: employeeFixture.id,
+      data: {
+        year: employeeFixture.leaveBalanceYear,
+        carryoverDays: 3,
+      },
+    })
   })
 
   it('initializes zero carryover as 0 in the employee sheet', async () => {

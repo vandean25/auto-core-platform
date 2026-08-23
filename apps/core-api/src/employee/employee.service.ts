@@ -112,10 +112,12 @@ export class EmployeeService {
   }
 
   async create(dto: CreateEmployeeDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     this.assertTenantAdminForHrFields(dto);
     try {
       const created = await this.prisma.employee.create({
         data: {
+          tenant_id: tenantId,
           name: dto.name.trim(),
           role: dto.role,
           is_active: dto.isActive ?? true,
@@ -128,7 +130,7 @@ export class EmployeeService {
           ...(dto.motherLanguageCode !== undefined && {
             mother_language_code: dto.motherLanguageCode,
           }),
-        } as Prisma.EmployeeUncheckedCreateInput,
+        },
       });
 
       return (await this.attachRemaining([created]))[0];
@@ -146,7 +148,10 @@ export class EmployeeService {
   }
 
   async update(id: string, dto: UpdateEmployeeDto) {
-    const existing = await this.prisma.employee.findFirst({ where: { id } });
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.employee.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -172,12 +177,10 @@ export class EmployeeService {
 
       const updated =
         dto.annualLeaveDays === undefined
-          ? await this.prisma.employee.update({
-              where: { id },
-              data: updateData,
-            })
+          ? await this.updateEmployee(id, tenantId, updateData)
           : await this.updateEmployeeAndCurrentLeaveBalance(
               id,
+              tenantId,
               dto.annualLeaveDays,
               updateData,
             );
@@ -197,13 +200,16 @@ export class EmployeeService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.employee.findFirst({ where: { id } });
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.employee.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
     if (!existing) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
 
     const linkedOrders = await this.prisma.workshopOrder.count({
-      where: { mechanic_id: id },
+      where: { tenant_id: tenantId, mechanic_id: id },
     });
     if (linkedOrders > 0) {
       throw new ConflictException(
@@ -212,11 +218,14 @@ export class EmployeeService {
     }
 
     if (existing.is_active) {
-      const updated = await this.prisma.employee.update({
-        where: { id },
+      const updated = await this.prisma.employee.updateMany({
+        where: { id, tenant_id: tenantId },
         data: { is_active: false },
       });
-      return { id: updated.id, isActive: updated.is_active };
+      if (updated.count === 0) {
+        throw new NotFoundException(`Employee with ID ${id} not found`);
+      }
+      return { id, isActive: false };
     }
 
     const [
@@ -228,18 +237,26 @@ export class EmployeeService {
       leaveRequests,
       leaveBalances,
     ] = await Promise.all([
-      this.prisma.workshopTask.count({ where: { mechanic_id: id } }),
+      this.prisma.workshopTask.count({
+        where: { tenant_id: tenantId, mechanic_id: id },
+      }),
       this.prisma.workshopMedia.count({
-        where: { uploaded_by_employee_id: id },
+        where: { tenant_id: tenantId, uploaded_by_employee_id: id },
       }),
       this.prisma.workshopVoiceNoteDraft.count({
-        where: { mechanic_employee_id: id },
+        where: { tenant_id: tenantId, mechanic_employee_id: id },
       }),
-      this.prisma.laborEntry.count({ where: { employee_id: id } }),
-      this.prisma.attendanceEvent.count({ where: { employee_id: id } }),
-      this.prisma.leaveRequest.count({ where: { employee_id: id } }),
+      this.prisma.laborEntry.count({
+        where: { tenant_id: tenantId, employee_id: id },
+      }),
+      this.prisma.attendanceEvent.count({
+        where: { tenant_id: tenantId, employee_id: id },
+      }),
+      this.prisma.leaveRequest.count({
+        where: { tenant_id: tenantId, employee_id: id },
+      }),
       this.prisma.employeeLeaveBalance.count({
-        where: { employee_id: id },
+        where: { tenant_id: tenantId, employee_id: id },
       }),
     ]);
     if (
@@ -259,7 +276,12 @@ export class EmployeeService {
     }
 
     try {
-      await this.prisma.employee.delete({ where: { id } });
+      const deleted = await this.prisma.employee.deleteMany({
+        where: { id, tenant_id: tenantId },
+      });
+      if (deleted.count === 0) {
+        throw new NotFoundException(`Employee with ID ${id} not found`);
+      }
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -353,22 +375,68 @@ export class EmployeeService {
 
   private async updateEmployeeAndCurrentLeaveBalance(
     id: string,
+    tenantId: string,
     annualLeaveDays: number,
-    updateData: Prisma.EmployeeUpdateInput,
+    updateData: Prisma.EmployeeUncheckedUpdateManyInput,
   ) {
-    const tenantId = await this.tenantContext.getTenantId();
     const currentYear = await this.getCurrentLocalYear();
     return this.prisma.$transaction(async (transaction) => {
-      const updated = await transaction.employee.update({
-        where: { id },
+      const employeeUpdate = await transaction.employee.updateMany({
+        where: { id, tenant_id: tenantId },
         data: updateData,
       });
-      await transaction.employeeLeaveBalance.updateMany({
-        where: { tenant_id: tenantId, employee_id: id, year: currentYear },
-        data: { allowance_days: annualLeaveDays },
+      if (employeeUpdate.count === 0) {
+        throw new NotFoundException(`Employee with ID ${id} not found`);
+      }
+
+      await transaction.employeeLeaveBalance.upsert({
+        where: {
+          tenant_id_employee_id_year: {
+            tenant_id: tenantId,
+            employee_id: id,
+            year: currentYear,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          employee_id: id,
+          year: currentYear,
+          allowance_days: annualLeaveDays,
+          carryover_days: 0,
+        },
+        update: { allowance_days: annualLeaveDays },
       });
+
+      const updated = await transaction.employee.findFirst({
+        where: { id, tenant_id: tenantId },
+      });
+      if (!updated) {
+        throw new NotFoundException(`Employee with ID ${id} not found`);
+      }
       return updated;
     });
+  }
+
+  private async updateEmployee(
+    id: string,
+    tenantId: string,
+    updateData: Prisma.EmployeeUncheckedUpdateManyInput,
+  ) {
+    const updated = await this.prisma.employee.updateMany({
+      where: { id, tenant_id: tenantId },
+      data: updateData,
+    });
+    if (updated.count === 0) {
+      throw new NotFoundException(`Employee with ID ${id} not found`);
+    }
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!employee) {
+      throw new NotFoundException(`Employee with ID ${id} not found`);
+    }
+    return employee;
   }
 
   private assertTenantAdminForHrFields(
