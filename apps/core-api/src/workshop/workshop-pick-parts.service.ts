@@ -9,7 +9,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
 import {
-  Prisma,
   TransactionType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
@@ -30,6 +29,38 @@ type SourceAllocation = {
 };
 
 type AllocationReservationMap = Map<string, number>;
+
+type PrefetchedLocation = {
+  id: string;
+  type: string;
+  deletedAt: Date | null;
+};
+
+type PrefetchedStock = {
+  catalog_item_id: string;
+  location_id: string;
+  quantity_on_hand: number;
+};
+
+type PrefetchedAutoStock = PrefetchedStock & {
+  createdAt: Date;
+};
+
+type ExplicitSourceAllocationInput = {
+  catalogItemId: string;
+  sourceLocationId: string;
+  quantity: number;
+  sourceLocation: PrefetchedLocation | undefined;
+  sourceStock: PrefetchedStock | undefined;
+  reservations: AllocationReservationMap;
+};
+
+type AutoSourceAllocationInput = {
+  catalogItemId: string;
+  quantity: number;
+  sourceStocks: PrefetchedAutoStock[];
+  reservations: AllocationReservationMap;
+};
 
 @Injectable()
 export class WorkshopPickPartsService {
@@ -55,23 +86,14 @@ export class WorkshopPickPartsService {
     return `${catalogItemId}:${sourceLocationId}`;
   }
 
-  private async allocateFromExplicitSource(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    sourceLocationId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceLocation = await tx.storageLocation.findFirst({
-      where: { id: sourceLocationId, tenant_id: tenantId },
-      select: {
-        id: true,
-        type: true,
-        deletedAt: true,
-      },
-    });
-
+  private allocateFromExplicitSource({
+    catalogItemId,
+    sourceLocationId,
+    quantity,
+    sourceLocation,
+    sourceStock,
+    reservations,
+  }: ExplicitSourceAllocationInput): SourceAllocation[] {
     if (!sourceLocation || sourceLocation.deletedAt) {
       throw new NotFoundException(
         `Source location ${sourceLocationId} not found`,
@@ -83,17 +105,6 @@ export class WorkshopPickPartsService {
         `sourceLocationId must reference a BIN location. Received ${sourceLocation.type}.`,
       );
     }
-
-    const sourceStock = await tx.inventoryStock.findFirst({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        location_id: sourceLocationId,
-      },
-      select: {
-        quantity_on_hand: true,
-      },
-    });
 
     const reservationKey = this.getAllocationReservationKey(
       catalogItemId,
@@ -110,35 +121,25 @@ export class WorkshopPickPartsService {
     return [{ sourceLocationId, quantity }];
   }
 
-  private async allocateAcrossSources(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceStocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        quantity_on_hand: { gt: 0 },
-        location: {
-          type: 'bin',
-          deletedAt: null,
-        },
-      },
-      select: {
-        location_id: true,
-        quantity_on_hand: true,
-        createdAt: true,
-      },
-      orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
+  private allocateAcrossSources({
+    catalogItemId,
+    quantity,
+    sourceStocks,
+    reservations,
+  }: AutoSourceAllocationInput): SourceAllocation[] {
+    const orderedStocks = [...sourceStocks].sort((left, right) => {
+      const createdAtDelta =
+        left.createdAt.getTime() - right.createdAt.getTime();
+      if (createdAtDelta !== 0) {
+        return createdAtDelta;
+      }
+      return left.location_id.localeCompare(right.location_id);
     });
 
     let remaining = quantity;
     const allocations: SourceAllocation[] = [];
 
-    for (const stock of sourceStocks) {
+    for (const stock of orderedStocks) {
       if (remaining <= 0) {
         break;
       }
@@ -174,6 +175,24 @@ export class WorkshopPickPartsService {
 
     return allocations;
   }
+
+  private recordAllocations(
+    catalogItemId: string,
+    allocations: SourceAllocation[],
+    reservations: AllocationReservationMap,
+  ) {
+    for (const allocation of allocations) {
+      const reservationKey = this.getAllocationReservationKey(
+        catalogItemId,
+        allocation.sourceLocationId,
+      );
+      reservations.set(
+        reservationKey,
+        (reservations.get(reservationKey) ?? 0) + allocation.quantity,
+      );
+    }
+  }
+
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
@@ -322,13 +341,26 @@ export class WorkshopPickPartsService {
         }>;
       }> = [];
 
-      for (const requestedItem of aggregatedItems.values()) {
-        const lineItem = lineItemById.get(requestedItem.workshopTaskLineItemId);
+      const resolveLineCatalog = (workshopTaskLineItemId: string) => {
+        const lineItem = lineItemById.get(workshopTaskLineItemId);
         if (!lineItem) {
           throw new NotFoundException(
-            `Line item ${requestedItem.workshopTaskLineItemId} not found`,
+            `Line item ${workshopTaskLineItemId} not found`,
           );
         }
+        const catalogItem = catalogItemBySku.get(lineItem.item_no);
+        if (!catalogItem) {
+          throw new NotFoundException(
+            `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
+          );
+        }
+        return { lineItem, catalogItem };
+      };
+
+      for (const requestedItem of aggregatedItems.values()) {
+        const { lineItem } = resolveLineCatalog(
+          requestedItem.workshopTaskLineItemId,
+        );
 
         const lineItemQuantity = Number(lineItem.quantity);
         if (requestedItem.quantity > lineItemQuantity) {
@@ -340,31 +372,22 @@ export class WorkshopPickPartsService {
         if (requestedItem.quantity >= lineItemQuantity) {
           fullyStagedLineIds.add(lineItem.id);
         }
-
-        const catalogItem = catalogItemBySku.get(lineItem.item_no);
-        if (!catalogItem) {
-          throw new NotFoundException(
-            `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
-          );
-        }
       }
 
-      // Pre-fetch source locations and stocks in bulk to eliminate N+1 queries
-      const requestedSourceLocationIds = Array.from(aggregatedItems.values())
-        .map((i) => i.sourceLocationId)
-        .filter(Boolean) as string[];
+      const requestedSourceLocationIds = [
+        ...new Set(
+          [...aggregatedItems.values()]
+            .map((item) => item.sourceLocationId)
+            .filter((id): id is string => id != null),
+        ),
+      ];
 
-      type PreFetchedLocation = {
-        id: string;
-        type: string;
-        deletedAt: Date | null;
-      };
-      const preFetchedLocations = new Map<string, PreFetchedLocation>();
+      const preFetchedLocations = new Map<string, PrefetchedLocation>();
       if (requestedSourceLocationIds.length > 0) {
         const locations = await tx.storageLocation.findMany({
           where: {
             tenant_id: tenantId,
-            id: { in: Array.from(new Set(requestedSourceLocationIds)) },
+            id: { in: requestedSourceLocationIds },
           },
           select: {
             id: true,
@@ -372,28 +395,29 @@ export class WorkshopPickPartsService {
             deletedAt: true,
           },
         });
-        for (const loc of locations) {
-          preFetchedLocations.set(loc.id, loc as PreFetchedLocation);
+        for (const location of locations) {
+          preFetchedLocations.set(location.id, location);
         }
       }
 
-      const explicitItemSourcePairs = Array.from(aggregatedItems.values())
-        .filter((i) => i.sourceLocationId)
-        .map((i) => {
-          const lineItem = lineItemById.get(i.workshopTaskLineItemId)!;
-          const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
-          return {
-            catalog_item_id: catalogItem.id,
-            location_id: i.sourceLocationId!,
-          };
-        });
+      const explicitItemSourcePairs = [...aggregatedItems.values()].flatMap(
+        (item) => {
+          if (!item.sourceLocationId) {
+            return [];
+          }
+          const { catalogItem } = resolveLineCatalog(
+            item.workshopTaskLineItemId,
+          );
+          return [
+            {
+              catalog_item_id: catalogItem.id,
+              location_id: item.sourceLocationId,
+            },
+          ];
+        },
+      );
 
-      type ExplicitSourceStock = {
-        catalog_item_id: string;
-        location_id: string;
-        quantity_on_hand: number;
-      };
-      const explicitSourceStocks = new Map<string, ExplicitSourceStock>();
+      const explicitSourceStocks = new Map<string, PrefetchedStock>();
       if (explicitItemSourcePairs.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
@@ -412,31 +436,28 @@ export class WorkshopPickPartsService {
               stock.catalog_item_id,
               stock.location_id,
             ),
-            stock as ExplicitSourceStock,
+            stock,
           );
         }
       }
 
-      const autoAllocationItems = Array.from(aggregatedItems.values())
-        .filter((i) => !i.sourceLocationId)
-        .map((i) => {
-          const lineItem = lineItemById.get(i.workshopTaskLineItemId)!;
-          const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
-          return catalogItem.id;
-        });
+      const autoAllocationCatalogIds = [
+        ...new Set(
+          [...aggregatedItems.values()]
+            .filter((item) => !item.sourceLocationId)
+            .map(
+              (item) =>
+                resolveLineCatalog(item.workshopTaskLineItemId).catalogItem.id,
+            ),
+        ),
+      ];
 
-      type AutoAllocationStock = {
-        catalog_item_id: string;
-        location_id: string;
-        quantity_on_hand: number;
-        createdAt: Date;
-      };
-      const autoAllocationStocks = new Map<string, AutoAllocationStock[]>();
-      if (autoAllocationItems.length > 0) {
+      const autoAllocationStocks = new Map<string, PrefetchedAutoStock[]>();
+      if (autoAllocationCatalogIds.length > 0) {
         const stocks = await tx.inventoryStock.findMany({
           where: {
             tenant_id: tenantId,
-            catalog_item_id: { in: Array.from(new Set(autoAllocationItems)) },
+            catalog_item_id: { in: autoAllocationCatalogIds },
             quantity_on_hand: { gt: 0 },
             location: {
               type: 'bin',
@@ -453,105 +474,40 @@ export class WorkshopPickPartsService {
         });
         for (const stock of stocks) {
           const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
-          list.push(stock as AutoAllocationStock);
+          list.push(stock);
           autoAllocationStocks.set(stock.catalog_item_id, list);
         }
       }
 
       for (const requestedItem of aggregatedItems.values()) {
-        const lineItem = lineItemById.get(
+        const { lineItem, catalogItem } = resolveLineCatalog(
           requestedItem.workshopTaskLineItemId,
-        )!;
-        const catalogItem = catalogItemBySku.get(lineItem.item_no)!;
+        );
 
-        let allocations: SourceAllocation[] = [];
-
-        if (requestedItem.sourceLocationId) {
-          const sourceLocationId = requestedItem.sourceLocationId;
-          const sourceLocation = preFetchedLocations.get(sourceLocationId);
-
-          if (!sourceLocation || sourceLocation.deletedAt) {
-            throw new NotFoundException(
-              `Source location ${sourceLocationId} not found`,
-            );
-          }
-
-          if (sourceLocation.type !== 'bin') {
-            throw new UnprocessableEntityException(
-              `sourceLocationId must reference a BIN location. Received ${sourceLocation.type}.`,
-            );
-          }
-
-          const stockKey = this.getAllocationReservationKey(
-            catalogItem.id,
-            sourceLocationId,
-          );
-          const sourceStock = explicitSourceStocks.get(stockKey);
-
-          const reservationKey = this.getAllocationReservationKey(
-            catalogItem.id,
-            sourceLocationId,
-          );
-          const reservedQuantity = reservations.get(reservationKey) ?? 0;
-          const available =
-            (sourceStock?.quantity_on_hand ?? 0) - reservedQuantity;
-
-          if (available < requestedItem.quantity) {
-            throw new UnprocessableEntityException(
-              `Insufficient stock in location ${sourceLocationId}. Requested ${requestedItem.quantity}, available ${Math.max(available, 0)}.`,
-            );
-          }
-
-          allocations = [
-            { sourceLocationId, quantity: requestedItem.quantity },
-          ];
-          reservations.set(
-            reservationKey,
-            reservedQuantity + requestedItem.quantity,
-          );
-        } else {
-          const sourceStocks = (
-            autoAllocationStocks.get(catalogItem.id) ?? []
-          ).sort((a, b) => {
-            const dateCompare = a.createdAt.getTime() - b.createdAt.getTime();
-            if (dateCompare !== 0) return dateCompare;
-            return a.location_id.localeCompare(b.location_id);
-          });
-          let remaining = requestedItem.quantity;
-
-          for (const stock of sourceStocks) {
-            if (remaining <= 0) break;
-
-            const reservationKey = this.getAllocationReservationKey(
-              catalogItem.id,
-              stock.location_id,
-            );
-            const reservedQuantity = reservations.get(reservationKey) ?? 0;
-            const availableQuantity = stock.quantity_on_hand - reservedQuantity;
-
-            if (availableQuantity <= 0) continue;
-
-            const allocatedQuantity = Math.min(remaining, availableQuantity);
-            if (allocatedQuantity <= 0) continue;
-
-            allocations.push({
-              sourceLocationId: stock.location_id,
-              quantity: allocatedQuantity,
+        const allocations = requestedItem.sourceLocationId
+          ? this.allocateFromExplicitSource({
+              catalogItemId: catalogItem.id,
+              sourceLocationId: requestedItem.sourceLocationId,
+              quantity: requestedItem.quantity,
+              sourceLocation: preFetchedLocations.get(
+                requestedItem.sourceLocationId,
+              ),
+              sourceStock: explicitSourceStocks.get(
+                this.getAllocationReservationKey(
+                  catalogItem.id,
+                  requestedItem.sourceLocationId,
+                ),
+              ),
+              reservations,
+            })
+          : this.allocateAcrossSources({
+              catalogItemId: catalogItem.id,
+              quantity: requestedItem.quantity,
+              sourceStocks: autoAllocationStocks.get(catalogItem.id) ?? [],
+              reservations,
             });
-            remaining -= allocatedQuantity;
-            // IMMEDIATELY RECORD THIS AUTO-ALLOCATION SO SUBSEQUENT ITEMS SEE IT
-            reservations.set(
-              reservationKey,
-              reservedQuantity + allocatedQuantity,
-            );
-          }
 
-          if (remaining > 0) {
-            throw new UnprocessableEntityException(
-              `Insufficient stock for auto-allocation. Missing quantity ${remaining}.`,
-            );
-          }
-        }
+        this.recordAllocations(catalogItem.id, allocations, reservations);
 
         const allocationSummaries: Array<{
           sourceLocationId: string;
