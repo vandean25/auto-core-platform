@@ -55,125 +55,6 @@ export class WorkshopPickPartsService {
     return `${catalogItemId}:${sourceLocationId}`;
   }
 
-  private async allocateFromExplicitSource(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    sourceLocationId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceLocation = await tx.storageLocation.findFirst({
-      where: { id: sourceLocationId, tenant_id: tenantId },
-      select: {
-        id: true,
-        type: true,
-        deletedAt: true,
-      },
-    });
-
-    if (!sourceLocation || sourceLocation.deletedAt) {
-      throw new NotFoundException(
-        `Source location ${sourceLocationId} not found`,
-      );
-    }
-
-    if (sourceLocation.type !== 'bin') {
-      throw new UnprocessableEntityException(
-        `sourceLocationId must reference a BIN location. Received ${sourceLocation.type}.`,
-      );
-    }
-
-    const sourceStock = await tx.inventoryStock.findFirst({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        location_id: sourceLocationId,
-      },
-      select: {
-        quantity_on_hand: true,
-      },
-    });
-
-    const reservationKey = this.getAllocationReservationKey(
-      catalogItemId,
-      sourceLocationId,
-    );
-    const reservedQuantity = reservations.get(reservationKey) ?? 0;
-    const available = (sourceStock?.quantity_on_hand ?? 0) - reservedQuantity;
-    if (available < quantity) {
-      throw new UnprocessableEntityException(
-        `Insufficient stock in location ${sourceLocationId}. Requested ${quantity}, available ${Math.max(available, 0)}.`,
-      );
-    }
-
-    return [{ sourceLocationId, quantity }];
-  }
-
-  private async allocateAcrossSources(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceStocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        quantity_on_hand: { gt: 0 },
-        location: {
-          type: 'bin',
-          deletedAt: null,
-        },
-      },
-      select: {
-        location_id: true,
-        quantity_on_hand: true,
-        createdAt: true,
-      },
-      orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
-    });
-
-    let remaining = quantity;
-    const allocations: SourceAllocation[] = [];
-
-    for (const stock of sourceStocks) {
-      if (remaining <= 0) {
-        break;
-      }
-
-      const reservationKey = this.getAllocationReservationKey(
-        catalogItemId,
-        stock.location_id,
-      );
-      const reservedQuantity = reservations.get(reservationKey) ?? 0;
-      const availableQuantity = stock.quantity_on_hand - reservedQuantity;
-
-      if (availableQuantity <= 0) {
-        continue;
-      }
-
-      const allocatedQuantity = Math.min(remaining, availableQuantity);
-      if (allocatedQuantity <= 0) {
-        continue;
-      }
-
-      allocations.push({
-        sourceLocationId: stock.location_id,
-        quantity: allocatedQuantity,
-      });
-      remaining -= allocatedQuantity;
-    }
-
-    if (remaining > 0) {
-      throw new UnprocessableEntityException(
-        `Insufficient stock for auto-allocation. Missing quantity ${remaining}.`,
-      );
-    }
-
-    return allocations;
-  }
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
@@ -373,7 +254,7 @@ export class WorkshopPickPartsService {
           },
         });
         for (const loc of locations) {
-          preFetchedLocations.set(loc.id, loc as PreFetchedLocation);
+          preFetchedLocations.set(loc.id, loc);
         }
       }
 
@@ -412,7 +293,7 @@ export class WorkshopPickPartsService {
               stock.catalog_item_id,
               stock.location_id,
             ),
-            stock as ExplicitSourceStock,
+            stock,
           );
         }
       }
@@ -453,7 +334,7 @@ export class WorkshopPickPartsService {
         });
         for (const stock of stocks) {
           const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
-          list.push(stock as AutoAllocationStock);
+          list.push(stock);
           autoAllocationStocks.set(stock.catalog_item_id, list);
         }
       }
