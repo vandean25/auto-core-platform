@@ -44,6 +44,24 @@ describe('AttendancePunchBar', () => {
     })
   })
 
+  it('enables Pause, Doctor, and Go home while clocked in', () => {
+    renderPunchBar('CLOCKED_IN', false)
+
+    expect(getActionButton('Come to work')).toBeDisabled()
+    expect(getActionButton('Pause')).toBeEnabled()
+    expect(getActionButton('Doctor')).toBeEnabled()
+    expect(getActionButton('Go home')).toBeEnabled()
+  })
+
+  it('enables Come to work and Go home while paused', () => {
+    renderPunchBar('PAUSED', false)
+
+    expect(getActionButton('Come to work')).toBeEnabled()
+    expect(getActionButton('Pause')).toBeDisabled()
+    expect(getActionButton('Doctor')).toBeDisabled()
+    expect(getActionButton('Go home')).toBeEnabled()
+  })
+
   it('enables Come to work and Go home while at the doctor', () => {
     renderPunchBar('AT_DOCTOR')
 
