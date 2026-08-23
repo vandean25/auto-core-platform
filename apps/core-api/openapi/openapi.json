@@ -5836,6 +5836,37 @@
         ]
       }
     },
+    "/api/hr/attendance/{employeeId}/clock": {
+      "get": {
+        "operationId": "HrController_employeeClock",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get the current clock state for an employee (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
     "/api/hr/me/leave": {
       "get": {
         "operationId": "HrController_getMyLeave",

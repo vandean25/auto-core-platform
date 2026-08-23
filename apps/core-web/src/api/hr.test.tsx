@@ -9,6 +9,7 @@ import {
   useCreateEmployeeLeave,
   useCreateLeave,
   useHrAttendance,
+  useHrEmployeeClock,
   useHrMeClock,
   useMyLeave,
   usePatchLeaveBalance,
@@ -80,6 +81,22 @@ describe('HR clock hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(mocks.fetchWithAuth).toHaveBeenCalledWith('/api/hr/me/clock')
+  })
+
+  it('fetches the current clock state for a selected employee', async () => {
+    mocks.fetchWithAuth.mockResolvedValue(jsonResponse({
+      state: 'PAUSED',
+      lastEvent: { id: 'event-1' },
+      todayEvents: [],
+    }))
+
+    const { result } = renderHook(() => useHrEmployeeClock('employee-1'), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mocks.fetchWithAuth).toHaveBeenCalledWith('/api/hr/attendance/employee-1/clock')
   })
 
   it('posts the selected self clock event', async () => {

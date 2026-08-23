@@ -19,6 +19,8 @@ type AttendancePunchAction = {
 export type AttendancePunchBarProps = {
   state: components['schemas']['AttendanceState']
   pending?: boolean
+  disabled?: boolean
+  statusLabel?: string
   size?: 'default' | 'compact'
   onPunch: (type: components['schemas']['AttendanceEventType']) => void
 }
@@ -61,6 +63,8 @@ function isActionEnabled(
 export function AttendancePunchBar({
   state,
   pending = false,
+  disabled = false,
+  statusLabel,
   size = 'default',
   onPunch,
 }: AttendancePunchBarProps) {
@@ -70,6 +74,7 @@ export function AttendancePunchBar({
     <div className={cn('flex items-center gap-2', isCompact && 'gap-1')}>
       <StatusBadge
         status={state}
+        label={statusLabel}
         className={cn(isCompact && 'px-2 py-0.5 text-[11px]')}
       />
       {attendanceActions.map((action) => {
@@ -81,7 +86,7 @@ export function AttendancePunchBar({
             type="button"
             variant="outline"
             size={isCompact ? 'sm' : 'default'}
-            disabled={!isActionEnabled(action, state, pending)}
+            disabled={!isActionEnabled(action, state, pending || disabled)}
             onClick={() => onPunch(type)}
           >
             <Icon aria-hidden="true" />

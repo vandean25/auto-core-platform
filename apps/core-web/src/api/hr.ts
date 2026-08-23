@@ -31,6 +31,8 @@ export const hrKeys = {
   clock: () => [...hrKeys.all, 'clock'] as const,
   attendance: (from: string, to: string, employeeId?: string) =>
     [...hrKeys.all, 'attendance', from, to, normalizeOptionalEmployeeId(employeeId) ?? 'all'] as const,
+  employeeClock: (employeeId: string | null) =>
+    [...hrKeys.all, 'employee-clock', employeeId ?? 'none'] as const,
   myLeave: (year: number) => [...hrKeys.all, 'me-leave', year] as const,
   leave: (from: string, to: string, employeeId?: string) =>
     [...hrKeys.all, 'leave', from, to, normalizeOptionalEmployeeId(employeeId) ?? 'all'] as const,
@@ -112,6 +114,21 @@ export function useHrMeClock() {
       const response = await fetchWithAuth(`${HR_API}/me/clock`)
       return parseHrResponse<HrClockResponse>(response, 'Failed to fetch attendance clock')
     },
+  })
+}
+
+export function useHrEmployeeClock(employeeId: string | null) {
+  return useQuery<HrClockResponse, HrApiError>({
+    queryKey: hrKeys.employeeClock(employeeId),
+    queryFn: async () => {
+      if (!employeeId) {
+        throw new Error('Employee ID is required to fetch attendance clock')
+      }
+
+      const response = await fetchWithAuth(`${HR_API}/attendance/${employeeId}/clock`)
+      return parseHrResponse<HrClockResponse>(response, 'Failed to fetch employee attendance clock')
+    },
+    enabled: Boolean(employeeId),
   })
 }
 

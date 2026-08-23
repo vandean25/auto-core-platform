@@ -11,6 +11,7 @@ const apiMocks = vi.hoisted(() => ({
   usePunchClock: vi.fn(),
   usePunchEmployeeClock: vi.fn(),
   useHrAttendance: vi.fn(),
+  useHrEmployeeClock: vi.fn(),
   useEmployees: vi.fn(),
 }))
 
@@ -24,6 +25,7 @@ vi.mock('@/api/hr', () => ({
   usePunchClock: apiMocks.usePunchClock,
   usePunchEmployeeClock: apiMocks.usePunchEmployeeClock,
   useHrAttendance: apiMocks.useHrAttendance,
+  useHrEmployeeClock: apiMocks.useHrEmployeeClock,
 }))
 
 vi.mock('@/api/employees', () => ({
@@ -121,6 +123,9 @@ function setupMocks(activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'SALES') {
   apiMocks.usePunchClock.mockReturnValue({ mutate: punchClock, isPending: false })
   apiMocks.usePunchEmployeeClock.mockReturnValue({ mutate: punchEmployeeClock, isPending: false })
   apiMocks.useHrAttendance.mockReturnValue(createQueryResult(todayEvents))
+  apiMocks.useHrEmployeeClock.mockReturnValue(
+    createQueryResult({ state: 'CLOCKED_OUT', lastEvent: null, todayEvents: [] }),
+  )
   apiMocks.useEmployees.mockReturnValue(
     createQueryResult({ data: [linkedEmployee, secondEmployee], meta: { total: 2 } }),
   )
@@ -190,11 +195,13 @@ describe('HrClockPage', () => {
     )
   })
 
-  it('shows manager employee and attendance controls only to OWNER and ADMIN', () => {
+  it('shows manager actions in the page header and the attendance table below', () => {
     setupMocks('OWNER')
     renderPage()
 
-    expect(screen.getByLabelText('Employee')).toBeInTheDocument()
+    const pageHeader = screen.getByTestId('hr-clock-header')
+    expect(within(pageHeader).getByLabelText('Employee')).toBeInTheDocument()
+    expect(within(pageHeader).getByRole('button', { name: 'Come to work' })).toBeInTheDocument()
     expect(screen.getByLabelText('Attendance day')).toHaveValue('2026-08-23')
     expect(screen.getByPlaceholderText('Search attendance...')).toBeInTheDocument()
     expect(screen.getByText('Team attendance')).toBeInTheDocument()
@@ -206,6 +213,50 @@ describe('HrClockPage', () => {
     expect(screen.queryByLabelText('Employee')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Attendance day')).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Search attendance...')).not.toBeInTheDocument()
+  })
+
+  it('uses the selected employee current clock state instead of historical attendance events', () => {
+    setupMocks('ADMIN')
+    apiMocks.useHrEmployeeClock.mockReturnValue(
+      createQueryResult({ state: 'CLOCKED_IN', lastEvent: todayEvents[0], todayEvents: [] }),
+    )
+
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+
+    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Pause' })).not.toBeDisabled()
+  })
+
+  it('disables selected employee punch actions while current clock state is loading', () => {
+    setupMocks('ADMIN')
+    apiMocks.useHrEmployeeClock.mockReturnValue(
+      createQueryResult(undefined, { isLoading: true }),
+    )
+
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+
+    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Doctor' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Go home' })).toBeDisabled()
+  })
+
+  it('disables selected employee punch actions when current clock state returns 403', () => {
+    setupMocks('ADMIN')
+    const forbiddenError = Object.assign(new Error('Attendance unavailable'), { status: 403 })
+    apiMocks.useHrEmployeeClock.mockReturnValue(
+      createQueryResult(undefined, { error: forbiddenError }),
+    )
+
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Employee'), { target: { value: secondEmployee.id } })
+
+    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Doctor' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Go home' })).toBeDisabled()
   })
 
   it('renders the documented state when the employee link is missing', () => {

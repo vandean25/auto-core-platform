@@ -10,6 +10,7 @@ import {
   type AttendanceEvent,
   type HrApiError,
   useHrAttendance,
+  useHrEmployeeClock,
   useHrMe,
   useHrMeClock,
   usePunchClock,
@@ -26,7 +27,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
-type AttendanceState = components['schemas']['AttendanceState']
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
@@ -97,21 +97,6 @@ function compareEvents(left: AttendanceEvent, right: AttendanceEvent): number {
   return parseISO(left.occurredAt).getTime() - parseISO(right.occurredAt).getTime()
 }
 
-function deriveState(events: readonly AttendanceEvent[]): AttendanceState {
-  const latestEvent = [...events].sort(compareEvents).at(-1)
-  switch (latestEvent?.type) {
-    case 'CLOCK_IN':
-      return 'CLOCKED_IN'
-    case 'PAUSE':
-      return 'PAUSED'
-    case 'DOCTOR':
-      return 'AT_DOCTOR'
-    case 'CLOCK_OUT':
-    default:
-      return 'CLOCKED_OUT'
-  }
-}
-
 function formatSourceLabel(source: AttendanceEvent['source']): string {
   return source === 'AUTO_SHIFT_CLOSE' ? 'Auto shift close' : source === 'MANAGER' ? 'Manager' : 'Self'
 }
@@ -164,64 +149,30 @@ function TodayTimeline({ events, timezone }: { events: readonly AttendanceEvent[
 }
 
 type ManagerAttendanceSectionProps = {
-  meEmployeeId: string
-  meEmployeeName: string
-  meState: AttendanceState
+  selectedEmployeeId: string
   today: string
   timezone: string
-  onPunchSelf: (type: AttendanceEventType) => void
-  isSelfPunchPending: boolean
 }
 
 function ManagerAttendanceSection({
-  meEmployeeId,
-  meEmployeeName,
-  meState,
+  selectedEmployeeId,
   today,
   timezone,
-  onPunchSelf,
-  isSelfPunchPending,
 }: ManagerAttendanceSectionProps) {
-  const { data: employeeResponse, isLoading: isEmployeesLoading } = useEmployees({
-    includeInactive: false,
-    limit: 100,
-  })
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(meEmployeeId)
   const [selectedDay, setSelectedDay] = useState(today)
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
   const { data: attendanceEvents = [], isLoading: isAttendanceLoading, error: attendanceError } =
     useHrAttendance(selectedDay, selectedDay, selectedEmployeeId)
-  const punchEmployeeMutation = usePunchEmployeeClock()
 
   useEffect(() => {
-    setSelectedEmployeeId((currentId) => currentId || meEmployeeId)
-  }, [meEmployeeId])
-
-  useEffect(() => {
-    if (!attendanceError || getErrorStatus(attendanceError) === 403) return
+    if (!attendanceError) return
     toast.error(getErrorMessage(attendanceError, 'Failed to load attendance'))
   }, [attendanceError])
-
-  const employeeOptions = useMemo<EmployeeOption[]>(() => {
-    const options = (employeeResponse?.data ?? []).map((employee) => ({
-      id: employee.id,
-      name: employee.name,
-    }))
-
-    if (!options.some((employee) => employee.id === meEmployeeId)) {
-      options.unshift({ id: meEmployeeId, name: meEmployeeName })
-    }
-
-    return options
-  }, [employeeResponse?.data, meEmployeeId, meEmployeeName])
 
   const selectedEmployeeEvents = useMemo(
     () => attendanceEvents.filter((event) => event.employeeId === selectedEmployeeId),
     [attendanceEvents, selectedEmployeeId],
   )
-  const selectedEmployeeState = selectedEmployeeId === meEmployeeId
-    ? meState
-    : deriveState(selectedEmployeeEvents)
 
   const attendanceRows = useMemo<AttendanceTableRow[]>(
     () => selectedEmployeeEvents.map((event) => ({
@@ -265,22 +216,6 @@ function ManagerAttendanceSection({
     setPagination((previous) => ({ ...previous, pageIndex: pageCount - 1 }))
   }, [pageCount, queryParams.page, setPagination])
 
-  const handlePunch = (type: AttendanceEventType) => {
-    if (selectedEmployeeId === meEmployeeId) {
-      onPunchSelf(type)
-      return
-    }
-
-    punchEmployeeMutation.mutate(
-      { employeeId: selectedEmployeeId, type },
-      {
-        onError: (error) => {
-          toast.error(getErrorMessage(error, 'Failed to punch employee attendance'))
-        },
-      },
-    )
-  }
-
   const columns = useMemo<ColumnDef<AttendanceTableRow>[]>(
     () => [
       {
@@ -312,30 +247,7 @@ function ManagerAttendanceSection({
       <div className='flex flex-col justify-between gap-4 rounded-lg border bg-white p-4 lg:flex-row lg:items-end'>
         <div>
           <h2 id='team-attendance-heading' className='text-lg font-semibold'>Team attendance</h2>
-          <p className='text-sm text-slate-500'>Review and punch attendance for the selected employee.</p>
-        </div>
-        <div className='flex flex-col gap-3 sm:flex-row sm:items-end'>
-          <div className='space-y-1'>
-            <label htmlFor='attendance-employee' className='text-sm font-medium'>Employee</label>
-            <select
-              id='attendance-employee'
-              value={selectedEmployeeId}
-              disabled={isEmployeesLoading}
-              onChange={(event) => setSelectedEmployeeId(event.target.value)}
-              className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-sm'
-            >
-              {employeeOptions.map((employee) => (
-                <option key={employee.id} value={employee.id}>{employee.name}</option>
-              ))}
-            </select>
-          </div>
-          <AttendancePunchBar
-            state={selectedEmployeeState}
-            pending={selectedEmployeeId === meEmployeeId
-              ? isSelfPunchPending
-              : punchEmployeeMutation.isPending}
-            onPunch={handlePunch}
-          />
+          <p className='text-sm text-slate-500'>Review attendance for the selected employee.</p>
         </div>
       </div>
 
@@ -350,7 +262,7 @@ function ManagerAttendanceSection({
         />
       </div>
 
-      {attendanceError && getErrorStatus(attendanceError) !== 403 ? (
+      {attendanceError ? (
         <Alert variant='destructive'>
           <AlertTitle>Attendance unavailable</AlertTitle>
           <AlertDescription>{getErrorMessage(attendanceError, 'Failed to load attendance')}</AlertDescription>
@@ -375,6 +287,8 @@ export default function HrClockPage() {
   const meQuery = useHrMe()
   const clockQuery = useHrMeClock()
   const punchClockMutation = usePunchClock()
+  const punchEmployeeMutation = usePunchEmployeeClock()
+  const [selectedEmployeeIdState, setSelectedEmployeeId] = useState<string | null>(null)
 
   const activeRole = sessionQuery.data?.activeRole
   const canManageAttendance = isManagerRole(activeRole)
@@ -382,6 +296,36 @@ export default function HrClockPage() {
   const todayEvents = clockResponse?.todayEvents ?? []
   const today = meQuery.data ? getTenantLocalToday(todayEvents, meQuery.data.timezone) : ''
   const isMissingEmployee = getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
+  const meEmployeeId = meQuery.data?.employee.id ?? ''
+  const selectedEmployeeId = selectedEmployeeIdState ?? meEmployeeId
+  const { data: employeeResponse, isLoading: isEmployeesLoading } = useEmployees({
+    includeInactive: false,
+    limit: 100,
+  })
+  const selectedEmployeeClockQuery = useHrEmployeeClock(
+    selectedEmployeeId && selectedEmployeeId !== meEmployeeId ? selectedEmployeeId : null,
+  )
+  const selectedEmployeeState = selectedEmployeeId === meEmployeeId
+    ? clockResponse?.state
+    : selectedEmployeeClockQuery.data?.state
+  const selectedEmployeeClockUnavailable = selectedEmployeeId !== meEmployeeId && (
+    selectedEmployeeClockQuery.isLoading ||
+    selectedEmployeeClockQuery.isFetching ||
+    Boolean(selectedEmployeeClockQuery.error) ||
+    !selectedEmployeeClockQuery.data
+  )
+  const employeeOptions = useMemo<EmployeeOption[]>(() => {
+    const options = (employeeResponse?.data ?? []).map((employee) => ({
+      id: employee.id,
+      name: employee.name,
+    }))
+
+    if (meQuery.data && !options.some((employee) => employee.id === meEmployeeId)) {
+      options.unshift({ id: meEmployeeId, name: meQuery.data.employee.name })
+    }
+
+    return options
+  }, [employeeResponse?.data, meEmployeeId, meQuery.data])
 
   useEffect(() => {
     if (!meQuery.error || getErrorStatus(meQuery.error) === 403) return
@@ -404,9 +348,27 @@ export default function HrClockPage() {
     )
   }
 
+  const handleManagerPunch = (type: AttendanceEventType) => {
+    if (selectedEmployeeClockUnavailable || !selectedEmployeeId) return
+
+    if (selectedEmployeeId === meEmployeeId) {
+      handleSelfPunch(type)
+      return
+    }
+
+    punchEmployeeMutation.mutate(
+      { employeeId: selectedEmployeeId, type },
+      {
+        onError: (error) => {
+          toast.error(getErrorMessage(error, 'Failed to punch employee attendance'))
+        },
+      },
+    )
+  }
+
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between gap-4'>
+      <div className='flex items-center justify-between gap-4' data-testid='hr-clock-header'>
         <div>
           <h2 className='text-2xl font-semibold tracking-tight'>Time Clock</h2>
           <p className='text-slate-500'>Track attendance for today.</p>
@@ -417,6 +379,33 @@ export default function HrClockPage() {
             pending={punchClockMutation.isPending}
             onPunch={handleSelfPunch}
           />
+        ) : null}
+        {canManageAttendance && meQuery.data && clockResponse && !isMissingEmployee ? (
+          <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
+            <div className='space-y-1'>
+              <label htmlFor='attendance-employee' className='text-sm font-medium'>Employee</label>
+              <select
+                id='attendance-employee'
+                value={selectedEmployeeId}
+                disabled={isEmployeesLoading}
+                onChange={(event) => setSelectedEmployeeId(event.target.value)}
+                className='flex h-10 min-w-48 rounded-md border border-input bg-background px-3 py-2 text-sm'
+              >
+                {employeeOptions.map((employee) => (
+                  <option key={employee.id} value={employee.id}>{employee.name}</option>
+                ))}
+              </select>
+            </div>
+            <AttendancePunchBar
+              state={selectedEmployeeState ?? 'CLOCKED_OUT'}
+              statusLabel={selectedEmployeeState ? undefined : 'Unavailable'}
+              disabled={selectedEmployeeClockUnavailable}
+              pending={selectedEmployeeId === meEmployeeId
+                ? punchClockMutation.isPending
+                : punchEmployeeMutation.isPending}
+              onPunch={handleManagerPunch}
+            />
+          </div>
         ) : null}
       </div>
 
@@ -443,13 +432,9 @@ export default function HrClockPage() {
 
           {canManageAttendance ? (
             <ManagerAttendanceSection
-              meEmployeeId={meQuery.data.employee.id}
-              meEmployeeName={meQuery.data.employee.name}
-              meState={clockResponse.state}
+              selectedEmployeeId={selectedEmployeeId}
               today={today}
               timezone={meQuery.data.timezone}
-              onPunchSelf={handleSelfPunch}
-              isSelfPunchPending={punchClockMutation.isPending}
             />
           ) : null}
         </>
