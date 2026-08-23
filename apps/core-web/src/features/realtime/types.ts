@@ -16,6 +16,8 @@ export type RealtimeEntityType =
   | 'VEHICLE'
   | 'VEHICLE_PURCHASE'
   | 'VEHICLE_SALE'
+  | 'ATTENDANCE_EVENT'
+  | 'LEAVE_REQUEST'
 
 export type RealtimeEntityAction = 'CREATED' | 'UPDATED' | 'DELETED'
 

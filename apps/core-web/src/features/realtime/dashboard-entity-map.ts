@@ -80,6 +80,14 @@ const entityInvalidationMap: Record<RealtimeEntityType, EntityInvalidationTarget
     dashboardSourceKeys: ['vehicle-stock'],
     domainQueryKeys: [vehicleStockKeys.all],
   },
+  ATTENDANCE_EVENT: {
+    dashboardSourceKeys: [],
+    domainQueryKeys: [['hr']],
+  },
+  LEAVE_REQUEST: {
+    dashboardSourceKeys: [],
+    domainQueryKeys: [['hr'], workshopKeys.all],
+  },
 }
 
 const emptyInvalidationTarget: EntityInvalidationTarget = {

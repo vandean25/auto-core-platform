@@ -41,5 +41,6 @@ import { WorkshopController } from './workshop.controller';
     WorkshopScheduleService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
+  exports: [WorkshopSettingsService],
 })
 export class WorkshopModule {}
