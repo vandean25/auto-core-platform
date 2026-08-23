@@ -6,47 +6,54 @@ import { MechanicAwayAlert } from './MechanicAwayAlert'
 
 type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
 
-const awayEmployees: PlannerEmployeeAway[] = [
-  {
-    employeeId: 'employee-1',
-    name: 'Alex Mechanic',
-    startOn: '2026-08-24',
-    endOn: '2026-08-25',
-  },
-]
+const awayRecord: PlannerEmployeeAway = {
+  employeeId: 'employee-1',
+  name: 'Alex Mechanic',
+  startOn: '2026-08-24',
+  endOn: '2026-08-25',
+  leaveId: 'leave-1',
+}
 
 afterEach(() => {
   cleanup()
 })
 
 describe('MechanicAwayAlert', () => {
-  it('renders nothing when no mechanics are away', () => {
-    render(<MechanicAwayAlert employeesAway={[]} />)
+  it.each([undefined, null])('renders nothing without an away record', (employeeAway) => {
+    render(<MechanicAwayAlert employeeAway={employeeAway} />)
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('shows the away mechanic and confirms booking is still allowed', () => {
-    render(<MechanicAwayAlert employeesAway={awayEmployees} />)
+  it('renders the mechanic name from the away record', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent('Alex Mechanic')
-    expect(screen.getByRole('alert')).toHaveTextContent('Booking is still allowed')
   })
 
-  it('shows every away mechanic in the warning', () => {
-    const multipleAwayEmployees: PlannerEmployeeAway[] = [
-      ...awayEmployees,
-      {
-        employeeId: 'employee-2',
-        name: 'Jamie Technician',
-        startOn: '2026-08-26',
-        endOn: '2026-08-27',
-      },
-    ]
+  it('renders the optional mechanic name when provided', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} mechanicName='Alex' />)
 
-    render(<MechanicAwayAlert employeesAway={multipleAwayEmployees} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Alex')
+  })
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Alex Mechanic')
-    expect(screen.getByRole('alert')).toHaveTextContent('Jamie Technician')
+  it('renders the inclusive away date range', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('2026-08-24 through 2026-08-25 (inclusive)')
+  })
+
+  it('uses the shared amber alert styling', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} />)
+
+    expect(screen.getByRole('alert')).toHaveClass('border-amber-200', 'bg-amber-50', 'text-amber-900')
+  })
+
+  it('explains that leave is advisory and bay booking remains allowed', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Leave is advisory only; bay booking remains allowed.',
+    )
   })
 })

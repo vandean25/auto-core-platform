@@ -6,22 +6,24 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
 
 interface MechanicAwayAlertProps {
-  employeesAway: PlannerEmployeeAway[]
+  employeeAway?: PlannerEmployeeAway | null
+  mechanicName?: string
 }
 
-export function MechanicAwayAlert({ employeesAway }: MechanicAwayAlertProps) {
-  if (employeesAway.length === 0) {
+export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAlertProps) {
+  if (!employeeAway) {
     return null
   }
 
-  const mechanicNames = employeesAway.map(({ name }) => name).join(', ')
+  const displayName = mechanicName ?? employeeAway.name
 
   return (
     <Alert className='border-amber-200 bg-amber-50 text-amber-900 [&>svg]:text-amber-600'>
       <AlertTriangle aria-hidden='true' />
-      <AlertTitle>Mechanic away</AlertTitle>
+      <AlertTitle>Mechanic away: {displayName}</AlertTitle>
       <AlertDescription>
-        {mechanicNames} {employeesAway.length === 1 ? 'is' : 'are'} away. Booking is still allowed.
+        {displayName} is away from {employeeAway.startOn} through {employeeAway.endOn}{' '}
+        (inclusive). Leave is advisory only; bay booking remains allowed.
       </AlertDescription>
     </Alert>
   )
