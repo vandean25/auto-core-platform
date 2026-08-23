@@ -18,6 +18,7 @@ import {
   Star,
   Truck,
   UserRound,
+  Users,
   Wrench,
   LayoutGrid,
   X,
@@ -29,6 +30,7 @@ import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 type SidebarAccessContext = {
   userEmail: string | null
   platformRole: string | null
+  activeRole: components['schemas']['TenantMemberRole'] | null
 }
 
 type SidebarModule = {
@@ -104,6 +106,14 @@ const coreModules: SidebarModule[] = [
     icon: LayoutGrid,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/board'),
+  },
+  {
+    id: 'hr',
+    label: 'HR',
+    to: '/hr/employees',
+    icon: Users,
+    isVisible: (context) => context.activeRole !== 'TECH',
+    isActive: (pathname) => pathname.startsWith('/hr'),
   },
   {
     id: 'inventory',
@@ -188,7 +198,7 @@ export function AppSidebar({
   const navigate = useNavigate()
   const { savedViews, removeSavedView } = useSavedViews()
 
-  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole }))
+  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole, activeRole }))
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
   return (
