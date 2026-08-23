@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authSessionKeys } from '@/api/auth-session'
+import { hrKeys } from '@/api/hr'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { purchaseInvoiceKeys } from '@/api/usePurchaseInvoices'
 import { vehicleStockKeys } from '@/api/vehicle-stock'
@@ -232,6 +233,76 @@ describe('RealtimeDashboardSyncProvider', () => {
     await waitFor(() => {
       expect(invalidateQueries).toHaveBeenCalledWith({
         queryKey: ['dashboard-widget-data', 'workshop-tasks'],
+        refetchType: 'active',
+      })
+    })
+  })
+
+  it('invalidates HR queries when an ATTENDANCE_EVENT is received', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'ATTENDANCE_EVENT',
+        action: 'CREATED',
+        entityId: 'attendance-123',
+        timestamp: '2026-08-23T08:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: hrKeys.all,
+        refetchType: 'active',
+      })
+    })
+  })
+
+  it('invalidates HR and planner queries when a LEAVE_REQUEST is received', async () => {
+    const queryClient = createQueryClient()
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    render(<div />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(ENTITY_UPDATED_EVENT, expect.any(Function))
+    })
+
+    const entityUpdatedHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === ENTITY_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined
+
+    await act(async () => {
+      entityUpdatedHandler?.({
+        type: 'LEAVE_REQUEST',
+        action: 'UPDATED',
+        entityId: 'leave-123',
+        timestamp: '2026-08-23T08:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: hrKeys.all,
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workshopKeys.planner(),
         refetchType: 'active',
       })
     })

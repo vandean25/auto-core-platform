@@ -21,15 +21,19 @@ export type UpdateLeavePayload = components['schemas']['UpdateLeaveRequestDto']
 export type PatchLeaveBalancePayload = components['schemas']['PatchLeaveBalanceDto']
 export type LeaveBalanceResponse = components['schemas']['LeaveBalanceResponseDto']
 
+function normalizeOptionalEmployeeId(employeeId?: string): string | undefined {
+  return employeeId || undefined
+}
+
 export const hrKeys = {
   all: ['hr'] as const,
   me: () => [...hrKeys.all, 'me'] as const,
   clock: () => [...hrKeys.all, 'clock'] as const,
   attendance: (from: string, to: string, employeeId?: string) =>
-    [...hrKeys.all, 'attendance', from, to, employeeId ?? 'all'] as const,
+    [...hrKeys.all, 'attendance', from, to, normalizeOptionalEmployeeId(employeeId) ?? 'all'] as const,
   myLeave: (year: number) => [...hrKeys.all, 'me-leave', year] as const,
   leave: (from: string, to: string, employeeId?: string) =>
-    [...hrKeys.all, 'leave', from, to, employeeId ?? 'all'] as const,
+    [...hrKeys.all, 'leave', from, to, normalizeOptionalEmployeeId(employeeId) ?? 'all'] as const,
 }
 
 export class HrApiError extends Error {
@@ -112,11 +116,13 @@ export function useHrMeClock() {
 }
 
 export function useHrAttendance(from: string, to: string, employeeId?: string) {
+  const normalizedEmployeeId = normalizeOptionalEmployeeId(employeeId)
+
   return useQuery<AttendanceEvent[], HrApiError>({
-    queryKey: hrKeys.attendance(from, to, employeeId),
+    queryKey: hrKeys.attendance(from, to, normalizedEmployeeId),
     queryFn: async () => {
       const params = new URLSearchParams({ from, to })
-      addQueryParameter(params, 'employeeId', employeeId)
+      addQueryParameter(params, 'employeeId', normalizedEmployeeId)
       const response = await fetchWithAuth(withQuery(`${HR_API}/attendance`, params))
       return parseHrResponse<AttendanceEvent[]>(response, 'Failed to fetch attendance')
     },
@@ -135,13 +141,15 @@ export function useMyLeave(year: number) {
 }
 
 export function useTeamLeave(from = '', to = '', employeeId?: string) {
+  const normalizedEmployeeId = normalizeOptionalEmployeeId(employeeId)
+
   return useQuery<LeaveRequest[], HrApiError>({
-    queryKey: hrKeys.leave(from, to, employeeId),
+    queryKey: hrKeys.leave(from, to, normalizedEmployeeId),
     queryFn: async () => {
       const params = new URLSearchParams()
       addQueryParameter(params, 'from', from)
       addQueryParameter(params, 'to', to)
-      addQueryParameter(params, 'employeeId', employeeId)
+      addQueryParameter(params, 'employeeId', normalizedEmployeeId)
       const response = await fetchWithAuth(withQuery(`${HR_API}/leave`, params))
       return parseHrResponse<LeaveRequest[]>(response, 'Failed to fetch team leave')
     },
