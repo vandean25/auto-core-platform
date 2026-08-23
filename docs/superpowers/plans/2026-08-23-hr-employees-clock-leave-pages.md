@@ -560,4 +560,3 @@ Consistency:
 - Leave fields are startOn, endOn, daysCharged, and status.
 - Realtime uses hrKeys.all and workshopKeys.planner().
 - No task creates or mounts /workshop/planner.
-
