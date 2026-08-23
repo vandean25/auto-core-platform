@@ -27,8 +27,8 @@ vi.mock('@/components/hr/TeamLeaveMonthGrid', () => ({
   ),
 }))
 vi.mock('@/components/hr/LeaveBookingSheet', () => ({
-  LeaveBookingSheet: ({ open }: { open: boolean }) => (
-    <div data-testid='leave-booking-sheet' data-open={String(open)} />
+  LeaveBookingSheet: ({ open, timezone }: { open: boolean; timezone?: string }) => (
+    <div data-testid='leave-booking-sheet' data-open={String(open)} data-timezone={timezone ?? ''} />
   ),
 }))
 vi.mock('@/components/data-table/DataTable', () => ({
@@ -36,17 +36,18 @@ vi.mock('@/components/data-table/DataTable', () => ({
     data,
     getRowContextActions,
   }: {
-    data: Array<{ id: string; startOn: string; daysCharged: number }>
-    getRowContextActions?: (row: { id: string; startOn: string; daysCharged: number }) => Array<{
+    data: Array<{ id: string; startOn: string; daysCharged: number; note?: string | null }>
+    getRowContextActions?: (row: { id: string; startOn: string; daysCharged: number; note?: string | null }) => Array<{
       label: string
       onClick: () => void
     }>
   }) => (
     <div data-testid='leave-table'>
       {data.map((row) => (
-        <div key={row.id}>
+        <div key={row.id} data-testid='leave-row'>
           <span>{row.startOn}</span>
           <span>{row.daysCharged}</span>
+          <span data-testid='leave-row-note'>{row.note}</span>
           {getRowContextActions?.(row).map((action) => (
             <button key={action.label} type='button' onClick={action.onClick}>
               {action.label}
@@ -70,7 +71,10 @@ const booking = {
   updatedAt: '2026-08-01T00:00:00.000Z',
 }
 
-function setupPage(activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'OWNER') {
+function setupPage(
+  activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'OWNER',
+  bookings: typeof booking[] = [booking],
+) {
   const cancelLeave = vi.fn()
   apiMocks.useAuthSession.mockReturnValue({ data: { activeRole } })
   apiMocks.useHrMe.mockReturnValue({
@@ -82,7 +86,7 @@ function setupPage(activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'OWNER') {
     isLoading: false,
     error: null,
   })
-  apiMocks.useMyLeave.mockReturnValue({ data: { remainingDays: 23, bookings: [booking] } })
+  apiMocks.useMyLeave.mockReturnValue({ data: { remainingDays: 23, bookings } })
   apiMocks.useTeamLeave.mockReturnValue({ data: [booking] })
   apiMocks.useEmployees.mockReturnValue({
     data: { data: [{ id: 'employee-1', name: 'Ada Lovelace', role: 'SERVICE_ADVISOR' }] },
@@ -98,6 +102,20 @@ afterEach(() => {
 })
 
 describe('HrLeavePage', () => {
+  it('sorts own leave bookings by note', () => {
+    const bookingWithLaterNote = { ...booking, id: 'leave-zulu', startOn: '2026-08-24', note: 'Zulu' }
+    const bookingWithEarlierNote = { ...booking, id: 'leave-alpha', startOn: '2026-08-25', note: 'Alpha' }
+    setupPage('SALES', [bookingWithLaterNote, bookingWithEarlierNote])
+
+    render(
+      <MemoryRouter initialEntries={['/hr/leave?sortField=note&sortDirection=asc']}>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getAllByTestId('leave-row-note').map((note) => note.textContent)).toEqual(['Alpha', 'Zulu'])
+  })
+
   it('renders the remaining chip, leave action, own booking days, and cancellation action', () => {
     const { cancelLeave } = setupPage('SALES')
 
@@ -110,6 +128,7 @@ describe('HrLeavePage', () => {
     expect(screen.getByText('Remaining: 23 days')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Leave' })).toBeInTheDocument()
     expect(screen.getByTestId('leave-table')).toHaveTextContent('2')
+    expect(screen.getByTestId('leave-booking-sheet')).toHaveAttribute('data-timezone', 'Europe/Vienna')
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 

@@ -97,6 +97,7 @@ function sortLeaveRows(rows: LeaveTableRow[], field?: string, descending = false
     if (field === 'daysCharged') return direction * (left.daysCharged - right.daysCharged)
     if (field === 'status') return direction * left.status.localeCompare(right.status)
     if (field === 'employee') return direction * getLeaveEmployeeName(left).localeCompare(getLeaveEmployeeName(right))
+    if (field === 'note') return direction * (left.note ?? '').localeCompare(right.note ?? '')
     return direction * left.startOn.localeCompare(right.startOn)
   })
 }
@@ -293,6 +294,7 @@ export default function HrLeavePage() {
           activeRole={activeRole}
           employee={selectedEmployee}
           employees={leaveEmployees}
+          timezone={timezone}
           initialEmployeeId={selectedEmployeeId}
           initialStartOn={selectedStartOn}
           initialEndOn={selectedEndOn}

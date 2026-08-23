@@ -40,7 +40,9 @@ describe('TeamLeaveMonthGrid', () => {
     )
 
     expect(screen.getAllByText('Booked')).toHaveLength(2)
-    expect(screen.getByTestId('leave-cell-employee-1-2026-08-03')).toHaveTextContent('Booked')
+    const bookedCell = screen.getByTestId('leave-cell-employee-1-2026-08-03')
+    expect(bookedCell).toHaveTextContent('Booked')
+    expect(bookedCell).toHaveAccessibleName('Ada Lovelace, 2026-08-03, status Booked')
 
     fireEvent.click(screen.getByTestId('leave-cell-employee-2-2026-08-05'))
 

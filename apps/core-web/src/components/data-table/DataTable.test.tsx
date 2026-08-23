@@ -48,6 +48,19 @@ describe('DataTable Characterization', () => {
     expect(screen.getAllByText('Test Item')).toHaveLength(1)
   })
 
+  it('activates clickable rows with Enter and Space', () => {
+    const onRowClick = vi.fn()
+    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+
+    const row = screen.getByRole('row', { name: 'Test Item' })
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: ' ' })
+
+    expect(row).toHaveAttribute('tabindex', '0')
+    expect(onRowClick).toHaveBeenNthCalledWith(1, { name: 'Test Item' })
+    expect(onRowClick).toHaveBeenNthCalledWith(2, { name: 'Test Item' })
+  })
+
   it('shows Delete on right-click when getRowContextActions returns it', () => {
     render(
       <DataTable

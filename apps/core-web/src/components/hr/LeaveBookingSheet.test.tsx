@@ -33,10 +33,31 @@ function setupMutations() {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
 describe('LeaveBookingSheet', () => {
+  it('defaults the date range to the tenant-local date', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T23:30:00.000Z'))
+    setupMutations()
+
+    render(
+      <LeaveBookingSheet
+        open
+        onOpenChange={vi.fn()}
+        activeRole='SALES'
+        employee={employees[0]}
+        employees={employees}
+        timezone='Europe/Vienna'
+      />,
+    )
+
+    expect(screen.getByLabelText('Start')).toHaveValue('2026-08-24')
+    expect(screen.getByLabelText('End')).toHaveValue('2026-08-24')
+  })
+
   it('submits self leave with the date range and note', async () => {
     const { createLeave } = setupMutations()
     const onOpenChange = vi.fn()

@@ -73,6 +73,7 @@ export function TeamLeaveMonthGrid({
                     key={date}
                     data-testid={cellTestId}
                     className='flex min-h-10 items-center justify-center border-b border-r bg-emerald-50 px-1'
+                    aria-label={`${employee.name}, ${date}, status Booked`}
                     title={booking.note || 'Booked leave'}
                   >
                     <StatusBadge status='BOOKED' className='px-1 py-0.5 text-[10px]' />

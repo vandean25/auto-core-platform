@@ -26,6 +26,8 @@ import { getErrorMessage } from '@/lib/error-utils'
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
 
+const DEFAULT_TIMEZONE = 'UTC'
+
 export type LeaveBookingSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -35,6 +37,7 @@ export type LeaveBookingSheetProps = {
   initialEmployeeId?: string
   initialStartOn?: string
   initialEndOn?: string
+  timezone?: string
   booking?: LeaveRequest | null
 }
 
@@ -49,8 +52,19 @@ function canManageLeave(activeRole?: TenantMemberRole | null): boolean {
   return activeRole === 'OWNER' || activeRole === 'ADMIN'
 }
 
-function getToday(): string {
-  return new Date().toISOString().slice(0, 10)
+function getToday(timezone: string): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(new Date())
+      .map(({ type, value }) => [type, value]),
+  )
+
+  return `${parts.year}-${parts.month}-${parts.day}`
 }
 
 function getInitialFormState(
@@ -58,8 +72,9 @@ function getInitialFormState(
   initialEmployeeId?: string,
   initialStartOn?: string,
   initialEndOn?: string,
+  timezone = DEFAULT_TIMEZONE,
 ): LeaveFormState {
-  const startOn = initialStartOn ?? getToday()
+  const startOn = initialStartOn ?? getToday(timezone)
   return {
     employeeId: initialEmployeeId ?? employee.id,
     startOn,
@@ -115,21 +130,22 @@ export function LeaveBookingSheet({
   initialEmployeeId,
   initialStartOn,
   initialEndOn,
+  timezone = DEFAULT_TIMEZONE,
   booking,
 }: LeaveBookingSheetProps) {
   const isManager = canManageLeave(activeRole)
   const createLeave = useCreateLeave()
   const createEmployeeLeave = useCreateEmployeeLeave()
   const [formState, setFormState] = useState(() =>
-    getInitialFormState(employee, initialEmployeeId, initialStartOn, initialEndOn),
+    getInitialFormState(employee, initialEmployeeId, initialStartOn, initialEndOn, timezone),
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
-    setFormState(getInitialFormState(employee, initialEmployeeId, initialStartOn, initialEndOn))
+    setFormState(getInitialFormState(employee, initialEmployeeId, initialStartOn, initialEndOn, timezone))
     setErrorMessage(null)
-  }, [employee, initialEmployeeId, initialStartOn, initialEndOn, open])
+  }, [employee, initialEmployeeId, initialStartOn, initialEndOn, open, timezone])
 
   const isPending = createLeave.isPending || createEmployeeLeave.isPending
 
