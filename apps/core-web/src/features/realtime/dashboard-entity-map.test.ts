@@ -79,6 +79,14 @@ describe('dashboard realtime entity mapping', () => {
     expect(getDomainQueryKeysForEntityType('VEHICLE_SALE')).toEqual([vehicleStockKeys.all])
   })
 
+  it('maps HR attendance and leave requests to HR domain query keys', () => {
+    expect(getDomainQueryKeysForEntityType('ATTENDANCE_EVENT')).toEqual([['hr']])
+    expect(getDomainQueryKeysForEntityType('LEAVE_REQUEST')).toEqual([
+      ['hr'],
+      workshopKeys.all,
+    ])
+  })
+
   it('validates entity_updated payload shape', () => {
     expect(
       isEntityUpdatedPayload({
