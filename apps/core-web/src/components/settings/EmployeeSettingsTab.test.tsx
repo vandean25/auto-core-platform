@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { useEmployees } from '@/api/employees'
+import { useAuthSession } from '@/api/auth-session'
 import { EmployeeSettingsTab } from './EmployeeSettingsTab'
 
 vi.mock('@/api/employees', () => ({
@@ -17,6 +18,14 @@ vi.mock('@/api/employees', () => ({
   useDeleteEmployee: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
+vi.mock('@/api/hr', () => ({
+  usePatchLeaveBalance: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
+
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: vi.fn(() => ({ data: { activeRole: 'ADMIN' }, isLoading: false })),
+}))
+
 describe('EmployeeSettingsTab', () => {
   it('renders title and top-right + Employee action', () => {
     render(
@@ -27,9 +36,12 @@ describe('EmployeeSettingsTab', () => {
 
     expect(screen.getByText('Employees')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Employee' })).toBeInTheDocument()
+    expect(screen.getByTestId('employee-table')).toBeInTheDocument()
+    expect(screen.getByText('Hire date')).toBeInTheDocument()
     expect(vi.mocked(useEmployees)).toHaveBeenCalledWith({
       includeInactive: true,
       limit: 100,
     })
+    expect(vi.mocked(useAuthSession)).toHaveBeenCalled()
   })
 })
