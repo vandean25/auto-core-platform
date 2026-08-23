@@ -37,6 +37,12 @@ describe('MechanicAwayAlert', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Alex')
   })
 
+  it('falls back to the away record name when mechanicName is null', () => {
+    render(<MechanicAwayAlert employeeAway={awayRecord} mechanicName={null} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Alex Mechanic')
+  })
+
   it('renders the inclusive away date range', () => {
     render(<MechanicAwayAlert employeeAway={awayRecord} />)
 

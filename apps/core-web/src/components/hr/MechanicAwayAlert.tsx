@@ -7,7 +7,7 @@ type PlannerEmployeeAway = components['schemas']['PlannerEmployeeAwayDto']
 
 interface MechanicAwayAlertProps {
   employeeAway?: PlannerEmployeeAway | null
-  mechanicName?: string
+  mechanicName?: string | null
 }
 
 export function MechanicAwayAlert({ employeeAway, mechanicName }: MechanicAwayAlertProps) {
