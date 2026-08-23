@@ -228,4 +228,13 @@ describe('role-aware shell route guards', () => {
     expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
     expect(screen.getByText('Mechanic')).toBeInTheDocument()
   })
+
+  it('redirects a TECH user away from HR routes without rendering office HR content', async () => {
+    renderShellRouter('/hr/employees', { activeRole: 'TECH' })
+
+    expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    expect(screen.getByText('Mechanic')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'HR' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Employees' })).not.toBeInTheDocument()
+  })
 })

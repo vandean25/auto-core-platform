@@ -38,6 +38,7 @@ describe('HrLayout', () => {
     expect(screen.getByRole('link', { name: 'Time Clock' })).toHaveAttribute('href', '/hr/clock')
     expect(screen.getByRole('link', { name: 'Leave' })).toHaveAttribute('href', '/hr/leave')
     expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Time Clock' })).not.toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('Employees route content')).toBeInTheDocument()
   })
 
