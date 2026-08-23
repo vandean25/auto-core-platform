@@ -224,7 +224,10 @@ describe('MechanicQueuePage', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Come to work' }))
 
-      expect(mutate).toHaveBeenCalledWith({ type: 'CLOCK_IN' })
+      expect(mutate).toHaveBeenCalledWith(
+        { type: 'CLOCK_IN' },
+        expect.objectContaining({ onError: expect.any(Function) }),
+      )
     })
 
     it('disables punch controls while a clock mutation is pending', () => {
@@ -252,7 +255,47 @@ describe('MechanicQueuePage', () => {
 
       expect(screen.queryByRole('button', { name: 'Come to work' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument()
-      expect(toast.error).not.toHaveBeenCalled()
+      expect(toast.error).toHaveBeenCalledTimes(0)
+    })
+
+    it('shows a toast for non-403 clock query failures while keeping the queue visible', async () => {
+      const clockError = Object.assign(new Error('Clock service unavailable'), {
+        status: 500,
+      })
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(
+        createClockQueryMock(undefined, { error: clockError }),
+      )
+
+      renderQueuePage()
+
+      expect(screen.getByText('Oil Change')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Clock service unavailable')
+      })
+    })
+
+    it('shows a toast when a punch mutation is rejected', async () => {
+      const punchError = new Error('Attendance punch failed')
+      const mutate = vi.fn(
+        (
+          _payload: unknown,
+          options?: { onError?: (error: Error) => void },
+        ) => {
+          options?.onError?.(punchError)
+        },
+      )
+      setupDefaultMocks()
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock(linkedClock))
+      asMock(hrApi.usePunchClock).mockReturnValue(createPunchMutationMock({ mutate }))
+
+      renderQueuePage()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Come to work' }))
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Attendance punch failed')
+      })
     })
   })
 
