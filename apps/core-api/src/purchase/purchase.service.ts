@@ -636,20 +636,15 @@ export class PurchaseService {
 
   async getPurchaseOrderItem(orderId: string, itemId: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: {
-        items: {
-          include: { catalog_item: true },
-        },
+    const item = await this.prisma.purchaseOrderItem.findFirst({
+      where: {
+        id: itemId,
+        purchase_order_id: orderId,
+        tenant_id: tenantId,
       },
+      include: { catalog_item: true },
     });
 
-    if (!po) {
-      throw new NotFoundException('Purchase Order not found');
-    }
-
-    const item = po.items.find((i) => i.id === itemId);
     if (!item) {
       throw new NotFoundException('Purchase order item not found');
     }

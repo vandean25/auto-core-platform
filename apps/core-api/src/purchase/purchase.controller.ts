@@ -172,7 +172,6 @@ export class PurchaseController {
     };
   }
 
-  // GET endpoint for fetching a single purchase order
   @Get(':id')
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
   async findOne(@Param('id') id: string) {
