@@ -681,7 +681,7 @@ Do **not** return 409 from booking because someone is away.
 
 - [ ] **Step 2:** Add `PlannerEmployeeAwayDto` to `PlannerGridResponseDto.employeesAway`. Query BOOKED leave overlapping planner `from`/`to`.
 
-- [ ] **Step 3:** Planner UI: `Alert` when the assigned mechanic (or any mechanic on a booking) is in `employeesAway` — amber, submit still enabled (create sheet already has mechanic-overlap Alert).
+- [ ] **Step 3:** Add reusable `MechanicAwayAlert` (amber shadcn `Alert`, Vitest). Props: people from `employeesAway` for the selected mechanic / range. Submit stays enabled. **Do not** mount on `WorkshopBoard`. **Do not** build `/workshop/planner` (AUT-177). If `WorkshopPlannerPage` / create sheet already exists on this branch, mount next to the mechanic-overlap Alert; otherwise export the component unmounted.
 
 - [ ] **Step 4:** `DashboardEntityType` + frontend map:
 

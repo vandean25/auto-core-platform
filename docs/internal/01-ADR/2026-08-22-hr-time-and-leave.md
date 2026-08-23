@@ -88,7 +88,9 @@ Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if rem
 
 ### 4. Planner integration is advisory
 
-`GET /api/workshop/planner` gains `employeesAway[]` for BOOKED leave overlapping the window. The UI warns (amber). Bay overlap remains the only hard `409` (ADR-0019). Mechanic-on-leave is the same class of warning as mechanic double-book.
+`GET /api/workshop/planner` gains `employeesAway[]` for BOOKED leave overlapping the window. The calendar UI warns (amber). Bay overlap remains the only hard `409` (ADR-0019). Mechanic-on-leave is the same class of warning as mechanic double-book.
+
+Do **not** show this on `/workshop/board`. Do **not** implement the planner calendar page in the HR module; that is AUT-177. Until that page exists, HR ships the API field plus a reusable warning component.
 
 ### 5. API split
 

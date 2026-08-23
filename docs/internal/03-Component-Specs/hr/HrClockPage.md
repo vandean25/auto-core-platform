@@ -124,5 +124,5 @@ Use `hrKeys` from `apps/core-web/src/api/hr.ts` (see feature spec). Invalidate `
 ## Related
 
 - `EmployeeSettingsTab.tsx` — roster reuse
-- `WorkshopPlannerPage` — consume `employeesAway`; do not book leave there
+- `MechanicAwayAlert` (reusable) — amber leave warning for the future planner create sheet / grid. Do not mount on `WorkshopBoard`. Do not implement `WorkshopPlannerPage` here (AUT-177). If that page already exists on the merge target, mount the alert next to the mechanic-overlap Alert.
 - Mechanic task Start/Pause — job labor, not this punch bar
