@@ -1,7 +1,13 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
-import { AttendanceEventSource, AttendanceEventType, EmployeeRole } from '@prisma/client';
+import { Test, TestingModule } from '@nestjs/testing';
+import {
+  AttendanceEventSource,
+  AttendanceEventType,
+  EmployeeRole,
+  LeaveRequestStatus,
+} from '@prisma/client';
 import { HrController } from './hr.controller';
 import { HrAttendanceService } from './hr-attendance.service';
+import { HrLeaveService } from './hr-leave.service';
 
 describe('HrController', () => {
   let controller: HrController;
@@ -12,6 +18,15 @@ describe('HrController', () => {
     getAttendance: jest.Mock;
     punchEmployee: jest.Mock;
   };
+  let leaveService: {
+    getMyLeave: jest.Mock;
+    createMyLeave: jest.Mock;
+    createEmployeeLeave: jest.Mock;
+    cancelLeave: jest.Mock;
+    listTeamLeave: jest.Mock;
+    updateLeave: jest.Mock;
+    patchLeaveBalance: jest.Mock;
+  };
 
   beforeEach(async () => {
     attendanceService = {
@@ -21,11 +36,21 @@ describe('HrController', () => {
       getAttendance: jest.fn(),
       punchEmployee: jest.fn(),
     };
+    leaveService = {
+      getMyLeave: jest.fn(),
+      createMyLeave: jest.fn(),
+      createEmployeeLeave: jest.fn(),
+      cancelLeave: jest.fn(),
+      listTeamLeave: jest.fn(),
+      updateLeave: jest.fn(),
+      patchLeaveBalance: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HrController],
       providers: [
         { provide: HrAttendanceService, useValue: attendanceService },
+        { provide: HrLeaveService, useValue: leaveService },
       ],
     }).compile();
 
@@ -140,6 +165,138 @@ describe('HrController', () => {
       employeeId: 'emp-2',
       type: AttendanceEventType.CLOCK_OUT,
       note: 'Close',
+    });
+  });
+
+  it('GET /api/hr/me/leave returns my leave', async () => {
+    leaveService.getMyLeave.mockResolvedValue({
+      year: 2026,
+      allowanceDays: 25,
+      carryoverDays: 0,
+      remainingDays: 20,
+      bookings: [],
+    });
+
+    const result = await controller.getMyLeave({ year: 2026 });
+    expect(result.year).toBe(2026);
+    expect(leaveService.getMyLeave).toHaveBeenCalledWith(2026);
+  });
+
+  it('POST /api/hr/me/leave creates booking for self', async () => {
+    leaveService.createMyLeave.mockResolvedValue({
+      id: 'leave-1',
+      employeeId: 'emp-1',
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+      status: LeaveRequestStatus.BOOKED,
+      daysCharged: 5,
+      note: 'Vacation',
+      createdByUserId: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await controller.createMyLeave({
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+      note: 'Vacation',
+    });
+    expect(result.id).toBe('leave-1');
+    expect(leaveService.createMyLeave).toHaveBeenCalledWith({
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+      note: 'Vacation',
+    });
+  });
+
+  it('POST /api/hr/leave creates booking for an employee', async () => {
+    leaveService.createEmployeeLeave.mockResolvedValue({
+      id: 'leave-2',
+      employeeId: 'emp-2',
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+      status: LeaveRequestStatus.BOOKED,
+      daysCharged: 5,
+      note: null,
+      createdByUserId: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await controller.createEmployeeLeave({
+      employeeId: 'emp-2',
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+    });
+    expect(result.id).toBe('leave-2');
+    expect(leaveService.createEmployeeLeave).toHaveBeenCalledWith({
+      employeeId: 'emp-2',
+      startOn: '2026-09-01',
+      endOn: '2026-09-05',
+    });
+  });
+
+  it('POST /api/hr/leave/:id/cancel cancels booking', async () => {
+    leaveService.cancelLeave.mockResolvedValue({
+      id: 'leave-1',
+      status: LeaveRequestStatus.CANCELLED,
+    });
+
+    const result = await controller.cancelLeave('leave-1');
+    expect(result.status).toBe(LeaveRequestStatus.CANCELLED);
+    expect(leaveService.cancelLeave).toHaveBeenCalledWith('leave-1');
+  });
+
+  it('GET /api/hr/leave lists team leave', async () => {
+    leaveService.listTeamLeave.mockResolvedValue([]);
+    const result = await controller.listTeamLeave({
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+    expect(result).toEqual([]);
+    expect(leaveService.listTeamLeave).toHaveBeenCalledWith({
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('PATCH /api/hr/leave/:id updates booking', async () => {
+    leaveService.updateLeave.mockResolvedValue({
+      id: 'leave-1',
+      startOn: '2026-09-02',
+      endOn: '2026-09-06',
+    });
+
+    const result = await controller.updateLeave('leave-1', {
+      startOn: '2026-09-02',
+      endOn: '2026-09-06',
+    });
+    expect(result.startOn).toBe('2026-09-02');
+    expect(leaveService.updateLeave).toHaveBeenCalledWith('leave-1', {
+      startOn: '2026-09-02',
+      endOn: '2026-09-06',
+    });
+  });
+
+  it('PATCH /api/hr/employees/:id/leave-balance patches balance', async () => {
+    leaveService.patchLeaveBalance.mockResolvedValue({
+      id: 'bal-1',
+      employeeId: 'emp-1',
+      year: 2026,
+      allowanceDays: 30,
+      carryoverDays: 2,
+    });
+
+    const result = await controller.patchLeaveBalance('emp-1', {
+      year: 2026,
+      allowanceDays: 30,
+      carryoverDays: 2,
+    });
+    expect(result.allowanceDays).toBe(30);
+    expect(leaveService.patchLeaveBalance).toHaveBeenCalledWith('emp-1', {
+      year: 2026,
+      allowanceDays: 30,
+      carryoverDays: 2,
     });
   });
 });

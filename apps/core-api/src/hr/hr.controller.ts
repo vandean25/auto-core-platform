@@ -1,4 +1,12 @@
-﻿import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
 import {
@@ -12,12 +20,27 @@ import {
   PunchClockDto,
   PunchResponseDto,
 } from './dto/hr-clock.dto';
+import {
+  CreateEmployeeLeaveDto,
+  CreateMyLeaveDto,
+  LeaveBalanceResponseDto,
+  LeaveRequestResponseDto,
+  MyLeaveResponseDto,
+  PatchLeaveBalanceDto,
+  QueryHrLeaveDto,
+  QueryMyLeaveDto,
+  UpdateLeaveRequestDto,
+} from './dto/hr-leave.dto';
 import { HrAttendanceService } from './hr-attendance.service';
+import { HrLeaveService } from './hr-leave.service';
 
 @ApiTags('HR')
 @Controller('hr')
 export class HrController {
-  constructor(private readonly attendance: HrAttendanceService) {}
+  constructor(
+    private readonly attendance: HrAttendanceService,
+    private readonly leave: HrLeaveService,
+  ) {}
 
   @Get('me')
   @MechanicAccessible()
@@ -71,5 +94,86 @@ export class HrController {
     @Body() dto: CreateHrAttendanceDto,
   ): Promise<PunchResponseDto> {
     return this.attendance.punchEmployee(dto);
+  }
+
+  @Get('me/leave')
+  @MechanicAccessible()
+  @ApiOperation({
+    summary: 'Get my leave bookings, allowance, and remaining days for a year',
+  })
+  @ApiResponse({ status: 200, type: MyLeaveResponseDto })
+  async getMyLeave(
+    @Query() query: QueryMyLeaveDto,
+  ): Promise<MyLeaveResponseDto> {
+    return this.leave.getMyLeave(query.year);
+  }
+
+  @Post('me/leave')
+  @MechanicAccessible()
+  @ApiOperation({
+    summary: 'Book leave for current linked employee',
+  })
+  @ApiResponse({ status: 201, type: LeaveRequestResponseDto })
+  async createMyLeave(
+    @Body() dto: CreateMyLeaveDto,
+  ): Promise<LeaveRequestResponseDto> {
+    return this.leave.createMyLeave(dto);
+  }
+
+  @Post('leave')
+  @ApiOperation({
+    summary: 'Book leave for an employee (OWNER/ADMIN only)',
+  })
+  @ApiResponse({ status: 201, type: LeaveRequestResponseDto })
+  async createEmployeeLeave(
+    @Body() dto: CreateEmployeeLeaveDto,
+  ): Promise<LeaveRequestResponseDto> {
+    return this.leave.createEmployeeLeave(dto);
+  }
+
+  @Post('leave/:id/cancel')
+  @ApiOperation({
+    summary:
+      'Cancel a leave booking (own future leave or OWNER/ADMIN)',
+  })
+  @ApiResponse({ status: 200, type: LeaveRequestResponseDto })
+  async cancelLeave(@Param('id') id: string): Promise<LeaveRequestResponseDto> {
+    return this.leave.cancelLeave(id);
+  }
+
+  @Get('leave')
+  @ApiOperation({
+    summary: 'Get team leave bookings for date range (OWNER/ADMIN/SALES)',
+  })
+  @ApiResponse({ status: 200, type: [LeaveRequestResponseDto] })
+  async listTeamLeave(
+    @Query() query: QueryHrLeaveDto,
+  ): Promise<LeaveRequestResponseDto[]> {
+    return this.leave.listTeamLeave(query);
+  }
+
+  @Patch('leave/:id')
+  @ApiOperation({
+    summary: 'Update leave booking dates or note (OWNER/ADMIN only)',
+  })
+  @ApiResponse({ status: 200, type: LeaveRequestResponseDto })
+  async updateLeave(
+    @Param('id') id: string,
+    @Body() dto: UpdateLeaveRequestDto,
+  ): Promise<LeaveRequestResponseDto> {
+    return this.leave.updateLeave(id, dto);
+  }
+
+  @Patch('employees/:id/leave-balance')
+  @ApiOperation({
+    summary:
+      'Update employee annual leave allowance or carryover days (OWNER/ADMIN only)',
+  })
+  @ApiResponse({ status: 200, type: LeaveBalanceResponseDto })
+  async patchLeaveBalance(
+    @Param('id') employeeId: string,
+    @Body() dto: PatchLeaveBalanceDto,
+  ): Promise<LeaveBalanceResponseDto> {
+    return this.leave.patchLeaveBalance(employeeId, dto);
   }
 }
