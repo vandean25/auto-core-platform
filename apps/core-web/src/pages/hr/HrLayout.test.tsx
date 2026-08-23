@@ -78,10 +78,27 @@ describe('HR navigation visibility', () => {
     expect(hrLinks[0]).toHaveClass('bg-slate-800', 'text-white')
   })
 
-  it('does not expose HR navigation to the TECH role', () => {
+  it.each(['/hr/employees', '/hr/clock', '/hr/leave'])(
+    'marks HR as the current sidebar link on %s',
+    (initialPath) => {
+      render(
+        <SavedViewsProvider userKey='test-user'>
+          <MemoryRouter initialEntries={[initialPath]}>
+            <AppSidebar {...sidebarProps} activeRole='ADMIN' />
+          </MemoryRouter>
+        </SavedViewsProvider>,
+      )
+
+      const hrLink = screen.getByRole('link', { name: 'HR' })
+      expect(hrLink).toHaveAttribute('aria-current', 'page')
+      expect(hrLink).toHaveClass('bg-slate-800', 'text-white')
+    },
+  )
+
+  it.each(['/hr', '/hr/clock', '/hr/leave'])('does not expose HR navigation to TECH on %s', (initialPath) => {
     render(
       <SavedViewsProvider userKey='test-user-tech'>
-        <MemoryRouter initialEntries={['/mechanic/queue']}>
+        <MemoryRouter initialEntries={[initialPath]}>
           <AppSidebar {...sidebarProps} activeRole='TECH' />
         </MemoryRouter>
       </SavedViewsProvider>,

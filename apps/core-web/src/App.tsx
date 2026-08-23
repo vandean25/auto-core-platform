@@ -60,7 +60,7 @@ const MechanicTaskDetailPage = React.lazy(() => import('./pages/mechanic/Mechani
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
-function AppRoutes() {
+export function AppRoutes() {
   const location = useLocation()
 
   return (
