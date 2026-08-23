@@ -379,10 +379,13 @@ export class HrLeaveService {
       });
 
       if (dto.year === currentYear && dto.allowanceDays !== undefined) {
-        await tx.employee.update({
-          where: { id: employeeId },
+        const updatedEmployee = await tx.employee.updateMany({
+          where: { id: employeeId, tenant_id: tenantId },
           data: { annual_leave_days: dto.allowanceDays },
         });
+        if (updatedEmployee.count === 0) {
+          throw new NotFoundException(`Employee ${employeeId} not found`);
+        }
       }
 
       return balance;
