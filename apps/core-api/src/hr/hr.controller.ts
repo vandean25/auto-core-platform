@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -132,6 +134,8 @@ export class HrController {
   }
 
   @Post('leave/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @MechanicAccessible()
   @ApiOperation({
     summary: 'Cancel a leave booking (own future leave or OWNER/ADMIN)',
   })
