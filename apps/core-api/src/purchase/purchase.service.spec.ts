@@ -22,11 +22,6 @@ describe('PurchaseService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
-    purchaseOrderItem: {
-      findFirst: jest.fn(),
-      deleteMany: jest.fn(),
-      updateMany: jest.fn(),
-    },
     purchaseOrder: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -38,6 +33,8 @@ describe('PurchaseService', () => {
       deleteMany: jest.fn(),
     },
     purchaseOrderItem: {
+      findFirst: jest.fn(),
+      deleteMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
