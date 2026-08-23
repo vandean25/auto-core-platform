@@ -734,6 +734,37 @@
       }
     },
     "/api/purchase-orders/{id}/items": {
+      "get": {
+        "operationId": "PurchaseController_getPurchaseOrderItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PurchaseOrderItemResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      },
       "post": {
         "operationId": "PurchaseController_addItems",
         "parameters": [
@@ -774,6 +805,42 @@
       }
     },
     "/api/purchase-orders/{id}/items/{itemId}": {
+      "get": {
+        "operationId": "PurchaseController_getPurchaseOrderItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderItemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      },
       "patch": {
         "operationId": "PurchaseController_updateItem",
         "parameters": [

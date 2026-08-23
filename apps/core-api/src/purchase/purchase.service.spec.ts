@@ -33,6 +33,8 @@ describe('PurchaseService', () => {
       deleteMany: jest.fn(),
     },
     purchaseOrderItem: {
+      findFirst: jest.fn(),
+      deleteMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -208,7 +210,9 @@ describe('PurchaseService', () => {
 
       await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
 
-      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.purchaseOrderItem.updateMany,
+      ).toHaveBeenCalledWith({
         where: {
           id: 'poi1',
           tenant_id: 'tenant-1',
@@ -292,7 +296,9 @@ describe('PurchaseService', () => {
           };
         },
       );
-      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       await service.markAsSent('po-1');
 
@@ -311,7 +317,9 @@ describe('PurchaseService', () => {
         id: 'po-1',
         status: PurchaseOrderStatus.DRAFT,
       });
-      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
+        count: 0,
+      });
 
       await expect(service.markAsSent('po-1')).rejects.toBeInstanceOf(
         ConflictException,
@@ -438,6 +446,65 @@ describe('PurchaseService', () => {
         mockPrismaService.purchaseOrderItem.deleteMany,
       ).not.toHaveBeenCalled();
       expect(mockPrismaService.purchaseOrder.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getPurchaseOrderItems', () => {
+    it('should return all items for a valid purchase order', async () => {
+      const mockItems = [{ id: 'item1' }, { id: 'item2' }];
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        items: mockItems,
+      });
+
+      const result = await service.getPurchaseOrderItems('po-1');
+
+      expect(mockPrismaService.purchaseOrder.findFirst).toHaveBeenCalledWith({
+        where: { id: 'po-1', tenant_id: 'tenant-1' },
+        include: {
+          items: {
+            include: { catalog_item: true },
+          },
+        },
+      });
+      expect(result).toEqual(mockItems);
+    });
+
+    it('should throw NotFoundException if purchase order does not exist', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(null);
+
+      await expect(service.getPurchaseOrderItems('po-unknown')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getPurchaseOrderItem', () => {
+    it('should return a specific item for a valid purchase order', async () => {
+      const mockItem = { id: 'item1', purchase_order_id: 'po-1' };
+      mockPrismaService.purchaseOrderItem.findFirst.mockResolvedValue(mockItem);
+
+      const result = await service.getPurchaseOrderItem('po-1', 'item1');
+
+      expect(
+        mockPrismaService.purchaseOrderItem.findFirst,
+      ).toHaveBeenCalledWith({
+        where: {
+          id: 'item1',
+          purchase_order_id: 'po-1',
+          tenant_id: 'tenant-1',
+        },
+        include: { catalog_item: true },
+      });
+      expect(result).toEqual(mockItem);
+    });
+
+    it('should throw NotFoundException if item does not exist', async () => {
+      mockPrismaService.purchaseOrderItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getPurchaseOrderItem('po-1', 'item-unknown'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -568,12 +635,12 @@ describe('PurchaseService', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith(
-        {
-          where: { id: 'item-1', tenant_id: 'tenant-1' },
-          data: { quantity: 10, unit_cost: 20 },
-        },
-      );
+      expect(
+        mockPrismaService.purchaseOrderItem.updateMany,
+      ).toHaveBeenCalledWith({
+        where: { id: 'item-1', tenant_id: 'tenant-1' },
+        data: { quantity: 10, unit_cost: 20 },
+      });
     });
 
     it('should reject reducing quantity below received quantity', async () => {
@@ -623,13 +690,16 @@ describe('PurchaseService', () => {
         count: 1,
       });
 
-      const result = await service.deleteItemFromPurchaseOrder('po-1', 'item-1');
-      expect(result).toBeDefined();
-      expect(mockPrismaService.purchaseOrderItem.deleteMany).toHaveBeenCalledWith(
-        {
-          where: { id: 'item-1', tenant_id: 'tenant-1' },
-        },
+      const result = await service.deleteItemFromPurchaseOrder(
+        'po-1',
+        'item-1',
       );
+      expect(result).toBeDefined();
+      expect(
+        mockPrismaService.purchaseOrderItem.deleteMany,
+      ).toHaveBeenCalledWith({
+        where: { id: 'item-1', tenant_id: 'tenant-1' },
+      });
     });
   });
 });
