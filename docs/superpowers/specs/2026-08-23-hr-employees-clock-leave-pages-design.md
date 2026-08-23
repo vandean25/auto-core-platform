@@ -21,7 +21,7 @@ Implement the frontend HR surfaces from AUT-183 and the mechanic clock/planner l
 - Render a compact `AttendancePunchBar` in the mechanic queue header, separate from workshop job controls.
 - Hide that bar when the current user has no linked employee and the HR endpoint returns `403`.
 - Extend the planner response with `employeesAway` for overlapping `BOOKED` leave.
-- Display an amber advisory warning for affected mechanics while leaving planner booking enabled.
+- Add a reusable amber `MechanicAwayAlert` for the calendar booking path while leaving planner booking enabled. Mount it on `WorkshopPlannerPage` only when that page exists on the merge target; the current `main` checkout does not contain that page, so this PR will not create or mount a planner page.
 - Invalidate HR and planner queries for attendance and leave realtime events.
 
 The work does not introduce payroll, approval workflows, sick-leave types, half-days, a kiosk, or a hard planner conflict for employee leave. It does not reuse `LaborEntry`, `LaborPauseReason`, or `WorkshopHoliday` for HR attendance or leave.
@@ -100,7 +100,7 @@ Add `PlannerEmployeeAwayDto` and `employeesAway` to `PlannerGridResponseDto`. `W
 
 The query is batched once per planner request and does not run inside a booking loop. Cancelled leave is excluded. The planner response remains additive and existing booking behavior is unchanged.
 
-The planner page will compare assigned mechanic IDs with `employeesAway` and show an amber `Alert` identifying the mechanic and leave range. The warning is advisory: create/update booking controls remain enabled and no leave-related `409` is introduced.
+Create a reusable `MechanicAwayAlert` component and test it against the same advisory behavior as mechanic-overlap warnings. If `WorkshopPlannerPage` is present on the merge target, mount the alert there by matching assigned mechanic IDs with `employeesAway`; on the current `main` checkout, leave the component unmounted rather than creating the planner surface owned by AUT-177. The warning is advisory: create/update booking controls remain enabled and no leave-related `409` is introduced.
 
 ### 8. Realtime invalidation
 
@@ -131,4 +131,4 @@ Use TDD for each new behavior:
 
 ## Verification and delivery
 
-Run focused Vitest/Jest tests during implementation, then the repository-required lint, build, API type check, unit, and relevant e2e suites. Create a feature branch using the Linear branch name, commit the implementation, push it, and create one PR with `Fixes AUT-183` and `Fixes AUT-184` in the body.
+Run focused Vitest/Jest tests during implementation, then the repository-required lint, build, API type check, unit, and relevant e2e suites. Create a feature branch using the Linear branch name, commit the implementation, push it, and create one PR with `Fixes AUT-183` and `Fixes AUT-184` in the body. Do not implement `/workshop/planner`; that surface belongs to AUT-177.
