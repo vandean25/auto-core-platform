@@ -64,6 +64,23 @@ export class PlannerVehicleDto {
   plate?: string;
 }
 
+export class PlannerEmployeeAwayDto {
+  @ApiProperty()
+  employeeId!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty({ type: String, format: 'date', example: '2026-08-24' })
+  startOn!: string;
+
+  @ApiProperty({ type: String, format: 'date', example: '2026-08-26' })
+  endOn!: string;
+
+  @ApiProperty()
+  leaveId!: string;
+}
+
 export class PlannerBookingDto {
   @ApiProperty()
   orderId!: string;
@@ -117,6 +134,9 @@ export class PlannerGridResponseDto {
 
   @ApiProperty({ type: [PlannerHolidayDto] })
   holidays!: PlannerHolidayDto[];
+
+  @ApiProperty({ type: [PlannerEmployeeAwayDto] })
+  employeesAway!: PlannerEmployeeAwayDto[];
 
   @ApiProperty({ type: [PlannerBookingDto] })
   bookings!: PlannerBookingDto[];

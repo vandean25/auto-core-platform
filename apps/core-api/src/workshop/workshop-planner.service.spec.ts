@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
-import { WorkshopOrderStatus } from '@prisma/client';
+import { LeaveRequestStatus, WorkshopOrderStatus } from '@prisma/client';
 import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import {
@@ -56,6 +56,7 @@ describe('WorkshopPlannerService', () => {
     ]);
     mockPrisma.workshopHoliday.findMany.mockResolvedValue([]);
     mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
+    mockPrisma.leaveRequest.findMany.mockResolvedValue([]);
   });
 
   it('rejects a planner window wider than 8 days', async () => {
@@ -65,6 +66,84 @@ describe('WorkshopPlannerService', () => {
         to: '2026-08-10T00:00:00.000Z',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns overlapping booked mechanic leave and scopes the leave query', async () => {
+    mockPrisma.leaveRequest.findMany.mockResolvedValue([
+      {
+        id: 'leave-1',
+        employee_id: 'employee-1',
+        start_on: new Date('2026-08-24T00:00:00.000Z'),
+        end_on: new Date('2026-08-26T00:00:00.000Z'),
+        employee: { id: 'employee-1', name: 'Ada Lovelace' },
+      },
+      {
+        id: 'leave-2',
+        employee_id: 'employee-2',
+        start_on: new Date('2026-08-25T00:00:00.000Z'),
+        end_on: new Date('2026-08-27T00:00:00.000Z'),
+        employee: { id: 'employee-2', name: 'Grace Hopper' },
+      },
+    ]);
+
+    const result = await service.getPlanner({
+      from: '2026-08-24T00:00:00.000Z',
+      to: '2026-08-26T22:00:00.000Z',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        employeesAway: [
+          {
+            employeeId: 'employee-1',
+            name: 'Ada Lovelace',
+            startOn: '2026-08-24',
+            endOn: '2026-08-26',
+            leaveId: 'leave-1',
+          },
+          {
+            employeeId: 'employee-2',
+            name: 'Grace Hopper',
+            startOn: '2026-08-25',
+            endOn: '2026-08-27',
+            leaveId: 'leave-2',
+          },
+        ],
+      }),
+    );
+    expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        status: LeaveRequestStatus.BOOKED,
+        start_on: { lte: new Date('2026-08-26T00:00:00.000Z') },
+        end_on: { gte: new Date('2026-08-24T00:00:00.000Z') },
+      },
+      select: {
+        id: true,
+        employee_id: true,
+        start_on: true,
+        end_on: true,
+        employee: { select: { id: true, name: true } },
+      },
+      orderBy: [{ start_on: 'asc' }, { employee_id: 'asc' }],
+    });
+  });
+
+  it('queries only booked leave so cancelled leave is excluded', async () => {
+    const result = await service.getPlanner({
+      from: '2026-08-24T00:00:00.000Z',
+      to: '2026-08-26T22:00:00.000Z',
+    });
+
+    expect(result).toEqual(expect.objectContaining({ employeesAway: [] }));
+    expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: LeaveRequestStatus.BOOKED,
+        }),
+      }),
+    );
   });
 
   it('returns a closed holiday overlay and scheduled bookings', async () => {
@@ -88,8 +167,20 @@ describe('WorkshopPlannerService', () => {
         mechanic: null,
         scheduled_start_at: new Date('2026-10-26T08:00:00.000Z'),
         scheduled_end_at: new Date('2026-10-26T09:00:00.000Z'),
-        customer: { id: 'c-1', first_name: 'Ada', last_name: 'Lovelace', company_name: null, type: 'PRIVATE' },
-        vehicle: { id: 'v-1', make: 'Toyota', model: 'Corolla', year: 2020, plate: 'W-1' },
+        customer: {
+          id: 'c-1',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          company_name: null,
+          type: 'PRIVATE',
+        },
+        vehicle: {
+          id: 'v-1',
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2020,
+          plate: 'W-1',
+        },
       },
     ]);
 
@@ -136,7 +227,13 @@ describe('WorkshopPlannerService', () => {
         scheduled_start_at: null,
         scheduled_end_at: null,
         customer: null,
-        vehicle: { id: 'v-2', make: 'VW', model: 'Golf', year: 2019, plate: 'W-2' },
+        vehicle: {
+          id: 'v-2',
+          make: 'VW',
+          model: 'Golf',
+          year: 2019,
+          plate: 'W-2',
+        },
       },
     ]);
 

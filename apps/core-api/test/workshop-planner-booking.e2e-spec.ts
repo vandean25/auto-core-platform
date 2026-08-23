@@ -1,5 +1,6 @@
 import { AuthService } from '../src/auth/auth.service';
 import { INestApplication } from '@nestjs/common';
+import { LeaveRequestStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -24,6 +25,7 @@ describe('Workshop planner booking (e2e)', () => {
   let vehicleCId: string;
   let bayId: string;
   let tenantId: string;
+  let isolatedTenantId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,7 +38,10 @@ describe('Workshop planner booking (e2e)', () => {
     await app.init();
 
     basePrisma = app.get(PrismaService);
-    const testTenant = await createTestTenant(basePrisma, 'workshop-planner-book');
+    const testTenant = await createTestTenant(
+      basePrisma,
+      'workshop-planner-book',
+    );
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
@@ -96,6 +101,9 @@ describe('Workshop planner booking (e2e)', () => {
   afterAll(async () => {
     if (tenantId) {
       await cleanupTestTenantGraph(basePrisma, tenantId);
+    }
+    if (isolatedTenantId) {
+      await cleanupTestTenantGraph(basePrisma, isolatedTenantId);
     }
     await teardownTestApp(app, basePrisma);
   });
@@ -157,5 +165,104 @@ describe('Workshop planner booking (e2e)', () => {
 
     const statuses = [first.status, second.status].sort((a, b) => a - b);
     expect(statuses).toEqual([201, 409]);
+  });
+
+  it('returns booked mechanic leave without blocking an away mechanic booking', async () => {
+    const mechanic = await prisma.employee.create({
+      data: {
+        name: 'Ada Lovelace',
+        role: 'MECHANIC',
+        is_active: true,
+      },
+    });
+    const leave = await prisma.leaveRequest.create({
+      data: {
+        employee_id: mechanic.id,
+        start_on: new Date('2026-08-24T00:00:00.000Z'),
+        end_on: new Date('2026-08-26T00:00:00.000Z'),
+        status: LeaveRequestStatus.BOOKED,
+        days_charged: 3,
+      },
+    });
+    await prisma.leaveRequest.create({
+      data: {
+        employee_id: mechanic.id,
+        start_on: new Date('2026-08-24T00:00:00.000Z'),
+        end_on: new Date('2026-08-26T00:00:00.000Z'),
+        status: LeaveRequestStatus.CANCELLED,
+        days_charged: 0,
+      },
+    });
+
+    const isolatedTenant = await createTestTenant(
+      basePrisma,
+      'workshop-planner-isolated',
+    );
+    isolatedTenantId = isolatedTenant.tenantId;
+    const isolatedPrisma = createTenantAwarePrisma(
+      basePrisma,
+      isolatedTenantId,
+    );
+    const isolatedMechanic = await isolatedPrisma.employee.create({
+      data: {
+        name: 'Other Tenant Mechanic',
+        role: 'MECHANIC',
+        is_active: true,
+      },
+    });
+    await isolatedPrisma.leaveRequest.create({
+      data: {
+        employee_id: isolatedMechanic.id,
+        start_on: new Date('2026-08-24T00:00:00.000Z'),
+        end_on: new Date('2026-08-26T00:00:00.000Z'),
+        status: LeaveRequestStatus.BOOKED,
+        days_charged: 3,
+      },
+    });
+
+    const awayVehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'VW',
+        model: 'Arteon',
+        year: 2023,
+        vin: `VIN-PLAN-AWAY-${Date.now()}`,
+      },
+    });
+
+    const plannerResponse = await request(app.getHttpServer())
+      .get('/api/workshop/planner')
+      .query({
+        from: '2026-08-24T00:00:00.000Z',
+        to: '2026-08-26T22:00:00.000Z',
+      })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(plannerResponse.body.employeesAway).toEqual([
+      {
+        employeeId: mechanic.id,
+        name: 'Ada Lovelace',
+        startOn: '2026-08-24',
+        endOn: '2026-08-26',
+        leaveId: leave.id,
+      },
+    ]);
+
+    const bookingResponse = await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId: awayVehicle.id,
+        status: 'SCHEDULED',
+        bayId,
+        mechanicId: mechanic.id,
+        scheduledStartAt: '2026-08-24T08:00:00.000Z',
+        scheduledEndAt: '2026-08-24T09:00:00.000Z',
+      })
+      .expect(201);
+
+    expect(bookingResponse.body.mechanicId).toBe(mechanic.id);
   });
 });
