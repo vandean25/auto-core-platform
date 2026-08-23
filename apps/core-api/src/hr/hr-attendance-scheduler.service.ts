@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
@@ -27,8 +27,29 @@ export class HrAttendanceSchedulerService {
       'HR shift-close job started: querying latest attendance events.',
     );
 
-    const events = await this.systemPrisma.attendanceEvent.findMany({
-      orderBy: { occurred_at: 'desc' },
+    const grouped = await this.systemPrisma.attendanceEvent.groupBy({
+      by: ['tenant_id', 'employee_id'],
+      _max: { occurred_at: true },
+    });
+
+    const activePastGroups = grouped.filter(
+      (g) => g._max.occurred_at && new Date(g._max.occurred_at) < now,
+    );
+
+    if (activePastGroups.length === 0) {
+      this.logger.log('HR shift-close job: no orphaned shifts found.');
+      return;
+    }
+
+    const latestEvents = await this.systemPrisma.attendanceEvent.findMany({
+      where: {
+        OR: activePastGroups.map((g) => ({
+          tenant_id: g.tenant_id,
+          employee_id: g.employee_id,
+          occurred_at: g._max.occurred_at as Date,
+        })),
+      },
+      orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
       select: {
         id: true,
         tenant_id: true,
@@ -38,8 +59,8 @@ export class HrAttendanceSchedulerService {
       },
     });
 
-    const latestPerEmployee = new Map<string, (typeof events)[0]>();
-    for (const event of events) {
+    const latestPerEmployee = new Map<string, (typeof latestEvents)[0]>();
+    for (const event of latestEvents) {
       if (!latestPerEmployee.has(event.employee_id)) {
         latestPerEmployee.set(event.employee_id, event);
       }

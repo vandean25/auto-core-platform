@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -116,14 +116,14 @@ export class HrAttendanceService {
             lte: endOfToday,
           },
         },
-        orderBy: { occurred_at: 'asc' },
+        orderBy: [{ occurred_at: 'asc' }, { createdAt: 'asc' }],
       }),
       this.prisma.attendanceEvent.findFirst({
         where: {
           tenant_id: tenantId,
           employee_id: me.id,
         },
-        orderBy: { occurred_at: 'desc' },
+        orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
 
@@ -143,33 +143,38 @@ export class HrAttendanceService {
     const me = await this.identity.resolveMe();
     const tenantId = await this.tenantContext.getTenantId();
 
-    const lastEvent = await this.prisma.attendanceEvent.findFirst({
-      where: {
-        tenant_id: tenantId,
-        employee_id: me.id,
+    const event = await this.prisma.$transaction(
+      async (tx) => {
+        const lastEvent = await tx.attendanceEvent.findFirst({
+          where: {
+            tenant_id: tenantId,
+            employee_id: me.id,
+          },
+          orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
+        });
+
+        const currentState = deriveAttendanceState(lastEvent?.type);
+        const allowed = ALLOWED_NEXT[currentState];
+
+        if (!allowed.includes(type)) {
+          throw new ConflictException(
+            `Cannot punch ${type} while in state ${currentState}`,
+          );
+        }
+
+        return tx.attendanceEvent.create({
+          data: {
+            tenant_id: tenantId,
+            employee_id: me.id,
+            type,
+            source: AttendanceEventSource.SELF,
+            occurred_at: new Date(),
+            note: note ?? null,
+          },
+        });
       },
-      orderBy: { occurred_at: 'desc' },
-    });
-
-    const currentState = deriveAttendanceState(lastEvent?.type);
-    const allowed = ALLOWED_NEXT[currentState];
-
-    if (!allowed.includes(type)) {
-      throw new ConflictException(
-        `Cannot punch ${type} while in state ${currentState}`,
-      );
-    }
-
-    const event = await this.prisma.attendanceEvent.create({
-      data: {
-        tenant_id: tenantId,
-        employee_id: me.id,
-        type,
-        source: AttendanceEventSource.SELF,
-        occurred_at: new Date(),
-        note: note ?? null,
-      },
-    });
+      { isolationLevel: 'Serializable' },
+    );
 
     const newState = deriveAttendanceState(type);
 
@@ -193,7 +198,7 @@ export class HrAttendanceService {
           tenant_id: tenantId,
           employee_id: me.id,
         },
-        orderBy: { occurred_at: 'desc' },
+        orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
       }),
       this.prisma.employeeLeaveBalance.findUnique({
         where: {
@@ -279,7 +284,7 @@ export class HrAttendanceService {
           lte: rangeEnd,
         },
       },
-      orderBy: { occurred_at: 'asc' },
+      orderBy: [{ occurred_at: 'asc' }, { createdAt: 'asc' }],
     });
 
     return events.map(mapAttendanceEvent);
@@ -303,47 +308,52 @@ export class HrAttendanceService {
       );
     }
 
-    const lastEvent = await this.prisma.attendanceEvent.findFirst({
-      where: {
-        tenant_id: tenantId,
-        employee_id: dto.employeeId,
+    const event = await this.prisma.$transaction(
+      async (tx) => {
+        const lastEvent = await tx.attendanceEvent.findFirst({
+          where: {
+            tenant_id: tenantId,
+            employee_id: dto.employeeId,
+          },
+          orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
+        });
+
+        const currentState = deriveAttendanceState(lastEvent?.type);
+        const allowed = ALLOWED_NEXT[currentState];
+
+        if (!allowed.includes(dto.type)) {
+          throw new ConflictException(
+            `Cannot punch ${dto.type} while employee is in state ${currentState}`,
+          );
+        }
+
+        let occurredAt = new Date();
+        if (dto.occurredAt) {
+          const parsed = new Date(dto.occurredAt);
+          if (isNaN(parsed.getTime())) {
+            throw new BadRequestException('Invalid occurredAt timestamp');
+          }
+          if (lastEvent && parsed <= lastEvent.occurred_at) {
+            throw new ConflictException(
+              'occurredAt must be strictly after the previous attendance event',
+            );
+          }
+          occurredAt = parsed;
+        }
+
+        return tx.attendanceEvent.create({
+          data: {
+            tenant_id: tenantId,
+            employee_id: dto.employeeId,
+            type: dto.type,
+            source: AttendanceEventSource.MANAGER,
+            occurred_at: occurredAt,
+            note: dto.note ?? null,
+          },
+        });
       },
-      orderBy: { occurred_at: 'desc' },
-    });
-
-    const currentState = deriveAttendanceState(lastEvent?.type);
-    const allowed = ALLOWED_NEXT[currentState];
-
-    if (!allowed.includes(dto.type)) {
-      throw new ConflictException(
-        `Cannot punch ${dto.type} while employee is in state ${currentState}`,
-      );
-    }
-
-    let occurredAt = new Date();
-    if (dto.occurredAt) {
-      const parsed = new Date(dto.occurredAt);
-      if (isNaN(parsed.getTime())) {
-        throw new BadRequestException('Invalid occurredAt timestamp');
-      }
-      if (lastEvent && parsed <= lastEvent.occurred_at) {
-        throw new ConflictException(
-          'occurredAt must be strictly after the previous attendance event',
-        );
-      }
-      occurredAt = parsed;
-    }
-
-    const event = await this.prisma.attendanceEvent.create({
-      data: {
-        tenant_id: tenantId,
-        employee_id: dto.employeeId,
-        type: dto.type,
-        source: AttendanceEventSource.MANAGER,
-        occurred_at: occurredAt,
-        note: dto.note ?? null,
-      },
-    });
+      { isolationLevel: 'Serializable' },
+    );
 
     const newState = deriveAttendanceState(dto.type);
 

@@ -1,4 +1,4 @@
-﻿import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { EmployeeRole } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,24 +58,5 @@ export class HrIdentityService {
     if (role !== 'OWNER' && role !== 'ADMIN') {
       throw new ForbiddenException('Tenant admin access is required.');
     }
-  }
-
-  async resolveCreatedByUserId(): Promise<string | null> {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.userId && !user?.email) {
-      return null;
-    }
-
-    const userRecord = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          ...(user.userId ? [{ firebaseUid: user.userId }] : []),
-          ...(user.email ? [{ email: user.email }] : []),
-        ],
-      },
-      select: { id: true },
-    });
-
-    return userRecord?.id ?? null;
   }
 }

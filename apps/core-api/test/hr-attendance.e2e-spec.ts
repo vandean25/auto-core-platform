@@ -1,4 +1,4 @@
-﻿import { INestApplication } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -118,7 +118,7 @@ describe('HR Attendance Clock & Management (e2e)', () => {
         data: {
           tenant_id: tenantId,
           name: 'Desk Employee',
-          role: 'OFFICE',
+          role: 'SERVICE_ADVISOR',
           is_active: true,
           annual_leave_days: 25,
         },
@@ -276,6 +276,13 @@ describe('HR Attendance Clock & Management (e2e)', () => {
     it('rejects query exceeding 31 days with 400 Bad Request', async () => {
       await request(app.getHttpServer())
         .get('/api/hr/attendance?from=2026-07-01&to=2026-08-22')
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .expect(400);
+    });
+
+    it('rejects query with invalid date format (datetime instead of YYYY-MM-DD) with 400', async () => {
+      await request(app.getHttpServer())
+        .get('/api/hr/attendance?from=2026-08-01T00:00:00Z&to=2026-08-22')
         .set('Authorization', `Bearer ${ownerAuthToken}`)
         .expect(400);
     });

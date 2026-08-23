@@ -1,4 +1,4 @@
-﻿import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
@@ -38,6 +38,7 @@ describe('HrAttendanceService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn(async (cb: (tx: any) => Promise<any>) => cb(prisma)),
       attendanceEvent: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
