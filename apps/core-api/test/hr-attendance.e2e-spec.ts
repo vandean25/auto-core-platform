@@ -19,11 +19,13 @@ describe('HR Attendance Clock & Management (e2e)', () => {
   let basePrisma: PrismaService;
   let tenantId: string;
   let fixtureTenant: Awaited<ReturnType<typeof createTestTenant>>;
+  let crossTenant: Awaited<ReturnType<typeof createTestTenant>>;
   let techAuthToken: string;
   let unlinkedTechToken: string;
   let ownerAuthToken: string;
   let techEmployeeId: string;
   let otherEmployeeId: string;
+  let crossTenantEmployeeId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -40,6 +42,20 @@ describe('HR Attendance Clock & Management (e2e)', () => {
 
     fixtureTenant = await createTestTenant(basePrisma, 'hr-attend');
     tenantId = fixtureTenant.tenantId;
+    crossTenant = await createTestTenant(basePrisma, 'hr-attend-cross');
+
+    await runWithTenantContext(crossTenant.tenantId, async () => {
+      const crossTenantEmployee = await basePrisma.employee.create({
+        data: {
+          tenant_id: crossTenant.tenantId,
+          name: 'Cross Tenant Employee',
+          role: 'SERVICE_ADVISOR',
+          is_active: true,
+          annual_leave_days: 25,
+        },
+      });
+      crossTenantEmployeeId = crossTenantEmployee.id;
+    });
 
     await runWithTenantContext(tenantId, async () => {
       // 1. Linked TECH user + employee
@@ -131,6 +147,9 @@ describe('HR Attendance Clock & Management (e2e)', () => {
     if (fixtureTenant) {
       await cleanupTestTenantGraph(basePrisma, tenantId);
     }
+    if (crossTenant) {
+      await cleanupTestTenantGraph(basePrisma, crossTenant.tenantId);
+    }
     await teardownTestApp(app);
   });
 
@@ -153,7 +172,9 @@ describe('HR Attendance Clock & Management (e2e)', () => {
         .send({ type: 'PAUSE' })
         .expect(409);
 
-      expect(res.body.message).toContain('Cannot punch PAUSE while in state CLOCKED_OUT');
+      expect(res.body.message).toContain(
+        'Cannot punch PAUSE while in state CLOCKED_OUT',
+      );
     });
 
     it('successfully punches CLOCK_IN and transitions to CLOCKED_IN', async () => {
@@ -233,6 +254,31 @@ describe('HR Attendance Clock & Management (e2e)', () => {
         .get('/api/hr/attendance?from=2026-08-01&to=2026-08-22')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(403);
+    });
+
+    it('TECH receives 403 on GET /api/hr/attendance/:employeeId/clock', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/hr/attendance/${otherEmployeeId}/clock`)
+        .set('Authorization', `Bearer ${techAuthToken}`)
+        .expect(403);
+    });
+
+    it('OWNER can read the current clock state for an active employee', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/hr/attendance/${otherEmployeeId}/clock`)
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .expect(200);
+
+      expect(res.body.state).toBe('CLOCKED_OUT');
+      expect(res.body.lastEvent).toBeNull();
+      expect(res.body.todayEvents).toEqual([]);
+    });
+
+    it('OWNER receives 404 for an active employee in another tenant', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/hr/attendance/${crossTenantEmployeeId}/clock`)
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .expect(404);
     });
 
     it('OWNER can punch attendance for other employee', async () => {
