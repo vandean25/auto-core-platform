@@ -32,14 +32,22 @@ describe('App HR route registration', () => {
   })
 
   it('lazy-loads the registered HR clock route from the application route tree', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
     render(
-      <MemoryRouter initialEntries={['/hr/clock']}>
-        <AppRoutes />
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/hr/clock']}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Time Clock' })).toBeInTheDocument()
-    expect(screen.getByText(/Coming soon/i)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Time Clock' }, { timeout: LAZY_ROUTE_LOAD_TIMEOUT_MS }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Track attendance for today.')).toBeInTheDocument()
   })
 
   it('lazy-loads the registered HR leave route from the application route tree', async () => {
