@@ -1691,6 +1691,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hr/me/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get my leave bookings, allowance, and remaining days for a year */
+        get: operations["HrController_getMyLeave"];
+        put?: never;
+        /** Book leave for current linked employee */
+        post: operations["HrController_createMyLeave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get team leave bookings for date range (OWNER/ADMIN/SALES) */
+        get: operations["HrController_listTeamLeave"];
+        put?: never;
+        /** Book leave for an employee (OWNER/ADMIN only) */
+        post: operations["HrController_createEmployeeLeave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/leave/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a leave booking (own future leave or OWNER/ADMIN) */
+        post: operations["HrController_cancelLeave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/leave/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update leave booking dates or note (OWNER/ADMIN only) */
+        patch: operations["HrController_updateLeave"];
+        trace?: never;
+    };
+    "/api/hr/employees/{id}/leave-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update employee annual leave allowance or carryover days (OWNER/ADMIN only) */
+        patch: operations["HrController_patchLeaveBalance"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3663,6 +3750,137 @@ export interface components {
             /** Format: date-time */
             occurredAt?: string;
             note?: string;
+        };
+        LeaveRequestEmployeeDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
+        };
+        LeaveRequestResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            /**
+             * Format: date
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @enum {string} */
+            status: "BOOKED" | "CANCELLED";
+            /** @example 5 */
+            daysCharged: number;
+            note?: string | null;
+            createdByUserId?: string | null;
+            employee?: components["schemas"]["LeaveRequestEmployeeDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MyLeaveResponseDto: {
+            /** @example 2026 */
+            year: number;
+            /** @example 25 */
+            allowanceDays: number;
+            /** @example 0 */
+            carryoverDays: number;
+            /** @example 20 */
+            remainingDays: number;
+            bookings: components["schemas"]["LeaveRequestResponseDto"][];
+        };
+        CreateMyLeaveDto: {
+            /**
+             * Format: date
+             * @description Start date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @description End date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @example Summer vacation */
+            note?: string;
+        };
+        CreateEmployeeLeaveDto: {
+            /**
+             * Format: date
+             * @description Start date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @description End date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @example Summer vacation */
+            note?: string;
+            /**
+             * Format: uuid
+             * @description Employee ID to book leave for (OWNER/ADMIN only)
+             * @example d3b07384-d113-4a0b-8d02-861036f32e92
+             */
+            employeeId: string;
+        };
+        UpdateLeaveRequestDto: {
+            /**
+             * Format: date
+             * @description New start date (inclusive, YYYY-MM-DD)
+             * @example 2026-09-02
+             */
+            startOn?: string;
+            /**
+             * Format: date
+             * @description New end date (inclusive, YYYY-MM-DD)
+             * @example 2026-09-06
+             */
+            endOn?: string;
+            /** @example Rescheduled holiday */
+            note?: string;
+        };
+        PatchLeaveBalanceDto: {
+            /**
+             * @description Calendar year for the balance
+             * @example 2026
+             */
+            year: number;
+            /**
+             * @description Annual leave allowance days for this year
+             * @example 25
+             */
+            allowanceDays?: number;
+            /**
+             * @description Carryover days from previous years
+             * @example 3
+             */
+            carryoverDays?: number;
+        };
+        LeaveBalanceResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            /** @example 2026 */
+            year: number;
+            /** @example 25 */
+            allowanceDays: number;
+            /** @example 0 */
+            carryoverDays: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
     };
     responses: never;
@@ -7445,6 +7663,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PunchResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_getMyLeave: {
+        parameters: {
+            query?: {
+                /** @description Target year (defaults to current year in shop timezone) */
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLeaveResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_createMyLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMyLeaveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_listTeamLeave: {
+        parameters: {
+            query?: {
+                /** @description Filter leave overlapping on/after date */
+                from?: string;
+                /** @description Filter leave overlapping on/before date */
+                to?: string;
+                /** @description Filter leave for a specific employee */
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"][];
+                };
+            };
+        };
+    };
+    HrController_createEmployeeLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmployeeLeaveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_cancelLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_updateLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeaveRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_patchLeaveBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchLeaveBalanceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveBalanceResponseDto"];
                 };
             };
         };

@@ -5835,6 +5835,270 @@
           "HR"
         ]
       }
+    },
+    "/api/hr/me/leave": {
+      "get": {
+        "operationId": "HrController_getMyLeave",
+        "parameters": [
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "Target year (defaults to current year in shop timezone)",
+            "schema": {
+              "example": 2026,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyLeaveResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get my leave bookings, allowance, and remaining days for a year",
+        "tags": [
+          "HR"
+        ]
+      },
+      "post": {
+        "operationId": "HrController_createMyLeave",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMyLeaveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Book leave for current linked employee",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/leave": {
+      "post": {
+        "operationId": "HrController_createEmployeeLeave",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployeeLeaveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Book leave for an employee (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      },
+      "get": {
+        "operationId": "HrController_listTeamLeave",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Filter leave overlapping on/after date",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Filter leave overlapping on/before date",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "description": "Filter leave for a specific employee",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaveRequestResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get team leave bookings for date range (OWNER/ADMIN/SALES)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/leave/{id}/cancel": {
+      "post": {
+        "operationId": "HrController_cancelLeave",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cancel a leave booking (own future leave or OWNER/ADMIN)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/leave/{id}": {
+      "patch": {
+        "operationId": "HrController_updateLeave",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveRequestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update leave booking dates or note (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/employees/{id}/leave-balance": {
+      "patch": {
+        "operationId": "HrController_patchLeaveBalance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchLeaveBalanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveBalanceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update employee annual leave allowance or carryover days (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      }
     }
   },
   "info": {
@@ -12595,6 +12859,277 @@
         "required": [
           "employeeId",
           "type"
+        ]
+      },
+      "LeaveRequestEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "MECHANIC",
+              "SERVICE_ADVISOR",
+              "PARTS_CLERK"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role"
+        ]
+      },
+      "LeaveRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-05"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "BOOKED",
+              "CANCELLED"
+            ]
+          },
+          "daysCharged": {
+            "type": "number",
+            "example": 5
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdByUserId": {
+            "type": "string",
+            "nullable": true
+          },
+          "employee": {
+            "$ref": "#/components/schemas/LeaveRequestEmployeeDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "startOn",
+          "endOn",
+          "status",
+          "daysCharged",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MyLeaveResponseDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number",
+            "example": 2026
+          },
+          "allowanceDays": {
+            "type": "number",
+            "example": 25
+          },
+          "carryoverDays": {
+            "type": "number",
+            "example": 0
+          },
+          "remainingDays": {
+            "type": "number",
+            "example": 20
+          },
+          "bookings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestResponseDto"
+            }
+          }
+        },
+        "required": [
+          "year",
+          "allowanceDays",
+          "carryoverDays",
+          "remainingDays",
+          "bookings"
+        ]
+      },
+      "CreateMyLeaveDto": {
+        "type": "object",
+        "properties": {
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01",
+            "description": "Start date of leave (inclusive, YYYY-MM-DD)"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-05",
+            "description": "End date of leave (inclusive, YYYY-MM-DD)"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Summer vacation"
+          }
+        },
+        "required": [
+          "startOn",
+          "endOn"
+        ]
+      },
+      "CreateEmployeeLeaveDto": {
+        "type": "object",
+        "properties": {
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01",
+            "description": "Start date of leave (inclusive, YYYY-MM-DD)"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-05",
+            "description": "End date of leave (inclusive, YYYY-MM-DD)"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Summer vacation"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "d3b07384-d113-4a0b-8d02-861036f32e92",
+            "description": "Employee ID to book leave for (OWNER/ADMIN only)"
+          }
+        },
+        "required": [
+          "startOn",
+          "endOn",
+          "employeeId"
+        ]
+      },
+      "UpdateLeaveRequestDto": {
+        "type": "object",
+        "properties": {
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-02",
+            "description": "New start date (inclusive, YYYY-MM-DD)"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-06",
+            "description": "New end date (inclusive, YYYY-MM-DD)"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Rescheduled holiday"
+          }
+        }
+      },
+      "PatchLeaveBalanceDto": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number",
+            "example": 2026,
+            "description": "Calendar year for the balance"
+          },
+          "allowanceDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365,
+            "example": 25,
+            "description": "Annual leave allowance days for this year"
+          },
+          "carryoverDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365,
+            "example": 3,
+            "description": "Carryover days from previous years"
+          }
+        },
+        "required": [
+          "year"
+        ]
+      },
+      "LeaveBalanceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "year": {
+            "type": "number",
+            "example": 2026
+          },
+          "allowanceDays": {
+            "type": "number",
+            "example": 25
+          },
+          "carryoverDays": {
+            "type": "number",
+            "example": 0
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "year",
+          "allowanceDays",
+          "carryoverDays",
+          "createdAt",
+          "updatedAt"
         ]
       }
     }
