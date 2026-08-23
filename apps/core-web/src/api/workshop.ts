@@ -41,6 +41,7 @@ export const workshopKeys = {
   detail: (id: string) => [...workshopKeys.all, 'order', id] as const,
   order: (id: string) => workshopKeys.detail(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
+  planner: () => [...workshopKeys.all, 'planner'] as const,
   boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
   boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
 }

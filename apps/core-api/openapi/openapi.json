@@ -8704,6 +8704,37 @@
           "isClosed"
         ]
       },
+      "PlannerEmployeeAwayDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-24"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-26"
+          },
+          "leaveId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "employeeId",
+          "name",
+          "startOn",
+          "endOn",
+          "leaveId"
+        ]
+      },
       "PlannerCustomerDto": {
         "type": "object",
         "properties": {
@@ -8842,6 +8873,12 @@
               "$ref": "#/components/schemas/PlannerHolidayDto"
             }
           },
+          "employeesAway": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannerEmployeeAwayDto"
+            }
+          },
           "bookings": {
             "type": "array",
             "items": {
@@ -8856,6 +8893,7 @@
           "bays",
           "openings",
           "holidays",
+          "employeesAway",
           "bookings"
         ]
       },

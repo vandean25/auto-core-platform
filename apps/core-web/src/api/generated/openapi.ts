@@ -2482,6 +2482,21 @@ export interface components {
             openTime?: string | null;
             closeTime?: string | null;
         };
+        PlannerEmployeeAwayDto: {
+            employeeId: string;
+            name: string;
+            /**
+             * Format: date
+             * @example 2026-08-24
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @example 2026-08-26
+             */
+            endOn: string;
+            leaveId: string;
+        };
         PlannerCustomerDto: {
             id: string;
             displayName: string;
@@ -2515,6 +2530,7 @@ export interface components {
             bays: components["schemas"]["PlannerBayDto"][];
             openings: components["schemas"]["WorkshopOpeningHourDto"][];
             holidays: components["schemas"]["PlannerHolidayDto"][];
+            employeesAway: components["schemas"]["PlannerEmployeeAwayDto"][];
             bookings: components["schemas"]["PlannerBookingDto"][];
         };
         RegisterIntakeDto: {
