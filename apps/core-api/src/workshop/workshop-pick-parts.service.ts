@@ -9,7 +9,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
 import {
-  Prisma,
   TransactionType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
@@ -30,6 +29,38 @@ type SourceAllocation = {
 };
 
 type AllocationReservationMap = Map<string, number>;
+
+type PrefetchedLocation = {
+  id: string;
+  type: string;
+  deletedAt: Date | null;
+};
+
+type PrefetchedStock = {
+  catalog_item_id: string;
+  location_id: string;
+  quantity_on_hand: number;
+};
+
+type PrefetchedAutoStock = PrefetchedStock & {
+  createdAt: Date;
+};
+
+type ExplicitSourceAllocationInput = {
+  catalogItemId: string;
+  sourceLocationId: string;
+  quantity: number;
+  sourceLocation: PrefetchedLocation | undefined;
+  sourceStock: PrefetchedStock | undefined;
+  reservations: AllocationReservationMap;
+};
+
+type AutoSourceAllocationInput = {
+  catalogItemId: string;
+  quantity: number;
+  sourceStocks: PrefetchedAutoStock[];
+  reservations: AllocationReservationMap;
+};
 
 @Injectable()
 export class WorkshopPickPartsService {
@@ -55,23 +86,14 @@ export class WorkshopPickPartsService {
     return `${catalogItemId}:${sourceLocationId}`;
   }
 
-  private async allocateFromExplicitSource(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    sourceLocationId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceLocation = await tx.storageLocation.findFirst({
-      where: { id: sourceLocationId, tenant_id: tenantId },
-      select: {
-        id: true,
-        type: true,
-        deletedAt: true,
-      },
-    });
-
+  private allocateFromExplicitSource({
+    catalogItemId,
+    sourceLocationId,
+    quantity,
+    sourceLocation,
+    sourceStock,
+    reservations,
+  }: ExplicitSourceAllocationInput): SourceAllocation[] {
     if (!sourceLocation || sourceLocation.deletedAt) {
       throw new NotFoundException(
         `Source location ${sourceLocationId} not found`,
@@ -83,17 +105,6 @@ export class WorkshopPickPartsService {
         `sourceLocationId must reference a BIN location. Received ${sourceLocation.type}.`,
       );
     }
-
-    const sourceStock = await tx.inventoryStock.findFirst({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        location_id: sourceLocationId,
-      },
-      select: {
-        quantity_on_hand: true,
-      },
-    });
 
     const reservationKey = this.getAllocationReservationKey(
       catalogItemId,
@@ -110,35 +121,25 @@ export class WorkshopPickPartsService {
     return [{ sourceLocationId, quantity }];
   }
 
-  private async allocateAcrossSources(
-    tx: Prisma.TransactionClient,
-    catalogItemId: string,
-    quantity: number,
-    reservations: AllocationReservationMap,
-  ): Promise<SourceAllocation[]> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const sourceStocks = await tx.inventoryStock.findMany({
-      where: {
-        tenant_id: tenantId,
-        catalog_item_id: catalogItemId,
-        quantity_on_hand: { gt: 0 },
-        location: {
-          type: 'bin',
-          deletedAt: null,
-        },
-      },
-      select: {
-        location_id: true,
-        quantity_on_hand: true,
-        createdAt: true,
-      },
-      orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
+  private allocateAcrossSources({
+    catalogItemId,
+    quantity,
+    sourceStocks,
+    reservations,
+  }: AutoSourceAllocationInput): SourceAllocation[] {
+    const orderedStocks = [...sourceStocks].sort((left, right) => {
+      const createdAtDelta =
+        left.createdAt.getTime() - right.createdAt.getTime();
+      if (createdAtDelta !== 0) {
+        return createdAtDelta;
+      }
+      return left.location_id.localeCompare(right.location_id);
     });
 
     let remaining = quantity;
     const allocations: SourceAllocation[] = [];
 
-    for (const stock of sourceStocks) {
+    for (const stock of orderedStocks) {
       if (remaining <= 0) {
         break;
       }
@@ -174,6 +175,24 @@ export class WorkshopPickPartsService {
 
     return allocations;
   }
+
+  private recordAllocations(
+    catalogItemId: string,
+    allocations: SourceAllocation[],
+    reservations: AllocationReservationMap,
+  ) {
+    for (const allocation of allocations) {
+      const reservationKey = this.getAllocationReservationKey(
+        catalogItemId,
+        allocation.sourceLocationId,
+      );
+      reservations.set(
+        reservationKey,
+        (reservations.get(reservationKey) ?? 0) + allocation.quantity,
+      );
+    }
+  }
+
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
@@ -322,13 +341,26 @@ export class WorkshopPickPartsService {
         }>;
       }> = [];
 
-      for (const requestedItem of aggregatedItems.values()) {
-        const lineItem = lineItemById.get(requestedItem.workshopTaskLineItemId);
+      const resolveLineCatalog = (workshopTaskLineItemId: string) => {
+        const lineItem = lineItemById.get(workshopTaskLineItemId);
         if (!lineItem) {
           throw new NotFoundException(
-            `Line item ${requestedItem.workshopTaskLineItemId} not found`,
+            `Line item ${workshopTaskLineItemId} not found`,
           );
         }
+        const catalogItem = catalogItemBySku.get(lineItem.item_no);
+        if (!catalogItem) {
+          throw new NotFoundException(
+            `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
+          );
+        }
+        return { lineItem, catalogItem };
+      };
+
+      for (const requestedItem of aggregatedItems.values()) {
+        const { lineItem } = resolveLineCatalog(
+          requestedItem.workshopTaskLineItemId,
+        );
 
         const lineItemQuantity = Number(lineItem.quantity);
         if (requestedItem.quantity > lineItemQuantity) {
@@ -340,39 +372,142 @@ export class WorkshopPickPartsService {
         if (requestedItem.quantity >= lineItemQuantity) {
           fullyStagedLineIds.add(lineItem.id);
         }
+      }
 
-        const catalogItem = catalogItemBySku.get(lineItem.item_no);
-        if (!catalogItem) {
-          throw new NotFoundException(
-            `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
+      const requestedSourceLocationIds = [
+        ...new Set(
+          [...aggregatedItems.values()]
+            .map((item) => item.sourceLocationId)
+            .filter((id): id is string => id != null),
+        ),
+      ];
+
+      const preFetchedLocations = new Map<string, PrefetchedLocation>();
+      if (requestedSourceLocationIds.length > 0) {
+        const locations = await tx.storageLocation.findMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: requestedSourceLocationIds },
+          },
+          select: {
+            id: true,
+            type: true,
+            deletedAt: true,
+          },
+        });
+        for (const location of locations) {
+          preFetchedLocations.set(location.id, location);
+        }
+      }
+
+      const explicitItemSourcePairs = [...aggregatedItems.values()].flatMap(
+        (item) => {
+          if (!item.sourceLocationId) {
+            return [];
+          }
+          const { catalogItem } = resolveLineCatalog(
+            item.workshopTaskLineItemId,
+          );
+          return [
+            {
+              catalog_item_id: catalogItem.id,
+              location_id: item.sourceLocationId,
+            },
+          ];
+        },
+      );
+
+      const explicitSourceStocks = new Map<string, PrefetchedStock>();
+      if (explicitItemSourcePairs.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: {
+            tenant_id: tenantId,
+            OR: explicitItemSourcePairs,
+          },
+          select: {
+            catalog_item_id: true,
+            location_id: true,
+            quantity_on_hand: true,
+          },
+        });
+        for (const stock of stocks) {
+          explicitSourceStocks.set(
+            this.getAllocationReservationKey(
+              stock.catalog_item_id,
+              stock.location_id,
+            ),
+            stock,
           );
         }
+      }
+
+      const autoAllocationCatalogIds = [
+        ...new Set(
+          [...aggregatedItems.values()]
+            .filter((item) => !item.sourceLocationId)
+            .map(
+              (item) =>
+                resolveLineCatalog(item.workshopTaskLineItemId).catalogItem.id,
+            ),
+        ),
+      ];
+
+      const autoAllocationStocks = new Map<string, PrefetchedAutoStock[]>();
+      if (autoAllocationCatalogIds.length > 0) {
+        const stocks = await tx.inventoryStock.findMany({
+          where: {
+            tenant_id: tenantId,
+            catalog_item_id: { in: autoAllocationCatalogIds },
+            quantity_on_hand: { gt: 0 },
+            location: {
+              type: 'bin',
+              deletedAt: null,
+            },
+          },
+          select: {
+            catalog_item_id: true,
+            location_id: true,
+            quantity_on_hand: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
+        });
+        for (const stock of stocks) {
+          const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
+          list.push(stock);
+          autoAllocationStocks.set(stock.catalog_item_id, list);
+        }
+      }
+
+      for (const requestedItem of aggregatedItems.values()) {
+        const { lineItem, catalogItem } = resolveLineCatalog(
+          requestedItem.workshopTaskLineItemId,
+        );
 
         const allocations = requestedItem.sourceLocationId
-          ? await this.allocateFromExplicitSource(
-              tx,
-              catalogItem.id,
-              requestedItem.sourceLocationId,
-              requestedItem.quantity,
+          ? this.allocateFromExplicitSource({
+              catalogItemId: catalogItem.id,
+              sourceLocationId: requestedItem.sourceLocationId,
+              quantity: requestedItem.quantity,
+              sourceLocation: preFetchedLocations.get(
+                requestedItem.sourceLocationId,
+              ),
+              sourceStock: explicitSourceStocks.get(
+                this.getAllocationReservationKey(
+                  catalogItem.id,
+                  requestedItem.sourceLocationId,
+                ),
+              ),
               reservations,
-            )
-          : await this.allocateAcrossSources(
-              tx,
-              catalogItem.id,
-              requestedItem.quantity,
+            })
+          : this.allocateAcrossSources({
+              catalogItemId: catalogItem.id,
+              quantity: requestedItem.quantity,
+              sourceStocks: autoAllocationStocks.get(catalogItem.id) ?? [],
               reservations,
-            );
+            });
 
-        for (const allocation of allocations) {
-          const reservationKey = this.getAllocationReservationKey(
-            catalogItem.id,
-            allocation.sourceLocationId,
-          );
-          reservations.set(
-            reservationKey,
-            (reservations.get(reservationKey) ?? 0) + allocation.quantity,
-          );
-        }
+        this.recordAllocations(catalogItem.id, allocations, reservations);
 
         const allocationSummaries: Array<{
           sourceLocationId: string;
