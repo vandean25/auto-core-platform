@@ -201,6 +201,7 @@ describe('MechanicQueuePage', () => {
   describe('attendance clock integration', () => {
     const linkedClock: HrClockResponse = {
       state: 'CLOCKED_OUT',
+      timezone: 'Europe/Vienna',
       lastEvent: null,
       todayEvents: [],
     }
