@@ -74,12 +74,14 @@ describe('WorkshopPickPartsService', () => {
     mockPrisma.inventoryStock.findMany.mockResolvedValue([
       {
         id: 'stock-1',
+        catalog_item_id: 'item-1',
         location_id: 'bin-a',
         quantity_on_hand: 2,
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
       {
         id: 'stock-2',
+        catalog_item_id: 'item-1',
         location_id: 'bin-b',
         quantity_on_hand: 3,
         createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -143,12 +145,14 @@ describe('WorkshopPickPartsService', () => {
     mockPrisma.inventoryStock.findMany.mockResolvedValue([
       {
         id: 'stock-1',
+        catalog_item_id: 'item-1',
         location_id: 'bin-a',
         quantity_on_hand: 1,
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
       {
         id: 'stock-2',
+        catalog_item_id: 'item-1',
         location_id: 'bin-b',
         quantity_on_hand: 1,
         createdAt: new Date('2026-01-01T00:00:00Z'),
