@@ -22,6 +22,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   VEHICLE: true,
   VEHICLE_PURCHASE: true,
   VEHICLE_SALE: true,
+  ATTENDANCE_EVENT: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {

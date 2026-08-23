@@ -1638,6 +1638,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hr/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current linked employee profile and attendance state */
+        get: operations["HrController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/me/clock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current attendance clock state and today events */
+        get: operations["HrController_clock"];
+        put?: never;
+        /** Punch attendance clock (Come to work, Pause, Doctor, Go home) */
+        post: operations["HrController_punch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get team attendance event log for date range (OWNER/ADMIN only, max 31 days) */
+        get: operations["HrController_getAttendance"];
+        put?: never;
+        /** Punch attendance or create correction for employee (OWNER/ADMIN only) */
+        post: operations["HrController_punchEmployee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3556,6 +3609,60 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
+        HrMeEmployeeDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            role: components["schemas"]["EmployeeRole"];
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveDays: number;
+        };
+        /** @enum {string} */
+        AttendanceState: "CLOCKED_OUT" | "CLOCKED_IN" | "PAUSED" | "AT_DOCTOR";
+        HrMeResponseDto: {
+            employee: components["schemas"]["HrMeEmployeeDto"];
+            clockState: components["schemas"]["AttendanceState"];
+            remainingLeaveDays: number;
+        };
+        /** @enum {string} */
+        AttendanceEventType: "CLOCK_IN" | "PAUSE" | "DOCTOR" | "CLOCK_OUT";
+        /** @enum {string} */
+        AttendanceEventSource: "SELF" | "MANAGER" | "AUTO_SHIFT_CLOSE";
+        AttendanceEventResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            type: components["schemas"]["AttendanceEventType"];
+            source: components["schemas"]["AttendanceEventSource"];
+            /** Format: date-time */
+            occurredAt: string;
+            note?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ClockResponseDto: {
+            state: components["schemas"]["AttendanceState"];
+            lastEvent?: components["schemas"]["AttendanceEventResponseDto"] | null;
+            todayEvents: components["schemas"]["AttendanceEventResponseDto"][];
+        };
+        PunchClockDto: {
+            type: components["schemas"]["AttendanceEventType"];
+            note?: string;
+        };
+        PunchResponseDto: {
+            state: components["schemas"]["AttendanceState"];
+            event: components["schemas"]["AttendanceEventResponseDto"];
+        };
+        CreateHrAttendanceDto: {
+            /** Format: uuid */
+            employeeId: string;
+            type: components["schemas"]["AttendanceEventType"];
+            /** Format: date-time */
+            occurredAt?: string;
+            note?: string;
         };
     };
     responses: never;
@@ -7231,6 +7338,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrMeResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_clock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_punch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PunchClockDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PunchResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_getAttendance: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceEventResponseDto"][];
+                };
+            };
+        };
+    };
+    HrController_punchEmployee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHrAttendanceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PunchResponseDto"];
                 };
             };
         };
