@@ -136,6 +136,25 @@ describe('EmployeeTable', () => {
     expect(screen.getByText('25')).toBeInTheDocument()
   })
 
+  it.each(['OWNER', 'ADMIN'] as const)('%s sees Not set and can edit a missing hire date', (activeRole) => {
+    vi.mocked(useEmployees).mockReturnValue({
+      data: {
+        data: [employeeWithoutHireDate],
+        meta: { total: 1, page: 1, limit: 100, totalPages: 1 },
+      },
+      isLoading: false,
+    } as ReturnType<typeof useEmployees>)
+
+    renderEmployeeTable(activeRole)
+
+    expect(screen.getByText('Not set')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Hire date for Grace Hopper')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not set' }))
+
+    expect(screen.getByLabelText('Hire date for Grace Hopper')).toBeEnabled()
+  })
+
   it('OWNER saves hire date on blur', async () => {
     renderEmployeeTable('OWNER')
 

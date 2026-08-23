@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { components } from '@/api/generated/openapi'
@@ -160,18 +161,24 @@ function sortEmployees(
 
 function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
   const [value, setValue] = React.useState(initialValue)
+  const [isEditing, setIsEditing] = React.useState(Boolean(initialValue))
   const [isSaving, setIsSaving] = React.useState(false)
 
   React.useEffect(() => {
     setValue(initialValue)
+    setIsEditing(Boolean(initialValue))
   }, [initialValue])
 
   const commit = async () => {
-    if (value === initialValue || isSaving) return
+    if (value === initialValue || isSaving) {
+      if (!value) setIsEditing(false)
+      return
+    }
 
     setIsSaving(true)
     try {
       await onSave(value)
+      if (!value) setIsEditing(false)
     } catch {
       setValue(initialValue)
     } finally {
@@ -181,6 +188,22 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
 
   if (!canEdit) {
     return <span>{initialValue || 'Not set'}</span>
+  }
+
+  if (!isEditing) {
+    return (
+      <button
+        type='button'
+        onClick={(event) => {
+          event.stopPropagation()
+          setIsEditing(true)
+        }}
+        className='group/inline-edit relative -mx-2 w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+      >
+        <span className='block pr-5 text-sm text-muted-foreground italic'>Not set</span>
+        <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
+      </button>
+    )
   }
 
   return (
