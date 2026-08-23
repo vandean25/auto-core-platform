@@ -128,8 +128,8 @@ export class WorkshopPlannerService {
     const employeesAway = leaveRequests.map((leave) => ({
       employeeId: leave.employee.id,
       name: leave.employee.name,
-      startOn: formatLocalDate(leave.start_on, timezone),
-      endOn: formatLocalDate(leave.end_on, timezone),
+      startOn: formatUtcDate(leave.start_on),
+      endOn: formatUtcDate(leave.end_on),
       leaveId: leave.id,
     }));
     const expandedHolidays = this.expandHolidays(

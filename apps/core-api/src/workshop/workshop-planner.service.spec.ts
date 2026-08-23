@@ -130,6 +130,37 @@ describe('WorkshopPlannerService', () => {
     });
   });
 
+  it('preserves UTC-midnight leave dates in negative-offset timezones', async () => {
+    settingsService.getOrCreateSettings.mockResolvedValue({
+      ...settings,
+      timezone: 'America/Los_Angeles',
+    });
+    mockPrisma.leaveRequest.findMany.mockResolvedValue([
+      {
+        id: 'leave-negative-offset',
+        employee_id: 'employee-1',
+        start_on: new Date('2026-08-24T00:00:00.000Z'),
+        end_on: new Date('2026-08-26T00:00:00.000Z'),
+        employee: { id: 'employee-1', name: 'Ada Lovelace' },
+      },
+    ]);
+
+    const result = await service.getPlanner({
+      from: '2026-08-24T00:00:00.000Z',
+      to: '2026-08-26T22:00:00.000Z',
+    });
+
+    expect(result.employeesAway).toEqual([
+      {
+        employeeId: 'employee-1',
+        name: 'Ada Lovelace',
+        startOn: '2026-08-24',
+        endOn: '2026-08-26',
+        leaveId: 'leave-negative-offset',
+      },
+    ]);
+  });
+
   it('queries only booked leave so cancelled leave is excluded', async () => {
     const result = await service.getPlanner({
       from: '2026-08-24T00:00:00.000Z',
