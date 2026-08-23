@@ -43,6 +43,7 @@ import { getErrorMessage } from '@/lib/error-utils'
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 const MIN_LEAVE_DAYS = 0
 const MAX_LEAVE_DAYS = 365
+const DEFAULT_HR_TIME_ZONE = 'Europe/Vienna'
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
 type EmployeeFormState = {
@@ -87,6 +88,15 @@ function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
 }
 
+function getCurrentHrYear() {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: DEFAULT_HR_TIME_ZONE,
+      year: 'numeric',
+    }).format(new Date()),
+  )
+}
+
 function getLanguageLabel(code: string | null | undefined) {
   if (!code) return 'Default (target language)'
   const option = SOURCE_LANGUAGE_OPTIONS.find((item) => item.value === code)
@@ -108,7 +118,7 @@ function matchesEmployeeSearch(employee: Employee, term: string) {
     String(employee.sortOrder),
     employee.motherLanguageCode ?? '',
     getLanguageLabel(employee.motherLanguageCode),
-    employee.hiredOn ?? '',
+    employee.hiredOn ?? 'Not set',
     String(employee.annualLeaveDays),
     String(employee.remainingLeaveDays),
     employee.userId ?? '',
@@ -392,7 +402,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
   }
 
   const handleSaveCarryover = async () => {
-    if (!selectedEmployee || !hasHrEditAccess) return
+    if (!selectedEmployee || !hasHrEditAccess || !carryoverDays.trim()) return
 
     const parsedCarryoverDays = Number(carryoverDays)
     if (
@@ -408,7 +418,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       await patchLeaveBalanceMutation.mutateAsync({
         employeeId: selectedEmployee.id,
         data: {
-          year: new Date().getFullYear(),
+          year: getCurrentHrYear(),
           carryoverDays: parsedCarryoverDays,
         },
       })
@@ -634,7 +644,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         setPagination={setPagination}
         onRowClick={(employee) => {
           setSelectedEmployee(employee)
-          setCarryoverDays('0')
+          setCarryoverDays('')
           setSheetOpen(true)
         }}
         getRowContextActions={(row) => [

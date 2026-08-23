@@ -22,6 +22,13 @@ const employeeFixture: Employee = {
   updatedAt: '2024-03-01T00:00:00.000Z',
 }
 
+const employeeWithoutHireDate: Employee = {
+  ...employeeFixture,
+  id: 'employee-2',
+  name: 'Grace Hopper',
+  hiredOn: null,
+}
+
 const updateEmployee = vi.fn().mockResolvedValue(employeeFixture)
 const patchLeaveBalance = vi.fn().mockResolvedValue({
   id: 'balance-1',
@@ -160,9 +167,48 @@ describe('EmployeeTable', () => {
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledWith({
         employeeId: employeeFixture.id,
-        data: { year: new Date().getFullYear(), carryoverDays: 3 },
+        data: {
+          year: Number(
+            new Intl.DateTimeFormat('en-US', {
+              timeZone: 'Europe/Vienna',
+              year: 'numeric',
+            }).format(new Date()),
+          ),
+          carryoverDays: 3,
+        },
       })
     })
+  })
+
+  it('does not reset existing carryover when the employee sheet is saved unchanged', async () => {
+    renderEmployeeTable('OWNER')
+
+    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    const carryoverInput = await screen.findByLabelText('Carryover this year')
+    expect(carryoverInput).toHaveValue(null)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
+
+    expect(patchLeaveBalance).not.toHaveBeenCalled()
+  })
+
+  it('searches missing hire dates as Not set', () => {
+    vi.mocked(useEmployees).mockReturnValue({
+      data: {
+        data: [employeeWithoutHireDate],
+        meta: { total: 1, page: 1, limit: 100, totalPages: 1 },
+      },
+      isLoading: false,
+    } as ReturnType<typeof useEmployees>)
+
+    renderEmployeeTable('SALES')
+
+    fireEvent.change(screen.getByPlaceholderText('Search employees...'), {
+      target: { value: 'Not set' },
+    })
+
+    expect(screen.getByText('Grace Hopper')).toBeInTheDocument()
+    expect(screen.getByText('Not set')).toBeInTheDocument()
   })
 
   it('SALES sees carryover as read-only in the employee sheet', async () => {
