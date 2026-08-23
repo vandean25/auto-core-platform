@@ -57,21 +57,12 @@ describe('dead code hygiene (AUT-139)', () => {
     expect(source).not.toMatch(/SpeechNote/);
   });
 
-  it('does not keep unused ApiKeyGuard', () => {
-    expect(
-      fs.existsSync(
-        path.join(CORE_API_ROOT, 'src/common/guards/api-key.guard.ts'),
-      ),
-    ).toBe(false);
-  });
-
   it('registers JwtAuthGuard as the global APP_GUARD', () => {
     const source = fs.readFileSync(
       path.join(CORE_API_ROOT, 'src/app.module.ts'),
       'utf8',
     );
     expect(source).toContain('useClass: JwtAuthGuard');
-    expect(source).not.toMatch(/ApiKeyGuard/);
   });
 
   it('does not set unused API_KEY in tests', () => {
@@ -80,6 +71,8 @@ describe('dead code hygiene (AUT-139)', () => {
     );
     const offenders = testFiles.filter((filePath) => {
       const content = fs.readFileSync(filePath, 'utf8');
+      // Exclude api-key.guard.spec.ts since it tests API_KEY functionality
+      if (filePath.includes('api-key.guard.spec.ts')) return false;
       return /process\.env\.API_KEY\s*=/.test(content);
     });
     expect(

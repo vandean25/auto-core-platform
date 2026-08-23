@@ -3,14 +3,17 @@ import {
   ExecutionContext,
   Injectable,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
+  private readonly logger = new Logger(ApiKeyGuard.name);
   constructor(private reflector: Reflector) {}
 
   canActivate(
@@ -29,13 +32,31 @@ export class ApiKeyGuard implements CanActivate {
     const validApiKey = process.env.API_KEY;
 
     if (!validApiKey) {
-      console.error(
+      this.logger.error(
         'API_KEY environment variable is not set. All requests will be rejected.',
       );
       throw new UnauthorizedException('Unauthorized');
     }
 
-    if (apiKey !== validApiKey) {
+    const providedKey =
+      typeof apiKey === 'string'
+        ? apiKey
+        : Array.isArray(apiKey)
+          ? apiKey[0]
+          : '';
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(validApiKey)
+      .digest();
+    const providedHash = crypto
+      .createHash('sha256')
+      .update(providedKey)
+      .digest();
+
+    if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
+      this.logger.warn(
+        `Invalid API key attempt from IP: ${request.ip} for route: ${request.originalUrl}`,
+      );
       throw new UnauthorizedException('Unauthorized');
     }
 
