@@ -66,6 +66,14 @@ const secondEmployee = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
 
+const inactiveEmployee = {
+  ...secondEmployee,
+  id: 'employee-inactive',
+  name: 'Inactive Employee',
+  isActive: false,
+  sortOrder: 1,
+}
+
 const todayEvents = [
   {
     id: 'event-1',
@@ -273,6 +281,30 @@ describe('HrClockPage', () => {
       'href',
       '/hr/employees',
     )
+  })
+
+  it.each(['OWNER', 'ADMIN'] as const)('keeps %s controls usable when the manager has no linked employee', (role) => {
+    setupMocks(role)
+    const forbiddenError = Object.assign(new Error('No employee record linked to this account'), {
+      status: 403,
+    })
+    apiMocks.useHrMe.mockReturnValue(createQueryResult(undefined, { error: forbiddenError }))
+    apiMocks.useHrMeClock.mockReturnValue(createQueryResult(undefined, { error: forbiddenError }))
+    apiMocks.useEmployees.mockReturnValue(
+      createQueryResult({ data: [inactiveEmployee, secondEmployee], meta: { total: 2 } }),
+    )
+    apiMocks.useHrEmployeeClock.mockReturnValue(
+      createQueryResult({ state: 'CLOCKED_IN', lastEvent: todayEvents[0], todayEvents: [] }),
+    )
+
+    renderPage()
+
+    expect(screen.queryByText('No employee record linked')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Employee')).toHaveValue(secondEmployee.id)
+    expect(screen.getByText('Team attendance')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Come to work' })).toBeDisabled()
+    expect(apiMocks.useHrEmployeeClock).toHaveBeenLastCalledWith(secondEmployee.id)
   })
 
   it('uses the self clock mutation with only the event type', () => {

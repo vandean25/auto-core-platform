@@ -294,31 +294,19 @@ export default function HrClockPage() {
   const canManageAttendance = isManagerRole(activeRole)
   const clockResponse = clockQuery.data
   const todayEvents = clockResponse?.todayEvents ?? []
-  const today = meQuery.data ? getTenantLocalToday(todayEvents, meQuery.data.timezone) : ''
-  const isMissingEmployee = getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
   const meEmployeeId = meQuery.data?.employee.id ?? ''
-  const selectedEmployeeId = selectedEmployeeIdState ?? meEmployeeId
+  const timezone = meQuery.data?.timezone ?? 'Europe/Vienna'
   const { data: employeeResponse, isLoading: isEmployeesLoading } = useEmployees({
     includeInactive: false,
     limit: 100,
   })
-  const selectedEmployeeClockQuery = useHrEmployeeClock(
-    selectedEmployeeId && selectedEmployeeId !== meEmployeeId ? selectedEmployeeId : null,
-  )
-  const selectedEmployeeState = selectedEmployeeId === meEmployeeId
-    ? clockResponse?.state
-    : selectedEmployeeClockQuery.data?.state
-  const selectedEmployeeClockUnavailable = selectedEmployeeId !== meEmployeeId && (
-    selectedEmployeeClockQuery.isLoading ||
-    selectedEmployeeClockQuery.isFetching ||
-    Boolean(selectedEmployeeClockQuery.error) ||
-    !selectedEmployeeClockQuery.data
-  )
   const employeeOptions = useMemo<EmployeeOption[]>(() => {
-    const options = (employeeResponse?.data ?? []).map((employee) => ({
-      id: employee.id,
-      name: employee.name,
-    }))
+    const options = (employeeResponse?.data ?? [])
+      .filter((employee) => employee.isActive)
+      .map((employee) => ({
+        id: employee.id,
+        name: employee.name,
+      }))
 
     if (meQuery.data && !options.some((employee) => employee.id === meEmployeeId)) {
       options.unshift({ id: meEmployeeId, name: meQuery.data.employee.name })
@@ -326,6 +314,26 @@ export default function HrClockPage() {
 
     return options
   }, [employeeResponse?.data, meEmployeeId, meQuery.data])
+  const defaultEmployeeId = meEmployeeId || employeeOptions[0]?.id || ''
+  const selectedEmployeeId = selectedEmployeeIdState ?? defaultEmployeeId
+  const selectedEmployeeClockQuery = useHrEmployeeClock(
+    selectedEmployeeId && selectedEmployeeId !== meEmployeeId ? selectedEmployeeId : null,
+  )
+  const selectedEmployeeState = selectedEmployeeId === meEmployeeId && meEmployeeId
+    ? clockResponse?.state
+    : selectedEmployeeClockQuery.data?.state
+  const selectedEmployeeClockUnavailable = !selectedEmployeeId || (
+    selectedEmployeeId === meEmployeeId && meEmployeeId
+      ? clockQuery.isLoading || clockQuery.isFetching || Boolean(clockQuery.error) || !clockResponse
+      : selectedEmployeeClockQuery.isLoading ||
+        selectedEmployeeClockQuery.isFetching ||
+        Boolean(selectedEmployeeClockQuery.error) ||
+        !selectedEmployeeClockQuery.data
+  )
+  const today = getTenantLocalToday(todayEvents, timezone)
+  const isMissingEmployee = !canManageAttendance && (
+    getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
+  )
 
   useEffect(() => {
     if (!meQuery.error || getErrorStatus(meQuery.error) === 403) return
@@ -380,7 +388,7 @@ export default function HrClockPage() {
             onPunch={handleSelfPunch}
           />
         ) : null}
-        {canManageAttendance && meQuery.data && clockResponse && !isMissingEmployee ? (
+        {canManageAttendance && !isMissingEmployee ? (
           <div className='flex flex-col gap-3 sm:flex-row sm:items-end' data-testid='hr-clock-manager-actions'>
             <div className='space-y-1'>
               <label htmlFor='attendance-employee' className='text-sm font-medium'>Employee</label>
@@ -411,9 +419,9 @@ export default function HrClockPage() {
 
       {isMissingEmployee ? (
         <MissingEmployeeState />
-      ) : meQuery.isLoading || clockQuery.isLoading ? (
+      ) : !canManageAttendance && (meQuery.isLoading || clockQuery.isLoading) ? (
         <ClockPageSkeleton />
-      ) : meQuery.error || clockQuery.error || !meQuery.data || !clockResponse ? (
+      ) : !canManageAttendance && (meQuery.error || clockQuery.error || !meQuery.data || !clockResponse) ? (
         <Alert variant='destructive'>
           <AlertTitle>Attendance unavailable</AlertTitle>
           <AlertDescription>
@@ -422,19 +430,21 @@ export default function HrClockPage() {
         </Alert>
       ) : (
         <>
-          <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
-            <div>
-              <h2 id='today-timeline-heading' className='text-lg font-semibold'>Today&apos;s timeline</h2>
-              <p className='text-sm text-slate-500'>Events are shown in the tenant&apos;s local time.</p>
-            </div>
-            <TodayTimeline events={todayEvents} timezone={meQuery.data.timezone} />
-          </section>
+          {meQuery.data && clockResponse ? (
+            <section className='space-y-3 rounded-lg border bg-white p-4' aria-labelledby='today-timeline-heading'>
+              <div>
+                <h2 id='today-timeline-heading' className='text-lg font-semibold'>Today&apos;s timeline</h2>
+                <p className='text-sm text-slate-500'>Events are shown in the tenant&apos;s local time.</p>
+              </div>
+              <TodayTimeline events={todayEvents} timezone={timezone} />
+            </section>
+          ) : null}
 
-          {canManageAttendance ? (
+          {canManageAttendance && selectedEmployeeId ? (
             <ManagerAttendanceSection
               selectedEmployeeId={selectedEmployeeId}
               today={today}
-              timezone={meQuery.data.timezone}
+              timezone={timezone}
             />
           ) : null}
         </>
