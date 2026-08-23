@@ -43,7 +43,6 @@ import { getErrorMessage } from '@/lib/error-utils'
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 const MIN_LEAVE_DAYS = 0
 const MAX_LEAVE_DAYS = 365
-const DEFAULT_HR_TIME_ZONE = 'Europe/Vienna'
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
 type EmployeeFormState = {
@@ -86,15 +85,6 @@ function formatRoleLabel(role: EmployeeRole) {
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
-}
-
-function getCurrentHrYear() {
-  return Number(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: DEFAULT_HR_TIME_ZONE,
-      year: 'numeric',
-    }).format(new Date()),
-  )
 }
 
 function getLanguageLabel(code: string | null | undefined) {
@@ -413,12 +403,13 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       toast.error(`Carryover days must be an integer between ${MIN_LEAVE_DAYS} and ${MAX_LEAVE_DAYS}`)
       return
     }
+    if (parsedCarryoverDays === selectedEmployee.carryoverDays) return
 
     try {
       await patchLeaveBalanceMutation.mutateAsync({
         employeeId: selectedEmployee.id,
         data: {
-          year: getCurrentHrYear(),
+          year: selectedEmployee.leaveBalanceYear,
           carryoverDays: parsedCarryoverDays,
         },
       })
@@ -644,7 +635,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         setPagination={setPagination}
         onRowClick={(employee) => {
           setSelectedEmployee(employee)
-          setCarryoverDays('')
+          setCarryoverDays(String(employee.carryoverDays))
           setSheetOpen(true)
         }}
         getRowContextActions={(row) => [

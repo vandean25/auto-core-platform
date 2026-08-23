@@ -235,6 +235,12 @@ export class EmployeeResponseDto {
   annualLeaveDays!: number;
 
   @ApiProperty()
+  carryoverDays!: number;
+
+  @ApiProperty()
+  leaveBalanceYear!: number;
+
+  @ApiProperty()
   remainingLeaveDays!: number;
 
   @ApiProperty()

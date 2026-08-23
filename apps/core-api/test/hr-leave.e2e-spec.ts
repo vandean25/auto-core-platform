@@ -342,6 +342,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .expect(200);
 
       expect(empRes.body.annualLeaveDays).toBe(30);
+      expect(empRes.body.carryoverDays).toBe(5);
+      expect(empRes.body.leaveBalanceYear).toBe(2026);
     });
 
     it('GET /api/hr/leave is accessible by SALES and OWNER, but returns 403 for TECH', async () => {

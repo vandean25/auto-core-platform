@@ -17,6 +17,8 @@ const employeeFixture: Employee = {
   motherLanguageCode: 'en-US',
   hiredOn: '2024-03-01',
   annualLeaveDays: 25,
+  carryoverDays: 3,
+  leaveBalanceYear: 2025,
   remainingLeaveDays: 22,
   createdAt: '2024-03-01T00:00:00.000Z',
   updatedAt: '2024-03-01T00:00:00.000Z',
@@ -27,6 +29,14 @@ const employeeWithoutHireDate: Employee = {
   id: 'employee-2',
   name: 'Grace Hopper',
   hiredOn: null,
+}
+
+const employeeWithoutCarryover: Employee = {
+  ...employeeFixture,
+  id: 'employee-3',
+  name: 'Katherine Johnson',
+  carryoverDays: 0,
+  leaveBalanceYear: 2024,
 }
 
 const updateEmployee = vi.fn().mockResolvedValue(employeeFixture)
@@ -161,20 +171,15 @@ describe('EmployeeTable', () => {
 
     fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
-    fireEvent.change(carryoverInput, { target: { value: '3' } })
+    fireEvent.change(carryoverInput, { target: { value: '4' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledWith({
         employeeId: employeeFixture.id,
         data: {
-          year: Number(
-            new Intl.DateTimeFormat('en-US', {
-              timeZone: 'Europe/Vienna',
-              year: 'numeric',
-            }).format(new Date()),
-          ),
-          carryoverDays: 3,
+          year: employeeFixture.leaveBalanceYear,
+          carryoverDays: 4,
         },
       })
     })
@@ -185,11 +190,27 @@ describe('EmployeeTable', () => {
 
     fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
-    expect(carryoverInput).toHaveValue(null)
+    expect(carryoverInput).toHaveValue(3)
 
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     expect(patchLeaveBalance).not.toHaveBeenCalled()
+  })
+
+  it('initializes zero carryover as 0 in the employee sheet', async () => {
+    vi.mocked(useEmployees).mockReturnValue({
+      data: {
+        data: [employeeWithoutCarryover],
+        meta: { total: 1, page: 1, limit: 100, totalPages: 1 },
+      },
+      isLoading: false,
+    } as ReturnType<typeof useEmployees>)
+
+    renderEmployeeTable('OWNER')
+
+    fireEvent.click(screen.getByRole('row', { name: /Katherine Johnson/ }))
+
+    expect(await screen.findByLabelText('Carryover this year')).toHaveValue(0)
   })
 
   it('searches missing hire dates as Not set', () => {

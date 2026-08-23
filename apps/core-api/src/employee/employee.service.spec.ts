@@ -52,6 +52,7 @@ describe('EmployeeService', () => {
   let service: EmployeeService;
   const mockTenantContext = {
     getAuthenticatedUser: jest.fn(),
+    getTenantId: jest.fn(),
   };
 
   const baseEmployee = {
@@ -75,6 +76,7 @@ describe('EmployeeService', () => {
       tenantId: 'tenant-1',
       role: 'ADMIN',
     });
+    mockTenantContext.getTenantId.mockResolvedValue('tenant-1');
     mockPrisma.$transaction.mockImplementation(
       async (callback: (transaction: typeof mockPrisma) => unknown) =>
         callback(mockPrisma),
@@ -105,7 +107,7 @@ describe('EmployeeService', () => {
     const result = await service.findAll({});
 
     expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: { is_active: true },
+      where: { tenant_id: 'tenant-1', is_active: true },
       orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       skip: 0,
       take: 25,
@@ -131,7 +133,7 @@ describe('EmployeeService', () => {
 
     expect(mockPrisma.employee.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { role: EmployeeRole.MECHANIC },
+        where: { tenant_id: 'tenant-1', role: EmployeeRole.MECHANIC },
         skip: 10,
         take: 10,
       }),
@@ -161,7 +163,12 @@ describe('EmployeeService', () => {
     mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
     mockPrisma.employee.count.mockResolvedValue(1);
     mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([
-      { employee_id: 'emp-1', allowance_days: 25, carryover_days: 2 },
+      {
+        employee_id: 'emp-1',
+        year: 2026,
+        allowance_days: 25,
+        carryover_days: 2,
+      },
     ]);
     mockPrisma.leaveRequest.groupBy.mockResolvedValue([
       { employee_id: 'emp-1', _sum: { days_charged: 5 } },
@@ -171,7 +178,39 @@ describe('EmployeeService', () => {
 
     expect(result.data[0].hiredOn).toBe('2024-03-01');
     expect(result.data[0].annualLeaveDays).toBe(25);
+    expect(result.data[0].carryoverDays).toBe(2);
+    expect(result.data[0].leaveBalanceYear).toBe(2026);
     expect(result.data[0].remainingLeaveDays).toBe(22);
+    expect(mockPrisma.employeeLeaveBalance.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: 'tenant-1',
+        employee_id: { in: ['emp-1'] },
+        year: 2026,
+      },
+      select: {
+        employee_id: true,
+        year: true,
+        allowance_days: true,
+        carryover_days: true,
+      },
+    });
+    expect(mockPrisma.leaveRequest.groupBy).toHaveBeenCalledWith({
+      by: ['employee_id'],
+      where: {
+        tenant_id: 'tenant-1',
+        employee_id: { in: ['emp-1'] },
+        status: 'BOOKED',
+        start_on: {
+          gte: new Date(Date.UTC(2026, 0, 1)),
+          lt: new Date(Date.UTC(2027, 0, 1)),
+        },
+      },
+      _sum: { days_charged: true },
+    });
+    expect(mockPrisma.workshopSettings.findFirst).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1' },
+      select: { timezone: true },
+    });
   });
 
   it('returns annual allowance when no current-year balance exists', async () => {
@@ -180,6 +219,8 @@ describe('EmployeeService', () => {
 
     const result = await service.findAll({});
 
+    expect(result.data[0].carryoverDays).toBe(0);
+    expect(result.data[0].leaveBalanceYear).toBe(2026);
     expect(result.data[0].remainingLeaveDays).toBe(25);
   });
 
@@ -306,7 +347,11 @@ describe('EmployeeService', () => {
       formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
     );
     expect(mockPrisma.employeeLeaveBalance.updateMany).toHaveBeenCalledWith({
-      where: { employee_id: 'emp-1', year: currentYear },
+      where: {
+        tenant_id: 'tenant-1',
+        employee_id: 'emp-1',
+        year: currentYear,
+      },
       data: { allowance_days: 30 },
     });
   });

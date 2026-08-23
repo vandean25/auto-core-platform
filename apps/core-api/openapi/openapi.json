@@ -11833,6 +11833,12 @@
           "annualLeaveDays": {
             "type": "number"
           },
+          "carryoverDays": {
+            "type": "number"
+          },
+          "leaveBalanceYear": {
+            "type": "number"
+          },
           "remainingLeaveDays": {
             "type": "number"
           },
@@ -11852,6 +11858,8 @@
           "isActive",
           "sortOrder",
           "annualLeaveDays",
+          "carryoverDays",
+          "leaveBalanceYear",
           "remainingLeaveDays",
           "createdAt",
           "updatedAt"

@@ -18,6 +18,12 @@ const DEFAULT_ANNUAL_LEAVE_DAYS = 25;
 const DEFAULT_TIME_ZONE = 'Europe/Vienna';
 const TENANT_ADMIN_ROLES = new Set(['OWNER', 'ADMIN']);
 
+type EmployeeLeaveSummary = {
+  remainingLeaveDays: number;
+  carryoverDays: number;
+  leaveBalanceYear: number;
+};
+
 @Injectable()
 export class EmployeeService {
   constructor(
@@ -39,7 +45,7 @@ export class EmployeeService {
       createdAt: Date;
       updatedAt: Date;
     },
-    remainingLeaveDays = employee.annual_leave_days,
+    leaveSummary: EmployeeLeaveSummary,
   ) {
     return {
       id: employee.id,
@@ -53,14 +59,18 @@ export class EmployeeService {
         ? employee.hired_on.toISOString().slice(0, 10)
         : null,
       annualLeaveDays: employee.annual_leave_days,
-      remainingLeaveDays,
+      carryoverDays: leaveSummary.carryoverDays,
+      leaveBalanceYear: leaveSummary.leaveBalanceYear,
+      remainingLeaveDays: leaveSummary.remainingLeaveDays,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };
   }
 
   async findAll(query: ListEmployeesQueryDto) {
+    const tenantId = await this.tenantContext.getTenantId();
     const where = {
+      tenant_id: tenantId,
       ...(query.includeInactive ? {} : { is_active: true }),
       ...(query.role ? { role: query.role } : {}),
     };
@@ -91,7 +101,10 @@ export class EmployeeService {
   }
 
   async findOne(id: string) {
-    const employee = await this.prisma.employee.findFirst({ where: { id } });
+    const tenantId = await this.tenantContext.getTenantId();
+    const employee = await this.prisma.employee.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
     if (!employee) {
       throw new NotFoundException(`Employee with ID ${id} not found`);
     }
@@ -268,16 +281,19 @@ export class EmployeeService {
       return [];
     }
 
+    const tenantId = await this.tenantContext.getTenantId();
     const year = await this.getCurrentLocalYear();
     const employeeIds = employees.map((employee) => employee.id);
     const [balances, bookedDays] = await Promise.all([
       this.prisma.employeeLeaveBalance.findMany({
         where: {
+          tenant_id: tenantId,
           employee_id: { in: employeeIds },
           year,
         },
         select: {
           employee_id: true,
+          year: true,
           allowance_days: true,
           carryover_days: true,
         },
@@ -285,6 +301,7 @@ export class EmployeeService {
       this.prisma.leaveRequest.groupBy({
         by: ['employee_id'],
         where: {
+          tenant_id: tenantId,
           employee_id: { in: employeeIds },
           status: 'BOOKED',
           start_on: {
@@ -313,12 +330,18 @@ export class EmployeeService {
       const carryoverDays = balance?.carryover_days ?? 0;
       const booked = bookedDaysByEmployee.get(employee.id) ?? 0;
 
-      return this.mapEmployee(employee, allowanceDays + carryoverDays - booked);
+      return this.mapEmployee(employee, {
+        remainingLeaveDays: allowanceDays + carryoverDays - booked,
+        carryoverDays,
+        leaveBalanceYear: balance?.year ?? year,
+      });
     });
   }
 
   private async getCurrentLocalYear(): Promise<number> {
+    const tenantId = await this.tenantContext.getTenantId();
     const settings = await this.prisma.workshopSettings.findFirst({
+      where: { tenant_id: tenantId },
       select: { timezone: true },
     });
     const localDate = formatLocalDate(
@@ -333,6 +356,7 @@ export class EmployeeService {
     annualLeaveDays: number,
     updateData: Prisma.EmployeeUpdateInput,
   ) {
+    const tenantId = await this.tenantContext.getTenantId();
     const currentYear = await this.getCurrentLocalYear();
     return this.prisma.$transaction(async (transaction) => {
       const updated = await transaction.employee.update({
@@ -340,7 +364,7 @@ export class EmployeeService {
         data: updateData,
       });
       await transaction.employeeLeaveBalance.updateMany({
-        where: { employee_id: id, year: currentYear },
+        where: { tenant_id: tenantId, employee_id: id, year: currentYear },
         data: { allowance_days: annualLeaveDays },
       });
       return updated;

@@ -3422,6 +3422,8 @@ export interface components {
             /** Format: date */
             hiredOn?: string | null;
             annualLeaveDays: number;
+            carryoverDays: number;
+            leaveBalanceYear: number;
             remainingLeaveDays: number;
             /** Format: date-time */
             createdAt: string;
