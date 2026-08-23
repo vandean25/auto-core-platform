@@ -112,6 +112,7 @@ function setupMocks(activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'SALES') {
       employee: linkedEmployee,
       clockState: 'CLOCKED_IN',
       remainingLeaveDays: 25,
+      timezone: 'Europe/Vienna',
     }),
   )
   apiMocks.useHrMeClock.mockReturnValue(
@@ -164,6 +165,29 @@ describe('HrClockPage', () => {
     expect(within(timelineRows[0]).getByText('Come to work')).toBeInTheDocument()
     expect(within(timelineRows[1]).getByText('Pause')).toBeInTheDocument()
     expect(within(timelineRows[2]).getByText('Go home')).toBeInTheDocument()
+  })
+
+  it('formats UTC events and the attendance range in the tenant timezone', () => {
+    setupMocks('ADMIN')
+    const utcEvent = {
+      ...todayEvents[0],
+      occurredAt: '2026-08-24T06:05:00.000Z',
+      createdAt: '2026-08-24T06:05:00.000Z',
+    }
+    apiMocks.useHrMeClock.mockReturnValue(
+      createQueryResult({ state: 'CLOCKED_IN', lastEvent: utcEvent, todayEvents: [utcEvent] }),
+    )
+    apiMocks.useHrAttendance.mockReturnValue(createQueryResult([utcEvent]))
+
+    renderPage()
+
+    expect(screen.getByText('08:05')).toBeInTheDocument()
+    expect(screen.getByLabelText('Attendance day')).toHaveValue('2026-08-24')
+    expect(apiMocks.useHrAttendance).toHaveBeenCalledWith(
+      '2026-08-24',
+      '2026-08-24',
+      linkedEmployee.id,
+    )
   })
 
   it('shows manager employee and attendance controls only to OWNER and ADMIN', () => {

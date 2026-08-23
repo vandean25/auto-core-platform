@@ -19,10 +19,10 @@ describe('HrAttendanceService', () => {
       findMany: jest.Mock;
     };
     workshopSettings: {
-      findUnique: jest.Mock;
+      findFirst: jest.Mock;
     };
     employeeLeaveBalance: {
-      findUnique: jest.Mock;
+      findFirst: jest.Mock;
     };
     leaveRequest: {
       aggregate: jest.Mock;
@@ -278,6 +278,23 @@ describe('HrAttendanceService', () => {
           occurredAt: '2026-08-22T07:59:59Z',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('getMeProfile', () => {
+    it('returns the resolved tenant timezone', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      prisma.attendanceEvent.findFirst.mockResolvedValue(null);
+      prisma.employeeLeaveBalance.findFirst.mockResolvedValue(null);
+      prisma.leaveRequest.aggregate.mockResolvedValue({
+        _sum: { days_charged: null },
+      });
+
+      const result = await service.getMeProfile();
+
+      expect(result.timezone).toBe('America/Los_Angeles');
     });
   });
 

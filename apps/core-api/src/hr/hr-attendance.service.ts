@@ -237,6 +237,7 @@ export class HrAttendanceService {
       },
       clockState,
       remainingLeaveDays,
+      timezone,
     };
   }
 

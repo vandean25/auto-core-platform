@@ -106,4 +106,7 @@ export class HrMeResponseDto {
 
   @ApiProperty()
   remainingLeaveDays!: number;
+
+  @ApiProperty()
+  timezone!: string;
 }

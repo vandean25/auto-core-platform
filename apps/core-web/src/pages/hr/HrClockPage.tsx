@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format, isValid, parseISO } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -54,24 +54,43 @@ function isManagerRole(role: TenantMemberRole | null | undefined): boolean {
   return role === 'OWNER' || role === 'ADMIN'
 }
 
-function getEventWallClockTimestamp(timestamp: string): string {
-  return timestamp.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?/)?.[0] ?? timestamp
+function formatTenantLocalDate(date: Date, timezone: string): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(date)
+      .map(({ type, value }) => [type, value]),
+  )
+
+  return `${parts.year}-${parts.month}-${parts.day}`
 }
 
-function formatEventTime(timestamp: string): string {
-  const parsed = parseISO(getEventWallClockTimestamp(timestamp))
-  return isValid(parsed) ? format(parsed, 'HH:mm') : '—'
+function formatEventTime(timestamp: string, timezone: string): string {
+  const parsed = new Date(timestamp)
+  if (Number.isNaN(parsed.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(parsed)
 }
 
-function getEventDay(timestamp: string): string | null {
-  const day = timestamp.slice(0, 10)
-  const parsed = parseISO(day)
-  return isValid(parsed) ? format(parsed, 'yyyy-MM-dd') : null
+function getEventDay(timestamp: string, timezone: string): string | null {
+  const parsed = new Date(timestamp)
+  if (Number.isNaN(parsed.getTime())) return null
+
+  return formatTenantLocalDate(parsed, timezone)
 }
 
-function getTenantLocalToday(events: readonly AttendanceEvent[]): string {
-  const eventDay = events.map((event) => getEventDay(event.occurredAt)).find(Boolean)
-  return eventDay ?? format(new Date(), 'yyyy-MM-dd')
+function getTenantLocalToday(events: readonly AttendanceEvent[], timezone: string): string {
+  const eventDay = events.map((event) => getEventDay(event.occurredAt, timezone)).find(Boolean)
+  return eventDay ?? formatTenantLocalDate(new Date(), timezone)
 }
 
 function compareEvents(left: AttendanceEvent, right: AttendanceEvent): number {
@@ -120,7 +139,7 @@ function ClockPageSkeleton() {
   )
 }
 
-function TodayTimeline({ events }: { events: readonly AttendanceEvent[] }) {
+function TodayTimeline({ events, timezone }: { events: readonly AttendanceEvent[]; timezone: string }) {
   const orderedEvents = useMemo(() => [...events].sort(compareEvents), [events])
 
   if (orderedEvents.length === 0) {
@@ -132,7 +151,7 @@ function TodayTimeline({ events }: { events: readonly AttendanceEvent[] }) {
       {orderedEvents.map((event) => (
         <li key={event.id} className='flex items-center gap-4 rounded-md border bg-white px-4 py-3'>
           <time className='w-14 font-mono text-sm text-slate-500' dateTime={event.occurredAt}>
-            {formatEventTime(event.occurredAt)}
+            {formatEventTime(event.occurredAt, timezone)}
           </time>
           <span data-timeline-label>
             <StatusBadge status={event.type} label={EVENT_LABELS[event.type]} />
@@ -149,6 +168,7 @@ type ManagerAttendanceSectionProps = {
   meEmployeeName: string
   meState: AttendanceState
   today: string
+  timezone: string
   onPunchSelf: (type: AttendanceEventType) => void
   isSelfPunchPending: boolean
 }
@@ -158,6 +178,7 @@ function ManagerAttendanceSection({
   meEmployeeName,
   meState,
   today,
+  timezone,
   onPunchSelf,
   isSelfPunchPending,
 }: ManagerAttendanceSectionProps) {
@@ -205,12 +226,12 @@ function ManagerAttendanceSection({
   const attendanceRows = useMemo<AttendanceTableRow[]>(
     () => selectedEmployeeEvents.map((event) => ({
       id: event.id,
-      time: formatEventTime(event.occurredAt),
+      time: formatEventTime(event.occurredAt, timezone),
       event: event.type,
       source: event.source,
       note: event.note ?? '',
     })),
-    [selectedEmployeeEvents],
+    [selectedEmployeeEvents, timezone],
   )
 
   const filteredRows = useMemo(() => {
@@ -359,7 +380,7 @@ export default function HrClockPage() {
   const canManageAttendance = isManagerRole(activeRole)
   const clockResponse = clockQuery.data
   const todayEvents = clockResponse?.todayEvents ?? []
-  const today = getTenantLocalToday(todayEvents)
+  const today = meQuery.data ? getTenantLocalToday(todayEvents, meQuery.data.timezone) : ''
   const isMissingEmployee = getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
 
   useEffect(() => {
@@ -417,7 +438,7 @@ export default function HrClockPage() {
               <h2 id='today-timeline-heading' className='text-lg font-semibold'>Today&apos;s timeline</h2>
               <p className='text-sm text-slate-500'>Events are shown in the tenant&apos;s local time.</p>
             </div>
-            <TodayTimeline events={todayEvents} />
+            <TodayTimeline events={todayEvents} timezone={meQuery.data.timezone} />
           </section>
 
           {canManageAttendance ? (
@@ -426,6 +447,7 @@ export default function HrClockPage() {
               meEmployeeName={meQuery.data.employee.name}
               meState={clockResponse.state}
               today={today}
+              timezone={meQuery.data.timezone}
               onPunchSelf={handleSelfPunch}
               isSelfPunchPending={punchClockMutation.isPending}
             />

@@ -68,10 +68,12 @@ describe('HrController', () => {
       },
       clockState: 'CLOCKED_IN',
       remainingLeaveDays: 22,
+      timezone: 'Europe/Vienna',
     });
 
     const result = await controller.me();
     expect(result.clockState).toBe('CLOCKED_IN');
+    expect(result.timezone).toBe('Europe/Vienna');
     expect(attendanceService.getMeProfile).toHaveBeenCalled();
   });
 

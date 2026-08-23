@@ -12740,12 +12740,16 @@
           },
           "remainingLeaveDays": {
             "type": "number"
+          },
+          "timezone": {
+            "type": "string"
           }
         },
         "required": [
           "employee",
           "clockState",
-          "remainingLeaveDays"
+          "remainingLeaveDays",
+          "timezone"
         ]
       },
       "AttendanceEventType": {

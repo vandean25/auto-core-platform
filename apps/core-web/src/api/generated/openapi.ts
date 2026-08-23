@@ -3730,6 +3730,7 @@ export interface components {
             employee: components["schemas"]["HrMeEmployeeDto"];
             clockState: components["schemas"]["AttendanceState"];
             remainingLeaveDays: number;
+            timezone: string;
         };
         /** @enum {string} */
         AttendanceEventType: "CLOCK_IN" | "PAUSE" | "DOCTOR" | "CLOCK_OUT";
