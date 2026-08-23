@@ -43,13 +43,19 @@ describe('App HR route registration', () => {
   })
 
   it('lazy-loads the registered HR leave route from the application route tree', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
     render(
-      <MemoryRouter initialEntries={['/hr/leave']}>
-        <AppRoutes />
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/hr/leave']}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     expect(await screen.findByRole('heading', { name: 'Leave' })).toBeInTheDocument()
-    expect(screen.getByText(/Coming soon/i)).toBeInTheDocument()
+    expect(screen.getByText('Book and review team leave.')).toBeInTheDocument()
   })
 })
