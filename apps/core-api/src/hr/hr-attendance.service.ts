@@ -81,7 +81,7 @@ export class HrAttendanceService {
   ) {}
 
   private async getTenantTimezone(tenantId: string): Promise<string> {
-    const settings = await this.prisma.workshopSettings.findUnique({
+    const settings = await this.prisma.workshopSettings.findFirst({
       where: { tenant_id: tenantId },
       select: { timezone: true },
     });
@@ -200,13 +200,11 @@ export class HrAttendanceService {
         },
         orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
       }),
-      this.prisma.employeeLeaveBalance.findUnique({
+      this.prisma.employeeLeaveBalance.findFirst({
         where: {
-          tenant_id_employee_id_year: {
-            tenant_id: tenantId,
-            employee_id: me.id,
-            year: currentYear,
-          },
+          tenant_id: tenantId,
+          employee_id: me.id,
+          year: currentYear,
         },
       }),
       this.prisma.leaveRequest.aggregate({

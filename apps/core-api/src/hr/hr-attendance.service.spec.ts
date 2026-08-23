@@ -49,10 +49,10 @@ describe('HrAttendanceService', () => {
         findMany: jest.fn(),
       },
       workshopSettings: {
-        findUnique: jest.fn().mockResolvedValue({ timezone: 'Europe/Vienna' }),
+        findFirst: jest.fn().mockResolvedValue({ timezone: 'Europe/Vienna' }),
       },
       employeeLeaveBalance: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
       leaveRequest: {
         aggregate: jest.fn(),
