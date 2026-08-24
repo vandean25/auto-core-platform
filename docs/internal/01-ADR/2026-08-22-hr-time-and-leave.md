@@ -388,4 +388,4 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 |-------|-------|
 | Project | [HR Time and Leave](https://linear.app/auto-core-platform/project/hr-time-and-leave-7e0299d12e1f) |
 | Milestone | Minutes & schedules amendment |
-| Issues | Phase 2 issues to be created after ADR amendment approval |
+| Issues | [AUT-192](https://linear.app/auto-core-platform/issue/AUT-192) (spec), [AUT-193](https://linear.app/auto-core-platform/issue/AUT-193) (schema), [AUT-194](https://linear.app/auto-core-platform/issue/AUT-194) (leave minutes), [AUT-195](https://linear.app/auto-core-platform/issue/AUT-195) (schedule API), [AUT-196](https://linear.app/auto-core-platform/issue/AUT-196) (frontend), [AUT-197](https://linear.app/auto-core-platform/issue/AUT-197) (docs) |
