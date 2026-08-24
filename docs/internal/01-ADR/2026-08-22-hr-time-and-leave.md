@@ -404,7 +404,7 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 
 ## References
 
-- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md) — **this amendment supersedes** Feature Spec workday counting, leave units, and DTO field names. **Amend the Feature Spec before Phase 2 implementation** ([AUT-192](https://linear.app/auto-core-platform/issue/AUT-192)) so day-based DTOs and `countChargeableDays` cannot be implemented by accident. The ADR alone is sufficient to merge this amendment PR; the spec is a gate for code.
+- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md) — amended 2026-08-24 ([AUT-192](https://linear.app/auto-core-platform/issue/AUT-192)) to match this ADR. Phase 2 implementation may proceed.
 - [ADR-0019: Workshop Planner Calendar](2026-08-21-workshop-planner-calendar.md)
 - [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
 - [ADR-0014: Mechanic Digital Repair Order Tablet RBAC](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md)
