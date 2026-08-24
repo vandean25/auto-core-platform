@@ -1,0 +1,92 @@
+---
+title: "HR"
+description: "Add your people, record attendance, and book leave without mixing HR with jobs or shop holidays."
+---
+
+HR is where you manage the people in your workshop, punch the attendance clock, and book leave. Shop opening hours and public holidays stay with workshop settings; they are not employee leave bookings.
+
+<CardGroup cols={3}>
+  <Card title="Employees" icon="users" href="/hr/employees">
+    Keep the workshop roster, hire dates, leave allowance, and login links together.
+  </Card>
+  <Card title="Time Clock" icon="clock-3" href="/hr/clock">
+    Record when a person comes to work, pauses, visits the doctor, or goes home.
+  </Card>
+  <Card title="Leave" icon="calendar-days" href="/hr/leave">
+    Book holiday dates and see the remaining leave balance.
+  </Card>
+</CardGroup>
+
+## Add a person
+
+Open **HR → Employees**. The roster uses the same people you assign to jobs.
+
+<Steps>
+  <Step title="Start the employee record">
+    Click **+ Employee**. Enter the name, role, sort order, and mother language.
+  </Step>
+  <Step title="Add HR details">
+    Owners and administrators can add a **Hire date** and **Leave days**. Leave days is the person's yearly allowance.
+  </Step>
+  <Step title="Link the login">
+    The **Login** column shows whether an account is linked. The employee record and the login account are separate records.
+  </Step>
+</Steps>
+
+Click a row to open **Employee Details**. Owners and administrators can enter **Carryover this year** and click **Save leave balance**. The **Remaining** value is the allowance plus carryover, less booked leave.
+
+## Punch the attendance clock
+
+Open **HR → Time Clock** to punch your own attendance. The page shows today's timeline in the workshop's local time.
+
+<Steps>
+  <Step title="Come to work">
+    Click **Come to work** when your shift starts.
+  </Step>
+  <Step title="Change your clock state">
+    Click **Pause** for a normal break, or **Doctor** when you leave for a doctor visit.
+  </Step>
+  <Step title="Finish">
+    Click **Go home** when your shift ends. **Come to work** resumes the clock after a pause or doctor visit.
+  </Step>
+</Steps>
+
+Owners and administrators can choose an employee on the Time Clock page and punch for that person. The team attendance table shows the selected day's events.
+
+<Warning>
+**Pause** on the attendance clock is not **Pause** on a job. Job Pause records why a task stopped; clock Pause records where the person is in their shift.
+</Warning>
+
+## Book leave
+
+Open **HR → Leave**. Your **Remaining** chip shows the current balance for the selected year.
+
+<Steps>
+  <Step title="Open the booking form">
+    Click **+ Leave**. Owners and administrators choose the employee; everyone else books their own leave.
+  </Step>
+  <Step title="Choose the dates">
+    Enter the **Start** and **End** dates. Add an optional note, then click **+ Leave** to book the range.
+  </Step>
+  <Step title="Check the balance">
+    Your booking appears in **My leave** with the date range, days charged, and status. The **Remaining** chip updates after the booking.
+  </Step>
+</Steps>
+
+Owners, administrators, and service advisors can also view the **Team leave** month grid. Owners and administrators can click an empty employee/date cell to book leave for that person.
+
+<Tip>
+Public holidays that close the workshop do not use leave days. A short public holiday still counts as a workday when the workshop is open.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="No employee record linked">
+    Ask an owner or administrator to link your login to an employee record under **HR → Employees**. Until it is linked, your Time Clock and Leave pages cannot load your personal record.
+  </Accordion>
+  <Accordion title="Cancel a booking">
+    Right-click a booked row in **My leave** and choose **Cancel**. You can cancel your own leave when it starts today or later. Owners and administrators can cancel any booking.
+  </Accordion>
+  <Accordion title="Mechanic tablet">
+    The mechanic **My Queue** has compact **Come to work**, **Pause**, **Doctor**, and **Go home** buttons in the header. They are attendance controls; job controls remain on the task.
+  </Accordion>
+</AccordionGroup>

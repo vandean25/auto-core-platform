@@ -53,6 +53,10 @@
             "pages": ["workflows/sign-in", "workflows/dashboard"]
           },
           {
+            "group": "People",
+            "pages": ["hr"]
+          },
+          {
             "group": "Sales",
             "pages": [
               "workflows/customers",
