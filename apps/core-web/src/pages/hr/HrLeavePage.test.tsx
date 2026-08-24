@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 
 import HrLeavePage from './HrLeavePage'
 
@@ -21,6 +22,12 @@ vi.mock('@/api/hr', () => ({
   useCancelLeave: apiMocks.useCancelLeave,
 }))
 vi.mock('@/api/employees', () => ({ useEmployees: apiMocks.useEmployees }))
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}))
 vi.mock('@/components/hr/TeamLeaveMonthGrid', () => ({
   TeamLeaveMonthGrid: ({ canBook }: { canBook: boolean }) => (
     <div data-testid='team-leave-grid' data-can-book={String(canBook)} />
@@ -132,7 +139,74 @@ describe('HrLeavePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    expect(cancelLeave).toHaveBeenCalledWith('leave-1')
+    expect(cancelLeave).toHaveBeenCalledWith('leave-1', expect.objectContaining({
+      onError: expect.any(Function),
+    }))
+  })
+
+  it('opens the booking sheet for OWNER when /hr/me returns 403', () => {
+    setupPage('OWNER')
+    apiMocks.useHrMe.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: Object.assign(new Error('No employee record linked'), { status: 403 }),
+    })
+    apiMocks.useEmployees.mockReturnValue({
+      data: {
+        data: [
+          { id: 'employee-2', name: 'Grace Hopper', role: 'MECHANIC' },
+          { id: 'employee-1', name: 'Ada Lovelace', role: 'SERVICE_ADVISOR' },
+        ],
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Leave' }))
+
+    expect(screen.getByTestId('leave-booking-sheet')).toHaveAttribute('data-open', 'true')
+  })
+
+  it('shows the missing-employee empty state for SALES when /hr/me returns 403', () => {
+    setupPage('SALES')
+    apiMocks.useHrMe.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: Object.assign(new Error('No employee record linked'), { status: 403 }),
+    })
+
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('No employee record linked')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '+ Leave' })).not.toBeInTheDocument()
+  })
+
+  it('shows a toast when leave cancellation fails', () => {
+    const cancelLeave = vi.fn(
+      (_id: string, options?: { onError?: (error: Error) => void }) => {
+        options?.onError?.(new Error('Cancellation failed'))
+      },
+    )
+    setupPage('SALES')
+    apiMocks.useCancelLeave.mockReturnValue({ mutate: cancelLeave, isPending: false })
+
+    render(
+      <MemoryRouter>
+        <HrLeavePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(toast.error).toHaveBeenCalledWith('Cancellation failed')
   })
 
   it('lets OWNER book from the team grid but keeps SALES read-only', () => {

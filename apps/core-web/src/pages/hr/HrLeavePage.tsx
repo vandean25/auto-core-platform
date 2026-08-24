@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 
 import type { components } from '@/api/generated/openapi'
 import { useAuthSession } from '@/api/auth-session'
@@ -17,8 +19,10 @@ import { TeamLeaveMonthGrid } from '@/components/hr/TeamLeaveMonthGrid'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -106,6 +110,20 @@ function isFutureOrToday(date: string, today: string): boolean {
   return date >= today
 }
 
+function MissingEmployeeState() {
+  return (
+    <Alert>
+      <AlertTitle>No employee record linked</AlertTitle>
+      <AlertDescription className='flex flex-col items-start gap-2'>
+        <span>Ask an owner or administrator to link your account to an employee record.</span>
+        <Link className='font-medium underline underline-offset-4' to='/hr/employees'>
+          Go to HR Employees
+        </Link>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 export default function HrLeavePage() {
   const sessionQuery = useAuthSession()
   const hrMeQuery = useHrMe()
@@ -124,6 +142,13 @@ export default function HrLeavePage() {
   useEffect(() => {
     if (hrMeQuery.data?.timezone) setMonth(getTenantMonth(hrMeQuery.data.timezone))
   }, [hrMeQuery.data?.timezone])
+
+  const isMissingEmployee = !isManager && getErrorStatus(hrMeQuery.error) === 403
+
+  useEffect(() => {
+    if (!hrMeQuery.error || getErrorStatus(hrMeQuery.error) === 403) return
+    toast.error(getErrorMessage(hrMeQuery.error, 'Failed to load HR profile'))
+  }, [hrMeQuery.error])
 
   const year = Number(month.slice(0, 4))
   const monthRange = getMonthRange(month)
@@ -187,10 +212,14 @@ export default function HrLeavePage() {
   )
 
   const selectedEmployee =
-    leaveEmployees.find((employee) => employee.id === selectedEmployeeId) ?? hrMeQuery.data?.employee
+    leaveEmployees.find((employee) => employee.id === selectedEmployeeId) ??
+    hrMeQuery.data?.employee ??
+    leaveEmployees[0]
   const openCreateSheet = (employeeId?: string, startOn?: string, endOn?: string) => {
     setSelectedBooking(null)
-    setSelectedEmployeeId(employeeId)
+    setSelectedEmployeeId(
+      employeeId ?? hrMeQuery.data?.employee.id ?? leaveEmployees[0]?.id,
+    )
     setSelectedStartOn(startOn)
     setSelectedEndOn(endOn)
     setSheetOpen(true)
@@ -200,6 +229,18 @@ export default function HrLeavePage() {
     if (booking.status !== 'BOOKED') return false
     if (isManager) return true
     return booking.employeeId === hrMeQuery.data?.employee.id && isFutureOrToday(booking.startOn, tenantToday)
+  }
+
+  if (isMissingEmployee) {
+    return (
+      <div className='space-y-6'>
+        <div>
+          <h2 className='text-2xl font-semibold tracking-tight'>Leave</h2>
+          <p className='text-slate-500'>Book and review team leave.</p>
+        </div>
+        <MissingEmployeeState />
+      </div>
+    )
   }
 
   return (
@@ -250,7 +291,11 @@ export default function HrLeavePage() {
                   {
                     label: 'Cancel',
                     destructive: true,
-                    onClick: () => cancelLeave.mutate(row.id),
+                    onClick: () => cancelLeave.mutate(row.id, {
+                      onError: (error) => {
+                        toast.error(getErrorMessage(error, 'Failed to cancel leave booking'))
+                      },
+                    }),
                   },
                 ]
               : []
