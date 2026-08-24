@@ -69,7 +69,7 @@ Phase 1 stores leave as **whole days** (`annual_leave_days`, `days_charged`). Th
 ### 1. Module and ownership
 
 - **Primary module:** HR (`apps/core-api/src/hr/`, frontend `/hr/*`).
-- **Person record:** existing `Employee`. Phase 1 added `hired_on` and `annual_leave_days`. Phase 2 **replaces** `annual_leave_days` with `annual_leave_minutes` (migration).
+- **Person record:** existing `Employee`. Phase 1 added `hired_on` and `annual_leave_days`. Phase 2 **replaces** `annual_leave_days` with `annual_leave_minutes` (migration). `annual_leave_minutes` has **no** `@default(25)` — use `@default(0)` or no default; employee create seeds `25 × avg` in the same transaction.
 - **Login record:** existing `TenantMember`. Self-service requires `Employee.user_id`.
 - **Does not introduce:** a second person table, `Appointment` for leave, payroll, wage types, hourly pay rates, Krankenstand days, leave approval states, door kiosk.
 - **Does not reuse:** `LaborEntry`, `LaborPauseReason`, `WorkshopHoliday` rows for employee Urlaub, `LaborOperation.hourly_rate` for employee compensation.
@@ -98,10 +98,11 @@ model EmployeeWorkSchedule {
   tenant_id      String
   tenant         Tenant   @relation(fields: [tenant_id], references: [id])
   employee_id    String
-  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)
   effective_from DateTime @db.Date
   days           EmployeeWorkScheduleDay[]
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, employee_id, effective_from])
@@ -130,13 +131,39 @@ model EmployeeWorkScheduleDay {
 
 **Resolution rule:** For any calendar date `D`, use the schedule version with the greatest `effective_from` where `effective_from <= D`. Missing schedule on `D` → `400` (should not happen after seed + migration).
 
+**"Current" schedule (for `avg`, UI display, granting allowance):** Apply the resolution rule for **tenant-local today** — greatest `effective_from <= today`. Do **not** use `max(effective_from)` when a future-dated version exists.
+
 **Write semantics:**
 
 - Mid-year pattern change → **POST** a new version with a later `effective_from`. Never retcon an old version's `effective_from`.
 - Duplicate `effective_from` for the same employee → `409`.
-- Correction of times on an existing version → **PATCH** `/api/hr/employees/:id/work-schedule/:scheduleId` (leave snapshots are not rewritten; only future bookings use corrected times).
-- No hard-delete API. Employee hard-delete stays blocked if schedule rows exist.
+- Correction of times on an existing version → **PATCH** `/api/hr/employees/:id/work-schedule/:scheduleId` (leave snapshots are not rewritten; only future bookings use corrected times). **PATCH must not change `effective_from`.**
+- No hard-delete API for schedules. Schedule rows **cascade** when an employee is hard-deleted — they are **not** a separate 409 reason. Phase 1 employee hard-delete guards stay: attendance, leave, balance, workshop refs only.
 - Future-dated `effective_from` is allowed.
+
+**POST / PATCH request bodies:**
+
+Both POST (new version) and PATCH (correct existing version) require **exactly seven** weekday rows, ISO weekdays 1–7 (Mon–Sun), same as `WorkshopOpeningHour`. A missing weekday → `400`, not silent zero.
+
+```json
+// POST /api/hr/employees/:id/work-schedule
+{
+  "effectiveFrom": "2026-07-01",
+  "days": [
+    { "weekday": 1, "isWorking": true,  "startTime": "07:30", "endTime": "17:00", "breakMinutes": 0 },
+    { "weekday": 2, "isWorking": true,  "startTime": "07:30", "endTime": "17:00", "breakMinutes": 0 },
+    // ... weekdays 3–7 required ...
+    { "weekday": 7, "isWorking": false, "startTime": null,   "endTime": null,   "breakMinutes": 0 }
+  ]
+}
+
+// PATCH /api/hr/employees/:id/work-schedule/:scheduleId
+// Same `days` array shape. `effectiveFrom` is omitted or ignored — cannot be changed.
+```
+
+When `isWorking` is `false`, `startTime` and `endTime` must be `null`. When `isWorking` is `true`, both times are required.
+
+**Audit:** `EmployeeWorkSchedule` includes `updatedAt` and is added to `AUDITED_MODELS`. `EmployeeWorkScheduleDay` children are not individually audited — the parent PATCH is the unit of change.
 
 **Defaults:** On employee create, seed one schedule from current tenant `WorkshopOpeningHour` rows (`is_working = !is_closed`, copy `open_time`/`close_time`, `break_minutes = 0`) with `effective_from = hired_on` (or tenant-local today if null). `break_minutes = 0` means door-to-door shop window (e.g. 07:30–17:00 = 570 min), not a contracted 8 h — do not invent a lunch default without PO.
 
@@ -154,7 +181,7 @@ Managers edit per-employee patterns when someone works part-time or different ho
 allowance_minutes + carryover_minutes − SUM(minutes_charged WHERE status = BOOKED AND year matches)
 ```
 
-**`avg_expected_minutes_per_workday`:** Mean of `(end_time − start_time) − break_minutes` over `is_working` weekdays in the **current** schedule version (not ÷7, not closed weekdays). Example: part-time 4 h × 3 days → `avg = 240`.
+**`avg_expected_minutes_per_workday`:** Mean of `(end_time − start_time) − break_minutes` over `is_working` weekdays in the **current** schedule version (resolution rule for tenant-local today; not ÷7, not closed weekdays). Example: part-time 4 h × 3 days → `avg = 240`. If the current version has **zero** `is_working` days, use the same **`480` fallback** as "no opening-hour rows" (do not return `400` — managers may be fixing a misconfigured schedule).
 
 **Chargeable minutes** for a date range (single algorithm for booking and `HrWorkdayService`):
 
@@ -186,7 +213,7 @@ minutes_charged = Σ charge for each D
 annual_leave_minutes = 25 × avg_expected_minutes_per_workday(employee, current schedule)
 ```
 
-Round to nearest integer minute. On new employee create: seed schedule, then set `annual_leave_minutes` in the same transaction (Prisma default must not stay `25` days). Snapshot the result; later schedule changes affect future bookings only, not the annual pot. After a mid-year FTE change, **remaining minutes do not auto-pro-rate**; derived "days" display will move — that is the chosen tradeoff.
+Round to nearest integer minute. On new employee create: seed schedule, then set `annual_leave_minutes = 25 × avg` in the same transaction. Snapshot the result; later schedule changes affect future bookings only, not the annual pot. After a mid-year FTE change, **remaining minutes do not auto-pro-rate**; derived "days" display will move — that is the chosen tradeoff. If the UI still says "25 days", persist minutes and treat days as an input widget only.
 
 Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if remaining and overlap checks pass.
 
@@ -252,7 +279,8 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 ### 8. Real-time, deletion, fiscal, inventory
 
 - **Realtime:** opt-in `ATTENDANCE_EVENT`, `LEAVE_REQUEST`, and `EMPLOYEE_WORK_SCHEDULE`. Leave also invalidates planner query keys.
-- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when attendance, leave, balance, or schedule rows exist. `EmployeeWorkSchedule` (+ day children) added to `docs/deletion-policy.md`: no API delete; cascade only with employee/tenant purge.
+- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when attendance, leave, balance, or workshop refs exist (Phase 1 guards unchanged). `EmployeeWorkSchedule` (+ day children) cascade on employee delete — **do not** add schedule rows as a new 409 reason. Tenant purge deletes schedule children before employee. `EmployeeWorkSchedule` added to `docs/deletion-policy.md`: no schedule API delete; cascade on employee/tenant purge.
+- **Audit:** `EmployeeWorkSchedule` in `AUDITED_MODELS` (parent PATCH is audited; day children are not).
 - **Fiscal / inventory / payroll:** none. No wage fields on any HR table.
 
 ## Consequences
@@ -363,6 +391,9 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 - Minute charge tests: short `WorkshopHoliday` (`is_closed = false`) charges full employee minutes
 - Minute charge tests: mid-year schedule change charges different minutes for same calendar span before/after `effective_from`
 - Duplicate `effective_from` on schedule POST → `409`; `end_time <= start_time` → `400`; zero-minute range → `400`
+- POST/PATCH schedule with fewer or more than 7 weekday rows → `400`; PATCH that sends `effectiveFrom` is ignored (field not changeable)
+- `avg` uses current schedule (today), not a future-dated version; zero `is_working` days → `480` fallback
+- Employee hard-delete with only schedule rows (no attendance/leave/balance) succeeds; schedules cascade
 - Leave remaining tests including cancel restore (minutes); PATCH leave recomputes `minutes_charged`
 - Migration test: day columns correctly backfilled with single `avg` factor; remaining invariant preserved
 - Seed-on-create schedule test; existing-employee backfill test
@@ -373,7 +404,7 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 
 ## References
 
-- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md) — **this amendment supersedes** Feature Spec workday counting, leave units, and DTO field names. Do not implement Phase 2 from the spec until it is amended to match.
+- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md) — **this amendment supersedes** Feature Spec workday counting, leave units, and DTO field names. **Amend the Feature Spec before Phase 2 implementation** ([AUT-192](https://linear.app/auto-core-platform/issue/AUT-192)) so day-based DTOs and `countChargeableDays` cannot be implemented by accident. The ADR alone is sufficient to merge this amendment PR; the spec is a gate for code.
 - [ADR-0019: Workshop Planner Calendar](2026-08-21-workshop-planner-calendar.md)
 - [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
 - [ADR-0014: Mechanic Digital Repair Order Tablet RBAC](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md)
