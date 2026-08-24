@@ -86,6 +86,17 @@ export class HrController {
     return this.attendance.getAttendance(query);
   }
 
+  @Get('attendance/:employeeId/clock')
+  @ApiOperation({
+    summary: 'Get the current clock state for an employee (OWNER/ADMIN only)',
+  })
+  @ApiResponse({ status: 200, type: ClockResponseDto })
+  async employeeClock(
+    @Param('employeeId') employeeId: string,
+  ): Promise<ClockResponseDto> {
+    return this.attendance.getEmployeeClock(employeeId);
+  }
+
   @Post('attendance')
   @ApiOperation({
     summary:

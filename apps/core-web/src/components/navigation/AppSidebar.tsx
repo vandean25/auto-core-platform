@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
@@ -18,6 +18,7 @@ import {
   Star,
   Truck,
   UserRound,
+  Users,
   Wrench,
   LayoutGrid,
   X,
@@ -29,6 +30,7 @@ import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 type SidebarAccessContext = {
   userEmail: string | null
   platformRole: string | null
+  activeRole: components['schemas']['TenantMemberRole'] | null
 }
 
 type SidebarModule = {
@@ -104,6 +106,14 @@ const coreModules: SidebarModule[] = [
     icon: LayoutGrid,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/board'),
+  },
+  {
+    id: 'hr',
+    label: 'HR',
+    to: '/hr/employees',
+    icon: Users,
+    isVisible: (context) => context.activeRole !== 'TECH',
+    isActive: (pathname) => pathname.startsWith('/hr'),
   },
   {
     id: 'inventory',
@@ -188,7 +198,7 @@ export function AppSidebar({
   const navigate = useNavigate()
   const { savedViews, removeSavedView } = useSavedViews()
 
-  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole }))
+  const visibleModules = coreModules.filter((module) => module.isVisible({ userEmail, platformRole, activeRole }))
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
   return (
@@ -229,9 +239,10 @@ export function AppSidebar({
                 const Icon = module.icon
                 const active = module.isActive(location.pathname, location.search)
                 return (
-                  <NavLink
+                  <Link
                     key={module.id}
                     to={module.to}
+                    aria-current={active ? 'page' : undefined}
                     title={collapsed ? module.label : undefined}
                     className={cn(
                       moduleLinkBaseClass,
@@ -243,7 +254,7 @@ export function AppSidebar({
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className={collapsed ? 'sr-only' : 'truncate'}>{module.label}</span>
-                  </NavLink>
+                  </Link>
                 )
               })}
             </nav>

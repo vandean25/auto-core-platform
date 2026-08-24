@@ -30,6 +30,10 @@ type DataTableRowContextAction<TData extends object> = {
   destructive?: boolean
 }
 
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'))
+}
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -185,14 +189,21 @@ export function DataTable<TData extends object>({
                     openRowContextMenu(row.original as TData, event.clientX, event.clientY)
                   }}
                   onKeyDown={(event) => {
-                    if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) {
+                    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      event.preventDefault()
+                      openRowContextMenu(row.original as TData, rect.left + 12, rect.top + rect.height / 2)
                       return
                     }
-                    const rect = event.currentTarget.getBoundingClientRect()
+
+                    if (!onRowClick || isInteractiveTarget(event.target) || (event.key !== "Enter" && event.key !== " ")) {
+                      return
+                    }
+
                     event.preventDefault()
-                    openRowContextMenu(row.original as TData, rect.left + 12, rect.top + rect.height / 2)
+                    onRowClick(row.original as TData)
                   }}
-                  tabIndex={getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
+                  tabIndex={onRowClick || getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (

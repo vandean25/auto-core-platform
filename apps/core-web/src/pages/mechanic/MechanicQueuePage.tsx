@@ -1,15 +1,20 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
 import { RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import { AttendancePunchBar } from '@/components/hr/AttendancePunchBar'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { useMechanicQueue } from '@/api/mechanic'
 import type { MechanicQueueItem } from '@/api/mechanic'
+import { useHrMeClock, usePunchClock } from '@/api/hr'
+import type { PunchClockPayload } from '@/api/hr'
+import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
 // ─── Queue Row ────────────────────────────────────────────────────────────────
 
@@ -28,6 +33,25 @@ export default function MechanicQueuePage() {
   const navigate = useNavigate()
 
   const { data: queueResponse, isLoading, refetch } = useMechanicQueue()
+  const { data: clockResponse, error: clockError } = useHrMeClock()
+  const { mutate: punchClock, isPending: isPunchPending } = usePunchClock()
+
+  useEffect(() => {
+    if (!clockError || getErrorStatus(clockError) === 403) return
+
+    toast.error(getErrorMessage(clockError, 'Failed to load attendance clock'))
+  }, [clockError])
+
+  const handlePunch = (type: PunchClockPayload['type']) => {
+    punchClock(
+      { type },
+      {
+        onError: (error) => {
+          toast.error(getErrorMessage(error, 'Failed to punch attendance clock'))
+        },
+      },
+    )
+  }
 
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
 
@@ -118,6 +142,14 @@ export default function MechanicQueuePage() {
           <p className="text-slate-500">Your active work orders — tap a task to open it.</p>
         </div>
         <div className="flex items-center gap-2">
+          {clockResponse && getErrorStatus(clockError) !== 403 ? (
+            <AttendancePunchBar
+              state={clockResponse.state}
+              pending={isPunchPending}
+              size="compact"
+              onPunch={handlePunch}
+            />
+          ) : null}
           <Button
             variant="outline"
             size="sm"

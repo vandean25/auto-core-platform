@@ -14,6 +14,7 @@ describe('HrController', () => {
   let attendanceService: {
     getMeProfile: jest.Mock;
     getMyClock: jest.Mock;
+    getEmployeeClock: jest.Mock;
     punchMe: jest.Mock;
     getAttendance: jest.Mock;
     punchEmployee: jest.Mock;
@@ -32,6 +33,7 @@ describe('HrController', () => {
     attendanceService = {
       getMeProfile: jest.fn(),
       getMyClock: jest.fn(),
+      getEmployeeClock: jest.fn(),
       punchMe: jest.fn(),
       getAttendance: jest.fn(),
       punchEmployee: jest.fn(),
@@ -68,10 +70,12 @@ describe('HrController', () => {
       },
       clockState: 'CLOCKED_IN',
       remainingLeaveDays: 22,
+      timezone: 'Europe/Vienna',
     });
 
     const result = await controller.me();
     expect(result.clockState).toBe('CLOCKED_IN');
+    expect(result.timezone).toBe('Europe/Vienna');
     expect(attendanceService.getMeProfile).toHaveBeenCalled();
   });
 
@@ -85,6 +89,19 @@ describe('HrController', () => {
     const result = await controller.clock();
     expect(result.state).toBe('CLOCKED_OUT');
     expect(attendanceService.getMyClock).toHaveBeenCalled();
+  });
+
+  it('GET /api/hr/attendance/:employeeId/clock returns current employee clock state', async () => {
+    attendanceService.getEmployeeClock.mockResolvedValue({
+      state: 'PAUSED',
+      lastEvent: null,
+      todayEvents: [],
+    });
+
+    const result = await controller.employeeClock('emp-2');
+
+    expect(result.state).toBe('PAUSED');
+    expect(attendanceService.getEmployeeClock).toHaveBeenCalledWith('emp-2');
   });
 
   it('POST /api/hr/me/clock punches clock', async () => {

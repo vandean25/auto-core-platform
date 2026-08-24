@@ -51,12 +51,16 @@ const VehicleSalePage = React.lazy(() => import('./pages/vehicle-stock/VehicleSa
 const SalesOrderList = React.lazy(() => import('./pages/sales-orders/SalesOrderList'))
 const SalesOrderCreate = React.lazy(() => import('./pages/sales-orders/SalesOrderCreate'))
 const SalesOrderDetail = React.lazy(() => import('./pages/sales-orders/SalesOrderDetail'))
+const HrLayout = React.lazy(() => import('./pages/hr/HrLayout'))
+const HrEmployeesPage = React.lazy(() => import('./pages/hr/HrEmployeesPage'))
+const HrClockPage = React.lazy(() => import('./pages/hr/HrClockPage'))
+const HrLeavePage = React.lazy(() => import('./pages/hr/HrLeavePage'))
 const MechanicQueuePage = React.lazy(() => import('./pages/mechanic/MechanicQueuePage'))
 const MechanicTaskDetailPage = React.lazy(() => import('./pages/mechanic/MechanicTaskDetailPage'))
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
-function AppRoutes() {
+export function AppRoutes() {
   const location = useLocation()
 
   return (
@@ -99,6 +103,12 @@ function AppRoutes() {
               <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
               <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/hr" element={<HrLayout />}>
+                <Route index element={<Navigate to="employees" replace />} />
+                <Route path="employees" element={<HrEmployeesPage />} />
+                <Route path="clock" element={<HrClockPage />} />
+                <Route path="leave" element={<HrLeavePage />} />
+              </Route>
               <Route path="/platform/tenants" element={<PlatformTenantsPage />} />
               <Route path="/workshop/intake" element={<IntakeDashboard />} />
               <Route path="/workshop/orders" element={<WorkshopOrderList />} />

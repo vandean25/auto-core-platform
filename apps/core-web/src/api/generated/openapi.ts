@@ -1691,6 +1691,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hr/attendance/{employeeId}/clock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current clock state for an employee (OWNER/ADMIN only) */
+        get: operations["HrController_employeeClock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hr/me/leave": {
         parameters: {
             query?: never;
@@ -2482,6 +2499,21 @@ export interface components {
             openTime?: string | null;
             closeTime?: string | null;
         };
+        PlannerEmployeeAwayDto: {
+            employeeId: string;
+            name: string;
+            /**
+             * Format: date
+             * @example 2026-08-24
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @example 2026-08-26
+             */
+            endOn: string;
+            leaveId: string;
+        };
         PlannerCustomerDto: {
             id: string;
             displayName: string;
@@ -2515,6 +2547,7 @@ export interface components {
             bays: components["schemas"]["PlannerBayDto"][];
             openings: components["schemas"]["WorkshopOpeningHourDto"][];
             holidays: components["schemas"]["PlannerHolidayDto"][];
+            employeesAway: components["schemas"]["PlannerEmployeeAwayDto"][];
             bookings: components["schemas"]["PlannerBookingDto"][];
         };
         RegisterIntakeDto: {
@@ -3406,6 +3439,8 @@ export interface components {
             /** Format: date */
             hiredOn?: string | null;
             annualLeaveDays: number;
+            carryoverDays: number;
+            leaveBalanceYear: number;
             remainingLeaveDays: number;
             /** Format: date-time */
             createdAt: string;
@@ -3712,6 +3747,7 @@ export interface components {
             employee: components["schemas"]["HrMeEmployeeDto"];
             clockState: components["schemas"]["AttendanceState"];
             remainingLeaveDays: number;
+            timezone: string;
         };
         /** @enum {string} */
         AttendanceEventType: "CLOCK_IN" | "PAUSE" | "DOCTOR" | "CLOCK_OUT";
@@ -3731,6 +3767,7 @@ export interface components {
             createdAt: string;
         };
         ClockResponseDto: {
+            timezone: string;
             state: components["schemas"]["AttendanceState"];
             lastEvent?: components["schemas"]["AttendanceEventResponseDto"] | null;
             todayEvents: components["schemas"]["AttendanceEventResponseDto"][];
@@ -7663,6 +7700,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PunchResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_employeeClock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employeeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockResponseDto"];
                 };
             };
         };

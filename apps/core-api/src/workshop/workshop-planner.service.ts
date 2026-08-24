@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  LeaveRequestStatus,
   WorkshopHoliday,
   WorkshopOpeningHour,
   WorkshopOrderStatus,
@@ -101,7 +102,36 @@ export class WorkshopPlannerService {
     ]);
 
     const timezone = settings.timezone;
+    const fromLocalDate = new Date(
+      `${formatLocalDate(from, timezone)}T00:00:00.000Z`,
+    );
+    const toLocalDate = new Date(
+      `${formatLocalDate(new Date(to.getTime() - 1), timezone)}T00:00:00.000Z`,
+    );
+    const leaveRequests = await this.prisma.leaveRequest.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: LeaveRequestStatus.BOOKED,
+        start_on: { lte: toLocalDate },
+        end_on: { gte: fromLocalDate },
+      },
+      select: {
+        id: true,
+        employee_id: true,
+        start_on: true,
+        end_on: true,
+        employee: { select: { id: true, name: true } },
+      },
+      orderBy: [{ start_on: 'asc' }, { employee_id: 'asc' }],
+    });
     const localDates = eachLocalDate(from, to, timezone);
+    const employeesAway = leaveRequests.map((leave) => ({
+      employeeId: leave.employee.id,
+      name: leave.employee.name,
+      startOn: formatUtcDate(leave.start_on),
+      endOn: formatUtcDate(leave.end_on),
+      leaveId: leave.id,
+    }));
     const expandedHolidays = this.expandHolidays(
       localDates,
       holidays,
@@ -160,6 +190,7 @@ export class WorkshopPlannerService {
         closeTime: hour.close_time,
       })),
       holidays: expandedHolidays,
+      employeesAway,
       bookings,
     };
   }

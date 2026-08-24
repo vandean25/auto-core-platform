@@ -5836,6 +5836,37 @@
         ]
       }
     },
+    "/api/hr/attendance/{employeeId}/clock": {
+      "get": {
+        "operationId": "HrController_employeeClock",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get the current clock state for an employee (OWNER/ADMIN only)",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
     "/api/hr/me/leave": {
       "get": {
         "operationId": "HrController_getMyLeave",
@@ -8704,6 +8735,37 @@
           "isClosed"
         ]
       },
+      "PlannerEmployeeAwayDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-24"
+          },
+          "endOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-26"
+          },
+          "leaveId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "employeeId",
+          "name",
+          "startOn",
+          "endOn",
+          "leaveId"
+        ]
+      },
       "PlannerCustomerDto": {
         "type": "object",
         "properties": {
@@ -8842,6 +8904,12 @@
               "$ref": "#/components/schemas/PlannerHolidayDto"
             }
           },
+          "employeesAway": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannerEmployeeAwayDto"
+            }
+          },
           "bookings": {
             "type": "array",
             "items": {
@@ -8856,6 +8924,7 @@
           "bays",
           "openings",
           "holidays",
+          "employeesAway",
           "bookings"
         ]
       },
@@ -11795,6 +11864,12 @@
           "annualLeaveDays": {
             "type": "number"
           },
+          "carryoverDays": {
+            "type": "number"
+          },
+          "leaveBalanceYear": {
+            "type": "number"
+          },
           "remainingLeaveDays": {
             "type": "number"
           },
@@ -11814,6 +11889,8 @@
           "isActive",
           "sortOrder",
           "annualLeaveDays",
+          "carryoverDays",
+          "leaveBalanceYear",
           "remainingLeaveDays",
           "createdAt",
           "updatedAt"
@@ -12694,12 +12771,16 @@
           },
           "remainingLeaveDays": {
             "type": "number"
+          },
+          "timezone": {
+            "type": "string"
           }
         },
         "required": [
           "employee",
           "clockState",
-          "remainingLeaveDays"
+          "remainingLeaveDays",
+          "timezone"
         ]
       },
       "AttendanceEventType": {
@@ -12769,6 +12850,9 @@
       "ClockResponseDto": {
         "type": "object",
         "properties": {
+          "timezone": {
+            "type": "string"
+          },
           "state": {
             "allOf": [
               {
@@ -12793,6 +12877,7 @@
           }
         },
         "required": [
+          "timezone",
           "state",
           "todayEvents"
         ]

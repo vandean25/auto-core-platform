@@ -10,7 +10,10 @@ import { HrLeaveService } from './hr-leave.service';
 describe('HrLeaveService', () => {
   let service: HrLeaveService;
   const mockPrisma = {
-    employee: { findFirst: jest.fn(), update: jest.fn() },
+    employee: {
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
+    },
     employeeLeaveBalance: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
@@ -279,6 +282,7 @@ describe('HrLeaveService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      mockPrisma.employee.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.patchLeaveBalance('emp-1', {
         year: 2026,
@@ -288,9 +292,9 @@ describe('HrLeaveService', () => {
 
       expect(result.allowanceDays).toBe(30);
       expect(result.carryoverDays).toBe(3);
-      expect(mockPrisma.employee.update).toHaveBeenCalledWith(
+      expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'emp-1' },
+          where: { id: 'emp-1', tenant_id: 'tenant-1' },
           data: { annual_leave_days: 30 },
         }),
       );

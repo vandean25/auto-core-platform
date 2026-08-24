@@ -88,11 +88,11 @@ export class HrAttendanceService {
     return settings?.timezone || 'Europe/Vienna';
   }
 
-  async getMyClock(): Promise<ClockResponseDto> {
-    const me = await this.identity.resolveMe();
-    const tenantId = await this.tenantContext.getTenantId();
-    const timezone = await this.getTenantTimezone(tenantId);
-
+  private async getClockForEmployee(
+    employeeId: string,
+    tenantId: string,
+    timezone: string,
+  ): Promise<ClockResponseDto> {
     const todayStr = formatLocalDate(new Date(), timezone);
     const { year, month, day } = parseLocalDate(todayStr);
     const startOfToday = zonedWallClockToUtc(timezone, year, month, day, 0, 0);
@@ -110,7 +110,7 @@ export class HrAttendanceService {
       this.prisma.attendanceEvent.findMany({
         where: {
           tenant_id: tenantId,
-          employee_id: me.id,
+          employee_id: employeeId,
           occurred_at: {
             gte: startOfToday,
             lte: endOfToday,
@@ -121,7 +121,7 @@ export class HrAttendanceService {
       this.prisma.attendanceEvent.findFirst({
         where: {
           tenant_id: tenantId,
-          employee_id: me.id,
+          employee_id: employeeId,
         },
         orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
       }),
@@ -130,6 +130,7 @@ export class HrAttendanceService {
     const state = deriveAttendanceState(lastEvent?.type);
 
     return {
+      timezone,
       state,
       lastEvent: lastEvent ? mapAttendanceEvent(lastEvent) : null,
       todayEvents: todayEvents.map(mapAttendanceEvent),
@@ -237,7 +238,38 @@ export class HrAttendanceService {
       },
       clockState,
       remainingLeaveDays,
+      timezone,
     };
+  }
+
+  async getMyClock(): Promise<ClockResponseDto> {
+    const me = await this.identity.resolveMe();
+    const tenantId = await this.tenantContext.getTenantId();
+    const timezone = await this.getTenantTimezone(tenantId);
+
+    return this.getClockForEmployee(me.id, tenantId, timezone);
+  }
+
+  async getEmployeeClock(employeeId: string): Promise<ClockResponseDto> {
+    this.identity.assertOwnerAdmin();
+    const tenantId = await this.tenantContext.getTenantId();
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        tenant_id: tenantId,
+        is_active: true,
+      },
+      select: { id: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(
+        `Active employee ${employeeId} not found in this tenant`,
+      );
+    }
+
+    const timezone = await this.getTenantTimezone(tenantId);
+    return this.getClockForEmployee(employee.id, tenantId, timezone);
   }
 
   async getAttendance(

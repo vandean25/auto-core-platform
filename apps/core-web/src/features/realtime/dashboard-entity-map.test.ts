@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { customerKeys } from '@/api/customers'
+import { hrKeys } from '@/api/hr'
 import { inventoryKeys } from '@/api/inventory'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { purchaseInvoiceKeys } from '@/api/usePurchaseInvoices'
@@ -80,10 +81,10 @@ describe('dashboard realtime entity mapping', () => {
   })
 
   it('maps HR attendance and leave requests to HR domain query keys', () => {
-    expect(getDomainQueryKeysForEntityType('ATTENDANCE_EVENT')).toEqual([['hr']])
+    expect(getDomainQueryKeysForEntityType('ATTENDANCE_EVENT')).toEqual([hrKeys.all])
     expect(getDomainQueryKeysForEntityType('LEAVE_REQUEST')).toEqual([
-      ['hr'],
-      workshopKeys.all,
+      hrKeys.all,
+      workshopKeys.planner(),
     ])
   })
 

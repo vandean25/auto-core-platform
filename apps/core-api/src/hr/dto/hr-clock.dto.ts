@@ -53,6 +53,9 @@ export class AttendanceEventResponseDto {
 }
 
 export class ClockResponseDto {
+  @ApiProperty()
+  timezone!: string;
+
   @ApiProperty({
     enum: ATTENDANCE_STATES,
     enumName: 'AttendanceState',
@@ -106,4 +109,7 @@ export class HrMeResponseDto {
 
   @ApiProperty()
   remainingLeaveDays!: number;
+
+  @ApiProperty()
+  timezone!: string;
 }

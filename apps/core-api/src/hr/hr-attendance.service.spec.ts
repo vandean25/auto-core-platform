@@ -19,10 +19,10 @@ describe('HrAttendanceService', () => {
       findMany: jest.Mock;
     };
     workshopSettings: {
-      findUnique: jest.Mock;
+      findFirst: jest.Mock;
     };
     employeeLeaveBalance: {
-      findUnique: jest.Mock;
+      findFirst: jest.Mock;
     };
     leaveRequest: {
       aggregate: jest.Mock;
@@ -281,6 +281,39 @@ describe('HrAttendanceService', () => {
     });
   });
 
+  describe('getMeProfile', () => {
+    it('returns the resolved tenant timezone', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      prisma.attendanceEvent.findFirst.mockResolvedValue(null);
+      prisma.employeeLeaveBalance.findFirst.mockResolvedValue(null);
+      prisma.leaveRequest.aggregate.mockResolvedValue({
+        _sum: { days_charged: null },
+      });
+
+      const result = await service.getMeProfile();
+
+      expect(result.timezone).toBe('America/Los_Angeles');
+    });
+  });
+
+  describe('clock response timezone', () => {
+    it('includes the tenant timezone for self clock state', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      prisma.attendanceEvent.findMany.mockResolvedValue([]);
+      prisma.attendanceEvent.findFirst.mockResolvedValue(null);
+
+      const result = await service.getMyClock();
+
+      expect(result).toEqual(expect.objectContaining({
+        timezone: 'America/Los_Angeles',
+      }));
+    });
+  });
+
   describe('getAttendance', () => {
     it('returns attendance events in range for OWNER/ADMIN', async () => {
       const events = [
@@ -324,6 +357,51 @@ describe('HrAttendanceService', () => {
           to: '2026-08-01',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('getEmployeeClock', () => {
+    it('returns the target employee current state independently of the selected history range', async () => {
+      prisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      prisma.employee.findFirst.mockResolvedValue({ id: 'emp-2' });
+      prisma.attendanceEvent.findMany.mockResolvedValue([
+        {
+          id: 'evt-today',
+          tenant_id: 'tenant-1',
+          employee_id: 'emp-2',
+          type: AttendanceEventType.PAUSE,
+          source: AttendanceEventSource.SELF,
+          occurred_at: new Date('2026-08-23T12:00:00Z'),
+          note: null,
+          createdAt: new Date('2026-08-23T12:00:00Z'),
+        },
+      ]);
+      prisma.attendanceEvent.findFirst.mockResolvedValue({
+        id: 'evt-current',
+        tenant_id: 'tenant-1',
+        employee_id: 'emp-2',
+        type: AttendanceEventType.CLOCK_IN,
+        source: AttendanceEventSource.MANAGER,
+        occurred_at: new Date('2026-08-24T08:00:00Z'),
+        note: null,
+        createdAt: new Date('2026-08-24T08:00:00Z'),
+      });
+
+      const result = await service.getEmployeeClock('emp-2');
+
+      expect(identity.assertOwnerAdmin).toHaveBeenCalled();
+      expect(result.state).toBe('CLOCKED_IN');
+      expect(result.lastEvent?.id).toBe('evt-current');
+      expect(result.todayEvents[0]?.id).toBe('evt-today');
+      expect(result).toEqual(expect.objectContaining({
+        timezone: 'America/Los_Angeles',
+      }));
+      expect(prisma.employee.findFirst).toHaveBeenCalledWith({
+        where: { id: 'emp-2', tenant_id: 'tenant-1', is_active: true },
+        select: { id: true },
+      });
     });
   });
 });

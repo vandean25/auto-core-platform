@@ -1,5 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query'
 import { customerKeys } from '@/api/customers'
+import { hrKeys } from '@/api/hr'
 import { inventoryKeys } from '@/api/inventory'
 import { mechanicQueueKeys } from '@/api/mechanic'
 import { purchaseInvoiceKeys } from '@/api/usePurchaseInvoices'
@@ -82,11 +83,11 @@ const entityInvalidationMap: Record<RealtimeEntityType, EntityInvalidationTarget
   },
   ATTENDANCE_EVENT: {
     dashboardSourceKeys: [],
-    domainQueryKeys: [['hr']],
+    domainQueryKeys: [hrKeys.all],
   },
   LEAVE_REQUEST: {
     dashboardSourceKeys: [],
-    domainQueryKeys: [['hr'], workshopKeys.all],
+    domainQueryKeys: [hrKeys.all, workshopKeys.planner()],
   },
 }
 

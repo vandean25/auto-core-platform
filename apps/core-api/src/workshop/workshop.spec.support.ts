@@ -56,6 +56,9 @@ export const mockPrisma = {
     update: jest.fn(),
     deleteMany: jest.fn(),
   },
+  leaveRequest: {
+    findMany: jest.fn(),
+  },
   bay: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
