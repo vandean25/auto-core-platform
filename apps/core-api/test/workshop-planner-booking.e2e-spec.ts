@@ -263,6 +263,6 @@ describe('Workshop planner booking (e2e)', () => {
       })
       .expect(201);
 
-    expect(bookingResponse.body.mechanicId).toBe(mechanic.id);
+    expect(bookingResponse.body.mechanic_id).toBe(mechanic.id);
   });
 });
