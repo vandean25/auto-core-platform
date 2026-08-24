@@ -90,36 +90,59 @@ Attendance answers **actual presence**. It is not multiplied by any pay rate.
 
 ### 3. Employee work schedule (Phase 2 — new)
 
-Each employee has a **versioned work schedule** describing when they are expected to work and for how long.
+Each employee has a **versioned work schedule** describing when they are expected to work and for how long. Schema mirrors `WorkshopOpeningHour` (seven weekday child rows, `HH:MM` strings, ADR-0013 tenant isolation). No JSON blob.
 
 ```prisma
 model EmployeeWorkSchedule {
-  id              String   @id @default(uuid())
-  tenant_id       String
-  employee_id     String
-  effective_from  DateTime @db.Date   // first calendar day this pattern applies
-  // Seven rows or embedded JSON: weekday, is_working, start_time, end_time, break_minutes
-  createdAt       DateTime @default(now())
+  id             String   @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant   @relation(fields: [tenant_id], references: [id])
+  employee_id    String
+  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  effective_from DateTime @db.Date
+  days           EmployeeWorkScheduleDay[]
+  createdAt      DateTime @default(now())
 
-  @@index([tenant_id, employee_id, effective_from])
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, employee_id, effective_from])
+  @@index([tenant_id])
+  @@map("employee_work_schedules")
+}
+
+model EmployeeWorkScheduleDay {
+  id            String               @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant               @relation(fields: [tenant_id], references: [id])
+  schedule_id   String
+  schedule      EmployeeWorkSchedule @relation(fields: [tenant_id, schedule_id], references: [tenant_id, id], onDelete: Cascade)
+  weekday       Int                  // ISO 1–7, same as WorkshopOpeningHour
+  is_working    Boolean
+  start_time    String?              // HH:MM; required when is_working
+  end_time      String?
+  break_minutes Int                  @default(0)
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, schedule_id, weekday])
+  @@index([tenant_id])
+  @@map("employee_work_schedule_days")
 }
 ```
 
-**Resolution rule:** For any calendar date `D`, use the schedule row with the greatest `effective_from` where `effective_from <= D`.
+**Resolution rule:** For any calendar date `D`, use the schedule version with the greatest `effective_from` where `effective_from <= D`. Missing schedule on `D` → `400` (should not happen after seed + migration).
 
-**Expected minutes for a workday:**
+**Write semantics:**
 
-```
-expected_minutes(date) = (end_time − start_time) − break_minutes
-  when employee is scheduled to work on that weekday
-  AND shop is open (WorkshopOpeningHour + WorkshopHoliday effective hours)
-```
+- Mid-year pattern change → **POST** a new version with a later `effective_from`. Never retcon an old version's `effective_from`.
+- Duplicate `effective_from` for the same employee → `409`.
+- Correction of times on an existing version → **PATCH** `/api/hr/employees/:id/work-schedule/:scheduleId` (leave snapshots are not rewritten; only future bookings use corrected times).
+- No hard-delete API. Employee hard-delete stays blocked if schedule rows exist.
+- Future-dated `effective_from` is allowed.
 
-**Defaults:** On employee create, seed one schedule from current tenant `WorkshopOpeningHour` rows with `effective_from = hired_on` (or today if null). Managers edit per-employee patterns when someone works part-time or different hours than the shop default.
+**Defaults:** On employee create, seed one schedule from current tenant `WorkshopOpeningHour` rows (`is_working = !is_closed`, copy `open_time`/`close_time`, `break_minutes = 0`) with `effective_from = hired_on` (or tenant-local today if null). `break_minutes = 0` means door-to-door shop window (e.g. 07:30–17:00 = 570 min), not a contracted 8 h — do not invent a lunch default without PO.
 
-**Mid-year change:** Insert a new `EmployeeWorkSchedule` with a later `effective_from`. Do not update or delete prior schedule rows. Past leave bookings and attendance remain valid.
+Managers edit per-employee patterns when someone works part-time or different hours than the shop default.
 
-**Shop vs employee schedule:** Shop hours (ADR-0019) define bay availability and whether a calendar day is a public holiday. Employee schedule defines **this person's** expected working time. A day can be shop-open but employee-off (e.g. Tuesday–Saturday mechanic). Leave charging uses **employee** expected minutes, gated by shop-open checks for public holidays.
+**Shop vs employee schedule:** Shop hours (ADR-0019) define bay availability and fully closed public holidays. Employee schedule defines **this person's** expected working time. A day can be shop-open but employee-off (e.g. Tuesday–Saturday mechanic). Shop hour edits do not rewrite employee schedules; live shop calendar only zeros fully closed days at **booking** time (Phase 1 parity).
 
 ### 4. Leave is a date-range request in minutes, not a shop holiday
 
@@ -131,22 +154,31 @@ expected_minutes(date) = (end_time − start_time) − break_minutes
 allowance_minutes + carryover_minutes − SUM(minutes_charged WHERE status = BOOKED AND year matches)
 ```
 
-**Chargeable minutes** for a date range:
+**`avg_expected_minutes_per_workday`:** Mean of `(end_time − start_time) − break_minutes` over `is_working` weekdays in the **current** schedule version (not ÷7, not closed weekdays). Example: part-time 4 h × 3 days → `avg = 240`.
+
+**Chargeable minutes** for a date range (single algorithm for booking and `HrWorkdayService`):
 
 ```
-minutes_charged = Σ expected_minutes(employee, date)
-  for each date in [start_on, end_on]
-  where employee is scheduled to work that weekday
-  AND shop is not a fully closed public holiday (WorkshopHoliday.is_closed)
+for each date D in [start_on, end_on]:
+  schedule = latest EmployeeWorkSchedule where effective_from <= D
+  weekday  = ISO weekday of D
+  if !schedule.days[weekday].is_working → 0
+  if shop fully closed on D
+     (weekday WorkshopOpeningHour.is_closed, or matching WorkshopHoliday.is_closed)
+     → 0
+  else → (end_time − start_time) − break_minutes   // employee window only
+
+minutes_charged = Σ charge for each D
 ```
 
-- Closed shop weekdays and closed `WorkshopHoliday` dates contribute **0 minutes** (public holidays do not consume Urlaub).
-- Short shop days charge the employee's **expected minutes for that date** (from their schedule), not a flat "one day" regardless of length.
-- Half-days remain deferred; when added, they charge a defined fraction of `expected_minutes` for that date.
+- `end_time <= start_time` or `break_minutes` ≥ span → `400`. No overnight shifts (shop hours have none).
+- **Short shop days (Phase 1 parity):** a short `WorkshopHoliday` (`is_closed = false`) still charges a **full employee workday of minutes**, not the shop's shortened window. Do not `min()` with shop open/close.
+- Zero chargeable minutes for the range → `400` (same as zero workdays in Phase 1).
+- Half-days remain deferred; when added, they charge a defined fraction of that date's employee minutes.
 
-`Employee.annual_leave_minutes` is the live entitlement. The yearly row snapshots `allowance_minutes` on first leave read/create. Changing this year's entitlement (employee PATCH `annualLeaveMinutes` or leave-balance PATCH `allowanceMinutes` for the current local year) must write **both** so remaining cannot diverge from the Leave column. Past years stay snapshotted. Carryover is only on the yearly row.
+`Employee.annual_leave_minutes` is the live entitlement. The yearly row snapshots `allowance_minutes` on first leave read/create. Changing this year's entitlement (employee PATCH `annualLeaveMinutes` or leave-balance PATCH `allowanceMinutes` for the current local year) must write **both** so remaining cannot diverge from the Leave column (ruling 7). Past years stay snapshotted. Carryover is only on the yearly row; carryover PATCH is in minutes (if UI accepts "days", convert at save with current `avg`).
 
-**UI display:** APIs and UI may show derived "days" as `remaining_minutes ÷ current_avg_workday_minutes` for familiarity. Storage and booking validation always use **minutes**.
+**UI display:** APIs and UI may show derived "days" as `remaining_minutes ÷ current_avg_workday_minutes` for familiarity. Storage and booking validation always use **minutes**. `remainingLeaveMinutes` is always a number, never null (ruling 16).
 
 **Granting allowance:** When a manager sets "25 days" in the UI, convert at save time:
 
@@ -154,9 +186,15 @@ minutes_charged = Σ expected_minutes(employee, date)
 annual_leave_minutes = 25 × avg_expected_minutes_per_workday(employee, current schedule)
 ```
 
-Round to nearest integer minute. Snapshot the result; later schedule changes affect future bookings only, not the annual pot.
+Round to nearest integer minute. On new employee create: seed schedule, then set `annual_leave_minutes` in the same transaction (Prisma default must not stay `25` days). Snapshot the result; later schedule changes affect future bookings only, not the annual pot. After a mid-year FTE change, **remaining minutes do not auto-pro-rate**; derived "days" display will move — that is the chosen tradeoff.
 
 Phase 1 has **no approval workflow**. Booking writes `BOOKED` immediately if remaining and overlap checks pass.
+
+**Phase 1 invariants preserved:**
+
+- Booking/PATCH still `400` if `start_on`/`end_on` span two calendar years.
+- `PATCH /api/hr/leave/:id` **recomputes** `minutes_charged` for the new range (new snapshot, not a silent rewrite from a later schedule change).
+- Clock-in allowed on a BOOKED leave day (no 409).
 
 **Why not `WorkshopHoliday`?** That entity overrides **bay** opening hours for every advisor. One mechanic on holiday must not empty the planner grid.
 
@@ -175,13 +213,24 @@ Phase 1 columns (`annual_leave_days`, `allowance_days`, `carryover_days`, `days_
 | `carryover_days` | `carryover_minutes` |
 | `days_charged` | `minutes_charged` |
 
-**Data migration rule:** For each employee, convert using their schedule at migration time (or shop default if no schedule yet):
+**Data migration rule:** Use **one conversion factor per employee** for every day column so remaining leave is invariant at cutover:
 
 ```
-minutes = days × avg_expected_minutes_per_workday
+avg = mean(expected_minutes of is_working weekdays in seeded current schedule)
+     // not /7, not closed weekdays
+
+annual_leave_minutes = annual_leave_days × avg
+allowance_minutes    = allowance_days × avg
+carryover_minutes    = carryover_days × avg
+minutes_charged      = days_charged × avg     // do not recompute from date ranges
 ```
 
-Existing `LeaveRequest` rows: recompute `minutes_charged` from `start_on`/`end_on` using the schedule effective on each date, or if impractical, use `days_charged × 480` as a conservative default documented in the migration script.
+Round to nearest integer minute. `remaining_minutes` after migration = `remaining_days × avg`.
+
+Also in the same migration:
+
+- INSERT one `EmployeeWorkSchedule` (+ seven `EmployeeWorkScheduleDay` rows) for **every existing employee** from current `WorkshopOpeningHour` (`is_working = !is_closed`, times copied, `break_minutes = 0`), `effective_from = hired_on` or tenant-local today.
+- Use `480` only if the tenant has no opening-hour rows; document that fallback. Default shop Mon–Fri 07:30–17:00 is 570 minutes with `break_minutes = 0`.
 
 Drop day columns after backfill. OpenAPI and frontend types regenerated.
 
@@ -193,16 +242,17 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 
 - Keep `/api/employees` for roster CRUD (board, Settings, HR table). HR fields live there — do not create `/api/hr/employees` as a second CRUD.
 - Clock and leave live under `/api/hr` and `@MechanicAccessible()` only on `/api/hr/me/*`.
-- **New (Phase 2):** `GET/PATCH /api/hr/employees/:id/work-schedule` for schedule versions; list returns current + history or current only with `effective_from`.
+- **New (Phase 2):** `GET /api/hr/employees/:id/work-schedule` (current + history), `POST` new version, `PATCH /api/hr/employees/:id/work-schedule/:scheduleId` for corrections on an existing version. SALES → `403` on schedule writes.
+- **OpenAPI field renames (breaking):** `annualLeaveDays` → `annualLeaveMinutes`, `remainingLeaveDays` → `remainingLeaveMinutes`, `allowanceDays`/`carryoverDays`/`remainingDays` → `*Minutes`, `daysCharged` → `minutesCharged`. Optional derived `approxRemainingDays = remainingMinutes / current_avg` is display-only.
 - Resolve "me" via linked `User.firebaseUid` / `email` (session `userId` is Firebase UID). Do not call `MechanicIdentityService.resolveMechanic()` (TECH + MECHANIC only).
 - OWNER/ADMIN book leave for any employee with `POST /api/hr/leave`. Mechanic shell has no leave UI in Phase 1.
 - OWNER/ADMIN punch for another employee with `POST /api/hr/attendance` (`occurredAt` now in the UI). SALES may still write roster fields on `/api/employees` but not `hiredOn` / `annualLeaveMinutes` / work schedule.
-- Workday math lives in `HrWorkdayService` that **reads** workshop hours/holidays **and** employee schedules. Replace `countChargeableDays` with `countChargeableMinutes(employeeId, from, to)`. Do not call OpenHolidays from HR. Do not grow `workshop-planner.service.ts` with leave booking.
+- Workday math lives in `HrWorkdayService` that **reads** workshop hours/holidays **and** employee schedules. Replace `countChargeableDays` with `countChargeableMinutes(employeeId, from, to)`; remove `countChargeableDays` after migration (no dual units). Do not call OpenHolidays from HR. Do not grow `workshop-planner.service.ts` with leave booking.
 
 ### 8. Real-time, deletion, fiscal, inventory
 
 - **Realtime:** opt-in `ATTENDANCE_EVENT`, `LEAVE_REQUEST`, and `EMPLOYEE_WORK_SCHEDULE`. Leave also invalidates planner query keys.
-- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when attendance, leave, balance, or schedule rows exist.
+- **Deletion:** attendance never hard-deleted; leave is cancelled; employee hard-delete blocked when attendance, leave, balance, or schedule rows exist. `EmployeeWorkSchedule` (+ day children) added to `docs/deletion-policy.md`: no API delete; cascade only with employee/tenant purge.
 - **Fiscal / inventory / payroll:** none. No wage fields on any HR table.
 
 ## Consequences
@@ -221,8 +271,9 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 - Two "holiday" words in the product (shop holiday vs employee holiday). Docs and UI labels must say **Public / shop holiday** vs **Leave**.
 - Two punch systems on the mechanic tablet (job start/pause vs HR clock). Labels must stay distinct.
 - Application-level overlap checks for leave can theoretically race; same acceptance as planner bay overlap until proven otherwise.
-- Phase 2 migration from days to minutes is a breaking API change (`allowanceDays` → `allowanceMinutes`, etc.).
+- Phase 2 migration from days to minutes is a breaking API change (see §7 OpenAPI renames).
 - Employee work schedules add UI and CRUD surface area beyond Phase 1.
+- After a mid-year FTE or schedule change, remaining **minutes** stay fixed but derived "days" display shifts — managers must understand the tradeoff.
 
 ### Neutral
 
@@ -306,19 +357,23 @@ Drop day columns after backfill. OpenAPI and frontend types regenerated.
 
 ## Validation
 
-- Schema tests for tenant-scoped uniques and composite FKs on `EmployeeWorkSchedule`
+- Schema tests for tenant-scoped uniques and composite FKs on `EmployeeWorkSchedule` and `EmployeeWorkScheduleDay`
 - Transition matrix tests for attendance `409`
 - Minute charge tests: closed Sunday + closed `WorkshopHoliday` → 0 minutes
+- Minute charge tests: short `WorkshopHoliday` (`is_closed = false`) charges full employee minutes
 - Minute charge tests: mid-year schedule change charges different minutes for same calendar span before/after `effective_from`
-- Leave remaining tests including cancel restore (minutes)
-- Migration test: day columns correctly backfilled to minutes
+- Duplicate `effective_from` on schedule POST → `409`; `end_time <= start_time` → `400`; zero-minute range → `400`
+- Leave remaining tests including cancel restore (minutes); PATCH leave recomputes `minutes_charged`
+- Migration test: day columns correctly backfilled with single `avg` factor; remaining invariant preserved
+- Seed-on-create schedule test; existing-employee backfill test
+- SALES `403` on schedule and `annualLeaveMinutes` writes
 - Planner warning tests: leave does not `409` a bay booking
 - TECH cannot read `/api/hr/attendance`
 - No `hourly_rate` or wage fields on HR entities (grep / schema test)
 
 ## References
 
-- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md)
+- [Feature Spec: HR Time and Leave](../02-Feature-Specs/HR/2026-08-22-hr-time-and-leave.md) — **this amendment supersedes** Feature Spec workday counting, leave units, and DTO field names. Do not implement Phase 2 from the spec until it is amended to match.
 - [ADR-0019: Workshop Planner Calendar](2026-08-21-workshop-planner-calendar.md)
 - [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
 - [ADR-0014: Mechanic Digital Repair Order Tablet RBAC](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md)
