@@ -9,27 +9,27 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "node ../../node_modules/@typescript/native/bin/tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:debug": "node --inspect-brk --import tsx node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "check:cloudrun-env": "ts-node -r tsconfig-paths/register scripts/check-cloudrun-env-contract.ts",
-    "lint:prisma-tenant": "ts-node -r tsconfig-paths/register scripts/lint-prisma-tenant.ts prisma/schema.prisma",
+    "check:cloudrun-env": "tsx scripts/check-cloudrun-env-contract.ts",
+    "lint:prisma-tenant": "tsx scripts/lint-prisma-tenant.ts prisma/schema.prisma",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
-    "gcs:lifecycle": "ts-node -r tsconfig-paths/register scripts/apply-gcs-lifecycle.ts",
-    "db:seed:platform-admin": "ts-node -r tsconfig-paths/register scripts/seed-platform-admin.ts",
-    "db:seed:tenant-member": "ts-node -r tsconfig-paths/register scripts/seed-tenant-member.ts",
-    "db:baseline": "ts-node -r tsconfig-paths/register scripts/baseline-prisma-migrations.ts",
+    "gcs:lifecycle": "tsx scripts/apply-gcs-lifecycle.ts",
+    "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
+    "db:seed:tenant-member": "tsx scripts/seed-tenant-member.ts",
+    "db:baseline": "tsx scripts/baseline-prisma-migrations.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {
@@ -74,6 +74,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@typescript/native": "npm:typescript@~7.0.2",
     "@eslint/eslintrc": "^3.3.6",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.24",
@@ -99,7 +100,7 @@
     "ts-loader": "^9.6.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "~5.9.3",
+    "tsx": "^4.21.0",
     "typescript-eslint": "8.67.0"
   },
   "jest": {

@@ -17,9 +17,14 @@
     "ci": "npm run lint && npm test && npm run build"
   },
   "devDependencies": {
-    "typescript": "~5.9.3"
+    "@typescript/native": "npm:typescript@~7.0.2",
+    "tsx": "^4.21.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "overrides": {
-    "typescript": "$typescript"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "openapi-typescript": {
+      "typescript": "npm:@typescript/typescript6@^6.0.2"
+    }
   }
 }

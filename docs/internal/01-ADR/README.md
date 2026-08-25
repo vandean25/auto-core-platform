@@ -22,7 +22,7 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0014 | Mechanic Digital Repair Order Tablet RBAC | Proposed | 2026-04-27 | [2026-04-27-mechanic-digital-repair-order-tablet-rbac.md](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md) |
 | ADR-0015 | Audit Tracing and Operational Logging | Proposed | 2026-05-26 | [2026-05-26-audit-tracing-and-operational-logging.md](2026-05-26-audit-tracing-and-operational-logging.md) |
 | ADR-0016 | Vehicle Stock Is a Parallel Ledger Domain | Proposed | 2026-08-15 | [2026-08-15-vehicle-stock-not-parts-inventory.md](2026-08-15-vehicle-stock-not-parts-inventory.md) |
-| ADR-0017 | Shared TypeScript 5.9 Major Across core-api and core-web | Accepted | 2026-08-18 | [2026-08-18-typescript-5-9-shared-major.md](2026-08-18-typescript-5-9-shared-major.md) |
+| ADR-0017 | Shared TypeScript 7 Compiler With TS 6 Tooling Shim | Accepted | 2026-08-18 (amended 2026-08-25) | [2026-08-18-typescript-5-9-shared-major.md](2026-08-18-typescript-5-9-shared-major.md) |
 | ADR-0018 | Workshop Planner Kanban Board (Real-Time Drag & Drop) | Proposed | 2026-04-18 | [2026-04-18-workshop-planner-kanban-board.md](2026-04-18-workshop-planner-kanban-board.md) |
 | ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Proposed | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
 | ADR-0020 | HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday) | Accepted | 2026-08-22 | [2026-08-22-hr-time-and-leave.md](2026-08-22-hr-time-and-leave.md) |
