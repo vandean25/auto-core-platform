@@ -69,8 +69,8 @@ vi.mock('@/components/data-table/DataTable', () => ({
 const booking = {
   id: 'leave-1',
   employeeId: 'employee-1',
-  startOn: '2026-08-24',
-  endOn: '2026-08-25',
+  startOn: '2026-12-24',
+  endOn: '2026-12-25',
   status: 'BOOKED' as const,
   daysCharged: 2,
   note: 'Trip',
