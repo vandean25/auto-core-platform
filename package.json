@@ -22,6 +22,9 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "overrides": {
-    "typescript": "npm:@typescript/typescript6@^6.0.2"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "openapi-typescript": {
+      "typescript": "npm:@typescript/typescript6@^6.0.2"
+    }
   }
 }
