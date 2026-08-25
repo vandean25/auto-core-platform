@@ -8,6 +8,7 @@ import {
 import { HrController } from './hr.controller';
 import { HrAttendanceService } from './hr-attendance.service';
 import { HrLeaveService } from './hr-leave.service';
+import { HrWorkScheduleService } from './hr-work-schedule.service';
 
 describe('HrController', () => {
   let controller: HrController;
@@ -28,6 +29,11 @@ describe('HrController', () => {
     updateLeave: jest.Mock;
     patchLeaveBalance: jest.Mock;
   };
+  let workScheduleService: {
+    findForEmployee: jest.Mock;
+    createForEmployee: jest.Mock;
+    updateForEmployee: jest.Mock;
+  };
 
   beforeEach(async () => {
     attendanceService = {
@@ -47,12 +53,18 @@ describe('HrController', () => {
       updateLeave: jest.fn(),
       patchLeaveBalance: jest.fn(),
     };
+    workScheduleService = {
+      findForEmployee: jest.fn(),
+      createForEmployee: jest.fn(),
+      updateForEmployee: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HrController],
       providers: [
         { provide: HrAttendanceService, useValue: attendanceService },
         { provide: HrLeaveService, useValue: leaveService },
+        { provide: HrWorkScheduleService, useValue: workScheduleService },
       ],
     }).compile();
 
@@ -315,5 +327,55 @@ describe('HrController', () => {
       allowanceMinutes: 15450,
       carryoverMinutes: 1030,
     });
+  });
+
+  it('GET /api/hr/employees/:id/work-schedule returns schedule history', async () => {
+    workScheduleService.findForEmployee.mockResolvedValue({
+      current: null,
+      history: [],
+    });
+
+    const result = await controller.getWorkSchedule('emp-1');
+
+    expect(result.history).toEqual([]);
+    expect(workScheduleService.findForEmployee).toHaveBeenCalledWith('emp-1');
+  });
+
+  it('POST /api/hr/employees/:id/work-schedule creates a version', async () => {
+    const dto = {
+      effectiveFrom: '2026-09-01',
+      days: [],
+    };
+    workScheduleService.createForEmployee.mockResolvedValue({
+      id: 'schedule-1',
+    });
+
+    const result = await controller.createWorkSchedule('emp-1', dto);
+
+    expect(result.id).toBe('schedule-1');
+    expect(workScheduleService.createForEmployee).toHaveBeenCalledWith(
+      'emp-1',
+      dto,
+    );
+  });
+
+  it('PATCH /api/hr/employees/:id/work-schedule/:scheduleId corrects a version', async () => {
+    const dto = { days: [] };
+    workScheduleService.updateForEmployee.mockResolvedValue({
+      id: 'schedule-1',
+    });
+
+    const result = await controller.updateWorkSchedule(
+      'emp-1',
+      'schedule-1',
+      dto,
+    );
+
+    expect(result.id).toBe('schedule-1');
+    expect(workScheduleService.updateForEmployee).toHaveBeenCalledWith(
+      'emp-1',
+      'schedule-1',
+      dto,
+    );
   });
 });

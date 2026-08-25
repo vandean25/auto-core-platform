@@ -33,8 +33,15 @@ import {
   QueryMyLeaveDto,
   UpdateLeaveRequestDto,
 } from './dto/hr-leave.dto';
+import {
+  CreateEmployeeWorkScheduleDto,
+  EmployeeWorkScheduleResponseDto,
+  EmployeeWorkScheduleVersionResponseDto,
+  UpdateEmployeeWorkScheduleDto,
+} from './dto/hr-work-schedule.dto';
 import { HrAttendanceService } from './hr-attendance.service';
 import { HrLeaveService } from './hr-leave.service';
+import { HrWorkScheduleService } from './hr-work-schedule.service';
 
 @ApiTags('HR')
 @Controller('hr')
@@ -42,6 +49,7 @@ export class HrController {
   constructor(
     private readonly attendance: HrAttendanceService,
     private readonly leave: HrLeaveService,
+    private readonly workSchedule: HrWorkScheduleService,
   ) {}
 
   @Get('me')
@@ -189,5 +197,47 @@ export class HrController {
     @Body() dto: PatchLeaveBalanceDto,
   ): Promise<LeaveBalanceResponseDto> {
     return this.leave.patchLeaveBalance(employeeId, dto);
+  }
+
+  @Get('employees/:id/work-schedule')
+  @ApiOperation({
+    summary: 'Get an employee work schedule and its version history',
+  })
+  @ApiResponse({ status: 200, type: EmployeeWorkScheduleResponseDto })
+  async getWorkSchedule(
+    @Param('id') employeeId: string,
+  ): Promise<EmployeeWorkScheduleResponseDto> {
+    return this.workSchedule.findForEmployee(employeeId);
+  }
+
+  @Post('employees/:id/work-schedule')
+  @ApiOperation({
+    summary: 'Create a new version of an employee work schedule',
+  })
+  @ApiResponse({
+    status: 201,
+    type: EmployeeWorkScheduleVersionResponseDto,
+  })
+  async createWorkSchedule(
+    @Param('id') employeeId: string,
+    @Body() dto: CreateEmployeeWorkScheduleDto,
+  ): Promise<EmployeeWorkScheduleVersionResponseDto> {
+    return this.workSchedule.createForEmployee(employeeId, dto);
+  }
+
+  @Patch('employees/:id/work-schedule/:scheduleId')
+  @ApiOperation({
+    summary: 'Correct times on an existing employee work schedule version',
+  })
+  @ApiResponse({
+    status: 200,
+    type: EmployeeWorkScheduleVersionResponseDto,
+  })
+  async updateWorkSchedule(
+    @Param('id') employeeId: string,
+    @Param('scheduleId') scheduleId: string,
+    @Body() dto: UpdateEmployeeWorkScheduleDto,
+  ): Promise<EmployeeWorkScheduleVersionResponseDto> {
+    return this.workSchedule.updateForEmployee(employeeId, scheduleId, dto);
   }
 }

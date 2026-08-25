@@ -5497,6 +5497,125 @@
         ]
       }
     },
+    "/api/hr/employees/{id}/work-schedule": {
+      "get": {
+        "operationId": "HrController_getWorkSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWorkScheduleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get an employee work schedule and its version history",
+        "tags": [
+          "HR"
+        ]
+      },
+      "post": {
+        "operationId": "HrController_createWorkSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployeeWorkScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWorkScheduleVersionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new version of an employee work schedule",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
+    "/api/hr/employees/{id}/work-schedule/{scheduleId}": {
+      "patch": {
+        "operationId": "HrController_updateWorkSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scheduleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmployeeWorkScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeWorkScheduleVersionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Correct times on an existing employee work schedule version",
+        "tags": [
+          "HR"
+        ]
+      }
+    },
     "/api/bays": {
       "get": {
         "operationId": "BayController_findAll",
@@ -12544,6 +12663,181 @@
           "carryoverMinutes",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "EmployeeWorkScheduleDayResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isWorking": {
+            "type": "boolean"
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "breakMinutes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "weekday",
+          "isWorking",
+          "startTime",
+          "endTime",
+          "breakMinutes"
+        ]
+      },
+      "EmployeeWorkScheduleVersionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeWorkScheduleDayResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "effectiveFrom",
+          "days",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "EmployeeWorkScheduleResponseDto": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EmployeeWorkScheduleVersionResponseDto"
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeWorkScheduleVersionResponseDto"
+            }
+          }
+        },
+        "required": [
+          "current",
+          "history"
+        ]
+      },
+      "EmployeeWorkScheduleDayDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7,
+            "example": 1
+          },
+          "isWorking": {
+            "type": "boolean",
+            "example": true
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "07:30"
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "17:00"
+          },
+          "breakMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "example": 0
+          }
+        },
+        "required": [
+          "weekday",
+          "isWorking",
+          "startTime",
+          "endTime",
+          "breakMinutes"
+        ]
+      },
+      "CreateEmployeeWorkScheduleDto": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "minItems": 7,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeWorkScheduleDayDto"
+            }
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01",
+            "description": "First date this schedule version applies."
+          }
+        },
+        "required": [
+          "days",
+          "effectiveFrom"
+        ]
+      },
+      "UpdateEmployeeWorkScheduleDto": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "minItems": 7,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeWorkScheduleDayDto"
+            }
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Accepted for compatibility but ignored; effectiveFrom is immutable."
+          }
+        },
+        "required": [
+          "days"
         ]
       },
       "BayResponseDto": {
