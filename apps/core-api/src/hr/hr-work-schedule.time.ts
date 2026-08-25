@@ -10,8 +10,7 @@ export function workdayMinutesFromTimes(
 ): number {
   const [openHour, openMinute] = startTime.split(':').map(Number);
   const [closeHour, closeMinute] = endTime.split(':').map(Number);
-  const grossSpan =
-    closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
+  const grossSpan = closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
   if (grossSpan <= 0) {
     throw new BadRequestException(
       'Work schedule end time must be after start time',
