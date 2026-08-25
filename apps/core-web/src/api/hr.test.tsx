@@ -374,8 +374,8 @@ describe('HR mutations', () => {
   it('patches an employee leave balance with a PATCH body', async () => {
     const payload = {
       year: 2026,
-      allowanceDays: 25,
-      carryoverDays: 3,
+      allowanceMinutes: 12875,
+      carryoverMinutes: 1545,
     }
     mocks.fetchWithAuth.mockResolvedValue(jsonResponse({}))
 
