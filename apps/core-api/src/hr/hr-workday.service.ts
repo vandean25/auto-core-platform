@@ -140,7 +140,12 @@ export class HrWorkdayService {
     const { year, month, day } = parseLocalDate(dateStr);
     const weekday = isoWeekdayFromUtcDate(year, month, day);
     const dayRow = schedule.days.find((row) => row.weekday === weekday);
-    if (!dayRow?.is_working) {
+    if (!dayRow) {
+      throw new BadRequestException(
+        `No work schedule day found for weekday ${weekday}`,
+      );
+    }
+    if (!dayRow.is_working) {
       return 0;
     }
 

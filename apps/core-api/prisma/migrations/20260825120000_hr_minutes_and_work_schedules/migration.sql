@@ -38,10 +38,14 @@ SELECT
     gen_random_uuid()::text,
     e."tenant_id",
     e."id",
-    COALESCE(e."hired_on", CURRENT_DATE),
+    COALESCE(
+        e."hired_on",
+        (CURRENT_TIMESTAMP AT TIME ZONE COALESCE(ws."timezone", 'Europe/Vienna'))::date
+    ),
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
-FROM "employees" e;
+FROM "employees" e
+LEFT JOIN "workshop_settings" ws ON ws."tenant_id" = e."tenant_id";
 
 -- Schedule days from workshop_opening_hours when present
 INSERT INTO "employee_work_schedule_days" (

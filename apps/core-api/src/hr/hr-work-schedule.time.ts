@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { EmployeeWorkScheduleDay } from '@prisma/client';
+import { isValidHhMm } from '../workshop/workshop-hours.defaults';
 
 export const FALLBACK_AVG_WORKDAY_MINUTES = 480;
 
@@ -8,6 +9,13 @@ export function workdayMinutesFromTimes(
   endTime: string,
   breakMinutes: number,
 ): number {
+  if (
+    !isValidHhMm(startTime) ||
+    !isValidHhMm(endTime) ||
+    !Number.isInteger(breakMinutes)
+  ) {
+    throw new BadRequestException('Work schedule times must use HH:MM format');
+  }
   const [openHour, openMinute] = startTime.split(':').map(Number);
   const [closeHour, closeMinute] = endTime.split(':').map(Number);
   const grossSpan = closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
