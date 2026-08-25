@@ -329,14 +329,16 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         HR_TEST_ANNUAL_LEAVE_MINUTES,
       );
 
-      const schedule = await runWithTenantContext(tenantId, () =>
-        basePrisma.employeeWorkSchedule.findFirst({
-          where: {
-            tenant_id: tenantId,
-            employee_id: response.body.id,
-          },
-          include: { days: true },
-        }),
+      const schedule = await runWithTenantContext(
+        tenantId,
+        async () =>
+          await basePrisma.employeeWorkSchedule.findFirst({
+            where: {
+              tenant_id: tenantId,
+              employee_id: response.body.id,
+            },
+            include: { days: true },
+          }),
       );
       expect(schedule?.days).toHaveLength(7);
     });
