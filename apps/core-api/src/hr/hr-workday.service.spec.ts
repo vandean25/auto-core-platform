@@ -91,14 +91,14 @@ function createEmployeeSchedule() {
       tenant_id: 't1',
       employee_id: 'emp-1',
       effective_from: new Date('2020-01-01T00:00:00.000Z'),
-      days: [1, 2, 3, 4, 5].map((weekday) => ({
+      days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
         id: `day-${weekday}`,
         tenant_id: 't1',
         schedule_id: 'sched-1',
         weekday,
-        is_working: true,
-        start_time: '08:00',
-        end_time: '17:00',
+        is_working: weekday <= 5,
+        start_time: weekday <= 5 ? '08:00' : null,
+        end_time: weekday <= 5 ? '17:00' : null,
         break_minutes: 0,
       })),
       createdAt: new Date(),
