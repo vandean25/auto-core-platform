@@ -14,7 +14,7 @@ const bookedLeave = {
   startOn: '2026-08-03',
   endOn: '2026-08-04',
   status: 'BOOKED' as const,
-  daysCharged: 2,
+  minutesCharged: 1030,
   note: null,
   createdAt: '2026-08-01T00:00:00.000Z',
   updatedAt: '2026-08-01T00:00:00.000Z',

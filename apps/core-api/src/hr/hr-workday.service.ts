@@ -7,6 +7,8 @@ import {
   parseLocalDate,
 } from '../workshop/workshop-planner.time';
 import { WorkshopSettingsService } from '../workshop/workshop-settings.service';
+import { expectedMinutesForScheduleDay } from './hr-work-schedule.time';
+import { HrWorkScheduleService } from './hr-work-schedule.service';
 
 export interface TenantCalendarData {
   timezone: string;
@@ -31,6 +33,7 @@ export class HrWorkdayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: WorkshopSettingsService,
+    private readonly scheduleService: HrWorkScheduleService,
   ) {}
 
   async loadTenantCalendar(tenantId: string): Promise<TenantCalendarData> {
@@ -48,66 +51,162 @@ export class HrWorkdayService {
     };
   }
 
-  async countChargeableDaysForTenant(
+  async countChargeableMinutesForTenant(
     tenantId: string,
+    employeeId: string,
     from: string,
     to: string,
-  ): Promise<{ daysCharged: number; timezone: string }> {
+  ): Promise<{ minutesCharged: number; timezone: string }> {
     const calendar = await this.loadTenantCalendar(tenantId);
-    const daysCharged = this.countChargeableDays(
+    const minutesCharged = await this.countChargeableMinutes(
+      tenantId,
+      employeeId,
       from,
       to,
       calendar.timezone,
       calendar.openingHours,
       calendar.holidays,
     );
-    return { daysCharged, timezone: calendar.timezone };
+    return { minutesCharged, timezone: calendar.timezone };
   }
 
-  countChargeableDays(
+  async countChargeableMinutes(
+    tenantId: string,
+    employeeId: string,
     from: string,
     to: string,
-    _timezone: string,
+    timezone: string,
+    hours: WorkshopOpeningHour[],
+    holidays: WorkshopHoliday[],
+  ): Promise<number> {
+    const dates = enumerateIsoDates(from, to);
+    if (dates.length === 0) {
+      return 0;
+    }
+
+    const schedules = (await this.prisma.employeeWorkSchedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        employee_id: employeeId,
+        effective_from: { lte: this.toDateOnly(dates[dates.length - 1]) },
+      },
+      include: { days: true },
+      orderBy: { effective_from: 'asc' },
+    })) as Array<{
+      effective_from: Date;
+      days: Array<{
+        weekday: number;
+        is_working: boolean;
+        start_time: string | null;
+        end_time: string | null;
+        break_minutes: number;
+      }>;
+    }>;
+
+    let total = 0;
+    for (const dateStr of dates) {
+      total += this.chargeableMinutesForDate(
+        dateStr,
+        schedules,
+        hours,
+        holidays,
+      );
+    }
+    return total;
+  }
+
+  private chargeableMinutesForDate(
+    dateStr: string,
+    schedules: Array<{
+      effective_from: Date;
+      days: Array<{
+        weekday: number;
+        is_working: boolean;
+        start_time: string | null;
+        end_time: string | null;
+        break_minutes: number;
+      }>;
+    }>,
     hours: WorkshopOpeningHour[],
     holidays: WorkshopHoliday[],
   ): number {
-    const dates = enumerateIsoDates(from, to);
-    let charged = 0;
-
-    for (const dateStr of dates) {
-      const { year, month, day } = parseLocalDate(dateStr);
-
-      const oneOff = holidays.find((h) => {
-        if (h.repeats_annually) return false;
-        return h.observed_on.toISOString().slice(0, 10) === dateStr;
-      });
-
-      const annual = holidays.find((h) => {
-        if (!h.repeats_annually) return false;
-        const obs = h.observed_on;
-        if (obs.getUTCMonth() + 1 === 2 && obs.getUTCDate() === 29) {
-          if (!isLeapYear(year)) return false;
-        }
-        return obs.getUTCMonth() + 1 === month && obs.getUTCDate() === day;
-      });
-
-      const holiday = oneOff ?? annual;
-      if (holiday) {
-        if (!holiday.is_closed) {
-          charged += 1;
-        }
-        continue;
-      }
-
-      const weekday = isoWeekdayFromUtcDate(year, month, day);
-      const opening = hours.find((h) => h.weekday === weekday);
-      const isClosed = opening?.is_closed ?? true;
-
-      if (!isClosed) {
-        charged += 1;
-      }
+    const schedule = this.resolveScheduleForDate(dateStr, schedules);
+    if (!schedule) {
+      return 0;
     }
 
-    return charged;
+    const { year, month, day } = parseLocalDate(dateStr);
+    const weekday = isoWeekdayFromUtcDate(year, month, day);
+    const dayRow = schedule.days.find((row) => row.weekday === weekday);
+    if (!dayRow?.is_working) {
+      return 0;
+    }
+
+    if (this.isShopFullyClosed(dateStr, year, month, day, hours, holidays)) {
+      return 0;
+    }
+
+    return expectedMinutesForScheduleDay(dayRow);
+  }
+
+  private resolveScheduleForDate(
+    dateStr: string,
+    schedules: Array<{
+      effective_from: Date;
+      days: Array<{
+        weekday: number;
+        is_working: boolean;
+        start_time: string | null;
+        end_time: string | null;
+        break_minutes: number;
+      }>;
+    }>,
+  ) {
+    const target = this.toDateOnly(dateStr).getTime();
+    let resolved: (typeof schedules)[number] | undefined;
+    for (const schedule of schedules) {
+      if (schedule.effective_from.getTime() <= target) {
+        resolved = schedule;
+      } else {
+        break;
+      }
+    }
+    return resolved;
+  }
+
+  private isShopFullyClosed(
+    dateStr: string,
+    year: number,
+    month: number,
+    day: number,
+    hours: WorkshopOpeningHour[],
+    holidays: WorkshopHoliday[],
+  ): boolean {
+    const oneOff = holidays.find((h) => {
+      if (h.repeats_annually) return false;
+      return h.observed_on.toISOString().slice(0, 10) === dateStr;
+    });
+
+    const annual = holidays.find((h) => {
+      if (!h.repeats_annually) return false;
+      const obs = h.observed_on;
+      if (obs.getUTCMonth() + 1 === 2 && obs.getUTCDate() === 29) {
+        if (!isLeapYear(year)) return false;
+      }
+      return obs.getUTCMonth() + 1 === month && obs.getUTCDate() === day;
+    });
+
+    const holiday = oneOff ?? annual;
+    if (holiday) {
+      return holiday.is_closed;
+    }
+
+    const weekday = isoWeekdayFromUtcDate(year, month, day);
+    const opening = hours.find((h) => h.weekday === weekday);
+    return opening?.is_closed ?? true;
+  }
+
+  private toDateOnly(isoDate: string): Date {
+    return new Date(`${isoDate}T00:00:00.000Z`);
   }
 }

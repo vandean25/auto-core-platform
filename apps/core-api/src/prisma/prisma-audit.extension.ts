@@ -76,6 +76,7 @@ export const AUDITED_MODELS = new Set([
   'WorkshopOpeningHour',
   'WorkshopHoliday',
   'EmployeeLeaveBalance',
+  'EmployeeWorkSchedule',
   'LeaveRequest',
 ]);
 

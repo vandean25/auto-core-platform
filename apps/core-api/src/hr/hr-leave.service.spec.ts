@@ -47,8 +47,8 @@ describe('HrLeaveService', () => {
       openingHours: [],
       holidays: [],
     }),
-    countChargeableDays: jest.fn(),
-    countChargeableDaysForTenant: jest.fn(),
+    countChargeableMinutes: jest.fn(),
+    countChargeableMinutesForTenant: jest.fn(),
   };
 
   beforeEach(() => {
@@ -65,7 +65,7 @@ describe('HrLeaveService', () => {
     it('rejects date range spanning two calendar years with 400', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
       await expect(
         service.createMyLeave({
@@ -78,7 +78,7 @@ describe('HrLeaveService', () => {
     it('rejects endOn before startOn with 400', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
       await expect(
         service.createMyLeave({
@@ -88,12 +88,12 @@ describe('HrLeaveService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('rejects zero chargeable workdays with 400', async () => {
+    it('rejects zero chargeable minutes with 400', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
-      mockWorkdayService.countChargeableDays.mockReturnValue(0);
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(0);
       await expect(
         service.createMyLeave({
           startOn: '2026-08-30',
@@ -105,9 +105,9 @@ describe('HrLeaveService', () => {
     it('rejects overlapping BOOKED range with 409', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
-      mockWorkdayService.countChargeableDays.mockReturnValue(5);
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(2850);
       mockPrisma.leaveRequest.findFirst.mockResolvedValue({
         id: 'existing-booking',
       });
@@ -120,20 +120,20 @@ describe('HrLeaveService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('rejects booking when daysCharged exceeds remaining leave with 409', async () => {
+    it('rejects booking when minutesCharged exceeds remaining leave with 409', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
-      mockWorkdayService.countChargeableDays.mockReturnValue(10);
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(5150);
       mockPrisma.leaveRequest.findFirst.mockResolvedValue(null);
       mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
-        allowance_days: 25,
-        carryover_days: 0,
+        allowance_minutes: 12875,
+        carryover_minutes: 0,
       });
       mockPrisma.leaveRequest.aggregate.mockResolvedValue({
-        _sum: { days_charged: 20 },
-      }); // remaining = 5
+        _sum: { minutes_charged: 10300 },
+      });
 
       await expect(
         service.createMyLeave({
@@ -143,19 +143,19 @@ describe('HrLeaveService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('successfully creates booking and snapshots days_charged', async () => {
+    it('successfully creates booking and snapshots minutes_charged', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
-      mockWorkdayService.countChargeableDays.mockReturnValue(5);
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(2850);
       mockPrisma.leaveRequest.findFirst.mockResolvedValue(null);
       mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
-        allowance_days: 25,
-        carryover_days: 0,
+        allowance_minutes: 12875,
+        carryover_minutes: 0,
       });
       mockPrisma.leaveRequest.aggregate.mockResolvedValue({
-        _sum: { days_charged: 0 },
+        _sum: { minutes_charged: 0 },
       });
       mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-pg-1' });
       mockPrisma.leaveRequest.create.mockResolvedValue({
@@ -164,7 +164,7 @@ describe('HrLeaveService', () => {
         start_on: new Date('2026-09-01T00:00:00.000Z'),
         end_on: new Date('2026-09-05T00:00:00.000Z'),
         status: LeaveRequestStatus.BOOKED,
-        days_charged: 5,
+        minutes_charged: 2850,
         note: 'Holiday',
         created_by_user_id: 'user-pg-1',
         createdAt: new Date(),
@@ -177,23 +177,23 @@ describe('HrLeaveService', () => {
         note: 'Holiday',
       });
       expect(result.id).toBe('leave-1');
-      expect(result.daysCharged).toBe(5);
+      expect(result.minutesCharged).toBe(2850);
       expect(result.status).toBe('BOOKED');
     });
   });
 
   describe('getMyLeave', () => {
-    it('returns yearly balance, remaining days, and bookings list', async () => {
+    it('returns yearly balance, remaining minutes, and bookings list', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
       mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
         id: 'bal-1',
         employee_id: 'emp-1',
         year: 2026,
-        allowance_days: 25,
-        carryover_days: 2,
+        allowance_minutes: 12875,
+        carryover_minutes: 1030,
       });
       mockPrisma.leaveRequest.findMany.mockResolvedValue([
         {
@@ -202,7 +202,7 @@ describe('HrLeaveService', () => {
           start_on: new Date('2026-06-01T00:00:00.000Z'),
           end_on: new Date('2026-06-05T00:00:00.000Z'),
           status: LeaveRequestStatus.BOOKED,
-          days_charged: 5,
+          minutes_charged: 2850,
           note: null,
           created_by_user_id: null,
           createdAt: new Date(),
@@ -212,9 +212,9 @@ describe('HrLeaveService', () => {
 
       const result = await service.getMyLeave(2026);
       expect(result.year).toBe(2026);
-      expect(result.allowanceDays).toBe(25);
-      expect(result.carryoverDays).toBe(2);
-      expect(result.remainingDays).toBe(22); // 25 + 2 - 5
+      expect(result.allowanceMinutes).toBe(12875);
+      expect(result.carryoverMinutes).toBe(1030);
+      expect(result.remainingMinutes).toBe(11055);
       expect(result.bookings).toHaveLength(1);
     });
   });
@@ -237,7 +237,7 @@ describe('HrLeaveService', () => {
         start_on: new Date('2026-12-01T00:00:00.000Z'),
         end_on: new Date('2026-12-05T00:00:00.000Z'),
         status: LeaveRequestStatus.CANCELLED,
-        days_charged: 5,
+        minutes_charged: 2850,
         note: null,
         created_by_user_id: null,
         createdAt: new Date(),
@@ -267,18 +267,18 @@ describe('HrLeaveService', () => {
   });
 
   describe('patchLeaveBalance', () => {
-    it('updates balance and writes employee annual_leave_days if year is current year', async () => {
+    it('updates balance and writes employee annual_leave_minutes if year is current year', async () => {
       mockIdentityService.assertOwnerAdmin.mockReturnValue(undefined);
       mockPrisma.employee.findFirst.mockResolvedValue({
         id: 'emp-1',
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       });
       mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
         id: 'bal-1',
         employee_id: 'emp-1',
         year: 2026,
-        allowance_days: 30,
-        carryover_days: 3,
+        allowance_minutes: 15450,
+        carryover_minutes: 1545,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -286,16 +286,16 @@ describe('HrLeaveService', () => {
 
       const result = await service.patchLeaveBalance('emp-1', {
         year: 2026,
-        allowanceDays: 30,
-        carryoverDays: 3,
+        allowanceMinutes: 15450,
+        carryoverMinutes: 1545,
       });
 
-      expect(result.allowanceDays).toBe(30);
-      expect(result.carryoverDays).toBe(3);
+      expect(result.allowanceMinutes).toBe(15450);
+      expect(result.carryoverMinutes).toBe(1545);
       expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'emp-1', tenant_id: 'tenant-1' },
-          data: { annual_leave_days: 30 },
+          data: { annual_leave_minutes: 15450 },
         }),
       );
     });

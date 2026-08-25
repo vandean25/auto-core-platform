@@ -89,7 +89,7 @@ function matchesLeaveSearch(row: LeaveTableRow, term: string): boolean {
     row.status,
     row.note ?? '',
     getLeaveEmployeeName(row),
-    String(row.daysCharged),
+    String(row.minutesCharged),
   ].some((value) => value.toLowerCase().includes(normalizedTerm))
 }
 
@@ -98,7 +98,7 @@ function sortLeaveRows(rows: LeaveTableRow[], field?: string, descending = false
   const direction = descending ? -1 : 1
 
   return [...rows].sort((left, right) => {
-    if (field === 'daysCharged') return direction * (left.daysCharged - right.daysCharged)
+    if (field === 'minutesCharged') return direction * (left.minutesCharged - right.minutesCharged)
     if (field === 'status') return direction * left.status.localeCompare(right.status)
     if (field === 'employee') return direction * getLeaveEmployeeName(left).localeCompare(getLeaveEmployeeName(right))
     if (field === 'note') return direction * (left.note ?? '').localeCompare(right.note ?? '')
@@ -193,9 +193,9 @@ export default function HrLeavePage() {
         cell: ({ row }) => `${row.original.startOn} – ${row.original.endOn}`,
       },
       {
-        accessorKey: 'daysCharged',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Days' />,
-        cell: ({ row }) => row.original.daysCharged,
+        accessorKey: 'minutesCharged',
+        header: ({ column }) => <DataTableColumnHeader column={column} title='Charged (min)' />,
+        cell: ({ row }) => row.original.minutesCharged,
       },
       {
         accessorKey: 'status',
@@ -253,7 +253,7 @@ export default function HrLeavePage() {
         <div className='flex items-center gap-3'>
           <StatusBadge
             status='ACTIVE'
-            label={`Remaining: ${myLeaveQuery.data?.remainingDays ?? hrMeQuery.data?.remainingLeaveDays ?? 0} days`}
+            label={`Remaining: ${myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0} minutes`}
           />
           <Button type='button' onClick={() => openCreateSheet()}>
             + Leave

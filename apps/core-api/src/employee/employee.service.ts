@@ -8,19 +8,20 @@ import { EmployeeRole, Prisma } from '@prisma/client';
 import { formatLocalDate } from '../workshop/workshop-planner.time';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { HrWorkScheduleService } from '../hr/hr-work-schedule.service';
+import { averageExpectedMinutesPerWorkday } from '../hr/hr-work-schedule.time';
 import {
   CreateEmployeeDto,
   ListEmployeesQueryDto,
   UpdateEmployeeDto,
 } from './dto/employee.dto';
 
-const DEFAULT_ANNUAL_LEAVE_DAYS = 25;
 const DEFAULT_TIME_ZONE = 'Europe/Vienna';
 const TENANT_ADMIN_ROLES = new Set(['OWNER', 'ADMIN']);
 
 type EmployeeLeaveSummary = {
-  remainingLeaveDays: number;
-  carryoverDays: number;
+  remainingLeaveMinutes: number;
+  carryoverMinutes: number;
   leaveBalanceYear: number;
 };
 
@@ -29,6 +30,7 @@ export class EmployeeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly scheduleService: HrWorkScheduleService,
   ) {}
 
   private mapEmployee(
@@ -41,7 +43,7 @@ export class EmployeeService {
       user_id?: string | null;
       mother_language_code?: string | null;
       hired_on: Date | null;
-      annual_leave_days: number;
+      annual_leave_minutes: number;
       createdAt: Date;
       updatedAt: Date;
     },
@@ -58,10 +60,10 @@ export class EmployeeService {
       hiredOn: employee.hired_on
         ? employee.hired_on.toISOString().slice(0, 10)
         : null,
-      annualLeaveDays: employee.annual_leave_days,
-      carryoverDays: leaveSummary.carryoverDays,
+      annualLeaveMinutes: employee.annual_leave_minutes,
+      carryoverMinutes: leaveSummary.carryoverMinutes,
       leaveBalanceYear: leaveSummary.leaveBalanceYear,
-      remainingLeaveDays: leaveSummary.remainingLeaveDays,
+      remainingLeaveMinutes: leaveSummary.remainingLeaveMinutes,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };
@@ -115,22 +117,47 @@ export class EmployeeService {
     const tenantId = await this.tenantContext.getTenantId();
     this.assertTenantAdminForHrFields(dto);
     try {
-      const created = await this.prisma.employee.create({
-        data: {
-          tenant_id: tenantId,
-          name: dto.name.trim(),
-          role: dto.role,
-          is_active: dto.isActive ?? true,
-          sort_order: dto.sortOrder ?? 0,
-          annual_leave_days: dto.annualLeaveDays ?? DEFAULT_ANNUAL_LEAVE_DAYS,
-          ...(dto.hiredOn !== undefined && {
-            hired_on: this.toDateOnly(dto.hiredOn),
-          }),
-          ...(dto.userId !== undefined && { user_id: dto.userId }),
-          ...(dto.motherLanguageCode !== undefined && {
-            mother_language_code: dto.motherLanguageCode,
-          }),
-        },
+      const hiredOn =
+        dto.hiredOn !== undefined ? this.toDateOnly(dto.hiredOn) : null;
+      const effectiveFrom = hiredOn ?? (await this.getCurrentLocalDate());
+
+      const created = await this.prisma.$transaction(async (transaction) => {
+        const employee = await transaction.employee.create({
+          data: {
+            tenant_id: tenantId,
+            name: dto.name.trim(),
+            role: dto.role,
+            is_active: dto.isActive ?? true,
+            sort_order: dto.sortOrder ?? 0,
+            annual_leave_minutes: 0,
+            hired_on: hiredOn,
+            ...(dto.userId !== undefined && { user_id: dto.userId }),
+            ...(dto.motherLanguageCode !== undefined && {
+              mother_language_code: dto.motherLanguageCode,
+            }),
+          },
+        });
+
+        const schedule = await this.scheduleService.seedInitialSchedule(
+          transaction,
+          tenantId,
+          employee.id,
+          effectiveFrom,
+        );
+        const avgMinutes = averageExpectedMinutesPerWorkday(schedule.days);
+        const annualLeaveMinutes =
+          dto.annualLeaveMinutes ??
+          this.scheduleService.defaultAnnualLeaveMinutes(avgMinutes);
+
+        return transaction.employee.update({
+          where: {
+            tenant_id_id: {
+              tenant_id: tenantId,
+              id: employee.id,
+            },
+          },
+          data: { annual_leave_minutes: annualLeaveMinutes },
+        });
       });
 
       return (await this.attachRemaining([created]))[0];
@@ -166,8 +193,8 @@ export class EmployeeService {
         ...(dto.hiredOn !== undefined && {
           hired_on: this.toDateOnly(dto.hiredOn),
         }),
-        ...(dto.annualLeaveDays !== undefined && {
-          annual_leave_days: dto.annualLeaveDays,
+        ...(dto.annualLeaveMinutes !== undefined && {
+          annual_leave_minutes: dto.annualLeaveMinutes,
         }),
         ...(dto.userId !== undefined && { user_id: dto.userId }),
         ...(dto.motherLanguageCode !== undefined && {
@@ -176,12 +203,12 @@ export class EmployeeService {
       };
 
       const updated =
-        dto.annualLeaveDays === undefined
+        dto.annualLeaveMinutes === undefined
           ? await this.updateEmployee(id, tenantId, updateData)
           : await this.updateEmployeeAndCurrentLeaveBalance(
               id,
               tenantId,
-              dto.annualLeaveDays,
+              dto.annualLeaveMinutes,
               updateData,
             );
 
@@ -306,7 +333,7 @@ export class EmployeeService {
     const tenantId = await this.tenantContext.getTenantId();
     const year = await this.getCurrentLocalYear();
     const employeeIds = employees.map((employee) => employee.id);
-    const [balances, bookedDays] = await Promise.all([
+    const [balances, bookedMinutes] = await Promise.all([
       this.prisma.employeeLeaveBalance.findMany({
         where: {
           tenant_id: tenantId,
@@ -316,8 +343,8 @@ export class EmployeeService {
         select: {
           employee_id: true,
           year: true,
-          allowance_days: true,
-          carryover_days: true,
+          allowance_minutes: true,
+          carryover_minutes: true,
         },
       }),
       this.prisma.leaveRequest.groupBy({
@@ -331,52 +358,57 @@ export class EmployeeService {
             lt: new Date(Date.UTC(year + 1, 0, 1)),
           },
         },
-        _sum: { days_charged: true },
+        _sum: { minutes_charged: true },
       }),
     ]);
 
     const balanceByEmployee = new Map(
       balances.map((balance) => [balance.employee_id, balance]),
     );
-    const bookedDaysByEmployee = new Map(
-      bookedDays.map((booking) => [
+    const bookedMinutesByEmployee = new Map(
+      bookedMinutes.map((booking) => [
         booking.employee_id,
-        booking._sum.days_charged ?? 0,
+        booking._sum.minutes_charged ?? 0,
       ]),
     );
 
     return employees.map((employee) => {
       const balance = balanceByEmployee.get(employee.id);
-      const allowanceDays =
-        balance?.allowance_days ?? employee.annual_leave_days;
-      const carryoverDays = balance?.carryover_days ?? 0;
-      const booked = bookedDaysByEmployee.get(employee.id) ?? 0;
+      const allowanceMinutes =
+        balance?.allowance_minutes ?? employee.annual_leave_minutes;
+      const carryoverMinutes = balance?.carryover_minutes ?? 0;
+      const booked = bookedMinutesByEmployee.get(employee.id) ?? 0;
 
       return this.mapEmployee(employee, {
-        remainingLeaveDays: allowanceDays + carryoverDays - booked,
-        carryoverDays,
+        remainingLeaveMinutes: allowanceMinutes + carryoverMinutes - booked,
+        carryoverMinutes,
         leaveBalanceYear: balance?.year ?? year,
       });
     });
   }
 
   private async getCurrentLocalYear(): Promise<number> {
+    const localDate = await this.getCurrentLocalDateString();
+    return Number(localDate.slice(0, 4));
+  }
+
+  private async getCurrentLocalDate(): Promise<Date> {
+    return this.toDateOnly(await this.getCurrentLocalDateString())!;
+  }
+
+  private async getCurrentLocalDateString(): Promise<string> {
     const tenantId = await this.tenantContext.getTenantId();
     const settings = await this.prisma.workshopSettings.findFirst({
       where: { tenant_id: tenantId },
       select: { timezone: true },
     });
-    const localDate = formatLocalDate(
-      new Date(),
-      settings?.timezone ?? DEFAULT_TIME_ZONE,
-    );
-    return Number(localDate.slice(0, 4));
+    return formatLocalDate(new Date(), settings?.timezone ?? DEFAULT_TIME_ZONE);
   }
 
   private async updateEmployeeAndCurrentLeaveBalance(
     id: string,
     tenantId: string,
-    annualLeaveDays: number,
+    annualLeaveMinutes: number,
     updateData: Prisma.EmployeeUncheckedUpdateManyInput,
   ) {
     const currentYear = await this.getCurrentLocalYear();
@@ -401,10 +433,10 @@ export class EmployeeService {
           tenant_id: tenantId,
           employee_id: id,
           year: currentYear,
-          allowance_days: annualLeaveDays,
-          carryover_days: 0,
+          allowance_minutes: annualLeaveMinutes,
+          carryover_minutes: 0,
         },
-        update: { allowance_days: annualLeaveDays },
+        update: { allowance_minutes: annualLeaveMinutes },
       });
 
       const updated = await transaction.employee.findFirst({
@@ -443,7 +475,7 @@ export class EmployeeService {
     dto: CreateEmployeeDto | UpdateEmployeeDto,
   ): void {
     const includesHrFields =
-      dto.hiredOn !== undefined || dto.annualLeaveDays !== undefined;
+      dto.hiredOn !== undefined || dto.annualLeaveMinutes !== undefined;
     if (!includesHrFields) {
       return;
     }

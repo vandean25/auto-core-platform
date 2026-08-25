@@ -39,6 +39,7 @@ VALUES
   ('attendance_events'),
   ('catalog_items'),
   ('employee_leave_balances'),
+  ('employee_work_schedules'),
   ('inspection_template_items'),
   ('labor_operations'),
   ('leave_requests'),
@@ -48,6 +49,7 @@ VALUES
   ('voice_note_rate_limits'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
+  ('employee_work_schedule_days'),
   ('inventory_stocks'),
   ('inventory_transactions'),
   ('labor_fitments'),
@@ -115,6 +117,10 @@ VALUES
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('employee_work_schedule_days', 'employee_work_schedules', 'tenant_id,schedule_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('employee_work_schedule_days', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('employee_work_schedules', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('employee_work_schedules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
   ('finance_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -443,6 +449,8 @@ DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."employee_work_schedule_days"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_holidays"
@@ -460,6 +468,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

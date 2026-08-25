@@ -42,12 +42,15 @@ vi.mock('@/components/data-table/DataTable', () => ({
   ),
 }))
 
+// Matches apps/core-api/test/tenant-test-utils.ts
+const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875
+
 const linkedEmployee = {
   id: 'employee-1',
   name: 'Ada Lovelace',
   role: 'SERVICE_ADVISOR' as const,
   hiredOn: '2026-01-01',
-  annualLeaveDays: 25,
+  annualLeaveMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
 }
 
 const secondEmployee = {
@@ -59,10 +62,10 @@ const secondEmployee = {
   userId: null,
   motherLanguageCode: null,
   hiredOn: null,
-  annualLeaveDays: 25,
-  carryoverDays: 0,
+  annualLeaveMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
+  carryoverMinutes: 0,
   leaveBalanceYear: 2026,
-  remainingLeaveDays: 25,
+  remainingLeaveMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
@@ -122,7 +125,7 @@ function setupMocks(activeRole: 'OWNER' | 'ADMIN' | 'SALES' = 'SALES') {
     createQueryResult({
       employee: linkedEmployee,
       clockState: 'CLOCKED_IN',
-      remainingLeaveDays: 25,
+      remainingLeaveMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
       timezone: 'Europe/Vienna',
     }),
   )

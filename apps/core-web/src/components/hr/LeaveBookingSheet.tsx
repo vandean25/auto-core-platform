@@ -109,8 +109,8 @@ function LeaveBookingDetails({ booking, employeeName }: { booking: LeaveRequest;
           <dd className='text-sm'>{booking.endOn}</dd>
         </div>
         <div>
-          <dt className='text-sm font-medium text-slate-500'>Days charged</dt>
-          <dd className='text-sm'>{booking.daysCharged}</dd>
+          <dt className='text-sm font-medium text-slate-500'>Charged (min)</dt>
+          <dd className='text-sm'>{booking.minutesCharged}</dd>
         </div>
         <div>
           <dt className='text-sm font-medium text-slate-500'>Note</dt>

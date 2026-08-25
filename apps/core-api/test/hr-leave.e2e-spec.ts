@@ -8,7 +8,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import {
   cleanupTestTenantGraph,
   createTestTenant,
+  HR_TEST_ALLOWANCE_30_MINUTES,
+  HR_TEST_ANNUAL_LEAVE_MINUTES,
+  HR_TEST_CARRYOVER_5_MINUTES,
+  HR_TEST_REMAINING_AFTER_WEEK_MINUTES,
+  HR_TEST_THREE_DAY_LEAVE_MINUTES,
+  HR_TEST_WEEK_LEAVE_MINUTES,
   runWithTenantContext,
+  seedTestEmployee,
   seedTestTenantMember,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -41,7 +48,6 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
     tenantId = fixtureTenant.tenantId;
 
     await runWithTenantContext(tenantId, async () => {
-      // 1. Linked TECH user + employee (mechanic)
       const techFirebaseUid = `e2e-tech-leave-${Date.now()}`;
       const techUser = await basePrisma.user.create({
         data: {
@@ -60,19 +66,14 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         tenantId,
         role: 'TECH',
       });
-      const techEmployee = await basePrisma.employee.create({
-        data: {
-          tenant_id: tenantId,
-          name: 'Tech Leave Mechanic',
-          role: 'MECHANIC',
-          is_active: true,
-          user_id: techUser.id,
-          annual_leave_days: 25,
-        },
+      const techEmployee = await seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Tech Leave Mechanic',
+        role: 'MECHANIC',
+        userId: techUser.id,
       });
       techEmployeeId = techEmployee.id;
 
-      // 2. Linked SALES user + employee
       const salesFirebaseUid = `e2e-sales-leave-${Date.now()}`;
       const salesUser = await basePrisma.user.create({
         data: {
@@ -91,19 +92,14 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         tenantId,
         role: 'SALES',
       });
-      const deskEmployee = await basePrisma.employee.create({
-        data: {
-          tenant_id: tenantId,
-          name: 'Sales Advisor',
-          role: 'SERVICE_ADVISOR',
-          is_active: true,
-          user_id: salesUser.id,
-          annual_leave_days: 25,
-        },
+      const deskEmployee = await seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Sales Advisor',
+        role: 'SERVICE_ADVISOR',
+        userId: salesUser.id,
       });
       deskEmployeeId = deskEmployee.id;
 
-      // 3. OWNER user
       const ownerFirebaseUid = `e2e-owner-leave-${Date.now()}`;
       const ownerUser = await basePrisma.user.create({
         data: {
@@ -133,16 +129,16 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
   });
 
   describe('Self Leave Management (/api/hr/me/leave)', () => {
-    it('GET /api/hr/me/leave initializes yearly balance and returns 25 remaining days', async () => {
+    it('GET /api/hr/me/leave initializes yearly balance and returns full annual allowance remaining', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
       expect(res.body.year).toBe(new Date().getUTCFullYear());
-      expect(res.body.allowanceDays).toBe(25);
-      expect(res.body.carryoverDays).toBe(0);
-      expect(res.body.remainingDays).toBe(25);
+      expect(res.body.allowanceMinutes).toBe(HR_TEST_ANNUAL_LEAVE_MINUTES);
+      expect(res.body.carryoverMinutes).toBe(0);
+      expect(res.body.remainingMinutes).toBe(HR_TEST_ANNUAL_LEAVE_MINUTES);
       expect(res.body.bookings).toEqual([]);
     });
 
@@ -173,8 +169,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
       expect(res.body.message).toContain('on or after startOn');
     });
 
-    it('rejects leave on closed days (zero workdays) with 400', async () => {
-      // 2026-08-30 is Sunday (closed by default)
+    it('rejects leave on closed days (zero chargeable minutes) with 400', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -184,13 +179,12 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         })
         .expect(400);
 
-      expect(res.body.message).toContain('zero workdays');
+      expect(res.body.message).toContain('zero chargeable minutes');
     });
 
     let createdBookingId: string;
 
-    it('successfully books 5 workdays (Mon-Fri) and snapshots daysCharged', async () => {
-      // 2026-09-07 is Mon, 2026-09-11 is Fri
+    it('successfully books a work week and snapshots minutesCharged', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -206,22 +200,22 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
       expect(res.body.startOn).toBe('2026-09-07');
       expect(res.body.endOn).toBe('2026-09-11');
       expect(res.body.status).toBe('BOOKED');
-      expect(res.body.daysCharged).toBe(5);
+      expect(res.body.minutesCharged).toBe(HR_TEST_WEEK_LEAVE_MINUTES);
       createdBookingId = res.body.id;
 
-      // Verify remaining days drops to 20
       const getRes = await request(app.getHttpServer())
         .get('/api/hr/me/leave?year=2026')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
-      expect(getRes.body.remainingDays).toBe(20);
+      expect(getRes.body.remainingMinutes).toBe(
+        HR_TEST_REMAINING_AFTER_WEEK_MINUTES,
+      );
       expect(getRes.body.bookings).toHaveLength(1);
       expect(getRes.body.bookings[0].id).toBe(createdBookingId);
     });
 
     it('rejects overlapping leave booking with 409 Conflict', async () => {
-      // Overlaps with 2026-09-07..2026-09-11
       const res = await request(app.getHttpServer())
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -234,8 +228,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
       expect(res.body.message).toContain('overlaps');
     });
 
-    it('rejects booking when daysCharged exceeds remaining allowance with 409 Conflict', async () => {
-      // 20 remaining. Booking 5 weeks = 25 workdays
+    it('rejects booking when minutesCharged exceeds remaining allowance with 409 Conflict', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -245,10 +238,10 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         })
         .expect(409);
 
-      expect(res.body.message).toContain('Not enough remaining leave days');
+      expect(res.body.message).toContain('Not enough remaining leave time');
     });
 
-    it('cancels leave booking and restores remaining days', async () => {
+    it('cancels leave booking and restores remaining minutes', async () => {
       const cancelRes = await request(app.getHttpServer())
         .post(`/api/hr/leave/${createdBookingId}/cancel`)
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -256,17 +249,15 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
 
       expect(cancelRes.body.status).toBe('CANCELLED');
 
-      // Remaining days back to 25
       const getRes = await request(app.getHttpServer())
         .get('/api/hr/me/leave?year=2026')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
-      expect(getRes.body.remainingDays).toBe(25);
+      expect(getRes.body.remainingMinutes).toBe(HR_TEST_ANNUAL_LEAVE_MINUTES);
     });
 
     it('employee cannot cancel another employee leave booking', async () => {
-      // Sales books leave
       const salesBookingRes = await request(app.getHttpServer())
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${salesAuthToken}`)
@@ -278,7 +269,6 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
 
       const salesBookingId = salesBookingRes.body.id;
 
-      // Tech attempts to cancel Sales' booking
       await request(app.getHttpServer())
         .post(`/api/hr/leave/${salesBookingId}/cancel`)
         .set('Authorization', `Bearer ${techAuthToken}`)
@@ -302,7 +292,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .expect(201);
 
       expect(res.body.employeeId).toBe(deskEmployeeId);
-      expect(res.body.daysCharged).toBe(5);
+      expect(res.body.minutesCharged).toBe(HR_TEST_WEEK_LEAVE_MINUTES);
       deskBookingId = res.body.id;
     });
 
@@ -317,7 +307,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         })
         .expect(200);
 
-      expect(res.body.daysCharged).toBe(3);
+      expect(res.body.minutesCharged).toBe(HR_TEST_THREE_DAY_LEAVE_MINUTES);
       expect(res.body.note).toBe('Shortened trip');
     });
 
@@ -327,33 +317,30 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .set('Authorization', `Bearer ${ownerAuthToken}`)
         .send({
           year: 2026,
-          allowanceDays: 30,
-          carryoverDays: 5,
+          allowanceMinutes: HR_TEST_ALLOWANCE_30_MINUTES,
+          carryoverMinutes: HR_TEST_CARRYOVER_5_MINUTES,
         })
         .expect(200);
 
-      expect(res.body.allowanceDays).toBe(30);
-      expect(res.body.carryoverDays).toBe(5);
+      expect(res.body.allowanceMinutes).toBe(HR_TEST_ALLOWANCE_30_MINUTES);
+      expect(res.body.carryoverMinutes).toBe(HR_TEST_CARRYOVER_5_MINUTES);
 
-      // Verify Employee.annual_leave_days was updated
       const empRes = await request(app.getHttpServer())
         .get(`/api/employees/${deskEmployeeId}`)
         .set('Authorization', `Bearer ${ownerAuthToken}`)
         .expect(200);
 
-      expect(empRes.body.annualLeaveDays).toBe(30);
-      expect(empRes.body.carryoverDays).toBe(5);
+      expect(empRes.body.annualLeaveMinutes).toBe(HR_TEST_ALLOWANCE_30_MINUTES);
+      expect(empRes.body.carryoverMinutes).toBe(HR_TEST_CARRYOVER_5_MINUTES);
       expect(empRes.body.leaveBalanceYear).toBe(2026);
     });
 
     it('GET /api/hr/leave is accessible by SALES and OWNER, but returns 403 for TECH', async () => {
-      // Tech receives 403
       await request(app.getHttpServer())
         .get('/api/hr/leave?from=2026-09-01&to=2026-09-30')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(403);
 
-      // Sales receives 200
       const salesRes = await request(app.getHttpServer())
         .get('/api/hr/leave?from=2026-09-01&to=2026-09-30')
         .set('Authorization', `Bearer ${salesAuthToken}`)
@@ -363,7 +350,6 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
       expect(salesRes.body.length).toBeGreaterThanOrEqual(1);
       expect(salesRes.body[0].employee).toBeDefined();
 
-      // Owner receives 200
       const ownerRes = await request(app.getHttpServer())
         .get('/api/hr/leave?from=2026-09-01&to=2026-09-30')
         .set('Authorization', `Bearer ${ownerAuthToken}`)

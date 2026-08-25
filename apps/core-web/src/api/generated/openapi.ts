@@ -1488,156 +1488,6 @@ export interface paths {
         patch: operations["EmployeeController_update"];
         trace?: never;
     };
-    "/api/bays": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["BayController_findAll"];
-        put?: never;
-        post: operations["BayController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/bays/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["BayController_findOne"];
-        put?: never;
-        post?: never;
-        delete: operations["BayController_remove"];
-        options?: never;
-        head?: never;
-        patch: operations["BayController_update"];
-        trace?: never;
-    };
-    "/api/platform/tenants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PlatformAdminController_findAll"];
-        put?: never;
-        post: operations["PlatformAdminController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/platform/tenants/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["PlatformAdminController_update"];
-        trace?: never;
-    };
-    "/api/admin/settings/log-level": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get operational log level settings and active override */
-        get: operations["AdminLogLevelController_getLogLevel"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update runtime operational log level with optional expiration duration */
-        patch: operations["AdminLogLevelController_updateLogLevel"];
-        trace?: never;
-    };
-    "/api/tenant-members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["TenantMemberController_findAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant-members/invite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["TenantMemberController_invite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tenant-members/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["TenantMemberController_update"];
-        trace?: never;
-    };
-    "/api/audit-logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List tenant audit logs
-         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
-         */
-        get: operations["AuditController_findAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/hr/me": {
         parameters: {
             query?: never;
@@ -1793,6 +1643,156 @@ export interface paths {
         head?: never;
         /** Update employee annual leave allowance or carryover days (OWNER/ADMIN only) */
         patch: operations["HrController_patchLeaveBalance"];
+        trace?: never;
+    };
+    "/api/bays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BayController_findAll"];
+        put?: never;
+        post: operations["BayController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BayController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["BayController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["BayController_update"];
+        trace?: never;
+    };
+    "/api/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PlatformAdminController_findAll"];
+        put?: never;
+        post: operations["PlatformAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["PlatformAdminController_update"];
+        trace?: never;
+    };
+    "/api/admin/settings/log-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get operational log level settings and active override */
+        get: operations["AdminLogLevelController_getLogLevel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update runtime operational log level with optional expiration duration */
+        patch: operations["AdminLogLevelController_updateLogLevel"];
+        trace?: never;
+    };
+    "/api/tenant-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TenantMemberController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-members/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TenantMemberController_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["TenantMemberController_update"];
+        trace?: never;
+    };
+    "/api/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tenant audit logs
+         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
+         */
+        get: operations["AuditController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -3438,10 +3438,10 @@ export interface components {
             motherLanguageCode?: string | null;
             /** Format: date */
             hiredOn?: string | null;
-            annualLeaveDays: number;
-            carryoverDays: number;
+            annualLeaveMinutes: number;
+            carryoverMinutes: number;
             leaveBalanceYear: number;
-            remainingLeaveDays: number;
+            remainingLeaveMinutes: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -3474,7 +3474,7 @@ export interface components {
             motherLanguageCode?: string | null;
             /** Format: date */
             hiredOn?: string | null;
-            annualLeaveDays?: number;
+            annualLeaveMinutes?: number;
         };
         UpdateEmployeeDto: {
             name?: string;
@@ -3493,13 +3493,200 @@ export interface components {
             motherLanguageCode?: string | null;
             /** Format: date */
             hiredOn?: string | null;
-            annualLeaveDays?: number;
+            annualLeaveMinutes?: number;
         };
         EmployeeDeleteResponseDto: {
             /** Format: uuid */
             id: string;
             isActive?: boolean;
             deleted?: boolean;
+        };
+        HrMeEmployeeDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            role: components["schemas"]["EmployeeRole"];
+            /** Format: date */
+            hiredOn?: string | null;
+            annualLeaveMinutes: number;
+        };
+        /** @enum {string} */
+        AttendanceState: "CLOCKED_OUT" | "CLOCKED_IN" | "PAUSED" | "AT_DOCTOR";
+        HrMeResponseDto: {
+            employee: components["schemas"]["HrMeEmployeeDto"];
+            clockState: components["schemas"]["AttendanceState"];
+            remainingLeaveMinutes: number;
+            timezone: string;
+        };
+        /** @enum {string} */
+        AttendanceEventType: "CLOCK_IN" | "PAUSE" | "DOCTOR" | "CLOCK_OUT";
+        /** @enum {string} */
+        AttendanceEventSource: "SELF" | "MANAGER" | "AUTO_SHIFT_CLOSE";
+        AttendanceEventResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            type: components["schemas"]["AttendanceEventType"];
+            source: components["schemas"]["AttendanceEventSource"];
+            /** Format: date-time */
+            occurredAt: string;
+            note?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ClockResponseDto: {
+            timezone: string;
+            state: components["schemas"]["AttendanceState"];
+            lastEvent?: components["schemas"]["AttendanceEventResponseDto"] | null;
+            todayEvents: components["schemas"]["AttendanceEventResponseDto"][];
+        };
+        PunchClockDto: {
+            type: components["schemas"]["AttendanceEventType"];
+            note?: string;
+        };
+        PunchResponseDto: {
+            state: components["schemas"]["AttendanceState"];
+            event: components["schemas"]["AttendanceEventResponseDto"];
+        };
+        CreateHrAttendanceDto: {
+            /** Format: uuid */
+            employeeId: string;
+            type: components["schemas"]["AttendanceEventType"];
+            /** Format: date-time */
+            occurredAt?: string;
+            note?: string;
+        };
+        LeaveRequestEmployeeDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
+        };
+        LeaveRequestResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            /**
+             * Format: date
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @enum {string} */
+            status: "BOOKED" | "CANCELLED";
+            /** @example 2850 */
+            minutesCharged: number;
+            note?: string | null;
+            createdByUserId?: string | null;
+            employee?: components["schemas"]["LeaveRequestEmployeeDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MyLeaveResponseDto: {
+            /** @example 2026 */
+            year: number;
+            /** @example 12875 */
+            allowanceMinutes: number;
+            /** @example 0 */
+            carryoverMinutes: number;
+            /** @example 10025 */
+            remainingMinutes: number;
+            bookings: components["schemas"]["LeaveRequestResponseDto"][];
+        };
+        CreateMyLeaveDto: {
+            /**
+             * Format: date
+             * @description Start date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @description End date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @example Summer vacation */
+            note?: string;
+        };
+        CreateEmployeeLeaveDto: {
+            /**
+             * Format: date
+             * @description Start date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-01
+             */
+            startOn: string;
+            /**
+             * Format: date
+             * @description End date of leave (inclusive, YYYY-MM-DD)
+             * @example 2026-09-05
+             */
+            endOn: string;
+            /** @example Summer vacation */
+            note?: string;
+            /**
+             * Format: uuid
+             * @description Employee ID to book leave for (OWNER/ADMIN only)
+             * @example d3b07384-d113-4a0b-8d02-861036f32e92
+             */
+            employeeId: string;
+        };
+        UpdateLeaveRequestDto: {
+            /**
+             * Format: date
+             * @description New start date (inclusive, YYYY-MM-DD)
+             * @example 2026-09-02
+             */
+            startOn?: string;
+            /**
+             * Format: date
+             * @description New end date (inclusive, YYYY-MM-DD)
+             * @example 2026-09-06
+             */
+            endOn?: string;
+            /** @example Rescheduled holiday */
+            note?: string;
+        };
+        PatchLeaveBalanceDto: {
+            /**
+             * @description Calendar year for the balance
+             * @example 2026
+             */
+            year: number;
+            /**
+             * @description Annual leave allowance minutes for this year
+             * @example 12875
+             */
+            allowanceMinutes?: number;
+            /**
+             * @description Carryover minutes from previous years
+             * @example 2575
+             */
+            carryoverMinutes?: number;
+        };
+        LeaveBalanceResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            /** @example 2026 */
+            year: number;
+            /** @example 12875 */
+            allowanceMinutes: number;
+            /** @example 0 */
+            carryoverMinutes: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         BayResponseDto: {
             /** Format: uuid */
@@ -3731,193 +3918,6 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
-        };
-        HrMeEmployeeDto: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            role: components["schemas"]["EmployeeRole"];
-            /** Format: date */
-            hiredOn?: string | null;
-            annualLeaveDays: number;
-        };
-        /** @enum {string} */
-        AttendanceState: "CLOCKED_OUT" | "CLOCKED_IN" | "PAUSED" | "AT_DOCTOR";
-        HrMeResponseDto: {
-            employee: components["schemas"]["HrMeEmployeeDto"];
-            clockState: components["schemas"]["AttendanceState"];
-            remainingLeaveDays: number;
-            timezone: string;
-        };
-        /** @enum {string} */
-        AttendanceEventType: "CLOCK_IN" | "PAUSE" | "DOCTOR" | "CLOCK_OUT";
-        /** @enum {string} */
-        AttendanceEventSource: "SELF" | "MANAGER" | "AUTO_SHIFT_CLOSE";
-        AttendanceEventResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            employeeId: string;
-            type: components["schemas"]["AttendanceEventType"];
-            source: components["schemas"]["AttendanceEventSource"];
-            /** Format: date-time */
-            occurredAt: string;
-            note?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        ClockResponseDto: {
-            timezone: string;
-            state: components["schemas"]["AttendanceState"];
-            lastEvent?: components["schemas"]["AttendanceEventResponseDto"] | null;
-            todayEvents: components["schemas"]["AttendanceEventResponseDto"][];
-        };
-        PunchClockDto: {
-            type: components["schemas"]["AttendanceEventType"];
-            note?: string;
-        };
-        PunchResponseDto: {
-            state: components["schemas"]["AttendanceState"];
-            event: components["schemas"]["AttendanceEventResponseDto"];
-        };
-        CreateHrAttendanceDto: {
-            /** Format: uuid */
-            employeeId: string;
-            type: components["schemas"]["AttendanceEventType"];
-            /** Format: date-time */
-            occurredAt?: string;
-            note?: string;
-        };
-        LeaveRequestEmployeeDto: {
-            id: string;
-            name: string;
-            /** @enum {string} */
-            role: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
-        };
-        LeaveRequestResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            employeeId: string;
-            /**
-             * Format: date
-             * @example 2026-09-01
-             */
-            startOn: string;
-            /**
-             * Format: date
-             * @example 2026-09-05
-             */
-            endOn: string;
-            /** @enum {string} */
-            status: "BOOKED" | "CANCELLED";
-            /** @example 5 */
-            daysCharged: number;
-            note?: string | null;
-            createdByUserId?: string | null;
-            employee?: components["schemas"]["LeaveRequestEmployeeDto"];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        MyLeaveResponseDto: {
-            /** @example 2026 */
-            year: number;
-            /** @example 25 */
-            allowanceDays: number;
-            /** @example 0 */
-            carryoverDays: number;
-            /** @example 20 */
-            remainingDays: number;
-            bookings: components["schemas"]["LeaveRequestResponseDto"][];
-        };
-        CreateMyLeaveDto: {
-            /**
-             * Format: date
-             * @description Start date of leave (inclusive, YYYY-MM-DD)
-             * @example 2026-09-01
-             */
-            startOn: string;
-            /**
-             * Format: date
-             * @description End date of leave (inclusive, YYYY-MM-DD)
-             * @example 2026-09-05
-             */
-            endOn: string;
-            /** @example Summer vacation */
-            note?: string;
-        };
-        CreateEmployeeLeaveDto: {
-            /**
-             * Format: date
-             * @description Start date of leave (inclusive, YYYY-MM-DD)
-             * @example 2026-09-01
-             */
-            startOn: string;
-            /**
-             * Format: date
-             * @description End date of leave (inclusive, YYYY-MM-DD)
-             * @example 2026-09-05
-             */
-            endOn: string;
-            /** @example Summer vacation */
-            note?: string;
-            /**
-             * Format: uuid
-             * @description Employee ID to book leave for (OWNER/ADMIN only)
-             * @example d3b07384-d113-4a0b-8d02-861036f32e92
-             */
-            employeeId: string;
-        };
-        UpdateLeaveRequestDto: {
-            /**
-             * Format: date
-             * @description New start date (inclusive, YYYY-MM-DD)
-             * @example 2026-09-02
-             */
-            startOn?: string;
-            /**
-             * Format: date
-             * @description New end date (inclusive, YYYY-MM-DD)
-             * @example 2026-09-06
-             */
-            endOn?: string;
-            /** @example Rescheduled holiday */
-            note?: string;
-        };
-        PatchLeaveBalanceDto: {
-            /**
-             * @description Calendar year for the balance
-             * @example 2026
-             */
-            year: number;
-            /**
-             * @description Annual leave allowance days for this year
-             * @example 25
-             */
-            allowanceDays?: number;
-            /**
-             * @description Carryover days from previous years
-             * @example 3
-             */
-            carryoverDays?: number;
-        };
-        LeaveBalanceResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            employeeId: string;
-            /** @example 2026 */
-            year: number;
-            /** @example 25 */
-            allowanceDays: number;
-            /** @example 0 */
-            carryoverDays: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
         };
     };
     responses: never;
@@ -7202,6 +7202,299 @@ export interface operations {
             };
         };
     };
+    HrController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrMeResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_clock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_punch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PunchClockDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PunchResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_getAttendance: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceEventResponseDto"][];
+                };
+            };
+        };
+    };
+    HrController_punchEmployee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHrAttendanceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PunchResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_employeeClock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employeeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_getMyLeave: {
+        parameters: {
+            query?: {
+                /** @description Target year (defaults to current year in shop timezone) */
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLeaveResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_createMyLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMyLeaveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_listTeamLeave: {
+        parameters: {
+            query?: {
+                /** @description Filter leave overlapping on/after date */
+                from?: string;
+                /** @description Filter leave overlapping on/before date */
+                to?: string;
+                /** @description Filter leave for a specific employee */
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"][];
+                };
+            };
+        };
+    };
+    HrController_createEmployeeLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmployeeLeaveDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_cancelLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_updateLeave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeaveRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_patchLeaveBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchLeaveBalanceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveBalanceResponseDto"];
+                };
+            };
+        };
+    };
     BayController_findAll: {
         parameters: {
             query?: {
@@ -7593,299 +7886,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_me: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HrMeResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_clock: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClockResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_punch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PunchClockDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PunchResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_getAttendance: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                employeeId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AttendanceEventResponseDto"][];
-                };
-            };
-        };
-    };
-    HrController_punchEmployee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateHrAttendanceDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PunchResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_employeeClock: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                employeeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClockResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_getMyLeave: {
-        parameters: {
-            query?: {
-                /** @description Target year (defaults to current year in shop timezone) */
-                year?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyLeaveResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_createMyLeave: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateMyLeaveDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_listTeamLeave: {
-        parameters: {
-            query?: {
-                /** @description Filter leave overlapping on/after date */
-                from?: string;
-                /** @description Filter leave overlapping on/before date */
-                to?: string;
-                /** @description Filter leave for a specific employee */
-                employeeId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveRequestResponseDto"][];
-                };
-            };
-        };
-    };
-    HrController_createEmployeeLeave: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateEmployeeLeaveDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_cancelLeave: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_updateLeave: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateLeaveRequestDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveRequestResponseDto"];
-                };
-            };
-        };
-    };
-    HrController_patchLeaveBalance: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchLeaveBalanceDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaveBalanceResponseDto"];
                 };
             };
         };

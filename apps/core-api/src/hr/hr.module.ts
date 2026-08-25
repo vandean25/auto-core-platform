@@ -6,6 +6,7 @@ import { HrAttendanceSchedulerService } from './hr-attendance-scheduler.service'
 import { HrAttendanceService } from './hr-attendance.service';
 import { HrIdentityService } from './hr-identity.service';
 import { HrLeaveService } from './hr-leave.service';
+import { HrWorkScheduleService } from './hr-work-schedule.service';
 import { HrWorkdayService } from './hr-workday.service';
 import { HrController } from './hr.controller';
 
@@ -16,6 +17,7 @@ import { HrController } from './hr.controller';
     HrIdentityService,
     HrAttendanceService,
     HrAttendanceSchedulerService,
+    HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
   ],
@@ -23,6 +25,7 @@ import { HrController } from './hr.controller';
     HrIdentityService,
     HrAttendanceService,
     HrAttendanceSchedulerService,
+    HrWorkScheduleService,
     HrWorkdayService,
     HrLeaveService,
   ],

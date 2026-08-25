@@ -7,6 +7,14 @@ import { useCreateEmployee, useDeleteEmployee, useEmployees, useUpdateEmployee }
 import { usePatchLeaveBalance } from '@/api/hr'
 import { EmployeeTable } from './EmployeeTable'
 
+// Matches apps/core-api/test/tenant-test-utils.ts
+const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875
+const HR_TEST_ALLOWANCE_30_MINUTES = 15450
+const HR_TEST_CARRYOVER_3_MINUTES = 1545
+const HR_TEST_CARRYOVER_4_MINUTES = 2060
+const HR_TEST_REMAINING_22_MINUTES = 11330
+const HR_TEST_REMAINING_23_MINUTES = 11845
+
 const employeeFixture: Employee = {
   id: 'employee-1',
   name: 'Ada Lovelace',
@@ -16,10 +24,10 @@ const employeeFixture: Employee = {
   userId: 'user-uuid-1',
   motherLanguageCode: 'en-US',
   hiredOn: '2024-03-01',
-  annualLeaveDays: 25,
-  carryoverDays: 3,
+  annualLeaveMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
+  carryoverMinutes: HR_TEST_CARRYOVER_3_MINUTES,
   leaveBalanceYear: 2025,
-  remainingLeaveDays: 22,
+  remainingLeaveMinutes: HR_TEST_REMAINING_22_MINUTES,
   createdAt: '2024-03-01T00:00:00.000Z',
   updatedAt: '2024-03-01T00:00:00.000Z',
 }
@@ -35,19 +43,19 @@ const employeeWithoutCarryover: Employee = {
   ...employeeFixture,
   id: 'employee-3',
   name: 'Katherine Johnson',
-  carryoverDays: 0,
+  carryoverMinutes: 0,
   leaveBalanceYear: 2024,
 }
 
 const updateEmployee = vi.fn().mockResolvedValue(employeeFixture)
 const patchLeaveBalance = vi.fn().mockImplementation(
-  ({ data }: { data: { year: number; carryoverDays: number } }) =>
+  ({ data }: { data: { year: number; carryoverMinutes: number } }) =>
     Promise.resolve({
       id: 'balance-1',
       employeeId: employeeFixture.id,
       year: data.year,
-      allowanceDays: 25,
-      carryoverDays: data.carryoverDays,
+      allowanceMinutes: HR_TEST_ANNUAL_LEAVE_MINUTES,
+      carryoverMinutes: data.carryoverMinutes,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     }),
@@ -112,12 +120,12 @@ describe('EmployeeTable', () => {
     renderEmployeeTable('OWNER')
 
     expect(screen.getByText('Hire date')).toBeInTheDocument()
-    expect(screen.getByText('Leave days')).toBeInTheDocument()
-    expect(screen.getByText('Remaining')).toBeInTheDocument()
+    expect(screen.getByText('Leave (min)')).toBeInTheDocument()
+    expect(screen.getByText('Remaining (min)')).toBeInTheDocument()
     expect(screen.getByText('Login')).toBeInTheDocument()
     expect(screen.getByLabelText('Hire date for Ada Lovelace')).toHaveValue('2024-03-01')
-    expect(screen.getByLabelText('Annual leave days for Ada Lovelace')).toHaveValue(25)
-    expect(screen.getByText('22')).toBeInTheDocument()
+    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toHaveValue(HR_TEST_ANNUAL_LEAVE_MINUTES)
+    expect(screen.getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
     expect(screen.getByText('user-uuid-1')).toBeInTheDocument()
   })
 
@@ -125,18 +133,17 @@ describe('EmployeeTable', () => {
     renderEmployeeTable(activeRole)
 
     expect(screen.getByLabelText('Hire date for Ada Lovelace')).toBeEnabled()
-    expect(screen.getByLabelText('Annual leave days for Ada Lovelace')).toBeEnabled()
-    expect(screen.getByLabelText('Annual leave days for Ada Lovelace')).toHaveAttribute('min', '0')
-    expect(screen.getByLabelText('Annual leave days for Ada Lovelace')).toHaveAttribute('max', '365')
+    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toBeEnabled()
+    expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toHaveAttribute('min', '0')
   })
 
   it('SALES sees hire date and allowance as read-only values', () => {
     renderEmployeeTable('SALES')
 
     expect(screen.queryByLabelText('Hire date for Ada Lovelace')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Annual leave days for Ada Lovelace')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Annual leave minutes for Ada Lovelace')).not.toBeInTheDocument()
     expect(screen.getByText('2024-03-01')).toBeInTheDocument()
-    expect(screen.getByText('25')).toBeInTheDocument()
+    expect(screen.getByText(String(HR_TEST_ANNUAL_LEAVE_MINUTES))).toBeInTheDocument()
   })
 
   it.each(['OWNER', 'ADMIN'] as const)('%s sees Not set and can edit a missing hire date', (activeRole) => {
@@ -176,14 +183,14 @@ describe('EmployeeTable', () => {
   it('ADMIN saves allowance on blur', async () => {
     renderEmployeeTable('ADMIN')
 
-    const input = screen.getByLabelText('Annual leave days for Ada Lovelace')
-    fireEvent.change(input, { target: { value: '30' } })
+    const input = screen.getByLabelText('Annual leave minutes for Ada Lovelace')
+    fireEvent.change(input, { target: { value: String(HR_TEST_ALLOWANCE_30_MINUTES) } })
     fireEvent.blur(input)
 
     await waitFor(() => {
       expect(updateEmployee).toHaveBeenCalledWith({
         id: employeeFixture.id,
-        data: { annualLeaveDays: 30 },
+        data: { annualLeaveMinutes: HR_TEST_ALLOWANCE_30_MINUTES },
       })
     })
   })
@@ -193,7 +200,7 @@ describe('EmployeeTable', () => {
 
     fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
-    fireEvent.change(carryoverInput, { target: { value: '4' } })
+    fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
@@ -201,7 +208,7 @@ describe('EmployeeTable', () => {
         employeeId: employeeFixture.id,
         data: {
           year: employeeFixture.leaveBalanceYear,
-          carryoverDays: 4,
+          carryoverMinutes: HR_TEST_CARRYOVER_4_MINUTES,
         },
       })
     })
@@ -212,7 +219,7 @@ describe('EmployeeTable', () => {
 
     fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
-    expect(carryoverInput).toHaveValue(3)
+    expect(carryoverInput).toHaveValue(HR_TEST_CARRYOVER_3_MINUTES)
 
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
@@ -226,28 +233,28 @@ describe('EmployeeTable', () => {
     const carryoverInput = await screen.findByLabelText('Carryover this year')
     const detailSheet = screen.getByTestId('employee-detail-sheet')
 
-    expect(within(detailSheet).getByText('22')).toBeInTheDocument()
+    expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
 
-    fireEvent.change(carryoverInput, { target: { value: '4' } })
+    fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(1)
-      expect(within(detailSheet).getByText('23')).toBeInTheDocument()
+      expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_23_MINUTES))).toBeInTheDocument()
     })
 
-    fireEvent.change(carryoverInput, { target: { value: '3' } })
+    fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_3_MINUTES) } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(2)
-      expect(within(detailSheet).getByText('22')).toBeInTheDocument()
+      expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
     })
     expect(patchLeaveBalance).toHaveBeenLastCalledWith({
       employeeId: employeeFixture.id,
       data: {
         year: employeeFixture.leaveBalanceYear,
-        carryoverDays: 3,
+        carryoverMinutes: HR_TEST_CARRYOVER_3_MINUTES,
       },
     })
   })
@@ -294,5 +301,39 @@ describe('EmployeeTable', () => {
 
     expect(await screen.findByLabelText('Carryover this year')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save leave balance' })).not.toBeInTheDocument()
+  })
+
+  it('omits annualLeaveMinutes on create when the field is left blank', async () => {
+    const createEmployee = vi.fn().mockResolvedValue(employeeFixture)
+    vi.mocked(useCreateEmployee).mockReturnValue({
+      mutateAsync: createEmployee,
+      isPending: false,
+    } as unknown as ReturnType<typeof useCreateEmployee>)
+
+    const onCreateOpenChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <EmployeeTable
+          activeRole='OWNER'
+          createOpen
+          onCreateOpenChange={onCreateOpenChange}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Hire' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(createEmployee).toHaveBeenCalledWith({
+        name: 'New Hire',
+        role: 'MECHANIC',
+        sortOrder: 0,
+        isActive: true,
+        motherLanguageCode: null,
+        hiredOn: null,
+      })
+    })
+    expect(createEmployee.mock.calls[0]?.[0]).not.toHaveProperty('annualLeaveMinutes')
   })
 })

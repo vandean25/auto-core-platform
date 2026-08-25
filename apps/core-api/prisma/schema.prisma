@@ -81,6 +81,8 @@ model Tenant {
   employeeLeaveBalances EmployeeLeaveBalance[]
   leaveRequests        LeaveRequest[]
   attendanceEvents     AttendanceEvent[]
+  employeeWorkSchedules EmployeeWorkSchedule[]
+  employeeWorkScheduleDays EmployeeWorkScheduleDay[]
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
   laborEntries         LaborEntry[]
@@ -913,7 +915,8 @@ model Employee {
   acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
   voiceNoteRateLimits      VoiceNoteRateLimit[]
   hired_on                DateTime?       @db.Date
-  annual_leave_days       Int             @default(25)
+  annual_leave_minutes    Int             @default(0)
+  workSchedules           EmployeeWorkSchedule[]
   leaveBalances           EmployeeLeaveBalance[]
   leaveRequests           LeaveRequest[]
   attendanceEvents        AttendanceEvent[]
@@ -925,6 +928,41 @@ model Employee {
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
   @@map("employees")
+}
+
+model EmployeeWorkSchedule {
+  id             String   @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant   @relation(fields: [tenant_id], references: [id])
+  employee_id    String
+  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)
+  effective_from DateTime @db.Date
+  days           EmployeeWorkScheduleDay[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, employee_id, effective_from])
+  @@index([tenant_id])
+  @@map("employee_work_schedules")
+}
+
+model EmployeeWorkScheduleDay {
+  id            String               @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant               @relation(fields: [tenant_id], references: [id])
+  schedule_id   String
+  schedule      EmployeeWorkSchedule @relation(fields: [tenant_id, schedule_id], references: [tenant_id, id], onDelete: Cascade)
+  weekday       Int
+  is_working    Boolean
+  start_time    String?
+  end_time      String?
+  break_minutes Int                  @default(0)
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, schedule_id, weekday])
+  @@index([tenant_id])
+  @@map("employee_work_schedule_days")
 }
 
 enum LeaveRequestStatus {
@@ -939,8 +977,8 @@ model EmployeeLeaveBalance {
   employee_id    String
   employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
   year           Int
-  allowance_days Int
-  carryover_days Int      @default(0)
+  allowance_minutes Int
+  carryover_minutes Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -959,7 +997,7 @@ model LeaveRequest {
   start_on            DateTime           @db.Date
   end_on              DateTime           @db.Date
   status              LeaveRequestStatus @default(BOOKED)
-  days_charged        Int
+  minutes_charged     Int
   note                String?
   created_by_user_id  String?
   createdAt           DateTime           @default(now())

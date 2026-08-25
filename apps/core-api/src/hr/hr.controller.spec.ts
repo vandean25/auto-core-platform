@@ -66,10 +66,10 @@ describe('HrController', () => {
         name: 'Ada',
         role: EmployeeRole.MECHANIC,
         hiredOn: '2024-01-01',
-        annualLeaveDays: 25,
+        annualLeaveMinutes: 12875,
       },
       clockState: 'CLOCKED_IN',
-      remainingLeaveDays: 22,
+      remainingLeaveMinutes: 11055,
       timezone: 'Europe/Vienna',
     });
 
@@ -188,9 +188,9 @@ describe('HrController', () => {
   it('GET /api/hr/me/leave returns my leave', async () => {
     leaveService.getMyLeave.mockResolvedValue({
       year: 2026,
-      allowanceDays: 25,
-      carryoverDays: 0,
-      remainingDays: 20,
+      allowanceMinutes: 12875,
+      carryoverMinutes: 0,
+      remainingMinutes: 10300,
       bookings: [],
     });
 
@@ -206,7 +206,7 @@ describe('HrController', () => {
       startOn: '2026-09-01',
       endOn: '2026-09-05',
       status: LeaveRequestStatus.BOOKED,
-      daysCharged: 5,
+      minutesCharged: 2850,
       note: 'Vacation',
       createdByUserId: 'user-1',
       createdAt: new Date(),
@@ -233,7 +233,7 @@ describe('HrController', () => {
       startOn: '2026-09-01',
       endOn: '2026-09-05',
       status: LeaveRequestStatus.BOOKED,
-      daysCharged: 5,
+      minutesCharged: 2850,
       note: null,
       createdByUserId: 'user-1',
       createdAt: new Date(),
@@ -300,20 +300,20 @@ describe('HrController', () => {
       id: 'bal-1',
       employeeId: 'emp-1',
       year: 2026,
-      allowanceDays: 30,
-      carryoverDays: 2,
+      allowanceMinutes: 15450,
+      carryoverMinutes: 1030,
     });
 
     const result = await controller.patchLeaveBalance('emp-1', {
       year: 2026,
-      allowanceDays: 30,
-      carryoverDays: 2,
+      allowanceMinutes: 15450,
+      carryoverMinutes: 1030,
     });
-    expect(result.allowanceDays).toBe(30);
+    expect(result.allowanceMinutes).toBe(15450);
     expect(leaveService.patchLeaveBalance).toHaveBeenCalledWith('emp-1', {
       year: 2026,
-      allowanceDays: 30,
-      carryoverDays: 2,
+      allowanceMinutes: 15450,
+      carryoverMinutes: 1030,
     });
   });
 });

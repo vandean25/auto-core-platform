@@ -64,7 +64,7 @@ describe('HrAttendanceService', () => {
         name: 'Ada Lovelace',
         role: 'MECHANIC',
         hired_on: new Date('2024-01-01'),
-        annual_leave_days: 25,
+        annual_leave_minutes: 12875,
       }),
       assertOwnerAdmin: jest.fn(),
     };
@@ -289,7 +289,7 @@ describe('HrAttendanceService', () => {
       prisma.attendanceEvent.findFirst.mockResolvedValue(null);
       prisma.employeeLeaveBalance.findFirst.mockResolvedValue(null);
       prisma.leaveRequest.aggregate.mockResolvedValue({
-        _sum: { days_charged: null },
+        _sum: { minutes_charged: null },
       });
 
       const result = await service.getMeProfile();

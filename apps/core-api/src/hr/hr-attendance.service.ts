@@ -218,15 +218,15 @@ export class HrAttendanceService {
             lte: new Date(Date.UTC(currentYear, 11, 31)),
           },
         },
-        _sum: { days_charged: true },
+        _sum: { minutes_charged: true },
       }),
     ]);
 
     const clockState = deriveAttendanceState(lastEvent?.type);
-    const allowance = balance?.allowance_days ?? me.annual_leave_days;
-    const carryover = balance?.carryover_days ?? 0;
-    const bookedDays = leaveSum._sum.days_charged ?? 0;
-    const remainingLeaveDays = allowance + carryover - bookedDays;
+    const allowance = balance?.allowance_minutes ?? me.annual_leave_minutes;
+    const carryover = balance?.carryover_minutes ?? 0;
+    const bookedMinutes = leaveSum._sum.minutes_charged ?? 0;
+    const remainingLeaveMinutes = allowance + carryover - bookedMinutes;
 
     return {
       employee: {
@@ -234,10 +234,10 @@ export class HrAttendanceService {
         name: me.name,
         role: me.role,
         hiredOn: me.hired_on ? formatLocalDate(me.hired_on, 'UTC') : null,
-        annualLeaveDays: me.annual_leave_days,
+        annualLeaveMinutes: me.annual_leave_minutes,
       },
       clockState,
-      remainingLeaveDays,
+      remainingLeaveMinutes,
       timezone,
     };
   }

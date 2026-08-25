@@ -42,8 +42,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
-const MIN_LEAVE_DAYS = 0
-const MAX_LEAVE_DAYS = 365
+const MIN_LEAVE_MINUTES = 0
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
 type EmployeeFormState = {
@@ -52,7 +51,7 @@ type EmployeeFormState = {
   sortOrder: string
   motherLanguageCode: string
   hiredOn: string
-  annualLeaveDays: string
+  annualLeaveMinutes: string
 }
 
 type EmployeeTableProps = {
@@ -74,7 +73,7 @@ const defaultFormState: EmployeeFormState = {
   sortOrder: '0',
   motherLanguageCode: '',
   hiredOn: '',
-  annualLeaveDays: '25',
+  annualLeaveMinutes: '',
 }
 
 function formatRoleLabel(role: EmployeeRole) {
@@ -110,8 +109,8 @@ function matchesEmployeeSearch(employee: Employee, term: string) {
     employee.motherLanguageCode ?? '',
     getLanguageLabel(employee.motherLanguageCode),
     employee.hiredOn ?? 'Not set',
-    String(employee.annualLeaveDays),
-    String(employee.remainingLeaveDays),
+    String(employee.annualLeaveMinutes),
+    String(employee.remainingLeaveMinutes),
     employee.userId ?? '',
     employee.userId ? 'linked' : 'not linked',
   ]
@@ -151,7 +150,7 @@ function sortEmployees(
       return direction * leftValue.localeCompare(rightValue)
     }
 
-    if (sortField === 'annualLeaveDays' || sortField === 'remainingLeaveDays') {
+    if (sortField === 'annualLeaveMinutes' || sortField === 'remainingLeaveMinutes') {
       return direction * (left[sortField] - right[sortField])
     }
 
@@ -225,7 +224,7 @@ function EditableDateField({ ariaLabel, canEdit, initialValue, onSave }: Editabl
   )
 }
 
-function EditableLeaveDaysField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
+function EditableLeaveMinutesField({ ariaLabel, canEdit, initialValue, onSave }: EditableFieldProps) {
   const [value, setValue] = React.useState(initialValue)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -237,8 +236,8 @@ function EditableLeaveDaysField({ ariaLabel, canEdit, initialValue, onSave }: Ed
     if (value === initialValue || isSaving) return
 
     const parsedValue = Number(value)
-    if (!Number.isInteger(parsedValue) || parsedValue < MIN_LEAVE_DAYS || parsedValue > MAX_LEAVE_DAYS) {
-      toast.error(`Leave days must be an integer between ${MIN_LEAVE_DAYS} and ${MAX_LEAVE_DAYS}`)
+    if (!Number.isInteger(parsedValue) || parsedValue < MIN_LEAVE_MINUTES) {
+      toast.error(`Leave minutes must be a non-negative integer`)
       setValue(initialValue)
       return
     }
@@ -265,8 +264,7 @@ function EditableLeaveDaysField({ ariaLabel, canEdit, initialValue, onSave }: Ed
     >
       <Input
         type='number'
-        min={MIN_LEAVE_DAYS}
-        max={MAX_LEAVE_DAYS}
+        min={MIN_LEAVE_MINUTES}
         step={1}
         value={value}
         aria-label={ariaLabel}
@@ -292,7 +290,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
   const [formState, setFormState] = React.useState<EmployeeFormState>(defaultFormState)
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
   const [sheetOpen, setSheetOpen] = React.useState(false)
-  const [carryoverDays, setCarryoverDays] = React.useState('0')
+  const [carryoverMinutes, setCarryoverMinutes] = React.useState('0')
 
   const hasHrEditAccess = canEditHrFields(activeRole)
   const employees = React.useMemo(() => responseData?.data ?? [], [responseData?.data])
@@ -333,7 +331,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         sortOrder?: number
         motherLanguageCode?: string | null
         hiredOn?: string | null
-        annualLeaveDays?: number
+        annualLeaveMinutes?: number
       },
       successMessage: string,
       fallbackMessage: string,
@@ -364,15 +362,11 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       return
     }
 
-    let parsedAnnualLeaveDays: number | undefined
-    if (hasHrEditAccess) {
-      parsedAnnualLeaveDays = Number(formState.annualLeaveDays)
-      if (
-        !Number.isInteger(parsedAnnualLeaveDays) ||
-        parsedAnnualLeaveDays < MIN_LEAVE_DAYS ||
-        parsedAnnualLeaveDays > MAX_LEAVE_DAYS
-      ) {
-        toast.error(`Leave days must be an integer between ${MIN_LEAVE_DAYS} and ${MAX_LEAVE_DAYS}`)
+    let parsedAnnualLeaveMinutes: number | undefined
+    if (hasHrEditAccess && formState.annualLeaveMinutes.trim()) {
+      parsedAnnualLeaveMinutes = Number(formState.annualLeaveMinutes)
+      if (!Number.isInteger(parsedAnnualLeaveMinutes) || parsedAnnualLeaveMinutes < MIN_LEAVE_MINUTES) {
+        toast.error('Leave minutes must be a non-negative integer')
         return
       }
     }
@@ -387,7 +381,9 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         ...(hasHrEditAccess
           ? {
               hiredOn: formState.hiredOn || null,
-              annualLeaveDays: parsedAnnualLeaveDays,
+              ...(parsedAnnualLeaveMinutes !== undefined && {
+                annualLeaveMinutes: parsedAnnualLeaveMinutes,
+              }),
             }
           : {}),
       })
@@ -415,39 +411,35 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
   }
 
   const handleSaveCarryover = async () => {
-    if (!selectedEmployee || !hasHrEditAccess || !carryoverDays.trim()) return
+    if (!selectedEmployee || !hasHrEditAccess || !carryoverMinutes.trim()) return
 
-    const parsedCarryoverDays = Number(carryoverDays)
-    if (
-      !Number.isInteger(parsedCarryoverDays) ||
-      parsedCarryoverDays < MIN_LEAVE_DAYS ||
-      parsedCarryoverDays > MAX_LEAVE_DAYS
-    ) {
-      toast.error(`Carryover days must be an integer between ${MIN_LEAVE_DAYS} and ${MAX_LEAVE_DAYS}`)
+    const parsedCarryoverMinutes = Number(carryoverMinutes)
+    if (!Number.isInteger(parsedCarryoverMinutes) || parsedCarryoverMinutes < MIN_LEAVE_MINUTES) {
+      toast.error('Carryover minutes must be a non-negative integer')
       return
     }
-    if (parsedCarryoverDays === selectedEmployee.carryoverDays) return
+    if (parsedCarryoverMinutes === selectedEmployee.carryoverMinutes) return
 
     try {
       const updatedBalance = await patchLeaveBalanceMutation.mutateAsync({
         employeeId: selectedEmployee.id,
         data: {
           year: selectedEmployee.leaveBalanceYear,
-          carryoverDays: parsedCarryoverDays,
+          carryoverMinutes: parsedCarryoverMinutes,
         },
       })
-      const carryoverDelta = updatedBalance.carryoverDays - selectedEmployee.carryoverDays
+      const carryoverDelta = updatedBalance.carryoverMinutes - selectedEmployee.carryoverMinutes
       setSelectedEmployee((current) =>
         current?.id === selectedEmployee.id
           ? {
               ...current,
-              carryoverDays: updatedBalance.carryoverDays,
+              carryoverMinutes: updatedBalance.carryoverMinutes,
               leaveBalanceYear: updatedBalance.year,
-              remainingLeaveDays: current.remainingLeaveDays + carryoverDelta,
+              remainingLeaveMinutes: current.remainingLeaveMinutes + carryoverDelta,
             }
           : current,
       )
-      setCarryoverDays(String(updatedBalance.carryoverDays))
+      setCarryoverMinutes(String(updatedBalance.carryoverMinutes))
       toast.success('Leave carryover updated')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to update leave carryover'))
@@ -626,17 +618,17 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         ),
       },
       {
-        accessorKey: 'annualLeaveDays',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Leave days' />,
+        accessorKey: 'annualLeaveMinutes',
+        header: ({ column }) => <DataTableColumnHeader column={column} title='Leave (min)' />,
         cell: ({ row }) => (
-          <EditableLeaveDaysField
-            ariaLabel={`Annual leave days for ${row.original.name}`}
+          <EditableLeaveMinutesField
+            ariaLabel={`Annual leave minutes for ${row.original.name}`}
             canEdit={hasHrEditAccess}
-            initialValue={String(row.original.annualLeaveDays)}
-            onSave={(annualLeaveDays) =>
+            initialValue={String(row.original.annualLeaveMinutes)}
+            onSave={(annualLeaveMinutes) =>
               runUpdate(
                 row.original.id,
-                { annualLeaveDays: Number(annualLeaveDays) },
+                { annualLeaveMinutes: Number(annualLeaveMinutes) },
                 'Employee leave allowance updated',
                 'Failed to update employee leave allowance',
               )}
@@ -644,9 +636,9 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         ),
       },
       {
-        accessorKey: 'remainingLeaveDays',
-        header: ({ column }) => <DataTableColumnHeader column={column} title='Remaining' />,
-        cell: ({ row }) => <span>{row.original.remainingLeaveDays}</span>,
+        accessorKey: 'remainingLeaveMinutes',
+        header: ({ column }) => <DataTableColumnHeader column={column} title='Remaining (min)' />,
+        cell: ({ row }) => <span>{row.original.remainingLeaveMinutes}</span>,
       },
       {
         accessorKey: 'userId',
@@ -670,7 +662,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         setPagination={setPagination}
         onRowClick={(employee) => {
           setSelectedEmployee(employee)
-          setCarryoverDays(String(employee.carryoverDays))
+          setCarryoverMinutes(String(employee.carryoverMinutes))
           setSheetOpen(true)
         }}
         getRowContextActions={(row) => [
@@ -781,19 +773,19 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='employee-annual-leave-days'>Leave days</Label>
+              <Label htmlFor='employee-annual-leave-minutes'>Leave (min)</Label>
               <Input
-                id='employee-annual-leave-days'
+                id='employee-annual-leave-minutes'
                 type='number'
-                min={MIN_LEAVE_DAYS}
-                max={MAX_LEAVE_DAYS}
+                min={MIN_LEAVE_MINUTES}
                 step={1}
-                value={formState.annualLeaveDays}
+                placeholder='Server default (25 × avg workday)'
+                value={formState.annualLeaveMinutes}
                 disabled={!hasHrEditAccess}
                 onChange={(event) => {
                   setFormState((previous) => ({
                     ...previous,
-                    annualLeaveDays: event.target.value,
+                    annualLeaveMinutes: event.target.value,
                   }))
                 }}
               />
@@ -831,12 +823,12 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                   <p className='text-sm'>{selectedEmployee.hiredOn ?? 'Not set'}</p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Leave days</Label>
-                  <p className='text-sm'>{selectedEmployee.annualLeaveDays}</p>
+                  <Label>Leave (min)</Label>
+                  <p className='text-sm'>{selectedEmployee.annualLeaveMinutes}</p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Remaining</Label>
-                  <p className='text-sm'>{selectedEmployee.remainingLeaveDays}</p>
+                  <Label>Remaining (min)</Label>
+                  <p className='text-sm'>{selectedEmployee.remainingLeaveMinutes}</p>
                 </div>
                 <div className='space-y-1'>
                   <Label>Login</Label>
@@ -845,17 +837,16 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='employee-carryover-days'>Carryover this year</Label>
+                <Label htmlFor='employee-carryover-minutes'>Carryover this year (min)</Label>
                 <Input
-                  id='employee-carryover-days'
+                  id='employee-carryover-minutes'
                   type='number'
-                  min={MIN_LEAVE_DAYS}
-                  max={MAX_LEAVE_DAYS}
+                  min={MIN_LEAVE_MINUTES}
                   step={1}
-                  value={carryoverDays}
+                  value={carryoverMinutes}
                   aria-label='Carryover this year'
                   disabled={!hasHrEditAccess || patchLeaveBalanceMutation.isPending}
-                  onChange={(event) => setCarryoverDays(event.target.value)}
+                  onChange={(event) => setCarryoverMinutes(event.target.value)}
                 />
               </div>
 

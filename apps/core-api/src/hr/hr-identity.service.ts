@@ -8,7 +8,7 @@ export interface ResolvedEmployeeMe {
   name: string;
   role: EmployeeRole;
   hired_on: Date | null;
-  annual_leave_days: number;
+  annual_leave_minutes: number;
 }
 
 @Injectable()
@@ -42,7 +42,7 @@ export class HrIdentityService {
         name: true,
         role: true,
         hired_on: true,
-        annual_leave_days: true,
+        annual_leave_minutes: true,
       },
     });
 

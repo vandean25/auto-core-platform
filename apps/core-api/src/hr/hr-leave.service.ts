@@ -60,7 +60,7 @@ export class HrLeaveService {
       tenantId,
       me.id,
       year,
-      me.annual_leave_days,
+      me.annual_leave_minutes,
     );
 
     const startOfYear = new Date(Date.UTC(year, 0, 1));
@@ -78,19 +78,20 @@ export class HrLeaveService {
       orderBy: [{ start_on: 'asc' }],
     });
 
-    const bookedDays = bookings
+    const bookedMinutes = bookings
       .filter((b) => b.status === LeaveRequestStatus.BOOKED)
-      .reduce((acc, curr) => acc + curr.days_charged, 0);
+      .reduce((acc, curr) => acc + curr.minutes_charged, 0);
 
-    const allowanceDays = balance.allowance_days;
-    const carryoverDays = balance.carryover_days;
-    const remainingDays = allowanceDays + carryoverDays - bookedDays;
+    const allowanceMinutes = balance.allowance_minutes;
+    const carryoverMinutes = balance.carryover_minutes;
+    const remainingMinutes =
+      allowanceMinutes + carryoverMinutes - bookedMinutes;
 
     return {
       year,
-      allowanceDays,
-      carryoverDays,
-      remainingDays,
+      allowanceMinutes,
+      carryoverMinutes,
+      remainingMinutes,
       bookings: bookings.map((b) => this.toDto(b)),
     };
   }
@@ -103,7 +104,7 @@ export class HrLeaveService {
     return this.createLeaveBooking(
       tenantId,
       me.id,
-      me.annual_leave_days,
+      me.annual_leave_minutes,
       dto.startOn,
       dto.endOn,
       dto.note,
@@ -129,7 +130,7 @@ export class HrLeaveService {
     return this.createLeaveBooking(
       tenantId,
       employee.id,
-      employee.annual_leave_days,
+      employee.annual_leave_minutes,
       dto.startOn,
       dto.endOn,
       dto.note,
@@ -255,7 +256,9 @@ export class HrLeaveService {
     const year = Number(startYear);
 
     const calendar = await this.workdayService.loadTenantCalendar(tenantId);
-    const daysCharged = this.workdayService.countChargeableDays(
+    const minutesCharged = await this.workdayService.countChargeableMinutes(
+      tenantId,
+      existing.employee_id,
       startOnStr,
       endOnStr,
       calendar.timezone,
@@ -263,8 +266,10 @@ export class HrLeaveService {
       calendar.holidays,
     );
 
-    if (daysCharged === 0) {
-      throw new BadRequestException('Leave range contains zero workdays');
+    if (minutesCharged === 0) {
+      throw new BadRequestException(
+        'Leave range contains zero chargeable minutes',
+      );
     }
 
     const startOnDate = toUtcDateOnly(startOnStr);
@@ -290,7 +295,7 @@ export class HrLeaveService {
       tenantId,
       existing.employee_id,
       year,
-      existing.employee.annual_leave_days,
+      existing.employee.annual_leave_minutes,
     );
 
     const otherBookings = await this.prisma.leaveRequest.aggregate({
@@ -304,15 +309,15 @@ export class HrLeaveService {
           lt: new Date(Date.UTC(year + 1, 0, 1)),
         },
       },
-      _sum: { days_charged: true },
+      _sum: { minutes_charged: true },
     });
 
-    const otherCharged = otherBookings._sum.days_charged ?? 0;
+    const otherCharged = otherBookings._sum.minutes_charged ?? 0;
     const remainingAvailable =
-      balance.allowance_days + balance.carryover_days - otherCharged;
+      balance.allowance_minutes + balance.carryover_minutes - otherCharged;
 
-    if (daysCharged > remainingAvailable) {
-      throw new ConflictException('Not enough remaining leave days');
+    if (minutesCharged > remainingAvailable) {
+      throw new ConflictException('Not enough remaining leave time');
     }
 
     const updated = await this.prisma.leaveRequest.update({
@@ -320,7 +325,7 @@ export class HrLeaveService {
       data: {
         start_on: startOnDate,
         end_on: endOnDate,
-        days_charged: daysCharged,
+        minutes_charged: minutesCharged,
         ...(dto.note !== undefined && { note: dto.note?.trim() || null }),
       },
       include: {
@@ -365,23 +370,24 @@ export class HrLeaveService {
           tenant_id: tenantId,
           employee_id: employeeId,
           year: dto.year,
-          allowance_days: dto.allowanceDays ?? employee.annual_leave_days,
-          carryover_days: dto.carryoverDays ?? 0,
+          allowance_minutes:
+            dto.allowanceMinutes ?? employee.annual_leave_minutes,
+          carryover_minutes: dto.carryoverMinutes ?? 0,
         },
         update: {
-          ...(dto.allowanceDays !== undefined && {
-            allowance_days: dto.allowanceDays,
+          ...(dto.allowanceMinutes !== undefined && {
+            allowance_minutes: dto.allowanceMinutes,
           }),
-          ...(dto.carryoverDays !== undefined && {
-            carryover_days: dto.carryoverDays,
+          ...(dto.carryoverMinutes !== undefined && {
+            carryover_minutes: dto.carryoverMinutes,
           }),
         },
       });
 
-      if (dto.year === currentYear && dto.allowanceDays !== undefined) {
+      if (dto.year === currentYear && dto.allowanceMinutes !== undefined) {
         const updatedEmployee = await tx.employee.updateMany({
           where: { id: employeeId, tenant_id: tenantId },
-          data: { annual_leave_days: dto.allowanceDays },
+          data: { annual_leave_minutes: dto.allowanceMinutes },
         });
         if (updatedEmployee.count === 0) {
           throw new NotFoundException(`Employee ${employeeId} not found`);
@@ -395,8 +401,8 @@ export class HrLeaveService {
       id: result.id,
       employeeId: result.employee_id,
       year: result.year,
-      allowanceDays: result.allowance_days,
-      carryoverDays: result.carryover_days,
+      allowanceMinutes: result.allowance_minutes,
+      carryoverMinutes: result.carryover_minutes,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
     };
@@ -405,7 +411,7 @@ export class HrLeaveService {
   private async createLeaveBooking(
     tenantId: string,
     employeeId: string,
-    annualLeaveDays: number,
+    annualLeaveMinutes: number,
     startOnStr: string,
     endOnStr: string,
     note?: string,
@@ -425,7 +431,9 @@ export class HrLeaveService {
     const year = Number(startYear);
 
     const calendar = await this.workdayService.loadTenantCalendar(tenantId);
-    const daysCharged = this.workdayService.countChargeableDays(
+    const minutesCharged = await this.workdayService.countChargeableMinutes(
+      tenantId,
+      employeeId,
       startOnStr,
       endOnStr,
       calendar.timezone,
@@ -433,8 +441,10 @@ export class HrLeaveService {
       calendar.holidays,
     );
 
-    if (daysCharged === 0) {
-      throw new BadRequestException('Leave range contains zero workdays');
+    if (minutesCharged === 0) {
+      throw new BadRequestException(
+        'Leave range contains zero chargeable minutes',
+      );
     }
 
     const startOnDate = toUtcDateOnly(startOnStr);
@@ -459,7 +469,7 @@ export class HrLeaveService {
       tenantId,
       employeeId,
       year,
-      annualLeaveDays,
+      annualLeaveMinutes,
     );
 
     const existingBookings = await this.prisma.leaveRequest.aggregate({
@@ -472,15 +482,15 @@ export class HrLeaveService {
           lt: new Date(Date.UTC(year + 1, 0, 1)),
         },
       },
-      _sum: { days_charged: true },
+      _sum: { minutes_charged: true },
     });
 
-    const alreadyBooked = existingBookings._sum.days_charged ?? 0;
-    const remainingDays =
-      balance.allowance_days + balance.carryover_days - alreadyBooked;
+    const alreadyBooked = existingBookings._sum.minutes_charged ?? 0;
+    const remainingMinutes =
+      balance.allowance_minutes + balance.carryover_minutes - alreadyBooked;
 
-    if (daysCharged > remainingDays) {
-      throw new ConflictException('Not enough remaining leave days');
+    if (minutesCharged > remainingMinutes) {
+      throw new ConflictException('Not enough remaining leave time');
     }
 
     const created = await this.prisma.leaveRequest.create({
@@ -490,7 +500,7 @@ export class HrLeaveService {
         start_on: startOnDate,
         end_on: endOnDate,
         status: LeaveRequestStatus.BOOKED,
-        days_charged: daysCharged,
+        minutes_charged: minutesCharged,
         note: note?.trim() || null,
         created_by_user_id: createdByUserId,
       },
@@ -522,8 +532,8 @@ export class HrLeaveService {
         tenant_id: tenantId,
         employee_id: employeeId,
         year,
-        allowance_days: defaultAllowance,
-        carryover_days: 0,
+        allowance_minutes: defaultAllowance,
+        carryover_minutes: 0,
       },
       update: {},
     });
@@ -559,7 +569,7 @@ export class HrLeaveService {
       startOn: formatUtcDateOnly(booking.start_on),
       endOn: formatUtcDateOnly(booking.end_on),
       status: booking.status,
-      daysCharged: booking.days_charged,
+      minutesCharged: booking.minutes_charged,
       note: booking.note,
       createdByUserId: booking.created_by_user_id,
       ...(booking.employee && {
