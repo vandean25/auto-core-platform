@@ -63,7 +63,7 @@ INNER JOIN "workshop_settings" ws ON ws."tenant_id" = e."tenant_id"
 INNER JOIN "workshop_opening_hours" woh
     ON woh."tenant_id" = e."tenant_id" AND woh."workshop_settings_id" = ws."id";
 
--- Default Mon–Sat pattern for employees whose tenant has no opening-hour rows
+-- Pad missing ISO weekdays 1-7 per schedule (same defaults as HrWorkScheduleService)
 INSERT INTO "employee_work_schedule_days" (
     "id", "tenant_id", "schedule_id", "weekday", "is_working", "start_time", "end_time", "break_minutes"
 )
@@ -89,7 +89,9 @@ CROSS JOIN (
 ) AS d(weekday, is_working, start_time, end_time)
 WHERE NOT EXISTS (
     SELECT 1 FROM "employee_work_schedule_days" sd
-    WHERE sd."schedule_id" = s."id" AND sd."tenant_id" = s."tenant_id"
+    WHERE sd."schedule_id" = s."id"
+      AND sd."tenant_id" = s."tenant_id"
+      AND sd."weekday" = d.weekday
 );
 
 -- Per-employee average minutes per working day (fallback 480)
@@ -142,6 +144,7 @@ ALTER TABLE "leave_requests" DROP COLUMN "days_charged";
 
 ALTER TABLE "employee_leave_balances" ALTER COLUMN "allowance_minutes" SET NOT NULL;
 ALTER TABLE "employee_leave_balances" ALTER COLUMN "carryover_minutes" SET NOT NULL;
+ALTER TABLE "employee_leave_balances" ALTER COLUMN "carryover_minutes" SET DEFAULT 0;
 ALTER TABLE "leave_requests" ALTER COLUMN "minutes_charged" SET NOT NULL;
 
 DROP TABLE "_hr_schedule_avg";

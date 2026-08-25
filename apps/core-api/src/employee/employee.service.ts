@@ -119,7 +119,7 @@ export class EmployeeService {
     try {
       const hiredOn =
         dto.hiredOn !== undefined ? this.toDateOnly(dto.hiredOn) : null;
-      const effectiveFrom = hiredOn ?? new Date();
+      const effectiveFrom = hiredOn ?? (await this.getCurrentLocalDate());
 
       const created = await this.prisma.$transaction(async (transaction) => {
         const employee = await transaction.employee.create({
@@ -388,16 +388,24 @@ export class EmployeeService {
   }
 
   private async getCurrentLocalYear(): Promise<number> {
+    const localDate = await this.getCurrentLocalDateString();
+    return Number(localDate.slice(0, 4));
+  }
+
+  private async getCurrentLocalDate(): Promise<Date> {
+    return this.toDateOnly(await this.getCurrentLocalDateString())!;
+  }
+
+  private async getCurrentLocalDateString(): Promise<string> {
     const tenantId = await this.tenantContext.getTenantId();
     const settings = await this.prisma.workshopSettings.findFirst({
       where: { tenant_id: tenantId },
       select: { timezone: true },
     });
-    const localDate = formatLocalDate(
+    return formatLocalDate(
       new Date(),
       settings?.timezone ?? DEFAULT_TIME_ZONE,
     );
-    return Number(localDate.slice(0, 4));
   }
 
   private async updateEmployeeAndCurrentLeaveBalance(

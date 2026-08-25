@@ -302,4 +302,38 @@ describe('EmployeeTable', () => {
     expect(await screen.findByLabelText('Carryover this year')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save leave balance' })).not.toBeInTheDocument()
   })
+
+  it('omits annualLeaveMinutes on create when the field is left blank', async () => {
+    const createEmployee = vi.fn().mockResolvedValue(employeeFixture)
+    vi.mocked(useCreateEmployee).mockReturnValue({
+      mutateAsync: createEmployee,
+      isPending: false,
+    } as unknown as ReturnType<typeof useCreateEmployee>)
+
+    const onCreateOpenChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <EmployeeTable
+          activeRole='OWNER'
+          createOpen
+          onCreateOpenChange={onCreateOpenChange}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Hire' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(createEmployee).toHaveBeenCalledWith({
+        name: 'New Hire',
+        role: 'MECHANIC',
+        sortOrder: 0,
+        isActive: true,
+        motherLanguageCode: null,
+        hiredOn: null,
+      })
+    })
+    expect(createEmployee.mock.calls[0]?.[0]).not.toHaveProperty('annualLeaveMinutes')
+  })
 })

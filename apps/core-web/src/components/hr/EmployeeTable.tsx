@@ -43,7 +43,6 @@ import { getErrorMessage } from '@/lib/error-utils'
 
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 const MIN_LEAVE_MINUTES = 0
-const DEFAULT_ANNUAL_LEAVE_MINUTES = 12875
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
 type EmployeeFormState = {
@@ -74,7 +73,7 @@ const defaultFormState: EmployeeFormState = {
   sortOrder: '0',
   motherLanguageCode: '',
   hiredOn: '',
-  annualLeaveMinutes: String(DEFAULT_ANNUAL_LEAVE_MINUTES),
+  annualLeaveMinutes: '',
 }
 
 function formatRoleLabel(role: EmployeeRole) {
@@ -364,7 +363,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
     }
 
     let parsedAnnualLeaveMinutes: number | undefined
-    if (hasHrEditAccess) {
+    if (hasHrEditAccess && formState.annualLeaveMinutes.trim()) {
       parsedAnnualLeaveMinutes = Number(formState.annualLeaveMinutes)
       if (!Number.isInteger(parsedAnnualLeaveMinutes) || parsedAnnualLeaveMinutes < MIN_LEAVE_MINUTES) {
         toast.error('Leave minutes must be a non-negative integer')
@@ -382,7 +381,9 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         ...(hasHrEditAccess
           ? {
               hiredOn: formState.hiredOn || null,
-              annualLeaveMinutes: parsedAnnualLeaveMinutes,
+              ...(parsedAnnualLeaveMinutes !== undefined && {
+                annualLeaveMinutes: parsedAnnualLeaveMinutes,
+              }),
             }
           : {}),
       })
@@ -778,6 +779,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                 type='number'
                 min={MIN_LEAVE_MINUTES}
                 step={1}
+                placeholder='Server default (25 × avg workday)'
                 value={formState.annualLeaveMinutes}
                 disabled={!hasHrEditAccess}
                 onChange={(event) => {
