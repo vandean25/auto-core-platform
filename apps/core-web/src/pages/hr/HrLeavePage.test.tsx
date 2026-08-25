@@ -9,6 +9,36 @@ import HrLeavePage from './HrLeavePage'
 const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875
 const HR_TEST_REMAINING_AFTER_WEEK_MINUTES = 10025
 const HR_TEST_TWO_DAY_LEAVE_MINUTES = 1030
+const TEST_TIMEZONE = 'Europe/Vienna'
+
+function getTenantDate(timezone: string, date = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(date)
+      .map(({ type, value }) => [type, value]),
+  )
+
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+function addTenantDays(timezone: string, days: number, from = new Date()): string {
+  const shifted = new Date(from)
+  shifted.setDate(shifted.getDate() + days)
+  return getTenantDate(timezone, shifted)
+}
+
+function futureCancelableBookingDates(timezone = TEST_TIMEZONE) {
+  const startOn = addTenantDays(timezone, 7)
+  const endOn = addTenantDays(timezone, 8)
+  return { startOn, endOn }
+}
+
+const cancelableBookingDates = futureCancelableBookingDates()
 
 const apiMocks = vi.hoisted(() => ({
   useAuthSession: vi.fn(),
@@ -74,8 +104,8 @@ vi.mock('@/components/data-table/DataTable', () => ({
 const booking = {
   id: 'leave-1',
   employeeId: 'employee-1',
-  startOn: '2026-08-26',
-  endOn: '2026-08-27',
+  startOn: cancelableBookingDates.startOn,
+  endOn: cancelableBookingDates.endOn,
   status: 'BOOKED' as const,
   minutesCharged: HR_TEST_TWO_DAY_LEAVE_MINUTES,
   note: 'Trip',

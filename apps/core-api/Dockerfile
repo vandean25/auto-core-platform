@@ -12,7 +12,7 @@ COPY apps/core-api/package.json ./apps/core-api/
 COPY apps/core-web/package.json ./apps/core-web/
 COPY apps/core-api/prisma ./apps/core-api/prisma/
 
-RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --workspace=core-api --include-workspace-root=false
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --workspace=core-api
 
 COPY apps/core-api ./apps/core-api
 
@@ -42,7 +42,7 @@ WORKDIR /usr/src/app/apps/core-api
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]
 
 FROM node:26-slim AS api
 
@@ -65,4 +65,4 @@ WORKDIR /usr/src/app/apps/core-api
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]

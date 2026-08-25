@@ -35,7 +35,7 @@ Auto Core Platform is a multi-tenant workshop operations system: parts inventory
 
 ### Backend (`apps/core-api`)
 - **Framework**: NestJS 11 (Node.js)
-- **Language**: TypeScript 5.9 (shared major with `apps/core-web`; see ADR-0017)
+- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint/ts-node — see ADR-0017)
 - **ORM**: Prisma 7
 - **Database**: PostgreSQL
 - **Validation**: class-validator & class-transformer
@@ -43,7 +43,7 @@ Auto Core Platform is a multi-tenant workshop operations system: parts inventory
 
 ### Frontend (`apps/core-web`)
 - **Framework**: React 19 (Vite 8)
-- **Language**: TypeScript 5.9 (shared major with `apps/core-api`; see ADR-0017)
+- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint — see ADR-0017)
 - **Styling**: Tailwind CSS 4
 - **UI Components**: shadcn/ui
 - **State Management**: TanStack Query (v5)
@@ -380,7 +380,7 @@ For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMem
 Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, iss: 'local-test-fixture' }` that match a seeded `User` + active `TenantMember` (request authorization is resolved from Postgres, not from token `tenantId`/`role` claims).
 
 ### Build/run gotcha
-The compiled entrypoint is `dist/src/main.js` (not `dist/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
+The compiled entrypoint is `dist/main.js` (not `dist/src/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
 
 ### Lint state
 `apps/core-api` `npm run lint` runs ESLint without `--fix` (PR CI uses the same command). Use `npm run lint:fix` to apply auto-fixes locally. `apps/core-web` `npm run lint` passes with a couple of warnings.
