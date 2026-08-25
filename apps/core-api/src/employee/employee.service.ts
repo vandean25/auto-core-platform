@@ -503,6 +503,8 @@ export class EmployeeService {
     }
   }
 
+  private toDateOnly(value: string): Date;
+  private toDateOnly(value: null): null;
   private toDateOnly(value: string | null): Date | null {
     return value === null ? null : new Date(`${value}T00:00:00.000Z`);
   }
