@@ -24,6 +24,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   VEHICLE_SALE: true,
   ATTENDANCE_EVENT: true,
   LEAVE_REQUEST: true,
+  EMPLOYEE_WORK_SCHEDULE: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {

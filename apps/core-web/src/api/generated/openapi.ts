@@ -1645,6 +1645,41 @@ export interface paths {
         patch: operations["HrController_patchLeaveBalance"];
         trace?: never;
     };
+    "/api/hr/employees/{id}/work-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an employee work schedule and its version history */
+        get: operations["HrController_getWorkSchedule"];
+        put?: never;
+        /** Create a new version of an employee work schedule */
+        post: operations["HrController_createWorkSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hr/employees/{id}/work-schedule/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Correct times on an existing employee work schedule version */
+        patch: operations["HrController_updateWorkSchedule"];
+        trace?: never;
+    };
     "/api/bays": {
         parameters: {
             query?: never;
@@ -3687,6 +3722,58 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        EmployeeWorkScheduleDayResponseDto: {
+            id: string;
+            weekday: number;
+            isWorking: boolean;
+            startTime: string | null;
+            endTime: string | null;
+            breakMinutes: number;
+        };
+        EmployeeWorkScheduleVersionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            effectiveFrom: string;
+            days: components["schemas"]["EmployeeWorkScheduleDayResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        EmployeeWorkScheduleResponseDto: {
+            current: components["schemas"]["EmployeeWorkScheduleVersionResponseDto"] | null;
+            history: components["schemas"]["EmployeeWorkScheduleVersionResponseDto"][];
+        };
+        EmployeeWorkScheduleDayDto: {
+            /** @example 1 */
+            weekday: number;
+            /** @example true */
+            isWorking: boolean;
+            /** @example 07:30 */
+            startTime: string | null;
+            /** @example 17:00 */
+            endTime: string | null;
+            /** @example 0 */
+            breakMinutes: number;
+        };
+        CreateEmployeeWorkScheduleDto: {
+            days: components["schemas"]["EmployeeWorkScheduleDayDto"][];
+            /**
+             * Format: date
+             * @description First date this schedule version applies.
+             * @example 2026-09-01
+             */
+            effectiveFrom: string;
+        };
+        UpdateEmployeeWorkScheduleDto: {
+            days: components["schemas"]["EmployeeWorkScheduleDayDto"][];
+            /**
+             * Format: date
+             * @description Accepted for compatibility but ignored; effectiveFrom is immutable.
+             */
+            effectiveFrom?: string | null;
         };
         BayResponseDto: {
             /** Format: uuid */
@@ -7491,6 +7578,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaveBalanceResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_getWorkSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWorkScheduleResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_createWorkSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEmployeeWorkScheduleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWorkScheduleVersionResponseDto"];
+                };
+            };
+        };
+    };
+    HrController_updateWorkSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmployeeWorkScheduleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeWorkScheduleVersionResponseDto"];
                 };
             };
         };

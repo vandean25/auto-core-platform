@@ -68,4 +68,23 @@ describe('emitRealtimeForOperation', () => {
 
     expect(emitEntityUpdated).not.toHaveBeenCalled();
   });
+
+  it('emits employee work schedule changes', async () => {
+    const emitEntityUpdated = jest.fn();
+
+    await runWithTenant('tenant-from-context', async () => {
+      emitRealtimeForOperation(
+        { emitEntityUpdated },
+        'EmployeeWorkSchedule',
+        'update',
+        { id: 'schedule-1' },
+      );
+    });
+
+    expect(emitEntityUpdated).toHaveBeenCalledWith('tenant-from-context', {
+      type: 'EMPLOYEE_WORK_SCHEDULE',
+      action: 'UPDATED',
+      entityId: 'schedule-1',
+    });
+  });
 });

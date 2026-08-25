@@ -17,7 +17,8 @@ export type DashboardEntityType =
   | 'VEHICLE_PURCHASE'
   | 'VEHICLE_SALE'
   | 'ATTENDANCE_EVENT'
-  | 'LEAVE_REQUEST';
+  | 'LEAVE_REQUEST'
+  | 'EMPLOYEE_WORK_SCHEDULE';
 
 export type DashboardEntityAction = 'CREATED' | 'UPDATED' | 'DELETED';
 
