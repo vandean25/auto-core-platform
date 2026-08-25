@@ -114,7 +114,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         data: {
           tenant_id: tenantId,
           employee_id: scheduleChangeEmployeeId,
-          effective_from: new Date('2026-09-09T00:00:00.000Z'),
+          effective_from: new Date('2026-09-14T00:00:00.000Z'),
           days: {
             create: Array.from({ length: 7 }, (_, index) => {
               const weekday = index + 1;
