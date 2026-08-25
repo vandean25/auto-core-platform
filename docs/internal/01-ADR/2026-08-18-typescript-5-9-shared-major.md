@@ -1,5 +1,5 @@
 ---
-title: "ADR-0017: Shared TypeScript 5.9 Major Across core-api and core-web"
+title: "ADR-0017: Shared TypeScript 7 Compiler With TS 6 Tooling Shim"
 date: "2026-08-18"
 status: accepted
 deciders: "Engineering Team"
@@ -12,105 +12,124 @@ tags:
   - tooling
 ---
 
-# ADR-0017: Shared TypeScript 5.9 Major Across core-api and core-web
+# ADR-0017: Shared TypeScript 7 Compiler With TS 6 Tooling Shim
 
 ## Status
 
-**Accepted** — 2026-08-18
+**Accepted** — 2026-08-18 (original 5.9 pin)  
+**Amended** — 2026-08-25 (TypeScript 7 side-by-side migration)
 
 ## Context
 
-`apps/core-api` locked TypeScript **6.0.3** while `apps/core-web` locked **5.9.3**. Shared OpenAPI-generated types, IDE language services, ESLint parsers, and agent skills therefore compiled the same contract under two majors.
+`apps/core-api` and `apps/core-web` previously pinned TypeScript **5.9** so OpenAPI-generated types, IDE services, ESLint parsers, and Nest tooling agreed on one compiler major.
 
-That split is a DX and correctness problem: a type that is legal in one app can fail `tsc` in the other, and `typescript-eslint` peer ranges and Nest CLI’s bundled compiler disagree with the API app’s declared compiler.
+TypeScript **7.0** ships a native Go compiler (`tsc` 7.x) but removes the programmatic compiler API that `typescript-eslint`, `ts-node`, and Nest bootstrap scripts still require. A naive Dependabot bump to `typescript@7` therefore breaks lint, OpenAPI generation, and CI.
+
+Microsoft’s recommended interim approach is to run **TypeScript 7 for compilation** and keep a **TypeScript 6 API shim** for ecosystem tools until TS 7.1 exposes a stable programmatic API ([announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0)).
 
 ## Decision Drivers
 
-* One language-service major for generated OpenAPI types consumed by both apps.
-* NestJS CLI 11 still vendors TypeScript **5.9.3**; the Nest/ecosystem path to TS 6 is not clearly ready.
-* Prefer a documented hold on 5.9 over an unproven bump of Vite/eslint/web to 6.
-* Keep `typescript-eslint` on the 8.x line that already supports `>=4.8.4 <6.1.0`.
+* One compiler major for `tsc` type-checking and emit in both apps.
+* `typescript-eslint@8.x` peer range remains `>=4.8.4 <6.1.0` — must resolve `typescript` to the TS 6 shim.
+* Nest/OpenAPI scripts need `emitDecoratorMetadata`; `tsx` alone is insufficient — keep `ts-node` on the TS 6 shim for those entrypoints.
+* Simpler utility scripts can use `tsx` (no programmatic API).
 
 ## Decision
 
-Both `apps/core-api` and `apps/core-web` pin **TypeScript 5.9** (`~5.9.3`) and **typescript-eslint 8.60.0**. Do not adopt TypeScript 6 until Nest CLI, Vite, and eslint are proven on that major in this repo.
+Adopt Microsoft’s side-by-side layout at the workspace root:
+
+| Package | npm alias | Role |
+|---------|-----------|------|
+| `@typescript/native` | `npm:typescript@~7.0.2` | **Primary compiler** — `tsc` on PATH is 7.0.2 |
+| `typescript` | `npm:@typescript/typescript6@^6.0.2` | **Tooling shim** — satisfies `typescript-eslint`, `ts-node`, `ts-jest` peers; exposes `tsc6` |
+
+**Build commands**
+
+* `apps/core-api`: `tsc -p tsconfig.build.json` (TS 7)
+* `apps/core-web`: `tsc -b && vite build` (TS 7 typecheck)
+
+**Script runners**
+
+* Nest/OpenAPI/Prisma seed: `ts-node -r tsconfig-paths/register` (TS 6 shim)
+* Standalone scripts (lint, GCS, seeds helpers): `tsx`
+
+**TS 7 config hygiene**
+
+* Remove deprecated `baseUrl` from `tsconfig` paths (TS 7); paths remain relative to the config file.
+
+Do **not** merge raw Dependabot major bumps of `typescript` to 7.x without this shim layout.
 
 **Architectural Components Affected:**
 
-* `apps/core-api` compiler and Nest build
-* `apps/core-web` `tsc -b` / Vite build
-* ESLint type-aware rules in both apps
-* Agent guidance in `agents.md`
+* Root `package.json` devDependencies and `overrides`
+* `apps/core-api` / `apps/core-web` build scripts
+* `cloudbuild*.yaml` migration helpers (`tsx`)
+* ESLint in both apps (unchanged config; uses TS 6 shim via peer resolution)
 
 **Interface Changes:**
 
-* None at runtime. DevDependency versions and lockfiles change only.
+* None at runtime.
 
 ## Consequences
 
 ### Positive
 
-- Shared OpenAPI types typecheck under one compiler major.
-- IDE, CI, and agent skills agree on the language version.
-- Aligns with Nest CLI’s bundled TypeScript 5.9.3.
+- TS 7 native compiler speed and language semantics for `tsc` builds in both apps.
+- ESLint and Jest keep working via the TS 6 shim without forking parser config.
+- OpenAPI generation and Prisma seeding remain stable on `ts-node`.
 
 ### Negative
 
-- API does not yet use TypeScript 6 language features or stricter defaults.
-- A later TS 6 migration will need a follow-up ADR with Vite/eslint evidence.
+- Two TypeScript packages in the tree until TS 7.1 stabilizes the programmatic API.
+- `nest build` is replaced by direct `tsc` emit — Nest CLI watch/dev still bundles its own TS 5.9 for scaffolding only.
+- Agents and docs must distinguish `tsc` (7) vs `tsc6` (6 shim).
 
 ### Neutral
 
-- Patch releases within 5.9 remain allowed via the `~5.9.3` range.
-- `typescript-eslint` is pinned to 8.60.0 on both apps (web was 8.59.4).
+- Patch/minor updates within `~7.0.2` and `^6.0.2` ranges remain allowed.
+- Revisit when `typescript-eslint` documents first-class TS 7 support (tracked: [typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)).
 
 ## Alternatives Considered
 
 | Option | Pros | Cons |
 |--------|------|------|
-| Pin both apps to TypeScript 5.9 (chosen) | Matches Nest CLI; smallest blast radius; issue default | Defers TS 6 until the ecosystem is ready |
-| Bump core-web to TypeScript 6 | Newer compiler everywhere | Nest CLI still vendors 5.9.3; Vite/eslint not proven here; larger `tsc` risk |
-| Leave majors split | No immediate lockfile churn | OpenAPI types, IDE, and agents keep disagreeing |
+| TS 7 compile + TS 6 shim (chosen) | Official migration path; lint/tests keep working | Dual package until 7.1 API |
+| Pin both apps to TS 5.9 | Smallest change | Misses TS 7; Nest/eslint already diverged from 5.9 |
+| Force `typescript@7` everywhere | Single dependency | Breaks eslint, ts-node, ts-jest (PR #393) |
 
 ## Implementation Strategy
 
 ### Blast Radius
 
-**Impact Scope**: Dev tooling only. Production JS output should be unchanged aside from compiler version.
+**Impact Scope**: Dev tooling only.
 
 **Affected Components**:
 
-- `apps/core-api` — `typescript` 6.0.3 → 5.9.3; `npm run build` (`nest build`)
-- `apps/core-web` — `typescript-eslint` 8.59.4 → 8.60.0; existing `~5.9.3`
-- Lockfiles for both apps
-
-**User Impact**: None.
+- Root lockfile and overrides
+- Build scripts in `apps/core-api`, `apps/core-web`
+- `cloudbuild.yaml`, `cloudbuild.staging.yaml`
+- ADR-0017 (this document), `agents.md`
 
 **Risk Mitigation**:
 
-- Run `npm --prefix apps/core-api run build` and `npm --prefix apps/core-web run build`.
-- Fix any new `tsc` / type-aware eslint errors with minimal source changes.
-  (`receiveItems` catch logging needed an `instanceof Error` guard under 5.9.)
+- Run full PR Build Check workflow locally: lint, `tsc` build, unit tests, OpenAPI contract.
+- Keep Dependabot `ignore` on `typescript` semver-major until TS 7.1 ecosystem lands.
 
 ### Reversibility
 
-**Reversibility Level**: High
-
-**Rollback Feasibility**: Restore previous `package.json` / lockfile versions. No schema or API contract change.
+**Reversibility Level**: High — restore prior `package.json` / lockfile pins.
 
 ## Pragmatic Enforcer Analysis
 
-- **Necessity**: High — two majors on one generated type contract is active DX debt (AUT-141).
-- **Complexity**: Low — version pin + ADR; no new abstraction.
-- **Simpler alternative**: Leaving the split is simpler today and worse tomorrow. Bumping web to TS 6 is more complex without Nest evidence.
-- **Recommendation**: Approve. Hold 5.9 until Nest CLI stops vendoring 5.9 and Vite/eslint builds are proven on 6.
-- **Pragmatic score**: Necessity 8 / Complexity 2 / Ratio 0.25 (target < 1.5)
+- **Necessity**: High — TS 7 is the supported compile target; naive bumps break CI.
+- **Complexity**: Medium — alias layout + script runner split.
+- **Recommendation**: Approve side-by-side now; collapse to single `typescript@7` when eslint/ts-node support lands.
 
 ## References
 
-- AUT-141
-- Nest CLI 11 dependency on TypeScript 5.9.3
-- `typescript-eslint` 8.x peer range `>=4.8.4 <6.1.0`
+- [TypeScript 7.0 announcement — side-by-side with TS 6](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0)
+- PR #393 (closed — naive TS 7 bump)
+- `typescript-eslint` TS 7 tracking: [#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)
 
 ---
 

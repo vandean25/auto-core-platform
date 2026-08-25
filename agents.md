@@ -35,7 +35,7 @@ Auto Core Platform is a multi-tenant workshop operations system: parts inventory
 
 ### Backend (`apps/core-api`)
 - **Framework**: NestJS 11 (Node.js)
-- **Language**: TypeScript 5.9 (shared major with `apps/core-web`; see ADR-0017)
+- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint/ts-node — see ADR-0017)
 - **ORM**: Prisma 7
 - **Database**: PostgreSQL
 - **Validation**: class-validator & class-transformer
@@ -43,7 +43,7 @@ Auto Core Platform is a multi-tenant workshop operations system: parts inventory
 
 ### Frontend (`apps/core-web`)
 - **Framework**: React 19 (Vite 8)
-- **Language**: TypeScript 5.9 (shared major with `apps/core-api`; see ADR-0017)
+- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint — see ADR-0017)
 - **Styling**: Tailwind CSS 4
 - **UI Components**: shadcn/ui
 - **State Management**: TanStack Query (v5)
