@@ -34,7 +34,7 @@ steps:
       - |
         set -euo pipefail
         npm ci
-        npm exec --workspace=core-api -- ts-node -r tsconfig-paths/register scripts/prisma-migrate-deploy-exit.ts
+        npm exec --workspace=core-api -- tsx scripts/prisma-migrate-deploy-exit.ts
 
   - id: build-api-image
     name: gcr.io/cloud-builders/docker
