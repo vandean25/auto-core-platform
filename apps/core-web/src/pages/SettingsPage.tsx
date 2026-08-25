@@ -33,6 +33,7 @@ import { LaborCategoriesTab } from "@/components/labor/LaborCategoriesTab"
 import { PageLoader } from "@/components/ui/PageLoader"
 import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
+import { WorkshopHoursSettingsTab } from "@/components/settings/WorkshopHoursSettingsTab"
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
@@ -272,7 +273,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "labor", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "hours", "labor", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -356,7 +357,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-10' : 'grid-cols-9')}>
+                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-11' : 'grid-cols-10')}>
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
@@ -364,6 +365,7 @@ export default function SettingsPage() {
                     <TabsTrigger value="locations">Storage Locations</TabsTrigger>
                     <TabsTrigger value="employees">Employees</TabsTrigger>
                     <TabsTrigger value="bays">Bays</TabsTrigger>
+                    <TabsTrigger value="hours">Hours</TabsTrigger>
                     <TabsTrigger value="labor">Labor</TabsTrigger>
                     {canManageTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
                     <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>
@@ -485,6 +487,10 @@ export default function SettingsPage() {
                 {/* ── Bays Tab ── */}
                 <TabsContent value="bays" className="space-y-6">
                     <BaySettingsTab />
+                </TabsContent>
+
+                <TabsContent value="hours" className="space-y-6">
+                    <WorkshopHoursSettingsTab />
                 </TabsContent>
 
                 {/* ── Labor Tab ── */}

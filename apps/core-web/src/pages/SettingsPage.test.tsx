@@ -188,6 +188,10 @@ vi.mock('@/components/settings/BaySettingsTab', () => ({
   BaySettingsTab: () => <div>Bays tab content</div>,
 }))
 
+vi.mock('@/components/settings/WorkshopHoursSettingsTab', () => ({
+  WorkshopHoursSettingsTab: () => <div>Hours tab content</div>,
+}))
+
 vi.mock('@/components/settings/TeamSettingsTab', () => ({
   TeamSettingsTab: () => <div>Team tab content</div>,
 }))
@@ -221,6 +225,7 @@ describe('SettingsPage tab integration', () => {
 
     expect(screen.getByRole('tab', { name: 'Employees' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Hours' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
