@@ -14,6 +14,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    findFirstOrThrow: jest.fn(),
     deleteMany: jest.fn(),
   },
   employeeLeaveBalance: {
@@ -253,7 +254,7 @@ describe('EmployeeService', () => {
       annual_leave_minutes: 15450,
     };
     mockPrisma.employee.create.mockResolvedValue(createdEmployee);
-    mockPrisma.employee.update.mockResolvedValue(updatedEmployee);
+    mockPrisma.employee.findFirstOrThrow.mockResolvedValue(updatedEmployee);
     mockScheduleService.seedInitialSchedule.mockResolvedValue({
       id: 'sched-1',
       days: [
@@ -291,11 +292,54 @@ describe('EmployeeService', () => {
         }),
       }),
     );
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith(
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: 'emp-new', tenant_id: 'tenant-1' },
         data: { annual_leave_minutes: 15450 },
       }),
     );
+  });
+
+  it('seeds a schedule from the tenant-local current date when hire date is omitted', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-02T01:00:00.000Z'));
+    try {
+      mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      const createdEmployee = {
+        ...baseEmployee,
+        id: 'emp-new',
+        hired_on: null,
+        annual_leave_minutes: 0,
+      };
+      mockPrisma.employee.create.mockResolvedValue(createdEmployee);
+      mockPrisma.employee.findFirstOrThrow.mockResolvedValue({
+        ...createdEmployee,
+        annual_leave_minutes: 12875,
+      });
+      mockScheduleService.seedInitialSchedule.mockResolvedValue({
+        id: 'sched-1',
+        days: [],
+      });
+      mockScheduleService.defaultAnnualLeaveMinutes.mockReturnValue(12875);
+
+      await service.create({
+        name: 'Local Date Mechanic',
+        role: EmployeeRole.MECHANIC,
+      });
+
+      expect(mockScheduleService.seedInitialSchedule).toHaveBeenCalledWith(
+        mockPrisma,
+        'tenant-1',
+        'emp-new',
+        new Date('2026-01-01T00:00:00.000Z'),
+      );
+      expect(
+        mockScheduleService.defaultAnnualLeaveMinutes,
+      ).toHaveBeenCalledWith(480);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('rejects SALES when updating hire or leave fields', async () => {
@@ -524,7 +568,7 @@ describe('EmployeeService', () => {
       ...newEmployee,
       annual_leave_minutes: 0,
     });
-    mockPrisma.employee.update.mockResolvedValue(newEmployee);
+    mockPrisma.employee.findFirstOrThrow.mockResolvedValue(newEmployee);
     mockScheduleService.seedInitialSchedule.mockResolvedValue({
       id: 'sched-1',
       days: [

@@ -30,6 +30,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
   let ownerAuthToken: string;
   let techEmployeeId: string;
   let deskEmployeeId: string;
+  let scheduleChangeEmployeeId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -99,6 +100,40 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         userId: salesUser.id,
       });
       deskEmployeeId = deskEmployee.id;
+
+      const scheduleChangeEmployee = await seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Schedule Change Mechanic',
+        role: 'MECHANIC',
+        annualLeaveMinutes: 30000,
+        hiredOn: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      scheduleChangeEmployeeId = scheduleChangeEmployee.id;
+
+      await basePrisma.employeeWorkSchedule.create({
+        data: {
+          tenant_id: tenantId,
+          employee_id: scheduleChangeEmployeeId,
+          effective_from: new Date('2026-09-14T00:00:00.000Z'),
+          days: {
+            create: Array.from({ length: 7 }, (_, index) => {
+              const weekday = index + 1;
+              const isWorking = weekday <= 6;
+              return {
+                weekday,
+                is_working: isWorking,
+                start_time: isWorking ? '08:00' : null,
+                end_time: isWorking
+                  ? weekday === 6
+                    ? '12:00'
+                    : '16:00'
+                  : null,
+                break_minutes: 0,
+              };
+            }),
+          },
+        },
+      });
 
       const ownerFirebaseUid = `e2e-owner-leave-${Date.now()}`;
       const ownerUser = await basePrisma.user.create({
@@ -278,6 +313,60 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
 
   describe('Manager Leave Management & Team Queries', () => {
     let deskBookingId: string;
+
+    it('seeds a seven-day schedule and default minute allowance on employee create', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/employees')
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .send({
+          name: 'Default Allowance Mechanic',
+          role: 'MECHANIC',
+          hiredOn: '2026-01-01',
+        })
+        .expect(201);
+
+      expect(response.body.annualLeaveMinutes).toBe(
+        HR_TEST_ANNUAL_LEAVE_MINUTES,
+      );
+
+      const schedule = await runWithTenantContext(
+        tenantId,
+        async () =>
+          await basePrisma.employeeWorkSchedule.findFirst({
+            where: {
+              tenant_id: tenantId,
+              employee_id: response.body.id,
+            },
+            include: { days: true },
+          }),
+      );
+      expect(schedule?.days).toHaveLength(7);
+    });
+
+    it('charges different minutes before and after a schedule change', async () => {
+      const beforeChange = await request(app.getHttpServer())
+        .post('/api/hr/leave')
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .send({
+          employeeId: scheduleChangeEmployeeId,
+          startOn: '2026-09-07',
+          endOn: '2026-09-11',
+        })
+        .expect(201);
+
+      const afterChange = await request(app.getHttpServer())
+        .post('/api/hr/leave')
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .send({
+          employeeId: scheduleChangeEmployeeId,
+          startOn: '2026-09-14',
+          endOn: '2026-09-18',
+        })
+        .expect(201);
+
+      expect(beforeChange.body.minutesCharged).toBe(2850);
+      expect(afterChange.body.minutesCharged).toBe(2400);
+    });
 
     it('OWNER can book leave for another employee via POST /api/hr/leave', async () => {
       const res = await request(app.getHttpServer())

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -132,13 +132,20 @@ export class HrWorkdayService {
   ): number {
     const schedule = this.resolveScheduleForDate(dateStr, schedules);
     if (!schedule) {
-      return 0;
+      throw new BadRequestException(
+        `No work schedule found for employee on ${dateStr}`,
+      );
     }
 
     const { year, month, day } = parseLocalDate(dateStr);
     const weekday = isoWeekdayFromUtcDate(year, month, day);
     const dayRow = schedule.days.find((row) => row.weekday === weekday);
-    if (!dayRow?.is_working) {
+    if (!dayRow) {
+      throw new BadRequestException(
+        `No work schedule day found for weekday ${weekday}`,
+      );
+    }
+    if (!dayRow.is_working) {
       return 0;
     }
 

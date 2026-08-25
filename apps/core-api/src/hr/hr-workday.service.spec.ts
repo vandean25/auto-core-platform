@@ -1,4 +1,5 @@
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 import { HrWorkdayService } from './hr-workday.service';
 
 function createOpeningHours(): WorkshopOpeningHour[] {
@@ -90,14 +91,14 @@ function createEmployeeSchedule() {
       tenant_id: 't1',
       employee_id: 'emp-1',
       effective_from: new Date('2020-01-01T00:00:00.000Z'),
-      days: [1, 2, 3, 4, 5].map((weekday) => ({
+      days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
         id: `day-${weekday}`,
         tenant_id: 't1',
         schedule_id: 'sched-1',
         weekday,
-        is_working: true,
-        start_time: '08:00',
-        end_time: '17:00',
+        is_working: weekday <= 5,
+        start_time: weekday <= 5 ? '08:00' : null,
+        end_time: weekday <= 5 ? '17:00' : null,
         break_minutes: 0,
       })),
       createdAt: new Date(),
@@ -131,6 +132,133 @@ describe('HrWorkdayService', () => {
   });
 
   describe('countChargeableMinutes', () => {
+    it('rejects a range without a resolved employee schedule', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a working schedule day whose end is not after its start', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.map((day) =>
+            day.weekday === 1
+              ? { ...day, start_time: '17:00', end_time: '08:00' }
+              : day,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a schedule that is missing the date weekday row', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.filter(
+            (day) => day.weekday !== 1,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects malformed schedule time strings', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.map((day) =>
+            day.weekday === 1 ? { ...day, start_time: 'invalid' } : day,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('uses the schedule version effective on each date', async () => {
+      const earlierSchedule = createEmployeeSchedule()[0];
+      const laterSchedule = {
+        ...earlierSchedule,
+        id: 'sched-2',
+        effective_from: new Date('2026-08-26T00:00:00.000Z'),
+        days: earlierSchedule.days.map((day) => ({
+          ...day,
+          start_time: day.is_working ? '08:00' : null,
+          end_time: day.is_working ? '16:00' : null,
+        })),
+      };
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        earlierSchedule,
+        laterSchedule,
+      ]);
+
+      const minutesBeforeChange = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
+        '2026-08-24',
+        '2026-08-24',
+        'Europe/Vienna',
+        createOpeningHours(),
+        [],
+      );
+      const minutesAfterChange = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
+        '2026-08-31',
+        '2026-08-31',
+        'Europe/Vienna',
+        createOpeningHours(),
+        [],
+      );
+
+      expect(minutesBeforeChange).toBe(540);
+      expect(minutesAfterChange).toBe(480);
+    });
+
     it('skips closed Saturday and Sunday', async () => {
       const hours = createOpeningHours();
       // 2026-08-24 is Mon, 2026-08-30 is Sun

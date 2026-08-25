@@ -149,14 +149,16 @@ export class EmployeeService {
           dto.annualLeaveMinutes ??
           this.scheduleService.defaultAnnualLeaveMinutes(avgMinutes);
 
-        return transaction.employee.update({
-          where: {
-            tenant_id_id: {
-              tenant_id: tenantId,
-              id: employee.id,
-            },
-          },
+        const updated = await transaction.employee.updateMany({
+          where: { id: employee.id, tenant_id: tenantId },
           data: { annual_leave_minutes: annualLeaveMinutes },
+        });
+        if (updated.count === 0) {
+          throw new NotFoundException(`Employee ${employee.id} not found`);
+        }
+
+        return transaction.employee.findFirstOrThrow({
+          where: { id: employee.id, tenant_id: tenantId },
         });
       });
 
@@ -393,7 +395,7 @@ export class EmployeeService {
   }
 
   private async getCurrentLocalDate(): Promise<Date> {
-    return this.toDateOnly(await this.getCurrentLocalDateString())!;
+    return this.toDateOnly(await this.getCurrentLocalDateString());
   }
 
   private async getCurrentLocalDateString(): Promise<string> {
@@ -486,6 +488,9 @@ export class EmployeeService {
     }
   }
 
+  private toDateOnly(value: string): Date;
+  private toDateOnly(value: null): null;
+  private toDateOnly(value: string | null): Date | null;
   private toDateOnly(value: string | null): Date | null {
     return value === null ? null : new Date(`${value}T00:00:00.000Z`);
   }
