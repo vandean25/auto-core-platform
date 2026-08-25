@@ -173,6 +173,52 @@ describe('HrWorkdayService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('rejects a schedule that is missing the date weekday row', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.filter(
+            (day) => day.weekday !== 1,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects malformed schedule time strings', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.map((day) =>
+            day.weekday === 1 ? { ...day, start_time: 'invalid' } : day,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('skips closed Saturday and Sunday', async () => {
       const hours = createOpeningHours();
       // 2026-08-24 is Mon, 2026-08-30 is Sun

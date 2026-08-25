@@ -300,6 +300,45 @@ describe('EmployeeService', () => {
     );
   });
 
+  it('seeds a schedule from the tenant-local current date when hire date is omitted', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-02T01:00:00.000Z'));
+    try {
+      mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+        timezone: 'America/Los_Angeles',
+      });
+      const createdEmployee = {
+        ...baseEmployee,
+        id: 'emp-new',
+        hired_on: null,
+        annual_leave_minutes: 0,
+      };
+      mockPrisma.employee.create.mockResolvedValue(createdEmployee);
+      mockPrisma.employee.findFirstOrThrow.mockResolvedValue({
+        ...createdEmployee,
+        annual_leave_minutes: 12875,
+      });
+      mockScheduleService.seedInitialSchedule.mockResolvedValue({
+        id: 'sched-1',
+        days: [],
+      });
+      mockScheduleService.defaultAnnualLeaveMinutes.mockReturnValue(12875);
+
+      await service.create({
+        name: 'Local Date Mechanic',
+        role: EmployeeRole.MECHANIC,
+      });
+
+      expect(mockScheduleService.seedInitialSchedule).toHaveBeenCalledWith(
+        mockPrisma,
+        'tenant-1',
+        'emp-new',
+        new Date('2026-01-01T00:00:00.000Z'),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rejects SALES when updating hire or leave fields', async () => {
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       userId: 'sales-1',
