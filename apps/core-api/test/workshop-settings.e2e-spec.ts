@@ -224,7 +224,15 @@ describe('Workshop settings and holidays (e2e)', () => {
 
   it('SALES can read settings but cannot write holidays', async () => {
     const salesTenant = await createTestTenant(basePrisma, 'workshop-settings-sales');
-    const salesToken = createTestAuthToken(app.get(AuthService), salesTenant, {
+    await basePrisma.tenantMember.updateMany({
+      where: {
+        tenant_id: salesTenant.tenantId,
+        user: { firebaseUid: salesTenant.firebaseUid },
+      },
+      data: { role: 'SALES' },
+    });
+    const salesToken = createTestAuthToken(app.get(AuthService), {
+      ...salesTenant,
       role: 'SALES',
     });
 

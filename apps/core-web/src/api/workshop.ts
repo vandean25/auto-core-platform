@@ -48,6 +48,7 @@ export const workshopKeys = {
   settings: () => [...workshopKeys.all, 'settings'] as const,
   holidays: (from?: string, to?: string) =>
     [...workshopKeys.all, 'holidays', from ?? 'year', to ?? 'year'] as const,
+  holidaysAll: () => [...workshopKeys.all, 'holidays'] as const,
   boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
   boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
 }
@@ -135,7 +136,7 @@ export function useCreateWorkshopHoliday() {
       return response.json() as Promise<WorkshopHoliday>
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...workshopKeys.all, 'holidays'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })
@@ -162,7 +163,7 @@ export function useUpdateWorkshopHoliday() {
       return response.json() as Promise<WorkshopHoliday>
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...workshopKeys.all, 'holidays'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })
@@ -180,7 +181,7 @@ export function useDeleteWorkshopHoliday() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...workshopKeys.all, 'holidays'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })
@@ -201,7 +202,7 @@ export function useImportWorkshopHolidays() {
       return response.json() as Promise<ImportWorkshopHolidaysResponse>
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...workshopKeys.all, 'holidays'] })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })
