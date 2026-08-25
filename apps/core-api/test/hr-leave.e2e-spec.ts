@@ -314,6 +314,31 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
   describe('Manager Leave Management & Team Queries', () => {
     let deskBookingId: string;
 
+    it('seeds a seven-day schedule and default minute allowance on employee create', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/employees')
+        .set('Authorization', `Bearer ${ownerAuthToken}`)
+        .send({
+          name: 'Default Allowance Mechanic',
+          role: 'MECHANIC',
+          hiredOn: '2026-01-01',
+        })
+        .expect(201);
+
+      expect(response.body.annualLeaveMinutes).toBe(
+        HR_TEST_ANNUAL_LEAVE_MINUTES,
+      );
+
+      const schedule = await basePrisma.employeeWorkSchedule.findFirst({
+        where: {
+          tenant_id: tenantId,
+          employee_id: response.body.id,
+        },
+        include: { days: true },
+      });
+      expect(schedule?.days).toHaveLength(7);
+    });
+
     it('charges different minutes before and after a schedule change', async () => {
       const beforeChange = await request(app.getHttpServer())
         .post('/api/hr/leave')
