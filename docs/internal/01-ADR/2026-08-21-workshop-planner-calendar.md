@@ -1,7 +1,7 @@
 ---
 title: "ADR-0019: Workshop Planner Calendar (Time + Bay Occupancy)"
 date: "2026-08-21"
-status: proposed
+status: accepted
 deciders: "Product Owner, Architecture, Backend Lead, Frontend Lead"
 linear-project: "Workshop Planner Calendar"
 linear-milestone: ""
@@ -18,7 +18,9 @@ tags:
 
 ## Status
 
-**Proposed** — 2026-08-21
+**Accepted** — 2026-08-25
+
+**Product Owner approval:** The Feature Spec and all seven product rulings were confirmed without override. Implementation may proceed through the linked Linear follow-up issues.
 
 ## Context
 

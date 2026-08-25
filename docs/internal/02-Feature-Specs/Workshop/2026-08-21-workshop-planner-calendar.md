@@ -2,7 +2,7 @@
 title: "Workshop Planner Calendar"
 date: "2026-08-21"
 module: "Workshop"
-status: draft
+status: approved
 linear-project: "Workshop Planner Calendar"
 linear-milestone: "Spec review"
 tags:
@@ -14,6 +14,8 @@ tags:
 ---
 
 # Workshop Planner Calendar
+
+> **Product Owner approval — 2026-08-25:** This Feature Spec and ADR-0019 are approved for implementation. The seven rulings below are binding; no overrides were made.
 
 ## Summary
 
@@ -81,9 +83,9 @@ Do not put a time axis on the kanban. Do not hide `SCHEDULED` cards from the boa
 
 ---
 
-## Proposed product rulings
+## Approved product rulings
 
-These are binding for implementation unless Product Owner overrides them in review.
+These rulings are approved and binding for implementation.
 
 1. **Grid by bay, not by mechanic.** A stall is the scarce physical resource for "is a spot free?". Mechanic is optional on the booking. Toggle "By Mechanic" is Phase 2.
 2. **Day view default, week view in Phase 1.** Day is the advisor's booking surface. Week is for scanning load. Month is out of scope.
@@ -651,7 +653,7 @@ SALES already uses the full sidebar (sign-in docs). Planner is an advisor tool; 
 
 Task-level plan: [2026-08-21-workshop-planner-calendar-implementation-plan.md](2026-08-21-workshop-planner-calendar-implementation-plan.md).
 
-Do not start application code until Product Owner marks this spec **approved**, unless a follow-up explicitly continues implementation. Then execute the plan in this order:
+With Product Owner approval recorded above, execute the plan in this order:
 
 1. Prisma models + migration + settings seed on first GET (weekdays empty of holidays).
 2. Settings API + Hours settings tab (weekdays + holiday CRUD + OpenHolidays import).
@@ -668,17 +670,17 @@ Each slice should be shippable without the next, except that the UI needs 1–4.
 
 ---
 
-## Open Questions
+## Resolved Decisions
 
-Recorded as proposed rulings above. Confirm or override:
+All seven product rulings were confirmed by the Product Owner on 2026-08-25. No overrides remain:
 
-1. Bay-first grid vs mechanic-first (ruling: bay).
-2. Hard bay 409 vs advisory (ruling: 409).
-3. Delete `SCHEDULED` vs add `CANCELLED` (ruling: delete).
-4. Default duration 60 vs 30 vs labor-AW (ruling: 60; labor-AW is Phase 2).
-5. Duplicate active-order guard on the same vehicle (ruling: yes, block second active job).
-6. Unscheduled on-floor occupancy for today (ruling: yes).
-7. Holidays in Phase 1 (ruling: yes — tenant-owned list + OpenHolidays import, not Nager.Date).
+1. Bay-first grid vs mechanic-first (decision: bay).
+2. Hard bay 409 vs advisory (decision: 409).
+3. Delete `SCHEDULED` vs add `CANCELLED` (decision: delete).
+4. Default duration 60 vs 30 vs labor-AW (decision: 60; labor-AW is Phase 2).
+5. Duplicate active-order guard on the same vehicle (decision: yes, block second active job).
+6. Unscheduled on-floor occupancy for today (decision: yes).
+7. Holidays in Phase 1 (decision: yes — tenant-owned list + OpenHolidays import, not Nager.Date).
 
 ---
 
