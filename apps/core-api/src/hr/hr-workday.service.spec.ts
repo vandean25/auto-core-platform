@@ -83,38 +83,70 @@ function createOpeningHours(): WorkshopOpeningHour[] {
   ];
 }
 
+function createEmployeeSchedule() {
+  return [
+    {
+      id: 'sched-1',
+      tenant_id: 't1',
+      employee_id: 'emp-1',
+      effective_from: new Date('2020-01-01T00:00:00.000Z'),
+      days: [1, 2, 3, 4, 5].map((weekday) => ({
+        id: `day-${weekday}`,
+        tenant_id: 't1',
+        schedule_id: 'sched-1',
+        weekday,
+        is_working: true,
+        start_time: '08:00',
+        end_time: '17:00',
+        break_minutes: 0,
+      })),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ];
+}
+
 describe('HrWorkdayService', () => {
   let service: HrWorkdayService;
   const mockPrisma = {
     workshopSettings: { findFirst: jest.fn() },
     workshopHoliday: { findMany: jest.fn() },
+    employeeWorkSchedule: { findMany: jest.fn() },
   };
   const mockSettingsService = {
     getOrCreateSettings: jest.fn(),
   };
+  const mockScheduleService = {};
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue(
+      createEmployeeSchedule(),
+    );
     service = new HrWorkdayService(
       mockPrisma as any,
       mockSettingsService as any,
+      mockScheduleService as any,
     );
   });
 
-  describe('countChargeableDays', () => {
-    it('skips closed Saturday and Sunday', () => {
+  describe('countChargeableMinutes', () => {
+    it('skips closed Saturday and Sunday', async () => {
       const hours = createOpeningHours();
       // 2026-08-24 is Mon, 2026-08-30 is Sun
-      const count = service.countChargeableDays(
+      const minutes = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
         '2026-08-24',
         '2026-08-30',
         'Europe/Vienna',
         hours,
         [],
       );
-      expect(count).toBe(5); // Mon-Fri
+      expect(minutes).toBe(2700);
     });
 
-    it('skips closed WorkshopHoliday', () => {
+    it('skips closed WorkshopHoliday', async () => {
       const hours = createOpeningHours();
       const holidays: WorkshopHoliday[] = [
         {
@@ -134,17 +166,19 @@ describe('HrWorkdayService', () => {
         },
       ];
       // 2026-08-24 (Mon) to 2026-08-28 (Fri)
-      const count = service.countChargeableDays(
+      const minutes = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
         '2026-08-24',
         '2026-08-28',
         'Europe/Vienna',
         hours,
         holidays,
       );
-      expect(count).toBe(4); // Wed 26 skipped
+      expect(minutes).toBe(2160);
     });
 
-    it('charges a short holiday with reduced hours as 1 full day', () => {
+    it('charges a short holiday with reduced hours as full schedule minutes', async () => {
       const hours = createOpeningHours();
       const holidays: WorkshopHoliday[] = [
         {
@@ -163,17 +197,19 @@ describe('HrWorkdayService', () => {
           updatedAt: new Date(),
         },
       ];
-      const count = service.countChargeableDays(
+      const minutes = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
         '2026-12-24',
         '2026-12-24',
         'Europe/Vienna',
         hours,
         holidays,
       );
-      expect(count).toBe(1);
+      expect(minutes).toBe(540);
     });
 
-    it('handles annual repeating holiday properly', () => {
+    it('handles annual repeating holiday properly', async () => {
       const hours = createOpeningHours();
       const holidays: WorkshopHoliday[] = [
         {
@@ -193,14 +229,16 @@ describe('HrWorkdayService', () => {
         },
       ];
       // 2026-01-01 is a Thursday, 2026-01-02 is a Friday
-      const count = service.countChargeableDays(
+      const minutes = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
         '2026-01-01',
         '2026-01-02',
         'Europe/Vienna',
         hours,
         holidays,
       );
-      expect(count).toBe(1); // 1 Jan closed, 2 Jan open
+      expect(minutes).toBe(540);
     });
   });
 

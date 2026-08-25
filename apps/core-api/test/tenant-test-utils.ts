@@ -1,7 +1,67 @@
-import type { TenantMemberRole } from '@prisma/client';
+import type { Employee, EmployeeRole, TenantMemberRole } from '@prisma/client';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { TenantContextStorage } from '../src/common/services/tenant-context.storage';
 import { randomUUID } from 'node:crypto';
+
+export const HR_TEST_AVG_WORKDAY_MINUTES = 515;
+export const HR_TEST_ANNUAL_LEAVE_MINUTES = 12875;
+export const HR_TEST_WEEK_LEAVE_MINUTES = 2850;
+export const HR_TEST_THREE_DAY_LEAVE_MINUTES = 1710;
+export const HR_TEST_REMAINING_AFTER_WEEK_MINUTES = 10025;
+export const HR_TEST_ALLOWANCE_30_MINUTES = 15450;
+export const HR_TEST_CARRYOVER_5_MINUTES = 2575;
+
+const DEFAULT_SCHEDULE_DAYS = [
+  {
+    weekday: 1,
+    is_working: true,
+    start_time: '07:30',
+    end_time: '17:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 2,
+    is_working: true,
+    start_time: '07:30',
+    end_time: '17:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 3,
+    is_working: true,
+    start_time: '07:30',
+    end_time: '17:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 4,
+    is_working: true,
+    start_time: '07:30',
+    end_time: '17:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 5,
+    is_working: true,
+    start_time: '07:30',
+    end_time: '17:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 6,
+    is_working: true,
+    start_time: '08:00',
+    end_time: '12:00',
+    break_minutes: 0,
+  },
+  {
+    weekday: 7,
+    is_working: false,
+    start_time: null,
+    end_time: null,
+    break_minutes: 0,
+  },
+] as const;
 
 export type TestTenantResult = {
   tenantId: string;
@@ -56,6 +116,57 @@ export function createTestAuthToken(
     role: tenant.role,
     ...overrides,
   });
+}
+
+export async function seedTestEmployee(
+  prisma: PrismaService,
+  params: {
+    tenantId: string;
+    name: string;
+    role: EmployeeRole;
+    isActive?: boolean;
+    userId?: string | null;
+    annualLeaveMinutes?: number;
+    hiredOn?: Date;
+    sortOrder?: number;
+  },
+): Promise<Employee> {
+  const annualLeaveMinutes =
+    params.annualLeaveMinutes ?? HR_TEST_ANNUAL_LEAVE_MINUTES;
+  const effectiveFrom = params.hiredOn ?? new Date();
+
+  const employee = await prisma.employee.create({
+    data: {
+      tenant_id: params.tenantId,
+      name: params.name,
+      role: params.role,
+      is_active: params.isActive ?? true,
+      sort_order: params.sortOrder ?? 0,
+      annual_leave_minutes: annualLeaveMinutes,
+      ...(params.userId !== undefined && { user_id: params.userId }),
+      ...(params.hiredOn !== undefined && { hired_on: params.hiredOn }),
+    },
+  });
+
+  await prisma.employeeWorkSchedule.create({
+    data: {
+      tenant_id: params.tenantId,
+      employee_id: employee.id,
+      effective_from: effectiveFrom,
+      days: {
+        create: DEFAULT_SCHEDULE_DAYS.map((day) => ({
+          tenant_id: params.tenantId,
+          weekday: day.weekday,
+          is_working: day.is_working,
+          start_time: day.start_time,
+          end_time: day.end_time,
+          break_minutes: day.break_minutes,
+        })),
+      },
+    },
+  });
+
+  return employee;
 }
 
 export async function seedTestTenantMember(
@@ -242,6 +353,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.attendanceEvent.deleteMany({});
   await tenantPrisma.leaveRequest.deleteMany({});
   await tenantPrisma.employeeLeaveBalance.deleteMany({});
+  await tenantPrisma.employeeWorkScheduleDay.deleteMany({});
+  await tenantPrisma.employeeWorkSchedule.deleteMany({});
   await tenantPrisma.employee.deleteMany({});
   await tenantPrisma.vehicle.deleteMany({});
   await tenantPrisma.customer.deleteMany({});

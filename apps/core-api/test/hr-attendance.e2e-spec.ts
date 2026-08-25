@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestTenant,
   runWithTenantContext,
+  seedTestEmployee,
   seedTestTenantMember,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -45,14 +46,10 @@ describe('HR Attendance Clock & Management (e2e)', () => {
     crossTenant = await createTestTenant(basePrisma, 'hr-attend-cross');
 
     await runWithTenantContext(crossTenant.tenantId, async () => {
-      const crossTenantEmployee = await basePrisma.employee.create({
-        data: {
-          tenant_id: crossTenant.tenantId,
-          name: 'Cross Tenant Employee',
-          role: 'SERVICE_ADVISOR',
-          is_active: true,
-          annual_leave_days: 25,
-        },
+      const crossTenantEmployee = await seedTestEmployee(basePrisma, {
+        tenantId: crossTenant.tenantId,
+        name: 'Cross Tenant Employee',
+        role: 'SERVICE_ADVISOR',
       });
       crossTenantEmployeeId = crossTenantEmployee.id;
     });
@@ -77,15 +74,11 @@ describe('HR Attendance Clock & Management (e2e)', () => {
         tenantId,
         role: 'TECH',
       });
-      const techEmployee = await basePrisma.employee.create({
-        data: {
-          tenant_id: tenantId,
-          name: 'Tech Mechanic',
-          role: 'MECHANIC',
-          is_active: true,
-          user_id: techUser.id,
-          annual_leave_days: 25,
-        },
+      const techEmployee = await seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Tech Mechanic',
+        role: 'MECHANIC',
+        userId: techUser.id,
       });
       techEmployeeId = techEmployee.id;
 
@@ -130,14 +123,10 @@ describe('HR Attendance Clock & Management (e2e)', () => {
       });
 
       // 4. Another employee for manager punch tests
-      const otherEmployee = await basePrisma.employee.create({
-        data: {
-          tenant_id: tenantId,
-          name: 'Desk Employee',
-          role: 'SERVICE_ADVISOR',
-          is_active: true,
-          annual_leave_days: 25,
-        },
+      const otherEmployee = await seedTestEmployee(basePrisma, {
+        tenantId,
+        name: 'Desk Employee',
+        role: 'SERVICE_ADVISOR',
       });
       otherEmployeeId = otherEmployee.id;
     });

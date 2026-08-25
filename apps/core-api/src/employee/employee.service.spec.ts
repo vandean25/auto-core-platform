@@ -12,6 +12,7 @@ const mockPrisma = {
     count: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
     updateMany: jest.fn(),
     deleteMany: jest.fn(),
   },
@@ -48,6 +49,11 @@ const mockPrisma = {
   $transaction: jest.fn(),
 };
 
+const mockScheduleService = {
+  seedInitialSchedule: jest.fn(),
+  defaultAnnualLeaveMinutes: jest.fn(),
+};
+
 describe('EmployeeService', () => {
   let service: EmployeeService;
   const mockTenantContext = {
@@ -63,7 +69,7 @@ describe('EmployeeService', () => {
     sort_order: 1,
     user_id: null,
     hired_on: new Date('2024-03-01T00:00:00.000Z'),
-    annual_leave_days: 25,
+    annual_leave_minutes: 12875,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
   };
@@ -90,8 +96,8 @@ describe('EmployeeService', () => {
       id: 'balance-1',
       employee_id: 'emp-1',
       year: 2026,
-      allowance_days: 25,
-      carryover_days: 0,
+      allowance_minutes: 12875,
+      carryover_minutes: 0,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
     });
@@ -107,6 +113,7 @@ describe('EmployeeService', () => {
     service = new EmployeeService(
       mockPrisma as unknown as PrismaService,
       mockTenantContext as unknown as TenantContextService,
+      mockScheduleService as any,
     );
   });
 
@@ -169,28 +176,28 @@ describe('EmployeeService', () => {
     expect(result.data[0].userId).toBe('user-uuid-abc');
   });
 
-  it('maps hiredOn, annualLeaveDays, and remainingLeaveDays', async () => {
+  it('maps hiredOn, annualLeaveMinutes, and remainingLeaveMinutes', async () => {
     mockPrisma.employee.findMany.mockResolvedValue([baseEmployee]);
     mockPrisma.employee.count.mockResolvedValue(1);
     mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([
       {
         employee_id: 'emp-1',
         year: 2026,
-        allowance_days: 25,
-        carryover_days: 2,
+        allowance_minutes: 12875,
+        carryover_minutes: 1030,
       },
     ]);
     mockPrisma.leaveRequest.groupBy.mockResolvedValue([
-      { employee_id: 'emp-1', _sum: { days_charged: 5 } },
+      { employee_id: 'emp-1', _sum: { minutes_charged: 2850 } },
     ]);
 
     const result = await service.findAll({});
 
     expect(result.data[0].hiredOn).toBe('2024-03-01');
-    expect(result.data[0].annualLeaveDays).toBe(25);
-    expect(result.data[0].carryoverDays).toBe(2);
+    expect(result.data[0].annualLeaveMinutes).toBe(12875);
+    expect(result.data[0].carryoverMinutes).toBe(1030);
     expect(result.data[0].leaveBalanceYear).toBe(2026);
-    expect(result.data[0].remainingLeaveDays).toBe(22);
+    expect(result.data[0].remainingLeaveMinutes).toBe(11055);
     expect(mockPrisma.employeeLeaveBalance.findMany).toHaveBeenCalledWith({
       where: {
         tenant_id: 'tenant-1',
@@ -200,8 +207,8 @@ describe('EmployeeService', () => {
       select: {
         employee_id: true,
         year: true,
-        allowance_days: true,
-        carryover_days: true,
+        allowance_minutes: true,
+        carryover_minutes: true,
       },
     });
     expect(mockPrisma.leaveRequest.groupBy).toHaveBeenCalledWith({
@@ -215,7 +222,7 @@ describe('EmployeeService', () => {
           lt: new Date(Date.UTC(2027, 0, 1)),
         },
       },
-      _sum: { days_charged: true },
+      _sum: { minutes_charged: true },
     });
     expect(mockPrisma.workshopSettings.findFirst).toHaveBeenCalledWith({
       where: { tenant_id: 'tenant-1' },
@@ -229,9 +236,9 @@ describe('EmployeeService', () => {
 
     const result = await service.findAll({});
 
-    expect(result.data[0].carryoverDays).toBe(0);
+    expect(result.data[0].carryoverMinutes).toBe(0);
     expect(result.data[0].leaveBalanceYear).toBe(2026);
-    expect(result.data[0].remainingLeaveDays).toBe(25);
+    expect(result.data[0].remainingLeaveMinutes).toBe(12875);
   });
 
   it('persists hire and leave fields when creating an employee', async () => {
@@ -239,24 +246,54 @@ describe('EmployeeService', () => {
       ...baseEmployee,
       id: 'emp-new',
       hired_on: new Date('2026-02-03T00:00:00.000Z'),
-      annual_leave_days: 30,
+      annual_leave_minutes: 0,
+    };
+    const updatedEmployee = {
+      ...createdEmployee,
+      annual_leave_minutes: 15450,
     };
     mockPrisma.employee.create.mockResolvedValue(createdEmployee);
+    mockPrisma.employee.update.mockResolvedValue(updatedEmployee);
+    mockScheduleService.seedInitialSchedule.mockResolvedValue({
+      id: 'sched-1',
+      days: [
+        {
+          weekday: 1,
+          is_working: true,
+          start_time: '07:30',
+          end_time: '17:00',
+          break_minutes: 0,
+        },
+      ],
+    });
+    mockScheduleService.defaultAnnualLeaveMinutes.mockReturnValue(12875);
 
     await service.create({
       name: 'New Mechanic',
       role: EmployeeRole.MECHANIC,
       hiredOn: '2026-02-03',
-      annualLeaveDays: 30,
+      annualLeaveMinutes: 15450,
     });
 
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockScheduleService.seedInitialSchedule).toHaveBeenCalledWith(
+      mockPrisma,
+      'tenant-1',
+      'emp-new',
+      new Date('2026-02-03T00:00:00.000Z'),
+    );
     expect(mockPrisma.employee.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           tenant_id: 'tenant-1',
           hired_on: new Date('2026-02-03T00:00:00.000Z'),
-          annual_leave_days: 30,
+          annual_leave_minutes: 0,
         }),
+      }),
+    );
+    expect(mockPrisma.employee.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { annual_leave_minutes: 15450 },
       }),
     );
   });
@@ -271,7 +308,7 @@ describe('EmployeeService', () => {
     mockPrisma.employee.findFirst.mockResolvedValue(baseEmployee);
 
     await expect(
-      service.update('emp-1', { annualLeaveDays: 30 }),
+      service.update('emp-1', { annualLeaveMinutes: 15450 }),
     ).rejects.toThrow('Tenant admin access is required.');
     await expect(
       service.update('emp-1', { hiredOn: '2026-05-01' }),
@@ -290,7 +327,7 @@ describe('EmployeeService', () => {
       service.create({
         name: 'New',
         role: EmployeeRole.OFFICE,
-        annualLeaveDays: 30,
+        annualLeaveMinutes: 15450,
       }),
     ).rejects.toThrow('Tenant admin access is required.');
     await expect(
@@ -351,20 +388,20 @@ describe('EmployeeService', () => {
   it('updates an existing current-year balance with annual leave changes', async () => {
     const updatedEmployee = {
       ...baseEmployee,
-      annual_leave_days: 30,
+      annual_leave_minutes: 15450,
     };
     mockPrisma.employee.findFirst
       .mockResolvedValueOnce(baseEmployee)
       .mockResolvedValueOnce(updatedEmployee);
 
-    await service.update('emp-1', { annualLeaveDays: 30 });
+    await service.update('emp-1', { annualLeaveMinutes: 15450 });
 
     const currentYear = Number(
       formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
     );
     expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith({
       where: { id: 'emp-1', tenant_id: 'tenant-1' },
-      data: { annual_leave_days: 30 },
+      data: { annual_leave_minutes: 15450 },
     });
     expect(mockPrisma.employeeLeaveBalance.upsert).toHaveBeenCalledWith({
       where: {
@@ -378,17 +415,17 @@ describe('EmployeeService', () => {
         tenant_id: 'tenant-1',
         employee_id: 'emp-1',
         year: currentYear,
-        allowance_days: 30,
-        carryover_days: 0,
+        allowance_minutes: 15450,
+        carryover_minutes: 0,
       },
-      update: { allowance_days: 30 },
+      update: { allowance_minutes: 15450 },
     });
   });
 
   it('creates a missing current-year balance with zero carryover', async () => {
     const updatedEmployee = {
       ...baseEmployee,
-      annual_leave_days: 30,
+      annual_leave_minutes: 15450,
     };
     mockPrisma.employee.findFirst
       .mockResolvedValueOnce(baseEmployee)
@@ -398,7 +435,7 @@ describe('EmployeeService', () => {
       formatLocalDate(new Date(), 'Europe/Vienna').slice(0, 4),
     );
 
-    await service.update('emp-1', { annualLeaveDays: 30 });
+    await service.update('emp-1', { annualLeaveMinutes: 15450 });
 
     expect(mockPrisma.employeeLeaveBalance.upsert).toHaveBeenCalledWith({
       where: {
@@ -412,10 +449,10 @@ describe('EmployeeService', () => {
         tenant_id: 'tenant-1',
         employee_id: 'emp-1',
         year: currentYear,
-        allowance_days: 30,
-        carryover_days: 0,
+        allowance_minutes: 15450,
+        carryover_minutes: 0,
       },
-      update: { allowance_days: 30 },
+      update: { allowance_minutes: 15450 },
     });
   });
 

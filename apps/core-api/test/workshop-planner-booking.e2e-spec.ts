@@ -11,6 +11,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  seedTestEmployee,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -168,12 +169,10 @@ describe('Workshop planner booking (e2e)', () => {
   });
 
   it('returns booked mechanic leave without blocking an away mechanic booking', async () => {
-    const mechanic = await prisma.employee.create({
-      data: {
-        name: 'Ada Lovelace',
-        role: 'MECHANIC',
-        is_active: true,
-      },
+    const mechanic = await seedTestEmployee(prisma, {
+      tenantId,
+      name: 'Ada Lovelace',
+      role: 'MECHANIC',
     });
     const leave = await prisma.leaveRequest.create({
       data: {
@@ -181,7 +180,7 @@ describe('Workshop planner booking (e2e)', () => {
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
         status: LeaveRequestStatus.BOOKED,
-        days_charged: 3,
+        minutes_charged: 1710,
       },
     });
     await prisma.leaveRequest.create({
@@ -190,7 +189,7 @@ describe('Workshop planner booking (e2e)', () => {
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
         status: LeaveRequestStatus.CANCELLED,
-        days_charged: 0,
+        minutes_charged: 0,
       },
     });
 
@@ -203,12 +202,10 @@ describe('Workshop planner booking (e2e)', () => {
       basePrisma,
       isolatedTenantId,
     );
-    const isolatedMechanic = await isolatedPrisma.employee.create({
-      data: {
-        name: 'Other Tenant Mechanic',
-        role: 'MECHANIC',
-        is_active: true,
-      },
+    const isolatedMechanic = await seedTestEmployee(isolatedPrisma, {
+      tenantId: isolatedTenantId,
+      name: 'Other Tenant Mechanic',
+      role: 'MECHANIC',
     });
     await isolatedPrisma.leaveRequest.create({
       data: {
@@ -216,7 +213,7 @@ describe('Workshop planner booking (e2e)', () => {
         start_on: new Date('2026-08-24T00:00:00.000Z'),
         end_on: new Date('2026-08-26T00:00:00.000Z'),
         status: LeaveRequestStatus.BOOKED,
-        days_charged: 3,
+        minutes_charged: 1710,
       },
     });
 
