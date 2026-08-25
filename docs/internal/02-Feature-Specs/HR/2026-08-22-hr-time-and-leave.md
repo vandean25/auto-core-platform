@@ -132,7 +132,7 @@ These are binding for implementation unless Product Owner overrides them in revi
 
 6. **Remaining minutes = allowance + carryover − sum(`minutes_charged`) of BOOKED leave in that calendar year.** Chargeable minutes use the algorithm in § Workday / minute charging below. `minutes_charged` is snapshotted at book/patch time; later schedule or shop-hour edits do not rewrite old bookings. A booking may not span two calendar years (`400`). Zero chargeable minutes → `400`.
 7. **Default allowance 25 days (AT-style) at create**, stored as `annual_leave_minutes = 25 × avg_expected_minutes_per_workday` in the same transaction as schedule seed. `annual_leave_minutes` has **no** `@default(25)` on the column. Copied onto that year's `EmployeeLeaveBalance.allowance_minutes` on first `GET /api/hr/me/leave` or first leave create. **Dual-write (ruling 7):** `POST/PATCH /api/employees` that sets `annualLeaveMinutes` must also set current local-year `allowance_minutes` when a balance row exists. `PATCH .../leave-balance` `allowanceMinutes` for the current local year must also set `Employee.annual_leave_minutes`. Carryover PATCH is in minutes (if UI accepts "days", convert at save with current `avg`).
-10. **RBAC (Phase 2 additions).** `hiredOn`, `annualLeaveMinutes`, work schedule writes, and leave-balance writes are OWNER/ADMIN only (`403` for SALES). SALES keeps roster write on `/api/employees` (name / role / active / user link).
+10. **RBAC (Phase 2 additions).** `hiredOn`, `annualLeaveMinutes`, work schedule **writes**, and leave-balance writes are OWNER/ADMIN only (`403` for SALES). SALES may **read** work schedules (`GET /api/hr/employees/:id/work-schedule`). SALES keeps roster write on `/api/employees` (name / role / active / user link).
 15. **Chargeable leave minutes** use employee schedule + shop fully-closed gate (see algorithm). Short shop holidays (`is_closed = false`) charge **full employee workday minutes**, not the shop's shortened window.
 16. **`remainingLeaveMinutes` is always a number.** If no balance row exists, use `annualLeaveMinutes + 0 carryover − 0 booked`. Never return null. UI may show derived `approxRemainingDays = remainingMinutes / current_avg` (display only).
 18. **Employee work schedule is versioned.** POST new version with later `effective_from`; PATCH corrects times on existing version (`effective_from` immutable on PATCH). Exactly seven ISO weekday rows (1–7) required on POST/PATCH; missing weekday → `400`. Duplicate `effective_from` → `409`. Schedule rows cascade on employee hard-delete — **not** a separate 409 reason.
@@ -281,6 +281,7 @@ minutes_charged = Σ charge for each D
 - `end_time <= start_time` or `break_minutes` ≥ span → `400`. No overnight shifts.
 - Short `WorkshopHoliday` (`is_closed = false`) charges **full employee minutes** for that date.
 - If total is `0`, reject booking with `400`.
+- Missing schedule version for any date in the range → `400` (do not charge 0 and proceed).
 - Do **not** call OpenHolidays from HR. Reuse planner helpers from `HrWorkdayService`.
 
 ### Deletion Policy Impact
@@ -326,6 +327,7 @@ Keep `/api/employees` as the employee CRUD surface. Clock, leave, and schedules 
 |--------|-------|--------------------------|
 | `GET` | `/api/hr/me/leave` | `{ year, allowanceMinutes, carryoverMinutes, remainingMinutes, approxRemainingDays?, bookings[] }` |
 | `POST` | `/api/hr/me/leave` | Returns `minutesCharged` on `LeaveRequest` |
+| `POST` | `/api/hr/leave` | `{ employeeId, startOn, endOn, note? }` — OWNER/ADMIN books for another employee; returns `minutesCharged` |
 | `PATCH` | `/api/hr/leave/:id` | Recomputes `minutesCharged` for new range |
 | `PATCH` | `/api/hr/employees/:id/leave-balance` | `{ year, allowanceMinutes?, carryoverMinutes? }` |
 
@@ -341,7 +343,7 @@ Leave create errors (minutes):
 
 | Method | Route | Request | Response | Auth |
 |--------|-------|---------|----------|------|
-| `GET` | `/api/hr/employees/:id/work-schedule` | — | Current schedule + history (or current + `effectiveFrom`) | OWNER/ADMIN |
+| `GET` | `/api/hr/employees/:id/work-schedule` | — | Current schedule + full version history | OWNER/ADMIN; SALES read |
 | `POST` | `/api/hr/employees/:id/work-schedule` | `{ effectiveFrom, days[7] }` | New schedule version | OWNER/ADMIN |
 | `PATCH` | `/api/hr/employees/:id/work-schedule/:scheduleId` | `{ days[7] }` — `effectiveFrom` ignored | Updated version | OWNER/ADMIN |
 
@@ -367,8 +369,10 @@ Schedule errors:
 - Duplicate `effectiveFrom` → `409`
 - Fewer or more than 7 weekdays → `400`
 - `isWorking: true` without both times → `400`
+- `isWorking: false` with non-null `startTime` or `endTime` → `400`
 - `endTime <= startTime` → `400`
-- SALES write → `403`
+- SALES POST/PATCH → `403` (GET is allowed for SALES)
+- Missing schedule version for a chargeable date `D` during leave booking → `400` (should not occur after seed/migration; do not silently charge 0)
 
 ### OpenAPI Regeneration
 
@@ -433,7 +437,7 @@ workSchedule: (employeeId: string) =>
 - [ ] Zero `is_working` days → `480` avg fallback
 - [ ] Migration: remaining minutes invariant (`remaining_days × avg`)
 - [ ] Employee hard-delete with only schedule rows succeeds (cascade)
-- [ ] SALES `403` on schedule and `annualLeaveMinutes`
+- [ ] SALES `403` on schedule POST/PATCH and `annualLeaveMinutes`; SALES `200` on schedule GET
 - [ ] No `hourly_rate` / wage fields on HR schema (grep test)
 - [ ] All Phase 1 attendance/leave tests updated for minute field names
 
