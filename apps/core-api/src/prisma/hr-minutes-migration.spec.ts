@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function remainingLeaveMinutesFromDays(
@@ -27,6 +27,13 @@ describe('HR minutes migration', () => {
     ),
     'utf8',
   );
+  const followUpMigrationPath = join(
+    process.cwd(),
+    'prisma',
+    'migrations',
+    '20260825123000_hr_schedule_migration_corrections',
+    'migration.sql',
+  );
 
   it('uses one avg factor per employee for every day-column conversion', () => {
     expect(migration).toContain('CREATE TEMP TABLE "_hr_schedule_avg"');
@@ -47,6 +54,17 @@ describe('HR minutes migration', () => {
   it('pads each schedule to ISO weekdays 1-7', () => {
     expect(migration).toMatch(/sd\."weekday" = d\.weekday/);
     expect(migration).toContain("(7, false, NULL::text, NULL::text)");
+  });
+
+  it('keeps post-migration schedule corrections in a follow-up migration', () => {
+    expect(existsSync(followUpMigrationPath)).toBe(true);
+    const followUpMigration = readFileSync(followUpMigrationPath, 'utf8');
+
+    expect(followUpMigration).toContain(
+      'CURRENT_TIMESTAMP AT TIME ZONE COALESCE',
+    );
+    expect(followUpMigration).toContain('480.0 / 515.0');
+    expect(migration).not.toContain('CURRENT_TIMESTAMP AT TIME ZONE');
   });
 
   it('preserves remaining leave at cutover when one avg factor is applied', () => {

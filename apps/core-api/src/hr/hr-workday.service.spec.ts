@@ -219,6 +219,46 @@ describe('HrWorkdayService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('uses the schedule version effective on each date', async () => {
+      const earlierSchedule = createEmployeeSchedule()[0];
+      const laterSchedule = {
+        ...earlierSchedule,
+        id: 'sched-2',
+        effective_from: new Date('2026-08-26T00:00:00.000Z'),
+        days: earlierSchedule.days.map((day) => ({
+          ...day,
+          start_time: day.is_working ? '08:00' : null,
+          end_time: day.is_working ? '16:00' : null,
+        })),
+      };
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        earlierSchedule,
+        laterSchedule,
+      ]);
+
+      const minutesBeforeChange = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
+        '2026-08-24',
+        '2026-08-24',
+        'Europe/Vienna',
+        createOpeningHours(),
+        [],
+      );
+      const minutesAfterChange = await service.countChargeableMinutes(
+        't1',
+        'emp-1',
+        '2026-08-31',
+        '2026-08-31',
+        'Europe/Vienna',
+        createOpeningHours(),
+        [],
+      );
+
+      expect(minutesBeforeChange).toBe(540);
+      expect(minutesAfterChange).toBe(480);
+    });
+
     it('skips closed Saturday and Sunday', async () => {
       const hours = createOpeningHours();
       // 2026-08-24 is Mon, 2026-08-30 is Sun

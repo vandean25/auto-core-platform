@@ -334,6 +334,9 @@ describe('EmployeeService', () => {
         'emp-new',
         new Date('2026-01-01T00:00:00.000Z'),
       );
+      expect(
+        mockScheduleService.defaultAnnualLeaveMinutes,
+      ).toHaveBeenCalledWith(480);
     } finally {
       jest.useRealTimers();
     }

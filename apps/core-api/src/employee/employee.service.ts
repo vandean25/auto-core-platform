@@ -390,7 +390,6 @@ export class EmployeeService {
   }
 
   private async getCurrentLocalYear(): Promise<number> {
-<<<<<<< HEAD
     const localDate = await this.getCurrentLocalDateString();
     return Number(localDate.slice(0, 4));
   }
@@ -400,26 +399,12 @@ export class EmployeeService {
   }
 
   private async getCurrentLocalDateString(): Promise<string> {
-=======
-    return Number((await this.getCurrentLocalDate()).slice(0, 4));
-  }
-
-  private async getCurrentLocalDate(): Promise<string> {
->>>>>>> 531ea95 (fix(hr): enforce schedule date and fallback boundaries)
     const tenantId = await this.tenantContext.getTenantId();
     const settings = await this.prisma.workshopSettings.findFirst({
       where: { tenant_id: tenantId },
       select: { timezone: true },
     });
-<<<<<<< HEAD
     return formatLocalDate(new Date(), settings?.timezone ?? DEFAULT_TIME_ZONE);
-=======
-    const localDate = formatLocalDate(
-      new Date(),
-      settings?.timezone ?? DEFAULT_TIME_ZONE,
-    );
-    return localDate;
->>>>>>> 531ea95 (fix(hr): enforce schedule date and fallback boundaries)
   }
 
   private async updateEmployeeAndCurrentLeaveBalance(
