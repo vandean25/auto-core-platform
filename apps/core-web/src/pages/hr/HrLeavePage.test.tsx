@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
 import HrLeavePage from './HrLeavePage'
@@ -147,10 +147,15 @@ function setupPage(
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.clearAllMocks()
 })
 
 describe('HrLeavePage', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T12:00:00.000Z'))
+  })
   it('sorts own leave bookings by note', () => {
     const bookingWithLaterNote = { ...booking, id: 'leave-zulu', startOn: '2026-08-26', note: 'Zulu' }
     const bookingWithEarlierNote = { ...booking, id: 'leave-alpha', startOn: '2026-08-27', note: 'Alpha' }
