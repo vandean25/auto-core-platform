@@ -395,7 +395,7 @@ export class EmployeeService {
   }
 
   private async getCurrentLocalDate(): Promise<Date> {
-    return this.toDateOnly(await this.getCurrentLocalDateString())!;
+    return this.toDateOnly(await this.getCurrentLocalDateString());
   }
 
   private async getCurrentLocalDateString(): Promise<string> {
