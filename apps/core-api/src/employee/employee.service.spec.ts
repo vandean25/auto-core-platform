@@ -14,6 +14,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    findFirstOrThrow: jest.fn(),
     deleteMany: jest.fn(),
   },
   employeeLeaveBalance: {
@@ -253,7 +254,7 @@ describe('EmployeeService', () => {
       annual_leave_minutes: 15450,
     };
     mockPrisma.employee.create.mockResolvedValue(createdEmployee);
-    mockPrisma.employee.update.mockResolvedValue(updatedEmployee);
+    mockPrisma.employee.findFirstOrThrow.mockResolvedValue(updatedEmployee);
     mockScheduleService.seedInitialSchedule.mockResolvedValue({
       id: 'sched-1',
       days: [
@@ -291,8 +292,9 @@ describe('EmployeeService', () => {
         }),
       }),
     );
-    expect(mockPrisma.employee.update).toHaveBeenCalledWith(
+    expect(mockPrisma.employee.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: 'emp-new', tenant_id: 'tenant-1' },
         data: { annual_leave_minutes: 15450 },
       }),
     );
@@ -524,7 +526,7 @@ describe('EmployeeService', () => {
       ...newEmployee,
       annual_leave_minutes: 0,
     });
-    mockPrisma.employee.update.mockResolvedValue(newEmployee);
+    mockPrisma.employee.findFirstOrThrow.mockResolvedValue(newEmployee);
     mockScheduleService.seedInitialSchedule.mockResolvedValue({
       id: 'sched-1',
       days: [

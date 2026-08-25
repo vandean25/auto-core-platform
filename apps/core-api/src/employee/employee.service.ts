@@ -149,14 +149,16 @@ export class EmployeeService {
           dto.annualLeaveMinutes ??
           this.scheduleService.defaultAnnualLeaveMinutes(avgMinutes);
 
-        return transaction.employee.update({
-          where: {
-            tenant_id_id: {
-              tenant_id: tenantId,
-              id: employee.id,
-            },
-          },
+        const updated = await transaction.employee.updateMany({
+          where: { id: employee.id, tenant_id: tenantId },
           data: { annual_leave_minutes: annualLeaveMinutes },
+        });
+        if (updated.count === 0) {
+          throw new NotFoundException(`Employee ${employee.id} not found`);
+        }
+
+        return transaction.employee.findFirstOrThrow({
+          where: { id: employee.id, tenant_id: tenantId },
         });
       });
 
