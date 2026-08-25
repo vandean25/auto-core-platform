@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  runWithTenantContext,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
