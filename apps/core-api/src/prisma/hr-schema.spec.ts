@@ -15,7 +15,10 @@ describe('HR Prisma schema', () => {
     expect(schema).toContain('model LeaveRequest');
     expect(schema).toContain('model AttendanceEvent');
     expect(schema).toContain('hired_on');
-    expect(schema).toContain('annual_leave_days');
+    expect(schema).toContain('annual_leave_minutes');
+    expect(schema).toContain('model EmployeeWorkSchedule');
+    expect(schema).toContain('model EmployeeWorkScheduleDay');
+    expect(schema).toContain('minutes_charged');
     expect(schema).toContain('@@map("employee_leave_balances")');
     expect(schema).toContain('@@map("leave_requests")');
     expect(schema).toContain('@@map("attendance_events")');

@@ -155,7 +155,6 @@ export async function seedTestEmployee(
       effective_from: effectiveFrom,
       days: {
         create: DEFAULT_SCHEDULE_DAYS.map((day) => ({
-          tenant_id: params.tenantId,
           weekday: day.weekday,
           is_working: day.is_working,
           start_time: day.start_time,

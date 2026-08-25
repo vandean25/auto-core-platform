@@ -94,7 +94,7 @@ export class HrMeEmployeeDto {
   hiredOn!: string | null;
 
   @ApiProperty()
-  annualLeaveDays!: number;
+  annualLeaveMinutes!: number;
 }
 
 export class HrMeResponseDto {
@@ -108,7 +108,7 @@ export class HrMeResponseDto {
   clockState!: AttendanceState;
 
   @ApiProperty()
-  remainingLeaveDays!: number;
+  remainingLeaveMinutes!: number;
 
   @ApiProperty()
   timezone!: string;

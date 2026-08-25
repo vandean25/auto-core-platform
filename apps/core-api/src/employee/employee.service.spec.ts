@@ -518,8 +518,26 @@ describe('EmployeeService', () => {
       ...baseEmployee,
       id: 'emp-new',
       user_id: 'user-uuid-new',
+      annual_leave_minutes: 12875,
     };
-    mockPrisma.employee.create.mockResolvedValue(newEmployee);
+    mockPrisma.employee.create.mockResolvedValue({
+      ...newEmployee,
+      annual_leave_minutes: 0,
+    });
+    mockPrisma.employee.update.mockResolvedValue(newEmployee);
+    mockScheduleService.seedInitialSchedule.mockResolvedValue({
+      id: 'sched-1',
+      days: [
+        {
+          weekday: 1,
+          is_working: true,
+          start_time: '07:30',
+          end_time: '17:00',
+          break_minutes: 0,
+        },
+      ],
+    });
+    mockScheduleService.defaultAnnualLeaveMinutes.mockReturnValue(12875);
 
     const result = await service.create({
       name: 'New Mechanic',

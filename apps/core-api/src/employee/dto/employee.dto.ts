@@ -89,12 +89,11 @@ export class CreateEmployeeDto {
   @Matches(DATE_ONLY_RE)
   hiredOn?: string | null;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 365 })
+  @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(365)
-  annualLeaveDays?: number;
+  annualLeaveMinutes?: number;
 }
 
 export class UpdateEmployeeDto {
@@ -154,12 +153,11 @@ export class UpdateEmployeeDto {
   @Matches(DATE_ONLY_RE)
   hiredOn?: string | null;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 365 })
+  @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(365)
-  annualLeaveDays?: number;
+  annualLeaveMinutes?: number;
 }
 
 export class ListEmployeesQueryDto {
@@ -232,16 +230,16 @@ export class EmployeeResponseDto {
   hiredOn!: string | null;
 
   @ApiProperty()
-  annualLeaveDays!: number;
+  annualLeaveMinutes!: number;
 
   @ApiProperty()
-  carryoverDays!: number;
+  carryoverMinutes!: number;
 
   @ApiProperty()
   leaveBalanceYear!: number;
 
   @ApiProperty()
-  remainingLeaveDays!: number;
+  remainingLeaveMinutes!: number;
 
   @ApiProperty()
   createdAt!: Date;

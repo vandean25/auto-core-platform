@@ -100,28 +100,24 @@ export class PatchLeaveBalanceDto {
   @ApiPropertyOptional({
     type: Number,
     minimum: 0,
-    maximum: 365,
-    example: 25,
-    description: 'Annual leave allowance days for this year',
+    example: 12875,
+    description: 'Annual leave allowance minutes for this year',
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(365)
-  allowanceDays?: number;
+  allowanceMinutes?: number;
 
   @ApiPropertyOptional({
     type: Number,
     minimum: 0,
-    maximum: 365,
-    example: 3,
-    description: 'Carryover days from previous years',
+    example: 2575,
+    description: 'Carryover minutes from previous years',
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(365)
-  carryoverDays?: number;
+  carryoverMinutes?: number;
 }
 
 export class QueryHrLeaveDto {
@@ -195,8 +191,8 @@ export class LeaveRequestResponseDto {
   @IsEnum(LeaveRequestStatus)
   status!: LeaveRequestStatus;
 
-  @ApiProperty({ example: 5 })
-  daysCharged!: number;
+  @ApiProperty({ example: 2850 })
+  minutesCharged!: number;
 
   @ApiPropertyOptional({ type: String, nullable: true })
   note!: string | null;
@@ -218,14 +214,14 @@ export class MyLeaveResponseDto {
   @ApiProperty({ example: 2026 })
   year!: number;
 
-  @ApiProperty({ example: 25 })
-  allowanceDays!: number;
+  @ApiProperty({ example: 12875 })
+  allowanceMinutes!: number;
 
   @ApiProperty({ example: 0 })
-  carryoverDays!: number;
+  carryoverMinutes!: number;
 
-  @ApiProperty({ example: 20 })
-  remainingDays!: number;
+  @ApiProperty({ example: 10025 })
+  remainingMinutes!: number;
 
   @ApiProperty({ type: [LeaveRequestResponseDto] })
   bookings!: LeaveRequestResponseDto[];
@@ -241,11 +237,11 @@ export class LeaveBalanceResponseDto {
   @ApiProperty({ example: 2026 })
   year!: number;
 
-  @ApiProperty({ example: 25 })
-  allowanceDays!: number;
+  @ApiProperty({ example: 12875 })
+  allowanceMinutes!: number;
 
   @ApiProperty({ example: 0 })
-  carryoverDays!: number;
+  carryoverMinutes!: number;
 
   @ApiProperty()
   createdAt!: Date;
