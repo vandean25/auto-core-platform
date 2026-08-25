@@ -175,7 +175,9 @@ export class HrWorkScheduleService {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2025'
           ) {
-            throw new NotFoundException(`Work schedule ${scheduleId} not found`);
+            throw new NotFoundException(
+              `Work schedule ${scheduleId} not found`,
+            );
           }
           throw error;
         }
