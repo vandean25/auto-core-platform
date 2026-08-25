@@ -402,10 +402,7 @@ export class EmployeeService {
       where: { tenant_id: tenantId },
       select: { timezone: true },
     });
-    return formatLocalDate(
-      new Date(),
-      settings?.timezone ?? DEFAULT_TIME_ZONE,
-    );
+    return formatLocalDate(new Date(), settings?.timezone ?? DEFAULT_TIME_ZONE);
   }
 
   private async updateEmployeeAndCurrentLeaveBalance(
