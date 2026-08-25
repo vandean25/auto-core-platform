@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { EmployeeWorkScheduleDay } from '@prisma/client';
 
 export const FALLBACK_AVG_WORKDAY_MINUTES = 480;
@@ -9,9 +10,19 @@ export function workdayMinutesFromTimes(
 ): number {
   const [openHour, openMinute] = startTime.split(':').map(Number);
   const [closeHour, closeMinute] = endTime.split(':').map(Number);
-  const span =
-    closeHour * 60 + closeMinute - (openHour * 60 + openMinute) - breakMinutes;
-  return Math.max(0, span);
+  const grossSpan =
+    closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
+  if (grossSpan <= 0) {
+    throw new BadRequestException(
+      'Work schedule end time must be after start time',
+    );
+  }
+  if (breakMinutes < 0 || breakMinutes >= grossSpan) {
+    throw new BadRequestException(
+      'Work schedule break must be shorter than the workday',
+    );
+  }
+  return grossSpan - breakMinutes;
 }
 
 export function expectedMinutesForScheduleDay(
@@ -20,13 +31,13 @@ export function expectedMinutesForScheduleDay(
     'is_working' | 'start_time' | 'end_time' | 'break_minutes'
   >,
 ): number {
-  if (
-    !day.is_working ||
-    day.start_time == null ||
-    day.end_time == null ||
-    day.end_time <= day.start_time
-  ) {
+  if (!day.is_working) {
     return 0;
+  }
+  if (day.start_time == null || day.end_time == null) {
+    throw new BadRequestException(
+      'Working schedule days require start and end times',
+    );
   }
   return workdayMinutesFromTimes(
     day.start_time,

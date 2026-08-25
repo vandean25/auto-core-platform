@@ -1,4 +1,5 @@
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 import { HrWorkdayService } from './hr-workday.service';
 
 function createOpeningHours(): WorkshopOpeningHour[] {
@@ -131,6 +132,47 @@ describe('HrWorkdayService', () => {
   });
 
   describe('countChargeableMinutes', () => {
+    it('rejects a range without a resolved employee schedule', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a working schedule day whose end is not after its start', async () => {
+      mockPrisma.employeeWorkSchedule.findMany.mockResolvedValue([
+        {
+          ...createEmployeeSchedule()[0],
+          days: createEmployeeSchedule()[0].days.map((day) =>
+            day.weekday === 1
+              ? { ...day, start_time: '17:00', end_time: '08:00' }
+              : day,
+          ),
+        },
+      ]);
+
+      await expect(
+        service.countChargeableMinutes(
+          't1',
+          'emp-1',
+          '2026-08-24',
+          '2026-08-24',
+          'Europe/Vienna',
+          createOpeningHours(),
+          [],
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('skips closed Saturday and Sunday', async () => {
       const hours = createOpeningHours();
       // 2026-08-24 is Mon, 2026-08-30 is Sun
