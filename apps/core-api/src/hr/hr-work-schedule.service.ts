@@ -122,13 +122,55 @@ export class HrWorkScheduleService {
 
   private defaultScheduleDays(): ScheduleDayInput[] {
     return [
-      { weekday: 1, is_working: true, start_time: '07:30', end_time: '17:00', break_minutes: 0 },
-      { weekday: 2, is_working: true, start_time: '07:30', end_time: '17:00', break_minutes: 0 },
-      { weekday: 3, is_working: true, start_time: '07:30', end_time: '17:00', break_minutes: 0 },
-      { weekday: 4, is_working: true, start_time: '07:30', end_time: '17:00', break_minutes: 0 },
-      { weekday: 5, is_working: true, start_time: '07:30', end_time: '17:00', break_minutes: 0 },
-      { weekday: 6, is_working: true, start_time: '08:00', end_time: '12:00', break_minutes: 0 },
-      { weekday: 7, is_working: false, start_time: null, end_time: null, break_minutes: 0 },
+      {
+        weekday: 1,
+        is_working: true,
+        start_time: '07:30',
+        end_time: '17:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 2,
+        is_working: true,
+        start_time: '07:30',
+        end_time: '17:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 3,
+        is_working: true,
+        start_time: '07:30',
+        end_time: '17:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 4,
+        is_working: true,
+        start_time: '07:30',
+        end_time: '17:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 5,
+        is_working: true,
+        start_time: '07:30',
+        end_time: '17:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 6,
+        is_working: true,
+        start_time: '08:00',
+        end_time: '12:00',
+        break_minutes: 0,
+      },
+      {
+        weekday: 7,
+        is_working: false,
+        start_time: null,
+        end_time: null,
+        break_minutes: 0,
+      },
     ];
   }
 

@@ -84,7 +84,8 @@ export class HrLeaveService {
 
     const allowanceMinutes = balance.allowance_minutes;
     const carryoverMinutes = balance.carryover_minutes;
-    const remainingMinutes = allowanceMinutes + carryoverMinutes - bookedMinutes;
+    const remainingMinutes =
+      allowanceMinutes + carryoverMinutes - bookedMinutes;
 
     return {
       year,

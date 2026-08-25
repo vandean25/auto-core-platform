@@ -84,15 +84,15 @@ export class HrWorkdayService {
       return 0;
     }
 
-    const schedules = await this.prisma.employeeWorkSchedule.findMany({
+    const schedules = (await this.prisma.employeeWorkSchedule.findMany({
       where: {
         tenant_id: tenantId,
         employee_id: employeeId,
-        effective_from: { lte: this.toDateOnly(dates[dates.length - 1]!) },
+        effective_from: { lte: this.toDateOnly(dates[dates.length - 1]) },
       },
       include: { days: true },
       orderBy: { effective_from: 'asc' },
-    }) as Array<{
+    })) as Array<{
       effective_from: Date;
       days: Array<{
         weekday: number;

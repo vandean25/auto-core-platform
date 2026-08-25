@@ -52,6 +52,9 @@ export function averageExpectedMinutesPerWorkday(
   return Math.round(total / working.length);
 }
 
-export function daysToMinutes(days: number, avgMinutesPerWorkday: number): number {
+export function daysToMinutes(
+  days: number,
+  avgMinutesPerWorkday: number,
+): number {
   return Math.round(days * avgMinutesPerWorkday);
 }
