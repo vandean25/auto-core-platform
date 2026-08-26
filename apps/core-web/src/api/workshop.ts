@@ -41,9 +41,171 @@ export const workshopKeys = {
   detail: (id: string) => [...workshopKeys.all, 'order', id] as const,
   order: (id: string) => workshopKeys.detail(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
-  planner: () => [...workshopKeys.all, 'planner'] as const,
+  planner: (from?: string, to?: string, bayId?: string) =>
+    from && to
+      ? [...workshopKeys.all, 'planner', from, to, bayId ?? 'all'] as const
+      : ([...workshopKeys.all, 'planner'] as const),
+  settings: () => [...workshopKeys.all, 'settings'] as const,
+  holidays: (from?: string, to?: string) =>
+    [...workshopKeys.all, 'holidays', from ?? 'year', to ?? 'year'] as const,
+  holidaysAll: () => [...workshopKeys.all, 'holidays'] as const,
   boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
   boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
+}
+
+export type WorkshopSettingsResponse =
+  components['schemas']['WorkshopSettingsResponseDto']
+export type UpdateWorkshopSettingsPayload =
+  components['schemas']['UpdateWorkshopSettingsDto']
+export type WorkshopHoliday = components['schemas']['WorkshopHolidayDto']
+export type CreateWorkshopHolidayPayload =
+  components['schemas']['CreateWorkshopHolidayDto']
+export type UpdateWorkshopHolidayPayload =
+  components['schemas']['UpdateWorkshopHolidayDto']
+export type ImportWorkshopHolidaysPayload =
+  components['schemas']['ImportWorkshopHolidaysDto']
+export type ImportWorkshopHolidaysResponse =
+  components['schemas']['ImportWorkshopHolidaysResponseDto']
+
+type WorkshopHolidayListResponse = {
+  data: WorkshopHoliday[]
+}
+
+export function useWorkshopSettings() {
+  return useQuery<WorkshopSettingsResponse>({
+    queryKey: workshopKeys.settings(),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/settings`)
+      if (!response.ok) throw new Error('Failed to fetch workshop settings')
+      return response.json()
+    },
+  })
+}
+
+export function useUpdateWorkshopSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: UpdateWorkshopSettingsPayload) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update workshop settings')
+      }
+      return response.json() as Promise<WorkshopSettingsResponse>
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData(workshopKeys.settings(), settings)
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+    },
+  })
+}
+
+export function useWorkshopHolidays(from?: string, to?: string) {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const query = params.toString()
+
+  return useQuery<WorkshopHolidayListResponse>({
+    queryKey: workshopKeys.holidays(from, to),
+    queryFn: async () => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/holidays${query ? `?${query}` : ''}`,
+      )
+      if (!response.ok) throw new Error('Failed to fetch workshop holidays')
+      return response.json()
+    },
+  })
+}
+
+export function useCreateWorkshopHoliday() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CreateWorkshopHolidayPayload) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/holidays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to create holiday')
+      }
+      return response.json() as Promise<WorkshopHoliday>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+    },
+  })
+}
+
+export function useUpdateWorkshopHoliday() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: UpdateWorkshopHolidayPayload
+    }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/holidays/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update holiday')
+      }
+      return response.json() as Promise<WorkshopHoliday>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+    },
+  })
+}
+
+export function useDeleteWorkshopHoliday() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/holidays/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to delete holiday')
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+    },
+  })
+}
+
+export function useImportWorkshopHolidays() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: ImportWorkshopHolidaysPayload = {}) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/holidays/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to import public holidays')
+      }
+      return response.json() as Promise<ImportWorkshopHolidaysResponse>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
+    },
+  })
 }
 
 export const catalogKeys = {

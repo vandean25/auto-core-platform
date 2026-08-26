@@ -72,4 +72,15 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 })
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  writable: true,
+  configurable: true,
+  value: ResizeObserverMock,
+})
 
