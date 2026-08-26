@@ -20,6 +20,11 @@ vi.mock('@/api/employees', () => ({
 
 vi.mock('@/api/hr', () => ({
   usePatchLeaveBalance: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useEmployeeWorkSchedule: () => ({
+    data: { current: null, history: [] },
+    isLoading: false,
+    error: null,
+  }),
 }))
 
 vi.mock('@/api/auth-session', () => ({
