@@ -187,7 +187,7 @@ export default function HrLeavePage() {
       return FALLBACK_AVG_WORKDAY_MINUTES
     }
     return averageExpectedMinutesPerWorkday(current.days)
-  }, [meScheduleQuery.data?.current])
+  }, [meScheduleQuery.data])
   const remainingMinutes =
     myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0
   const remainingApprox = formatApproxDays(remainingMinutes, remainingAvgMinutes)

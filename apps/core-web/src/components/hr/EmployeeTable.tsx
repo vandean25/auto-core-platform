@@ -350,7 +350,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       return FALLBACK_AVG_WORKDAY_MINUTES
     }
     return averageExpectedMinutesPerWorkday(current.days)
-  }, [sheetScheduleQuery.data?.current])
+  }, [sheetScheduleQuery.data])
 
   const hasHrEditAccess = canEditHrFields(activeRole)
   const employees = React.useMemo(() => responseData?.data ?? [], [responseData?.data])

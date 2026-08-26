@@ -38,7 +38,7 @@ const currentVersion = {
   })),
 }
 
-function setupEditor(canEdit = true) {
+function setupEditor(_canEdit = true) {
   const updateSchedule = vi.fn().mockResolvedValue(currentVersion)
   const createSchedule = vi.fn().mockResolvedValue(currentVersion)
 
