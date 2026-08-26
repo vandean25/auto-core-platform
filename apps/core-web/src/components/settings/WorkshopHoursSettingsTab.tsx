@@ -68,6 +68,11 @@ type SettingsFormState = {
   openingHours: OpeningHourFormRow[]
 }
 
+function normalizeTimeValue(value: string): string {
+  const match = /^(\d{2}):(\d{2})/.exec(value)
+  return match ? `${match[1]}:${match[2]}` : value
+}
+
 function settingsToFormState(settings: WorkshopSettingsResponse): SettingsFormState {
   return {
     timezone: settings.timezone,
@@ -77,8 +82,8 @@ function settingsToFormState(settings: WorkshopSettingsResponse): SettingsFormSt
     openingHours: settings.openingHours.map((hour) => ({
       weekday: hour.weekday,
       isClosed: hour.isClosed,
-      openTime: hour.openTime,
-      closeTime: hour.closeTime,
+      openTime: normalizeTimeValue(hour.openTime),
+      closeTime: normalizeTimeValue(hour.closeTime),
     })),
   }
 }
@@ -99,7 +104,11 @@ export function WorkshopHoursSettingsTab() {
   const sessionQuery = useAuthSession()
   const canManage = canManageWorkshopHours(sessionQuery.data?.activeRole)
 
-  const { data: settings, isLoading: isLoadingSettings } = useWorkshopSettings()
+  const {
+    data: settings,
+    isLoading: isLoadingSettings,
+    isError: isSettingsError,
+  } = useWorkshopSettings()
   const { data: holidaysResponse, isLoading: isLoadingHolidays } = useWorkshopHolidays()
   const updateSettingsMutation = useUpdateWorkshopSettings()
   const deleteHolidayMutation = useDeleteWorkshopHoliday()
@@ -112,10 +121,9 @@ export function WorkshopHoursSettingsTab() {
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
 
   React.useEffect(() => {
-    if (settings) {
-      setFormState(settingsToFormState(settings))
-    }
-  }, [settings])
+    if (!settings || formState) return
+    setFormState(settingsToFormState(settings))
+  }, [formState, settings])
 
   const holidays = holidaysResponse?.data ?? []
 
@@ -133,11 +141,29 @@ export function WorkshopHoursSettingsTab() {
     )
   }, [holidays, queryParams.search])
 
+  const sortedHolidays = React.useMemo(() => {
+    const field = queryParams.sortField
+    if (!field) return filteredHolidays
+    const direction = queryParams.sortDirection === 'desc' ? -1 : 1
+    return [...filteredHolidays].sort((left, right) => {
+      if (field === 'repeatsAnnually') {
+        return direction * (Number(left.repeatsAnnually) - Number(right.repeatsAnnually))
+      }
+      const leftValue = String(
+        field === 'hours' ? formatHolidayHours(left) : left[field as keyof WorkshopHoliday] ?? '',
+      )
+      const rightValue = String(
+        field === 'hours' ? formatHolidayHours(right) : right[field as keyof WorkshopHoliday] ?? '',
+      )
+      return direction * leftValue.localeCompare(rightValue)
+    })
+  }, [filteredHolidays, queryParams.sortDirection, queryParams.sortField])
+
   const pageSize = queryParams.pageSize
-  const pageCount = Math.max(1, Math.ceil(filteredHolidays.length / pageSize))
+  const pageCount = Math.max(1, Math.ceil(sortedHolidays.length / pageSize))
   const currentPage = Math.min(queryParams.page, pageCount)
   const pageStart = (currentPage - 1) * pageSize
-  const pagedHolidays = filteredHolidays.slice(pageStart, pageStart + pageSize)
+  const pagedHolidays = sortedHolidays.slice(pageStart, pageStart + pageSize)
 
   React.useEffect(() => {
     if (queryParams.page <= pageCount) return
@@ -178,13 +204,14 @@ export function WorkshopHoursSettingsTab() {
       openingHours: formState.openingHours.map((hour) => ({
         weekday: hour.weekday,
         isClosed: hour.isClosed,
-        openTime: hour.openTime,
-        closeTime: hour.closeTime,
+        openTime: normalizeTimeValue(hour.openTime),
+        closeTime: normalizeTimeValue(hour.closeTime),
       })),
     }
 
     try {
-      await updateSettingsMutation.mutateAsync(payload)
+      const saved = await updateSettingsMutation.mutateAsync(payload)
+      setFormState(settingsToFormState(saved))
       toast.success('Workshop hours saved')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to save workshop hours'))
@@ -257,6 +284,14 @@ export function WorkshopHoursSettingsTab() {
     ],
     [],
   )
+
+  if (isSettingsError) {
+    return (
+      <p className='text-sm text-destructive'>
+        Failed to load workshop hours. Refresh and try again.
+      </p>
+    )
+  }
 
   if (isLoadingSettings || !formState) {
     return (

@@ -36,6 +36,11 @@ type FormState = {
   closeTime: string
 }
 
+function normalizeTimeValue(value: string): string {
+  const match = /^(\d{2}):(\d{2})/.exec(value)
+  return match ? `${match[1]}:${match[2]}` : value
+}
+
 const defaultFormState: FormState = {
   name: '',
   observedOn: '',
@@ -53,8 +58,8 @@ function toFormState(holiday?: WorkshopHoliday | null): FormState {
     observedOn: holiday.observedOn,
     repeatsAnnually: holiday.repeatsAnnually,
     isClosed: holiday.isClosed,
-    openTime: holiday.openTime ?? '08:00',
-    closeTime: holiday.closeTime ?? '12:00',
+    openTime: normalizeTimeValue(holiday.openTime ?? '08:00'),
+    closeTime: normalizeTimeValue(holiday.closeTime ?? '12:00'),
   }
 }
 
@@ -102,8 +107,8 @@ export function WorkshopHolidayDialog({
       ...(formState.isClosed
         ? {}
         : {
-            openTime: formState.openTime,
-            closeTime: formState.closeTime,
+            openTime: normalizeTimeValue(formState.openTime),
+            closeTime: normalizeTimeValue(formState.closeTime),
           }),
     }
 

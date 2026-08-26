@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { OPENHOLIDAYS_FETCH } from '../src/workshop/openholidays.client';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -24,6 +25,15 @@ const DEFAULT_OPENING_HOURS = [
   { weekday: 7, isClosed: true, openTime: '07:30', closeTime: '17:00' },
 ] as const;
 
+const openHolidaysFetchMock = jest.fn();
+
+function openHolidaysOk(rows: unknown[]) {
+  openHolidaysFetchMock.mockResolvedValue({
+    ok: true,
+    json: async () => rows,
+  });
+}
+
 describe('Workshop settings and holidays (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
@@ -34,7 +44,10 @@ describe('Workshop settings and holidays (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OPENHOLIDAYS_FETCH)
+      .useValue(openHolidaysFetchMock)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -223,7 +236,7 @@ describe('Workshop settings and holidays (e2e)', () => {
       .expect(409);
   });
 
-  it('SALES can read settings but cannot write holidays', async () => {
+  it('SALES can read settings but cannot write hours or holidays', async () => {
     const salesTenant = await createTestTenant(basePrisma, 'workshop-settings-sales');
     await runWithTenantContext(salesTenant.tenantId, async () => {
       await basePrisma.tenantMember.updateMany({
@@ -245,6 +258,18 @@ describe('Workshop settings and holidays (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
+      .put('/api/workshop/settings')
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send({
+        timezone: 'Europe/Vienna',
+        slotMinutes: 30,
+        holidayCountryIso: 'AT',
+        holidaySubdivisionCode: null,
+        openingHours: DEFAULT_OPENING_HOURS,
+      })
+      .expect(403);
+
+    await request(app.getHttpServer())
       .post('/api/workshop/holidays')
       .set('Authorization', `Bearer ${salesToken}`)
       .send({
@@ -254,5 +279,182 @@ describe('Workshop settings and holidays (e2e)', () => {
       .expect(403);
 
     await cleanupTestTenantGraph(basePrisma, salesTenant.tenantId);
+  });
+
+  it('POST /holidays/import imports AT public days for current and next year', async () => {
+    const currentYear = new Date().getFullYear();
+    openHolidaysOk([
+      {
+        id: 'oh-neujahr',
+        startDate: `${currentYear}-01-01`,
+        endDate: `${currentYear}-01-01`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Neujahr' }],
+      },
+      {
+        id: 'oh-next',
+        startDate: `${currentYear + 1}-01-01`,
+        endDate: `${currentYear + 1}-01-01`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Neujahr' }],
+      },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .post('/api/workshop/holidays/import')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(201);
+
+    expect(response.body.imported).toBe(2);
+    expect(response.body.skipped).toBe(0);
+    expect(response.body.yearFrom).toBe(currentYear);
+    expect(response.body.yearTo).toBe(currentYear + 1);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/workshop/holidays')
+      .query({
+        from: `${currentYear}-01-01`,
+        to: `${currentYear + 1}-12-31`,
+      })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(list.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Neujahr',
+          observedOn: `${currentYear}-01-01`,
+          source: 'IMPORTED',
+        }),
+        expect.objectContaining({
+          observedOn: `${currentYear + 1}-01-01`,
+          source: 'IMPORTED',
+        }),
+      ]),
+    );
+  });
+
+  it('POST /holidays/import is idempotent and refreshes imported rows', async () => {
+    const currentYear = new Date().getFullYear();
+    openHolidaysOk([
+      {
+        id: 'oh-idempotent',
+        startDate: `${currentYear}-05-01`,
+        endDate: `${currentYear}-05-01`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Staatsfeiertag' }],
+      },
+    ]);
+
+    const first = await request(app.getHttpServer())
+      .post('/api/workshop/holidays/import')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(201);
+
+    expect(first.body.imported).toBe(1);
+
+    openHolidaysOk([
+      {
+        id: 'oh-idempotent',
+        startDate: `${currentYear}-05-01`,
+        endDate: `${currentYear}-05-01`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Staatsfeiertag (updated)' }],
+      },
+    ]);
+
+    const second = await request(app.getHttpServer())
+      .post('/api/workshop/holidays/import')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(201);
+
+    expect(second.body.imported).toBe(1);
+    expect(second.body.skipped).toBe(0);
+
+    const rows = await prisma.workshopHoliday.findMany({
+      where: {
+        tenant_id: tenantId,
+        observed_on: new Date(`${currentYear}-05-01T00:00:00.000Z`),
+      },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe('Staatsfeiertag (updated)');
+  });
+
+  it('POST /holidays/import skips dates that collide with MANUAL holidays', async () => {
+    const currentYear = new Date().getFullYear();
+    await request(app.getHttpServer())
+      .post('/api/workshop/holidays')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: 'Betriebsurlaub',
+        observedOn: `${currentYear}-12-24`,
+        isClosed: true,
+      })
+      .expect(201);
+
+    openHolidaysOk([
+      {
+        id: 'oh-neujahr',
+        startDate: `${currentYear}-01-01`,
+        endDate: `${currentYear}-01-01`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Neujahr' }],
+      },
+      {
+        id: 'oh-xmas-eve',
+        startDate: `${currentYear}-12-24`,
+        endDate: `${currentYear}-12-24`,
+        type: 'Public',
+        nationwide: true,
+        name: [{ language: 'DE', text: 'Heiliger Abend' }],
+      },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .post('/api/workshop/holidays/import')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(201);
+
+    expect(response.body.imported).toBe(1);
+    expect(response.body.skipped).toBe(1);
+
+    const manual = await prisma.workshopHoliday.findFirst({
+      where: {
+        tenant_id: tenantId,
+        observed_on: new Date(`${currentYear}-12-24T00:00:00.000Z`),
+      },
+    });
+    expect(manual?.name).toBe('Betriebsurlaub');
+    expect(manual?.source).toBe('MANUAL');
+  });
+
+  it('POST /holidays/import returns 502 when OpenHolidays times out', async () => {
+    openHolidaysFetchMock.mockImplementation(
+      (_url: string, init?: RequestInit) => {
+        return new Promise((_, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        });
+      },
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/workshop/holidays/import')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(502);
   });
 });
