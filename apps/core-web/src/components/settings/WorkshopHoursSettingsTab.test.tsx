@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WorkshopHoursSettingsTab } from './WorkshopHoursSettingsTab'
 
@@ -102,6 +102,10 @@ function renderTab() {
 }
 
 describe('WorkshopHoursSettingsTab', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   beforeEach(() => {
     mocks.activeRole = 'ADMIN'
     mocks.settings = defaultSettings
@@ -140,7 +144,7 @@ describe('WorkshopHoursSettingsTab', () => {
       target: { value: 'Europe/Berlin' },
     })
 
-    const wednesdayRow = screen.getByText('Wednesday').closest('div')
+    const wednesdayRow = document.getElementById('weekday-closed-3')?.closest('div.grid')
     const timeInputs = wednesdayRow?.querySelectorAll('input[type="time"]')
     expect(timeInputs).toHaveLength(2)
     fireEvent.change(timeInputs![0], { target: { value: '08:00:00' } })
