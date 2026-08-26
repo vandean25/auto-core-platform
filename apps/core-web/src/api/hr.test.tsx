@@ -8,6 +8,8 @@ import {
   useCancelLeave,
   useCreateEmployeeLeave,
   useCreateLeave,
+  useCreateWorkSchedule,
+  useEmployeeWorkSchedule,
   useHrAttendance,
   useHrEmployeeClock,
   useHrMeClock,
@@ -17,6 +19,7 @@ import {
   usePunchEmployeeClock,
   useTeamLeave,
   useUpdateLeave,
+  useUpdateWorkSchedule,
 } from './hr'
 import { employeeKeys } from './employees'
 import { workshopKeys } from './workshop'
@@ -415,5 +418,87 @@ describe('HR mutations', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: hrKeys.all })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: employeeKeys.all })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: workshopKeys.planner() })
+  })
+})
+
+describe('HR work schedule hooks', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('fetches an employee work schedule', async () => {
+    mocks.fetchWithAuth.mockResolvedValue(
+      jsonResponse({
+        current: {
+          id: 'schedule-1',
+          effectiveFrom: '2026-01-01',
+          days: [],
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+        history: [],
+      }),
+    )
+
+    const { result } = renderHook(() => useEmployeeWorkSchedule('employee-1'), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mocks.fetchWithAuth).toHaveBeenCalledWith('/api/hr/employees/employee-1/work-schedule')
+  })
+
+  it('creates a work schedule version with POST', async () => {
+    const payload = {
+      effectiveFrom: '2026-09-01',
+      days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+        weekday,
+        isWorking: weekday <= 5,
+        startTime: weekday <= 5 ? '07:30' : null,
+        endTime: weekday <= 5 ? '17:00' : null,
+        breakMinutes: 0,
+      })),
+    }
+    mocks.fetchWithAuth.mockResolvedValue(jsonResponse({ id: 'schedule-2', ...payload }))
+
+    const { result } = renderHook(() => useCreateWorkSchedule('employee-1'), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+
+    await result.current.mutateAsync(payload)
+
+    expect(mocks.fetchWithAuth).toHaveBeenCalledWith('/api/hr/employees/employee-1/work-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  })
+
+  it('updates a work schedule version with PATCH', async () => {
+    const payload = {
+      days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+        weekday,
+        isWorking: weekday <= 5,
+        startTime: weekday <= 5 ? '08:00' : null,
+        endTime: weekday <= 5 ? '16:00' : null,
+        breakMinutes: 30,
+      })),
+    }
+    mocks.fetchWithAuth.mockResolvedValue(jsonResponse({ id: 'schedule-1', effectiveFrom: '2026-01-01', ...payload }))
+
+    const { result } = renderHook(() => useUpdateWorkSchedule('employee-1'), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+
+    await result.current.mutateAsync({ scheduleId: 'schedule-1', data: payload })
+
+    expect(mocks.fetchWithAuth).toHaveBeenCalledWith(
+      '/api/hr/employees/employee-1/work-schedule/schedule-1',
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    )
   })
 })

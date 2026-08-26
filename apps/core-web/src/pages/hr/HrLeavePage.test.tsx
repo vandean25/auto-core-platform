@@ -47,6 +47,7 @@ const apiMocks = vi.hoisted(() => ({
   useTeamLeave: vi.fn(),
   useCancelLeave: vi.fn(),
   useEmployees: vi.fn(),
+  useEmployeeWorkSchedule: vi.fn(),
 }))
 
 vi.mock('@/api/auth-session', () => ({ useAuthSession: apiMocks.useAuthSession }))
@@ -55,6 +56,7 @@ vi.mock('@/api/hr', () => ({
   useMyLeave: apiMocks.useMyLeave,
   useTeamLeave: apiMocks.useTeamLeave,
   useCancelLeave: apiMocks.useCancelLeave,
+  useEmployeeWorkSchedule: apiMocks.useEmployeeWorkSchedule,
 }))
 vi.mock('@/api/employees', () => ({ useEmployees: apiMocks.useEmployees }))
 vi.mock('sonner', () => ({
@@ -140,6 +142,27 @@ function setupPage(
   apiMocks.useEmployees.mockReturnValue({
     data: { data: [{ id: 'employee-1', name: 'Ada Lovelace', role: 'SERVICE_ADVISOR' }] },
   })
+  apiMocks.useEmployeeWorkSchedule.mockReturnValue({
+    data: {
+      current: {
+        id: 'schedule-1',
+        effectiveFrom: '2024-03-01',
+        createdAt: '2024-03-01T00:00:00.000Z',
+        updatedAt: '2024-03-01T00:00:00.000Z',
+        days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+          id: `day-${weekday}`,
+          weekday,
+          isWorking: weekday <= 5,
+          startTime: weekday <= 5 ? '08:00' : null,
+          endTime: weekday <= 5 ? '16:35' : null,
+          breakMinutes: 0,
+        })),
+      },
+      history: [],
+    },
+    isLoading: false,
+    error: null,
+  })
   apiMocks.useCancelLeave.mockReturnValue({ mutate: cancelLeave, isPending: false })
 
   return { cancelLeave }
@@ -179,7 +202,7 @@ describe('HrLeavePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(`Remaining: ${HR_TEST_REMAINING_AFTER_WEEK_MINUTES} minutes`)).toBeInTheDocument()
+    expect(screen.getByText(`Remaining: ${HR_TEST_REMAINING_AFTER_WEEK_MINUTES} min (≈ 19.5 days)`)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Leave' })).toBeInTheDocument()
     expect(screen.getByTestId('leave-table')).toHaveTextContent(String(HR_TEST_TWO_DAY_LEAVE_MINUTES))
     expect(screen.getByTestId('leave-booking-sheet')).toHaveAttribute('data-timezone', 'Europe/Vienna')

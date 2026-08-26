@@ -20,6 +20,14 @@ export type LeaveRequest = components['schemas']['LeaveRequestResponseDto']
 export type UpdateLeavePayload = components['schemas']['UpdateLeaveRequestDto']
 export type PatchLeaveBalancePayload = components['schemas']['PatchLeaveBalanceDto']
 export type LeaveBalanceResponse = components['schemas']['LeaveBalanceResponseDto']
+export type EmployeeWorkScheduleResponse = components['schemas']['EmployeeWorkScheduleResponseDto']
+export type EmployeeWorkScheduleVersion =
+  components['schemas']['EmployeeWorkScheduleVersionResponseDto']
+export type EmployeeWorkScheduleDay = components['schemas']['EmployeeWorkScheduleDayDto']
+export type CreateEmployeeWorkSchedulePayload =
+  components['schemas']['CreateEmployeeWorkScheduleDto']
+export type UpdateEmployeeWorkSchedulePayload =
+  components['schemas']['UpdateEmployeeWorkScheduleDto']
 
 function normalizeOptionalEmployeeId(employeeId?: string): string | undefined {
   return employeeId || undefined
@@ -36,6 +44,7 @@ export const hrKeys = {
   myLeave: (year: number) => [...hrKeys.all, 'me-leave', year] as const,
   leave: (from: string, to: string, employeeId?: string) =>
     [...hrKeys.all, 'leave', from, to, normalizeOptionalEmployeeId(employeeId) ?? 'all'] as const,
+  workSchedule: (employeeId: string) => [...hrKeys.all, 'work-schedule', employeeId] as const,
 }
 
 export class HrApiError extends Error {
@@ -94,6 +103,17 @@ async function invalidateLeaveQueries(queryClient: QueryClient): Promise<void> {
     queryClient.invalidateQueries({ queryKey: hrKeys.all }),
     queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
     queryClient.invalidateQueries({ queryKey: workshopKeys.planner() }),
+  ])
+}
+
+async function invalidateWorkScheduleQueries(
+  queryClient: QueryClient,
+  employeeId: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: hrKeys.workSchedule(employeeId) }),
+    queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
+    queryClient.invalidateQueries({ queryKey: hrKeys.all }),
   ])
 }
 
@@ -280,5 +300,59 @@ export function usePatchLeaveBalance() {
       return parseHrResponse<LeaveBalanceResponse>(response, 'Failed to update leave balance')
     },
     onSuccess: () => invalidateLeaveQueries(queryClient),
+  })
+}
+
+export function useEmployeeWorkSchedule(employeeId: string | null) {
+  return useQuery<EmployeeWorkScheduleResponse, HrApiError>({
+    queryKey: hrKeys.workSchedule(employeeId ?? 'none'),
+    queryFn: async () => {
+      if (!employeeId) {
+        throw new Error('Employee ID is required to fetch work schedule')
+      }
+
+      const response = await fetchWithAuth(`${HR_API}/employees/${employeeId}/work-schedule`)
+      return parseHrResponse<EmployeeWorkScheduleResponse>(response, 'Failed to fetch work schedule')
+    },
+    enabled: Boolean(employeeId),
+  })
+}
+
+export function useCreateWorkSchedule(employeeId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<EmployeeWorkScheduleVersion, HrApiError, CreateEmployeeWorkSchedulePayload>({
+    mutationFn: async (payload) => {
+      const response = await fetchWithAuth(`${HR_API}/employees/${employeeId}/work-schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      return parseHrResponse<EmployeeWorkScheduleVersion>(response, 'Failed to create work schedule')
+    },
+    onSuccess: () => invalidateWorkScheduleQueries(queryClient, employeeId),
+  })
+}
+
+export function useUpdateWorkSchedule(employeeId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    EmployeeWorkScheduleVersion,
+    HrApiError,
+    { scheduleId: string; data: UpdateEmployeeWorkSchedulePayload }
+  >({
+    mutationFn: async ({ scheduleId, data }) => {
+      const response = await fetchWithAuth(
+        `${HR_API}/employees/${employeeId}/work-schedule/${scheduleId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        },
+      )
+      return parseHrResponse<EmployeeWorkScheduleVersion>(response, 'Failed to update work schedule')
+    },
+    onSuccess: () => invalidateWorkScheduleQueries(queryClient, employeeId),
   })
 }
