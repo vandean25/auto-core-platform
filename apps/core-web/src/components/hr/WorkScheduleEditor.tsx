@@ -14,7 +14,7 @@ import {
   buildDefaultDays,
   daysFromVersion,
   normalizeDaysForSubmit,
-  ScheduleDayFormState,
+  type ScheduleDayFormState,
   validateDays,
   WEEKDAY_LABELS,
   DEFAULT_NON_WORKING_DAY,

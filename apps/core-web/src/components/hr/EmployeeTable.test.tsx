@@ -130,7 +130,7 @@ beforeEach(() => {
     },
     isLoading: false,
     error: null,
-  } as ReturnType<typeof useEmployeeWorkSchedule>)
+  } as unknown as ReturnType<typeof useEmployeeWorkSchedule>)
   vi.mocked(usePatchLeaveBalance).mockReturnValue({
     mutateAsync: patchLeaveBalance,
     isPending: false,
