@@ -106,6 +106,37 @@ function ScheduleDayRow({
   )
 }
 
+function ScheduleDaysTable({
+  days,
+  canEdit,
+  onChange,
+}: {
+  days: ScheduleDayFormState[]
+  canEdit: boolean
+  onChange: (weekday: number, patch: Partial<ScheduleDayFormState>) => void
+}) {
+  return (
+    <div className='overflow-hidden rounded-md border'>
+      <table className='min-w-full divide-y divide-slate-200'>
+        <thead className='bg-slate-50'>
+          <tr>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Day</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Working</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Start</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>End</th>
+            <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Break (min)</th>
+          </tr>
+        </thead>
+        <tbody className='divide-y divide-slate-200 bg-white'>
+          {days.map((day) => (
+            <ScheduleDayRow key={day.weekday} day={day} canEdit={canEdit} onChange={onChange} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function WorkScheduleEditor({
   employeeId,
   canEdit,
@@ -115,38 +146,43 @@ export function WorkScheduleEditor({
   const createSchedule = useCreateWorkSchedule(employeeId)
   const updateSchedule = useUpdateWorkSchedule(employeeId)
   const currentVersion = scheduleQuery.data?.current
+  const currentVersionId = currentVersion?.id
   const [correctionDays, setCorrectionDays] = useState<ScheduleDayFormState[]>(buildDefaultDays())
   const [newVersionDays, setNewVersionDays] = useState<ScheduleDayFormState[]>(buildDefaultDays())
-  const [effectiveFrom, setEffectiveFrom] = useState(defaultEffectiveFrom ?? '')
+  const [effectiveFrom, setEffectiveFrom] = useState('')
   const [showNewVersion, setShowNewVersion] = useState(false)
 
   useEffect(() => {
-    if (!currentVersion) {
-      setCorrectionDays(buildDefaultDays())
-      setNewVersionDays(buildDefaultDays())
+    if (!currentVersionId) {
       return
     }
 
     const mappedDays = daysFromVersion(currentVersion.days)
     setCorrectionDays(mappedDays)
     setNewVersionDays(mappedDays)
-  }, [currentVersion])
+  }, [currentVersionId, currentVersion])
 
   useEffect(() => {
-    if (defaultEffectiveFrom) {
+    if (!currentVersion && defaultEffectiveFrom) {
       setEffectiveFrom(defaultEffectiveFrom)
+      return
     }
-  }, [defaultEffectiveFrom])
+    if (currentVersion) {
+      setEffectiveFrom('')
+    }
+  }, [currentVersion, defaultEffectiveFrom])
+
+  useEffect(() => {
+    if (!canEdit || currentVersion) {
+      return
+    }
+    setShowNewVersion(true)
+  }, [canEdit, currentVersion])
 
   const history = useMemo(
     () => scheduleQuery.data?.history.filter((version) => version.id !== currentVersion?.id) ?? [],
     [currentVersion?.id, scheduleQuery.data?.history],
   )
-
-  useEffect(() => {
-    if (!canEdit || currentVersion) return
-    setShowNewVersion(true)
-  }, [canEdit, currentVersion])
 
   const updateCorrectionDay = (weekday: number, patch: Partial<ScheduleDayFormState>) => {
     setCorrectionDays((current) =>
@@ -158,6 +194,12 @@ export function WorkScheduleEditor({
     setNewVersionDays((current) =>
       current.map((day) => (day.weekday === weekday ? { ...day, ...patch } : day)),
     )
+  }
+
+  const openNewVersionPanel = () => {
+    setNewVersionDays(correctionDays)
+    setEffectiveFrom('')
+    setShowNewVersion(true)
   }
 
   const handleSaveCorrection = async () => {
@@ -198,7 +240,9 @@ export function WorkScheduleEditor({
         days: normalizeDaysForSubmit(newVersionDays),
       })
       toast.success('Work schedule version created')
-      setShowNewVersion(false)
+      if (currentVersion) {
+        setShowNewVersion(false)
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to create work schedule version'))
     }
@@ -216,6 +260,8 @@ export function WorkScheduleEditor({
     )
   }
 
+  const creatingFirstVersion = canEdit && !currentVersion
+
   return (
     <section className='space-y-4' data-testid='work-schedule-editor'>
       <div className='space-y-1'>
@@ -230,53 +276,14 @@ export function WorkScheduleEditor({
         )}
       </div>
 
-      <div className='overflow-hidden rounded-md border'>
-        <table className='min-w-full divide-y divide-slate-200'>
-          <thead className='bg-slate-50'>
-            <tr>
-              <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Day</th>
-              <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Working</th>
-              <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Start</th>
-              <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>End</th>
-              <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Break (min)</th>
-            </tr>
-          </thead>
-          <tbody className='divide-y divide-slate-200 bg-white'>
-            {correctionDays.map((day) => (
-              <ScheduleDayRow
-                key={day.weekday}
-                day={day}
-                canEdit={canEdit}
-                onChange={updateCorrectionDay}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {canEdit ? (
-        <div className='flex flex-wrap gap-2'>
-          <Button
-            type='button'
-            size='sm'
-            disabled={!currentVersion || updateSchedule.isPending}
-            onClick={() => void handleSaveCorrection()}
-          >
-            {updateSchedule.isPending ? 'Saving…' : 'Save correction'}
-          </Button>
-          <Button
-            type='button'
-            size='sm'
-            variant='outline'
-            onClick={() => setShowNewVersion((open) => !open)}
-          >
-            {showNewVersion ? 'Hide new version' : 'New version'}
-          </Button>
-        </div>
-      ) : null}
-
-      {canEdit && showNewVersion ? (
-        <div className='space-y-4 rounded-md border border-dashed p-4' data-testid='new-schedule-version'>
+      {currentVersion ? (
+        <ScheduleDaysTable
+          days={correctionDays}
+          canEdit={canEdit}
+          onChange={updateCorrectionDay}
+        />
+      ) : creatingFirstVersion ? (
+        <div className='space-y-4' data-testid='first-schedule-version'>
           <div className='space-y-2'>
             <Label htmlFor='schedule-effective-from'>Effective from</Label>
             <Input
@@ -286,29 +293,7 @@ export function WorkScheduleEditor({
               onChange={(event) => setEffectiveFrom(event.target.value)}
             />
           </div>
-          <div className='overflow-hidden rounded-md border'>
-            <table className='min-w-full divide-y divide-slate-200'>
-              <thead className='bg-slate-50'>
-                <tr>
-                  <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Day</th>
-                  <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Working</th>
-                  <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Start</th>
-                  <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>End</th>
-                  <th className='px-3 py-2 text-left text-xs font-medium uppercase text-slate-500'>Break (min)</th>
-                </tr>
-              </thead>
-              <tbody className='divide-y divide-slate-200 bg-white'>
-                {newVersionDays.map((day) => (
-                  <ScheduleDayRow
-                    key={`new-${day.weekday}`}
-                    day={day}
-                    canEdit
-                    onChange={updateNewVersionDay}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ScheduleDaysTable days={newVersionDays} canEdit onChange={updateNewVersionDay} />
           <Button
             type='button'
             size='sm'
@@ -317,6 +302,57 @@ export function WorkScheduleEditor({
           >
             {createSchedule.isPending ? 'Creating…' : 'Create version'}
           </Button>
+        </div>
+      ) : (
+        <ScheduleDaysTable days={buildDefaultDays()} canEdit={false} onChange={() => undefined} />
+      )}
+
+      {canEdit && currentVersion ? (
+        <div className='flex flex-wrap gap-2'>
+          <Button
+            type='button'
+            size='sm'
+            disabled={updateSchedule.isPending}
+            onClick={() => void handleSaveCorrection()}
+          >
+            {updateSchedule.isPending ? 'Saving…' : 'Save correction'}
+          </Button>
+          <Button type='button' size='sm' variant='outline' onClick={openNewVersionPanel}>
+            New version
+          </Button>
+        </div>
+      ) : null}
+
+      {canEdit && showNewVersion && currentVersion ? (
+        <div className='space-y-4 rounded-md border border-dashed p-4' data-testid='new-schedule-version'>
+          <div className='space-y-2'>
+            <Label htmlFor='schedule-new-effective-from'>Effective from</Label>
+            <Input
+              id='schedule-new-effective-from'
+              type='date'
+              value={effectiveFrom}
+              onChange={(event) => setEffectiveFrom(event.target.value)}
+            />
+          </div>
+          <ScheduleDaysTable days={newVersionDays} canEdit onChange={updateNewVersionDay} />
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              type='button'
+              size='sm'
+              disabled={createSchedule.isPending}
+              onClick={() => void handleCreateVersion()}
+            >
+              {createSchedule.isPending ? 'Creating…' : 'Create version'}
+            </Button>
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              onClick={() => setShowNewVersion(false)}
+            >
+              Hide new version
+            </Button>
+          </div>
         </div>
       ) : null}
 

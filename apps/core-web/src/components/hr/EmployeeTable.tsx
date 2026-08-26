@@ -730,12 +730,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       {
         accessorKey: 'remainingLeaveMinutes',
         header: ({ column }) => <DataTableColumnHeader column={column} title='Remaining (min)' />,
-        cell: ({ row }) => (
-          <LeaveMinutesSummary
-            minutes={row.original.remainingLeaveMinutes}
-            avgMinutesPerWorkday={FALLBACK_AVG_WORKDAY_MINUTES}
-          />
-        ),
+        cell: ({ row }) => <span>{row.original.remainingLeaveMinutes} min</span>,
       },
       {
         accessorKey: 'userId',
