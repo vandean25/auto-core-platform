@@ -4,50 +4,54 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WorkshopHoursSettingsTab } from './WorkshopHoursSettingsTab'
 
+const { mocks, defaultSettings, sampleHoliday } = vi.hoisted(() => {
+  const defaultSettings = {
+    timezone: 'Europe/Vienna',
+    slotMinutes: 30 as const,
+    holidayCountryIso: 'AT',
+    holidaySubdivisionCode: null,
+    openingHours: [
+      { weekday: 1, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 2, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 3, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 4, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 5, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 6, isClosed: false, openTime: '08:00', closeTime: '12:00' },
+      { weekday: 7, isClosed: true, openTime: '07:30', closeTime: '17:00' },
+    ],
+  }
+
+  const sampleHoliday = {
+    id: 'holiday-1',
+    name: 'Betriebsurlaub',
+    observedOn: '2026-05-01',
+    repeatsAnnually: false,
+    isClosed: true,
+    openTime: null,
+    closeTime: null,
+    source: 'MANUAL' as const,
+  }
+
+  const mocks = {
+    activeRole: 'ADMIN' as string,
+    settings: defaultSettings,
+    holidays: [] as (typeof sampleHoliday)[],
+    isSettingsError: false,
+    updateSettingsMutateAsync: vi.fn(),
+    deleteHolidayMutateAsync: vi.fn(),
+    importHolidaysMutateAsync: vi.fn(),
+    createHolidayMutateAsync: vi.fn(),
+    updateHolidayMutateAsync: vi.fn(),
+  }
+
+  return { mocks, defaultSettings, sampleHoliday }
+})
+
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
   },
-}))
-
-const defaultSettings = {
-  timezone: 'Europe/Vienna',
-  slotMinutes: 30 as const,
-  holidayCountryIso: 'AT',
-  holidaySubdivisionCode: null,
-  openingHours: [
-    { weekday: 1, isClosed: false, openTime: '07:30', closeTime: '17:00' },
-    { weekday: 2, isClosed: false, openTime: '07:30', closeTime: '17:00' },
-    { weekday: 3, isClosed: false, openTime: '07:30', closeTime: '17:00' },
-    { weekday: 4, isClosed: false, openTime: '07:30', closeTime: '17:00' },
-    { weekday: 5, isClosed: false, openTime: '07:30', closeTime: '17:00' },
-    { weekday: 6, isClosed: false, openTime: '08:00', closeTime: '12:00' },
-    { weekday: 7, isClosed: true, openTime: '07:30', closeTime: '17:00' },
-  ],
-}
-
-const sampleHoliday = {
-  id: 'holiday-1',
-  name: 'Betriebsurlaub',
-  observedOn: '2026-05-01',
-  repeatsAnnually: false,
-  isClosed: true,
-  openTime: null,
-  closeTime: null,
-  source: 'MANUAL' as const,
-}
-
-const mocks = vi.hoisted(() => ({
-  activeRole: 'ADMIN' as string,
-  settings: defaultSettings,
-  holidays: [] as typeof sampleHoliday[],
-  isSettingsError: false,
-  updateSettingsMutateAsync: vi.fn(),
-  deleteHolidayMutateAsync: vi.fn(),
-  importHolidaysMutateAsync: vi.fn(),
-  createHolidayMutateAsync: vi.fn(),
-  updateHolidayMutateAsync: vi.fn(),
 }))
 
 vi.mock('@/api/auth-session', () => ({
