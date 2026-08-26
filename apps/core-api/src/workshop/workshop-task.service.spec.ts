@@ -367,4 +367,33 @@ describe('WorkshopTaskService', () => {
       'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
     );
   });
+
+  it('defaults the first task scheduled_date from the order booking date', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      status: WorkshopOrderStatus.INTAKE,
+      scheduled_start_at: new Date('2026-08-21T08:30:00.000Z'),
+      tasks: [],
+      invoice: null,
+    });
+    mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+      timezone: 'Europe/Vienna',
+    });
+    mockPrisma.workshopTask.create.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.NOT_STARTED,
+      scheduled_date: new Date('2026-08-21T00:00:00.000Z'),
+      line_items: [],
+    });
+
+    await service.createTask('wo-1', { title: 'Brake service' });
+
+    expect(mockPrisma.workshopTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          scheduled_date: new Date('2026-08-21T00:00:00.000Z'),
+        }),
+      }),
+    );
+  });
 });

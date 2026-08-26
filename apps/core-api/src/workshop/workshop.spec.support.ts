@@ -74,6 +74,7 @@ export const mockPrisma = {
   workshopTask: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
+    create: jest.fn(),
     delete: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),

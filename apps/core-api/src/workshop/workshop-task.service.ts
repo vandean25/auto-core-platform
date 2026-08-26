@@ -27,6 +27,10 @@ import {
   deriveOrderStatus,
 } from './workshop-order.helpers';
 import { WorkshopIntakeService } from './workshop-intake.service';
+import {
+  formatLocalDate,
+  parseLocalDate,
+} from './workshop-planner.time';
 
 @Injectable()
 export class WorkshopTaskService {
@@ -38,6 +42,28 @@ export class WorkshopTaskService {
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
   ) {}
+
+  private async resolveDefaultTaskScheduledDate(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    order: {
+      tasks: { id: string }[];
+      scheduled_start_at: Date | null;
+    },
+  ): Promise<Date | undefined> {
+    if (order.tasks.length > 0 || !order.scheduled_start_at) {
+      return undefined;
+    }
+
+    const settings = await tx.workshopSettings.findFirst({
+      where: { tenant_id: tenantId },
+      select: { timezone: true },
+    });
+    const timeZone = settings?.timezone ?? 'Europe/Vienna';
+    const localDate = formatLocalDate(order.scheduled_start_at, timeZone);
+    const { year, month, day } = parseLocalDate(localDate);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
 
   private async applyDerivedOrderStatus(
     tx: Prisma.TransactionClient,
@@ -110,12 +136,19 @@ export class WorkshopTaskService {
       }
       assertOrderEditable(order);
 
+      const scheduledDate = await this.resolveDefaultTaskScheduledDate(
+        tx,
+        tenantId,
+        order,
+      );
+
       const task = await tx.workshopTask.create({
         data: {
           tenant_id: tenantId,
           workshop_order_id: orderId,
           title: dto.title,
           status: WorkshopTaskStatus.NOT_STARTED,
+          scheduled_date: scheduledDate,
         },
         include: {
           line_items: true,
