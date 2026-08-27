@@ -15,6 +15,7 @@ import {
 
 describe('WorkshopIntakeService', () => {
   let service: WorkshopIntakeService;
+  const rescheduleOrder = jest.fn();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -24,13 +25,14 @@ describe('WorkshopIntakeService', () => {
         workshopTenantProvider,
         {
           provide: WorkshopScheduleService,
-          useValue: { assertCanBook: jest.fn() },
+          useValue: { assertCanBook: jest.fn(), rescheduleOrder },
         },
       ],
     }).compile();
 
     service = module.get(WorkshopIntakeService);
     resetWorkshopMocks();
+    rescheduleOrder.mockReset();
   });
   it('creates workshop order with generated order number', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
@@ -266,6 +268,67 @@ describe('WorkshopIntakeService', () => {
     expect(partLineItem.internalCostRate).toBeNull();
     expect(partLineItem.partExecutionStatus).toBe(
       WorkshopPartLineExecutionStatus.PENDING_PICK,
+    );
+  });
+
+  it('reschedules within a transaction when schedule fields are patched', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      status: WorkshopOrderStatus.SCHEDULED,
+      vehicle_id: 'v-1',
+      bay_id: 'bay-1',
+      mechanic_id: null,
+      scheduled_start_at: new Date('2026-08-21T08:00:00.000Z'),
+      scheduled_end_at: new Date('2026-08-21T09:00:00.000Z'),
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      invoice: null,
+      tasks: [],
+    });
+
+    rescheduleOrder.mockResolvedValue({
+      bayId: 'bay-1',
+      mechanicId: null,
+      start: new Date('2026-08-21T10:00:00.000Z'),
+      end: new Date('2026-08-21T11:00:00.000Z'),
+    });
+
+    mockPrisma.workshopOrder.update.mockResolvedValue({
+      id: 'wo-1',
+      order_number: 'WO-2026-0001',
+      status: WorkshopOrderStatus.SCHEDULED,
+      bay_id: 'bay-1',
+      mechanic_id: null,
+      scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
+      scheduled_end_at: new Date('2026-08-21T11:00:00.000Z'),
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      invoice: null,
+      tasks: [],
+    });
+
+    await service.updateOrder('wo-1', {
+      scheduledStartAt: '2026-08-21T10:00:00.000Z',
+      scheduledEndAt: '2026-08-21T11:00:00.000Z',
+    });
+
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(rescheduleOrder).toHaveBeenCalledWith(
+      'wo-1',
+      expect.objectContaining({ vehicle_id: 'v-1', bay_id: 'bay-1' }),
+      expect.objectContaining({
+        scheduledStartAt: '2026-08-21T10:00:00.000Z',
+        scheduledEndAt: '2026-08-21T11:00:00.000Z',
+      }),
+      expect.anything(),
+    );
+    expect(mockPrisma.workshopOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
+          scheduled_end_at: new Date('2026-08-21T11:00:00.000Z'),
+        }),
+      }),
     );
   });
 });

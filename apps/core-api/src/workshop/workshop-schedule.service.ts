@@ -215,6 +215,7 @@ export class WorkshopScheduleService {
       scheduledStartAt?: string;
       scheduledEndAt?: string;
     },
+    tx?: Prisma.TransactionClient,
   ): Promise<BookedWindow> {
     if (
       existing.status !== WorkshopOrderStatus.SCHEDULED &&
@@ -252,6 +253,7 @@ export class WorkshopScheduleService {
         scheduledEndAt: end.toISOString(),
       },
       orderId,
+      tx,
     );
   }
 }
