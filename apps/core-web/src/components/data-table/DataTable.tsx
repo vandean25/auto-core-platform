@@ -34,6 +34,23 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'))
 }
 
+function getTableRowId(record: object): string | undefined {
+  const id = (record as { id?: unknown }).id
+  return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+function resolveRowFromElement<TData extends object>(
+  element: HTMLTableRowElement,
+  data: TData[],
+  fallback: TData,
+): TData {
+  const rowId = element.getAttribute('data-row-id')
+  if (!rowId) return fallback
+
+  const match = data.find((record) => getTableRowId(record) === rowId)
+  return match ?? fallback
+}
+
 function activateRow<TData extends object>(
   event: React.MouseEvent | React.KeyboardEvent,
   row: TData,
@@ -50,7 +67,8 @@ const clickableRowClassName = 'cursor-pointer hover:bg-muted/50'
 
 function handleRowClick<TData extends object>(
   event: React.MouseEvent<HTMLTableRowElement>,
-  row: TData,
+  data: TData[],
+  fallback: TData,
   onRowClick?: (row: TData) => void,
 ) {
   // Cell clicks are handled on <td>; keep <tr> for programmatic row.click() and tests.
@@ -58,16 +76,23 @@ function handleRowClick<TData extends object>(
     return
   }
 
-  activateRow(event, row, onRowClick)
+  const resolvedRow = resolveRowFromElement(event.currentTarget, data, fallback)
+  activateRow(event, resolvedRow, onRowClick)
 }
 
 function handleCellClick<TData extends object>(
   event: React.MouseEvent<HTMLTableCellElement>,
-  row: TData,
+  data: TData[],
+  fallback: TData,
   onRowClick?: (row: TData) => void,
 ) {
-  event.stopPropagation()
-  activateRow(event, row, onRowClick)
+  const rowElement = event.currentTarget.closest('tr')
+  if (!(rowElement instanceof HTMLTableRowElement)) {
+    return
+  }
+
+  const resolvedRow = resolveRowFromElement(rowElement, data, fallback)
+  activateRow(event, resolvedRow, onRowClick)
 }
 
 interface DataTableProps<TData extends object> {
@@ -158,6 +183,7 @@ export function DataTable<TData extends object>({
     data,
     columns,
     pageCount,
+    getRowId: (row, index) => getTableRowId(row) ?? String(index),
     state: {
       columnFilters,
       sorting,
@@ -187,7 +213,7 @@ export function DataTable<TData extends object>({
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} data-table-header="true">
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
@@ -214,21 +240,32 @@ export function DataTable<TData extends object>({
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const rowData = row.original as TData
+                const rowId = getTableRowId(rowData)
+
+                return (
                 <TableRow
                   key={row.id}
                   data-table-row="true"
+                  data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={(event) => handleRowClick(event, row.original as TData, onRowClick)}
+                  onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
                   onContextMenu={(event) => {
                     event.preventDefault()
-                    openRowContextMenu(row.original as TData, event.clientX, event.clientY)
+                    openRowContextMenu(
+                      resolveRowFromElement(event.currentTarget, data, rowData),
+                      event.clientX,
+                      event.clientY,
+                    )
                   }}
                   onKeyDown={(event) => {
+                    const resolvedRow = resolveRowFromElement(event.currentTarget, data, rowData)
+
                     if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
                       const rect = event.currentTarget.getBoundingClientRect()
                       event.preventDefault()
-                      openRowContextMenu(row.original as TData, rect.left + 12, rect.top + rect.height / 2)
+                      openRowContextMenu(resolvedRow, rect.left + 12, rect.top + rect.height / 2)
                       return
                     }
 
@@ -236,17 +273,25 @@ export function DataTable<TData extends object>({
                       return
                     }
 
+                    if (!onRowClick || isInteractiveTarget(event.target)) {
+                      return
+                    }
+
                     event.preventDefault()
-                    activateRow(event, row.original as TData, onRowClick)
+                    activateRow(event, resolvedRow, onRowClick)
                   }}
-                  tabIndex={onRowClick || getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
+                  tabIndex={onRowClick || getRowContextActions?.(rowData)?.length ? 0 : undefined}
                   className={onRowClick ? clickableRowClassName : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={onRowClick ? "cursor-pointer" : undefined}
-                      onClick={(event) => handleCellClick(event, row.original as TData, onRowClick)}
+                      onClick={
+                        onRowClick
+                          ? (event) => handleCellClick(event, data, rowData, onRowClick)
+                          : undefined
+                      }
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
@@ -255,7 +300,8 @@ export function DataTable<TData extends object>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                )
+              })
             ) : (
               <TableRow>
                 <TableCell

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   GoogleAuthProvider,
   onIdTokenChanged,
+  sendPasswordResetEmail as sendFirebasePasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -46,6 +47,7 @@ type AuthContextValue = {
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
+  sendPasswordResetEmail: (email: string) => Promise<void>
   signOutUser: () => Promise<void>
 }
 
@@ -151,6 +153,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const sendPasswordResetEmail = React.useCallback(async (email: string) => {
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail) {
+      throw new Error('Email is required.')
+    }
+
+    if (!firebaseAuth) {
+      throw new Error('Firebase Authentication is not configured.')
+    }
+
+    await sendFirebasePasswordResetEmail(firebaseAuth, normalizedEmail)
+  }, [])
+
   const signOutUser = React.useCallback(async () => {
     if (!firebaseAuth) {
       return
@@ -166,8 +181,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isConfigured: !firebaseConfigMissing,
     signIn,
     signInWithGoogle,
+    sendPasswordResetEmail,
     signOutUser,
-  }), [user, claims, loading, signIn, signInWithGoogle, signOutUser])
+  }), [user, claims, loading, signIn, signInWithGoogle, sendPasswordResetEmail, signOutUser])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
