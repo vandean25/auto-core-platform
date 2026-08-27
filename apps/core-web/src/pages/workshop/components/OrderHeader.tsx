@@ -1,8 +1,20 @@
 import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { WorkshopOrder } from '@/api/types'
+
+type WorkshopMechanicOption = {
+  id: string
+  name: string
+}
 
 function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, '')
@@ -69,11 +81,21 @@ export function OrderTopBar({
 export function CustomerVehicleInfo({
   order,
   assignedTechName,
+  assignedTechId,
+  mechanics = [],
   bayName,
+  canAssignTech = false,
+  isAssigningTech = false,
+  onAssignedTechChange,
 }: {
   order: WorkshopOrder
   assignedTechName?: string | null
+  assignedTechId?: string | null
+  mechanics?: WorkshopMechanicOption[]
   bayName?: string | null
+  canAssignTech?: boolean
+  isAssigningTech?: boolean
+  onAssignedTechChange?: (mechanicId: string | null) => void
 }) {
   const customerName = getCustomerName(order)
   const customerPhone = order.customer?.phone ?? ''
@@ -88,10 +110,39 @@ export function CustomerVehicleInfo({
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <div>
               <div className='text-muted-foreground mb-1'>Assigned Tech</div>
-              <div className='font-medium flex items-center'>
-                <User className='w-4 h-4 mr-1.5 text-slate-500' />
-                {assignedTechName ?? 'Unassigned'}
-              </div>
+              {onAssignedTechChange ? (
+                <Select
+                  value={assignedTechId ?? 'unassigned'}
+                  onValueChange={(value) =>
+                    onAssignedTechChange(value === 'unassigned' ? null : value)
+                  }
+                  disabled={!canAssignTech || isAssigningTech}
+                >
+                  <SelectTrigger
+                    className='h-9 font-medium'
+                    data-testid='assigned-tech-select'
+                    aria-label='Assigned Tech'
+                  >
+                    <div className='flex items-center'>
+                      <User className='w-4 h-4 mr-1.5 text-slate-500' />
+                      <SelectValue placeholder='Unassigned' />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='unassigned'>Unassigned</SelectItem>
+                    {mechanics.map((mechanic) => (
+                      <SelectItem key={mechanic.id} value={mechanic.id}>
+                        {mechanic.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className='font-medium flex items-center'>
+                  <User className='w-4 h-4 mr-1.5 text-slate-500' />
+                  {assignedTechName ?? 'Unassigned'}
+                </div>
+              )}
             </div>
             <div>
               <div className='text-muted-foreground mb-1'>Bay / Location</div>

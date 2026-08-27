@@ -139,6 +139,13 @@ describe('WorkshopOrderDetails line-item persistence', () => {
       data: { labor: [], parts: [] },
       isFetching: false,
     })
+    ;(workshopApi.useWorkshopResources as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { mechanics: [], bays: [] },
+      isLoading: false,
+    })
+    ;(workshopApi.useAssignBoard as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      createMutationMock(),
+    )
   })
 
   afterEach(() => {
