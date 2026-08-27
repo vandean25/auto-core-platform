@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
@@ -27,10 +28,13 @@ import {
   useGenerateWorkshopPdf,
   downloadWorkshopPdf,
   useWorkshopResources,
+  useAssignBoard,
+  workshopKeys,
 } from '@/api/workshop'
 import type {
   DiscountType,
   WorkshopLineItemType,
+  WorkshopOrder,
   WorkshopTask,
   WorkshopTaskLineItem,
   WorkshopTaskStatus,
@@ -63,12 +67,14 @@ function getErrorMessage(error: unknown, fallbackMessage: string): string {
 
 export function WorkshopOrderDetails() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { id = '' } = useParams<{ id: string }>()
   const { data: order, isLoading } = useWorkshopOrder(id)
   const workshopResourcesQuery = useWorkshopResources()
   const workshopResources = workshopResourcesQuery?.data
 
   const updateOrder = useUpdateWorkshopOrder()
+  const assignBoard = useAssignBoard()
   const createTask = useCreateWorkshopTask()
   const deleteTask = useDeleteWorkshopTask()
   const updateTask = useUpdateWorkshopTask()
@@ -458,9 +464,39 @@ export function WorkshopOrderDetails() {
     workshopResources?.mechanics.find(
       (mechanic) => mechanic.id === (order.mechanicId ?? order.mechanic_id),
     )?.name ?? null
+  const assignedTechId = order.mechanicId ?? order.mechanic_id ?? null
+  const activeMechanics =
+    workshopResources?.mechanics
+      .filter((mechanic) => mechanic.isActive)
+      .map((mechanic) => ({ id: mechanic.id, name: mechanic.name })) ?? []
   const assignedBayName =
     workshopResources?.bays.find((bay) => bay.id === (order.bayId ?? order.bay_id))
       ?.name ?? null
+
+  const handleAssignedTechChange = async (mechanicId: string | null) => {
+    if (isLocked) return
+
+    const currentMechanicId = order.mechanicId ?? order.mechanic_id ?? null
+    if (mechanicId === currentMechanicId) return
+
+    const previousOrder = queryClient.getQueryData<WorkshopOrder>(workshopKeys.detail(order.id))
+
+    queryClient.setQueryData<WorkshopOrder>(workshopKeys.detail(order.id), {
+      ...order,
+      mechanicId,
+      mechanic_id: mechanicId,
+    })
+
+    try {
+      await assignBoard.mutateAsync({ orderId: order.id, mechanicId })
+      toast.success(mechanicId ? 'Technician assigned' : 'Technician unassigned')
+    } catch (error: unknown) {
+      if (previousOrder) {
+        queryClient.setQueryData(workshopKeys.detail(order.id), previousOrder)
+      }
+      toast.error(getErrorMessage(error, 'Failed to assign technician'))
+    }
+  }
 
   const handleReopenTask = (taskId: string) => {
     setIsCheckoutOpen(false)
@@ -491,7 +527,12 @@ export function WorkshopOrderDetails() {
               <CustomerVehicleInfo
                 order={order}
                 assignedTechName={assignedTechName}
+                assignedTechId={assignedTechId}
+                mechanics={activeMechanics}
                 bayName={assignedBayName}
+                isLocked={isLocked}
+                isAssigningTech={assignBoard.isPending}
+                onAssignedTechChange={(mechanicId) => void handleAssignedTechChange(mechanicId)}
               />
             </motion.div>
 

@@ -171,6 +171,7 @@ function setupDefaultMocks(orderOverride?: unknown) {
     data: { mechanics: [], bays: [] },
     isLoading: false,
   })
+  asMock(workshopApi.useAssignBoard).mockReturnValue(createMutationMock())
   asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(createMutationMock())
   asMock(workshopApi.downloadWorkshopPdf).mockResolvedValue(new Blob())
 }
@@ -315,6 +316,73 @@ describe('WorkshopOrderDetails Characterization', () => {
       expect(screen.getAllByText('2020 Toyota Corolla')[0]).toBeInTheDocument()
       expect(screen.getAllByText('VIN123')[0]).toBeInTheDocument()
       expect(screen.getAllByText('ABC-123')[0]).toBeInTheDocument()
+    })
+
+    it('renders an editable assigned tech select with active mechanics', () => {
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+            { id: 'mech-2', name: 'Inactive Tech', isActive: false, role: 'MECHANIC', sortOrder: 2 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      expect(screen.getByTestId('assigned-tech-select')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('assigned-tech-select'))
+      expect(screen.getByRole('option', { name: 'Unassigned' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Alex Tech' })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: 'Inactive Tech' })).not.toBeInTheDocument()
+    })
+
+    it('assigns a technician from the order detail select', async () => {
+      const assignBoardMutateAsync = vi.fn().mockResolvedValue({})
+      asMock(workshopApi.useAssignBoard).mockReturnValue(
+        createMutationMock({ mutateAsync: assignBoardMutateAsync }),
+      )
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      fireEvent.click(screen.getByTestId('assigned-tech-select'))
+      fireEvent.click(screen.getByRole('option', { name: 'Alex Tech' }))
+
+      await waitFor(() => {
+        expect(assignBoardMutateAsync).toHaveBeenCalledWith({
+          orderId: 'order-1',
+          mechanicId: 'mech-1',
+        })
+      })
+      expect(toast.success).toHaveBeenCalledWith('Technician assigned')
+    })
+
+    it('disables assigned tech select when the order is invoiced', () => {
+      setupDefaultMocks(invoicedOrder)
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      expect(screen.getByTestId('assigned-tech-select')).toBeDisabled()
     })
 
     it('renders odometer and fuel level when present', () => {
