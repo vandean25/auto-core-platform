@@ -303,13 +303,11 @@ describe('MechanicQueuePage', () => {
   // ─── Navigation ─────────────────────────────────────────────────────────────
 
   describe('row navigation', () => {
-    it('clicking a task row navigates to task detail without mechanicId param', async () => {
+    it('clicking a task cell navigates to task detail without mechanicId param', async () => {
       setupDefaultMocks()
-      const { container } = renderQueuePage()
+      renderQueuePage()
 
-      const row = container.querySelector('tbody tr')
-      expect(row).not.toBeNull()
-      row!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      fireEvent.click(screen.getByText('Oil Change'))
 
       await waitFor(() => {
         expect(screen.getByText('Task Detail')).toBeInTheDocument()

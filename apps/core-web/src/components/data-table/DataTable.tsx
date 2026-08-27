@@ -51,6 +51,50 @@ function resolveRowFromElement<TData extends object>(
   return match ?? fallback
 }
 
+function activateRow<TData extends object>(
+  event: React.MouseEvent | React.KeyboardEvent,
+  row: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  if (!onRowClick || isInteractiveTarget(event.target)) {
+    return
+  }
+
+  onRowClick(row)
+}
+
+const clickableRowClassName = 'cursor-pointer hover:bg-muted/50'
+
+function handleRowClick<TData extends object>(
+  event: React.MouseEvent<HTMLTableRowElement>,
+  data: TData[],
+  fallback: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  // Cell clicks are handled on <td>; keep <tr> for programmatic row.click() and tests.
+  if (event.target !== event.currentTarget) {
+    return
+  }
+
+  const resolvedRow = resolveRowFromElement(event.currentTarget, data, fallback)
+  activateRow(event, resolvedRow, onRowClick)
+}
+
+function handleCellClick<TData extends object>(
+  event: React.MouseEvent<HTMLTableCellElement>,
+  data: TData[],
+  fallback: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  const rowElement = event.currentTarget.closest('tr')
+  if (!(rowElement instanceof HTMLTableRowElement)) {
+    return
+  }
+
+  const resolvedRow = resolveRowFromElement(rowElement, data, fallback)
+  activateRow(event, resolvedRow, onRowClick)
+}
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -206,10 +250,7 @@ export function DataTable<TData extends object>({
                   data-table-row="true"
                   data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={(event) => {
-                    if (!onRowClick) return
-                    onRowClick(resolveRowFromElement(event.currentTarget, data, rowData))
-                  }}
+                  onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     openRowContextMenu(
@@ -228,18 +269,30 @@ export function DataTable<TData extends object>({
                       return
                     }
 
-                    if (!onRowClick || isInteractiveTarget(event.target) || (event.key !== "Enter" && event.key !== " ")) {
+                    if (event.key !== "Enter" && event.key !== " ") {
+                      return
+                    }
+
+                    if (!onRowClick || isInteractiveTarget(event.target)) {
                       return
                     }
 
                     event.preventDefault()
-                    onRowClick(resolvedRow)
+                    activateRow(event, resolvedRow, onRowClick)
                   }}
                   tabIndex={onRowClick || getRowContextActions?.(rowData)?.length ? 0 : undefined}
-                  className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                  className={onRowClick ? clickableRowClassName : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={onRowClick ? "cursor-pointer" : undefined}
+                      onClick={
+                        onRowClick
+                          ? (event) => handleCellClick(event, data, rowData, onRowClick)
+                          : undefined
+                      }
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
