@@ -198,4 +198,60 @@ export class WorkshopScheduleService {
       }
     }
   }
+
+  async rescheduleOrder(
+    orderId: string,
+    existing: {
+      vehicle_id: string;
+      bay_id: string | null;
+      mechanic_id: string | null;
+      scheduled_start_at: Date | null;
+      scheduled_end_at: Date | null;
+      status: WorkshopOrderStatus;
+    },
+    dto: {
+      bayId?: string;
+      mechanicId?: string | null;
+      scheduledStartAt?: string;
+      scheduledEndAt?: string;
+    },
+  ): Promise<BookedWindow> {
+    if (
+      existing.status !== WorkshopOrderStatus.SCHEDULED &&
+      existing.status !== WorkshopOrderStatus.INTAKE
+    ) {
+      throw new BadRequestException(
+        'Schedule changes are allowed only for SCHEDULED or INTAKE orders',
+      );
+    }
+
+    const bayId = dto.bayId ?? existing.bay_id;
+    const start = dto.scheduledStartAt
+      ? new Date(dto.scheduledStartAt)
+      : existing.scheduled_start_at;
+    const end = dto.scheduledEndAt
+      ? new Date(dto.scheduledEndAt)
+      : existing.scheduled_end_at;
+
+    if (!bayId || !start || !end) {
+      throw new BadRequestException(
+        'Reschedule requires bayId, scheduledStartAt, and scheduledEndAt',
+      );
+    }
+
+    const mechanicId =
+      dto.mechanicId !== undefined ? dto.mechanicId : existing.mechanic_id;
+
+    return this.assertCanBook(
+      {
+        status: WorkshopOrderStatus.SCHEDULED,
+        vehicleId: existing.vehicle_id,
+        bayId,
+        mechanicId,
+        scheduledStartAt: start.toISOString(),
+        scheduledEndAt: end.toISOString(),
+      },
+      orderId,
+    );
+  }
 }
