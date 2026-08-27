@@ -56,7 +56,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
-| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, work records (`WorkshopTask`, `WorkshopMedia`, `WorkshopVoiceNoteDraft`, `LaborEntry`), or HR records (`AttendanceEvent`, `LeaveRequest`, `EmployeeLeaveBalance`) reference this employee. |
+| Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, work records (`WorkshopTask`, `WorkshopMedia`, `WorkshopVoiceNoteDraft`, `LaborEntry`), or HR records (`AttendanceEvent`, `LeaveRequest`, `EmployeeLeaveBalance`) reference this employee. `EmployeeWorkSchedule` rows cascade on employee hard-delete — not a separate 409 reason. |
+| EmployeeWorkSchedule | No API delete | Versioned expected work pattern per employee. Correct times via PATCH; add versions via POST. Rows cascade on employee hard-delete or tenant purge. Parent PATCH is audited. |
+| EmployeeWorkScheduleDay | No direct delete | Seven weekday rows per schedule version; managed by parent `EmployeeWorkSchedule` lifecycle. Cascade with parent schedule. |
 | EmployeeLeaveBalance | No API delete | Update allowance/carryover through the leave-balance API. Rows are removed only during tenant purge. |
 | LeaveRequest | Soft-cancel | Set `status = CANCELLED`; no hard-delete API. |
 | AttendanceEvent | No delete | Immutable attendance log; corrections are additional events. |
