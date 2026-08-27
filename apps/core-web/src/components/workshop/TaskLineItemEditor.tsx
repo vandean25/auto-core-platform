@@ -369,7 +369,7 @@ export function TaskLineItemEditor({
               {showSuggestions && (
                 <div className='absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-popover shadow-md'>
                   <Command shouldFilter={false}>
-                    <CommandList className='max-h-64'>
+                    <CommandList className='max-h-64' aria-label='Suggestions'>
                       {!isSearchingCatalog && !hasResults && (
                         <CommandEmpty>No compatible catalog items found.</CommandEmpty>
                       )}
@@ -378,7 +378,6 @@ export function TaskLineItemEditor({
                           {laborSuggestions.map((operation) => (
                             <CommandItem
                               key={operation.id}
-                              value={`${operation.code} ${operation.description}`}
                               onSelect={() => stageLaborOperation(operation)}
                             >
                               <div className='flex w-full items-center justify-between gap-2'>
@@ -401,7 +400,6 @@ export function TaskLineItemEditor({
                           {partSuggestions.map((part) => (
                             <CommandItem
                               key={part.id}
-                              value={`${part.supplierPartNumber} ${part.description}`}
                               onSelect={() => stagePart(part)}
                             >
                               <div className='flex w-full items-center justify-between gap-2'>

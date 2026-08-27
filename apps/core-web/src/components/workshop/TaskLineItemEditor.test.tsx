@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as workshopApi from '@/api/workshop'
 import * as laborApi from '@/api/labor'
@@ -22,6 +22,61 @@ describe('TaskLineItemEditor labor metadata', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
+  })
+
+  it('shows labor suggestions for description and category search terms', () => {
+    vi.useFakeTimers()
+    const catalogSearchMock = workshopApi.useCatalogSearch as unknown as ReturnType<
+      typeof vi.fn
+    >
+
+    catalogSearchMock.mockImplementation((query: string) => {
+      if (query.length >= 2) {
+        return {
+          data: {
+            labor: [
+              {
+                id: 'labor-eng-001',
+                code: 'ENG-001',
+                description: 'Engine Oil & Filter Change',
+                standardAw: 0.5,
+                hourlyRate: 95,
+                categoryName: 'Engine',
+              },
+            ],
+            parts: [],
+            meta: { laborCount: 1, partCount: 0, limit: 20 },
+          },
+          isFetching: false,
+        }
+      }
+
+      return {
+        data: undefined,
+        isFetching: false,
+      }
+    })
+
+    render(
+      <TaskLineItemEditor
+        workshopOrderId='wo-1'
+        taskId='task-1'
+        lineItems={[]}
+        readOnly={false}
+        onLineItemsChange={vi.fn()}
+      />,
+    )
+
+    const searchInput = screen.getByPlaceholderText('Search labor or part number...')
+    fireEvent.change(searchInput, { target: { value: 'oil' } })
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+
+    expect(screen.getByText('ENG-001')).toBeInTheDocument()
+    expect(screen.getByText('Engine Oil & Filter Change')).toBeInTheDocument()
   })
 
   it('renders Standard AW, Actual Hours, and Efficiency for labor lines', () => {
