@@ -35,6 +35,7 @@ describe('WorkshopIntakeService', () => {
   it('creates workshop order with generated order number', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
     mockPrisma.financeSettings.upsert.mockResolvedValue({ id: 1 });
     mockPrisma.financeSettings.update.mockResolvedValue({
       next_workshop_order_number: 2,
@@ -68,9 +69,97 @@ describe('WorkshopIntakeService', () => {
     expect(result.order_number).toBe('WO-2026-0001');
   });
 
+  it('promotes the closest scheduled order instead of minting a new number', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      {
+        id: 'wo-scheduled',
+        scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
+      },
+    ]);
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-scheduled',
+      order_number: 'WO-2026-0042',
+      status: WorkshopOrderStatus.INTAKE,
+      odometer: 12000,
+      fuel_level: 60,
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      tasks: [],
+    });
+
+    const result = await service.create({
+      customerId: 'c-1',
+      vehicleId: 'v-1',
+      odometer: 12000,
+      fuelLevel: 60,
+      reportedIssue: 'Brake noise',
+    });
+
+    expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'wo-scheduled',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        status: WorkshopOrderStatus.SCHEDULED,
+      },
+      data: {
+        status: WorkshopOrderStatus.INTAKE,
+        odometer: 12000,
+        fuel_level: 60,
+        reported_issue: 'Brake noise',
+        notes: undefined,
+      },
+    });
+    expect(mockPrisma.financeSettings.update).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
+    expect(result.order_number).toBe('WO-2026-0042');
+    expect(result.status).toBe(WorkshopOrderStatus.INTAKE);
+  });
+
+  it('picks the scheduled order closest to now when several exist', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    const now = Date.now();
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      {
+        id: 'wo-far',
+        scheduled_start_at: new Date(now + 24 * 60 * 60 * 1000),
+      },
+      {
+        id: 'wo-close',
+        scheduled_start_at: new Date(now + 30 * 60 * 1000),
+      },
+    ]);
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-close',
+      order_number: 'WO-2026-0043',
+      status: WorkshopOrderStatus.INTAKE,
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      tasks: [],
+    });
+
+    await service.create({
+      customerId: 'c-1',
+      vehicleId: 'v-1',
+      odometer: 10000,
+      fuelLevel: 50,
+    });
+
+    expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'wo-close' }),
+      }),
+    );
+  });
+
   it('rejects a second active order on the same vehicle', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-live',
       order_number: 'WO-2026-0007',
@@ -85,6 +174,34 @@ describe('WorkshopIntakeService', () => {
       }),
     ).rejects.toMatchObject({
       message: 'Vehicle already has active order WO-2026-0007',
+    });
+    expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects concurrent promote when another request already moved the order', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      {
+        id: 'wo-scheduled',
+        scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
+      },
+    ]);
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-scheduled',
+      order_number: 'WO-2026-0042',
+    });
+
+    await expect(
+      service.create({
+        customerId: 'c-1',
+        vehicleId: 'v-1',
+        odometer: 12000,
+        fuelLevel: 60,
+      }),
+    ).rejects.toMatchObject({
+      message: 'Vehicle already has active order WO-2026-0042',
     });
     expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
   });

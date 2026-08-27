@@ -28,6 +28,22 @@ const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 const SEARCH_LIMIT = 100;
 
+const LIVE_ORDER_STATUSES: WorkshopOrderStatus[] = [
+  WorkshopOrderStatus.SCHEDULED,
+  WorkshopOrderStatus.INTAKE,
+  WorkshopOrderStatus.IN_PROGRESS,
+];
+
+const ORDER_WITH_RELATIONS = {
+  customer: true,
+  vehicle: true,
+  tasks: {
+    include: {
+      line_items: true,
+    },
+  },
+} as const;
+
 @Injectable()
 export class WorkshopIntakeService {
   constructor(
@@ -78,30 +94,111 @@ export class WorkshopIntakeService {
     return `${prefix}${paddedSequence}`;
   }
 
+  private async findLiveOrderForVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+  ) {
+    return tx.workshopOrder.findFirst({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: vehicleId,
+        status: { in: LIVE_ORDER_STATUSES },
+      },
+      select: { id: true, order_number: true },
+    });
+  }
+
   private async assertNoLiveOrderForVehicle(
     tx: Prisma.TransactionClient,
     tenantId: string,
     vehicleId: string,
   ): Promise<void> {
-    const live = await tx.workshopOrder.findFirst({
-      where: {
-        tenant_id: tenantId,
-        vehicle_id: vehicleId,
-        status: {
-          in: [
-            WorkshopOrderStatus.SCHEDULED,
-            WorkshopOrderStatus.INTAKE,
-            WorkshopOrderStatus.IN_PROGRESS,
-          ],
-        },
-      },
-      select: { order_number: true },
-    });
+    const live = await this.findLiveOrderForVehicle(tx, tenantId, vehicleId);
     if (live) {
       throw new ConflictException(
         `Vehicle already has active order ${live.order_number}`,
       );
     }
+  }
+
+  private pickClosestScheduledOrder<
+    T extends { id: string; scheduled_start_at: Date | null },
+  >(orders: T[]): T {
+    const now = Date.now();
+    return [...orders].sort((left, right) => {
+      const leftStart = left.scheduled_start_at?.getTime();
+      const rightStart = right.scheduled_start_at?.getTime();
+      if (leftStart == null && rightStart == null) return 0;
+      if (leftStart == null) return 1;
+      if (rightStart == null) return -1;
+      return (
+        Math.abs(leftStart - now) - Math.abs(rightStart - now) ||
+        leftStart - rightStart
+      );
+    })[0];
+  }
+
+  private async tryPromoteScheduledOrder(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    dto: CreateWorkshopOrderDto,
+  ): Promise<WorkshopOrderWithRelations | null> {
+    const scheduledOrders = await tx.workshopOrder.findMany({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: dto.vehicleId,
+        status: WorkshopOrderStatus.SCHEDULED,
+      },
+      select: {
+        id: true,
+        scheduled_start_at: true,
+      },
+    });
+    if (scheduledOrders.length === 0) {
+      return null;
+    }
+
+    const target = this.pickClosestScheduledOrder(scheduledOrders);
+    const promoted = await tx.workshopOrder.updateMany({
+      where: {
+        id: target.id,
+        tenant_id: tenantId,
+        status: WorkshopOrderStatus.SCHEDULED,
+      },
+      data: {
+        status: WorkshopOrderStatus.INTAKE,
+        odometer: dto.odometer ?? 0,
+        fuel_level: dto.fuelLevel ?? 0,
+        reported_issue: dto.reportedIssue,
+        notes: dto.notes,
+      },
+    });
+
+    if (promoted.count === 0) {
+      const live = await this.findLiveOrderForVehicle(
+        tx,
+        tenantId,
+        dto.vehicleId,
+      );
+      if (live) {
+        throw new ConflictException(
+          `Vehicle already has active order ${live.order_number}`,
+        );
+      }
+      return null;
+    }
+
+    const order = await tx.workshopOrder.findFirst({
+      where: { id: target.id, tenant_id: tenantId },
+      include: ORDER_WITH_RELATIONS,
+    });
+    if (!order) {
+      throw new NotFoundException(
+        `Workshop order ${target.id} not found after promote`,
+      );
+    }
+    return order;
   }
 
   async register(dto: RegisterIntakeDto) {
@@ -204,7 +301,15 @@ export class WorkshopIntakeService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
-      await this.assertNoLiveOrderForVehicle(tx, tenantId, dto.vehicleId);
+      if (!isScheduled) {
+        const promoted = await this.tryPromoteScheduledOrder(tx, tenantId, dto);
+        if (promoted) {
+          return promoted;
+        }
+        await this.assertNoLiveOrderForVehicle(tx, tenantId, dto.vehicleId);
+      } else {
+        await this.assertNoLiveOrderForVehicle(tx, tenantId, dto.vehicleId);
+      }
 
       if (purpose === WorkshopOrderPurpose.STOCK_PREP) {
         const flipped = await tx.vehicle.updateMany({
@@ -251,15 +356,7 @@ export class WorkshopIntakeService {
           scheduled_start_at: booked?.start,
           scheduled_end_at: booked?.end,
         },
-        include: {
-          customer: true,
-          vehicle: true,
-          tasks: {
-            include: {
-              line_items: true,
-            },
-          },
-        },
+        include: ORDER_WITH_RELATIONS,
       });
     });
 
