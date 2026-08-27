@@ -10,9 +10,7 @@ import { TenantContextService } from '../common/services/tenant-context.service'
 
 const SEARCH_LIMIT = 20;
 
-function buildInsensitiveContainsFilter(
-  query: string,
-): Prisma.StringFilter {
+function buildInsensitiveContainsFilter(query: string): Prisma.StringFilter {
   return {
     contains: query,
     mode: Prisma.QueryMode.insensitive,
@@ -24,11 +22,7 @@ function buildLaborTextSearchFilter(
 ): Prisma.LaborOperationWhereInput {
   const text = buildInsensitiveContainsFilter(query);
   return {
-    OR: [
-      { code: text },
-      { description: text },
-      { category: { name: text } },
-    ],
+    OR: [{ code: text }, { description: text }, { category: { name: text } }],
   };
 }
 
