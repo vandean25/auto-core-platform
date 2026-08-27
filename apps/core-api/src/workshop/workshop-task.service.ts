@@ -27,10 +27,7 @@ import {
   deriveOrderStatus,
 } from './workshop-order.helpers';
 import { WorkshopIntakeService } from './workshop-intake.service';
-import {
-  formatLocalDate,
-  parseLocalDate,
-} from './workshop-planner.time';
+import { formatLocalDate, parseLocalDate } from './workshop-planner.time';
 
 @Injectable()
 export class WorkshopTaskService {

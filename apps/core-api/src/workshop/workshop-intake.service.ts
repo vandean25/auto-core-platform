@@ -302,11 +302,7 @@ export class WorkshopIntakeService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       if (!isScheduled) {
-        const promoted = await this.tryPromoteScheduledOrder(
-          tx,
-          tenantId,
-          dto,
-        );
+        const promoted = await this.tryPromoteScheduledOrder(tx, tenantId, dto);
         if (promoted) {
           return promoted;
         }
@@ -364,7 +360,7 @@ export class WorkshopIntakeService {
       });
     });
 
-    return normalizeWorkshopOrder(order as WorkshopOrderWithRelations);
+    return normalizeWorkshopOrder(order);
   }
 
   async findAll(params: {
