@@ -154,30 +154,38 @@ export function WorkScheduleEditor({
 
   useEffect(() => {
     if (!currentVersionId) {
+      setCorrectionDays(buildDefaultDays())
+      setNewVersionDays(buildDefaultDays())
       return
     }
 
-    const mappedDays = daysFromVersion(currentVersion.days)
+    const version = scheduleQuery.data?.current
+    if (!version || version.id !== currentVersionId) {
+      return
+    }
+
+    const mappedDays = daysFromVersion(version.days)
     setCorrectionDays(mappedDays)
     setNewVersionDays(mappedDays)
-  }, [currentVersionId, currentVersion])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when employee/version identity changes
+  }, [employeeId, currentVersionId])
 
   useEffect(() => {
-    if (!currentVersion && defaultEffectiveFrom) {
+    if (!currentVersionId && defaultEffectiveFrom) {
       setEffectiveFrom(defaultEffectiveFrom)
       return
     }
-    if (currentVersion) {
+    if (currentVersionId) {
       setEffectiveFrom('')
     }
-  }, [currentVersion, defaultEffectiveFrom])
+  }, [currentVersionId, defaultEffectiveFrom])
 
   useEffect(() => {
-    if (!canEdit || currentVersion) {
+    if (!canEdit || currentVersionId) {
       return
     }
     setShowNewVersion(true)
-  }, [canEdit, currentVersion])
+  }, [canEdit, currentVersionId])
 
   const history = useMemo(
     () => scheduleQuery.data?.history.filter((version) => version.id !== currentVersion?.id) ?? [],

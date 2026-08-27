@@ -165,6 +165,97 @@ describe('WorkScheduleEditor', () => {
     expect(toast.error).toHaveBeenCalledWith('Effective date is required for a new schedule version')
   })
 
+  it('preserves unsaved day edits when the schedule query refetches the same version', () => {
+    setupEditor(true)
+
+    const { rerender } = render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
+
+    fireEvent.change(screen.getByLabelText('Monday break minutes'), { target: { value: '30' } })
+    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(30)
+
+    const refetchedVersion = {
+      ...currentVersion,
+      updatedAt: '2024-03-02T12:00:00.000Z',
+    }
+    apiMocks.useEmployeeWorkSchedule.mockReturnValue({
+      data: { current: refetchedVersion, history: [] },
+      isLoading: false,
+      error: null,
+    })
+
+    rerender(<WorkScheduleEditor employeeId='employee-1' canEdit />)
+
+    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(30)
+  })
+
+  it('preserves a typed new-version effective date when the schedule query refetches', () => {
+    setupEditor(true)
+
+    const { rerender } = render(
+      <WorkScheduleEditor
+        employeeId='employee-1'
+        canEdit
+        defaultEffectiveFrom='2024-03-01'
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
+    fireEvent.change(screen.getByLabelText('Effective from'), {
+      target: { value: '2026-09-01' },
+    })
+
+    const refetchedVersion = {
+      ...currentVersion,
+      updatedAt: '2024-03-02T12:00:00.000Z',
+    }
+    apiMocks.useEmployeeWorkSchedule.mockReturnValue({
+      data: { current: refetchedVersion, history: [] },
+      isLoading: false,
+      error: null,
+    })
+
+    rerender(
+      <WorkScheduleEditor
+        employeeId='employee-1'
+        canEdit
+        defaultEffectiveFrom='2024-03-01'
+      />,
+    )
+
+    expect(screen.getByLabelText('Effective from')).toHaveValue('2026-09-01')
+  })
+
+  it('resets in-progress first-version edits when switching to another employee without a schedule', () => {
+    setupEditor(true)
+    apiMocks.useEmployeeWorkSchedule.mockReturnValue({
+      data: { current: null, history: [] },
+      isLoading: false,
+      error: null,
+    })
+
+    const { rerender } = render(
+      <WorkScheduleEditor
+        employeeId='employee-1'
+        canEdit
+        defaultEffectiveFrom='2024-03-01'
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Monday break minutes'), { target: { value: '45' } })
+    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(45)
+
+    rerender(
+      <WorkScheduleEditor
+        employeeId='employee-2'
+        canEdit
+        defaultEffectiveFrom='2025-01-01'
+      />,
+    )
+
+    expect(screen.getByLabelText('Monday break minutes')).toHaveValue(0)
+    expect(screen.getByLabelText('Effective from')).toHaveValue('2025-01-01')
+  })
+
   it('creates the first schedule version with hire date prefilled', async () => {
     const { createSchedule } = setupEditor(true)
     apiMocks.useEmployeeWorkSchedule.mockReturnValue({
