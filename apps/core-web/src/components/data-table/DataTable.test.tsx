@@ -61,6 +61,58 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenNthCalledWith(2, { name: 'Test Item' })
   })
 
+  it('opens the clicked row data for each row in a multi-row table (AUT-220)', () => {
+    const customers = [
+      { id: 'cust-klaus', label: 'Klaus Kombi' },
+      { id: 'cust-susi', label: 'Susi Sorglos' },
+      { id: 'cust-max', label: 'Max Mustermann3' },
+      { id: 'cust-thomas', label: 'Thomas Turboschrauber' },
+      { id: 'cust-anna', label: 'Anna Alpin' },
+    ]
+    const onRowClick = vi.fn()
+    const { rerender } = render(
+      <DataTable
+        {...defaultProps}
+        columns={[
+          {
+            accessorKey: 'label',
+            header: 'Name',
+          },
+        ]}
+        data={customers}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    for (const customer of customers) {
+      fireEvent.click(screen.getByText(customer.label))
+    }
+
+    expect(onRowClick).toHaveBeenCalledTimes(customers.length)
+    for (const [index, customer] of customers.entries()) {
+      expect(onRowClick).toHaveBeenNthCalledWith(index + 1, customer)
+    }
+
+    onRowClick.mockClear()
+    const reordered = [...customers].reverse()
+    rerender(
+      <DataTable
+        {...defaultProps}
+        columns={[
+          {
+            accessorKey: 'label',
+            header: 'Name',
+          },
+        ]}
+        data={reordered}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    fireEvent.click(screen.getByText('Max Mustermann3'))
+    expect(onRowClick).toHaveBeenCalledWith({ id: 'cust-max', label: 'Max Mustermann3' })
+  })
+
   it('shows Delete on right-click when getRowContextActions returns it', () => {
     render(
       <DataTable
