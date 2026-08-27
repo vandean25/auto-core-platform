@@ -46,6 +46,30 @@ function activateRow<TData extends object>(
   onRowClick(row)
 }
 
+const clickableRowClassName = 'cursor-pointer hover:bg-muted/50'
+
+function handleRowClick<TData extends object>(
+  event: React.MouseEvent<HTMLTableRowElement>,
+  row: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  // Cell clicks are handled on <td>; keep <tr> for programmatic row.click() and tests.
+  if (event.target !== event.currentTarget) {
+    return
+  }
+
+  activateRow(event, row, onRowClick)
+}
+
+function handleCellClick<TData extends object>(
+  event: React.MouseEvent<HTMLTableCellElement>,
+  row: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  event.stopPropagation()
+  activateRow(event, row, onRowClick)
+}
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -195,6 +219,7 @@ export function DataTable<TData extends object>({
                   key={row.id}
                   data-table-row="true"
                   data-state={row.getIsSelected() && "selected"}
+                  onClick={(event) => handleRowClick(event, row.original as TData, onRowClick)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     openRowContextMenu(row.original as TData, event.clientX, event.clientY)
@@ -215,13 +240,13 @@ export function DataTable<TData extends object>({
                     activateRow(event, row.original as TData, onRowClick)
                   }}
                   tabIndex={onRowClick || getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
-                  className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                  className={onRowClick ? clickableRowClassName : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={onRowClick ? "cursor-pointer" : undefined}
-                      onClick={(event) => activateRow(event, row.original as TData, onRowClick)}
+                      onClick={(event) => handleCellClick(event, row.original as TData, onRowClick)}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
