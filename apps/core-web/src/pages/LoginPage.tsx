@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +24,24 @@ function describeAuthError(error: unknown, fallback: string) {
   return fallback
 }
 
+function getValidationError(email: string, password: string) {
+  const trimmedEmail = email.trim()
+
+  if (!trimmedEmail && !password) {
+    return 'Email and password are required'
+  }
+
+  if (!trimmedEmail) {
+    return 'Email is required'
+  }
+
+  if (!password) {
+    return 'Password is required'
+  }
+
+  return null
+}
+
 export default function LoginPage() {
   const { signIn, signInWithGoogle, isConfigured } = useAuth()
   const [email, setEmail] = React.useState('')
@@ -33,6 +52,12 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    const validationError = getValidationError(email, password)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
 
     setError(null)
     setSubmitting(true)
@@ -77,7 +102,7 @@ export default function LoginPage() {
               <p><code>VITE_FIREBASE_APP_ID</code></p>
             </div>
           ) : (
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="space-y-4" noValidate onSubmit={handleSubmit}>
               <Button
                 className="w-full"
                 disabled={googleSubmitting || submitting}
@@ -100,28 +125,44 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
+                  aria-describedby={error ? 'login-error' : undefined}
+                  aria-invalid={Boolean(error && !email.trim())}
                   autoComplete="email"
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
+                  onChange={(event) => {
+                    setEmail(event.target.value)
+                    if (error) {
+                      setError(null)
+                    }
+                  }}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
+                  aria-describedby={error ? 'login-error' : undefined}
+                  aria-invalid={Boolean(error && !password)}
                   autoComplete="current-password"
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    if (error) {
+                      setError(null)
+                    }
+                  }}
                 />
               </div>
 
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {error ? (
+                <Alert id="login-error" variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
 
               <Button className="w-full" disabled={submitting || googleSubmitting} type="submit">
                 {submitting ? 'Signing in...' : 'Sign in'}
