@@ -12,9 +12,10 @@ import {
   useEmployees,
   useUpdateEmployee,
 } from '@/api/employees'
-import { usePatchLeaveBalance } from '@/api/hr'
+import { usePatchLeaveBalance, useEmployeeWorkSchedule } from '@/api/hr'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { WorkScheduleEditor } from '@/components/hr/WorkScheduleEditor'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,12 @@ import {
 import { SOURCE_LANGUAGE_OPTIONS } from '@/constants/voice-languages'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
+import {
+  averageExpectedMinutesPerWorkday,
+  daysToMinutes,
+  FALLBACK_AVG_WORKDAY_MINUTES,
+  formatApproxDays,
+} from '@/lib/hr-leave-minutes'
 
 const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = ['MECHANIC', 'SERVICE_ADVISOR', 'PARTS_CLERK']
 const MIN_LEAVE_MINUTES = 0
@@ -52,6 +59,7 @@ type EmployeeFormState = {
   motherLanguageCode: string
   hiredOn: string
   annualLeaveMinutes: string
+  annualLeaveDays: string
 }
 
 type EmployeeTableProps = {
@@ -74,6 +82,48 @@ const defaultFormState: EmployeeFormState = {
   motherLanguageCode: '',
   hiredOn: '',
   annualLeaveMinutes: '',
+  annualLeaveDays: '',
+}
+
+function LeaveMinutesSummary({
+  minutes,
+  avgMinutesPerWorkday,
+}: {
+  minutes: number
+  avgMinutesPerWorkday: number
+}) {
+  const approx = formatApproxDays(minutes, avgMinutesPerWorkday)
+  return (
+    <span>
+      {minutes} min{approx ? <span className='text-slate-500'> ({approx})</span> : null}
+    </span>
+  )
+}
+
+function parseAnnualLeaveMinutesFromForm(
+  annualLeaveMinutes: string,
+  annualLeaveDays: string,
+  avgMinutesPerWorkday: number,
+): number | undefined {
+  const normalizedDays = annualLeaveDays.trim()
+  if (normalizedDays) {
+    const parsedDays = Number(normalizedDays)
+    if (!Number.isFinite(parsedDays) || parsedDays < 0) {
+      throw new Error('Leave days must be a non-negative number')
+    }
+    return daysToMinutes(parsedDays, avgMinutesPerWorkday)
+  }
+
+  const normalizedMinutes = annualLeaveMinutes.trim()
+  if (!normalizedMinutes) {
+    return undefined
+  }
+
+  const parsedMinutes = Number(normalizedMinutes)
+  if (!Number.isInteger(parsedMinutes) || parsedMinutes < MIN_LEAVE_MINUTES) {
+    throw new Error('Leave minutes must be a non-negative integer')
+  }
+  return parsedMinutes
 }
 
 function formatRoleLabel(role: EmployeeRole) {
@@ -291,6 +341,16 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [carryoverMinutes, setCarryoverMinutes] = React.useState('0')
+  const [sheetAllowanceDays, setSheetAllowanceDays] = React.useState('')
+
+  const sheetScheduleQuery = useEmployeeWorkSchedule(selectedEmployee?.id ?? null)
+  const sheetAvgMinutes = React.useMemo(() => {
+    const current = sheetScheduleQuery.data?.current
+    if (!current) {
+      return FALLBACK_AVG_WORKDAY_MINUTES
+    }
+    return averageExpectedMinutesPerWorkday(current.days)
+  }, [sheetScheduleQuery.data])
 
   const hasHrEditAccess = canEditHrFields(activeRole)
   const employees = React.useMemo(() => responseData?.data ?? [], [responseData?.data])
@@ -363,10 +423,15 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
     }
 
     let parsedAnnualLeaveMinutes: number | undefined
-    if (hasHrEditAccess && formState.annualLeaveMinutes.trim()) {
-      parsedAnnualLeaveMinutes = Number(formState.annualLeaveMinutes)
-      if (!Number.isInteger(parsedAnnualLeaveMinutes) || parsedAnnualLeaveMinutes < MIN_LEAVE_MINUTES) {
-        toast.error('Leave minutes must be a non-negative integer')
+    if (hasHrEditAccess) {
+      try {
+        parsedAnnualLeaveMinutes = parseAnnualLeaveMinutesFromForm(
+          formState.annualLeaveMinutes,
+          formState.annualLeaveDays,
+          FALLBACK_AVG_WORKDAY_MINUTES,
+        )
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, 'Invalid leave allowance'))
         return
       }
     }
@@ -407,6 +472,33 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       toast.success('Employee deactivated')
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Failed to delete employee'))
+    }
+  }
+
+  const handleSaveAllowanceDays = async () => {
+    if (!selectedEmployee || !hasHrEditAccess || !sheetAllowanceDays.trim()) return
+
+    const parsedDays = Number(sheetAllowanceDays)
+    if (!Number.isFinite(parsedDays) || parsedDays < 0) {
+      toast.error('Leave days must be a non-negative number')
+      return
+    }
+
+    const annualLeaveMinutes = daysToMinutes(parsedDays, sheetAvgMinutes)
+    if (annualLeaveMinutes === selectedEmployee.annualLeaveMinutes) return
+
+    try {
+      await runUpdate(
+        selectedEmployee.id,
+        { annualLeaveMinutes },
+        'Employee leave allowance updated',
+        'Failed to update employee leave allowance',
+      )
+      setSelectedEmployee((current) =>
+        current?.id === selectedEmployee.id ? { ...current, annualLeaveMinutes } : current,
+      )
+    } catch {
+      // runUpdate already toasted
     }
   }
 
@@ -638,7 +730,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
       {
         accessorKey: 'remainingLeaveMinutes',
         header: ({ column }) => <DataTableColumnHeader column={column} title='Remaining (min)' />,
-        cell: ({ row }) => <span>{row.original.remainingLeaveMinutes}</span>,
+        cell: ({ row }) => <span>{row.original.remainingLeaveMinutes} min</span>,
       },
       {
         accessorKey: 'userId',
@@ -663,6 +755,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         onRowClick={(employee) => {
           setSelectedEmployee(employee)
           setCarryoverMinutes(String(employee.carryoverMinutes))
+          setSheetAllowanceDays('')
           setSheetOpen(true)
         }}
         getRowContextActions={(row) => [
@@ -773,6 +866,25 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
             </div>
 
             <div className='space-y-2'>
+              <Label htmlFor='employee-annual-leave-days'>Leave (days)</Label>
+              <Input
+                id='employee-annual-leave-days'
+                type='number'
+                min={0}
+                step={0.5}
+                placeholder='e.g. 25 (uses default workday length)'
+                value={formState.annualLeaveDays}
+                disabled={!hasHrEditAccess}
+                onChange={(event) => {
+                  setFormState((previous) => ({
+                    ...previous,
+                    annualLeaveDays: event.target.value,
+                  }))
+                }}
+              />
+            </div>
+
+            <div className='space-y-2'>
               <Label htmlFor='employee-annual-leave-minutes'>Leave (min)</Label>
               <Input
                 id='employee-annual-leave-minutes'
@@ -823,18 +935,62 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
                   <p className='text-sm'>{selectedEmployee.hiredOn ?? 'Not set'}</p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Leave (min)</Label>
-                  <p className='text-sm'>{selectedEmployee.annualLeaveMinutes}</p>
+                  <Label>Leave allowance</Label>
+                  <p className='text-sm'>
+                    <LeaveMinutesSummary
+                      minutes={selectedEmployee.annualLeaveMinutes}
+                      avgMinutesPerWorkday={sheetAvgMinutes}
+                    />
+                  </p>
                 </div>
                 <div className='space-y-1'>
-                  <Label>Remaining (min)</Label>
-                  <p className='text-sm'>{selectedEmployee.remainingLeaveMinutes}</p>
+                  <Label>Remaining</Label>
+                  <p className='text-sm'>
+                    <LeaveMinutesSummary
+                      minutes={selectedEmployee.remainingLeaveMinutes}
+                      avgMinutesPerWorkday={sheetAvgMinutes}
+                    />
+                  </p>
                 </div>
                 <div className='space-y-1'>
                   <Label>Login</Label>
                   <p className='break-all font-mono text-xs'>{selectedEmployee.userId ?? 'Not linked'}</p>
                 </div>
               </div>
+
+              <WorkScheduleEditor
+                employeeId={selectedEmployee.id}
+                canEdit={hasHrEditAccess}
+                defaultEffectiveFrom={selectedEmployee.hiredOn ?? undefined}
+              />
+
+              {hasHrEditAccess ? (
+                <div className='space-y-2'>
+                  <Label htmlFor='employee-allowance-days'>Leave allowance (days)</Label>
+                  <Input
+                    id='employee-allowance-days'
+                    type='number'
+                    min={0}
+                    step={0.5}
+                    placeholder='e.g. 25'
+                    value={sheetAllowanceDays}
+                    onChange={(event) => setSheetAllowanceDays(event.target.value)}
+                  />
+                  <p className='text-xs text-slate-500'>
+                    Converts to minutes using the current schedule average (
+                    {sheetAvgMinutes} min/day).
+                  </p>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    disabled={!sheetAllowanceDays.trim() || updateMutation.isPending}
+                    onClick={() => void handleSaveAllowanceDays()}
+                  >
+                    Save allowance
+                  </Button>
+                </div>
+              ) : null}
 
               <div className='space-y-2'>
                 <Label htmlFor='employee-carryover-minutes'>Carryover this year (min)</Label>

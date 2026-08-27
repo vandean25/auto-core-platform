@@ -10,6 +10,7 @@ import { useEmployees } from '@/api/employees'
 import {
   type LeaveRequest,
   useCancelLeave,
+  useEmployeeWorkSchedule,
   useHrMe,
   useMyLeave,
   useTeamLeave,
@@ -23,6 +24,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import {
+  averageExpectedMinutesPerWorkday,
+  FALLBACK_AVG_WORKDAY_MINUTES,
+  formatApproxDays,
+} from '@/lib/hr-leave-minutes'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -127,6 +133,7 @@ function MissingEmployeeState() {
 export default function HrLeavePage() {
   const sessionQuery = useAuthSession()
   const hrMeQuery = useHrMe()
+  const meScheduleQuery = useEmployeeWorkSchedule(hrMeQuery.data?.employee.id ?? null)
   const timezone = hrMeQuery.data?.timezone ?? DEFAULT_TIMEZONE
   const activeRole = sessionQuery.data?.activeRole
   const isManager = canManageLeave(activeRole)
@@ -174,6 +181,16 @@ export default function HrLeavePage() {
     () => sortLeaveRows(filteredBookings, sorting[0]?.id, sorting[0]?.desc),
     [filteredBookings, sorting],
   )
+  const remainingAvgMinutes = useMemo(() => {
+    const current = meScheduleQuery.data?.current
+    if (!current) {
+      return FALLBACK_AVG_WORKDAY_MINUTES
+    }
+    return averageExpectedMinutesPerWorkday(current.days)
+  }, [meScheduleQuery.data])
+  const remainingMinutes =
+    myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0
+  const remainingApprox = formatApproxDays(remainingMinutes, remainingAvgMinutes)
   const pageCount = Math.max(1, Math.ceil(sortedBookings.length / pagination.pageSize))
   const pagedBookings = sortedBookings.slice(
     pagination.pageIndex * pagination.pageSize,
@@ -253,7 +270,7 @@ export default function HrLeavePage() {
         <div className='flex items-center gap-3'>
           <StatusBadge
             status='ACTIVE'
-            label={`Remaining: ${myLeaveQuery.data?.remainingMinutes ?? hrMeQuery.data?.remainingLeaveMinutes ?? 0} minutes`}
+            label={`Remaining: ${remainingMinutes} min${remainingApprox ? ` (${remainingApprox})` : ''}`}
           />
           <Button type='button' onClick={() => openCreateSheet()}>
             + Leave

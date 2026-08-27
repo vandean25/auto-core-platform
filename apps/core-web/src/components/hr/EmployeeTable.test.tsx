@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 
 import type { Employee } from '@/api/employees'
 import { useCreateEmployee, useDeleteEmployee, useEmployees, useUpdateEmployee } from '@/api/employees'
-import { usePatchLeaveBalance } from '@/api/hr'
+import { usePatchLeaveBalance, useEmployeeWorkSchedule } from '@/api/hr'
 import { EmployeeTable } from './EmployeeTable'
 
 // Matches apps/core-api/test/tenant-test-utils.ts
@@ -13,7 +13,15 @@ const HR_TEST_ALLOWANCE_30_MINUTES = 15450
 const HR_TEST_CARRYOVER_3_MINUTES = 1545
 const HR_TEST_CARRYOVER_4_MINUTES = 2060
 const HR_TEST_REMAINING_22_MINUTES = 11330
-const HR_TEST_REMAINING_23_MINUTES = 11845
+const HR_TEST_AVG_WORKDAY_MINUTES = 515
+
+const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+  weekday,
+  isWorking: weekday <= 5,
+  startTime: weekday <= 5 ? '08:00' : null,
+  endTime: weekday <= 5 ? '16:35' : null,
+  breakMinutes: 0,
+}))
 
 const employeeFixture: Employee = {
   id: 'employee-1',
@@ -70,6 +78,11 @@ vi.mock('@/api/employees', () => ({
 
 vi.mock('@/api/hr', () => ({
   usePatchLeaveBalance: vi.fn(),
+  useEmployeeWorkSchedule: vi.fn(),
+}))
+
+vi.mock('@/components/hr/WorkScheduleEditor', () => ({
+  WorkScheduleEditor: () => <div data-testid='work-schedule-editor' />,
 }))
 
 function renderEmployeeTable(activeRole: 'OWNER' | 'ADMIN' | 'SALES') {
@@ -104,6 +117,20 @@ beforeEach(() => {
     mutateAsync: updateEmployee,
     isPending: false,
   } as unknown as ReturnType<typeof useUpdateEmployee>)
+  vi.mocked(useEmployeeWorkSchedule).mockReturnValue({
+    data: {
+      current: {
+        id: 'schedule-1',
+        effectiveFrom: '2024-03-01',
+        createdAt: '2024-03-01T00:00:00.000Z',
+        updatedAt: '2024-03-01T00:00:00.000Z',
+        days: scheduleDays.map((day, index) => ({ ...day, id: `day-${index}` })),
+      },
+      history: [],
+    },
+    isLoading: false,
+    error: null,
+  } as unknown as ReturnType<typeof useEmployeeWorkSchedule>)
   vi.mocked(usePatchLeaveBalance).mockReturnValue({
     mutateAsync: patchLeaveBalance,
     isPending: false,
@@ -125,7 +152,7 @@ describe('EmployeeTable', () => {
     expect(screen.getByText('Login')).toBeInTheDocument()
     expect(screen.getByLabelText('Hire date for Ada Lovelace')).toHaveValue('2024-03-01')
     expect(screen.getByLabelText('Annual leave minutes for Ada Lovelace')).toHaveValue(HR_TEST_ANNUAL_LEAVE_MINUTES)
-    expect(screen.getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
+    expect(screen.getByText(/11330/)).toBeInTheDocument()
     expect(screen.getByText('user-uuid-1')).toBeInTheDocument()
   })
 
@@ -233,14 +260,14 @@ describe('EmployeeTable', () => {
     const carryoverInput = await screen.findByLabelText('Carryover this year')
     const detailSheet = screen.getByTestId('employee-detail-sheet')
 
-    expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
+    expect(within(detailSheet).getByText(/11330/)).toBeInTheDocument()
 
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(1)
-      expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_23_MINUTES))).toBeInTheDocument()
+      expect(screen.getByTestId('employee-detail-sheet').textContent).toContain('11845')
     })
 
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_3_MINUTES) } })
@@ -248,7 +275,7 @@ describe('EmployeeTable', () => {
 
     await waitFor(() => {
       expect(patchLeaveBalance).toHaveBeenCalledTimes(2)
-      expect(within(detailSheet).getByText(String(HR_TEST_REMAINING_22_MINUTES))).toBeInTheDocument()
+      expect(screen.getByTestId('employee-detail-sheet').textContent).toContain('11330')
     })
     expect(patchLeaveBalance).toHaveBeenLastCalledWith({
       employeeId: employeeFixture.id,
@@ -335,5 +362,54 @@ describe('EmployeeTable', () => {
       })
     })
     expect(createEmployee.mock.calls[0]?.[0]).not.toHaveProperty('annualLeaveMinutes')
+  })
+
+  it('converts allowance days to minutes when creating an employee', async () => {
+    const createEmployee = vi.fn().mockResolvedValue(employeeFixture)
+    vi.mocked(useCreateEmployee).mockReturnValue({
+      mutateAsync: createEmployee,
+      isPending: false,
+    } as unknown as ReturnType<typeof useCreateEmployee>)
+
+    const onCreateOpenChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <EmployeeTable
+          activeRole='OWNER'
+          createOpen
+          onCreateOpenChange={onCreateOpenChange}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Hire' } })
+    fireEvent.change(screen.getByLabelText('Leave (days)'), { target: { value: '25' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(createEmployee).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'New Hire',
+          annualLeaveMinutes: 25 * 480,
+        }),
+      )
+    })
+  })
+
+  it('converts allowance days to minutes from the employee sheet', async () => {
+    renderEmployeeTable('OWNER')
+
+    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.change(await screen.findByLabelText('Leave allowance (days)'), {
+      target: { value: '30' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save allowance' }))
+
+    await waitFor(() => {
+      expect(updateEmployee).toHaveBeenCalledWith({
+        id: employeeFixture.id,
+        data: { annualLeaveMinutes: 30 * HR_TEST_AVG_WORKDAY_MINUTES },
+      })
+    })
   })
 })
