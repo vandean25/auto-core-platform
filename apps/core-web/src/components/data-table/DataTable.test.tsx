@@ -266,6 +266,37 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves Enter activation for an interactive cell control', () => {
+    const onRowClick = vi.fn()
+    const columnsWithAction = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: () => <button type="button">Edit</button>,
+      },
+    ]
+
+    render(
+      <DataTable
+        {...defaultProps}
+        columns={columnsWithAction}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    const editButton = screen.getByRole('button', { name: 'Edit' })
+    const keydownEvent = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    })
+
+    editButton.dispatchEvent(keydownEvent)
+
+    expect(keydownEvent.defaultPrevented).toBe(false)
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
   it('shows Delete on right-click when getRowContextActions returns it', () => {
     render(
       <DataTable
