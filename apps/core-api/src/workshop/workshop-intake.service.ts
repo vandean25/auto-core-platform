@@ -507,14 +507,18 @@ export class WorkshopIntakeService {
       dto.mechanicId !== undefined;
 
     const scheduleData = hasScheduleUpdate
-      ? await this.scheduleService.rescheduleOrder(id, {
-          vehicle_id: existing.vehicle_id,
-          bay_id: existing.bay_id,
-          mechanic_id: existing.mechanic_id,
-          scheduled_start_at: existing.scheduled_start_at,
-          scheduled_end_at: existing.scheduled_end_at,
-          status: existing.status,
-        }, dto)
+      ? await this.scheduleService.rescheduleOrder(
+          id,
+          {
+            vehicle_id: existing.vehicle_id,
+            bay_id: existing.bay_id,
+            mechanic_id: existing.mechanic_id,
+            scheduled_start_at: existing.scheduled_start_at,
+            scheduled_end_at: existing.scheduled_end_at,
+            status: existing.status,
+          },
+          dto,
+        )
       : null;
 
     const updated = await this.prisma.workshopOrder.update({
