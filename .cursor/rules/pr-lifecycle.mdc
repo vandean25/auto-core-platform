@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+
+# PR Lifecycle & CI Verification
+
+- When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
+- Monitor/verify that all continuous integration checks (linting, tests, build) pass.
+- Once and only when all CI checks succeed, mark the pull request as ready for review:
+
+  ```bash
+  gh pr ready <PR_NUMBER>
+  ```

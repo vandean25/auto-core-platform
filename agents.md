@@ -187,9 +187,17 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **Never** use `github-mcp-server` for PR creation - use it only for read operations (get commits, list issues, etc.)
 - **Always** use `gh pr create` from the command line to create pull requests
   ```bash
-  gh pr create --title "Your PR title" --body "Your PR description"
+  gh pr create --draft --title "Your PR title" --body "Your PR description"
   ```
 - This is faster, more reliable, and avoids UI-related issues or authentication problems
+
+### PR Lifecycle & CI Verification
+- When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
+- Monitor/verify that all continuous integration checks (linting, tests, build) pass.
+- Once and only when all CI checks succeed, mark the pull request as ready for review:
+  ```bash
+  gh pr ready <PR_NUMBER>
+  ```
 
 ### Mandatory backend checks before creating a PR
 All of the following CI-equivalent backend checks must pass before creating a PR:
