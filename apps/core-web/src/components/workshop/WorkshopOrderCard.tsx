@@ -14,8 +14,8 @@ interface WorkshopOrderCardContentProps {
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
   setNodeRef?: (element: HTMLElement | null) => void
-  dragAttributes?: Record<string, unknown>
-  dragListeners?: Record<string, unknown>
+  dragAttributes?: ReturnType<typeof useDraggable>['attributes']
+  dragListeners?: ReturnType<typeof useDraggable>['listeners']
 }
 
 const partsStatusBorder: Record<PartsStatus, string> = {
