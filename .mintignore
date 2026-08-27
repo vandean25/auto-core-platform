@@ -1,0 +1,20 @@
+# Application and infrastructure code — not part of the public Mintlify site.
+# Mintlify auto-includes every .css/.js file in the content directory; without
+# these exclusions, core-web Tailwind CSS and eslint config leak into docs pages
+# and break client-side behavior (including the theme switcher).
+apps/
+infra/
+tools/
+test-results/
+secrets/
+
+# Internal engineering docs (Obsidian vault, ADRs, runbooks).
+docs/internal/
+
+# Large API discovery dumps and repo metadata — not user-facing docs assets.
+identitytoolkit-v1-discovery.json
+identitytoolkit-v2-discovery.json
+cloudbuild.yaml
+cloudbuild.staging.yaml
+pr_description.md
+agents.md
