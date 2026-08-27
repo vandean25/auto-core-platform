@@ -43,6 +43,7 @@ const APP_ROUTE_OBJECTS: RouteObject[] = [
   { path: '/workshop/orders' },
   { path: '/workshop/pick-list' },
   { path: '/workshop/board' },
+  { path: '/workshop/planner' },
   { path: '/workshop/orders/:id' },
   { path: '/mechanic/queue' },
   { path: '/mechanic/tasks/:taskId' },

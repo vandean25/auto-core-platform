@@ -8,6 +8,7 @@ describe('isKnownAppPath', () => {
     expect(isKnownAppPath('/hr/employees')).toBe(true)
     expect(isKnownAppPath('/mechanic/queue')).toBe(true)
     expect(isKnownAppPath('/workshop/orders/abc-123')).toBe(true)
+    expect(isKnownAppPath('/workshop/planner')).toBe(true)
   })
 
   it('rejects unknown routes', () => {
