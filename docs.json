@@ -38,7 +38,63 @@
       }
     }
   },
+  "navbar": {
+    "links": [
+      {
+        "label": "Live demo",
+        "href": "https://auto-core-platform-vande.web.app/"
+      },
+      {
+        "type": "github",
+        "href": "https://github.com/vandean25/auto-core-platform"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Live demo",
+      "href": "https://auto-core-platform-vande.web.app/"
+    }
+  },
+  "banner": {
+    "content": "Try the [live demo](https://auto-core-platform-vande.web.app/) or browse the [source on GitHub](https://github.com/vandean25/auto-core-platform).",
+    "dismissible": true,
+    "type": "info"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/vandean25/auto-core-platform"
+    },
+    "links": [
+      {
+        "header": "Product",
+        "items": [
+          {
+            "label": "Live demo",
+            "href": "https://auto-core-platform-vande.web.app/"
+          },
+          {
+            "label": "GitHub",
+            "href": "https://github.com/vandean25/auto-core-platform"
+          }
+        ]
+      }
+    ]
+  },
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Live demo",
+          "icon": "play",
+          "href": "https://auto-core-platform-vande.web.app/"
+        },
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/vandean25/auto-core-platform"
+        }
+      ]
+    },
     "tabs": [
       {
         "tab": "Guides",
