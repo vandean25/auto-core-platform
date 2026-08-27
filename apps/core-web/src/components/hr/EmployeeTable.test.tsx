@@ -225,7 +225,7 @@ describe('EmployeeTable', () => {
   it.each(['OWNER', 'ADMIN'] as const)('%s can save current-year carryover from the employee sheet', async (activeRole) => {
     renderEmployeeTable(activeRole)
 
-    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.click(screen.getByText('11330 min'))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
     fireEvent.change(carryoverInput, { target: { value: String(HR_TEST_CARRYOVER_4_MINUTES) } })
     fireEvent.click(screen.getByRole('button', { name: 'Save leave balance' }))
@@ -244,7 +244,7 @@ describe('EmployeeTable', () => {
   it('does not reset existing carryover when the employee sheet is saved unchanged', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.click(screen.getByText('11330 min'))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
     expect(carryoverInput).toHaveValue(HR_TEST_CARRYOVER_3_MINUTES)
 
@@ -256,7 +256,7 @@ describe('EmployeeTable', () => {
   it('allows carryover to be changed back after a successful save', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.click(screen.getByText('11330 min'))
     const carryoverInput = await screen.findByLabelText('Carryover this year')
     const detailSheet = screen.getByTestId('employee-detail-sheet')
 
@@ -297,7 +297,7 @@ describe('EmployeeTable', () => {
 
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByRole('row', { name: /Katherine Johnson/ }))
+    fireEvent.click(screen.getByText('11330 min'))
 
     expect(await screen.findByLabelText('Carryover this year')).toHaveValue(0)
   })
@@ -324,7 +324,7 @@ describe('EmployeeTable', () => {
   it('SALES sees carryover as read-only in the employee sheet', async () => {
     renderEmployeeTable('SALES')
 
-    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.click(screen.getByText('11330 min'))
 
     expect(await screen.findByLabelText('Carryover this year')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save leave balance' })).not.toBeInTheDocument()
@@ -399,7 +399,7 @@ describe('EmployeeTable', () => {
   it('converts allowance days to minutes from the employee sheet', async () => {
     renderEmployeeTable('OWNER')
 
-    fireEvent.click(screen.getByRole('row', { name: /Ada Lovelace/ }))
+    fireEvent.click(screen.getByText('11330 min'))
     fireEvent.change(await screen.findByLabelText('Leave allowance (days)'), {
       target: { value: '30' },
     })

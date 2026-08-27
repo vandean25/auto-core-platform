@@ -10,7 +10,13 @@ import {
   type OnChangeFn,
   flexRender,
 } from '@tanstack/react-table'
-import { useEffect, useRef, useState } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react"
 
 import {
   Table,
@@ -52,7 +58,7 @@ function resolveRowFromElement<TData extends object>(
 }
 
 function activateRow<TData extends object>(
-  event: React.MouseEvent | React.KeyboardEvent,
+  event: ReactMouseEvent | ReactKeyboardEvent,
   row: TData,
   onRowClick?: (row: TData) => void,
 ) {
