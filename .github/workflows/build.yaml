@@ -19,6 +19,16 @@ permissions:
   contents: read
 
 jobs:
+  docs:
+    name: Mintlify docs guards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Verify Mintlify excludes app assets
+        run: npm run docs:verify-mintignore
+
   api-contract:
     name: API Contract (OpenAPI + Generated Types)
     runs-on: ubuntu-latest
