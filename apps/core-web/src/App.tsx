@@ -411,11 +411,14 @@ function LoginRoute() {
   }
 
   return (
-    <GlobalErrorBoundary>
-      <React.Suspense fallback={<PageLoader />}>
-        <LoginPage />
-      </React.Suspense>
-    </GlobalErrorBoundary>
+    <>
+      <GlobalErrorBoundary>
+        <React.Suspense fallback={<PageLoader />}>
+          <LoginPage />
+        </React.Suspense>
+      </GlobalErrorBoundary>
+      <Toaster />
+    </>
   )
 }
 
