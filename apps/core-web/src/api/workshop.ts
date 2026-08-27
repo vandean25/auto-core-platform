@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 import type {
@@ -790,6 +790,7 @@ export function useBoardActive() {
       if (!response.ok) throw new Error('Failed to fetch active board')
       return response.json()
     },
+    placeholderData: keepPreviousData,
   })
 }
 

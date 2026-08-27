@@ -454,4 +454,101 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByTestId('board-column-unassigned')).toContainText('WO-2026-0002')
     await expect(page.getByTestId('board-column-emp-mech-001')).not.toContainText('WO-2026-0002')
   })
+
+  test('Drag-and-drop assigns an unassigned card to the column under the cursor', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const MECHANIC_ID_2 = 'emp-mech-002'
+    const mockMechanic2 = createMockEmployee({
+      id: MECHANIC_ID_2,
+      name: 'Grok Bot',
+      role: 'MECHANIC',
+      isActive: true,
+      sortOrder: 2,
+    })
+
+    let assignCalled = false
+    let assignPayload: Record<string, unknown> = {}
+    let boardData = structuredClone(mockBoardActiveResponse)
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: [mockMechanic, mockMechanic2], bays: [mockBay] }),
+        })
+      },
+    )
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/board/active'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(boardData),
+        })
+      },
+    )
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'),
+      async (route) => {
+        assignCalled = true
+        assignPayload = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+        boardData = {
+          ...boardData,
+          data: boardData.data.map((order) =>
+            order.id === ORDER_ID_2 ? { ...order, mechanicId: MECHANIC_ID_2, bayId: null } : order,
+          ),
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: ORDER_ID_2,
+            mechanicId: MECHANIC_ID_2,
+            bayId: null,
+            updatedAt: new Date().toISOString(),
+          }),
+        })
+      },
+    )
+
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+
+    await corePage.navigate('/workshop/board')
+
+    const card = page.getByTestId('workshop-order-card-ws-board-002')
+    const targetColumn = page.getByTestId(`board-column-${MECHANIC_ID_2}`)
+    const cardBox = await card.boundingBox()
+    const columnBox = await targetColumn.boundingBox()
+
+    if (!cardBox || !columnBox) {
+      throw new Error('Expected card and target column to be visible for drag-and-drop')
+    }
+
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/workshop/board/assign') &&
+        response.request().method() === 'PATCH',
+    )
+
+    await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(columnBox.x + columnBox.width / 2, columnBox.y + 80, { steps: 12 })
+    await page.mouse.up()
+    await responsePromise
+
+    expect(assignCalled).toBe(true)
+    expect(assignPayload.orderId).toBe(ORDER_ID_2)
+    expect(assignPayload.mechanicId).toBe(MECHANIC_ID_2)
+
+    await expect(targetColumn).toContainText('WO-2026-0002')
+    await expect(targetColumn.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
+    await expect(page.getByTestId('board-column-unassigned')).not.toContainText('WO-2026-0002')
+  })
 })

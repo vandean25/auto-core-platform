@@ -141,6 +141,27 @@ describe('WorkshopBoard', () => {
     )
   })
 
+  it('keeps the dragged card on the board after drop', () => {
+    const queryClient = createQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkshopBoard />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByTestId('workshop-order-card-order-1')).toBeInTheDocument()
+
+    act(() => {
+      capturedOnDragEnd?.({
+        active: { id: 'order-1' },
+        over: { id: 'mech-2' },
+      })
+    })
+
+    expect(screen.getByTestId('workshop-order-card-order-1')).toBeInTheDocument()
+  })
+
   it('sends selected mechanic id when drag-and-dropping to a mechanic column', () => {
     const queryClient = createQueryClient()
 

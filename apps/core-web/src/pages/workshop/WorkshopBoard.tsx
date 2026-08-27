@@ -15,7 +15,10 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { WorkshopOrderCard } from '@/components/workshop/WorkshopOrderCard'
+import {
+  WorkshopOrderCard,
+  WorkshopOrderCardOverlay,
+} from '@/components/workshop/WorkshopOrderCard'
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 import {
@@ -311,9 +314,11 @@ export default function WorkshopBoard() {
             </div>
 
             <DragOverlay>
-              {activeOrder && (
-                <WorkshopOrderCard order={activeOrder} isDragging />
-              )}
+              {activeOrder ? (
+                <div className="w-[17rem]">
+                  <WorkshopOrderCardOverlay order={activeOrder} />
+                </div>
+              ) : null}
             </DragOverlay>
           </DndContext>
         </>
