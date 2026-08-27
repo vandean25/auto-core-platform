@@ -34,6 +34,23 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'))
 }
 
+function getTableRowId(record: object): string | undefined {
+  const id = (record as { id?: unknown }).id
+  return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+function resolveRowFromElement<TData extends object>(
+  element: HTMLTableRowElement,
+  data: TData[],
+  fallback: TData,
+): TData {
+  const rowId = element.getAttribute('data-row-id')
+  if (!rowId) return fallback
+
+  const match = data.find((record) => getTableRowId(record) === rowId)
+  return match ?? fallback
+}
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -122,6 +139,7 @@ export function DataTable<TData extends object>({
     data,
     columns,
     pageCount,
+    getRowId: (row, index) => getTableRowId(row) ?? String(index),
     state: {
       columnFilters,
       sorting,
@@ -151,7 +169,7 @@ export function DataTable<TData extends object>({
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} data-table-header="true">
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
@@ -178,21 +196,35 @@ export function DataTable<TData extends object>({
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const rowData = row.original as TData
+                const rowId = getTableRowId(rowData)
+
+                return (
                 <TableRow
                   key={row.id}
                   data-table-row="true"
+                  data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onRowClick?.(row.original as TData)}
+                  onClick={(event) => {
+                    if (!onRowClick) return
+                    onRowClick(resolveRowFromElement(event.currentTarget, data, rowData))
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault()
-                    openRowContextMenu(row.original as TData, event.clientX, event.clientY)
+                    openRowContextMenu(
+                      resolveRowFromElement(event.currentTarget, data, rowData),
+                      event.clientX,
+                      event.clientY,
+                    )
                   }}
                   onKeyDown={(event) => {
+                    const resolvedRow = resolveRowFromElement(event.currentTarget, data, rowData)
+
                     if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
                       const rect = event.currentTarget.getBoundingClientRect()
                       event.preventDefault()
-                      openRowContextMenu(row.original as TData, rect.left + 12, rect.top + rect.height / 2)
+                      openRowContextMenu(resolvedRow, rect.left + 12, rect.top + rect.height / 2)
                       return
                     }
 
@@ -201,9 +233,9 @@ export function DataTable<TData extends object>({
                     }
 
                     event.preventDefault()
-                    onRowClick(row.original as TData)
+                    onRowClick(resolvedRow)
                   }}
-                  tabIndex={onRowClick || getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
+                  tabIndex={onRowClick || getRowContextActions?.(rowData)?.length ? 0 : undefined}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -215,7 +247,8 @@ export function DataTable<TData extends object>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                )
+              })
             ) : (
               <TableRow>
                 <TableCell
