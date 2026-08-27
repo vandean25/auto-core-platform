@@ -10,6 +10,37 @@ import { TenantContextService } from '../common/services/tenant-context.service'
 
 const SEARCH_LIMIT = 20;
 
+function buildInsensitiveContainsFilter(
+  query: string,
+): Prisma.StringFilter {
+  return {
+    contains: query,
+    mode: Prisma.QueryMode.insensitive,
+  };
+}
+
+function buildLaborTextSearchFilter(
+  query: string,
+): Prisma.LaborOperationWhereInput {
+  const text = buildInsensitiveContainsFilter(query);
+  return {
+    OR: [
+      { code: text },
+      { description: text },
+      { category: { name: text } },
+    ],
+  };
+}
+
+function buildCatalogItemTextSearchFilter(
+  query: string,
+): Prisma.CatalogItemWhereInput {
+  const text = buildInsensitiveContainsFilter(query);
+  return {
+    OR: [{ sku: text }, { name: text }, { brand: { name: text } }],
+  };
+}
+
 function buildFitmentFilter(
   make: string,
   model: string,
@@ -99,23 +130,9 @@ export class CatalogService {
       this.prisma.laborOperation.findMany({
         where: {
           tenant_id: tenantId,
+          is_active: true,
           AND: [
-            {
-              OR: [
-                {
-                  code: {
-                    contains: trimmedQuery,
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  description: {
-                    contains: trimmedQuery,
-                    mode: 'insensitive',
-                  },
-                },
-              ],
-            },
+            buildLaborTextSearchFilter(trimmedQuery),
             {
               OR: [
                 { fitments: { some: laborFitmentFilter } },
@@ -183,20 +200,7 @@ export class CatalogService {
       this.prisma.catalogItem.findMany({
         where: {
           tenant_id: tenantId,
-          OR: [
-            {
-              sku: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
-            },
-            {
-              name: {
-                contains: trimmedQuery,
-                mode: 'insensitive',
-              },
-            },
-          ],
+          ...buildCatalogItemTextSearchFilter(trimmedQuery),
         },
         select: {
           id: true,
