@@ -66,6 +66,10 @@ export type ImportWorkshopHolidaysPayload =
   components['schemas']['ImportWorkshopHolidaysDto']
 export type ImportWorkshopHolidaysResponse =
   components['schemas']['ImportWorkshopHolidaysResponseDto']
+export type PlannerGridResponse = components['schemas']['PlannerGridResponseDto']
+export type PlannerBooking = components['schemas']['PlannerBookingDto']
+export type UpdateWorkshopOrderSchedulePayload =
+  components['schemas']['UpdateWorkshopOrderDto']
 
 type WorkshopHolidayListResponse = {
   data: WorkshopHoliday[]
@@ -205,6 +209,21 @@ export function useImportWorkshopHolidays() {
       queryClient.invalidateQueries({ queryKey: workshopKeys.holidaysAll() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
+  })
+}
+
+export function useWorkshopPlanner(from: string, to: string, bayId?: string) {
+  const params = new URLSearchParams({ from, to })
+  if (bayId) params.set('bayId', bayId)
+
+  return useQuery<PlannerGridResponse>({
+    queryKey: workshopKeys.planner(from, to, bayId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/planner?${params.toString()}`)
+      if (!response.ok) throw new Error('Failed to fetch workshop planner')
+      return response.json()
+    },
+    enabled: Boolean(from && to),
   })
 }
 
@@ -505,6 +524,7 @@ export const useCreateWorkshopOrder = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })
 }
@@ -516,22 +536,40 @@ export const useUpdateWorkshopOrder = () => {
       id,
       notes,
       reportedIssue,
+      bayId,
+      mechanicId,
+      scheduledStartAt,
+      scheduledEndAt,
     }: {
       id: string
       notes?: string
       reportedIssue?: string
+      bayId?: string
+      mechanicId?: string | null
+      scheduledStartAt?: string
+      scheduledEndAt?: string
     }) => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes, reportedIssue }),
+        body: JSON.stringify({
+          notes,
+          reportedIssue,
+          bayId,
+          mechanicId,
+          scheduledStartAt,
+          scheduledEndAt,
+        }),
       })
-      if (!response.ok) throw new Error('Failed to update workshop order')
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update workshop order')
+      }
       const json = await response.json()
       return normalizeOrder(json)
     },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
       queryClient.setQueryData(workshopKeys.order(order.id), order)
     },
   })

@@ -401,6 +401,56 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByTestId('board-column-unassigned')).not.toContainText('WO-2026-0002')
   })
 
+  test('Shows horizontal scroll cues when mechanic columns overflow', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Workshop Board')
+
+    const manyMechanics = Array.from({ length: 8 }, (_, index) =>
+      createMockEmployee({
+        id: `emp-mech-${index + 1}`,
+        name: index === 7 ? 'Grok Bot' : `Mechanic ${index + 1}`,
+        role: 'MECHANIC',
+        isActive: true,
+        sortOrder: index + 1,
+      }),
+    )
+
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: manyMechanics, bays: [mockBay] }),
+        })
+      },
+    )
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/board/active'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [] }),
+        })
+      },
+    )
+
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+
+    await corePage.navigate('/workshop/board')
+
+    const scrollRight = page.getByRole('button', { name: 'Scroll right' })
+    await expect(scrollRight).toBeVisible()
+
+    await scrollRight.click()
+
+    await expect(page.getByTestId('board-column-emp-mech-8')).toBeVisible()
+    await expect(page.getByText('Grok Bot')).toBeVisible()
+  })
+
   test('Rolls back optimistic update if assign API call fails', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Workshop Board')
 
