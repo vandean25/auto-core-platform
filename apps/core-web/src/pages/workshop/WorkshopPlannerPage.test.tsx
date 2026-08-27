@@ -250,4 +250,33 @@ describe('WorkshopPlannerPage', () => {
       expect.objectContaining({ onError: expect.any(Function), onSettled: expect.any(Function) }),
     )
   })
+
+  it('preserves local time when dragging to a week slot', () => {
+    window.localStorage.setItem('workshop-planner-view', 'week')
+
+    const queryClient = createQueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/workshop/planner?date=2026-08-21']}>
+          <WorkshopPlannerPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(capturedOnDragEnd).toBeTruthy()
+    capturedOnDragEnd?.({
+      active: { id: 'order-scheduled' },
+      over: { id: 'planner-week-slot-bay-1__2026-08-22' },
+    })
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'order-scheduled',
+        bayId: 'bay-1',
+        scheduledStartAt: '2026-08-22T08:00:00.000Z',
+        scheduledEndAt: '2026-08-22T09:00:00.000Z',
+      }),
+      expect.objectContaining({ onError: expect.any(Function), onSettled: expect.any(Function) }),
+    )
+  })
 })

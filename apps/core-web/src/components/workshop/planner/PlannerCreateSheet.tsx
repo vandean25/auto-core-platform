@@ -147,6 +147,23 @@ export function PlannerCreateSheet({
     return hit?.orderNumber ?? null
   }, [bayId, startAt, endAt, bookings])
 
+  const mechanicOverlap = useMemo(() => {
+    if (!mechanicId || !startAt || !endAt) return null
+    const start = new Date(startAt)
+    const end = new Date(endAt)
+    const hit = bookings.find(
+      (booking) =>
+        booking.mechanicId === mechanicId &&
+        intervalsOverlap(
+          start,
+          end,
+          new Date(booking.scheduledStartAt),
+          new Date(booking.scheduledEndAt),
+        ),
+    )
+    return hit?.orderNumber ?? null
+  }, [mechanicId, startAt, endAt, bookings])
+
   const outsideHours =
     startAt &&
     endAt &&
@@ -334,6 +351,15 @@ export function PlannerCreateSheet({
             employeeAway={selectedMechanicAway}
             mechanicName={mechanics.find((m) => m.id === mechanicId)?.name}
           />
+
+          {mechanicOverlap && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <AlertTitle>Mechanic double-booked</AlertTitle>
+              <AlertDescription>
+                This mechanic already has {mechanicOverlap} in this window. You can still schedule.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {bayCollision && (
             <Alert variant="destructive">

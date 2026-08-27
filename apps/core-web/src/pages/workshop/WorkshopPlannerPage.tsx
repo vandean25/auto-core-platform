@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   buildSlots,
+  buildDayWindow,
   getEffectiveHours,
 } from '@/features/workshop/planner/planner-hours'
 import {
@@ -32,6 +33,7 @@ import {
   formatDateLabel,
   formatLocalDate,
   localDateRangeToUtc,
+  localWallClockOnDate,
   startOfWeekMonday,
 } from '@/features/workshop/planner/planner-time'
 import { PlannerBookingBlock } from '@/components/workshop/planner/PlannerBookingBlock'
@@ -42,7 +44,7 @@ import {
 import { PlannerDayGrid, parsePlannerSlotId } from '@/components/workshop/planner/PlannerDayGrid'
 import { PlannerWeekGrid, parsePlannerWeekSlotId } from '@/components/workshop/planner/PlannerWeekGrid'
 import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/planner/PlannerViewToggle'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const VIEW_MODE_KEY = 'workshop-planner-view'
 
@@ -106,19 +108,30 @@ function NoBaysCard({ onGoToSettings }: { onGoToSettings: () => void }) {
 
 export default function WorkshopPlannerPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = React.useState<PlannerViewMode>(readViewMode)
   const { data: settings } = useWorkshopSettings()
   const defaultTimezone = settings?.timezone ?? 'Europe/Vienna'
-  const [anchorDate, setAnchorDate] = React.useState(() =>
-    formatLocalDate(new Date(), defaultTimezone),
-  )
+  const dateParam = searchParams.get('date')
+  const [anchorDate, setAnchorDate] = React.useState(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return dateParam
+    }
+    return formatLocalDate(new Date(), defaultTimezone)
+  })
 
   React.useEffect(() => {
-    if (settings?.timezone) {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setAnchorDate(dateParam)
+    }
+  }, [dateParam])
+
+  React.useEffect(() => {
+    if (settings?.timezone && !dateParam) {
       setAnchorDate(formatLocalDate(new Date(), settings.timezone))
     }
-  }, [settings?.timezone])
+  }, [settings?.timezone, dateParam])
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createPrefill, setCreatePrefill] = React.useState<PlannerCreatePrefill | null>(null)
   const [activeBookingId, setActiveBookingId] = React.useState<string | null>(null)
@@ -176,9 +189,17 @@ export default function WorkshopPlannerPage() {
 
   const openCreateSheet = (bayId: string, startIso: string, endIso?: string) => {
     const start = new Date(startIso)
-    const end = endIso
+    const startDate = formatLocalDate(start, plannerTimezone)
+    const hours = getEffectiveHours(startDate, openings, holidays)
+    let end = endIso
       ? new Date(endIso)
       : new Date(start.getTime() + 60 * 60 * 1000)
+    if (hours.closeTime && hours.openTime && !hours.isClosed) {
+      const window = buildDayWindow(hours, plannerTimezone, startDate)
+      if (end > window.end) {
+        end = window.end
+      }
+    }
     setCreatePrefill({
       bayId,
       scheduledStartAt: start.toISOString(),
@@ -193,10 +214,14 @@ export default function WorkshopPlannerPage() {
 
   const handleWeekDayClick = (bayId: string, date: string, startIso: string) => {
     const hours = getEffectiveHours(date, openings, holidays)
-    const end =
-      hours.openTime && hours.closeTime && !hours.isClosed
-        ? new Date(new Date(startIso).getTime() + 60 * 60 * 1000)
-        : new Date(new Date(startIso).getTime() + 60 * 60 * 1000)
+    const start = new Date(startIso)
+    let end = new Date(start.getTime() + 60 * 60 * 1000)
+    if (hours.closeTime && hours.openTime && !hours.isClosed) {
+      const window = buildDayWindow(hours, plannerTimezone, date)
+      if (end > window.end) {
+        end = window.end
+      }
+    }
     openCreateSheet(bayId, startIso, end.toISOString())
   }
 
@@ -276,8 +301,15 @@ export default function WorkshopPlannerPage() {
 
     if (weekSlot) {
       const hours = getEffectiveHours(weekSlot.date, openings, holidays)
-      const dayWindow = buildSlots(hours, slotMinutes, plannerTimezone, weekSlot.date)[0]
-      const startIso = dayWindow?.start.toISOString() ?? new Date(booking.scheduledStartAt).toISOString()
+      const preservedStart = localWallClockOnDate(
+        new Date(booking.scheduledStartAt),
+        weekSlot.date,
+        plannerTimezone,
+      )
+      const startIso =
+        hours.isClosed || !hours.openTime || !hours.closeTime
+          ? buildDayWindow(hours, plannerTimezone, weekSlot.date).start.toISOString()
+          : preservedStart.toISOString()
       performReschedule(booking.orderId, weekSlot.bayId, startIso, durationMs, plannerKey)
     }
   }

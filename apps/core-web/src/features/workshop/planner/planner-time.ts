@@ -127,3 +127,29 @@ export function localDateRangeToUtc(
   const to = zonedWallClockToUtc(timeZone, toParts.year, toParts.month, toParts.day, 0, 0)
   return { from: from.toISOString(), to: to.toISOString() }
 }
+
+export function localWallClockOnDate(source: Date, targetDate: string, timeZone: string): Date {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .formatToParts(source)
+      .map((part) => [part.type, part.value]),
+  )
+  const { year, month, day } = parseLocalDate(targetDate)
+  return zonedWallClockToUtc(
+    timeZone,
+    year,
+    month,
+    day,
+    Number(parts.hour),
+    Number(parts.minute),
+  )
+}
