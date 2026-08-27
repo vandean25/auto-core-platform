@@ -1,4 +1,11 @@
-import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  type Location,
+} from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import * as React from 'react'
 import { toast } from 'sonner'
@@ -13,12 +20,14 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
+import { isKnownAppPath } from '@/lib/app-route-paths'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PageLoader } from '@/components/ui/PageLoader'
 
 const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
+const NotFoundPage = React.lazy(() => import('@/pages/NotFoundPage'))
 const InventoryList = React.lazy(() => import('./pages/InventoryList'))
 const InventoryLedgerPage = React.lazy(() => import('./pages/inventory/InventoryLedgerPage'))
 const VendorList = React.lazy(() => import('./pages/vendors/VendorList'))
@@ -115,6 +124,7 @@ export function AppRoutes() {
               <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
               <Route path="/workshop/board" element={<WorkshopBoard />} />
               <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </React.Suspense>
         </motion.div>
@@ -258,6 +268,7 @@ function MechanicRoutes() {
               <Route path="/mechanic/queue" element={<MechanicQueuePage />} />
               <Route path="/mechanic/tasks/:taskId" element={<MechanicTaskDetailPage />} />
               <Route path="/mechanic" element={<Navigate to="/mechanic/queue" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </React.Suspense>
         </motion.div>
@@ -376,23 +387,48 @@ export function ShellRouter(props: ShellRouterProps) {
   return <AppShell {...props} />
 }
 
-function App() {
+function resolvePostLoginPath(state: unknown) {
+  const from = (state as { from?: Location } | null)?.from?.pathname
+  return from && isKnownAppPath(from) ? from : '/inventory'
+}
+
+function LoginRoute() {
+  const { user } = useAuth()
+  const location = useLocation()
+
+  if (user) {
+    return <Navigate to={resolvePostLoginPath(location.state)} replace />
+  }
+
+  return (
+    <GlobalErrorBoundary>
+      <React.Suspense fallback={<PageLoader />}>
+        <LoginPage />
+      </React.Suspense>
+    </GlobalErrorBoundary>
+  )
+}
+
+function AuthenticatedApp() {
   const { user, loading, signOutUser } = useAuth()
+  const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
+
+  if (!isKnownAppPath(location.pathname)) {
+    return (
+      <React.Suspense fallback={<PageLoader />}>
+        <NotFoundPage />
+      </React.Suspense>
+    )
+  }
 
   if (loading || (user && sessionQuery.isLoading)) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
   }
 
   if (!user) {
-    return (
-      <GlobalErrorBoundary>
-        <React.Suspense fallback={<PageLoader />}>
-          <LoginPage />
-        </React.Suspense>
-      </GlobalErrorBoundary>
-    )
+    return <Navigate to="/login" replace state={{ from: location }} />
   }
 
   if (!sessionQuery.data) {
@@ -400,22 +436,31 @@ function App() {
   }
 
   return (
+    <ShellRouter
+      userId={user.uid}
+      userEmail={user.email ?? null}
+      platformRole={sessionQuery.data.platformRole ?? null}
+      activeTenant={sessionQuery.data.activeTenant}
+      activeRole={sessionQuery.data.activeRole}
+      memberships={sessionQuery.data.memberships}
+      isSwitchingTenant={switchTenantMutation.isPending}
+      onSwitchTenant={(tenantId) => {
+        switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
+        })
+      }}
+      onSignOut={() => void signOutUser()}
+    />
+  )
+}
+
+function App() {
+  return (
     <Router>
-      <ShellRouter
-        userId={user.uid}
-        userEmail={user.email ?? null}
-        platformRole={sessionQuery.data.platformRole ?? null}
-        activeTenant={sessionQuery.data.activeTenant}
-        activeRole={sessionQuery.data.activeRole}
-        memberships={sessionQuery.data.memberships}
-        isSwitchingTenant={switchTenantMutation.isPending}
-        onSwitchTenant={(tenantId) => {
-          switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
-            toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
-          })
-        }}
-        onSignOut={() => void signOutUser()}
-      />
+      <Routes>
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="*" element={<AuthenticatedApp />} />
+      </Routes>
     </Router>
   )
 }
