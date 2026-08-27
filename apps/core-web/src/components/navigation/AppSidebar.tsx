@@ -21,6 +21,7 @@ import {
   Users,
   Wrench,
   LayoutGrid,
+  Calendar,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -106,6 +107,14 @@ const coreModules: SidebarModule[] = [
     icon: LayoutGrid,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/board'),
+  },
+  {
+    id: 'workshop-planner',
+    label: 'Workshop Planner',
+    to: '/workshop/planner',
+    icon: Calendar,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/planner'),
   },
   {
     id: 'hr',
