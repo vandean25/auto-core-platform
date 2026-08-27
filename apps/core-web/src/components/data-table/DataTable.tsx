@@ -59,14 +59,20 @@ function resolveRowFromElement<TData extends object>(
 
 function activateRow<TData extends object>(
   event: ReactMouseEvent | ReactKeyboardEvent,
-  row: TData,
+  fallback: TData,
+  data: TData[],
   onRowClick?: (row: TData) => void,
 ) {
   if (!onRowClick || isInteractiveTarget(event.target)) {
     return
   }
 
-  onRowClick(row)
+  const rowElement = (event.currentTarget as HTMLElement).closest('tr')
+  if (!(rowElement instanceof HTMLTableRowElement)) {
+    return
+  }
+
+  onRowClick(resolveRowFromElement(rowElement, data, fallback))
 }
 
 const clickableRowClassName = 'cursor-pointer hover:bg-muted/50'
@@ -82,23 +88,7 @@ function handleRowClick<TData extends object>(
     return
   }
 
-  const resolvedRow = resolveRowFromElement(event.currentTarget, data, fallback)
-  activateRow(event, resolvedRow, onRowClick)
-}
-
-function handleCellClick<TData extends object>(
-  event: React.MouseEvent<HTMLTableCellElement>,
-  data: TData[],
-  fallback: TData,
-  onRowClick?: (row: TData) => void,
-) {
-  const rowElement = event.currentTarget.closest('tr')
-  if (!(rowElement instanceof HTMLTableRowElement)) {
-    return
-  }
-
-  const resolvedRow = resolveRowFromElement(rowElement, data, fallback)
-  activateRow(event, resolvedRow, onRowClick)
+  activateRow(event, fallback, data, onRowClick)
 }
 
 interface DataTableProps<TData extends object> {
@@ -284,7 +274,7 @@ export function DataTable<TData extends object>({
                     }
 
                     event.preventDefault()
-                    activateRow(event, resolvedRow, onRowClick)
+                    activateRow(event, resolvedRow, data, onRowClick)
                   }}
                   tabIndex={onRowClick || getRowContextActions?.(rowData)?.length ? 0 : undefined}
                   className={onRowClick ? clickableRowClassName : ""}
@@ -295,7 +285,7 @@ export function DataTable<TData extends object>({
                       className={onRowClick ? "cursor-pointer" : undefined}
                       onClick={
                         onRowClick
-                          ? (event) => handleCellClick(event, data, rowData, onRowClick)
+                          ? (event) => activateRow(event, rowData, data, onRowClick)
                           : undefined
                       }
                     >
