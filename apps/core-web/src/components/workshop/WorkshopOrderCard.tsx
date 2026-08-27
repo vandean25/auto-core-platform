@@ -1,5 +1,4 @@
 import { useDraggable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
 import { cn } from '@/lib/utils'
@@ -9,11 +8,14 @@ import type {
   PartsStatus,
 } from '@/api/workshop'
 
-interface WorkshopOrderCardProps {
+interface WorkshopOrderCardContentProps {
   order: BoardOrder
   isDragging?: boolean
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
+  setNodeRef?: (element: HTMLElement | null) => void
+  dragAttributes?: ReturnType<typeof useDraggable>['attributes']
+  dragListeners?: ReturnType<typeof useDraggable>['listeners']
 }
 
 const partsStatusBorder: Record<PartsStatus, string> = {
@@ -31,32 +33,28 @@ function getCustomerName(order: BoardOrder): string {
   return `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
 }
 
-export function WorkshopOrderCard({
+export function WorkshopOrderCardContent({
   order,
   isDragging = false,
   quickAssignTargets = [],
   onQuickAssign,
-}: WorkshopOrderCardProps) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: order.id })
-
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined
-
+  setNodeRef,
+  dragAttributes,
+  dragListeners,
+}: WorkshopOrderCardContentProps) {
   const borderColor = partsStatusBorder[order.partsStatus]
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       data-testid={`workshop-order-card-${order.id}`}
       className={cn(
         'relative rounded-md border bg-white shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
-        isDragging && 'opacity-50 shadow-lg ring-2 ring-slate-300',
+        isDragging && 'shadow-lg ring-2 ring-slate-300',
       )}
-      {...attributes}
-      {...listeners}
+      {...dragAttributes}
+      {...dragListeners}
     >
       {/* Drag handle visual */}
       <div className="absolute top-2 right-2 text-slate-300 pointer-events-none">
@@ -111,4 +109,33 @@ export function WorkshopOrderCard({
       ) : null}
     </div>
   )
+}
+
+interface WorkshopOrderCardProps {
+  order: BoardOrder
+  quickAssignTargets?: BoardAssignmentTarget[]
+  onQuickAssign?: (target: BoardAssignmentTarget) => void
+}
+
+export function WorkshopOrderCard({
+  order,
+  quickAssignTargets = [],
+  onQuickAssign,
+}: WorkshopOrderCardProps) {
+  const { attributes, listeners, setNodeRef } = useDraggable({ id: order.id })
+
+  return (
+    <WorkshopOrderCardContent
+      order={order}
+      quickAssignTargets={quickAssignTargets}
+      onQuickAssign={onQuickAssign}
+      setNodeRef={setNodeRef}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+    />
+  )
+}
+
+export function WorkshopOrderCardOverlay({ order }: { order: BoardOrder }) {
+  return <WorkshopOrderCardContent order={order} isDragging />
 }
