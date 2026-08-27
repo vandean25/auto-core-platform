@@ -385,6 +385,79 @@ describe('WorkshopOrderDetails Characterization', () => {
       expect(screen.getByTestId('assigned-tech-select')).toBeDisabled()
     })
 
+    it('disables assigned tech select when the order is completed', () => {
+      setupDefaultMocks(completedOrder)
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      expect(screen.getByTestId('assigned-tech-select')).toBeDisabled()
+    })
+
+    it('unassigns a technician from the order detail select', async () => {
+      const assignBoardMutateAsync = vi.fn().mockResolvedValue({})
+      setupDefaultMocks({ ...baseOrder, mechanicId: 'mech-1', mechanic_id: 'mech-1' })
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+      asMock(workshopApi.useAssignBoard).mockReturnValue(
+        createMutationMock({ mutateAsync: assignBoardMutateAsync }),
+      )
+
+      renderComponent()
+
+      fireEvent.click(screen.getByTestId('assigned-tech-select'))
+      fireEvent.click(screen.getByRole('option', { name: 'Unassigned' }))
+
+      await waitFor(() => {
+        expect(assignBoardMutateAsync).toHaveBeenCalledWith({
+          orderId: 'order-1',
+          mechanicId: null,
+        })
+      })
+      expect(toast.success).toHaveBeenCalledWith('Technician unassigned')
+    })
+
+    it('shows an error toast when technician assignment fails', async () => {
+      const assignBoardMutateAsync = vi.fn().mockRejectedValue(new Error('Cannot assign resources'))
+      asMock(workshopApi.useAssignBoard).mockReturnValue(
+        createMutationMock({ mutateAsync: assignBoardMutateAsync }),
+      )
+      asMock(workshopApi.useWorkshopResources).mockReturnValue({
+        data: {
+          mechanics: [
+            { id: 'mech-1', name: 'Alex Tech', isActive: true, role: 'MECHANIC', sortOrder: 1 },
+          ],
+          bays: [],
+        },
+        isLoading: false,
+      })
+
+      renderComponent()
+
+      fireEvent.click(screen.getByTestId('assigned-tech-select'))
+      fireEvent.click(screen.getByRole('option', { name: 'Alex Tech' }))
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Cannot assign resources')
+      })
+      expect(toast.success).not.toHaveBeenCalled()
+    })
+
     it('renders odometer and fuel level when present', () => {
       renderComponent()
 

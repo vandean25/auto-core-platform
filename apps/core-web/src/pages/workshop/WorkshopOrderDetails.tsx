@@ -139,6 +139,10 @@ export function WorkshopOrderDetails() {
   }
 
   const isLocked = order.status === 'INVOICED'
+  const canAssignTech =
+    order.status === 'SCHEDULED' ||
+    order.status === 'INTAKE' ||
+    order.status === 'IN_PROGRESS'
   const hasLinkedInvoice = !!activeInvoiceId
   const canDeleteTasks = !isLocked && !hasLinkedInvoice
   const invoiceStatus = fetchedInvoice?.status ?? null
@@ -474,7 +478,7 @@ export function WorkshopOrderDetails() {
       ?.name ?? null
 
   const handleAssignedTechChange = async (mechanicId: string | null) => {
-    if (isLocked) return
+    if (!canAssignTech) return
 
     const currentMechanicId = order.mechanicId ?? order.mechanic_id ?? null
     if (mechanicId === currentMechanicId) return
@@ -530,7 +534,7 @@ export function WorkshopOrderDetails() {
                 assignedTechId={assignedTechId}
                 mechanics={activeMechanics}
                 bayName={assignedBayName}
-                isLocked={isLocked}
+                canAssignTech={canAssignTech}
                 isAssigningTech={assignBoard.isPending}
                 onAssignedTechChange={(mechanicId) => void handleAssignedTechChange(mechanicId)}
               />

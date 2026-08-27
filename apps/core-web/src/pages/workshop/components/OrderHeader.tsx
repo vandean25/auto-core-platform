@@ -84,7 +84,7 @@ export function CustomerVehicleInfo({
   assignedTechId,
   mechanics = [],
   bayName,
-  isLocked = false,
+  canAssignTech = false,
   isAssigningTech = false,
   onAssignedTechChange,
 }: {
@@ -93,7 +93,7 @@ export function CustomerVehicleInfo({
   assignedTechId?: string | null
   mechanics?: WorkshopMechanicOption[]
   bayName?: string | null
-  isLocked?: boolean
+  canAssignTech?: boolean
   isAssigningTech?: boolean
   onAssignedTechChange?: (mechanicId: string | null) => void
 }) {
@@ -116,7 +116,7 @@ export function CustomerVehicleInfo({
                   onValueChange={(value) =>
                     onAssignedTechChange(value === 'unassigned' ? null : value)
                   }
-                  disabled={isLocked || isAssigningTech}
+                  disabled={!canAssignTech || isAssigningTech}
                 >
                   <SelectTrigger
                     className='h-9 font-medium'
