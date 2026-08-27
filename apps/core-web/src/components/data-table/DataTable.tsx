@@ -34,6 +34,18 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'))
 }
 
+function activateRow<TData extends object>(
+  event: React.MouseEvent | React.KeyboardEvent,
+  row: TData,
+  onRowClick?: (row: TData) => void,
+) {
+  if (!onRowClick || isInteractiveTarget(event.target)) {
+    return
+  }
+
+  onRowClick(row)
+}
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -183,7 +195,6 @@ export function DataTable<TData extends object>({
                   key={row.id}
                   data-table-row="true"
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onRowClick?.(row.original as TData)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     openRowContextMenu(row.original as TData, event.clientX, event.clientY)
@@ -196,18 +207,22 @@ export function DataTable<TData extends object>({
                       return
                     }
 
-                    if (!onRowClick || isInteractiveTarget(event.target) || (event.key !== "Enter" && event.key !== " ")) {
+                    if (event.key !== "Enter" && event.key !== " ") {
                       return
                     }
 
                     event.preventDefault()
-                    onRowClick(row.original as TData)
+                    activateRow(event, row.original as TData, onRowClick)
                   }}
                   tabIndex={onRowClick || getRowContextActions?.(row.original as TData)?.length ? 0 : undefined}
                   className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={onRowClick ? "cursor-pointer" : undefined}
+                      onClick={(event) => activateRow(event, row.original as TData, onRowClick)}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

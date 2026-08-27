@@ -48,6 +48,43 @@ describe('DataTable Characterization', () => {
     expect(screen.getAllByText('Test Item')).toHaveLength(1)
   })
 
+  it('calls onRowClick when clicking cell text', () => {
+    const onRowClick = vi.fn()
+    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+
+    fireEvent.click(screen.getByText('Test Item'))
+
+    expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
+  })
+
+  it('does not call onRowClick when clicking an interactive child in a cell', () => {
+    const onRowClick = vi.fn()
+    const columnsWithAction = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }: { row: { original: { name: string } } }) => (
+          <div className="flex items-center gap-2">
+            <span>{row.original.name}</span>
+            <button type="button">Edit</button>
+          </div>
+        ),
+      },
+    ]
+
+    render(
+      <DataTable
+        {...defaultProps}
+        columns={columnsWithAction}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
   it('activates clickable rows with Enter and Space', () => {
     const onRowClick = vi.fn()
     render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
