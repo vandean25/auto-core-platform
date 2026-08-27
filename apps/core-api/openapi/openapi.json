@@ -9521,7 +9521,29 @@
       },
       "UpdateWorkshopOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "reportedIssue": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "bayId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mechanicId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "scheduledStartAt": {
+            "type": "string"
+          },
+          "scheduledEndAt": {
+            "type": "string"
+          }
+        }
       },
       "CreateWorkshopTaskDto": {
         "type": "object",

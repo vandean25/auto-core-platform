@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
 import { WorkshopOrderCard } from '@/components/workshop/WorkshopOrderCard'
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
@@ -296,7 +297,7 @@ export default function WorkshopBoard() {
           {resources.length === 0 && <EmptyResourcesCard mode={viewMode} />}
 
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <HorizontalScrollArea contentClassName="gap-4">
               {columns.map((col) => (
                 <DroppableColumn
                   key={col.id}
@@ -308,7 +309,7 @@ export default function WorkshopBoard() {
                   onQuickAssign={performBoardAssign}
                 />
               ))}
-            </div>
+            </HorizontalScrollArea>
 
             <DragOverlay>
               {activeOrder && (

@@ -164,4 +164,58 @@ describe('WorkshopScheduleService', () => {
 
     expect(booked.mechanicId).toBe('mech-1');
   });
+
+  it('reschedules an existing booking to a free window', async () => {
+    const booked = await service.rescheduleOrder(
+      'order-1',
+      {
+        vehicle_id: 'v-1',
+        bay_id: 'bay-1',
+        mechanic_id: null,
+        scheduled_start_at: new Date('2026-08-21T08:00:00.000Z'),
+        scheduled_end_at: new Date('2026-08-21T09:00:00.000Z'),
+        status: WorkshopOrderStatus.SCHEDULED,
+      },
+      {
+        bayId: 'bay-1',
+        scheduledStartAt: '2026-08-21T10:00:00.000Z',
+        scheduledEndAt: '2026-08-21T11:00:00.000Z',
+      },
+    );
+
+    expect(booked.start).toEqual(new Date('2026-08-21T10:00:00.000Z'));
+    expect(booked.end).toEqual(new Date('2026-08-21T11:00:00.000Z'));
+  });
+
+  it('forwards transaction client through rescheduleOrder to assertCanBook', async () => {
+    const txBayUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      bay: { updateMany: txBayUpdateMany },
+      employee: { findFirst: jest.fn().mockResolvedValue(null) },
+      workshopOrder: { findMany: jest.fn().mockResolvedValue([]) },
+      workshopHoliday: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+
+    mockPrisma.bay.updateMany.mockClear();
+
+    await service.rescheduleOrder(
+      'order-1',
+      {
+        vehicle_id: 'v-1',
+        bay_id: 'bay-1',
+        mechanic_id: null,
+        scheduled_start_at: new Date('2026-08-21T08:00:00.000Z'),
+        scheduled_end_at: new Date('2026-08-21T09:00:00.000Z'),
+        status: WorkshopOrderStatus.SCHEDULED,
+      },
+      {
+        scheduledStartAt: '2026-08-21T10:00:00.000Z',
+        scheduledEndAt: '2026-08-21T11:00:00.000Z',
+      },
+      tx as never,
+    );
+
+    expect(mockPrisma.bay.updateMany).not.toHaveBeenCalled();
+    expect(txBayUpdateMany).toHaveBeenCalled();
+  });
 });

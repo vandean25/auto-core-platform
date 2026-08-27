@@ -500,6 +500,55 @@ export class WorkshopIntakeService {
     const existing = await this.findOne(id);
     assertOrderEditable(existing);
 
+    const hasScheduleUpdate =
+      dto.bayId !== undefined ||
+      dto.scheduledStartAt !== undefined ||
+      dto.scheduledEndAt !== undefined ||
+      dto.mechanicId !== undefined;
+
+    if (hasScheduleUpdate) {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const scheduleData = await this.scheduleService.rescheduleOrder(
+          id,
+          {
+            vehicle_id: existing.vehicle_id,
+            bay_id: existing.bay_id,
+            mechanic_id: existing.mechanic_id,
+            scheduled_start_at: existing.scheduled_start_at,
+            scheduled_end_at: existing.scheduled_end_at,
+            status: existing.status,
+          },
+          dto,
+          tx,
+        );
+
+        return tx.workshopOrder.update({
+          where: { id },
+          data: {
+            reported_issue: dto.reportedIssue,
+            notes: dto.notes,
+            bay_id: scheduleData.bayId,
+            mechanic_id: scheduleData.mechanicId,
+            scheduled_start_at: scheduleData.start,
+            scheduled_end_at: scheduleData.end,
+          },
+          include: {
+            customer: true,
+            vehicle: true,
+            invoice: { select: { id: true, invoice_number: true } },
+            tasks: {
+              orderBy: { createdAt: 'asc' },
+              include: {
+                line_items: true,
+              },
+            },
+          },
+        });
+      });
+
+      return normalizeWorkshopOrder(updated);
+    }
+
     const updated = await this.prisma.workshopOrder.update({
       where: { id },
       data: {
