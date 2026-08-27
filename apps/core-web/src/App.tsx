@@ -20,7 +20,7 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
-import { isKnownAppPath } from '@/lib/app-route-paths'
+import { isKnownAppPath, APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -84,48 +84,48 @@ export function AppRoutes() {
         >
           <React.Suspense fallback={<PageLoader />}>
             <Routes location={location}>
-              <Route path="/" element={<Navigate to="/inventory" replace />} />
-              <Route path="/inventory" element={<InventoryList />} />
-              <Route path="/inventory/:itemId/ledger" element={<InventoryLedgerPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/customers" element={<CustomerList />} />
-              <Route path="/customers/:id" element={<CustomerDetail />} />
-              <Route path="/vehicles" element={<VehicleList />} />
-              <Route path="/vehicles/:id" element={<VehicleDetail />} />
-              <Route path="/vehicle-stock" element={<VehicleStockList />} />
-              <Route path="/vehicle-stock/purchases/new" element={<VehiclePurchasePage />} />
-              <Route path="/vehicle-stock/purchases/:id" element={<VehiclePurchasePage />} />
-              <Route path="/vehicle-stock/sales/new" element={<VehicleSalePage />} />
-              <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
-              <Route path="/vehicle-stock/:vehicleId" element={<VehicleStockDetail />} />
-              <Route path="/sales-orders" element={<SalesOrderList />} />
-              <Route path="/sales-orders/new" element={<SalesOrderCreate />} />
-              <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
-              <Route path="/vendors" element={<VendorList />} />
-              <Route path="/vendors/:id" element={<VendorDetail />} />
-              <Route path="/purchase-orders" element={<PurchaseOrderList />} />
-              <Route path="/purchase-orders/new" element={<PurchaseOrderCreate />} />
-              <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
-              <Route path="/purchase-bills" element={<PurchaseBillsPage />} />
-              <Route path="/purchase-bills/new" element={<PurchaseBillCreatePage />} />
-              <Route path="/purchase-bills/:id" element={<PurchaseBillDetailPage />} />
-              <Route path="/sales/invoices/new" element={<InvoiceCreatePage />} />
-              <Route path="/sales/invoices/:id" element={<InvoiceDetailPage />} />
-              <Route path="/purchase-invoices/new" element={<PurchaseInvoiceCreatePage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/hr" element={<HrLayout />}>
+              <Route path={APP_ROUTE_PATHS.home} element={<Navigate to={APP_ROUTE_PATHS.inventory} replace />} />
+              <Route path={APP_ROUTE_PATHS.inventory} element={<InventoryList />} />
+              <Route path={APP_ROUTE_PATHS.inventoryLedger} element={<InventoryLedgerPage />} />
+              <Route path={APP_ROUTE_PATHS.dashboard} element={<DashboardPage />} />
+              <Route path={APP_ROUTE_PATHS.customers} element={<CustomerList />} />
+              <Route path={APP_ROUTE_PATHS.customerDetail} element={<CustomerDetail />} />
+              <Route path={APP_ROUTE_PATHS.vehicles} element={<VehicleList />} />
+              <Route path={APP_ROUTE_PATHS.vehicleDetail} element={<VehicleDetail />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStock} element={<VehicleStockList />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseNew} element={<VehiclePurchasePage />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseDetail} element={<VehiclePurchasePage />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockSaleNew} element={<VehicleSalePage />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockSaleDetail} element={<VehicleSalePage />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockDetail} element={<VehicleStockDetail />} />
+              <Route path={APP_ROUTE_PATHS.salesOrders} element={<SalesOrderList />} />
+              <Route path={APP_ROUTE_PATHS.salesOrderNew} element={<SalesOrderCreate />} />
+              <Route path={APP_ROUTE_PATHS.salesOrderDetail} element={<SalesOrderDetail />} />
+              <Route path={APP_ROUTE_PATHS.vendors} element={<VendorList />} />
+              <Route path={APP_ROUTE_PATHS.vendorDetail} element={<VendorDetail />} />
+              <Route path={APP_ROUTE_PATHS.purchaseOrders} element={<PurchaseOrderList />} />
+              <Route path={APP_ROUTE_PATHS.purchaseOrderNew} element={<PurchaseOrderCreate />} />
+              <Route path={APP_ROUTE_PATHS.purchaseOrderDetail} element={<PurchaseOrderDetail />} />
+              <Route path={APP_ROUTE_PATHS.purchaseBills} element={<PurchaseBillsPage />} />
+              <Route path={APP_ROUTE_PATHS.purchaseBillNew} element={<PurchaseBillCreatePage />} />
+              <Route path={APP_ROUTE_PATHS.purchaseBillDetail} element={<PurchaseBillDetailPage />} />
+              <Route path={APP_ROUTE_PATHS.salesInvoiceNew} element={<InvoiceCreatePage />} />
+              <Route path={APP_ROUTE_PATHS.salesInvoiceDetail} element={<InvoiceDetailPage />} />
+              <Route path={APP_ROUTE_PATHS.purchaseInvoiceNew} element={<PurchaseInvoiceCreatePage />} />
+              <Route path={APP_ROUTE_PATHS.settings} element={<SettingsPage />} />
+              <Route path={APP_ROUTE_PATHS.hr} element={<HrLayout />}>
                 <Route index element={<Navigate to="employees" replace />} />
                 <Route path="employees" element={<HrEmployeesPage />} />
                 <Route path="clock" element={<HrClockPage />} />
                 <Route path="leave" element={<HrLeavePage />} />
               </Route>
-              <Route path="/platform/tenants" element={<PlatformTenantsPage />} />
-              <Route path="/workshop/intake" element={<IntakeDashboard />} />
-              <Route path="/workshop/orders" element={<WorkshopOrderList />} />
-              <Route path="/workshop/pick-list" element={<WorkshopPickList />} />
-              <Route path="/workshop/board" element={<WorkshopBoard />} />
-              <Route path="/workshop/planner" element={<WorkshopPlannerPage />} />
-              <Route path="/workshop/orders/:id" element={<WorkshopOrderDetails />} />
+              <Route path={APP_ROUTE_PATHS.platformTenants} element={<PlatformTenantsPage />} />
+              <Route path={APP_ROUTE_PATHS.workshopIntake} element={<IntakeDashboard />} />
+              <Route path={APP_ROUTE_PATHS.workshopOrders} element={<WorkshopOrderList />} />
+              <Route path={APP_ROUTE_PATHS.workshopPickList} element={<WorkshopPickList />} />
+              <Route path={APP_ROUTE_PATHS.workshopBoard} element={<WorkshopBoard />} />
+              <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<WorkshopPlannerPage />} />
+              <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderDetails />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </React.Suspense>
@@ -267,9 +267,9 @@ function MechanicRoutes() {
         >
           <React.Suspense fallback={<PageLoader />}>
             <Routes location={location}>
-              <Route path="/mechanic/queue" element={<MechanicQueuePage />} />
-              <Route path="/mechanic/tasks/:taskId" element={<MechanicTaskDetailPage />} />
-              <Route path="/mechanic" element={<Navigate to="/mechanic/queue" replace />} />
+              <Route path={MECHANIC_ROUTE_PATHS.queue} element={<MechanicQueuePage />} />
+              <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<MechanicTaskDetailPage />} />
+              <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </React.Suspense>
@@ -331,8 +331,8 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicSh
 
 // ─── Shell Router ─────────────────────────────────────────────────────────────
 
-const ADMIN_HOME_PATH = '/dashboard'
-const MECHANIC_HOME_PATH = '/mechanic/queue'
+const ADMIN_HOME_PATH = APP_ROUTE_PATHS.dashboard
+const MECHANIC_HOME_PATH = MECHANIC_ROUTE_PATHS.queue
 const SUPER_ADMIN_ROLE = 'SUPER_ADMIN'
 const TECH_ROLE = 'TECH'
 
@@ -391,12 +391,20 @@ export function ShellRouter(props: ShellRouterProps) {
 
 function resolvePostLoginPath(state: unknown) {
   const from = (state as { from?: Location } | null)?.from?.pathname
-  return from && isKnownAppPath(from) ? from : '/inventory'
+  return from && isKnownAppPath(from) ? from : APP_ROUTE_PATHS.inventory
+}
+
+function AuthLoadingScreen() {
+  return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
 }
 
 function LoginRoute() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const location = useLocation()
+
+  if (loading) {
+    return <AuthLoadingScreen />
+  }
 
   if (user) {
     return <Navigate to={resolvePostLoginPath(location.state)} replace />
@@ -426,11 +434,11 @@ function AuthenticatedApp() {
   }
 
   if (loading || (user && sessionQuery.isLoading)) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">Loading…</div>
+    return <AuthLoadingScreen />
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />
   }
 
   if (!sessionQuery.data) {
@@ -460,7 +468,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<LoginRoute />} />
+        <Route path={LOGIN_PATH} element={<LoginRoute />} />
         <Route path="*" element={<AuthenticatedApp />} />
       </Routes>
     </Router>
