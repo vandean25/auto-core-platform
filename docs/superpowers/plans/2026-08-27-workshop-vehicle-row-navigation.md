@@ -4,7 +4,7 @@
 
 **Goal:** Make Workshop Orders, Vehicles, and Vehicle Stock data rows reliably clickable while preserving keyboard and context-menu interactions.
 
-**Architecture:** Keep navigation ownership in the three existing list pages and make the shared `DataTable` the single owner of row activation. The shared component will ignore clicks from interactive descendants, while ordinary pointer clicks and keyboard activation call the existing page callbacks. Regression tests will cover shared event behavior and all three browser routes.
+**Architecture:** Keep navigation ownership in the three existing list pages and make the shared `DataTable` the single owner of row activation. Because table-row click bubbling is unreliable for real WebKit cell taps, the shared component will attach activation to each data cell, ignore clicks from interactive descendants, and retain row-level keyboard/context-menu behavior. Regression tests will cover shared event behavior and all three browser routes.
 
 **Tech Stack:** React 19, TypeScript, TanStack React Table legacy adapter, Vitest, React Testing Library, Playwright.
 
@@ -12,8 +12,10 @@
 
 ## Files and Responsibilities
 
-- Modify `apps/core-web/src/components/data-table/DataTable.tsx` to centralize safe pointer activation for clickable rows.
+- Modify `apps/core-web/src/components/data-table/DataTable.tsx` to centralize safe per-cell pointer activation for clickable rows.
 - Modify `apps/core-web/src/components/data-table/DataTable.test.tsx` with failing-first unit coverage for ordinary clicks and interactive descendants.
+- Modify `apps/core-web/src/pages/mechanic/MechanicQueuePage.test.tsx` so the existing shared-table navigation regression clicks a real task cell.
+- Modify `apps/core-web/src/components/hr/EmployeeTable.test.tsx` so existing employee-sheet tests click a real employee cell.
 - Create `apps/core-web/e2e/workshop-orders.spec.ts` to cover Workshop Orders row navigation using the existing mock factories and POM.
 - Verify existing `apps/core-web/e2e/vehicles.spec.ts` and `apps/core-web/e2e/vehicle-stock.spec.ts` continue to cover their row destinations, including received stock and draft purchases.
 
@@ -76,8 +78,8 @@ Expected result: the new test fails because the current row-level `onClick` also
 Add this helper beside `isInteractiveTarget`:
 
 ```tsx
-function handleRowClick<TData extends object>(
-  event: React.MouseEvent<HTMLTableRowElement>,
+function activateRow<TData extends object>(
+  event: React.MouseEvent | React.KeyboardEvent,
   row: TData,
   onRowClick?: (row: TData) => void,
 ) {
@@ -86,19 +88,27 @@ function handleRowClick<TData extends object>(
 }
 ```
 
-Update the rendered data row from:
+Remove the row-level pointer handler and update the rendered data cells from:
 
 ```tsx
-onClick={() => onRowClick?.(row.original as TData)}
+<TableCell key={cell.id}>
+  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+</TableCell>
 ```
 
 to:
 
 ```tsx
-onClick={(event) => handleRowClick(event, row.original as TData, onRowClick)}
+<TableCell
+  key={cell.id}
+  className={onRowClick ? 'cursor-pointer' : undefined}
+  onClick={(event) => activateRow(event, row.original as TData, onRowClick)}
+>
+  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+</TableCell>
 ```
 
-Keep the existing keyboard guard and context-menu handlers unchanged so keyboard activation and row actions retain their current behavior.
+Update the existing keyboard activation to call `activateRow(event, row.original as TData, onRowClick)`. Keep the context-menu handler unchanged so row actions retain their current behavior.
 
 - [ ] **Step 2: Run the focused unit test and confirm it passes**
 
@@ -169,6 +179,8 @@ Expected result: Workshop Orders, Vehicles, and Vehicle Stock row navigation pas
 
 - Verify: `apps/core-web/src/components/data-table/DataTable.tsx`
 - Verify: `apps/core-web/src/components/data-table/DataTable.test.tsx`
+- Verify: `apps/core-web/src/components/hr/EmployeeTable.test.tsx`
+- Verify: `apps/core-web/src/pages/mechanic/MechanicQueuePage.test.tsx`
 - Verify: `apps/core-web/e2e/workshop-orders.spec.ts`
 - Verify: `apps/core-web/e2e/vehicles.spec.ts`
 - Verify: `apps/core-web/e2e/vehicle-stock.spec.ts`
@@ -203,7 +215,7 @@ Expected result: Playwright exits with code 0 and reports zero failed tests.
 ```powershell
 git diff --check
 git diff --stat
-git add apps/core-web/src/components/data-table/DataTable.tsx apps/core-web/src/components/data-table/DataTable.test.tsx apps/core-web/e2e/workshop-orders.spec.ts
+git add apps/core-web/src/components/data-table/DataTable.tsx apps/core-web/src/components/data-table/DataTable.test.tsx apps/core-web/src/components/hr/EmployeeTable.test.tsx apps/core-web/src/pages/mechanic/MechanicQueuePage.test.tsx apps/core-web/e2e/workshop-orders.spec.ts
 git commit -m "fix(web): make workshop and vehicle rows clickable"
 ```
 
