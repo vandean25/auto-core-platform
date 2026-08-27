@@ -2707,7 +2707,16 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        UpdateWorkshopOrderDto: Record<string, never>;
+        UpdateWorkshopOrderDto: {
+            reportedIssue?: string;
+            notes?: string;
+            /** Format: uuid */
+            bayId?: string;
+            /** Format: uuid */
+            mechanicId?: string | null;
+            scheduledStartAt?: string;
+            scheduledEndAt?: string;
+        };
         CreateWorkshopTaskDto: {
             title: string;
         };
