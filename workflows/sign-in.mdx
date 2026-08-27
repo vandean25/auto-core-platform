@@ -3,7 +3,11 @@ title: "Sign in"
 description: "Get into the right tenant, or onto the mechanic queue if you are TECH."
 ---
 
-The login card takes **email + password** or **Continue with Google**. If Firebase is not configured, the form tells you instead of failing silently.
+The first-run page explains that **Auto Core** keeps stock, jobs, and invoices in one workshop ledger. Access is invite-only: sign in with **email + password** or **Continue with Google**. If you have forgotten your password, use **Forgot password?** below the password field and check your email for the reset link.
+
+On the public demo host, the page also lists the office and mechanic demo email addresses. It never displays passwords; ask the demo owner for access. Public self-serve signup is not available because workshops invite their team members. If sign-in is unavailable for a deployment, the page shows `Sign-in is not configured for this deployment.` without exposing configuration details.
+
+For product context and the full workflow guide, use the **Documentation** link on the sign-in page.
 
 After sign-in, ACP loads your tenant session. If you belong to more than one workshop, the sidebar tenant switcher changes which data you see. That switch is not a second login.
 

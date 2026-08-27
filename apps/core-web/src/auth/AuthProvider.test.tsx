@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   authListener: null as ((user: MockAuthUser | null) => void) | null,
   unsubscribe: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
   signInWithPopup: vi.fn(),
   signInWithRedirect: vi.fn(),
   signOut: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('firebase/auth', () => ({
     return mocks.unsubscribe
   }),
   signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
+  sendPasswordResetEmail: mocks.sendPasswordResetEmail,
   signInWithPopup: mocks.signInWithPopup,
   signInWithRedirect: mocks.signInWithRedirect,
   signOut: mocks.signOut,
@@ -155,5 +157,52 @@ describe('AuthProvider', () => {
     expect(mocks.signInWithPopup).toHaveBeenCalledTimes(1)
     expect(mocks.signInWithRedirect).toHaveBeenCalledTimes(1)
     expect(mocks.signOut).not.toHaveBeenCalled()
+  })
+
+  it('sends a password reset email through Firebase', async () => {
+    const queryClient = createQueryClient()
+    let actions: ReturnType<typeof useAuth> | null = null
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthActions onReady={(nextActions) => {
+            actions = nextActions
+          }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(actions).not.toBeNull()
+    })
+
+    await act(async () => {
+      await actions!.sendPasswordResetEmail('user@example.com')
+    })
+
+    expect(mocks.sendPasswordResetEmail).toHaveBeenCalledWith({}, 'user@example.com')
+  })
+
+  it('rejects a blank password reset email before contacting Firebase', async () => {
+    const queryClient = createQueryClient()
+    let actions: ReturnType<typeof useAuth> | null = null
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthActions onReady={(nextActions) => {
+            actions = nextActions
+          }} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+
+    await waitFor(() => {
+      expect(actions).not.toBeNull()
+    })
+
+    await expect(actions!.sendPasswordResetEmail('  ')).rejects.toThrow('Email is required.')
+    expect(mocks.sendPasswordResetEmail).not.toHaveBeenCalled()
   })
 })
