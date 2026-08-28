@@ -49,6 +49,8 @@ Rejected alternatives: one gateway interface (VIN+parts+labor); one full-stack c
 After a successful resolve, persist decoded display fields plus provider keys on the existing VIN master (`Vehicle`). Do not make TecDoc `kType` the only key.
 
 - Dedicated indexed columns where we search: `vin`, `plate`, `hsn`, `tsn`.
+- `make_brand_id` FK to a vehicle-make `Brand`. Routing **never** uses free-text `Vehicle.make`.
+- `VehicleMakeAlias` maps decoder labels to that Brand. `CatalogOemConcern` + `CatalogOemConcernMake` map many Brands to one OEM (Stellantis ← Peugeot, Citroën, Opel, Fiat, Jeep, …).
 - Structured `identity_keys` JSON for adapter ids (`TECDOC.kType`, `HAYNES.vehicleId`, `BMW.*`, `MERCEDES.*`, `STELLANTIS.*`).
 - Re-resolve when `vin` or `plate` changes. Search uses the stored bag; it does not call every decoder on every keystroke.
 
@@ -71,7 +73,7 @@ OEM adapter configured for this vehicle make + this concern?
 
 Never silent-merge OEM and aftermarket into one list. Never toast-only the outage.
 
-Stellantis is the make/config name (not “PSA”). Adapters may still call Stellantis/PSA APIs internally.
+`STELLANTIS` is an **OEM concern**, not a vehicle make. Member makes share one adapter. Adapters may still call Stellantis/PSA APIs internally. Unknown decoder makes do not inherit Stellantis.
 
 ### 4. JIT parts — CatalogItem without ledger
 
@@ -80,36 +82,47 @@ On **Add to order** (part):
 1. Upsert `CatalogItem` on `(tenant_id, source_system, external_article_id)`.
 2. Derive a tenant-unique `sku` (brand + article). Set workshop line `item_no` to that SKU.
 3. Add `catalog_item_id` on `WorkshopTaskLineItem` (pick today resolves by SKU string only).
-4. **No** `InventoryTransaction`. **No** `InventoryStock` row. On-hand is “not stocked” until a real `RECEIPT`.
-5. Snapshot unit price, estimated cost, fitment notes, OENs, `source_system` on the line.
+4. **No** `InventoryTransaction`. **No** `InventoryStock` row. On-hand is “not stocked” until a real `PURCHASE_RECEIPT` (Prisma `TransactionType`; do not write `RECEIPT` — that name is docs-only in ADR-0002).
+5. Snapshot on the **line**: `unit_price`, `cost_price_est`, `oem_numbers`, `fitment_notes`, `source_system`. Live `CatalogItem` is not historical.
 6. Match or create `Brand` as a part manufacturer. Do **not** write `MasterPart` / `LocalInventory`.
 
 Same EAN from BMW OEM and TecDoc in v1 is **two** catalog items. Merge-by-EAN is later.
 
 ### 5. Labor — snapshot the line, rate from Labor Master
 
-Do **not** JIT `LaborOperation` per Haynes/OEM code. Snapshot description, provider code, and `standard_aw` on the task line. Hourly rate comes from tenant `LaborCategory`. `labor_operation_id` is set only when the advisor picks an internal Labor Master operation. Homegrown `LaborFitment` is not the fitment engine for this project.
+Do **not** JIT `LaborOperation` per Haynes/OEM code. Snapshot description, provider code, and `standard_aw` on the task line. `labor_operation_id` is set only when the advisor picks an internal Labor Master operation. Homegrown `LaborFitment` is not the fitment engine for this project.
+
+Pricing (because `LaborCategory.default_hourly_rate` is nullable):
+
+- `CatalogProviderSettings.default_labor_category_id` is required for external labor and must point at a category with non-null `default_hourly_rate`.
+- Advisor may pass `laborCategoryId` on Add to order (same rule).
+- `planned_hours = provider.hours` or `standard_aw * (aw_minutes / 60)` with tenant `aw_minutes` default 6.
+- Write `quantity = planned_hours`, `unit_price = hourly_rate_snapshot`, plus `labor_category_id` and `hourly_rate_snapshot` on the line.
 
 ### 6. Shortage requisition and qty-sliced reservation
 
 A workshop part line is demand for `quantity`. Each **reservation** is a qty slice (`sum(slices) ≤ line.quantity`).
 
 - Clerk queue: lines where needed qty > ATP.
-- ATP (free stock) = `quantity_on_hand` minus on-hand slices not yet in the job tote.
-- Incoming reserved qty is not ATP for other jobs or counter sales.
-- Requisition **sheet per vehicle make** (job’s make, not pad brand). Clerk can open one order or sweep all open orders.
+- **ATP source of truth:** `PartsReservation` rows. `InventoryStock.quantity_reserved` is an eager per-location cache updated in the same transaction as ON_HAND create/cancel/stage (it exists today but is not maintained; sales currently deducts `quantity_on_hand` only).
+- ATP at non-tote locations = `quantity_on_hand - quantity_reserved`. Staging totes are never ATP. Incoming ORDERED qty is not on-hand yet.
+- Every consumer (sales finalize, pick, new ON_HAND reservation, `checkAvailability`) enforces ATP. Concurrent last-unit reservations: `updateMany` guard, loser 409.
+- Requisition **sheet per vehicle-make Brand**. OEM *search* uses concern (Stellantis).
 - Do not merge two workshop lines into one reservation because the SKU matches.
 - One line **may** have N slices (on-hand pick + OEM PO + backorder PO).
+- **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Partial receive uses existing `ReceiveItemDto.itemId` (= PO item). Two jobs, same SKU, two PO lines; receiving 1 against the first line totes only that job. Do not put N reservations on one PO item in M3.
 
-Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → optional `PurchaseOrderItem`.
+Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **optional 1:1 `PurchaseOrderItem`**.
 
-On goods receipt: post `RECEIPT` (ADR-0002), then `TRANSFER_OUT`/`TRANSFER_IN` of the allocated qty into **that job’s staging tote** (ADR-0012). Free warehouse stock does not increase for reserved qty.
+On goods receipt: post `PURCHASE_RECEIPT`, then `TRANSFER_OUT`/`TRANSFER_IN` into **that reservation’s job tote** (ADR-0012).
 
-Cancel requisition line or PO before receipt: reservation dies; shortage returns to the queue.
+Do **not** add `PurchaseOrderStatus.CANCELLED`. Cancel `PartsReservation` / requisition. Draft PO delete stays as today. SENT PO is not cancelled in this project.
 
 ### 7. Tenant settings
 
-OWNER/ADMIN Settings tab **Vehicle data**: default identity / parts-aftermarket / labor-aftermarket adapters, plus per-make OEM parts and OEM labor adapters (BMW, Mercedes, Stellantis, or off). Credentials in tenant secrets, not on `Brand`.
+OWNER/ADMIN Settings tab **Vehicle data**: default identity / parts-aftermarket / labor-aftermarket adapters, `default_labor_category_id`, `aw_minutes`, plus **OEM concerns** (BMW, Mercedes, Stellantis) each listing member vehicle-make Brands. Credentials in tenant secrets, not on `Brand`.
+
+External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/external/search` requires `concern=PARTS|LABOR` and supports `source` + `confirmFallback` so “Search other source” and confirmed OEM fallback exist on the contract. Local `/api/catalog/search` stays unchanged.
 
 ## Consequences
 
@@ -139,6 +152,10 @@ OWNER/ADMIN Settings tab **Vehicle data**: default identity / parts-aftermarket 
 | Pre-load TecDoc into `CatalogItem` | Local SQL | Size, stale price, ADR-0002 pollution |
 | Line JSON only, no `CatalogItem` | Zero catalog growth | Cannot PO, pick, or reserve |
 | 1:1 reservation per workshop line | Simple | Cannot split shelf + OEM PO + backorder |
+| N reservations on one PO item + qty-only receive | Fewer vendor lines | Partial delivery cannot choose a job tote |
+| Route on `Vehicle.make` text | No new FKs | Peugeot ≠ Stellantis; typos skip OEM |
+| Overload `/api/catalog/search` | One endpoint | Cannot express per-concern fallback |
+| Add `PurchaseOrderStatus.CANCELLED` in M3 | Matches prose | Expands purchase lifecycle beyond this project |
 
 ## References
 

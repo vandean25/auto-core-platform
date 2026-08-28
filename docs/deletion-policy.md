@@ -16,7 +16,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | FinanceSettings | No | Singleton configuration record; never deleted. |
 | VoiceTranslationSettings | No | Singleton tenant configuration record for voice translation; update in place only. |
 | CatalogProviderSettings | No | Singleton tenant configuration for identity/parts/labor adapters; update in place only. |
-| CatalogMakeProvider | Yes | Hard delete allowed; removing the row returns that make to automatic aftermarket routing. |
+| CatalogOemConcern | Conditional | Hard delete when no `CatalogOemConcernMake` rows remain. |
+| CatalogOemConcernMake | Yes | Hard delete allowed; that vehicle make returns to automatic aftermarket. |
+| VehicleMakeAlias | Yes | Hard delete allowed. Decoder aliases are master data. |
 | PartsRequisition | Draft-only | Allow only in `DRAFT`. After `ORDERED`, cancel; do not hard-delete linked reservations. |
 | PartsRequisitionLine | No direct delete | Managed by parent requisition / reservation cancel. |
 | PartsReservation | Cancel only | Set `status = CANCELLED` while `OPEN` or `ORDERED` before receipt. No hard delete after `ORDERED`/`RECEIVED`. |
