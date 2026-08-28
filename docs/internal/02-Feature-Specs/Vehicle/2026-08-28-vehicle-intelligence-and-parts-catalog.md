@@ -19,7 +19,7 @@ tags:
 
 ## Summary
 
-> Identify a vehicle from VIN (plate adapters later), search fitment-aware parts and labor through provider ports, and materialize a `CatalogItem` only when the advisor adds a part to the job. OEM catalogs (BMW, Mercedes, Stellantis) win by **OEM concern**, resolved from a canonical vehicle-make `Brand` — not from free-text `Vehicle.make`. Aftermarket is the fallback with an explicit advisor choice when OEM is empty or down. Shortage qty is reserved in slices. **M3: one `PurchaseOrderItem` per reservation** so a partial delivery has a single job tote. Qty types are **`Decimal(10, 3)` end-to-end** (stock, reserved, PO, reservation, workshop/sales lines). Received reserved qty posts `PURCHASE_RECEIPT` and tote-transfers in the same transaction (`ORDERED` → `STAGED`). Cancelling an ORDERED reservation **detaches** the PO item; later receipt of that item is free warehouse stock. `InventoryStock.quantity_reserved` is an eager ATP cache; ATP is enforced at the ledger/reservation boundary, not a caller list. `internal_cost_rate` is snapshotted only when known — never copied from the selling rate.
+> Identify a vehicle from VIN (plate adapters later), search fitment-aware parts and labor through provider ports, and materialize a `CatalogItem` only when the advisor adds a part to the job. OEM catalogs (BMW, Mercedes, Stellantis) win by **OEM concern**, resolved from a canonical vehicle-make `Brand` — not from free-text `Vehicle.make`. Aftermarket is the fallback with an explicit advisor choice when OEM is empty or down. Shortage qty is reserved in slices. **M3: one `PurchaseOrderItem` per reservation** so a partial delivery has a single job tote. Qty types are **`Decimal(10, 3)` end-to-end**, including write DTOs (`@IsNumber({ maxDecimalPlaces: 3 })`, min `0.001`) — not only Prisma columns. Received reserved qty posts `PURCHASE_RECEIPT` and tote-transfers in the same transaction (`ORDERED` → `STAGED`). **Release** returns staged tote stock, drops on-hand reservations, detaches remaining PO demand (FK kept for audit), and ends the slice `CANCELLED`. Hit tokens are single-use (`taskId` + `jti`). `internal_cost_rate` is snapshotted only when known — never copied from the selling rate.
 
 Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-providers.md). Spec + ADR are the implementation source of truth for the locks below. ADR status stays **Proposed** until product marks it Accepted.
 
@@ -30,9 +30,17 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 | # | Decision |
 |---|---------|
 | P1 qty | `Decimal(10, 3)` end-to-end for parts stock, reserved, PO, reservation, and related sales/invoice/workshop line quantities. Do not keep integer stock beside decimal job lines. `VehicleStock.quantity_on_hand` stays `Int` (whole vehicles, ADR-0016). |
-| P1 cancel-after-send | `ORDERED → CANCELLED` when `quantity_received = 0` **detaches** the PO item. SENT PO stays. Later receipt is free warehouse stock (`locationId` required). Block cancel after any receipt. |
+| P1 cancel-after-send | `ORDERED → CANCELLED` detaches remaining PO demand. SENT PO stays. Later receipt is free warehouse stock. **Superseded in part by pass 3:** receipt no longer blocks release. |
 | P1 labor cost | `LaborCategory.default_internal_cost_rate`. Snapshot to `WorkshopTaskLineItem.internal_cost_rate` when set; otherwise **null**. Never copy the selling rate (unknown margin ≠ zero). |
 | P1 SKU | `{source}-{normalized-brand}-{normalized-article}-{short-hash}` assigned once on insert. Upsert by `(tenant_id, source_system, external_article_id)`. Never rewrite SKU. |
+
+### Review locks (pass 3)
+
+| # | Decision |
+|---|---------|
+| P1 release | Any non-`CANCELLED` slice can be **released**, including partial `ORDERED` and `STAGED`. Returns tote qty via paired `TRANSFER_OUT`/`TRANSFER_IN`, clears on-hand `quantity_reserved`, detaches remaining PO demand, keeps `purchase_order_item_id` for audit, status `CANCELLED`. Line/order cancel must release every active slice. Line qty PATCH 409 if new qty < sum of active slice qty. |
+| P1 qty API | Decimal storage is not enough. Replace `@IsInt()` on parts qty write DTOs with `@IsNumber({ maxDecimalPlaces: 3 })` and min `0.001`. Regen OpenAPI + frontend types. Ledger must use Prisma `Decimal`, not `Number(...)`. |
+| P2 hit jti | Hit token claims include `taskId` and `jti`. Unique `(tenant_id, workshop_task_id, catalog_hit_jti)`. Same token retry is idempotent; double-click does not duplicate the line. |
 
 ---
 
@@ -57,7 +65,7 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 |-----------|-------|-----------|
 | **M1** Vehicle identity & ephemeral search | VIN decode; `make_brand_id` + aliases + OEM concern; Catalog Router; **per-concern** search API; OEM-first UI + banners. No JIT, no PO. | Advisor resolves a VIN to a Brand/concern and searches parts **or** labor with source/fallback metadata. |
 | **M2** JIT parts & labor snapshot | Add to order → `CatalogItem` upsert; line FK + price/cost/OEN snapshots; labor hours × category rate. No ledger write. | Job lines survive reload; pick uses `catalog_item_id`; QOH is zero until receipt. |
-| **M3** Requisition, PO, reservations | `Decimal(10,3)` qty migration; shortage queue; make-sheets; qty slices; **1:1 PO item per reservation**; ATP at ledger boundary; `PURCHASE_RECEIPT` + tote in one tx (`ORDERED`→`STAGED`); detach on cancel-after-send. | Fluids (1.5 L) reserve and receive without rounding. Two jobs, same SKU, partial receive: only that PO line’s job gets stock. Cancelled ORDERED slice: later receipt is free bin stock. |
+| **M3** Requisition, PO, reservations | `Decimal(10,3)` qty migration **including write DTOs**; shortage queue; make-sheets; qty slices; **1:1 PO item per reservation**; ATP at ledger boundary; `PURCHASE_RECEIPT` + tote in one tx (`ORDERED`→`STAGED`); **release** of partial/staged demand. | Fluids (1.5 L) reserve and receive without rounding (`POST receive` accepts `1.5`). Two jobs, same SKU, partial receive: only that PO line’s job gets stock. Released slice: tote stock returns to the chosen bin; later PO receipt is free stock. |
 | **M4** Wholesaler B2B (later) | Live branch stock, Einkaufspreis, punchout. | Explicit trigger; not in M1–M3. |
 
 Plate-registry adapters (AT/DE) attach to the identity port after a contract; they do not block M1.
@@ -146,6 +154,7 @@ Unique: `(tenant_id, source_system, external_article_id)` where both external fi
 | `labor_category_id` | String? | Category used to price external labor. `onDelete: SetNull` — historical rate is snapshotted. |
 | `hourly_rate_snapshot` | Decimal? | Selling rate used; `unit_price` equals this for labor |
 | `internal_cost_rate` | Decimal? | **Already exists.** Snapshot from `LaborCategory.default_internal_cost_rate` when that column is non-null; otherwise leave null. Never copy `hourly_rate_snapshot` / `default_hourly_rate` into this field. |
+| `catalog_hit_jti` | String? | Single-use id from the hit token. Unique with `(tenant_id, workshop_task_id)`. |
 
 `standard_aw` already exists; provider writes it. `labor_operation_id` remains null unless an internal Labor Master op is chosen.
 
@@ -185,9 +194,29 @@ M3 migrates these to **`Decimal(10, 3)`** before any reservation code ships:
 - `WorkshopTaskLineItem.quantity` (already decimal; widen scale 2 → 3)
 - `SalesOrderItem.quantity`, `InvoiceItem.quantity` (ATP/sales must share the scale)
 
-`InventoryTransaction.quantity` is already `Decimal(10, 3)`. Ledger `recordTransactions` must increment/decrement the stock cache as Decimal, not `Number(...)`. Existing integer rows migrate with scale 3 (1 → 1.000).
+`InventoryTransaction.quantity` is already `Decimal(10, 3)`. Existing integer rows migrate with scale 3 (1 → 1.000).
 
 **Do not migrate:** `VehicleStock.quantity_on_hand` (`Int`, one vehicle = 1, ADR-0016) or `LocalInventory.quantity_on_hand` (unused by this flow).
+
+### Quantity API boundary (M3, same prerequisite)
+
+Prisma `Decimal(10, 3)` is not sufficient. Today `ReceiveItemDto.quantity` is `@IsInt()` (`apps/core-api/src/purchase/dto/receive-items.dto.ts`), so `1.5` is rejected before it reaches the database. The same integer validators exist on `PurchaseOrderItemDto.quantity`, `UpdatePurchaseOrderItemDto.quantity`, and `PickWorkshopPartsLineDto.quantity` (the pick DTO already has a unit test that `0.5` fails with “must be an integer”).
+
+M3 write DTOs for parts quantities must:
+
+- Use `@Type(() => Number)` + `@IsNumber({ maxDecimalPlaces: 3 })` + `@Min(0.001)`.
+- Reject `0`, negatives, and values with more than 3 decimal places (422).
+- Accept `1.5` and `0.001`.
+- Document the same in OpenAPI (`type: number`, `minimum: 0.001`; `multipleOf: 0.001` is acceptable).
+
+Then regenerate:
+
+- `npm --prefix apps/core-api run openapi:generate`
+- `npm --prefix apps/core-web run api:types:generate`
+
+Sales/invoice qty fields already use `@IsNumber()` without a decimal-place cap; add `maxDecimalPlaces: 3` in the same migration so ATP-consuming writes share the scale.
+
+**Prisma Decimal arithmetic:** `ledger.service.ts` currently aggregates and increments with `Number(...)` (comment: “Number is likely safe enough”). After the column migration that truncates `1.5` and `0.001`. All stock-cache updates (`quantity_on_hand`, `quantity_reserved`) and reservation/PO qty math must use `Prisma.Decimal` / `Decimal.js` (`add`, `sub`, `lte`) — never `Number(qty)` on a ledger path.
 
 ### Reservation and requisition (M3)
 
@@ -209,13 +238,36 @@ PartsReservation 1 ── 1 PurchaseOrderItem     // M3 lock: never N reservatio
 | `status` | `OPEN` \| `ORDERED` \| `STAGED` \| `CANCELLED` — **no `RECEIVED`**. Receipt+tote is one transaction; complete receive sets `STAGED`. Partial receive stays `ORDERED` with `quantity_received` increased. |
 | `location_id` | Required for `ON_HAND` (bin whose cache was incremented). After stage, the tote is the job’s `stagingLocationId`. |
 | `requisition_line_id` | Set when `kind = REQUISITION` |
-| `purchase_order_item_id` | Unique while allocated. **Nullable after detach.** Creating a PO inserts **one PO item per reservation**. |
+| `purchase_order_item_id` | Unique 1:1 with the PO item. **Kept after release** (audit of the original allocation). Creating a PO inserts **one PO item per reservation**. |
+| `detached_at` | DateTime? Set when remaining vendor qty is no longer job-allocated. Receive of that PO item then follows the detached path. |
 
 `PartsRequisition`: `tenant_id`, `vehicle_make_brand_id`, `status` (`DRAFT` \| `ORDERED` \| `CANCELLED`). Clerk sheet is still **per vehicle make** (Peugeot sheet ≠ Citroën sheet), while OEM *search* uses the shared Stellantis concern.
 
 Same SKU on the printed PO may appear as two lines (job A, job B). That is intentional so a partial delivery cannot be ambiguous.
 
-**Cancel after the PO is SENT (M3):** allow `ORDERED → CANCELLED` when `quantity_received = 0`. That **detaches** the job: null `purchase_order_item_id` on the reservation, shortage returns to the queue. The `PurchaseOrderItem` stays on the SENT PO (no `PurchaseOrderStatus.CANCELLED`). A later receive of that PO item has **no reservation** → `PURCHASE_RECEIPT` into the normal warehouse bin (`locationId` required; not a tote). It becomes free ATP. If `quantity_received > 0`, cancellation is blocked (units already in the job tote).
+**Release (M3) — the only way off an allocated slice, including after partial receipt.**
+
+Pass 2 blocked cancel once `quantity_received > 0`. That stranded tote stock and left the unreceived PO qty committed to a job that no longer wants it. **Release** is allowed from `OPEN`, `ORDERED` (including `quantity_received > 0`), and `STAGED`.
+
+In one transaction:
+
+1. **Return staged tote qty** (`quantity_received`, or the full slice qty when `STAGED`): paired `TRANSFER_OUT` (tote, negative) + `TRANSFER_IN` (chosen warehouse bin, positive). `returnLocationId` is **required** when tote qty > 0; 422 if missing. Warehouse bin must not be a `staging_tote`.
+2. **Release remaining on-hand reservation:** if `kind = ON_HAND` and status is still `OPEN`, decrement `InventoryStock.quantity_reserved` at `location_id` by the unpicked qty (ATP helpers, same as create).
+3. **Detach outstanding PO demand:** if a `purchase_order_item_id` is set, set `detached_at = now()`. Do **not** null the FK and do **not** change `PurchaseOrderItem.quantity`. The SENT PO is unchanged. A later receive of that item is free warehouse stock (`locationId` required; not a tote).
+4. **Audit:** `purchase_order_item_id` remains; `detached_at` plus the reservation row are the allocation history. ADR-0015 audit log on the release.
+5. **End state:** `status = CANCELLED`. No hard delete.
+
+Triggers that **must** call Release (same transaction as the document change):
+
+- Workshop order cancel / delete-allowed cancel path.
+- Workshop part line delete, or line qty set to 0.
+- Explicit `POST /api/parts-reservations/:id/release`.
+
+Those document APIs must accept `returnLocationId` and forward it. **422** if any slice has tote qty and `returnLocationId` is missing.
+
+**Line qty PATCH** to `Q > 0`: if `Q < sum(active reservation.quantity)` return **409** `ALLOCATION_EXCEEDS_DEMAND` with the slice ids. The UI releases whole slices (1:1 PO items cannot be trimmed in place) then retries the PATCH. Do not silently shrink a SENT PO item.
+
+Zero-receipt `ORDERED` release is the pass-2 cancel-after-send case (steps 3–5 only; no tote transfer).
 
 ### ATP and `quantity_reserved`
 
@@ -225,7 +277,7 @@ Same SKU on the printed PO may appear as two lines (job A, job B). That is inten
 
 Staging totes are **never** ATP for sales or other jobs. Today `checkAvailability` already subtracts `quantity_reserved` but sums **all** locations (totes included) and sales deducts raw `quantity_on_hand`. M3 must: (1) exclude `staging_tote`, (2) route sales/pick through `consumeAtp`, (3) fail closed on negative ATP.
 
-Incoming `REQUISITION` / `ORDERED` slices are **not** in `quantity_on_hand` yet, so they are not ATP. On receive, reserved lines tote-transfer in the same transaction; detached PO items (see cancel-after-send) credit the warehouse bin as free stock.
+Incoming `REQUISITION` / `ORDERED` slices are **not** in `quantity_on_hand` yet, so they are not ATP. On receive, reserved lines tote-transfer in the same transaction; **released** PO items (`detached_at` set, reservation `CANCELLED`) credit the warehouse bin as free stock.
 
 **Enforcement lives in the inventory/reservation service**, not a caller checklist. Sales finalize, pick, new ON_HAND reservation, and `checkAvailability` must go through `reserve` / `consumeAtp` helpers (same transaction as the ledger write). Adding a new stock consumer without those helpers must fail review.
 
@@ -243,11 +295,11 @@ Reconciliation (M3 test + periodic assert): for each `InventoryStock` row, `quan
 | `VehicleMakeAlias` | Hard delete allowed. |
 | `PartsRequisition` | Draft-only delete. After `ORDERED`, cancel. |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
-| `PartsReservation` | `CANCELLED` while `OPEN`, or `ORDERED` with `quantity_received = 0` (detaches PO item). No hard delete after any receipt. |
+| `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. No hard delete. |
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
 | `LaborCategory` | Conditional. **Blocked** while it is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rate snapshotted). Still blocked when `LaborOperation` rows or child categories exist. |
 
-**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today. SENT PO items whose reservation was detached receive into the warehouse bin as free stock.
+**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today. Released reservations keep `purchase_order_item_id`; subsequent receipt of that SENT item is free warehouse stock.
 
 ---
 
@@ -258,12 +310,16 @@ Reconciliation (M3 test + periodic assert): for each `InventoryStock` row, `quan
 ```
 OPEN → ORDERED (PO SENT; DRAFT PO keeps reservation OPEN)
 OPEN → STAGED (on-hand pick to tote; decrement quantity_reserved)
-OPEN → CANCELLED
+OPEN → CANCELLED (release: drop quantity_reserved)
 ORDERED → STAGED (this PO item fully received; PURCHASE_RECEIPT + tote TRANSFER in one tx)
-ORDERED → CANCELLED (quantity_received = 0; detach PO item; later receipt is free bin stock)
+ORDERED → CANCELLED (release: return tote qty if any; set detached_at; later receipt is free bin stock)
+STAGED → CANCELLED (release: TRANSFER tote → returnLocationId)
+CANCELLED → * (none)
 ```
 
 Partial receive: increment `quantity_received` (already in tote); stay `ORDERED` until `quantity_received >= quantity`, then `STAGED`. No `RECEIVED` status.
+
+**Receive vs released:** look up the reservation by `purchase_order_item_id`. If `status = CANCELLED` or `detached_at` is set → free-stock path (`locationId` required). If still allocated → tote-transfer to the job.
 
 ### Workshop part shortage
 
@@ -314,7 +370,11 @@ Frontend maps `fallbackReason` to copy. Do not persist hits. 409 if vehicle iden
 |--------|-------|-------------|
 | POST | `/api/workshop/orders/:id/tasks/:taskId/lines/from-catalog` | Body: hit token + optional `laborCategoryId`. JIT upsert + insert line |
 
-Hit token: HMAC-signed server payload, TTL ≤ 15 minutes. Claims: `tenantId`, `workshopOrderId`, `vehicleId`, `concern`, `source_system`, `external_id`, quoted snapshot fields (`unit_price`, `cost_price_est`, `oem_numbers`, `standard_aw`, `planned_hours`), `exp`. Reject (401/409) on tamper, expiry, tenant mismatch, workshop/vehicle mismatch, or concern mismatch. Tests: tamper, cross-tenant replay, wrong-order replay, expiration.
+Hit token: HMAC-signed server payload, TTL ≤ 15 minutes. Claims: `tenantId`, `workshopOrderId`, `vehicleId`, **`taskId`**, `concern`, `source_system`, `external_id`, quoted snapshot fields (`unit_price`, `cost_price_est`, `oem_numbers`, `standard_aw`, `planned_hours`), **`jti`** (server-issued unique id per search hit), `exp`.
+
+Reject (401/409) on tamper, expiry, tenant mismatch, workshop/vehicle mismatch, **URL `:taskId` ≠ claims.taskId**, or concern mismatch.
+
+**Single-use:** persist `catalog_hit_jti` on the new `WorkshopTaskLineItem`. Unique `(tenant_id, workshop_task_id, catalog_hit_jti)` enforced in the same transaction as the line insert. A retry or double-click with the same token on the same task returns the **existing** line (idempotent 200). A second distinct `jti` creates a second line (advisor added the hit twice on purpose). Tests: tamper, cross-tenant replay, wrong-order replay, **wrong-task replay**, expiration, **idempotent retry**, **duplicate jti 200 not 201**.
 
 TECH cannot add billable catalog lines (ADR-0014).
 
@@ -326,8 +386,9 @@ TECH cannot add billable catalog lines (ADR-0014).
 | POST | `/api/parts-requisitions` | Create/update make-sheet from selected shortages |
 | POST | `/api/parts-requisitions/:id/create-purchase-order` | **One `PurchaseOrderItem` per reservation** |
 | POST | `/api/parts-reservations` | On-hand slice: allocate location, increment `quantity_reserved` via ATP |
+| POST | `/api/parts-reservations/:id/release` | Body: `returnLocationId` required when tote qty > 0. Full **Release** (see above). |
 
-Goods receipt keeps `ReceiveItemDto` (`itemId` = `purchase_order_item.id`, `quantity`, optional `locationId`). Allocated item (reservation 1:1, not cancelled): ignore `locationId` for the free bin — tote-transfer to the job. Detached item (reservation cancelled): `locationId` **required**, `PURCHASE_RECEIPT` into that warehouse bin as free stock. Ledger type: **`PURCHASE_RECEIPT`**.
+Goods receipt keeps `ReceiveItemDto` (`itemId` = `purchase_order_item.id`, `quantity` as decimal 0.001–…, optional `locationId`). Allocated item (reservation 1:1, not cancelled, `detached_at` null): ignore `locationId` for the free bin — tote-transfer to the job. Released item (`detached_at` set / status `CANCELLED`): `locationId` **required**, `PURCHASE_RECEIPT` into that warehouse bin as free stock. Ledger type: **`PURCHASE_RECEIPT`**. `quantity` must accept `1.5` (see Quantity API boundary).
 
 ### Settings
 
@@ -364,6 +425,7 @@ OWNER/ADMIN only.
 - Shortage list: filter by order or **all orders**.
 - Requisition: one sheet per vehicle-make Brand; rows are slices (job + line + qty), not collapsed SKUs.
 - Create PO: one vendor document, **one PO line per slice** (duplicate SKUs allowed).
+- **Release** on a slice: if tote qty > 0, require a warehouse bin (`returnLocationId`); do not toast-only a failed return.
 
 ### Settings
 
@@ -400,12 +462,20 @@ OWNER/ADMIN only.
 ### Backend E2E
 
 - [ ] VIN/plate change clears `identity_keys`, `make_brand_id`, and `identity_input_fingerprint`; external search 409 until re-resolve; failed re-resolve does not restore old keys.
-- [ ] Hit token: tamper 401; expired 401; other tenant 409; other workshop order 409.
+- [ ] Hit token: tamper 401; expired 401; other tenant 409; other workshop order 409; other task 409.
+- [ ] Hit token retry same `jti`+`taskId`: 200 same line id, no second row.
+- [ ] Distinct `jti` on same task: second line created.
 - [ ] JIT SKU `{source}-{brand}-{article}-{hash}`; second source same article → different SKU; description change does not rewrite SKU.
 - [ ] JIT labor: `internal_cost_rate` null when category has no `default_internal_cost_rate`; never equals selling rate unless costs were explicitly set equal.
 - [ ] Decimal 1.5 L reservation: stock/PO/reservation all `1.500`; no integer truncation.
-- [ ] Cancel ORDERED reservation: PO item remains SENT; receive with `locationId` increases warehouse ATP, not a tote.
-- [ ] Cancel blocked when `quantity_received > 0`.
+- [ ] `POST receive` `quantity: 1.5` → 201; `0.001` → 201; `1.5001` → 422; `0` → 422; `-1` → 422.
+- [ ] Ledger cache update of `1.5` does not become `1` (`Number` coercion forbidden).
+- [ ] Release ORDERED with `quantity_received = 0`: PO item remains SENT; `detached_at` set; receive with `locationId` increases warehouse ATP, not a tote.
+- [ ] Release ORDERED with `quantity_received = 1.5` of 4: tote −1.5, chosen bin +1.5 (paired TRANSFER), `detached_at` set, status `CANCELLED`; later receive of remaining 2.5 is free bin stock.
+- [ ] Release STAGED: tote emptied to `returnLocationId`; 422 if `returnLocationId` omitted.
+- [ ] Release OPEN ON_HAND: `quantity_reserved` decrements; no TRANSFER.
+- [ ] Workshop line delete / qty 0 releases all slices in the same transaction.
+- [ ] Line qty PATCH below allocated sum → 409; does not mutate PO qty.
 - [ ] Receive allocated line: `ORDERED` → `STAGED` (or stay ORDERED if partial); no `RECEIVED` status; tote qty matches `quantity_received`.
 - [ ] ATP helper used by sales finalize; direct `quantity_on_hand` deduct in sales is forbidden.
 - [ ] Negative `on_hand - reserved` throws; does not clamp to 0.
@@ -426,7 +496,7 @@ OWNER/ADMIN only.
 - [ ] One line qty 4: on-hand 2 + PO 2; ATP drops by 2; sales finalize of 3 free units 409 if only 2 ATP.
 - [ ] Concurrent `ON_HAND` reservations for last unit: one 201, one 409.
 - [ ] `checkAvailability` and sales finalize use `quantity_on_hand - quantity_reserved`.
-- [ ] Cancel reservation: `quantity_reserved` decrements; no `PurchaseOrderStatus.CANCELLED`.
+- [ ] Release OPEN ON_HAND: `quantity_reserved` decrements; no TRANSFER; no `PurchaseOrderStatus.CANCELLED`.
 - [ ] Ledger rows for receive are `PURCHASE_RECEIPT`, not `RECEIPT`.
 - [ ] Tenant isolation (ADR-0013).
 
@@ -438,7 +508,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 2 (2026-08-28): quantity scale, cancel-after-send detach, labor cost nullability, and source-qualified SKU are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 3 (2026-08-28): partial-receipt **Release**, decimal qty at the DTO/OpenAPI boundary, and single-use hit `jti` are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 
@@ -447,10 +517,9 @@ None blocking after review pass 2 (2026-08-28): quantity scale, cancel-after-sen
 - [[2026-08-28-vehicle-intelligence-catalog-providers|ADR-0021]]
 - ADR-0002 (Prisma enum: `PURCHASE_RECEIPT`, `SALE_ISSUE`; docs sometimes say RECEIPT/SALE)
 - ADR-0012, ADR-0013, ADR-0014, ADR-0015
-- `ReceiveItemDto`: `apps/core-api/src/purchase/dto/receive-items.dto.ts`
-- `InventoryStock.quantity_reserved`: `schema.prisma`
-- Sales QOH guard: `apps/core-api/src/sales/sales.service.ts`
-- `docs/deletion-policy.md` (LaborCategory default + Brand/Vehicle FKs; PartsReservation cancel-after-send)
+- `ReceiveItemDto`: `apps/core-api/src/purchase/dto/receive-items.dto.ts` (`@IsInt()` today; M3 replaces)
+- `ledger.service.ts`: `Number(params.quantity)` cache updates (M3: Prisma Decimal)
+- `docs/deletion-policy.md` (LaborCategory default + Brand/Vehicle FKs; PartsReservation **release**)
 - Linear: [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b)
 
 ---

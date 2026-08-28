@@ -21,7 +21,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleMakeAlias | Yes | Hard delete allowed. Decoder aliases are master data. |
 | PartsRequisition | Draft-only | Allow only in `DRAFT`. After `ORDERED`, cancel; do not hard-delete linked reservations. |
 | PartsRequisitionLine | No direct delete | Managed by parent requisition / reservation cancel. |
-| PartsReservation | Cancel only | Set `status = CANCELLED` while `OPEN` or `ORDERED` with `quantity_received = 0`. After any receipt, cancel is blocked (stock already staged). No hard delete. |
+| PartsReservation | Cancel / release only | `OPEN`, `ORDERED`, or `STAGED` → `CANCELLED` via **Release** (return tote stock, drop on-hand reserved, detach remaining PO demand, keep `purchase_order_item_id` for audit). No hard delete. |
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
 | Brand | Conditional | Allow only when no `CatalogItem`, `Vendor.supportedBrands`, `Vehicle.make_brand_id`, `VehicleMakeAlias`, or `CatalogOemConcernMake` references it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
@@ -82,5 +82,5 @@ This document defines when deletion is allowed in Auto Core Platform.
 - ADR-0005: Deletion Policy Enforcement
 - ADR-0013: Row-Level Multi-Tenancy & Tenant Isolation
 - ADR-0015: Audit Tracing and Operational Logging — AuditLog ledger immutability
-- ADR-0021 / Vehicle Intelligence spec — LaborCategory default, Brand vehicle-make refs, PartsReservation cancel-after-send
+- ADR-0021 / Vehicle Intelligence spec — LaborCategory default, Brand vehicle-make refs, PartsReservation **release**
 

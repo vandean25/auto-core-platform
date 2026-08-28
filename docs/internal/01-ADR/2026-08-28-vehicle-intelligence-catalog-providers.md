@@ -111,11 +111,11 @@ A workshop part line is demand for `quantity`. Each **reservation** is a qty sli
 - Requisition **sheet per vehicle-make Brand**. OEM *search* uses concern (Stellantis).
 - Do not merge two workshop lines into one reservation because the SKU matches.
 - One line **may** have N slices (on-hand pick + OEM PO + backorder PO).
-- **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Qty columns are **`Decimal(10, 3)`** end-to-end (stock, reserved, PO, reservation, workshop/sales lines). `InventoryTransaction.quantity` is already 10,3.
+- **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Qty columns are **`Decimal(10, 3)`** end-to-end (stock, reserved, PO, reservation, workshop/sales lines). `InventoryTransaction.quantity` is already 10,3. Write DTOs (`ReceiveItemDto`, create/update PO item, pick) replace `@IsInt()` with `@IsNumber({ maxDecimalPlaces: 3 })` and min `0.001`. Ledger cache math uses Prisma `Decimal`, not `Number(...)`.
 - No `RECEIVED` status: receive + tote transfer is one transaction (`ORDERED` → `STAGED` when complete).
-- **Cancel after SENT:** `ORDERED → CANCELLED` if `quantity_received = 0` detaches the PO item. Later receipt of that item is free warehouse stock (`locationId` required). Do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today.
+- **Release:** from `OPEN` / `ORDERED` / `STAGED` (including after partial receipt). In one tx: return tote qty via `TRANSFER_OUT`/`TRANSFER_IN` to a required warehouse `returnLocationId`, decrement leftover `quantity_reserved`, set `detached_at` on the PO link, **keep** `purchase_order_item_id` for audit, status `CANCELLED`. Later receipt of that PO item is free warehouse stock. Line/order cancel must release every active slice. Line qty PATCH 409 if it would drop below allocated qty. Do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today.
 
-Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **optional 1:1 `PurchaseOrderItem`** (nullable after detach).
+Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **1:1 `PurchaseOrderItem`** (FK retained after release).
 
 ### 7. Tenant settings
 
@@ -125,7 +125,7 @@ External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/exte
 
 VIN/plate change clears `identity_keys`, `make_brand_id`, and `identity_input_fingerprint` in the same write. Failed re-resolve must not restore the previous key bag. Store `identity_input_fingerprint` + `identity_resolved_at` only after a successful resolve.
 
-Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order, vehicle, concern, provider id, quoted snapshots, and `exp`.
+Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order, vehicle, **taskId**, concern, provider id, quoted snapshots, **jti**, and `exp`. Persist `jti` uniquely per `(tenant_id, workshop_task_id)`; retries are idempotent.
 
 ## Consequences
 
@@ -162,7 +162,10 @@ Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order,
 | Copy selling rate into labor cost | Always have a cost | Fake zero margin |
 | Brand+article SKU | Short | Collides across BMW vs TecDoc |
 | Keep RECEIVED status | Matches physical receive | Transient if tote is same transaction |
-| Block cancel after PO SENT | No orphan vendor qty | Job stuck waiting on a cancelled need |
+| Block cancel after any receipt | Protects staged tote | Strands tote stock and leftover PO qty when the job is cancelled |
+| Null PO FK on detach | Receive cannot find a job | Loses allocation audit |
+| @IsInt qty after Decimal columns | Schema accepts 1.5 | Receive DTO still 400s 1.5 |
+| Hit token without jti | Tamper-proof | Double-click duplicates the line |
 | max(0, ATP) | No crashes | Hides quantity_reserved corruption |
 
 ## References
