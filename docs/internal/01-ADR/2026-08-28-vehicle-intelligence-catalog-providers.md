@@ -1,10 +1,10 @@
 ---
 title: "ADR-0021: Vehicle Intelligence — Provider Ports, JIT Catalog, Make-Based Routing"
 date: "2026-08-28"
-status: proposed
+status: accepted
 deciders: "Product Owner, Architecture Team"
 linear-project: "https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b"
-linear-milestone: ""
+linear-milestone: "M1 Vehicle identity & ephemeral search"
 tags:
   - adr
   - vehicle
@@ -18,7 +18,9 @@ tags:
 
 ## Status
 
-**Proposed** — 2026-08-28
+**Accepted** — 2026-08-28
+
+PO review (passes 1–12 on PR 446) approved the Feature Spec and this ADR as the implementation source of truth. M1 issues are cut next; Nest/React starts from those issues only.
 
 ## Context
 
@@ -216,5 +218,5 @@ Hit tokens are a complete signed `CatalogHitPayload` (HMAC, TTL ≤ 15 minutes):
 | Field | Value |
 |-------|-------|
 | Project | [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b) |
-| Milestone | M1–M3 in-scope; M4 wholesaler later |
-| Issues | Cut after spec review |
+| Milestone | M1 Vehicle identity & ephemeral search (issues AUT-229–AUT-235); M2–M3 later; M4 wholesaler later |
+| Issues | [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229) · [AUT-230](https://linear.app/auto-core-platform/issue/AUT-230) · [AUT-231](https://linear.app/auto-core-platform/issue/AUT-231) · [AUT-233](https://linear.app/auto-core-platform/issue/AUT-233) · [AUT-232](https://linear.app/auto-core-platform/issue/AUT-232) · [AUT-234](https://linear.app/auto-core-platform/issue/AUT-234) · [AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) |

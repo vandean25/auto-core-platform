@@ -2,7 +2,7 @@
 title: "Vehicle Intelligence & Parts Catalog"
 date: "2026-08-28"
 module: "Vehicle"
-status: draft
+status: approved
 linear-project: "https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b"
 linear-milestone: "M1 Vehicle identity & ephemeral search"
 tags:
@@ -21,7 +21,7 @@ tags:
 
 > Identify a vehicle from VIN (plate adapters later), search fitment-aware parts and labor through provider ports, and materialize a `CatalogItem` only when the advisor adds a part to the job. OEM catalogs (BMW, Mercedes, Stellantis) win by **OEM concern**, resolved from a canonical vehicle-make `Brand` — not from free-text `Vehicle.make`. Aftermarket is the fallback with an explicit advisor choice when OEM is empty or down. Shortage qty is reserved in slices. **M2 replaces `replaceTaskLineItems` delete-all** with an ID-based diff. Qty types are **`Decimal(10, 3)`**. **Release** returns `quantity_staged` only. Consumed qty stays billable: `CANCELLED` means zero consumed; leftover-release shrinks `line.quantity` to consumed. Receive/consume/release take `SELECT … FOR UPDATE`. `CatalogItem.cost_price` is nullable (unknown ≠ 0). ATP uses parameterized SQL.
 
-Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-providers.md). Spec + ADR are the implementation source of truth for the locks below. ADR status stays **Proposed** until product marks it Accepted.
+Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-providers.md). Spec + ADR are the implementation source of truth for the locks below. ADR-0021 is **Accepted** (2026-08-28). Implement M1 from the Linear issues in Linear Tracking; do not start M2/M3 or Nest/React outside those issues.
 
 **Out of this project:** Kostenvoranschlag / customer approval ([Customer Communication](https://linear.app/auto-core-platform/project/customer-communication-and-approvals-49b9200f083b)); live wholesaler punchout (M4); adding `PurchaseOrderStatus.CANCELLED` (cancel reservations/requisitions, or delete a `DRAFT` PO).
 
@@ -881,4 +881,4 @@ None blocking after review pass 12 (2026-08-28): requisition terminal states req
 |-------|-------|
 | Project | [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b) |
 | Milestone | M1 Vehicle identity & ephemeral search |
-| Issues | After spec review |
+| Issues | [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229) (PO approve, Done); [AUT-230](https://linear.app/auto-core-platform/issue/AUT-230) DB-1; [AUT-231](https://linear.app/auto-core-platform/issue/AUT-231) BE-1; [AUT-233](https://linear.app/auto-core-platform/issue/AUT-233) BE-2; [AUT-232](https://linear.app/auto-core-platform/issue/AUT-232) BE-3; [AUT-234](https://linear.app/auto-core-platform/issue/AUT-234) FE-1; [AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) FE-2 |
