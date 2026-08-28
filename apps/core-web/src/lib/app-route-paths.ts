@@ -39,6 +39,7 @@ export const APP_ROUTE_PATHS = {
   platformTenants: '/platform/tenants',
   workshopIntake: '/workshop/intake',
   workshopOrders: '/workshop/orders',
+  workshopPick: '/workshop/pick',
   workshopPickList: '/workshop/pick-list',
   workshopBoard: '/workshop/board',
   workshopPlanner: '/workshop/planner',

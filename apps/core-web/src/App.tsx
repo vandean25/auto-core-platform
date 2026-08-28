@@ -122,6 +122,10 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.platformTenants} element={<PlatformTenantsPage />} />
               <Route path={APP_ROUTE_PATHS.workshopIntake} element={<IntakeDashboard />} />
               <Route path={APP_ROUTE_PATHS.workshopOrders} element={<WorkshopOrderList />} />
+              <Route
+                path={APP_ROUTE_PATHS.workshopPick}
+                element={<Navigate to={APP_ROUTE_PATHS.workshopPickList} replace />}
+              />
               <Route path={APP_ROUTE_PATHS.workshopPickList} element={<WorkshopPickList />} />
               <Route path={APP_ROUTE_PATHS.workshopBoard} element={<WorkshopBoard />} />
               <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<WorkshopPlannerPage />} />
@@ -428,19 +432,21 @@ function AuthenticatedApp() {
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
 
-  if (!isKnownAppPath(location.pathname)) {
-    return (
-      <React.Suspense fallback={<PageLoader />}>
-        <NotFoundPage />
-      </React.Suspense>
-    )
-  }
+  const isUnknownPath = !isKnownAppPath(location.pathname)
 
   if (loading || (user && sessionQuery.isLoading)) {
     return <AuthLoadingScreen />
   }
 
   if (!user) {
+    if (isUnknownPath) {
+      return (
+        <React.Suspense fallback={<PageLoader />}>
+          <NotFoundPage />
+        </React.Suspense>
+      )
+    }
+
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />
   }
 
