@@ -43,7 +43,8 @@ tags:
 | | `sort_order` | Int | No | Default 0 |
 | | `parent_id` | UUID | Yes | FK self-ref, max depth 2 |
 | | `is_active` | Boolean | No | Default true |
-| | `default_hourly_rate` | Decimal(10,2) | Yes | Inherited by child operations |
+| | `default_hourly_rate` | Decimal(10,2) | Yes | Inherited by child operations (selling rate) |
+| | `default_internal_cost_rate` | Decimal(10,2) | Yes | Added by Vehicle Intelligence (ADR-0021). Snapshot onto workshop lines; never fall back to selling rate. |
 | `labor_operations` | `id` | UUID | No | PK |
 | | `code` | String | No | Unique identifier (e.g., `MECH-001`) |
 | | `description` | String | No | Human-readable name |
@@ -89,14 +90,12 @@ tags:
 
 | Entity | Strategy | Rule |
 |--------|----------|------|
-| `LaborCategory` | **Blocked (Conditional)** | Cannot delete if has child categories or linked `LaborOperation` records. |
+| `LaborCategory` | **Blocked (Conditional)** | Cannot delete if it has child categories, linked `LaborOperation` records, or is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rates snapshotted on the line). See `docs/deletion-policy.md` and ADR-0021. |
 | `LaborOperation` | **Soft Delete** | Sets `is_active = false`. Preserves data for historical workshop tasks that reference it. |
 | `LaborFitment` | **Cascade Delete** | Deleted when parent `LaborOperation` is deleted. |
 | `MasterPart` | **Blocked (Conditional)** | Cannot delete if referenced by active workshop task line items. |
 | `PartFitment` | **Cascade Delete** | Deleted when parent `MasterPart` is deleted. |
 | `LocalInventory` | **Cascade Delete** | 1:1 with `MasterPart`; deleted with parent. |
-
-> **Action required:** Add `LaborCategory`, `LaborOperation`, `LaborFitment`, `MasterPart`, `PartFitment`, and `LocalInventory` to `docs/deletion-policy.md`.
 
 ---
 
@@ -220,7 +219,7 @@ The primary user-facing surface for this feature is the **catalog search** withi
 
 1. **`MasterPart` vs `CatalogItem` relationship:** Should `MasterPart` records be linkable to `CatalogItem` records (e.g., for stock tracking through the primary ledger)? Currently they are separate systems with deduplication at search time.
 2. **`LocalInventory` vs `InventoryStock`:** `LocalInventory.quantity_on_hand` is mutated directly (not ledger-based). Should this be migrated to the `InventoryTransaction` ledger pattern (ADR-0002) for audit consistency?
-3. **Fitment data import:** Is there a bulk import mechanism needed for fitment data (e.g., TecDoc, ACES/PIES standard)?
+3. **Fitment data import:** External TecDoc/OEM/Haynes lookup is specified in [Vehicle Intelligence & Parts Catalog](../Vehicle/2026-08-28-vehicle-intelligence-and-parts-catalog.md) (ADR-0021). Homemade `LaborFitment` / `PartFitment` is not that engine.
 4. **`MasterPart.brand` is free text** — should it reference the `Brand` entity for consistency?
 
 ---
