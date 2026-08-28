@@ -52,22 +52,22 @@ const STELLANTIS_MAKES: MakeSeedDefinition[] = [
 const OTHER_MAKE_ALIASES: MakeSeedDefinition[] = [
   {
     name: 'BMW',
-    aliases: ['BMW AG', 'BAYERISCHE MOTOREN WERKE'],
+    aliases: ['BMW', 'BMW AG', 'BAYERISCHE MOTOREN WERKE'],
     concern: 'BMW',
   },
   {
     name: 'Mercedes-Benz',
-    aliases: ['MERCEDES', 'MERCEDES-BENZ', 'MERCEDES BENZ'],
+    aliases: ['MERCEDES', 'MERCEDES-BENZ', 'MERCEDES BENZ', 'Mercedes-Benz'],
     concern: 'MERCEDES',
   },
   {
     name: 'Volkswagen',
-    aliases: ['VW', 'VOLKSWAGEN AG', 'VW AG'],
+    aliases: ['VW', 'Volkswagen', 'VOLKSWAGEN AG', 'VW AG'],
   },
-  { name: 'Audi', aliases: ['AUDI AG'] },
-  { name: 'Porsche', aliases: ['PORSCHE AG'] },
-  { name: 'Skoda', aliases: ['SKODA', 'ŠKODA'] },
-  { name: 'Seat', aliases: ['SEAT', 'CUPRA'] },
+  { name: 'Audi', aliases: ['Audi', 'AUDI AG'] },
+  { name: 'Porsche', aliases: ['Porsche', 'PORSCHE AG'] },
+  { name: 'Skoda', aliases: ['Skoda', 'SKODA', 'ŠKODA'] },
+  { name: 'Seat', aliases: ['Seat', 'SEAT', 'CUPRA'] },
 ];
 
 const ALL_MAKE_DEFINITIONS = [...STELLANTIS_MAKES, ...OTHER_MAKE_ALIASES];
@@ -108,8 +108,14 @@ export async function seedVehicleCatalogProviders(
 
     brandByName.set(definition.name, brand);
 
-    for (const alias of definition.aliases) {
+    const seenAliases = new Set<string>();
+    for (const alias of [definition.name, ...definition.aliases]) {
       const alias_normalized = normalizeVehicleMakeAlias(alias);
+      if (seenAliases.has(alias_normalized)) {
+        continue;
+      }
+      seenAliases.add(alias_normalized);
+
       await prisma.vehicleMakeAlias.upsert({
         where: {
           tenant_id_alias_normalized: {

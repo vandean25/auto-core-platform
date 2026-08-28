@@ -219,6 +219,30 @@ describe('seedVehicleCatalogProviders', () => {
     expect(unknownAlias).toBeNull();
   });
 
+  it('maps decoder BMW to the BMW concern and Volkswagen to no OEM concern', async () => {
+    const { prisma } = createPrismaMock();
+
+    await seedVehicleCatalogProviders(prisma, 'tenant-1');
+
+    const bmw = await resolveVehicleMakeBrand(prisma, 'tenant-1', 'BMW');
+    expect(bmw?.brand.name).toBe('BMW');
+    const bmwConcern = await resolveOemConcernForBrand(
+      prisma,
+      'tenant-1',
+      bmw!.brand.id,
+    );
+    expect(bmwConcern?.concern.code).toBe('BMW');
+
+    const vw = await resolveVehicleMakeBrand(prisma, 'tenant-1', 'Volkswagen');
+    expect(vw?.brand.name).toBe('Volkswagen');
+    const vwConcern = await resolveOemConcernForBrand(
+      prisma,
+      'tenant-1',
+      vw!.brand.id,
+    );
+    expect(vwConcern).toBeNull();
+  });
+
   it('creates a singleton CatalogProviderSettings row per tenant', async () => {
     const { prisma, getProviderSettingsCount } = createPrismaMock();
 
