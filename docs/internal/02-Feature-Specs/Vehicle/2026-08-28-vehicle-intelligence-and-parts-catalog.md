@@ -19,7 +19,7 @@ tags:
 
 ## Summary
 
-> Identify a vehicle from VIN (plate adapters later), search fitment-aware parts and labor through provider ports, and materialize a `CatalogItem` only when the advisor adds a part to the job. OEM catalogs (BMW, Mercedes, Stellantis) win by **OEM concern**, resolved from a canonical vehicle-make `Brand` — not from free-text `Vehicle.make`. Aftermarket is the fallback with an explicit advisor choice when OEM is empty or down. Shortage qty is reserved in slices. **M3: one `PurchaseOrderItem` per reservation** so a partial delivery has a single job tote. Qty types are **`Decimal(10, 3)` end-to-end**, including write DTOs. Received reserved qty posts `PURCHASE_RECEIPT` and tote-transfers in the same transaction (`ORDERED` → `STAGED`). **Release** returns only the current tote balance (`quantity_staged`), never consumed qty. Lines with reservation or ledger history are soft-cancelled, not hard-deleted. The hit token is a complete signed `CatalogHitPayload` (no unsigned catalog fields). ATP reserve uses parameterized SQL, not Prisma `updateMany` arithmetic. `internal_cost_rate` is snapshotted only when known — never copied from the selling rate.
+> Identify a vehicle from VIN (plate adapters later), search fitment-aware parts and labor through provider ports, and materialize a `CatalogItem` only when the advisor adds a part to the job. OEM catalogs (BMW, Mercedes, Stellantis) win by **OEM concern**, resolved from a canonical vehicle-make `Brand` — not from free-text `Vehicle.make`. Aftermarket is the fallback with an explicit advisor choice when OEM is empty or down. Shortage qty is reserved in slices. **M2 replaces `replaceTaskLineItems` delete-all** with an ID-based diff. Qty types are **`Decimal(10, 3)`**. **Release** returns `quantity_staged` only. Consumed qty stays billable: `CANCELLED` means zero consumed; leftover-release shrinks `line.quantity` to consumed. Receive/consume/release take `SELECT … FOR UPDATE`. `CatalogItem.cost_price` is nullable (unknown ≠ 0). ATP uses parameterized SQL.
 
 Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-providers.md). Spec + ADR are the implementation source of truth for the locks below. ADR status stays **Proposed** until product marks it Accepted.
 
@@ -51,6 +51,15 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 | P2 ATP SQL | Reserve/consume ATP with parameterized `UPDATE … WHERE quantity_on_hand - quantity_reserved >= $qty`, not Prisma `updateMany` filters. Count 0 → 409. |
 | P3 labor deletion | Labor spec matches ADR-0021 / `docs/deletion-policy.md` (`CatalogProviderSettings.default_labor_category_id`). |
 
+### Review locks (pass 5)
+
+| # | Decision |
+|---|---------|
+| P1 replace-all | M2 replaces `replaceTaskLineItems()` deleteMany+createMany with ID-based diff/upsert. Update in place; hard-delete only lines with no reservation/ledger; otherwise soft-cancel. Preserve snapshots, `catalog_hit_jti`, `catalog_item_id`, stable ids. |
+| P1 demand vs consume | Consumed qty satisfies demand after slice cancel. `line.quantity` cannot go below `sum(quantity_consumed)`. `part_execution_status = CANCELLED` only when consumed is 0. Partially consumed lines stay billable (`CONSUMED`). Leftover-release sets `line.quantity = sum(consumed)`. Invoice PART qty = `line.quantity` (equals consumed after leftover-release). Shortage uses consumed + active remaining commitment. |
+| P1 races | Receive, consume, and release lock reservations (then PO items, then stock) with `SELECT … FOR UPDATE`, conditional counter updates, and `parts_reservation_id` on every `WORKSHOP_CONSUMPTION`. Reconcile tote QOH to `sum(quantity_staged)`. |
+| P2 unknown cost | `CatalogItem.cost_price` becomes nullable. JIT writes `cost_price_est` or **null**, never `?? 0`. Same unknown-margin rule as labor. |
+
 ---
 
 ## User Stories
@@ -73,7 +82,7 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 | Milestone | Scope | Ship when |
 |-----------|-------|-----------|
 | **M1** Vehicle identity & ephemeral search | VIN decode; `make_brand_id` + aliases + OEM concern; Catalog Router; **per-concern** search API; OEM-first UI + banners. No JIT, no PO. | Advisor resolves a VIN to a Brand/concern and searches parts **or** labor with source/fallback metadata. |
-| **M2** JIT parts & labor snapshot | Add to order → `CatalogItem` upsert; line FK + price/cost/OEN snapshots; labor hours × category rate. No ledger write. | Job lines survive reload; pick uses `catalog_item_id`; QOH is zero until receipt. |
+| **M2** JIT parts & labor snapshot | Add to order → `CatalogItem` upsert; line FK + snapshots; labor hours × category rate. **Replace `replaceTaskLineItems` with ID diff.** Nullable catalog cost. No ledger write. | Job lines survive reload without wiping JIT fields; pick uses `catalog_item_id`. |
 | **M3** Requisition, PO, reservations | `Decimal(10,3)` qty + DTO validators; slices; 1:1 PO item; ATP SQL; `PURCHASE_RECEIPT` + tote; consume-aware **Release** (`quantity_staged`); soft-cancel lines. | Fluids 1.5 L round-trip. Release after consume 1.5 of 4 returns 2.5, does not recreate consumed stock. Line with a reservation cannot be hard-deleted. |
 | **M4** Wholesaler B2B (later) | Live branch stock, Einkaufspreis, punchout. | Explicit trigger; not in M1–M3. |
 
@@ -135,6 +144,7 @@ Decoder flow: normalize make → `VehicleMakeAlias` → `Brand` → set `Vehicle
 | `external_article_id` | String? | Provider article id |
 | `ean` | String? | |
 | `oem_numbers` | Json? | String array of OENs (live catalog; **not** the job snapshot) |
+| `cost_price` | Decimal(10,2)? | **Nullable after M2.** JIT: `cost_price_est` or null; never coerce unknown to 0. |
 
 Unique: `(tenant_id, source_system, external_article_id)` where both external fields are set.
 
@@ -168,6 +178,22 @@ Unique: `(tenant_id, source_system, external_article_id)` where both external fi
 `standard_aw` already exists; provider writes it. `labor_operation_id` remains null unless an internal Labor Master op is chosen.
 
 Add `LaborCategory.default_internal_cost_rate Decimal(10,2)?`. This field does not exist today (`LaborCategory` currently has only `default_hourly_rate`).
+
+Migrate `CatalogItem.cost_price` to **`Decimal(10, 2)?`**. Today it is required. Unknown JIT cost must stay null (same rule as labor `internal_cost_rate`). Existing manual catalog rows keep their values.
+
+### Replace-all line API (M2)
+
+Today `WorkshopTaskService.replaceTaskLineItems()` (`apps/core-api/src/workshop/workshop-task.service.ts`) `deleteMany`s every line then `createMany`s the payload. `ReplaceWorkshopTaskLineItemsDto` has **no line `id`**. That wipes `catalog_hit_jti`, snapshots, and `catalog_item_id`, or FK-fails once reservations exist.
+
+M2 **replaces** that method with an ID-based diff (same PUT route, new DTO field `id?`):
+
+| Payload row | Action |
+|-------------|--------|
+| `id` matches an existing line | **Update in place.** Qty/description/selling price only, subject to consume/reservation floors. Do **not** clear `catalog_item_id`, `catalog_hit_jti`, `source_system`, `cost_price_est`, `oem_numbers`, `fitment_notes`, `labor_category_id`, rate snapshots. Stable id. |
+| `id` omitted | Insert a new line (from-catalog still uses the hit-token route). |
+| Existing line omitted from payload | **Hard-delete** only if no `PartsReservation` and no `InventoryTransaction` for that line. Else **soft-cancel** (`part_execution_status = CANCELLED` + Release) when consumed is 0; if consumed > 0, 409 — client must leftover-release (shrink qty) rather than drop the row. |
+
+Tests: replace-all after JIT keeps `catalog_hit_jti` and `catalog_item_id`; replace-all after a reservation does not delete the line.
 
 ### External labor pricing (M2)
 
@@ -261,7 +287,17 @@ Same SKU on the printed PO may appear as two lines (job A, job B). That is inten
 
 ADR-0014 part-line status includes `CONSUMED`: stock has left the tote through `WORKSHOP_CONSUMPTION`. Prisma `TransactionType` does **not** yet include `WORKSHOP_CONSUMPTION` (ADR-0002 lists it; the enum is `PURCHASE_RECEIPT`, `SALE_ISSUE`, `ADJUSTMENT`, `TRANSFER_IN`, `TRANSFER_OUT`, `INITIAL_BALANCE`). First consume that hits a reserved tote **must** add that enum value. Until then `quantity_consumed` stays 0.
 
-**Consume allocation (deterministic):** when a part line is consumed for qty `C`, allocate `C` across that line’s active slices in `created_at` ascending, only from slices with `quantity_staged > 0`. For each slice: `take = min(C remaining, quantity_staged)`; post `WORKSHOP_CONSUMPTION` (negative) against the job tote for `take`; increment `quantity_consumed`; decrement `quantity_staged`. Leftover `C` after all slices is 409 (cannot consume more than staged). Line `part_execution_status = CONSUMED` only when `sum(quantity_consumed) >= line.quantity`.
+**Consume allocation (deterministic):** when a part line is consumed for qty `C`, allocate `C` across that line’s active slices in `created_at` ascending, only from slices with `quantity_staged > 0`. For each slice: `take = min(C remaining, quantity_staged)`; post `WORKSHOP_CONSUMPTION` (negative) against the job tote for `take` with **`parts_reservation_id` set on the ledger row**; increment `quantity_consumed`; decrement `quantity_staged`. Leftover `C` after all slices is 409 (cannot consume more than staged).
+
+**Demand, CANCELLED, and invoicing (line qty 4, consume 1.5, release leftover 2.5):**
+
+- Consumed qty **satisfies demand** even after those slices are `CANCELLED`. It must not reappear as a shortage and must remain billable.
+- `line.quantity` **cannot** be reduced below `sum(quantity_consumed)` across all slices (409).
+- Leftover-release of remaining demand **sets `line.quantity = sum(quantity_consumed)`** in the same transaction (4 → 1.5). Then `part_execution_status = CONSUMED`.
+- **`part_execution_status = CANCELLED` only when `sum(quantity_consumed) = 0`.** A partially consumed line is never `CANCELLED`.
+- **Invoice PART quantity = `line.quantity`.** After leftover-release that equals consumed. `CANCELLED` lines (consumed 0) are omitted from the invoice. LABOR still invoices `line.quantity` (hours). Do not invent a second billable-qty column.
+
+Line `CONSUMED` when `sum(quantity_consumed) >= line.quantity` (true after leftover-release shrinks quantity to consumed).
 
 **Release** is allowed from `OPEN`, `ORDERED`, and `STAGED`. Returnable tote qty is **`quantity_staged`**, never `quantity_received` and never `quantity_consumed`.
 
@@ -279,8 +315,10 @@ A fully consumed slice (`quantity_staged = 0` and `quantity_consumed > 0`) may s
 
 `WorkshopTaskLineItem` today is `onDelete: Cascade` from `WorkshopTask`. `PartsReservation.workshop_task_line_item_id` stays **required** (ownership is the line). Therefore:
 
-- Advisor “delete line” → `part_execution_status = CANCELLED`, release every active slice (unconsumed tote only), **keep the row**. Same for qty set to 0.
-- Line qty PATCH to `Q > 0` still 409 `ALLOCATION_EXCEEDS_DEMAND` when `Q < sum(active reservation.quantity)`.
+- Advisor leftover-release / “cancel remaining” → Release active slices, then `line.quantity = sum(quantity_consumed)`. If consumed is 0, `part_execution_status = CANCELLED`. If consumed > 0, status `CONSUMED` (billable). **Keep the row.**
+- Advisor “delete line” with consumed 0 → same as leftover-release to qty 0 (`CANCELLED`).
+- Advisor “delete line” with consumed > 0 → 409; must leftover-release (shrink to consumed) instead of dropping the row.
+- Line qty PATCH to `Q`: 409 if `Q < sum(quantity_consumed)` or `Q < sum(quantity_consumed) + sum(active remaining commitment)` (release slices first).
 - Hard-delete `WorkshopTaskLineItem` is forbidden once any `PartsReservation` or `InventoryTransaction` exists for that line’s catalog item on this order’s tote/bins.
 - Hard-delete `WorkshopTask` is forbidden once any child line has a `PartsReservation` or inventory activity (in addition to the existing LaborEntry / invoiced-order rules). Planner no-show delete of a `SCHEDULED` order with no reservations stays as today.
 
@@ -335,7 +373,7 @@ WHERE id = $id
 | `PartsRequisition` | Draft-only delete. After `ORDERED`, cancel. |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
 | `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Returns `quantity_staged` only. No hard delete. |
-| `WorkshopTaskLineItem` | No hard delete after any `PartsReservation` or inventory activity. Soft-cancel: `part_execution_status = CANCELLED` + Release. |
+| `WorkshopTaskLineItem` | No hard delete after reservation/ledger. Consumed 0 → `CANCELLED`. Consumed > 0 leftover-release → qty shrink, status `CONSUMED` (billable). `replaceTaskLineItems` is an ID diff. |
 | `WorkshopTask` | Existing rules, plus **blocked** after any child reservation or inventory activity. |
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
 | `LaborCategory` | Conditional. **Blocked** while it is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rate snapshotted). Still blocked when `LaborOperation` rows or child categories exist. |
@@ -365,7 +403,38 @@ Partial receive: increment `quantity_received` and `quantity_staged`; stay `ORDE
 
 ### Workshop part shortage
 
-A line is on the clerk queue when `quantity - sum(active reservation qty) > 0`. Active = not `CANCELLED`.
+`remaining_commitment(slice)` for **active** (not `CANCELLED`) slices = `quantity - quantity_consumed - quantity_returned`.
+
+A line is on the clerk queue when:
+
+```
+line.quantity - sum(quantity_consumed across ALL slices) - sum(remaining_commitment of active slices) > 0
+```
+
+Consumed qty is covered even if its reservation is later `CANCELLED`. After leftover-release, `line.quantity = consumed`, so the remainder is not a shortage.
+
+### Receive / consume / release concurrency
+
+Transactions alone do not serialize two reads of `quantity_staged`. Consume and release can both see 2.5 and both deduct; receive can stage onto a reservation that release just cancelled.
+
+**Lock order** (always this order, skip missing rows):
+
+1. `WorkshopTaskLineItem` `SELECT … FOR UPDATE`
+2. That line’s `PartsReservation` rows `FOR UPDATE` ordered by `id`
+3. Linked `PurchaseOrderItem` rows `FOR UPDATE` ordered by `id`
+4. `InventoryStock` rows (tote, then return/warehouse bins) `FOR UPDATE` ordered by `id`
+
+Then **conditional** counter updates (count 0 → 409), never read-then-write:
+
+- Consume: `WHERE status IN ('ORDERED','STAGED') AND detached_at IS NULL AND quantity_staged >= $take`
+- Release return: `WHERE status <> 'CANCELLED' AND quantity_staged >= $returnQty` (then set staged 0, status `CANCELLED`)
+- Receive onto job: `WHERE status IN ('OPEN','ORDERED') AND detached_at IS NULL`; else free-stock path
+
+Every `WORKSHOP_CONSUMPTION` row sets **`parts_reservation_id`** (nullable FK on `InventoryTransaction`; `reference_id` remains the workshop order number).
+
+Reconciliation (M3 test + periodic assert): for each tote `InventoryStock`, `quantity_on_hand` equals `sum(quantity_staged)` of reservations whose current tote is that location. Mismatch is an invariant error.
+
+Race tests: consume-vs-release, receive-vs-release, double-consume — one winner, one 409, tote QOH matches `sum(quantity_staged)`.
 
 ---
 
@@ -420,7 +489,7 @@ No unsigned catalog fields in the body. If a column is required to insert `Catal
 
 **PARTS (required to write `CatalogItem` + line — `name`, `sku`/`item_no`, `description` are non-null today):** `name`, `article_number`, `unit_price`. Optional: `brand_label` (Brand match + SKU segment; empty → `UNKNOWN`), `ean`, `unit` (default `pcs`), `fitment_notes`, `cost_price_est`, `oem_numbers` (string array).
 
-JIT mapping: `CatalogItem.name = name`; `CatalogItem.retail_price = unit_price`; `CatalogItem.cost_price = cost_price_est ?? 0`; `CatalogItem.unit = unit ?? pcs`; `CatalogItem.ean = ean`; SKU from `{source}-{normalized(brand_label)}-{normalized(article_number)}-{short-hash}`; line `item_no = sku`; line `description = name`; line snapshots from the same claims.
+JIT mapping: `CatalogItem.name = name`; `CatalogItem.retail_price = unit_price`; **`CatalogItem.cost_price = cost_price_est` when present, else `null`** (never `?? 0`); `CatalogItem.unit = unit ?? pcs`; `CatalogItem.ean = ean`; SKU from `{source}-{normalized(brand_label)}-{normalized(article_number)}-{short-hash}`; line `item_no = sku`; line `description = name`; line `cost_price_est` snapshot matches (null if unknown). Reports treat null catalog/line cost as **unknown margin**, not zero.
 
 **LABOR (required for line `item_no` + `description`):** `name` (line description), `external_operation_code` (line `item_no` and `external_operation_code`). Optional: `standard_aw`, `planned_hours`. Selling `unit_price` is **not** in the token — it comes from `LaborCategory` at write time.
 
@@ -527,7 +596,16 @@ OWNER/ADMIN only.
 - [ ] Release ORDERED after receive 4, consume 1.5: tote −2.5 (`quantity_staged`), consumed 1.5 stays; no inverse `WORKSHOP_CONSUMPTION`; later remaining PO receipt is free stock.
 - [ ] Release STAGED with `quantity_staged = 0` (fully consumed): no TRANSFER; 200; `detached_at` if PO linked.
 - [ ] Consume allocates FIFO across slices; cannot consume more than `sum(quantity_staged)`.
-- [ ] Soft-cancel line: `part_execution_status = CANCELLED`, row remains, reservations released; hard-delete line 409 after reservation exists.
+- [ ] Consume 1.5 of 4 then leftover-release: `line.quantity = 1.5`, status `CONSUMED` (not `CANCELLED`); invoice qty 1.5; shortage 0.
+- [ ] Line qty PATCH below `sum(quantity_consumed)` → 409.
+- [ ] `CANCELLED` line only when consumed is 0; omitted from invoice.
+- [ ] `PUT` lines after JIT: same ids, `catalog_hit_jti` and `catalog_item_id` preserved; omitted operational line is soft-cancelled not deleted.
+- [ ] Consume vs release concurrent: one 200, one 409; tote QOH = `sum(quantity_staged)`.
+- [ ] Receive vs release concurrent: cancelled reservation cannot be restaged; extra qty is free stock.
+- [ ] Double-consume of last staged qty: one 200, one 409.
+- [ ] `WORKSHOP_CONSUMPTION.parts_reservation_id` set; tote QOH reconciles to `sum(quantity_staged)`.
+- [ ] JIT with no `cost_price_est`: `CatalogItem.cost_price` and line `cost_price_est` are null, not 0.
+- [ ] Soft-cancel line (consumed 0): `part_execution_status = CANCELLED`, row remains; hard-delete 409 after reservation exists.
 - [ ] Hard-delete `WorkshopTask` 409 after a child reservation exists.
 - [ ] Receive allocated line: `ORDERED` → `STAGED` (or stay ORDERED if partial); no `RECEIVED` status; tote qty matches `quantity_received`.
 - [ ] ATP helper used by sales finalize; direct `quantity_on_hand` deduct in sales is forbidden.
@@ -562,7 +640,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 4 (2026-08-28): consume-aware **Release**, complete `CatalogHitPayload`, ATP SQL primitive, and Labor deletion-policy sync are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 5 (2026-08-28): ID-based line diff, consumed-vs-invoice demand, FOR UPDATE races, and nullable catalog cost are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 

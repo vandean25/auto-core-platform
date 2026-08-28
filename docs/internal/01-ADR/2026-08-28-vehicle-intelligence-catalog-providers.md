@@ -113,7 +113,9 @@ A workshop part line is demand for `quantity`. Each **reservation** is a qty sli
 - One line **may** have N slices (on-hand pick + OEM PO + backorder PO).
 - **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Qty columns are **`Decimal(10, 3)`** end-to-end (stock, reserved, PO, reservation, workshop/sales lines). `InventoryTransaction.quantity` is already 10,3. Write DTOs (`ReceiveItemDto`, create/update PO item, pick) replace `@IsInt()` with `@IsNumber({ maxDecimalPlaces: 3 })` and min `0.001`. Ledger cache math uses Prisma `Decimal`, not `Number(...)`.
 - No `RECEIVED` status: receive + tote transfer is one transaction (`ORDERED` → `STAGED` when complete).
-- **Release:** from `OPEN` / `ORDERED` / `STAGED`. Return **`quantity_staged`** (current tote), never `quantity_received` and never consumed qty. Consume allocates `WORKSHOP_CONSUMPTION` FIFO onto slices (`quantity_consumed`, decrement staged). Add Prisma `TransactionType.WORKSHOP_CONSUMPTION` before first reserved-tote consume (named in ADR-0002, missing from the enum today). Keep `purchase_order_item_id`. Workshop lines/tasks with reservation or ledger history are **soft-cancelled**, not hard-deleted. Line qty PATCH 409 if it would drop below allocated qty. Do **not** add `PurchaseOrderStatus.CANCELLED`.
+- **Release:** from `OPEN` / `ORDERED` / `STAGED`. Return **`quantity_staged`**. Consume allocates FIFO. Leftover-release shrinks `line.quantity` to consumed; `CANCELLED` line status only if consumed is 0; invoice PART qty = `line.quantity`. Add `TransactionType.WORKSHOP_CONSUMPTION` before first reserved-tote consume. Keep `purchase_order_item_id`. Lines with history are not hard-deleted. `replaceTaskLineItems` becomes an ID diff in M2.
+- Receive/consume/release: `SELECT … FOR UPDATE` in lock order line → reservations → PO items → stock; conditional counter updates; `parts_reservation_id` on consumption ledger rows; tote QOH = `sum(quantity_staged)`.
+- `CatalogItem.cost_price` nullable; JIT does not write 0 for unknown cost.
 - ATP reserve/consume: parameterized `UPDATE inventory_stocks SET quantity_reserved = quantity_reserved + $qty WHERE … AND quantity_on_hand - quantity_reserved >= $qty`. Not Prisma `updateMany` arithmetic.
 
 Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **1:1 `PurchaseOrderItem`** (FK retained after release).
@@ -168,6 +170,9 @@ Hit tokens are a complete signed `CatalogHitPayload` (HMAC, TTL ≤ 15 minutes):
 | @IsInt qty after Decimal columns | Schema accepts 1.5 | Receive DTO still 400s 1.5 |
 | Release tote = quantity_received | Simple | Overdraws tote after CONSUMED |
 | Hard-delete part line after Release | Cleaner UI | Orphans reservation FK / ledger |
+| Keep replaceTaskLineItems delete-all | No DTO change | Wipes JIT snapshots / breaks reservations |
+| Invoice original line qty after partial consume | No shrink | Bills 4 when 1.5 installed, or shortages 2.5 |
+| CatalogItem.cost_price ?? 0 | Column stays NOT NULL | Unknown cost looks like zero margin |
 | Unsigned JIT fields + token | Smaller HMAC | Client can mint name/price |
 | Prisma updateMany ATP filter | Familiar | Cannot express on_hand - reserved >= qty |
 | max(0, ATP) | No crashes | Hides quantity_reserved corruption |
