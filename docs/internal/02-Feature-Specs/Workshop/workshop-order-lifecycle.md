@@ -65,6 +65,8 @@ The module uses two interacting state machines:
 
 *Invariant:* A `WorkshopOrder` cannot transition to `COMPLETED` unless all its `WorkshopTask` children are `DONE`.
 
+*Invariant (Vehicle Intelligence / ADR-0021):* A `WorkshopTask` cannot become `DONE` while any `PART` line is `PENDING_PICK` or `STAGED`, has an active (non-`CANCELLED`) `PartsReservation`, or has `quantity_staged > 0`. Invoice creation (`COMPLETED` → `INVOICED` and draft-invoice APIs) repeats this check. `CANCELLED` part lines are omitted from the invoice projection. `CONSUMED` requires `sum(quantity_consumed) >= line.quantity`.
+
 ### Inventory Integration (Parts Consumption)
 
 When a `WorkshopTaskLineItem` of type `PART` is consumed, the backend must create an `InventoryTransaction` with type `WORKSHOP_CONSUMPTION` (negative quantity) through `ledger.service.ts`. This follows the same ledger pattern as sales — developers must never directly decrement `InventoryStock.quantity_on_hand`.
@@ -73,10 +75,11 @@ When a `WorkshopTaskLineItem` of type `PART` is consumed, the backend must creat
 
 When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 
-1. An `Invoice` entity is created with `InvoiceItem` lines snapshotting both **parts** (from `WorkshopTaskLineItem` of type `PART`) and **labor** (from `WorkshopTaskLineItem` of type `LABOR`, sourced from `LaborOperation`).
-2. Snapshotted fields follow ADR-0004: `unit_price`, `item_name`/`description`, and `revenue_group_name`.
-3. The invoice is assigned a sequential number from `InvoiceSequence` and validated against the fiscal lock date (ADR-0003).
-4. All of the above executes within a single `prisma.$transaction`.
+1. Re-validate part-line readiness (no `PENDING_PICK`/`STAGED`, no active reservation, no tote `quantity_staged`). 409 if any remain.
+2. An `Invoice` entity is created with `InvoiceItem` lines snapshotting **parts** (`WorkshopTaskLineItem` of type `PART` where `part_execution_status <> CANCELLED`) and **labor** (`type = LABOR`).
+3. PART invoice qty is `line.quantity` (equals consumed after leftover-release). Snapshotted fields follow ADR-0004: `unit_price`, `item_name`/`description`, and `revenue_group_name`.
+4. The invoice is assigned a sequential number from `InvoiceSequence` and validated against the fiscal lock date (ADR-0003).
+5. All of the above executes within a single `prisma.$transaction`.
 
 ---
 
@@ -143,6 +146,8 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - [ ] Happy-path: Create WorkshopOrder → Add Tasks → Progress through statuses → Invoice → verify snapshot and ledger entry.
 - [ ] Parts consumption creates `WORKSHOP_CONSUMPTION` InventoryTransaction.
 - [ ] Cannot transition to `COMPLETED` if any task is not `DONE`.
+- [ ] Cannot mark a task `DONE` (or invoice) while a PART line is `PENDING_PICK`/`STAGED`, has an active reservation, or tote `quantity_staged > 0`.
+- [ ] Invoice omits `CANCELLED` part lines.
 - [ ] Fiscal lock date validation on `COMPLETED → INVOICED` transition.
 - [ ] PDF generation pipeline triggers on `INVOICED` transition.
 - [ ] Mechanic voice-note endpoint rejects unassigned tasks, wrong tenant, disallowed MIME types, oversized files, too-long recordings, and silent/empty recordings.
