@@ -23,6 +23,7 @@ VALUES
   ('audit_logs'),
   ('bays'),
   ('brands'),
+  ('catalog_oem_concerns'),
   ('customers'),
   ('employees'),
   ('finance_settings'),
@@ -38,6 +39,8 @@ VALUES
   ('_VendorBrands'),
   ('attendance_events'),
   ('catalog_items'),
+  ('catalog_oem_concern_makes'),
+  ('catalog_provider_settings'),
   ('employee_leave_balances'),
   ('employee_work_schedules'),
   ('inspection_template_items'),
@@ -45,6 +48,7 @@ VALUES
   ('leave_requests'),
   ('purchase_invoices'),
   ('purchase_orders'),
+  ('vehicle_make_aliases'),
   ('vehicles'),
   ('voice_note_rate_limits'),
   ('workshop_holidays'),
@@ -114,6 +118,12 @@ VALUES
   ('catalog_items', 'catalog_items', 'superseded_by_id', 'id', 'SET NULL', 'CASCADE'),
   ('catalog_items', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('catalog_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('catalog_oem_concern_makes', 'brands', 'brand_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('catalog_oem_concern_makes', 'catalog_oem_concerns', 'tenant_id,concern_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('catalog_oem_concern_makes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('catalog_oem_concerns', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('catalog_provider_settings', 'labor_categories', 'default_labor_category_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('catalog_provider_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -183,6 +193,8 @@ VALUES
   ('vehicle_ledger_entries', 'vehicle_sales', 'vehicle_sale_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_ledger_entries', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_ledger_entries', 'workshop_orders', 'workshop_order_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicle_make_aliases', 'brands', 'brand_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_make_aliases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_purchases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
@@ -190,6 +202,7 @@ VALUES
   ('vehicle_sales', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicles', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'customers', 'reserved_for_customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'storage_locations', 'location_id', 'id', 'SET NULL', 'CASCADE'),
@@ -459,6 +472,8 @@ DELETE FROM public."voice_note_rate_limits"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_make_aliases"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoices"
@@ -472,6 +487,10 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_provider_settings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_oem_concern_makes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -503,6 +522,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employees"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customers"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."catalog_oem_concerns"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."brands"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
