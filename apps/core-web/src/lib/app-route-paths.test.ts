@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS, isKnownAppPath } from './app-route-paths'
+import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS, isKnownAppPath } from './app-route-paths'
 
 describe('isKnownAppPath', () => {
   it('recognizes registered application routes', () => {
@@ -15,6 +15,6 @@ describe('isKnownAppPath', () => {
   it('rejects unknown routes', () => {
     expect(isKnownAppPath('/this-route-does-not-exist-qa')).toBe(false)
     expect(isKnownAppPath('/invoices')).toBe(false)
-    expect(isKnownAppPath('/workshop/pick')).toBe(true)
+    expect(isKnownAppPath('/login')).toBe(false)
   })
 })
