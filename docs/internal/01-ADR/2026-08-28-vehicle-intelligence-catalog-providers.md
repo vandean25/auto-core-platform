@@ -113,7 +113,8 @@ A workshop part line is demand for `quantity`. Each **reservation** is a qty sli
 - One line **may** have N slices (on-hand pick + OEM PO + backorder PO).
 - **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Qty columns are **`Decimal(10, 3)`** end-to-end (stock, reserved, PO, reservation, workshop/sales lines). `InventoryTransaction.quantity` is already 10,3. Write DTOs (`ReceiveItemDto`, create/update PO item, pick) replace `@IsInt()` with `@IsNumber({ maxDecimalPlaces: 3 })` and min `0.001`. Ledger cache math uses Prisma `Decimal`, not `Number(...)`.
 - No `RECEIVED` status: receive + tote transfer is one transaction (`ORDERED` → `STAGED` when complete).
-- **Release:** from `OPEN` / `ORDERED` / `STAGED` (including after partial receipt). In one tx: return tote qty via `TRANSFER_OUT`/`TRANSFER_IN` to a required warehouse `returnLocationId`, decrement leftover `quantity_reserved`, set `detached_at` on the PO link, **keep** `purchase_order_item_id` for audit, status `CANCELLED`. Later receipt of that PO item is free warehouse stock. Line/order cancel must release every active slice. Line qty PATCH 409 if it would drop below allocated qty. Do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today.
+- **Release:** from `OPEN` / `ORDERED` / `STAGED`. Return **`quantity_staged`** (current tote), never `quantity_received` and never consumed qty. Consume allocates `WORKSHOP_CONSUMPTION` FIFO onto slices (`quantity_consumed`, decrement staged). Add Prisma `TransactionType.WORKSHOP_CONSUMPTION` before first reserved-tote consume (named in ADR-0002, missing from the enum today). Keep `purchase_order_item_id`. Workshop lines/tasks with reservation or ledger history are **soft-cancelled**, not hard-deleted. Line qty PATCH 409 if it would drop below allocated qty. Do **not** add `PurchaseOrderStatus.CANCELLED`.
+- ATP reserve/consume: parameterized `UPDATE inventory_stocks SET quantity_reserved = quantity_reserved + $qty WHERE … AND quantity_on_hand - quantity_reserved >= $qty`. Not Prisma `updateMany` arithmetic.
 
 Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **1:1 `PurchaseOrderItem`** (FK retained after release).
 
@@ -125,7 +126,7 @@ External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/exte
 
 VIN/plate change clears `identity_keys`, `make_brand_id`, and `identity_input_fingerprint` in the same write. Failed re-resolve must not restore the previous key bag. Store `identity_input_fingerprint` + `identity_resolved_at` only after a successful resolve.
 
-Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order, vehicle, **taskId**, concern, provider id, quoted snapshots, **jti**, and `exp`. Persist `jti` uniquely per `(tenant_id, workshop_task_id)`; retries are idempotent.
+Hit tokens are a complete signed `CatalogHitPayload` (HMAC, TTL ≤ 15 minutes): binding (`tenantId`, workshop order, vehicle, **taskId**, concern, provider, **jti**, `exp`) plus every field required to insert `CatalogItem` / `WorkshopTaskLineItem` (`name`, PARTS `article_number` + `unit_price`, LABOR `external_operation_code`, optional brand/EAN/unit/fitment/OENs/cost/AW). POST body is token + optional `laborCategoryId` only. Persist `jti` uniquely per task; retries are idempotent. No unsigned catalog fields; no provider re-query on add.
 
 ## Consequences
 
@@ -165,7 +166,10 @@ Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order,
 | Block cancel after any receipt | Protects staged tote | Strands tote stock and leftover PO qty when the job is cancelled |
 | Null PO FK on detach | Receive cannot find a job | Loses allocation audit |
 | @IsInt qty after Decimal columns | Schema accepts 1.5 | Receive DTO still 400s 1.5 |
-| Hit token without jti | Tamper-proof | Double-click duplicates the line |
+| Release tote = quantity_received | Simple | Overdraws tote after CONSUMED |
+| Hard-delete part line after Release | Cleaner UI | Orphans reservation FK / ledger |
+| Unsigned JIT fields + token | Smaller HMAC | Client can mint name/price |
+| Prisma updateMany ATP filter | Familiar | Cannot express on_hand - reserved >= qty |
 | max(0, ATP) | No crashes | Hides quantity_reserved corruption |
 
 ## References

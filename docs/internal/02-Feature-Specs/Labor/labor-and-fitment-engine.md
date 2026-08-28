@@ -90,14 +90,12 @@ tags:
 
 | Entity | Strategy | Rule |
 |--------|----------|------|
-| `LaborCategory` | **Blocked (Conditional)** | Cannot delete if has child categories or linked `LaborOperation` records. |
+| `LaborCategory` | **Blocked (Conditional)** | Cannot delete if it has child categories, linked `LaborOperation` records, or is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rates snapshotted on the line). See `docs/deletion-policy.md` and ADR-0021. |
 | `LaborOperation` | **Soft Delete** | Sets `is_active = false`. Preserves data for historical workshop tasks that reference it. |
 | `LaborFitment` | **Cascade Delete** | Deleted when parent `LaborOperation` is deleted. |
 | `MasterPart` | **Blocked (Conditional)** | Cannot delete if referenced by active workshop task line items. |
 | `PartFitment` | **Cascade Delete** | Deleted when parent `MasterPart` is deleted. |
 | `LocalInventory` | **Cascade Delete** | 1:1 with `MasterPart`; deleted with parent. |
-
-> **Action required:** Add `LaborCategory`, `LaborOperation`, `LaborFitment`, `MasterPart`, `PartFitment`, and `LocalInventory` to `docs/deletion-policy.md`.
 
 ---
 
