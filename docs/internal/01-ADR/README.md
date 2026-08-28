@@ -26,5 +26,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0018 | Workshop Planner Kanban Board (Real-Time Drag & Drop) | Proposed | 2026-04-18 | [2026-04-18-workshop-planner-kanban-board.md](2026-04-18-workshop-planner-kanban-board.md) |
 | ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Proposed | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
 | ADR-0020 | HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday) | Accepted | 2026-08-22 | [2026-08-22-hr-time-and-leave.md](2026-08-22-hr-time-and-leave.md) |
+| ADR-0021 | Vehicle Intelligence — Provider Ports, JIT Catalog, Make-Based Routing | Proposed | 2026-08-28 | [2026-08-28-vehicle-intelligence-catalog-providers.md](2026-08-28-vehicle-intelligence-catalog-providers.md) |
 
-Next free number: **ADR-0021**.
+Next free number: **ADR-0022**.

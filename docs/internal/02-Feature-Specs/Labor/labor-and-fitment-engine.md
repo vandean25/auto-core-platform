@@ -220,7 +220,7 @@ The primary user-facing surface for this feature is the **catalog search** withi
 
 1. **`MasterPart` vs `CatalogItem` relationship:** Should `MasterPart` records be linkable to `CatalogItem` records (e.g., for stock tracking through the primary ledger)? Currently they are separate systems with deduplication at search time.
 2. **`LocalInventory` vs `InventoryStock`:** `LocalInventory.quantity_on_hand` is mutated directly (not ledger-based). Should this be migrated to the `InventoryTransaction` ledger pattern (ADR-0002) for audit consistency?
-3. **Fitment data import:** Is there a bulk import mechanism needed for fitment data (e.g., TecDoc, ACES/PIES standard)?
+3. **Fitment data import:** External TecDoc/OEM/Haynes lookup is specified in [Vehicle Intelligence & Parts Catalog](../Vehicle/2026-08-28-vehicle-intelligence-and-parts-catalog.md) (ADR-0021). Homemade `LaborFitment` / `PartFitment` is not that engine.
 4. **`MasterPart.brand` is free text** — should it reference the `Brand` entity for consistency?
 
 ---
