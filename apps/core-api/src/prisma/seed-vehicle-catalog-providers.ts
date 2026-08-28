@@ -1,7 +1,4 @@
-import {
-  CatalogOemConcernCode,
-  Prisma,
-} from '@prisma/client';
+import { CatalogOemConcernCode, Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
 
@@ -31,17 +28,33 @@ interface MakeSeedDefinition {
 }
 
 const STELLANTIS_MAKES: MakeSeedDefinition[] = [
-  { name: 'Peugeot', aliases: ['PEUGEOT', 'Peugeot SA'], concern: 'STELLANTIS' },
-  { name: 'Citroën', aliases: ['CITROEN', 'CITROËN', 'Citroen'], concern: 'STELLANTIS' },
+  {
+    name: 'Peugeot',
+    aliases: ['PEUGEOT', 'Peugeot SA'],
+    concern: 'STELLANTIS',
+  },
+  {
+    name: 'Citroën',
+    aliases: ['CITROEN', 'CITROËN', 'Citroen'],
+    concern: 'STELLANTIS',
+  },
   { name: 'Opel', aliases: ['OPEL', 'Opel Automobile'], concern: 'STELLANTIS' },
   { name: 'Fiat', aliases: ['FIAT'], concern: 'STELLANTIS' },
   { name: 'Jeep', aliases: ['JEEP'], concern: 'STELLANTIS' },
   { name: 'DS', aliases: ['DS', 'DS AUTOMOBILES'], concern: 'STELLANTIS' },
-  { name: 'Alfa Romeo', aliases: ['ALFA ROMEO', 'ALFAROMEO'], concern: 'STELLANTIS' },
+  {
+    name: 'Alfa Romeo',
+    aliases: ['ALFA ROMEO', 'ALFAROMEO'],
+    concern: 'STELLANTIS',
+  },
 ];
 
 const OTHER_MAKE_ALIASES: MakeSeedDefinition[] = [
-  { name: 'BMW', aliases: ['BMW AG', 'BAYERISCHE MOTOREN WERKE'], concern: 'BMW' },
+  {
+    name: 'BMW',
+    aliases: ['BMW AG', 'BAYERISCHE MOTOREN WERKE'],
+    concern: 'BMW',
+  },
   {
     name: 'Mercedes-Benz',
     aliases: ['MERCEDES', 'MERCEDES-BENZ', 'MERCEDES BENZ'],
