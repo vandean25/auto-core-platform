@@ -100,10 +100,17 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 
 | # | Decision |
 |---|---------|
-| P1 DRAFT unlink | DRAFT PO/item delete **cancels** linked unreceived reservations (`CANCELLED`, `purchase_order_item_id = null`). Raw line shortage reappears. Do not leave them `OPEN`. `PartsRequisition` → `CANCELLED` when it has no remaining active reservations; otherwise stay `DRAFT` (PO still draft) or `ORDERED` (any linked PO `SENT`). |
-| P1 null inbound | ON_HAND pick takes the latest eligible inbound at the source bin **by `created_at`**, whether `cost_basis` is null or not. Do not skip null transfers in favor of an older priced receipt. Test: null-cost return into a €10 bin → re-pick stays null. |
+| P1 DRAFT unlink | DRAFT PO/item delete **cancels** linked unreceived reservations (`CANCELLED`, `purchase_order_item_id = null`). Raw line shortage reappears. Do not leave them `OPEN`. **Pass 11:** `PartsRequisition` `CANCELLED` only when **every** slice is `CANCELLED`; all-`FULFILLED` is `COMPLETED`, not `CANCELLED`. |
+| P1 null inbound | ON_HAND pick takes the latest eligible inbound at the source bin, whether `cost_basis` is null or not. **Pass 11:** `ORDER BY created_at DESC, seq DESC` — `created_at` alone is not unique inside a transaction. |
 | P1 PO header lock | Global `FOR UPDATE` order adds **`PurchaseOrder` headers** after reservations and before PO items. Required for mark-as-SENT (`OPEN` → `ORDERED`), linked item PATCH/delete, DRAFT PO delete, receive, and release. Today `markAsSent()` updates the header first — that inverts DRAFT-delete (task → header). Race: SENT vs DRAFT delete — one winner, one 409, no deadlock. |
 | P2 HTTP 400 vs 422 | Keep the global `ValidationPipe` (Nest default **400** for `@IsNumber` / `@Min` / empty JSON). Do not change it repo-wide. **400** = syntactic DTO failures. **422** = semantic business rules (wrong-task id, missing `returnLocationId` when staged, labor category). OpenAPI matches that split. |
+
+### Review locks (pass 11)
+
+| # | Decision |
+|---|---------|
+| P1 requisition terminal | `PartsRequisition.status`: `DRAFT` \| `ORDERED` \| `COMPLETED` \| `CANCELLED`. **`CANCELLED`** iff every slice is `CANCELLED`. **`COMPLETED`** iff zero active and at least one `FULFILLED` (includes mixed `FULFILLED`+`CANCELLED`). **`ORDERED`** while any slice is `OPEN`/`ORDERED`/`STAGED` after SENT. Tests: all-`FULFILLED` → `COMPLETED`; mixed → `COMPLETED`; all-`CANCELLED` (DRAFT delete) → `CANCELLED`. |
+| P2 inbound tie-break | Add `InventoryTransaction.seq BigInt @default(autoincrement())`. Pick latest inbound with `ORDER BY created_at DESC, seq DESC LIMIT 1`. UUID `id` is not ordered. Test: same-transaction two receipts for one item/bin (€10 then €20) → pick €20. |
 
 ---
 
@@ -339,7 +346,7 @@ PartsReservation 1 ── 1 PurchaseOrderItem     // M3 lock: never N reservatio
 | `detached_at` | DateTime? Set when remaining vendor qty is no longer job-allocated. Receive of that PO item then follows the detached path. |
 | `tote_cost_basis` | `Decimal(10,2)?` Unit cost of qty that entered this slice’s tote. **Frozen at first tote entry**, including when the snapshot is **null**. Consume copies it to `WORKSHOP_CONSUMPTION.cost_basis`. Never re-read live catalog or PO `unit_cost` at consume. |
 
-`PartsRequisition`: `tenant_id`, `vehicle_make_brand_id`, `status` (`DRAFT` \| `ORDERED` \| `CANCELLED`). Clerk sheet is still **per vehicle make** (Peugeot sheet ≠ Citroën sheet), while OEM *search* uses the shared Stellantis concern.
+`PartsRequisition`: `tenant_id`, `vehicle_make_brand_id`, `status` (`DRAFT` \| `ORDERED` \| `COMPLETED` \| `CANCELLED`). Clerk sheet is still **per vehicle make** (Peugeot sheet ≠ Citroën sheet), while OEM *search* uses the shared Stellantis concern.
 
 Same SKU on the printed PO may appear as two lines (job A, job B). That is intentional so a partial delivery cannot be ambiguous.
 
@@ -359,7 +366,7 @@ WHERE id = $id
   AND quantity_received = 0
 ```
 
-Affected row count 0 → **409**. Receipt and cost-update both `SELECT … FOR UPDATE` the PO item in the global lock order (tasks → lines → reservations → **PO items** → stock). Race test: concurrent cost PATCH vs receive — one winner; posted `PURCHASE_RECEIPT.cost_basis` is the `unit_cost` that existed at receive; the other 409.
+Affected row count 0 → **409**. Receipt and cost-update both `SELECT … FOR UPDATE` the PO item in the global lock order (tasks → lines → reservations → **PO headers** → PO items → stock). Race test: concurrent cost PATCH vs receive — one winner; posted `PURCHASE_RECEIPT.cost_basis` is the `unit_cost` that existed at receive; the other 409.
 
 **Linked PO item quantity and delete (`purchase.service.ts` today PATCHes qty and DELETEs unreceived items with no reservation check):**
 
@@ -373,7 +380,16 @@ Invariant: linked `PurchaseOrderItem.quantity` = `PartsReservation.quantity`.
 | `DELETE` DRAFT PO | Same cancel+unlink for every linked unreceived item, then delete items + header. Any received/staged item → 409 (existing). |
 | Prisma FK | `PartsReservation.purchase_order_item_id` `onDelete: Restrict` (naive delete must not cascade or set-null). |
 
-**`PartsRequisition.status`:** `DRAFT` while every linked PO is still `DRAFT` (or none yet). **`ORDERED`** when mark-as-SENT succeeds (reservations `OPEN` → `ORDERED` in the same tx). **`CANCELLED`** when the requisition has **no remaining active** reservations (including after DRAFT PO delete cancelled them). A requisition with a mix of cancelled and still-active slices stays `DRAFT` or `ORDERED` according to the remaining POs. Clerk rebuilds from the shortage queue; do not reopen a `CANCELLED` requisition onto a deleted PO.
+**`PartsRequisition.status`:**
+
+| Status | When |
+|--------|------|
+| `DRAFT` | New sheet with no slices yet; or every linked PO is still `DRAFT` **and** at least one slice is `OPEN`. |
+| `ORDERED` | Mark-as-SENT succeeded **and** at least one slice is `OPEN` / `ORDERED` / `STAGED`. |
+| `COMPLETED` | Zero active slices **and** at least one `FULFILLED` (including mixed `FULFILLED` + `CANCELLED`). Successful procurement is never `CANCELLED`. |
+| `CANCELLED` | **Every** slice is `CANCELLED` (zero `FULFILLED`): DRAFT PO delete of the whole sheet, or Release of every remaining slice with none fulfilled. |
+
+Do **not** treat “no active reservations” as `CANCELLED` — that is also the all-`FULFILLED` end state. Recompute the header after every slice terminal transition. Clerk rebuilds from the shortage queue after a full cancel; do not reopen a `CANCELLED` or `COMPLETED` requisition onto a deleted PO.
 
 Unlinked (no reservation) PO items keep today’s PATCH/DELETE rules.
 
@@ -414,7 +430,7 @@ Stamp **`PartsReservation.tote_cost_basis`** when stock **first enters the tote*
 
 | Event | `tote_cost_basis` |
 |-------|-------------------|
-| ON_HAND pick to tote | Latest eligible inbound at the **source bin** by `created_at` (not filtered to non-null): `PURCHASE_RECEIPT`, `INITIAL_BALANCE`, positive `ADJUSTMENT`, or `TRANSFER_IN`. Snapshot that row’s `cost_basis` even when **null**. A later null `TRANSFER_IN` wins over an older €10 receipt. If no eligible inbound exists, stamp **null** and freeze. Not live `CatalogItem.cost_price`. |
+| ON_HAND pick to tote | Latest eligible inbound at the **source bin** (not filtered to non-null): `PURCHASE_RECEIPT`, `INITIAL_BALANCE`, positive `ADJUSTMENT`, or `TRANSFER_IN`. `ORDER BY created_at DESC, seq DESC LIMIT 1`. Snapshot that row’s `cost_basis` even when **null**. PostgreSQL `now()` is stable in a transaction, so `created_at` ties; UUID `id` is not ordered. `InventoryTransaction.seq` is `BigInt @default(autoincrement())` (M3, with `WORKSHOP_CONSUMPTION`). A later null `TRANSFER_IN` (higher `seq`) wins over an older €10 receipt. If no eligible inbound exists, stamp **null** and freeze. Not live `CatalogItem.cost_price`. |
 | Allocated PO receive + tote transfer | This receipt’s `PURCHASE_RECEIPT.cost_basis` (`poItem.unit_cost` **at receive time**). First tote entry wins and freezes (null or not). |
 | Consume | Copy `tote_cost_basis` onto `WORKSHOP_CONSUMPTION.cost_basis` unchanged. |
 | Release return | Paired `TRANSFER_OUT` (tote) + `TRANSFER_IN` (return bin) both copy `tote_cost_basis` onto `cost_basis`. Next ON_HAND pick from that bin can see this `TRANSFER_IN`. |
@@ -503,7 +519,7 @@ WHERE id = $id
 | `CatalogOemConcern` | Conditional hard delete when no make-joins remain. |
 | `CatalogOemConcernMake` | Hard delete allowed (make returns to automatic aftermarket). |
 | `VehicleMakeAlias` | Hard delete allowed. |
-| `PartsRequisition` | Draft-only delete. After `ORDERED`, cancel. |
+| `PartsRequisition` | Draft-only delete. After `ORDERED`, no hard delete: `COMPLETED` (any `FULFILLED`) or `CANCELLED` (every slice `CANCELLED`). |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
 | `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Consume → `FULFILLED` when remaining commitment and staged are 0. DRAFT PO delete **cancels** the reservation (`CANCELLED`, `purchase_order_item_id` null) so line shortage reappears. Returns `quantity_staged` only on release. No hard delete of the reservation row. |
 | `WorkshopTaskLineItem` | No hard delete after reservation/ledger. Consumed 0 → `CANCELLED`. Consumed > 0 leftover-release → qty shrink, status `CONSUMED` (billable). `replaceTaskLineItems` is an ID diff. |
@@ -511,7 +527,7 @@ WHERE id = $id
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
 | `LaborCategory` | Conditional. **Blocked** while it is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rate snapshotted). Still blocked when `LaborOperation` rows or child categories exist. |
 
-**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. SENT leftover uses Release (keep `purchase_order_item_id`; later receipt is free stock). **DRAFT PO/item delete** cancels linked unreceived reservations (`CANCELLED`, null FK) then deletes the PO rows. `PartsRequisition` becomes `CANCELLED` when no active reservations remain.
+**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. SENT leftover uses Release (keep `purchase_order_item_id`; later receipt is free stock). **DRAFT PO/item delete** cancels linked unreceived reservations (`CANCELLED`, null FK) then deletes the PO rows. `PartsRequisition` becomes `CANCELLED` only when **every** slice is `CANCELLED`; if any slice is `FULFILLED`, it is `COMPLETED`.
 
 ---
 
@@ -536,6 +552,19 @@ CANCELLED → * (none)
 Partial receive: increment `quantity_received` and `quantity_staged`; stay `ORDERED` until `quantity_received >= quantity`, then `STAGED`. No `RECEIVED` status.
 
 **Receive vs released:** look up the reservation by `purchase_order_item_id`. If `status = CANCELLED` or `detached_at` is set → free-stock path (`locationId` required). If still allocated → tote-transfer to the job (`quantity_staged += qty`).
+
+### Requisition header
+
+```
+DRAFT → ORDERED (mark-as-SENT; reservations OPEN → ORDERED)
+DRAFT → CANCELLED (every slice CANCELLED; typically DRAFT PO delete)
+ORDERED → COMPLETED (zero active and at least one FULFILLED)
+ORDERED → CANCELLED (every remaining slice CANCELLED; none FULFILLED)
+COMPLETED → * (none)
+CANCELLED → * (none)
+```
+
+Do not skip `ORDERED` to label all-`FULFILLED` as `CANCELLED`. Mixed `FULFILLED` + `CANCELLED` is `COMPLETED`.
 
 ### Workshop part shortage
 
@@ -761,7 +790,10 @@ OWNER/ADMIN only.
 - [ ] Concurrent `PATCH` `unitCost` vs receive: atomic `WHERE quantity_received = 0`; one 409; receipt `cost_basis` is the pre-receive `unit_cost`.
 - [ ] `PATCH` linked PO item quantity 4 → 10 → 409; reservation qty stays 4.
 - [ ] `DELETE` linked SENT PO item → 409; `purchase_order_item_id` remains.
-- [ ] `DELETE` DRAFT PO (and DELETE DRAFT item) with linked OPEN reservations: reservations `CANCELLED`, FK nulled, `PartsRequisition` `CANCELLED` if no active slices remain; shortage queue shows the line demand.
+- [ ] `DELETE` DRAFT PO (and DELETE DRAFT item) with linked OPEN reservations: reservations `CANCELLED`, FK nulled; `PartsRequisition` `CANCELLED` only if **every** slice is `CANCELLED`; shortage queue shows the line demand.
+- [ ] All slices `FULFILLED` (receive + consume, no leftover): `PartsRequisition` `COMPLETED`, not `CANCELLED`.
+- [ ] Mixed `FULFILLED` + leftover-release `CANCELLED`: `PartsRequisition` `COMPLETED`.
+- [ ] Same-transaction two `PURCHASE_RECEIPT` rows for one item/bin (€10 then €20): ON_HAND pick `tote_cost_basis = 20` (`ORDER BY created_at DESC, seq DESC`).
 - [ ] Mark-as-SENT vs DRAFT PO delete concurrent: one 200, one 409; no deadlock; reservations are either all `ORDERED` with SENT PO or all `CANCELLED` with PO gone.
 - [ ] Prefill create-PO uses `cost_price_est` then catalog cost when present.
 - [ ] Collection PATCH vs consume concurrent: both lock `WorkshopTask` first; no deadlock; one 200 and one 409 or both commit serially.
@@ -817,7 +849,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 10 (2026-08-28): DRAFT delete cancels reservations so shortage reappears, pick uses latest inbound including null, PO headers join the lock order (SENT vs delete), and DTO failures stay **400**. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 11 (2026-08-28): `PartsRequisition` `COMPLETED` vs `CANCELLED` is not “no active slices”; inbound pick ties on `InventoryTransaction.seq`. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 
@@ -829,6 +861,7 @@ None blocking after review pass 10 (2026-08-28): DRAFT delete cancels reservatio
 - `ReceiveItemDto`: `apps/core-api/src/purchase/dto/receive-items.dto.ts` (`@IsInt()` today; M3 replaces)
 - `ledger.service.ts`: `Number(params.quantity)` cache updates (M3: Prisma Decimal)
 - Prisma `TransactionType` currently has no `WORKSHOP_CONSUMPTION` (ADR-0002 name) — add before first reserved-tote consume
+- Prisma `InventoryTransaction` today: UUID `id`, `createdAt @default(now())`. M3 adds `seq BigInt @default(autoincrement())` for inbound pick ties
 - `docs/deletion-policy.md` (LaborCategory default; PartsReservation **release**; WorkshopTask/Line after reservation)
 - Linear: [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b)
 
