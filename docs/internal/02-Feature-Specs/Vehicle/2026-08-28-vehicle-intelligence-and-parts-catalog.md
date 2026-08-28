@@ -109,8 +109,14 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 
 | # | Decision |
 |---|---------|
-| P1 requisition terminal | `PartsRequisition.status`: `DRAFT` \| `ORDERED` \| `COMPLETED` \| `CANCELLED`. **`CANCELLED`** iff every slice is `CANCELLED`. **`COMPLETED`** iff zero active and at least one `FULFILLED` (includes mixed `FULFILLED`+`CANCELLED`). **`ORDERED`** while any slice is `OPEN`/`ORDERED`/`STAGED` after SENT. Tests: all-`FULFILLED` → `COMPLETED`; mixed → `COMPLETED`; all-`CANCELLED` (DRAFT delete) → `CANCELLED`. |
+| P1 requisition terminal | `PartsRequisition.status`: `DRAFT` \| `ORDERED` \| `COMPLETED` \| `CANCELLED`. **`CANCELLED`** iff every slice is `CANCELLED`. **`COMPLETED`** iff zero active and at least one `FULFILLED` (includes mixed `FULFILLED`+`CANCELLED`). **`ORDERED`** while any slice is `OPEN`/`ORDERED`/`STAGED` after SENT. Tests: all-`FULFILLED` → `COMPLETED`; mixed → `COMPLETED`; all-`CANCELLED` (DRAFT delete) → `CANCELLED`. **Pass 12:** either terminal requires **at least one slice**; empty DRAFT is not vacuously `CANCELLED`; one `FULFILLED` plus an active slice stays `ORDERED`. |
 | P2 inbound tie-break | Add `InventoryTransaction.seq BigInt @default(autoincrement())`. Pick latest inbound with `ORDER BY created_at DESC, seq DESC LIMIT 1`. UUID `id` is not ordered. Test: same-transaction two receipts for one item/bin (€10 then €20) → pick €20. |
+
+### Review locks (pass 12)
+
+| # | Decision |
+|---|---------|
+| P1 terminal guards | `COMPLETED` and `CANCELLED` require **at least one slice**. `COMPLETED` = zero active **and** ≥1 `FULFILLED`. `CANCELLED` = ≥1 slice **and** every slice `CANCELLED`. Otherwise stay `DRAFT` or `ORDERED`. Empty sheet stays `DRAFT` (vacuous ∀ is not cancel). One `FULFILLED` + one `OPEN`/`ORDERED`/`STAGED` stays `ORDERED` (not `COMPLETED`). Tests: active-plus-fulfilled → `ORDERED`; zero-slice → `DRAFT`. |
 
 ---
 
@@ -384,12 +390,12 @@ Invariant: linked `PurchaseOrderItem.quantity` = `PartsReservation.quantity`.
 
 | Status | When |
 |--------|------|
-| `DRAFT` | New sheet with no slices yet; or every linked PO is still `DRAFT` **and** at least one slice is `OPEN`. |
-| `ORDERED` | Mark-as-SENT succeeded **and** at least one slice is `OPEN` / `ORDERED` / `STAGED`. |
-| `COMPLETED` | Zero active slices **and** at least one `FULFILLED` (including mixed `FULFILLED` + `CANCELLED`). Successful procurement is never `CANCELLED`. |
-| `CANCELLED` | **Every** slice is `CANCELLED` (zero `FULFILLED`): DRAFT PO delete of the whole sheet, or Release of every remaining slice with none fulfilled. |
+| `DRAFT` | New sheet with **no slices** yet; or every linked PO is still `DRAFT` **and** at least one slice is `OPEN`. Zero-slice is never `CANCELLED`. |
+| `ORDERED` | Mark-as-SENT succeeded **and** at least one slice is `OPEN` / `ORDERED` / `STAGED`. Stays `ORDERED` while any slice is active, even if another is already `FULFILLED`. |
+| `COMPLETED` | **At least one slice**, zero active, **and** at least one `FULFILLED` (including mixed `FULFILLED` + `CANCELLED`). Successful procurement is never `CANCELLED`. |
+| `CANCELLED` | **At least one slice** and **every** slice is `CANCELLED` (zero `FULFILLED`): DRAFT PO delete of a non-empty sheet, or Release of every remaining slice with none fulfilled. |
 
-Do **not** treat “no active reservations” as `CANCELLED` — that is also the all-`FULFILLED` end state. Recompute the header after every slice terminal transition. Clerk rebuilds from the shortage queue after a full cancel; do not reopen a `CANCELLED` or `COMPLETED` requisition onto a deleted PO.
+Do **not** treat “no active reservations” as `CANCELLED` — that is also the all-`FULFILLED` end state, and it is vacuously true for a zero-slice `DRAFT`. Do **not** treat “any `FULFILLED`” as `COMPLETED` while another slice is still active. Recompute the header after every slice terminal transition. Clerk rebuilds from the shortage queue after a full cancel; do not reopen a `CANCELLED` or `COMPLETED` requisition onto a deleted PO.
 
 Unlinked (no reservation) PO items keep today’s PATCH/DELETE rules.
 
@@ -519,7 +525,7 @@ WHERE id = $id
 | `CatalogOemConcern` | Conditional hard delete when no make-joins remain. |
 | `CatalogOemConcernMake` | Hard delete allowed (make returns to automatic aftermarket). |
 | `VehicleMakeAlias` | Hard delete allowed. |
-| `PartsRequisition` | Draft-only delete. After `ORDERED`, no hard delete: `COMPLETED` (any `FULFILLED`) or `CANCELLED` (every slice `CANCELLED`). |
+| `PartsRequisition` | Draft-only delete. After `ORDERED`, no hard delete. `COMPLETED` iff ≥1 slice, zero active, and ≥1 `FULFILLED`. `CANCELLED` iff ≥1 slice and every slice is `CANCELLED`. Else stay `DRAFT`/`ORDERED`. |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
 | `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Consume → `FULFILLED` when remaining commitment and staged are 0. DRAFT PO delete **cancels** the reservation (`CANCELLED`, `purchase_order_item_id` null) so line shortage reappears. Returns `quantity_staged` only on release. No hard delete of the reservation row. |
 | `WorkshopTaskLineItem` | No hard delete after reservation/ledger. Consumed 0 → `CANCELLED`. Consumed > 0 leftover-release → qty shrink, status `CONSUMED` (billable). `replaceTaskLineItems` is an ID diff. |
@@ -527,7 +533,7 @@ WHERE id = $id
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
 | `LaborCategory` | Conditional. **Blocked** while it is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rate snapshotted). Still blocked when `LaborOperation` rows or child categories exist. |
 
-**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. SENT leftover uses Release (keep `purchase_order_item_id`; later receipt is free stock). **DRAFT PO/item delete** cancels linked unreceived reservations (`CANCELLED`, null FK) then deletes the PO rows. `PartsRequisition` becomes `CANCELLED` only when **every** slice is `CANCELLED`; if any slice is `FULFILLED`, it is `COMPLETED`.
+**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. SENT leftover uses Release (keep `purchase_order_item_id`; later receipt is free stock). **DRAFT PO/item delete** cancels linked unreceived reservations (`CANCELLED`, null FK) then deletes the PO rows. `PartsRequisition` becomes `CANCELLED` only when it has **at least one slice** and **every** slice is `CANCELLED`; `COMPLETED` only when it has **at least one slice**, zero active, and at least one `FULFILLED`. Empty sheet stays `DRAFT`.
 
 ---
 
@@ -557,14 +563,14 @@ Partial receive: increment `quantity_received` and `quantity_staged`; stay `ORDE
 
 ```
 DRAFT → ORDERED (mark-as-SENT; reservations OPEN → ORDERED)
-DRAFT → CANCELLED (every slice CANCELLED; typically DRAFT PO delete)
-ORDERED → COMPLETED (zero active and at least one FULFILLED)
-ORDERED → CANCELLED (every remaining slice CANCELLED; none FULFILLED)
+DRAFT → CANCELLED (≥1 slice, every slice CANCELLED; typically DRAFT PO delete of a non-empty sheet)
+ORDERED → COMPLETED (≥1 slice, zero active, at least one FULFILLED)
+ORDERED → CANCELLED (≥1 slice, every remaining slice CANCELLED; none FULFILLED)
 COMPLETED → * (none)
 CANCELLED → * (none)
 ```
 
-Do not skip `ORDERED` to label all-`FULFILLED` as `CANCELLED`. Mixed `FULFILLED` + `CANCELLED` is `COMPLETED`.
+Zero-slice `DRAFT` has no terminal transition. One `FULFILLED` plus an active slice stays `ORDERED`. Do not skip `ORDERED` to label all-`FULFILLED` as `CANCELLED`. Mixed `FULFILLED` + `CANCELLED` with zero active is `COMPLETED`.
 
 ### Workshop part shortage
 
@@ -792,7 +798,9 @@ OWNER/ADMIN only.
 - [ ] `DELETE` linked SENT PO item → 409; `purchase_order_item_id` remains.
 - [ ] `DELETE` DRAFT PO (and DELETE DRAFT item) with linked OPEN reservations: reservations `CANCELLED`, FK nulled; `PartsRequisition` `CANCELLED` only if **every** slice is `CANCELLED`; shortage queue shows the line demand.
 - [ ] All slices `FULFILLED` (receive + consume, no leftover): `PartsRequisition` `COMPLETED`, not `CANCELLED`.
-- [ ] Mixed `FULFILLED` + leftover-release `CANCELLED`: `PartsRequisition` `COMPLETED`.
+- [ ] Mixed `FULFILLED` + leftover-release `CANCELLED` (zero active): `PartsRequisition` `COMPLETED`.
+- [ ] One slice `FULFILLED` and another still `OPEN`/`ORDERED`/`STAGED`: `PartsRequisition` stays `ORDERED`, not `COMPLETED`.
+- [ ] Zero-slice `DRAFT` sheet stays `DRAFT`, not `CANCELLED` (vacuous ∀ is not cancel).
 - [ ] Same-transaction two `PURCHASE_RECEIPT` rows for one item/bin (€10 then €20): ON_HAND pick `tote_cost_basis = 20` (`ORDER BY created_at DESC, seq DESC`).
 - [ ] Mark-as-SENT vs DRAFT PO delete concurrent: one 200, one 409; no deadlock; reservations are either all `ORDERED` with SENT PO or all `CANCELLED` with PO gone.
 - [ ] Prefill create-PO uses `cost_price_est` then catalog cost when present.
@@ -849,7 +857,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 11 (2026-08-28): `PartsRequisition` `COMPLETED` vs `CANCELLED` is not “no active slices”; inbound pick ties on `InventoryTransaction.seq`. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 12 (2026-08-28): requisition terminal states require ≥1 slice; `COMPLETED` is zero active plus ≥1 `FULFILLED`; empty DRAFT is not vacuously `CANCELLED`. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 
