@@ -65,7 +65,7 @@ The module uses two interacting state machines:
 
 *Invariant:* A `WorkshopOrder` cannot transition to `COMPLETED` unless all its `WorkshopTask` children are `DONE`.
 
-*Invariant (Vehicle Intelligence / ADR-0021):* A `WorkshopTask` cannot become `DONE` while any `PART` line is `PENDING_PICK` or `STAGED`, has an **active** slice (`remaining_commitment > 0` or `quantity_staged > 0`), or has tote qty staged. `FULFILLED` and `CANCELLED` reservations do not block. Invoice creation (`COMPLETED` → `INVOICED` and draft-invoice APIs) repeats this check under the same `WorkshopTask` `FOR UPDATE`. `CANCELLED` part lines are omitted from the invoice projection. `CONSUMED` requires `sum(quantity_consumed) >= line.quantity`. STOCK_PREP `WORKSHOP_COST` uses `WORKSHOP_CONSUMPTION.cost_basis` plus snapshotted labor `internal_cost_rate`, not live catalog cost.
+*Invariant (Vehicle Intelligence / ADR-0021):* A `WorkshopTask` cannot become `DONE` while any `PART` line is `PENDING_PICK` or `STAGED`, has an **active** slice (`status IN (OPEN, ORDERED, STAGED)` AND (`remaining_commitment > 0` OR `quantity_staged > 0`)), or has tote qty staged. `FULFILLED` and `CANCELLED` reservations do not block, including a `CANCELLED` unreceived slice whose formula remaining is still > 0. Invoice creation (`COMPLETED` → `INVOICED` and draft-invoice APIs) repeats this check under the same `WorkshopTask` `FOR UPDATE`. `CANCELLED` part lines are omitted from the invoice projection. `CONSUMED` requires `sum(quantity_consumed) >= line.quantity`. STOCK_PREP `WORKSHOP_COST` uses `WORKSHOP_CONSUMPTION.cost_basis` copied from `tote_cost_basis` (stamped at pick/receive) plus snapshotted labor `internal_cost_rate`.
 
 ### Inventory Integration (Parts Consumption)
 
@@ -146,9 +146,9 @@ When a `WorkshopOrder` transitions from `COMPLETED` → `INVOICED`:
 - [ ] Happy-path: Create WorkshopOrder → Add Tasks → Progress through statuses → Invoice → verify snapshot and ledger entry.
 - [ ] Parts consumption creates `WORKSHOP_CONSUMPTION` InventoryTransaction.
 - [ ] Cannot transition to `COMPLETED` if any task is not `DONE`.
-- [ ] Cannot mark a task `DONE` (or invoice) while a PART line is `PENDING_PICK`/`STAGED`, has an active slice (`remaining_commitment > 0` or `quantity_staged > 0`). Fully consumed `FULFILLED` slices do not block.
+- [ ] Cannot mark a task `DONE` (or invoice) while a PART line is `PENDING_PICK`/`STAGED`, has an active slice (`status IN (OPEN, ORDERED, STAGED)` and remaining/staged > 0). Fully consumed `FULFILLED` slices and zero-receipt `CANCELLED` slices do not block.
 - [ ] Invoice omits `CANCELLED` part lines.
-- [ ] STOCK_PREP `WORKSHOP_COST` equals consumption `cost_basis` + labor snapshot; live catalog cost change after consume does not alter it.
+- [ ] STOCK_PREP `WORKSHOP_COST` equals consumption `cost_basis` copied from `tote_cost_basis`; live catalog cost change after pick/consume does not alter it.
 - [ ] Fiscal lock date validation on `COMPLETED → INVOICED` transition.
 - [ ] PDF generation pipeline triggers on `INVOICED` transition.
 - [ ] Mechanic voice-note endpoint rejects unassigned tasks, wrong tenant, disallowed MIME types, oversized files, too-long recordings, and silent/empty recordings.
