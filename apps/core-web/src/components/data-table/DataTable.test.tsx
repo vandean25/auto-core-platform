@@ -212,6 +212,60 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).toHaveBeenCalledWith({ id: 'cust-max', label: 'Max Mustermann3' })
   })
 
+  it('resolves cell clicks from the clicked row data attribute', () => {
+    const customers = [
+      { id: 'cust-klaus', label: 'Klaus Kombi' },
+      { id: 'cust-susi', label: 'Susi Sorglos' },
+    ]
+    const onRowClick = vi.fn()
+
+    render(
+      <DataTable
+        {...defaultProps}
+        columns={[{ accessorKey: 'label', header: 'Name' }]}
+        data={customers}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    const clickedCell = screen.getByText('Klaus Kombi')
+    clickedCell.closest('tr')?.setAttribute('data-row-id', 'cust-susi')
+
+    fireEvent.click(clickedCell)
+
+    expect(onRowClick).toHaveBeenCalledWith(customers[1])
+  })
+
+  it('activates ordinary row clicks but leaves interactive descendants in control', () => {
+    const onRowClick = vi.fn()
+    const columnsWithAction = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }: { row: { original: { name: string } } }) => (
+          <div>
+            <span>{row.original.name}</span>
+            <button type="button">Edit</button>
+          </div>
+        ),
+      },
+    ]
+
+    render(
+      <DataTable
+        {...defaultProps}
+        columns={columnsWithAction}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    fireEvent.click(screen.getByText('Test Item'))
+    expect(onRowClick).toHaveBeenCalledWith({ name: 'Test Item' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(onRowClick).toHaveBeenCalledTimes(1)
+  })
+
   it('shows Delete on right-click when getRowContextActions returns it', () => {
     render(
       <DataTable
