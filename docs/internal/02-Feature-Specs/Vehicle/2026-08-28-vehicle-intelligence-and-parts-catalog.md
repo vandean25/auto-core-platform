@@ -38,7 +38,7 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 
 | # | Decision |
 |---|---------|
-| P1 release | Any non-`CANCELLED` slice can be **released**, including partial `ORDERED` and `STAGED`. Returns tote qty via paired `TRANSFER_OUT`/`TRANSFER_IN`, clears on-hand `quantity_reserved`, detaches remaining PO demand, keeps `purchase_order_item_id` for audit, status `CANCELLED`. Line/order cancel must release every active slice. Line qty PATCH 409 if new qty < sum of active slice qty. |
+| P1 release | Any **active** slice (`OPEN`/`ORDERED`/`STAGED`) can be **released**, including partial `ORDERED` and `STAGED`. Returns tote qty via paired `TRANSFER_OUT`/`TRANSFER_IN`, clears on-hand `quantity_reserved`, detaches remaining PO demand, keeps `purchase_order_item_id` for audit, status `CANCELLED`. Line/order cancel must release every active slice. Line qty PATCH 409 if new qty < sum of active slice qty. **Pass 7:** do not release `FULFILLED`. |
 | P1 qty API | Decimal storage is not enough. Replace `@IsInt()` on parts qty write DTOs with `@IsNumber({ maxDecimalPlaces: 3 })` and min `0.001`. Regen OpenAPI + frontend types. Ledger must use Prisma `Decimal`, not `Number(...)`. |
 | P2 hit jti | Hit token claims include `taskId` and `jti`. Unique `(tenant_id, workshop_task_id, catalog_hit_jti)`. Same token retry is idempotent; double-click does not duplicate the line. |
 
@@ -64,10 +64,19 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 
 | # | Decision |
 |---|---------|
-| P1 OCC | Collection `PATCH` requires `expectedLineItemsVersion`. `WorkshopTask.line_items_version` increments on every line mutation (including JIT add). Stale payload → 409. IDs must belong to this tenant/task; duplicate IDs → 422. Route is **PATCH**, not PUT. |
-| P1 task DONE | Task cannot become `DONE` while a PART line is `PENDING_PICK`/`STAGED`, has active reservations, or `quantity_staged > 0`. Invoice creation repeats that check. `CONSUMED` iff `sum(consumed) >= line.quantity`. Increasing qty past consumed recalculates status and creates shortage. `CANCELLED` lines omitted from invoice. |
-| P2 batch locks | Receive/consume/release collect all line, reservation, PO-item, and stock IDs first, then `FOR UPDATE` in globally sorted id order. Concurrent reversed-order batch receipt is a required test. |
-| P2 null cost E2E | Nullable cost through Prisma, DTOs (`inventory-response.dto.ts` `CatalogItemResponseDto.cost_price`), OpenAPI, frontend types, and projections (`Number(cost)` forbidden). API test: null stays null. STOCK_PREP: 409 if any PART or LABOR cost is unknown — do not silently omit from vehicle ledger. |
+| P1 OCC | Collection `PATCH` requires `expectedLineItemsVersion`. `WorkshopTask.line_items_version` increments on every line mutation (including JIT add). Stale payload → 409. IDs must belong to this tenant/task; duplicate IDs → 422. Route is **PATCH**, not PUT. **Pass 7:** compare-and-increment under task `FOR UPDATE` first in the global lock order. |
+| P1 task DONE | Task cannot become `DONE` while a PART line is `PENDING_PICK`/`STAGED`, has **active** slices, or `quantity_staged > 0`. Invoice creation repeats that check. `CONSUMED` iff `sum(consumed) >= line.quantity`. Increasing qty past consumed recalculates status and creates shortage. `CANCELLED` lines omitted from invoice. **Pass 7:** active ≠ `status != CANCELLED`; `FULFILLED` slices do not block. |
+| P2 batch locks | Receive/consume/release collect all line, reservation, PO-item, and stock IDs first, then `FOR UPDATE` in globally sorted id order. Concurrent reversed-order batch receipt is a required test. **Pass 7:** lock `WorkshopTask` first. |
+| P2 null cost E2E | Nullable cost through Prisma, DTOs (`inventory-response.dto.ts` `CatalogItemResponseDto.cost_price`), OpenAPI, frontend types, and projections (`Number(cost)` forbidden). API test: null stays null. **Pass 7:** STOCK_PREP `WORKSHOP_COST` is consumption `cost_basis` + labor snapshot, not live catalog. |
+
+### Review locks (pass 7)
+
+| # | Decision |
+|---|---------|
+| P1 FULFILLED | Consume auto-sets reservation `FULFILLED` when `remaining_commitment = 0` and `quantity_staged = 0`. **Active** = `remaining_commitment > 0` or `quantity_staged > 0` — not `status != CANCELLED`. `FULFILLED` does not block task `DONE`. Release still ends `CANCELLED`. |
+| P1 PO unit_cost | Keep `PurchaseOrderItem.unit_cost` required. Create-PO / requisition sheet requires clerk-confirmed cost per slice. Prefill from `cost_price_est` or catalog cost; omit/null → 422, never coerce to 0. |
+| P1 task lock | Global `FOR UPDATE` order: tasks (sorted) → lines → reservations → PO items → stock. Collection PATCH compare-and-increments `line_items_version` as the first guarded write. JIT, pick, receive, consume, release, qty change, task DONE, and invoice lock/increment the task in the same transaction. |
+| P2 STOCK_PREP basis | `WORKSHOP_COST` = Σ `\|WORKSHOP_CONSUMPTION.quantity\| × cost_basis` + Σ labor hours × snapshotted `internal_cost_rate`. `cost_basis` stamped at consume from PO `unit_cost` or last inbound ledger cost — never live `CatalogItem.cost_price`. Null basis or labor rate → 409. |
 
 ---
 
@@ -198,7 +207,7 @@ Migrate `CatalogItem.cost_price` to **`Decimal(10, 2)?`**. Today it is required.
 - `CatalogItemResponseDto.cost_price` in `inventory-response.dto.ts` is non-null `string` today (`cost_price!: string`); make it `string | null` and mark OpenAPI nullable (`nullable: true`). Regen OpenAPI + frontend types.
 - Create-inventory (`create-inventory-item.dto.ts`) may still require cost for **manual** SKUs; JIT-created items may have null.
 - API test: JIT without `cost_price_est` → GET catalog/inventory returns JSON `cost_price: null`, not `"0"` / `0`.
-- **STOCK_PREP vehicle costing** (`vehicle-ledger.service.ts` today skips `if (!unitCost) return sum` for parts and `if (!line.internal_cost_rate) return sum` for labor, understating cost): **409** on posting `WORKSHOP_COST` / completing that stock-prep order if any PART line has null `cost_price_est` and null `CatalogItem.cost_price`, or any LABOR line has null `internal_cost_rate`. Do not post a partial sum that looks complete. Customer (non-STOCK_PREP) invoices still use selling `unit_price`; unknown cost only blocks vehicle-ledger cost posts and margin reports.
+- **STOCK_PREP vehicle costing** (pass 7): do **not** multiply `line.quantity` by live `CatalogItem.cost_price` (`vehicle-ledger.service.ts` today). Post `WORKSHOP_COST` from immutable consume/labor snapshots (see Demand / STOCK_PREP valuation).
 
 ### Replace-all line API (M2)
 
@@ -296,7 +305,7 @@ PartsReservation 1 ── 1 PurchaseOrderItem     // M3 lock: never N reservatio
 | `quantity_staged` | `Decimal(10,3)` default 0; **current tote balance** for this slice. ON_HAND pick and PO receive both increment this (and `quantity_received`). Consume decrements it. Release returns this amount. Invariant: `quantity_staged = quantity_received - quantity_consumed - quantity_returned`. |
 | `quantity_returned` | `Decimal(10,3)` default 0; qty already transferred tote → warehouse on prior/this release. |
 | `kind` | `ON_HAND` \| `REQUISITION` |
-| `status` | `OPEN` \| `ORDERED` \| `STAGED` \| `CANCELLED` — **no `RECEIVED`**. Receipt+tote is one transaction; complete receive sets `STAGED`. Partial receive stays `ORDERED` with `quantity_received` increased. |
+| `status` | `OPEN` \| `ORDERED` \| `STAGED` \| `FULFILLED` \| `CANCELLED` — **no `RECEIVED`**. Receipt+tote is one transaction; complete receive sets `STAGED`. Partial receive stays `ORDERED` with `quantity_received` increased. Consume auto-sets **`FULFILLED`** when the slice has no staged qty and no remaining commitment. `CANCELLED` is Release only. |
 | `location_id` | Required for `ON_HAND` (bin whose cache was incremented). After stage, the tote is the job’s `stagingLocationId`. |
 | `requisition_line_id` | Set when `kind = REQUISITION` |
 | `purchase_order_item_id` | Unique 1:1 with the PO item. **Kept after release** (audit of the original allocation). Creating a PO inserts **one PO item per reservation**. |
@@ -306,11 +315,15 @@ PartsReservation 1 ── 1 PurchaseOrderItem     // M3 lock: never N reservatio
 
 Same SKU on the printed PO may appear as two lines (job A, job B). That is intentional so a partial delivery cannot be ambiguous.
 
+**Clerk-confirmed PO cost (M3):** `PurchaseOrderItem.unit_cost` stays **required** (`schema.prisma`; `CreatePurchaseOrderDto.unitCost` is `@IsNumber()` today). Nullable JIT `CatalogItem.cost_price` / `cost_price_est` is not a source that can be written as 0.
+
+`POST /api/parts-requisitions/:id/create-purchase-order` body: one confirmed `unitCost` per reservation/slice. UI prefill: line `cost_price_est` if set, else `CatalogItem.cost_price` if set, else empty. Submit **422** if any slice omits `unitCost` or sends null. Do **not** default missing cost to `0`. An explicit clerk `0` (warranty/free) is allowed only when the field is present. Same rule for the existing `POST /api/purchase-orders` items array.
+
 **Release (M3) — unconsumed tote qty only. Does not recreate consumed stock.**
 
 ADR-0014 part-line status includes `CONSUMED`: stock has left the tote through `WORKSHOP_CONSUMPTION`. Prisma `TransactionType` does **not** yet include `WORKSHOP_CONSUMPTION` (ADR-0002 lists it; the enum is `PURCHASE_RECEIPT`, `SALE_ISSUE`, `ADJUSTMENT`, `TRANSFER_IN`, `TRANSFER_OUT`, `INITIAL_BALANCE`). First consume that hits a reserved tote **must** add that enum value. Until then `quantity_consumed` stays 0.
 
-**Consume allocation (deterministic):** when a part line is consumed for qty `C`, allocate `C` across that line’s active slices in `created_at` ascending, only from slices with `quantity_staged > 0`. For each slice: `take = min(C remaining, quantity_staged)`; post `WORKSHOP_CONSUMPTION` (negative) against the job tote for `take` with **`parts_reservation_id` set on the ledger row**; increment `quantity_consumed`; decrement `quantity_staged`. Leftover `C` after all slices is 409 (cannot consume more than staged).
+**Consume allocation (deterministic):** when a part line is consumed for qty `C`, allocate `C` across that line’s **active** slices in `created_at` ascending, only from slices with `quantity_staged > 0`. For each slice: `take = min(C remaining, quantity_staged)`; post `WORKSHOP_CONSUMPTION` (negative) against the job tote for `take` with **`parts_reservation_id` set on the ledger row** and **`cost_basis` stamped** (see STOCK_PREP valuation); increment `quantity_consumed`; decrement `quantity_staged`. Leftover `C` after all slices is 409 (cannot consume more than staged). After each slice update: if `quantity_staged = 0` and `remaining_commitment = 0`, set status **`FULFILLED`** in the same statement. Do not require a Release to close a fully satisfied slice.
 
 **Demand, CANCELLED, and invoicing (line qty 4, consume 1.5, release leftover 2.5):**
 
@@ -324,13 +337,34 @@ ADR-0014 part-line status includes `CONSUMED`: stock has left the tote through `
 
 **Task `DONE` / order `COMPLETED` / invoice (extends workshop-order-lifecycle.md):**
 
-A `WorkshopTask` cannot become `DONE` while any PART line is `PENDING_PICK` or `STAGED`, has an **active** (non-`CANCELLED`) reservation, or `sum(quantity_staged) > 0` on that line. 409 with the blocking line ids.
+**Active slice** means `remaining_commitment > 0` or `quantity_staged > 0`. Equivalently status ∈ {`OPEN`, `ORDERED`, `STAGED`} after auto-`FULFILLED`. **`FULFILLED` and `CANCELLED` are not active** and do not block completion. Do not treat `status != CANCELLED` as active — consume leaves a fully used slice `ORDERED`/`STAGED` until this auto-close.
 
-`WorkshopOrder` → `COMPLETED` already requires all tasks `DONE` (existing invariant). Invoice creation (`COMPLETED` → `INVOICED`, and draft-invoice APIs) **repeats** the part-line check defensively so a tote cannot be billed as if consumed.
+A `WorkshopTask` cannot become `DONE` while any PART line is `PENDING_PICK` or `STAGED`, has an **active** slice, or `sum(quantity_staged) > 0` on that line. 409 with the blocking line ids. A line whose reservations are all `FULFILLED` (or `CANCELLED`) and whose `part_execution_status` is `CONSUMED` (or `CANCELLED`) does not block.
 
-Line `CONSUMED` when `sum(quantity_consumed) >= line.quantity` (true after leftover-release shrinks quantity to consumed).
+`WorkshopOrder` → `COMPLETED` already requires all tasks `DONE` (existing invariant). Invoice creation (`COMPLETED` → `INVOICED`, and draft-invoice APIs) **repeats** the part-line check defensively so a tote cannot be billed as if consumed. DONE and invoice take the same `WorkshopTask` `FOR UPDATE` as other line mutations so a receipt cannot sneak in after the check.
 
-**Release** is allowed from `OPEN`, `ORDERED`, and `STAGED`. Returnable tote qty is **`quantity_staged`**, never `quantity_received` and never `quantity_consumed`.
+**STOCK_PREP valuation (immutable):** `vehicle-ledger.service.ts` today does `line.quantity × CatalogItem.cost_price` and skips nulls. That makes historical vehicle cost follow today’s master data.
+
+At consume, stamp `InventoryTransaction.cost_basis` on each `WORKSHOP_CONSUMPTION` row (column already exists):
+
+| Slice | `cost_basis` |
+|-------|----------------|
+| Has `purchase_order_item_id` (received onto the job) | That `PurchaseOrderItem.unit_cost` (same value as `PURCHASE_RECEIPT.cost_basis`) |
+| `ON_HAND` pick | Most recent non-null inbound `cost_basis` for that `item_id` (`PURCHASE_RECEIPT`, `INITIAL_BALANCE`, or positive `ADJUSTMENT`) — **not** live `CatalogItem.cost_price` |
+| Derivation yields null | Write `null`. Customer jobs proceed (unknown margin). |
+
+Labor uses the **snapshotted** `WorkshopTaskLineItem.internal_cost_rate` (already frozen at Add to order).
+
+On STOCK_PREP complete, `WORKSHOP_COST` amount =
+
+```
+sum(|WORKSHOP_CONSUMPTION.quantity| × cost_basis) for this order
++ sum((actual_hours ?? quantity) × internal_cost_rate) for non-cancelled LABOR lines
+```
+
+**409** if any of those `cost_basis` or labor rates is null. Do not post a partial sum. Do not re-read `CatalogItem.cost_price` or `cost_price_est`. Mutating catalog cost after consume must not change a posted `WORKSHOP_COST`. Customer (non-STOCK_PREP) invoices still use selling `unit_price`.
+
+**Release** is allowed from `OPEN`, `ORDERED`, and `STAGED` (not `FULFILLED` — already closed). Returnable tote qty is **`quantity_staged`**, never `quantity_received` and never `quantity_consumed`.
 
 In one transaction:
 
@@ -340,7 +374,7 @@ In one transaction:
 4. **Audit:** reservation row + ADR-0015 log. `quantity_consumed` remains as history.
 5. **End state:** `status = CANCELLED`. No hard delete of the reservation.
 
-A fully consumed slice (`quantity_staged = 0` and `quantity_consumed > 0`) may still be released to detach leftover PO qty; that is not a tote overdraw.
+A fully consumed slice (`quantity_staged = 0` and `quantity_consumed > 0` and `remaining_commitment = 0`) is **`FULFILLED`**, not `CANCELLED`. Release of leftover PO qty on a *partially* consumed slice still ends `CANCELLED`. Do not require Release after a full consume.
 
 **Workshop lines are not hard-deleted after operational history.**
 
@@ -403,7 +437,7 @@ WHERE id = $id
 | `VehicleMakeAlias` | Hard delete allowed. |
 | `PartsRequisition` | Draft-only delete. After `ORDERED`, cancel. |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
-| `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Returns `quantity_staged` only. No hard delete. |
+| `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Consume → `FULFILLED` when remaining commitment and staged are 0. Returns `quantity_staged` only on release. No hard delete. |
 | `WorkshopTaskLineItem` | No hard delete after reservation/ledger. Consumed 0 → `CANCELLED`. Consumed > 0 leftover-release → qty shrink, status `CONSUMED` (billable). `replaceTaskLineItems` is an ID diff. |
 | `WorkshopTask` | Existing rules, plus **blocked** after any child reservation or inventory activity. |
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
@@ -423,8 +457,11 @@ OPEN → STAGED (on-hand pick to tote; decrement quantity_reserved; increment qu
 OPEN → CANCELLED (release: drop quantity_reserved; quantity_staged is 0)
 ORDERED → STAGED (this PO item fully received; PURCHASE_RECEIPT + tote TRANSFER in one tx; increment quantity_received and quantity_staged)
 ORDERED → CANCELLED (release: return quantity_staged; set detached_at)
+ORDERED → FULFILLED (consume: remaining_commitment = 0 and quantity_staged = 0)
 STAGED → CANCELLED (release: return quantity_staged)
-CONSUME (not a reservation status): decrement quantity_staged, increment quantity_consumed; reservation stays ORDERED or STAGED
+STAGED → FULFILLED (consume: remaining_commitment = 0 and quantity_staged = 0)
+CONSUME (counter update): decrement quantity_staged, increment quantity_consumed; then FULFILLED or stay ORDERED/STAGED
+FULFILLED → * (none)
 CANCELLED → * (none)
 ```
 
@@ -434,7 +471,7 @@ Partial receive: increment `quantity_received` and `quantity_staged`; stay `ORDE
 
 ### Workshop part shortage
 
-`remaining_commitment(slice)` for **active** (not `CANCELLED`) slices = `quantity - quantity_consumed - quantity_returned`.
+`remaining_commitment(slice)` = `quantity - quantity_consumed - quantity_returned`. **Active** slices are those with `remaining_commitment > 0` or `quantity_staged > 0` (status `OPEN` / `ORDERED` / `STAGED`). `FULFILLED` and `CANCELLED` have remaining commitment 0 and are not active.
 
 A line is on the clerk queue when:
 
@@ -448,23 +485,31 @@ Consumed qty is covered even if its reservation is later `CANCELLED`. After left
 
 Transactions alone do not serialize two reads of `quantity_staged`. Consume and release can both see 2.5 and both deduct; receive can stage onto a reservation that release just cancelled.
 
-**Lock order — collect, sort, then lock.** `receiveItems()` accepts **multiple** PO items (`purchase.service.ts`). Locking per line in payload order deadlocks when two batches reverse item order.
+**Lock order — collect, sort, then lock.** `line_items_version` lives on `WorkshopTask`. Locking lines first, then incrementing the parent task, deadlocks against collection PATCH (task then line). `receiveItems()` also accepts **multiple** PO items (`purchase.service.ts`).
 
-For any receive, consume, or release (including batches):
+For collection PATCH, JIT add, pick, receive, consume, release, qty change, task `DONE`, and invoice validation:
 
-1. Resolve all affected `WorkshopTaskLineItem` ids, `PartsReservation` ids, `PurchaseOrderItem` ids, and `InventoryStock` ids.
-2. `SELECT … FOR UPDATE` each set **globally sorted by id** (lines, then reservations, then PO items, then stock). Never lock in client/payload order.
-3. Then apply the conditional counter updates (count 0 → 409), never read-then-write:
+1. Resolve all affected `WorkshopTask` ids, `WorkshopTaskLineItem` ids, `PartsReservation` ids, `PurchaseOrderItem` ids, and `InventoryStock` ids.
+2. `SELECT … FOR UPDATE` each set **globally sorted by id**, always in this hierarchy — never client/payload order:
+   1. `WorkshopTask`
+   2. `WorkshopTaskLineItem`
+   3. `PartsReservation`
+   4. `PurchaseOrderItem`
+   5. `InventoryStock`
+3. Collection PATCH: **first guarded write** is compare-and-increment:
+   `UPDATE workshop_tasks SET line_items_version = line_items_version + 1 WHERE id = $id AND line_items_version = $expected` — count 0 → 409.
+   Every other line mutation (JIT, pick, receive, consume, release, qty change) increments `line_items_version` in the same transaction while holding the task lock (`SET line_items_version = line_items_version + 1 WHERE id = $id`).
+4. Then apply the conditional counter updates (count 0 → 409), never read-then-write:
 
-- Consume: `WHERE status IN ('ORDERED','STAGED') AND detached_at IS NULL AND quantity_staged >= $take`
-- Release return: `WHERE status <> 'CANCELLED' AND quantity_staged >= $returnQty` (then set staged 0, status `CANCELLED`)
+- Consume: `WHERE status IN ('ORDERED','STAGED') AND detached_at IS NULL AND quantity_staged >= $take` (then `FULFILLED` when remaining commitment and staged are 0)
+- Release return: `WHERE status IN ('OPEN','ORDERED','STAGED') AND quantity_staged >= $returnQty` (then set staged 0, status `CANCELLED`)
 - Receive onto job: `WHERE status IN ('OPEN','ORDERED') AND detached_at IS NULL`; else free-stock path
 
 Every `WORKSHOP_CONSUMPTION` row sets **`parts_reservation_id`** (nullable FK on `InventoryTransaction`; `reference_id` remains the workshop order number).
 
 Reconciliation (M3 test + periodic assert): for each tote `InventoryStock`, `quantity_on_hand` equals `sum(quantity_staged)` of reservations whose current tote is that location. Mismatch is an invariant error.
 
-Race tests: consume-vs-release, receive-vs-release, double-consume, **two `receiveItems` batches with reversed PO-item order** — one winner per unit, no deadlock, tote QOH matches `sum(quantity_staged)`.
+Race tests: consume-vs-release, receive-vs-release, double-consume, **two `receiveItems` batches with reversed PO-item order**, collection PATCH vs consume (task locked first) — one winner per unit, no deadlock, tote QOH matches `sum(quantity_staged)`.
 
 ---
 
@@ -535,7 +580,7 @@ TECH cannot add billable catalog lines (ADR-0014).
 |--------|-------|-------------|
 | GET | `/api/parts-requisitions/shortages` | Queue: one order or all open orders |
 | POST | `/api/parts-requisitions` | Create/update make-sheet from selected shortages |
-| POST | `/api/parts-requisitions/:id/create-purchase-order` | **One `PurchaseOrderItem` per reservation** |
+| POST | `/api/parts-requisitions/:id/create-purchase-order` | **One `PurchaseOrderItem` per reservation.** Body: clerk-confirmed `unitCost` per slice (required; 422 if null/omitted; never coerce to 0). |
 | POST | `/api/parts-reservations` | On-hand slice: allocate location, increment `quantity_reserved` via ATP |
 | POST | `/api/parts-reservations/:id/release` | Body: `returnLocationId` required when `quantity_staged > 0`. Returns tote **staged** qty only. |
 
@@ -575,7 +620,7 @@ OWNER/ADMIN only.
 
 - Shortage list: filter by order or **all orders**.
 - Requisition: one sheet per vehicle-make Brand; rows are slices (job + line + qty), not collapsed SKUs.
-- Create PO: one vendor document, **one PO line per slice** (duplicate SKUs allowed).
+- Create PO: one vendor document, **one PO line per slice** (duplicate SKUs allowed). Clerk confirms **unit cost per slice** (prefill from estimate/catalog; empty → 422, not 0).
 - **Release** on a slice: return `quantity_staged` (not consumed qty) to a warehouse bin; do not toast-only a failed return.
 
 ### Settings
@@ -624,21 +669,27 @@ OWNER/ADMIN only.
 - [ ] Ledger cache update of `1.5` does not become `1` (`Number` coercion forbidden).
 - [ ] Release ORDERED with `quantity_received = 0`: PO item remains SENT; `detached_at` set; receive with `locationId` increases warehouse ATP, not a tote.
 - [ ] Release ORDERED after receive 4, consume 1.5: tote −2.5 (`quantity_staged`), consumed 1.5 stays; no inverse `WORKSHOP_CONSUMPTION`; later remaining PO receipt is free stock.
-- [ ] Release STAGED with `quantity_staged = 0` (fully consumed): no TRANSFER; 200; `detached_at` if PO linked.
+- [ ] Fully consume a STAGED slice: status `FULFILLED`; release is not required (422 or no-op if called). Leftover-release of a *partially* consumed slice still `CANCELLED`.
 - [ ] Consume allocates FIFO across slices; cannot consume more than `sum(quantity_staged)`.
+- [ ] Consume all staged qty of a slice: status `FULFILLED` (not `CANCELLED`); task `DONE` 200 without a Release.
+- [ ] Consume 2 of PO qty 4 (remaining commitment > 0): task `DONE` 409.
+- [ ] Task → `DONE` with a `STAGED`/`PENDING_PICK` part line or `quantity_staged > 0` → 409; invoice repeats the check. `FULFILLED` slices do not block.
+- [ ] `POST .../create-purchase-order` with null/omitted `unitCost` on a JIT line that has null catalog cost → 422; no PO row; never writes `unit_cost = 0`.
+- [ ] Prefill create-PO uses `cost_price_est` then catalog cost when present.
+- [ ] Collection PATCH vs consume concurrent: both lock `WorkshopTask` first; no deadlock; one 200 and one 409 or both commit serially.
+- [ ] JIT / receive / consume increment `line_items_version` in the same transaction as the line mutation.
 - [ ] Consume 1.5 of 4 then leftover-release: `line.quantity = 1.5`, status `CONSUMED` (not `CANCELLED`); invoice qty 1.5; shortage 0; `CANCELLED` lines omitted from invoice projection.
 - [ ] Line qty PATCH below `sum(quantity_consumed)` → 409.
 - [ ] Increase CONSUMED line 1.5 → 2.5: status no longer `CONSUMED` (`PENDING_PICK` or `STAGED`); shortage 1.0.
-- [ ] Task → `DONE` with a `STAGED`/`PENDING_PICK` part line or `quantity_staged > 0` → 409; invoice repeats the check.
 - [ ] `PATCH` line-items after JIT: same ids, `catalog_hit_jti` and `catalog_item_id` preserved; omitted operational line is soft-cancelled not deleted.
 - [ ] Stale `expectedLineItemsVersion` after concurrent JIT add → 409; new line remains. Duplicate / foreign-task ids → 422.
 - [ ] Consume vs release concurrent: one 200, one 409; tote QOH = `sum(quantity_staged)`.
 - [ ] Receive vs release concurrent: cancelled reservation cannot be restaged; extra qty is free stock.
 - [ ] Double-consume of last staged qty: one 200, one 409.
 - [ ] Two `receiveItems` batches, reversed PO-item order: no deadlock; each unit attributed once.
-- [ ] `WORKSHOP_CONSUMPTION.parts_reservation_id` set; tote QOH reconciles to `sum(quantity_staged)`.
+- [ ] `WORKSHOP_CONSUMPTION.parts_reservation_id` and `cost_basis` set; tote QOH reconciles to `sum(quantity_staged)`.
 - [ ] JIT with no `cost_price_est`: GET catalog/inventory `cost_price` is JSON `null`, not `0` / `"0"`.
-- [ ] STOCK_PREP `WORKSHOP_COST` 409 when any PART cost or LABOR `internal_cost_rate` is null.
+- [ ] STOCK_PREP `WORKSHOP_COST` uses Σ consumption `cost_basis` + labor snapshot; 409 if any is null. Changing `CatalogItem.cost_price` after consume does not change the posted amount.
 - [ ] Soft-cancel line (consumed 0): `part_execution_status = CANCELLED`, row remains; hard-delete 409 after reservation exists.
 - [ ] Hard-delete `WorkshopTask` 409 after a child reservation exists.
 - [ ] Receive allocated line: `ORDERED` → `STAGED` (or stay ORDERED if partial); no `RECEIVED` status; tote qty matches `quantity_received`.
@@ -674,7 +725,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 6 (2026-08-28): collection OCC, task-DONE vs part lifecycle, globally sorted batch locks, and null cost E2E (including STOCK_PREP 409) are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 7 (2026-08-28): `FULFILLED` vs DONE, clerk-confirmed PO `unit_cost`, task-first lock + atomic OCC, and STOCK_PREP `WORKSHOP_COST` from consumption `cost_basis` are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 

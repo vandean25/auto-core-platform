@@ -21,7 +21,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleMakeAlias | Yes | Hard delete allowed. Decoder aliases are master data. |
 | PartsRequisition | Draft-only | Allow only in `DRAFT`. After `ORDERED`, cancel; do not hard-delete linked reservations. |
 | PartsRequisitionLine | No direct delete | Managed by parent requisition / reservation cancel. |
-| PartsReservation | Cancel / release only | `OPEN`, `ORDERED`, or `STAGED` → `CANCELLED` via **Release** (return `quantity_staged` only, drop on-hand reserved, detach remaining PO demand, keep `purchase_order_item_id`). Never reverse `WORKSHOP_CONSUMPTION`. No hard delete. |
+| PartsReservation | Cancel / release / fulfill | `OPEN`, `ORDERED`, or `STAGED` → `CANCELLED` via **Release** (return `quantity_staged` only, drop on-hand reserved, detach remaining PO demand, keep `purchase_order_item_id`). Consume → **`FULFILLED`** when remaining commitment and staged qty are 0. Never reverse `WORKSHOP_CONSUMPTION`. No hard delete. |
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
 | Brand | Conditional | Allow only when no `CatalogItem`, `Vendor.supportedBrands`, `Vehicle.make_brand_id`, `VehicleMakeAlias`, or `CatalogOemConcernMake` references it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
