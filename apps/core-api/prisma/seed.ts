@@ -3,6 +3,7 @@ import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
+import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
@@ -30,6 +31,8 @@ async function cleanDb() {
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
         'labor_operations', 'labor_categories', 'workshop_orders', 'vehicles', 'customers',
         'voice_note_rate_limits',
+        'catalog_oem_concern_makes', 'catalog_oem_concerns', 'vehicle_make_aliases',
+        'catalog_provider_settings',
     ];
 
     const existingTables = new Set<string>();
@@ -53,6 +56,9 @@ async function cleanDb() {
     if (existingTables.has('storage_locations')) await prisma.storageLocation.deleteMany();
     if (existingTables.has('revenue_groups')) await prisma.revenueGroup.deleteMany();
     if (existingTables.has('finance_settings')) await prisma.financeSettings.deleteMany();
+    if (existingTables.has('catalog_provider_settings')) {
+        await prisma.catalogProviderSettings.deleteMany();
+    }
     if (existingTables.has('labor_operations')) await prisma.laborOperation.deleteMany();
     if (existingTables.has('labor_categories')) {
         await prisma.laborCategory.deleteMany({ where: { parent_id: { not: null } } });
@@ -62,6 +68,15 @@ async function cleanDb() {
     if (existingTables.has('workshop_orders')) await prisma.workshopOrder.deleteMany();
     if (existingTables.has('voice_note_rate_limits')) await prisma.voiceNoteRateLimit.deleteMany();
     if (existingTables.has('vehicles')) await prisma.vehicle.deleteMany();
+    if (existingTables.has('catalog_oem_concern_makes')) {
+        await prisma.catalogOemConcernMake.deleteMany();
+    }
+    if (existingTables.has('catalog_oem_concerns')) {
+        await prisma.catalogOemConcern.deleteMany();
+    }
+    if (existingTables.has('vehicle_make_aliases')) {
+        await prisma.vehicleMakeAlias.deleteMany();
+    }
     if (existingTables.has('customers')) await prisma.customer.deleteMany();
     if (existingTables.has('vendors')) await prisma.vendor.deleteMany();
     if (existingTables.has('brands')) await prisma.brand.deleteMany();
@@ -227,6 +242,15 @@ async function main() {
     );
 
     const allBrands = [...dualBrandRecords, ...pureVehicleMakeRecords, ...purePartManufacturerRecords];
+
+    console.log('Seeding vehicle catalog providers (aliases, OEM concerns)...');
+    const catalogSeedSummary = await seedVehicleCatalogProviders(prisma, defaultTenant.id);
+    console.log(
+        `Vehicle catalog seed: ${catalogSeedSummary.brandsCreated} brands, ` +
+        `${catalogSeedSummary.aliasesUpserted} aliases, ` +
+        `${catalogSeedSummary.concernsUpserted} concerns, ` +
+        `${catalogSeedSummary.concernMakesUpserted} concern-make links`,
+    );
 
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({

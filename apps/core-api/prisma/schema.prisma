@@ -86,6 +86,10 @@ model Tenant {
   laborCategories      LaborCategory[]
   laborOperations      LaborOperation[]
   laborEntries         LaborEntry[]
+  catalogProviderSettings CatalogProviderSettings?
+  catalogOemConcerns   CatalogOemConcern[]
+  catalogOemConcernMakes CatalogOemConcernMake[]
+  vehicleMakeAliases   VehicleMakeAlias[]
   auditLogs            AuditLog[]
   memberships          TenantMember[]
   activeUsers          User[]         @relation("UserActiveTenant")
@@ -219,10 +223,90 @@ model Brand {
 
   vendors      Vendor[]      @relation("VendorBrands")
   catalogItems CatalogItem[]
+  vehiclesAsMake Vehicle[] @relation("VehicleMakeBrand")
+  vehicleMakeAliases VehicleMakeAlias[]
+  catalogOemConcernMakes CatalogOemConcernMake[]
 
   @@index([tenant_id])
   @@unique([tenant_id, name]) // tenant-scoped
   @@map("brands")
+}
+
+enum CatalogOemConcernCode {
+  BMW
+  MERCEDES
+  STELLANTIS
+}
+
+model CatalogProviderSettings {
+  id                                   String         @id @default(uuid())
+  tenant_id                            String
+  tenant                               Tenant         @relation(fields: [tenant_id], references: [id])
+  default_identity_adapter_id          String?        @map("default_identity_adapter_id")
+  default_parts_aftermarket_adapter_id String?        @map("default_parts_aftermarket_adapter_id")
+  default_labor_aftermarket_adapter_id String?        @map("default_labor_aftermarket_adapter_id")
+  default_labor_category_id            String?        @db.Uuid @map("default_labor_category_id")
+  defaultLaborCategory                 LaborCategory? @relation(fields: [default_labor_category_id], references: [id], onDelete: Restrict)
+  aw_minutes                           Int            @default(6) @map("aw_minutes")
+  identity_credentials_secret_ref      String?        @map("identity_credentials_secret_ref")
+  parts_aftermarket_credentials_secret_ref String?    @map("parts_aftermarket_credentials_secret_ref")
+  labor_aftermarket_credentials_secret_ref String?    @map("labor_aftermarket_credentials_secret_ref")
+  updatedAt                            DateTime       @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id])
+  @@map("catalog_provider_settings")
+}
+
+model CatalogOemConcern {
+  id                             String                @id @default(uuid())
+  tenant_id                      String
+  tenant                         Tenant                @relation(fields: [tenant_id], references: [id])
+  code                           CatalogOemConcernCode
+  parts_adapter_id               String?               @map("parts_adapter_id")
+  labor_adapter_id               String?               @map("labor_adapter_id")
+  parts_credentials_secret_ref   String?               @map("parts_credentials_secret_ref")
+  labor_credentials_secret_ref   String?               @map("labor_credentials_secret_ref")
+  memberMakes                    CatalogOemConcernMake[]
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, code])
+  @@unique([tenant_id, id])
+  @@map("catalog_oem_concerns")
+}
+
+model CatalogOemConcernMake {
+  id          String            @id @default(uuid())
+  tenant_id   String
+  tenant      Tenant            @relation(fields: [tenant_id], references: [id])
+  concern_id  String            @map("concern_id")
+  concern     CatalogOemConcern @relation(fields: [tenant_id, concern_id], references: [tenant_id, id], onDelete: Cascade)
+  brand_id    Int               @map("brand_id")
+  brand       Brand             @relation(fields: [brand_id], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now())
+
+  @@index([tenant_id])
+  @@unique([tenant_id, brand_id])
+  @@unique([tenant_id, id])
+  @@map("catalog_oem_concern_makes")
+}
+
+model VehicleMakeAlias {
+  id               String   @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant   @relation(fields: [tenant_id], references: [id])
+  alias_normalized String   @map("alias_normalized")
+  brand_id         Int      @map("brand_id")
+  brand            Brand    @relation(fields: [brand_id], references: [id], onDelete: Restrict)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@unique([tenant_id, alias_normalized])
+  @@unique([tenant_id, id])
+  @@map("vehicle_make_aliases")
 }
 
 // ============================================================================
@@ -495,6 +579,15 @@ model Vehicle {
   engine_code  String?
   vin          String?
   plate        String?
+  make_brand_id Int?     @map("make_brand_id")
+  makeBrand    Brand?    @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
+  hsn          String?
+  tsn          String?
+  identity_keys Json?    @map("identity_keys")
+  identity_input_fingerprint String? @map("identity_input_fingerprint")
+  identity_resolved_at DateTime? @map("identity_resolved_at")
+  fuel_type    String?   @map("fuel_type")
+  power_kw     Int?      @map("power_kw")
   customer_id  String?
   customer     Customer? @relation(fields: [customer_id], references: [id])
   inventory_role VehicleInventoryRole @default(CUSTOMER)
@@ -520,6 +613,8 @@ model Vehicle {
 
   @@index([tenant_id])
   @@index([tenant_id, inventory_role, stock_status])
+  @@index([tenant_id, hsn, tsn])
+  @@index([make_brand_id])
   @@unique([tenant_id, vin]) // tenant-scoped
   @@map("vehicles")
 }
@@ -1495,6 +1590,7 @@ model LaborCategory {
   default_hourly_rate Decimal?          @db.Decimal(10, 2)
 
   labor_operations    LaborOperation[]
+  catalogProviderSettings CatalogProviderSettings[]
 
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
