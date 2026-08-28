@@ -3,6 +3,7 @@ import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
+import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
@@ -227,6 +228,15 @@ async function main() {
     );
 
     const allBrands = [...dualBrandRecords, ...pureVehicleMakeRecords, ...purePartManufacturerRecords];
+
+    console.log('Seeding vehicle catalog providers (aliases, OEM concerns)...');
+    const catalogSeedSummary = await seedVehicleCatalogProviders(prisma, defaultTenant.id);
+    console.log(
+        `Vehicle catalog seed: ${catalogSeedSummary.brandsCreated} brands, ` +
+        `${catalogSeedSummary.aliasesUpserted} aliases, ` +
+        `${catalogSeedSummary.concernsUpserted} concerns, ` +
+        `${catalogSeedSummary.concernMakesUpserted} concern-make links`,
+    );
 
     console.log('Seeding warehouses...');
     const showroom = await prisma.storageLocation.create({

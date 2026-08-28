@@ -356,6 +356,10 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.employeeWorkSchedule.deleteMany({});
   await tenantPrisma.employee.deleteMany({});
   await tenantPrisma.vehicle.deleteMany({});
+  await tenantPrisma.catalogOemConcernMake.deleteMany({});
+  await tenantPrisma.catalogOemConcern.deleteMany({});
+  await tenantPrisma.vehicleMakeAlias.deleteMany({});
+  await tenantPrisma.catalogProviderSettings.deleteMany({});
   await tenantPrisma.customer.deleteMany({});
   await tenantPrisma.catalogItem.deleteMany({});
   await tenantPrisma.vendor.deleteMany({});
