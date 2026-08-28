@@ -43,7 +43,8 @@ tags:
 | | `sort_order` | Int | No | Default 0 |
 | | `parent_id` | UUID | Yes | FK self-ref, max depth 2 |
 | | `is_active` | Boolean | No | Default true |
-| | `default_hourly_rate` | Decimal(10,2) | Yes | Inherited by child operations |
+| | `default_hourly_rate` | Decimal(10,2) | Yes | Inherited by child operations (selling rate) |
+| | `default_internal_cost_rate` | Decimal(10,2) | Yes | Added by Vehicle Intelligence (ADR-0021). Snapshot onto workshop lines; never fall back to selling rate. |
 | `labor_operations` | `id` | UUID | No | PK |
 | | `code` | String | No | Unique identifier (e.g., `MECH-001`) |
 | | `description` | String | No | Human-readable name |

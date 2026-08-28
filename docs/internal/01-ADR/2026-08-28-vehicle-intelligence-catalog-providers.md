@@ -80,7 +80,9 @@ Never silent-merge OEM and aftermarket into one list. Never toast-only the outag
 On **Add to order** (part):
 
 1. Upsert `CatalogItem` on `(tenant_id, source_system, external_article_id)`.
-2. Derive a tenant-unique `sku` (brand + article). Set workshop line `item_no` to that SKU.
+2. Derive an **immutable** tenant-unique `sku` only on first insert:
+   `{source}-{normalized-brand}-{normalized-article}-{short-hash}`
+   where `short-hash` is SHA-256(`tenant_id|source_system|external_article_id`)[:8] (retry with 12 hex chars on unique collision). Upsert key is `(tenant_id, source_system, external_article_id)`, not SKU. Never rewrite SKU when brand labels or descriptions change.
 3. Add `catalog_item_id` on `WorkshopTaskLineItem` (pick today resolves by SKU string only).
 4. **No** `InventoryTransaction`. **No** `InventoryStock` row. On-hand is “not stocked” until a real `PURCHASE_RECEIPT` (Prisma `TransactionType`; do not write `RECEIPT` — that name is docs-only in ADR-0002).
 5. Snapshot on the **line**: `unit_price`, `cost_price_est`, `oem_numbers`, `fitment_notes`, `source_system`. Live `CatalogItem` is not historical.
@@ -98,31 +100,32 @@ Pricing (because `LaborCategory.default_hourly_rate` is nullable):
 - Advisor may pass `laborCategoryId` on Add to order (same rule).
 - `planned_hours = provider.hours` or `standard_aw * (aw_minutes / 60)` with tenant `aw_minutes` default 6.
 - Write `quantity = planned_hours`, `unit_price = hourly_rate_snapshot`, plus `labor_category_id` and `hourly_rate_snapshot` on the line.
+- Add `LaborCategory.default_internal_cost_rate`. Snapshot onto `internal_cost_rate` when non-null; **otherwise leave `internal_cost_rate` null**. Never copy the selling rate into cost (unknown margin ≠ zero margin).
 
 ### 6. Shortage requisition and qty-sliced reservation
 
 A workshop part line is demand for `quantity`. Each **reservation** is a qty slice (`sum(slices) ≤ line.quantity`).
 
 - Clerk queue: lines where needed qty > ATP.
-- **ATP source of truth:** `PartsReservation` rows. `InventoryStock.quantity_reserved` is an eager per-location cache updated in the same transaction as ON_HAND create/cancel/stage (it exists today but is not maintained; sales currently deducts `quantity_on_hand` only).
-- ATP at non-tote locations = `quantity_on_hand - quantity_reserved`. Staging totes are never ATP. Incoming ORDERED qty is not on-hand yet.
-- Every consumer (sales finalize, pick, new ON_HAND reservation, `checkAvailability`) enforces ATP. Concurrent last-unit reservations: `updateMany` guard, loser 409.
+- **ATP** = `quantity_on_hand - quantity_reserved` at non-tote locations. Negative difference is an invariant failure, not `max(0, …)`. Enforcement is in inventory/reservation helpers used by the ledger path, plus a reconciliation assert (`quantity_reserved` = sum of active ON_HAND slices).
 - Requisition **sheet per vehicle-make Brand**. OEM *search* uses concern (Stellantis).
 - Do not merge two workshop lines into one reservation because the SKU matches.
 - One line **may** have N slices (on-hand pick + OEM PO + backorder PO).
-- **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Partial receive uses existing `ReceiveItemDto.itemId` (= PO item). Two jobs, same SKU, two PO lines; receiving 1 against the first line totes only that job. Do not put N reservations on one PO item in M3.
+- **M3 lock: one `PurchaseOrderItem` per `PartsReservation`.** Qty columns are **`Decimal(10, 3)`** end-to-end (stock, reserved, PO, reservation, workshop/sales lines). `InventoryTransaction.quantity` is already 10,3.
+- No `RECEIVED` status: receive + tote transfer is one transaction (`ORDERED` → `STAGED` when complete).
+- **Cancel after SENT:** `ORDERED → CANCELLED` if `quantity_received = 0` detaches the PO item. Later receipt of that item is free warehouse stock (`locationId` required). Do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today.
 
-Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **optional 1:1 `PurchaseOrderItem`**.
-
-On goods receipt: post `PURCHASE_RECEIPT`, then `TRANSFER_OUT`/`TRANSFER_IN` into **that reservation’s job tote** (ADR-0012).
-
-Do **not** add `PurchaseOrderStatus.CANCELLED`. Cancel `PartsReservation` / requisition. Draft PO delete stays as today. SENT PO is not cancelled in this project.
+Chain: `WorkshopTaskLineItem` → reservation slice → optional `PartsRequisitionLine` → **optional 1:1 `PurchaseOrderItem`** (nullable after detach).
 
 ### 7. Tenant settings
 
 OWNER/ADMIN Settings tab **Vehicle data**: default identity / parts-aftermarket / labor-aftermarket adapters, `default_labor_category_id`, `aw_minutes`, plus **OEM concerns** (BMW, Mercedes, Stellantis) each listing member vehicle-make Brands. Credentials in tenant secrets, not on `Brand`.
 
-External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/external/search` requires `concern=PARTS|LABOR` and supports `source` + `confirmFallback` so “Search other source” and confirmed OEM fallback exist on the contract. Local `/api/catalog/search` stays unchanged.
+External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/external/search` requires `concern=PARTS|LABOR` and supports `source` + `confirmFallback`. Response uses `fallbackReason: EMPTY | ERROR | null` (no `sourceBanner`). 409 when identity is stale.
+
+VIN/plate change clears `identity_keys`, `make_brand_id`, and `identity_input_fingerprint` in the same write. Failed re-resolve must not restore the previous key bag. Store `identity_input_fingerprint` + `identity_resolved_at` only after a successful resolve.
+
+Hit tokens are HMAC-signed, TTL ≤ 15 minutes, bound to tenant, workshop order, vehicle, concern, provider id, quoted snapshots, and `exp`.
 
 ## Consequences
 
@@ -155,7 +158,12 @@ External search is **not** `GET /api/catalog/search`. New `GET /api/catalog/exte
 | N reservations on one PO item + qty-only receive | Fewer vendor lines | Partial delivery cannot choose a job tote |
 | Route on `Vehicle.make` text | No new FKs | Peugeot ≠ Stellantis; typos skip OEM |
 | Overload `/api/catalog/search` | One endpoint | Cannot express per-concern fallback |
-| Add `PurchaseOrderStatus.CANCELLED` in M3 | Matches prose | Expands purchase lifecycle beyond this project |
+| Integer stock + decimal job lines | No migration | 1.5 L oil cannot reserve/receive faithfully |
+| Copy selling rate into labor cost | Always have a cost | Fake zero margin |
+| Brand+article SKU | Short | Collides across BMW vs TecDoc |
+| Keep RECEIVED status | Matches physical receive | Transient if tote is same transaction |
+| Block cancel after PO SENT | No orphan vendor qty | Job stuck waiting on a cancelled need |
+| max(0, ATP) | No crashes | Hides quantity_reserved corruption |
 
 ## References
 

@@ -21,9 +21,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleMakeAlias | Yes | Hard delete allowed. Decoder aliases are master data. |
 | PartsRequisition | Draft-only | Allow only in `DRAFT`. After `ORDERED`, cancel; do not hard-delete linked reservations. |
 | PartsRequisitionLine | No direct delete | Managed by parent requisition / reservation cancel. |
-| PartsReservation | Cancel only | Set `status = CANCELLED` while `OPEN` or `ORDERED` before receipt. No hard delete after `ORDERED`/`RECEIVED`. |
+| PartsReservation | Cancel only | Set `status = CANCELLED` while `OPEN` or `ORDERED` with `quantity_received = 0`. After any receipt, cancel is blocked (stock already staged). No hard delete. |
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
-| Brand | Conditional | Allow only when no `CatalogItem` or `Vendor.supportedBrands` reference it. |
+| Brand | Conditional | Allow only when no `CatalogItem`, `Vendor.supportedBrands`, `Vehicle.make_brand_id`, `VehicleMakeAlias`, or `CatalogOemConcernMake` references it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
 | StorageLocation | Conditional (soft delete) | Allow only when no child locations and no stock exists; soft-delete via `deletedAt`. |
 | InventoryStock | No | Derived operational state; managed by ledger operations. |
@@ -61,7 +61,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. |
 | VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. |
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
-| LaborCategory | Conditional | Allow only when no `LaborOperation` references it (i.e. `labor_operations` relation is empty) and no child categories exist. |
+| LaborCategory | Conditional | Allow only when no `LaborOperation` references it, no child categories exist, and it is not `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` uses `ON DELETE SET NULL` (hourly/cost rates are snapshotted on the line). |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
 | Employee | Soft-disable preferred | Set `is_active = false`. Hard delete returns `409` if `WorkshopOrder.mechanic_id`, work records (`WorkshopTask`, `WorkshopMedia`, `WorkshopVoiceNoteDraft`, `LaborEntry`), or HR records (`AttendanceEvent`, `LeaveRequest`, `EmployeeLeaveBalance`) reference this employee. `EmployeeWorkSchedule` rows cascade on employee hard-delete — not a separate 409 reason. |
 | EmployeeWorkSchedule | No API delete | Versioned expected work pattern per employee. Correct times via PATCH; add versions via POST. Rows cascade on employee hard-delete or tenant purge. Parent PATCH is audited. |
@@ -82,4 +82,5 @@ This document defines when deletion is allowed in Auto Core Platform.
 - ADR-0005: Deletion Policy Enforcement
 - ADR-0013: Row-Level Multi-Tenancy & Tenant Isolation
 - ADR-0015: Audit Tracing and Operational Logging — AuditLog ledger immutability
+- ADR-0021 / Vehicle Intelligence spec — LaborCategory default, Brand vehicle-make refs, PartsReservation cancel-after-send
 
