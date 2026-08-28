@@ -83,8 +83,18 @@ Architecture: [ADR-0021](../../01-ADR/2026-08-28-vehicle-intelligence-catalog-pr
 | # | Decision |
 |---|---------|
 | P1 active | **Active** = `status IN (OPEN, ORDERED, STAGED)` AND (`remaining_commitment > 0` OR `quantity_staged > 0`). Do not add `quantity_cancelled`. Release of unreceived ORDERED qty 4 is `CANCELLED` with formula remaining 4, and must not block `DONE` or count as shortage. |
-| P1 tote cost | Snapshot cost when qty enters the tote onto `PartsReservation.tote_cost_basis` (immutable). PO: this receipt’s `PURCHASE_RECEIPT.cost_basis`. ON_HAND: pick-time last inbound `cost_basis` at the **source location**. Consume copies that value unchanged. Freeze `PurchaseOrderItem.unit_cost` once `quantity_received > 0` (409). Test: pick €10 → later receipt €20 → consume €10. |
-| P2 unitCost DTO | `unitCost` on create-PO, add-items, update-item, and requisition create-PO: `@IsNumber({ maxDecimalPlaces: 2 })` + `@Min(0)`. Negative or 3+ decimals → 422. Explicit `0` still allowed. |
+| P1 tote cost | Snapshot cost when qty enters the tote onto `PartsReservation.tote_cost_basis`. PO: this receipt’s `PURCHASE_RECEIPT.cost_basis`. ON_HAND: pick-time last inbound at the **source location**. Consume copies it. Freeze `unit_cost` once received. **Pass 9:** freeze at first tote entry (including null); return `TRANSFER_IN` carries `tote_cost_basis`; atomic `WHERE quantity_received = 0`. |
+| P2 unitCost DTO | `unitCost` `>= 0`, max 2 decimals. **Pass 9:** JSON number only — do not `@Type(() => Number)` (`""` → 0). |
+
+### Review locks (pass 9)
+
+| # | Decision |
+|---|---------|
+| P1 linked PO qty | Reservation-linked PO item `quantity` is not independently mutable (`PATCH` → 409). Qty changes go through the workshop/reservation path and update both rows in one tx under the task-first lock, and only while `DRAFT` and `quantity_received = 0`. After SENT/receipt, PO qty stays frozen. |
+| P1 linked PO delete | `DELETE` item / `DELETE` DRAFT PO with linked reservations: DRAFT + unreceived → transactional **unlink** (`purchase_order_item_id = null`, reservation stays `OPEN`) then delete, task-first lock. SENT or any receipt/staged qty → 409 (Release leftover; keep FK). FK `onDelete: Restrict`. |
+| P1 unitCost empty | `unitCost` must be a JSON number. No `@Type(() => Number)`. `""`, `" "`, string `"0"` → 422. Explicit numeric `0` still allowed. |
+| P1 freeze atomic | `UPDATE purchase_order_items SET unit_cost = $cost WHERE id = $id AND tenant_id = $tid AND quantity_received = 0`. Count 0 → 409. Receipt and cost update both `FOR UPDATE` the PO item. |
+| P1 return cost | Release `TRANSFER_OUT`/`TRANSFER_IN` copy `tote_cost_basis` onto both rows. ON_HAND pick valuation includes valuation-bearing `TRANSFER_IN` at the source bin. First tote entry freezes `tote_cost_basis` even when null (not “first non-null”). |
 
 ---
 
@@ -316,9 +326,9 @@ PartsReservation 1 ── 1 PurchaseOrderItem     // M3 lock: never N reservatio
 | `status` | `OPEN` \| `ORDERED` \| `STAGED` \| `FULFILLED` \| `CANCELLED` — **no `RECEIVED`**. Receipt+tote is one transaction; complete receive sets `STAGED`. Partial receive stays `ORDERED` with `quantity_received` increased. Consume auto-sets **`FULFILLED`** when the slice has no staged qty and no remaining commitment. `CANCELLED` is Release only. |
 | `location_id` | Required for `ON_HAND` (bin whose cache was incremented). After stage, the tote is the job’s `stagingLocationId`. |
 | `requisition_line_id` | Set when `kind = REQUISITION` |
-| `purchase_order_item_id` | Unique 1:1 with the PO item. **Kept after release** (audit of the original allocation). Creating a PO inserts **one PO item per reservation**. |
+| `purchase_order_item_id` | Unique 1:1 with the PO item. **Kept after release of a SENT/received allocation** (audit). `onDelete: Restrict`. DRAFT delete **unlinks** (null) instead of keeping a dangling FK. Creating a PO inserts **one PO item per reservation**. |
 | `detached_at` | DateTime? Set when remaining vendor qty is no longer job-allocated. Receive of that PO item then follows the detached path. |
-| `tote_cost_basis` | `Decimal(10,2)?` **Immutable** unit cost of qty in this slice’s tote. Stamped when stock **enters the tote** (ON_HAND pick or allocated PO receive). Consume copies it to `WORKSHOP_CONSUMPTION.cost_basis`. Never re-read live catalog or PO `unit_cost` at consume. |
+| `tote_cost_basis` | `Decimal(10,2)?` Unit cost of qty that entered this slice’s tote. **Frozen at first tote entry**, including when the snapshot is **null**. Consume copies it to `WORKSHOP_CONSUMPTION.cost_basis`. Never re-read live catalog or PO `unit_cost` at consume. |
 
 `PartsRequisition`: `tenant_id`, `vehicle_make_brand_id`, `status` (`DRAFT` \| `ORDERED` \| `CANCELLED`). Clerk sheet is still **per vehicle make** (Peugeot sheet ≠ Citroën sheet), while OEM *search* uses the shared Stellantis concern.
 
@@ -326,11 +336,35 @@ Same SKU on the printed PO may appear as two lines (job A, job B). That is inten
 
 **Clerk-confirmed PO cost (M3):** `PurchaseOrderItem.unit_cost` stays **required** (`schema.prisma`). Nullable JIT `CatalogItem.cost_price` / `cost_price_est` is not a source that can be written as 0.
 
-`POST /api/parts-requisitions/:id/create-purchase-order` body: one confirmed `unitCost` per reservation/slice. UI prefill: line `cost_price_est` if set, else `CatalogItem.cost_price` if set, else empty. Submit **422** if any slice omits `unitCost` or sends null. Do **not** default missing cost to `0`. An explicit clerk `0` (warranty/free) is allowed only when the field is present.
+`POST /api/parts-requisitions/:id/create-purchase-order` body: one confirmed `unitCost` per reservation/slice. UI prefill: line `cost_price_est` if set, else `CatalogItem.cost_price` if set, else empty. Submit **422** if any slice omits `unitCost`, sends null, or sends `""`. Do **not** `@Type(() => Number)` (empty string becomes `0`). An explicit JSON-number clerk `0` (warranty/free) is allowed only when the field is a number.
 
-**DTO (create, add-items, update-item, requisition create-PO):** `@Type(() => Number)` + `@IsNumber({ maxDecimalPlaces: 2 })` + `@Min(0)`. Today `CreatePurchaseOrderDto` / `UpdatePurchaseOrderItemDto` are `@IsNumber()` only, so `-1` and `10.001` pass. Negative or more than two decimals → 422. Same rule for `POST /api/purchase-orders`.
+**DTO (create, add-items, update-item, requisition create-PO):** `@IsNumber({ maxDecimalPlaces: 2 })` + `@Min(0)`. **Do not** `@Type(() => Number)` and do not enable `enableImplicitConversion` for this field. Global `ValidationPipe` already has `transform: true`; `Number("") === 0` in JavaScript, so `@Type(() => Number)` turns an empty UI field into a free part. `unitCost` must arrive as a JSON number. `""`, `" "`, `"0"`, `"10.50"`, `null`, omitted → **422**. Explicit numeric `0` is allowed. Test `unitCost: ""`.
 
-**Freeze after receipt:** `updatePurchaseOrderItem` today writes `unit_cost` with no received-qty guard. Once `quantity_received > 0`, `unit_cost` updates → **409**. Receipts already posted keep their `PURCHASE_RECEIPT.cost_basis`; tote snapshots stay frozen.
+**Freeze `unit_cost` atomically with receipt:** `updatePurchaseOrderItem` today is read-then-write (no received-qty guard). Do **not** `if (quantity_received > 0) throw` after a separate read.
+
+```sql
+UPDATE purchase_order_items
+SET unit_cost = $cost
+WHERE id = $id
+  AND tenant_id = $tenantId
+  AND quantity_received = 0
+```
+
+Affected row count 0 → **409**. Receipt and cost-update both `SELECT … FOR UPDATE` the PO item in the global lock order (tasks → lines → reservations → **PO items** → stock). Race test: concurrent cost PATCH vs receive — one winner; posted `PURCHASE_RECEIPT.cost_basis` is the `unit_cost` that existed at receive; the other 409.
+
+**Linked PO item quantity and delete (`purchase.service.ts` today PATCHes qty and DELETEs unreceived items with no reservation check):**
+
+Invariant: linked `PurchaseOrderItem.quantity` = `PartsReservation.quantity`.
+
+| API | Linked reservation |
+|-----|--------------------|
+| `PATCH` item `quantity` | **409**. Change demand via workshop line / leftover-release. While PO is `DRAFT` and `quantity_received = 0`, that path updates reservation qty **and** PO qty in one tx under the task-first lock. After `SENT` or any receipt, PO qty is frozen (Release does not change it). |
+| `DELETE` item, PO `DRAFT`, `quantity_received = 0`, not staged | Task-first lock. **Unlink:** `purchase_order_item_id = null`, reservation stays `OPEN` (shortage again). Then delete the item. |
+| `DELETE` item otherwise (SENT, received, staged, or `FULFILLED`) | **409**. Release leftover on SENT; keep FK. |
+| `DELETE` DRAFT PO | Same unlink for every linked item, then delete items + header as today. Any received/staged item → 409 (existing). |
+| Prisma FK | `PartsReservation.purchase_order_item_id` `onDelete: Restrict` (naive delete must not cascade or set-null). |
+
+Unlinked (no reservation) PO items keep today’s PATCH/DELETE rules.
 
 **Release (M3) — unconsumed tote qty only. Does not recreate consumed stock.**
 
@@ -365,13 +399,14 @@ A `WorkshopTask` cannot become `DONE` while any PART line is `PENDING_PICK` or `
 
 **STOCK_PREP valuation (immutable, stamped at tote entry):** `vehicle-ledger.service.ts` today does `line.quantity × CatalogItem.cost_price`. Pass 7 consume-time “last inbound” is also wrong: a pick at €10 then a later receipt at €20 would consume at €20. `updatePurchaseOrderItem` can change `unit_cost` after receipt, so reading PO cost at consume is also mutable.
 
-Stamp **`PartsReservation.tote_cost_basis`** when stock **enters the tote**. The column is immutable after first non-null write.
+Stamp **`PartsReservation.tote_cost_basis`** when stock **first enters the tote**. That first write is the freeze — **including null**. A later non-null receipt or catalog cost must not fill it in.
 
 | Event | `tote_cost_basis` |
 |-------|-------------------|
-| ON_HAND pick to tote | Pick-time last non-null inbound `cost_basis` for that `item_id` at the **source bin** (`location_id`): `PURCHASE_RECEIPT`, `INITIAL_BALANCE`, or positive `ADJUSTMENT`. Not live `CatalogItem.cost_price`. Not a later receipt at another location. If none, leave null. |
-| Allocated PO receive + tote transfer | This receipt’s `PURCHASE_RECEIPT.cost_basis` (`poItem.unit_cost` **at receive time**). First tote entry wins; later receives on the same slice do not overwrite. |
-| Consume | Copy `tote_cost_basis` onto `WORKSHOP_CONSUMPTION.cost_basis` unchanged. Do not re-query PO, catalog, or later inbound rows. |
+| ON_HAND pick to tote | Pick-time last valuation-bearing inbound `cost_basis` for that `item_id` at the **source bin**: `PURCHASE_RECEIPT`, `INITIAL_BALANCE`, positive `ADJUSTMENT`, **or `TRANSFER_IN` with non-null `cost_basis`**. Not live `CatalogItem.cost_price`. If none, stamp **null** and freeze. |
+| Allocated PO receive + tote transfer | This receipt’s `PURCHASE_RECEIPT.cost_basis` (`poItem.unit_cost` **at receive time**). First tote entry wins and freezes (null or not). |
+| Consume | Copy `tote_cost_basis` onto `WORKSHOP_CONSUMPTION.cost_basis` unchanged. |
+| Release return | Paired `TRANSFER_OUT` (tote) + `TRANSFER_IN` (return bin) both copy `tote_cost_basis` onto `cost_basis`. Next ON_HAND pick from that bin can see this `TRANSFER_IN`. |
 
 Labor uses the **snapshotted** `WorkshopTaskLineItem.internal_cost_rate` (already frozen at Add to order).
 
@@ -390,7 +425,7 @@ Required test: ON_HAND pick while last inbound at that bin is €10; then a €2
 
 In one transaction:
 
-1. **Return tote qty = `quantity_staged` only.** If `quantity_staged > 0`: paired `TRANSFER_OUT` (tote) + `TRANSFER_IN` (`returnLocationId`, not a tote). Increment `quantity_returned`, set `quantity_staged = 0`. **422** if `returnLocationId` missing. Do **not** post inverse `WORKSHOP_CONSUMPTION`. If `quantity_staged = 0` (fully consumed or never staged), skip this step.
+1. **Return tote qty = `quantity_staged` only.** If `quantity_staged > 0`: paired `TRANSFER_OUT` (tote) + `TRANSFER_IN` (`returnLocationId`, not a tote), **both with `cost_basis = tote_cost_basis`**. Increment `quantity_returned`, set `quantity_staged = 0`. **422** if `returnLocationId` missing. Do **not** post inverse `WORKSHOP_CONSUMPTION`. If `quantity_staged = 0` (fully consumed or never staged), skip this step.
 2. **Release remaining on-hand reservation:** if `kind = ON_HAND` and status is still `OPEN`, decrement `quantity_reserved` at `location_id` by the unpicked qty via the ATP SQL primitive.
 3. **Detach outstanding PO demand:** if `purchase_order_item_id` is set and `detached_at` is null, set `detached_at = now()`. Keep the FK. Do not change `PurchaseOrderItem.quantity`. Later receive of that item is free warehouse stock.
 4. **Audit:** reservation row + ADR-0015 log. `quantity_consumed` remains as history.
@@ -459,13 +494,13 @@ WHERE id = $id
 | `VehicleMakeAlias` | Hard delete allowed. |
 | `PartsRequisition` | Draft-only delete. After `ORDERED`, cancel. |
 | `PartsRequisitionLine` | No direct delete; cancel reservation. |
-| `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Consume → `FULFILLED` when remaining commitment and staged are 0. Returns `quantity_staged` only on release. No hard delete. |
+| `PartsReservation` | Release → `CANCELLED` from `OPEN`, `ORDERED`, or `STAGED`. Consume → `FULFILLED` when remaining commitment and staged are 0. DRAFT PO delete **unlinks** (`purchase_order_item_id` null) rather than hard-deleting the reservation. Returns `quantity_staged` only on release. No hard delete of the reservation row. |
 | `WorkshopTaskLineItem` | No hard delete after reservation/ledger. Consumed 0 → `CANCELLED`. Consumed > 0 leftover-release → qty shrink, status `CONSUMED` (billable). `replaceTaskLineItems` is an ID diff. |
 | `WorkshopTask` | Existing rules, plus **blocked** after any child reservation or inventory activity. |
 | `CatalogItem` (JIT) | Still no delete; supersede/inactive. |
 | `LaborCategory` | Conditional. **Blocked** while it is `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` is `ON DELETE SET NULL` (rate snapshotted). Still blocked when `LaborOperation` rows or child categories exist. |
 
-**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. Draft PO delete stays as today. Released reservations keep `purchase_order_item_id`; subsequent receipt of that SENT item is free warehouse stock.
+**PO cancel:** do **not** add `PurchaseOrderStatus.CANCELLED`. SENT leftover uses Release (keep `purchase_order_item_id`; later receipt is free stock). **DRAFT PO/item delete** unlinks reservations (null FK, stay `OPEN`) then deletes — it does not keep a FK to a deleted row. Unlinked PO items keep today’s draft-delete rules.
 
 ---
 
@@ -602,7 +637,7 @@ TECH cannot add billable catalog lines (ADR-0014).
 |--------|-------|-------------|
 | GET | `/api/parts-requisitions/shortages` | Queue: one order or all open orders |
 | POST | `/api/parts-requisitions` | Create/update make-sheet from selected shortages |
-| POST | `/api/parts-requisitions/:id/create-purchase-order` | **One `PurchaseOrderItem` per reservation.** Body: clerk-confirmed `unitCost` per slice (`>= 0`, max 2 decimals; 422 if null/omitted/negative/over-precision; never coerce to 0). |
+| POST | `/api/parts-requisitions/:id/create-purchase-order` | **One `PurchaseOrderItem` per reservation.** Body: clerk-confirmed `unitCost` per slice (JSON number `>= 0`, max 2 decimals; 422 if `""` / null / omitted / negative / over-precision; never `@Type(() => Number)`). |
 | POST | `/api/parts-reservations` | On-hand slice: allocate location, increment `quantity_reserved` via ATP |
 | POST | `/api/parts-reservations/:id/release` | Body: `returnLocationId` required when `quantity_staged > 0`. Returns tote **staged** qty only. |
 
@@ -698,8 +733,12 @@ OWNER/ADMIN only.
 - [ ] Consume 2 of PO qty 4 (remaining commitment > 0): task `DONE` 409.
 - [ ] Task → `DONE` with a `STAGED`/`PENDING_PICK` part line or `quantity_staged > 0` → 409; invoice repeats the check. `FULFILLED` slices do not block.
 - [ ] `POST .../create-purchase-order` with null/omitted `unitCost` on a JIT line that has null catalog cost → 422; no PO row; never writes `unit_cost = 0`.
-- [ ] `unitCost: -1` or `10.001` on create-PO / update-item → 422. Explicit `0` → 201.
-- [ ] `PATCH` PO item `unitCost` after `quantity_received > 0` → 409.
+- [ ] `unitCost: ""` (and `"0"`, `"10.50"`) on create-PO / update-item / requisition create-PO → 422; does not persist `0`.
+- [ ] `unitCost: -1` or `10.001` on create-PO / update-item → 422. Explicit JSON number `0` → 201.
+- [ ] Concurrent `PATCH` `unitCost` vs receive: atomic `WHERE quantity_received = 0`; one 409; receipt `cost_basis` is the pre-receive `unit_cost`.
+- [ ] `PATCH` linked PO item quantity 4 → 10 → 409; reservation qty stays 4.
+- [ ] `DELETE` linked SENT PO item → 409; `purchase_order_item_id` remains.
+- [ ] `DELETE` DRAFT PO (and DELETE DRAFT item) with linked OPEN reservations: FK nulled, reservations `OPEN`, PO gone; shortage queue shows the demand.
 - [ ] Prefill create-PO uses `cost_price_est` then catalog cost when present.
 - [ ] Collection PATCH vs consume concurrent: both lock `WorkshopTask` first; no deadlock; one 200 and one 409 or both commit serially.
 - [ ] JIT / receive / consume increment `line_items_version` in the same transaction as the line mutation.
@@ -716,6 +755,8 @@ OWNER/ADMIN only.
 - [ ] JIT with no `cost_price_est`: GET catalog/inventory `cost_price` is JSON `null`, not `0` / `"0"`.
 - [ ] STOCK_PREP `WORKSHOP_COST` uses Σ consumption `cost_basis` + labor snapshot; 409 if any is null. Changing `CatalogItem.cost_price` after consume does not change the posted amount.
 - [ ] ON_HAND pick at €10, then a €20 receipt on the same SKU, then consume: `WORKSHOP_CONSUMPTION.cost_basis = 10` (`tote_cost_basis` unchanged).
+- [ ] Stage €25 PO part, release `TRANSFER_IN` to a bin that has older €10 stock, re-pick: new reservation `tote_cost_basis = 25` (return transfer is valuation-bearing).
+- [ ] First tote entry with null cost freezes null; a later receipt does not fill `tote_cost_basis`.
 - [ ] Soft-cancel line (consumed 0): `part_execution_status = CANCELLED`, row remains; hard-delete 409 after reservation exists.
 - [ ] Hard-delete `WorkshopTask` 409 after a child reservation exists.
 - [ ] Receive allocated line: `ORDERED` → `STAGED` (or stay ORDERED if partial); no `RECEIVED` status; tote qty matches `quantity_received`.
@@ -751,7 +792,7 @@ OWNER/ADMIN only.
 
 ## Open Questions
 
-None blocking after review pass 8 (2026-08-28): active = status ∩ remaining, tote-entry cost snapshot, and `unitCost >= 0` / 2-decimal DTOs are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
+None blocking after review pass 9 (2026-08-28): linked PO qty/delete, JSON-number `unitCost` (no `""`→0), atomic cost freeze vs receipt, and return `TRANSFER_IN` valuation are locked. Plate-registry vendor and live TecAlliance vs sandbox remain commercial.
 
 ---
 

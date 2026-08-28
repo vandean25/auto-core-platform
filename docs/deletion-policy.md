@@ -21,7 +21,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VehicleMakeAlias | Yes | Hard delete allowed. Decoder aliases are master data. |
 | PartsRequisition | Draft-only | Allow only in `DRAFT`. After `ORDERED`, cancel; do not hard-delete linked reservations. |
 | PartsRequisitionLine | No direct delete | Managed by parent requisition / reservation cancel. |
-| PartsReservation | Cancel / release / fulfill | `OPEN`, `ORDERED`, or `STAGED` → `CANCELLED` via **Release** (return `quantity_staged` only, drop on-hand reserved, detach remaining PO demand, keep `purchase_order_item_id`). Consume → **`FULFILLED`** when remaining commitment and staged qty are 0. Never reverse `WORKSHOP_CONSUMPTION`. No hard delete. |
+| PartsReservation | Cancel / release / fulfill | `OPEN`, `ORDERED`, or `STAGED` → `CANCELLED` via **Release** (return `quantity_staged` only, drop on-hand reserved, detach remaining SENT PO demand, keep `purchase_order_item_id`). Consume → **`FULFILLED`** when remaining commitment and staged qty are 0. DRAFT PO/item delete **unlinks** (`purchase_order_item_id` null, stay `OPEN`). Never reverse `WORKSHOP_CONSUMPTION`. No hard delete of the reservation. |
+| PurchaseOrder | Draft-only | Allow only in `DRAFT` with no received qty and no purchase invoice links. Linked reservations must be **unlinked** in the same transaction (task-first lock) before header/item delete. |
+| PurchaseOrderItem | Conditional | Unlinked items: existing parent-lifecycle delete. Reservation-linked: DRAFT+unreceived → unlink then delete; SENT/received/staged → 409. `onDelete: Restrict` from `PartsReservation`. |
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
 | Brand | Conditional | Allow only when no `CatalogItem`, `Vendor.supportedBrands`, `Vehicle.make_brand_id`, `VehicleMakeAlias`, or `CatalogOemConcernMake` references it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
@@ -30,8 +32,6 @@ This document defines when deletion is allowed in Auto Core Platform.
 | InventoryTransaction | No | Immutable audit trail; never deleted. |
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
-| PurchaseOrder | Draft-only | Allow only in `DRAFT` and only if no received quantity and no purchase invoice links. |
-| PurchaseOrderItem | No direct delete | Managed by parent `PurchaseOrder` lifecycle. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
 | Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, or `VehicleLedgerEntry`. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
