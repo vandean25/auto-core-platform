@@ -1,6 +1,7 @@
 import { CatalogOemConcernCode, Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
+import { chunkedPromiseAll } from '../common/utils/promise.util';
 
 type CatalogSeedClient =
   | Pick<
@@ -82,31 +83,77 @@ export async function seedVehicleCatalogProviders(
   prisma: CatalogSeedClient,
   tenantId: string,
 ): Promise<VehicleCatalogSeedSummary> {
+  const existingBrands = await prisma.brand.findMany({
+    where: { tenant_id: tenantId },
+    select: {
+      id: true,
+      name: true,
+      normalized_name: true,
+      isPartManufacturer: true,
+    },
+  });
   const brandByName = new Map<string, { id: number; name: string }>();
-  let brandsCreated = 0;
-  let aliasesUpserted = 0;
-  let concernMakesUpserted = 0;
+  for (const brand of [...existingBrands].sort(
+    (left, right) => left.id - right.id,
+  )) {
+    const normalizedName = brand.normalized_name;
+    if (!brandByName.has(normalizedName)) {
+      brandByName.set(normalizedName, { id: brand.id, name: brand.name });
+    }
+  }
 
-  for (const definition of ALL_MAKE_DEFINITIONS) {
-    let brand = await prisma.brand.findFirst({
-      where: { tenant_id: tenantId, name: definition.name },
-      select: { id: true, name: true },
-    });
+  const existingSeedBrands = ALL_MAKE_DEFINITIONS.flatMap((definition) => {
+    const brand = brandByName.get(normalizeVehicleMakeAlias(definition.name));
+    return brand ? [brand] : [];
+  });
+  await chunkedPromiseAll(existingSeedBrands, (brand) =>
+    prisma.brand.updateMany({
+      where: { tenant_id: tenantId, id: brand.id },
+      data: { isVehicleMake: true },
+    }),
+  );
 
-    if (!brand) {
-      brand = await prisma.brand.create({
-        data: {
+  const missingBrandDefinitions = ALL_MAKE_DEFINITIONS.filter(
+    (definition) =>
+      !brandByName.has(normalizeVehicleMakeAlias(definition.name)),
+  );
+  const createdBrands = await chunkedPromiseAll(
+    missingBrandDefinitions,
+    (definition) =>
+      prisma.brand.upsert({
+        where: {
+          tenant_id_normalized_name: {
+            tenant_id: tenantId,
+            normalized_name: normalizeVehicleMakeAlias(definition.name),
+          },
+        },
+        update: { isVehicleMake: true },
+        create: {
           tenant_id: tenantId,
           name: definition.name,
+          normalized_name: normalizeVehicleMakeAlias(definition.name),
           isVehicleMake: true,
           isPartManufacturer: false,
         },
-        select: { id: true, name: true },
-      });
-      brandsCreated += 1;
-    }
+        select: { id: true, name: true, normalized_name: true },
+      }),
+  );
+  for (const brand of createdBrands) {
+    brandByName.set(brand.normalized_name, {
+      id: brand.id,
+      name: brand.name,
+    });
+  }
 
-    brandByName.set(definition.name, brand);
+  const aliasSeedsByNormalized = new Map<
+    string,
+    { alias_normalized: string; brand_id: number }
+  >();
+  for (const definition of ALL_MAKE_DEFINITIONS) {
+    const brand = brandByName.get(normalizeVehicleMakeAlias(definition.name));
+    if (!brand) {
+      continue;
+    }
 
     const seenAliases = new Set<string>();
     for (const alias of [definition.name, ...definition.aliases]) {
@@ -115,30 +162,45 @@ export async function seedVehicleCatalogProviders(
         continue;
       }
       seenAliases.add(alias_normalized);
-
-      await prisma.vehicleMakeAlias.upsert({
-        where: {
-          tenant_id_alias_normalized: {
-            tenant_id: tenantId,
-            alias_normalized,
-          },
-        },
-        update: { brand_id: brand.id },
-        create: {
-          tenant_id: tenantId,
-          alias_normalized,
-          brand_id: brand.id,
-        },
+      aliasSeedsByNormalized.set(alias_normalized, {
+        alias_normalized,
+        brand_id: brand.id,
       });
-      aliasesUpserted += 1;
     }
   }
+  const aliasSeeds = [...aliasSeedsByNormalized.values()];
+  await chunkedPromiseAll(aliasSeeds, (alias) =>
+    prisma.vehicleMakeAlias.upsert({
+      where: {
+        tenant_id_alias_normalized: {
+          tenant_id: tenantId,
+          alias_normalized: alias.alias_normalized,
+        },
+      },
+      update: { brand_id: alias.brand_id },
+      create: {
+        tenant_id: tenantId,
+        alias_normalized: alias.alias_normalized,
+        brand_id: alias.brand_id,
+      },
+    }),
+  );
 
-  let concernsUpserted = 0;
-  const concernByCode = new Map<CatalogOemConcernCode, { id: string }>();
-
-  for (const code of OEM_CONCERN_CODES) {
-    const concern = await prisma.catalogOemConcern.upsert({
+  const existingConcerns = await prisma.catalogOemConcern.findMany({
+    where: {
+      tenant_id: tenantId,
+      code: { in: OEM_CONCERN_CODES },
+    },
+    select: { id: true, code: true },
+  });
+  const concernByCode = new Map(
+    existingConcerns.map((concern) => [concern.code, concern]),
+  );
+  const missingConcernCodes = OEM_CONCERN_CODES.filter(
+    (code) => !concernByCode.has(code),
+  );
+  const createdConcerns = await chunkedPromiseAll(missingConcernCodes, (code) =>
+    prisma.catalogOemConcern.upsert({
       where: {
         tenant_id_code: {
           tenant_id: tenantId,
@@ -150,58 +212,59 @@ export async function seedVehicleCatalogProviders(
         tenant_id: tenantId,
         code,
       },
-      select: { id: true },
-    });
-    concernByCode.set(code, concern);
-    concernsUpserted += 1;
+      select: { id: true, code: true },
+    }),
+  );
+  for (const concern of createdConcerns) {
+    concernByCode.set(concern.code, concern);
   }
 
-  for (const definition of ALL_MAKE_DEFINITIONS) {
+  const concernMakeSeeds = ALL_MAKE_DEFINITIONS.flatMap((definition) => {
     if (!definition.concern) {
-      continue;
+      return [];
     }
 
-    const brand = brandByName.get(definition.name);
+    const brand = brandByName.get(normalizeVehicleMakeAlias(definition.name));
     const concern = concernByCode.get(definition.concern);
     if (!brand || !concern) {
-      continue;
+      return [];
     }
 
-    await prisma.catalogOemConcernMake.upsert({
+    return [{ brand_id: brand.id, concern_id: concern.id }];
+  });
+  await chunkedPromiseAll(concernMakeSeeds, (seed) =>
+    prisma.catalogOemConcernMake.upsert({
       where: {
         tenant_id_brand_id: {
           tenant_id: tenantId,
-          brand_id: brand.id,
+          brand_id: seed.brand_id,
         },
       },
-      update: { concern_id: concern.id },
+      update: { concern_id: seed.concern_id },
       create: {
         tenant_id: tenantId,
-        concern_id: concern.id,
-        brand_id: brand.id,
+        concern_id: seed.concern_id,
+        brand_id: seed.brand_id,
       },
-    });
-    concernMakesUpserted += 1;
-  }
+    }),
+  );
 
   const existingSettings = await prisma.catalogProviderSettings.findFirst({
     where: { tenant_id: tenantId },
     select: { id: true },
   });
 
-  if (!existingSettings) {
-    await prisma.catalogProviderSettings.create({
-      data: {
-        tenant_id: tenantId,
-      },
-    });
-  }
+  await prisma.catalogProviderSettings.upsert({
+    where: { tenant_id: tenantId },
+    update: {},
+    create: { tenant_id: tenantId },
+  });
 
   return {
-    brandsCreated,
-    aliasesUpserted,
-    concernsUpserted,
-    concernMakesUpserted,
+    brandsCreated: createdBrands.length,
+    aliasesUpserted: aliasSeeds.length,
+    concernsUpserted: OEM_CONCERN_CODES.length,
+    concernMakesUpserted: concernMakeSeeds.length,
     providerSettingsCreated: !existingSettings,
   };
 }
@@ -216,7 +279,11 @@ export async function resolveVehicleMakeBrand(
 ) {
   const alias_normalized = normalizeVehicleMakeAlias(decoderMake);
   return prisma.vehicleMakeAlias.findFirst({
-    where: { tenant_id: tenantId, alias_normalized },
+    where: {
+      tenant_id: tenantId,
+      alias_normalized,
+      brand: { tenant_id: tenantId },
+    },
     include: {
       brand: true,
     },
@@ -232,7 +299,11 @@ export async function resolveOemConcernForBrand(
   brandId: number,
 ) {
   return prisma.catalogOemConcernMake.findFirst({
-    where: { tenant_id: tenantId, brand_id: brandId },
+    where: {
+      tenant_id: tenantId,
+      brand_id: brandId,
+      brand: { tenant_id: tenantId },
+    },
     include: { concern: true },
   });
 }

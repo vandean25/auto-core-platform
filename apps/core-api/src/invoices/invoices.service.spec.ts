@@ -16,10 +16,12 @@ describe('InvoicesService', () => {
 
   const tx = {
     invoice: {
+      create: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
     workshopOrder: {
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
     invoiceSequence: {
@@ -82,6 +84,72 @@ describe('InvoicesService', () => {
     vehicle: null,
     workshop_order: { id: 'wo-1', status: WorkshopOrderStatus.COMPLETED },
   };
+
+  const vehicle = {
+    id: 'vehicle-1',
+    make: 'Audi',
+    model: 'A4',
+    year: 2020,
+    engine_code: null,
+    vin: 'VIN-1',
+    plate: 'PLATE-1',
+    identity_resolution_generation: 'generation-1',
+    identity_resolution_token: 'token-1',
+  };
+
+  it('does not expose identity resolution state from created draft invoice vehicles', async () => {
+    tx.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      customer_id: 'customer-1',
+      vehicle_id: 'vehicle-1',
+      notes: null,
+      status: WorkshopOrderStatus.COMPLETED,
+      invoice: null,
+      tasks: [
+        {
+          line_items: [
+            {
+              description: 'Labor',
+              quantity: new Prisma.Decimal(1),
+              unit_price: new Prisma.Decimal(100),
+            },
+          ],
+        },
+      ],
+    });
+    tx.invoice.create.mockResolvedValue({
+      ...draftInvoice,
+      vehicle,
+    });
+
+    const result = await service.createDraftInvoice('wo-1');
+
+    expect(result.vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+  });
+
+  it('does not expose identity resolution state from issued invoice vehicles', async () => {
+    const invoiceWithVehicle = { ...draftInvoice, vehicle };
+    tx.invoice.findFirst
+      .mockResolvedValueOnce(invoiceWithVehicle)
+      .mockResolvedValueOnce({
+        ...invoiceWithVehicle,
+        status: InvoiceStatus.ISSUED,
+        invoice_number: 'RE-2026-0001',
+      });
+    tx.invoice.updateMany.mockResolvedValue({ count: 1 });
+    tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
+    tx.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.issueInvoice('inv-1');
+
+    expect(result.vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+  });
 
   it('returns 409 when issuing a stale DRAFT invoice', async () => {
     tx.invoice.findFirst.mockResolvedValue(draftInvoice);

@@ -4787,6 +4787,36 @@
         ]
       }
     },
+    "/api/vehicles/{id}/resolve-identity": {
+      "post": {
+        "operationId": "VehicleController_resolveIdentity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
     "/api/vehicles/{id}": {
       "get": {
         "operationId": "VehicleController_findOne",
@@ -7506,9 +7536,52 @@
             "type": "string",
             "nullable": true
           },
+          "make_brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "hsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "tsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_keys": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "identity_input_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fuel_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "power_kw": {
+            "type": "number",
+            "nullable": true
+          },
           "customer_id": {
             "type": "string",
             "nullable": true
+          },
+          "customer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -9116,6 +9189,40 @@
             "type": "string",
             "nullable": true
           },
+          "make_brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "hsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "tsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_keys": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "identity_input_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fuel_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "power_kw": {
+            "type": "number",
+            "nullable": true
+          },
           "customer_id": {
             "type": "string",
             "nullable": true
@@ -9706,6 +9813,40 @@
           },
           "plate": {
             "type": "string",
+            "nullable": true
+          },
+          "make_brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "hsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "tsn": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_keys": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "identity_input_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fuel_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "power_kw": {
+            "type": "number",
             "nullable": true
           },
           "customer_id": {

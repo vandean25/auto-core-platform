@@ -5,6 +5,7 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 
 export type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
   include: {
@@ -55,6 +56,9 @@ export function assertOrderEditable(order: {
 export function normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
   return {
     ...order,
+    vehicle: order.vehicle
+      ? stripVehicleIdentityResolutionState(order.vehicle)
+      : order.vehicle,
     tasks:
       order.tasks?.map((task) => ({
         ...task,

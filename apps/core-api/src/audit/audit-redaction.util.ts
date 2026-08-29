@@ -17,6 +17,11 @@ const SECRET_FIELD_NAMES = new Set([
   'authorizationheader',
 ]);
 
+const PRIVATE_FIELD_NAMES = new Set([
+  'identityresolutiontoken',
+  'identityresolutiongeneration',
+]);
+
 const normalizeFieldName = (fieldName: string): string => {
   return fieldName.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
@@ -53,6 +58,10 @@ const redactValue = (
   const redactedObject: Record<string, AuditJsonValue> = {};
   for (const [key, nestedValue] of Object.entries(value)) {
     const path = buildPath(currentPath, key);
+    if (PRIVATE_FIELD_NAMES.has(normalizeFieldName(key))) {
+      redactedPaths.push(path);
+      continue;
+    }
     if (SECRET_FIELD_NAMES.has(normalizeFieldName(key))) {
       redactedObject[key] = REDACTED_VALUE;
       redactedPaths.push(path);

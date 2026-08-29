@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -57,7 +58,10 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
     // Create test brand
     const brandName = 'TestBrand-' + Date.now();
     const brand = await prisma.brand.create({
-      data: { name: brandName },
+      data: {
+        name: brandName,
+        normalized_name: normalizeVehicleMakeAlias(brandName),
+      },
     });
 
     // Create test vendor

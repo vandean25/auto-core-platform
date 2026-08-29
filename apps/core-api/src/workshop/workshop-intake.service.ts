@@ -23,6 +23,12 @@ import {
   type WorkshopOrderWithRelations,
 } from './workshop-order.helpers';
 import { WorkshopScheduleService } from './workshop-schedule.service';
+import {
+  VEHICLE_IDENTITY_RESET,
+  normalizeVehicleIdentityValue,
+  normalizeVehicleIdentityValueOrNull,
+  stripVehicleIdentityResolutionState,
+} from '../vehicle/vehicle-identity.util';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -235,27 +241,91 @@ export class WorkshopIntakeService {
         throw new NotFoundException(`Customer ${customerId} not found`);
     }
 
-    const vehicle = await this.prisma.vehicle.upsert({
-      where: { tenant_id_vin: { tenant_id: tenantId, vin: dto.vin } },
-      update: {
-        plate: dto.plate,
-        customer_id: customerId,
-      },
-      create: {
-        tenant_id: tenantId,
-        vin: dto.vin,
-        plate: dto.plate,
-        make: dto.make,
-        model: dto.model,
-        year: dto.year,
-        customer_id: customerId,
-      },
-      include: {
-        customer: true,
-      },
-    });
+    const vin = normalizeVehicleIdentityValueOrNull(dto.vin);
+    return this.prisma.$transaction(async (tx) => {
+      const existingVehicle =
+        vin === null
+          ? null
+          : await tx.vehicle.findFirst({
+              where: { tenant_id: tenantId, vin },
+              select: {
+                id: true,
+                plate: true,
+                identity_resolution_generation: true,
+                identity_resolution_token: true,
+              },
+            });
 
-    return vehicle;
+      if (existingVehicle) {
+        const identityChanged =
+          normalizeVehicleIdentityValue(existingVehicle.plate) !==
+          normalizeVehicleIdentityValue(dto.plate);
+        const updated = await tx.vehicle.updateMany({
+          where: {
+            id: existingVehicle.id,
+            tenant_id: tenantId,
+            vin,
+            plate: existingVehicle.plate,
+            identity_resolution_generation:
+              existingVehicle.identity_resolution_generation ?? null,
+            identity_resolution_token:
+              existingVehicle.identity_resolution_token ?? null,
+          },
+          data: {
+            plate: dto.plate,
+            customer_id: customerId,
+            ...(identityChanged
+              ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
+              : {}),
+          },
+        });
+
+        if (updated.count === 0) {
+          throw new ConflictException(
+            'Vehicle VIN or plate changed while registering intake; please retry',
+          );
+        }
+
+        const vehicle = await tx.vehicle.findFirst({
+          where: { id: existingVehicle.id, tenant_id: tenantId },
+          include: { customer: true },
+        });
+        if (!vehicle) {
+          throw new NotFoundException(
+            `Vehicle ${existingVehicle.id} not found`,
+          );
+        }
+        return stripVehicleIdentityResolutionState(vehicle);
+      }
+
+      try {
+        const vehicle = await tx.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            vin,
+            plate: dto.plate,
+            make: dto.make,
+            model: dto.model,
+            year: dto.year,
+            customer_id: customerId,
+          },
+          include: {
+            customer: true,
+          },
+        });
+        return stripVehicleIdentityResolutionState(vehicle);
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'Vehicle was created by another intake; please retry',
+          );
+        }
+        throw error;
+      }
+    });
   }
 
   async create(dto: CreateWorkshopOrderDto) {
@@ -626,7 +696,13 @@ export class WorkshopIntakeService {
     const total = vehicleTotal + customerTotal;
 
     return {
-      data: { vehicles, customers },
+      data: {
+        vehicles: vehicles.map(stripVehicleIdentityResolutionState),
+        customers: customers.map((customer) => ({
+          ...customer,
+          vehicles: customer.vehicles?.map(stripVehicleIdentityResolutionState),
+        })),
+      },
       meta: {
         total,
         page,

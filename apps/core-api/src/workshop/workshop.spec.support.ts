@@ -20,11 +20,16 @@ export const mockPrisma = {
   customer: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
   },
   vehicle: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
+    create: jest.fn(),
     upsert: jest.fn(),
     updateMany: jest.fn(),
   },

@@ -24,11 +24,43 @@ export class VehicleResponseDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   plate?: string | null;
 
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  make_brand_id?: number | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  hsn?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  tsn?: string | null;
+
+  @ApiProperty({
+    type: Object,
+    additionalProperties: true,
+    required: false,
+    nullable: true,
+  })
+  identity_keys?: Record<string, unknown> | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  identity_input_fingerprint?: string | null;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    required: false,
+    nullable: true,
+  })
+  identity_resolved_at?: Date | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  fuel_type?: string | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  power_kw?: number | null;
+
   @ApiProperty({ type: String, required: false, nullable: true })
   customer_id?: string | null;
-}
 
-export class VehicleListItemDto extends VehicleResponseDto {
   @ApiProperty({
     type: () => CustomerResponseDto,
     required: false,
@@ -36,6 +68,8 @@ export class VehicleListItemDto extends VehicleResponseDto {
   })
   customer?: CustomerResponseDto | null;
 }
+
+export class VehicleListItemDto extends VehicleResponseDto {}
 
 export class VehiclePaginatedResponseDto {
   @ApiProperty({ type: [VehicleListItemDto] })

@@ -99,6 +99,63 @@ describe('AuditService', () => {
     });
   });
 
+  it('should omit private Vehicle identity state from audit log responses', async () => {
+    prisma.auditLog.findMany.mockResolvedValueOnce([
+      {
+        ...sampleAuditLog,
+        entity_type: 'Vehicle',
+        before: {
+          id: 'vehicle-1',
+          vin: 'WVWZZZ1JZXW000001',
+          identity_resolution_token: 'token-before',
+          identity_resolution_generation: 1,
+        },
+        after: {
+          id: 'vehicle-1',
+          vin: 'WVWZZZ1JZXW000002',
+          identity_resolution_token: 'token-after',
+          identity_resolution_generation: 2,
+        },
+        diff: {
+          vin: {
+            before: 'WVWZZZ1JZXW000001',
+            after: 'WVWZZZ1JZXW000002',
+          },
+          identity_resolution_token: {
+            before: 'token-before',
+            after: 'token-after',
+          },
+        },
+        redacted_fields: [],
+      },
+    ]);
+
+    const result = await service.findAll({});
+    const auditRecord = result.data[0];
+
+    expect(auditRecord.before).toEqual({
+      id: 'vehicle-1',
+      vin: 'WVWZZZ1JZXW000001',
+    });
+    expect(auditRecord.after).toEqual({
+      id: 'vehicle-1',
+      vin: 'WVWZZZ1JZXW000002',
+    });
+    expect(auditRecord.diff).toEqual({
+      vin: {
+        before: 'WVWZZZ1JZXW000001',
+        after: 'WVWZZZ1JZXW000002',
+      },
+    });
+    expect(auditRecord.redactedFields).toEqual([
+      'after.identity_resolution_generation',
+      'after.identity_resolution_token',
+      'before.identity_resolution_generation',
+      'before.identity_resolution_token',
+      'diff.identity_resolution_token',
+    ]);
+  });
+
   it('should apply filters for entityType, entityId, action, actorUserId, date ranges, and search', async () => {
     await service.findAll({
       page: 2,

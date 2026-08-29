@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -10,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service';
+import { VehicleIdentityService } from './vehicle-identity.service';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import {
@@ -19,7 +22,10 @@ import {
 
 @Controller('vehicles')
 export class VehicleController {
-  constructor(private readonly vehicleService: VehicleService) {}
+  constructor(
+    private readonly vehicleService: VehicleService,
+    private readonly vehicleIdentityService: VehicleIdentityService,
+  ) {}
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
@@ -81,6 +87,13 @@ export class VehicleController {
   @ApiCreatedResponse({ type: VehicleResponseDto })
   create(@Body() createVehicleDto: CreateVehicleDto) {
     return this.vehicleService.create(createVehicleDto);
+  }
+
+  @Post(':id/resolve-identity')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: VehicleResponseDto })
+  resolveIdentity(@Param('id') id: string) {
+    return this.vehicleIdentityService.resolveIdentity(id);
   }
 
   @Get(':id')

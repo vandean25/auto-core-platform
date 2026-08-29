@@ -1440,6 +1440,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicles/{id}/resolve-identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleController_resolveIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles/{id}": {
         parameters: {
             query?: never;
@@ -2179,7 +2195,19 @@ export interface components {
             engine_code?: string | null;
             vin?: string | null;
             plate?: string | null;
+            make_brand_id?: number | null;
+            hsn?: string | null;
+            tsn?: string | null;
+            identity_keys?: {
+                [key: string]: unknown;
+            } | null;
+            identity_input_fingerprint?: string | null;
+            /** Format: date-time */
+            identity_resolved_at?: string | null;
+            fuel_type?: string | null;
+            power_kw?: number | null;
             customer_id?: string | null;
+            customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
         /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
@@ -2605,6 +2633,17 @@ export interface components {
             engine_code?: string | null;
             vin?: string | null;
             plate?: string | null;
+            make_brand_id?: number | null;
+            hsn?: string | null;
+            tsn?: string | null;
+            identity_keys?: {
+                [key: string]: unknown;
+            } | null;
+            identity_input_fingerprint?: string | null;
+            /** Format: date-time */
+            identity_resolved_at?: string | null;
+            fuel_type?: string | null;
+            power_kw?: number | null;
             customer_id?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
@@ -2766,6 +2805,17 @@ export interface components {
             engine_code?: string | null;
             vin?: string | null;
             plate?: string | null;
+            make_brand_id?: number | null;
+            hsn?: string | null;
+            tsn?: string | null;
+            identity_keys?: {
+                [key: string]: unknown;
+            } | null;
+            identity_input_fingerprint?: string | null;
+            /** Format: date-time */
+            identity_resolved_at?: string | null;
+            fuel_type?: string | null;
+            power_kw?: number | null;
             customer_id?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
         };
@@ -7119,6 +7169,27 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleController_resolveIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

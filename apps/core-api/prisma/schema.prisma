@@ -215,6 +215,7 @@ model Brand {
   tenant_id          String
   tenant             Tenant    @relation(fields: [tenant_id], references: [id])
   name               String
+  normalized_name    String    @map("normalized_name")
   isVehicleMake      Boolean   @default(false) @map("is_vehicle_make")
   isPartManufacturer Boolean   @default(false) @map("is_part_manufacturer")
   logoUrl            String?   @map("logo_url")
@@ -229,6 +230,7 @@ model Brand {
 
   @@index([tenant_id])
   @@unique([tenant_id, name]) // tenant-scoped
+  @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
   @@map("brands")
 }
 
@@ -586,6 +588,8 @@ model Vehicle {
   identity_keys Json?    @map("identity_keys")
   identity_input_fingerprint String? @map("identity_input_fingerprint")
   identity_resolved_at DateTime? @map("identity_resolved_at")
+  identity_resolution_generation String? @map("identity_resolution_generation")
+  identity_resolution_token String? @map("identity_resolution_token")
   fuel_type    String?   @map("fuel_type")
   power_kw     Int?      @map("power_kw")
   customer_id  String?
@@ -615,7 +619,7 @@ model Vehicle {
   @@index([tenant_id, inventory_role, stock_status])
   @@index([tenant_id, hsn, tsn])
   @@index([make_brand_id])
-  @@unique([tenant_id, vin]) // tenant-scoped
+  @@index([tenant_id, vin])
   @@map("vehicles")
 }
 
@@ -692,7 +696,7 @@ model VehiclePurchase {
   acquisition_kind VehicleAcquisitionKind     @default(DIRECT)
   vehicle_id       String?
   vehicle          Vehicle?                   @relation(fields: [vehicle_id], references: [id])
-  vin              String
+  vin              String?
   make             String
   model            String
   year             Int

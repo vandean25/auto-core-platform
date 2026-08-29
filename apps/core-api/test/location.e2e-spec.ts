@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -154,7 +155,11 @@ describe('Location Hierarchy (e2e)', () => {
 
     // Create Item
     const brand = await prisma.brand.create({
-      data: { name: 'StockBrand', isPartManufacturer: true },
+      data: {
+        name: 'StockBrand',
+        normalized_name: normalizeVehicleMakeAlias('StockBrand'),
+        isPartManufacturer: true,
+      },
     });
     const item = await prisma.catalogItem.create({
       data: {

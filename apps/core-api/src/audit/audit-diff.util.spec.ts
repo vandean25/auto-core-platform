@@ -30,6 +30,42 @@ class DecimalWithToFixed {
 }
 
 describe('audit diff utilities', () => {
+  it('omits private Vehicle identity resolution state from snapshots and diffs', () => {
+    const result = buildAuditChangeSet(
+      {
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000001',
+        identity_resolution_token: 'token-before',
+        identity_resolution_generation: 1,
+      },
+      {
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000002',
+        identity_resolution_token: 'token-after',
+        identity_resolution_generation: 2,
+      },
+    );
+
+    expect(result.before).toEqual({
+      id: 'vehicle-1',
+      vin: 'WVWZZZ1JZXW000001',
+    });
+    expect(result.after).toEqual({
+      id: 'vehicle-1',
+      vin: 'WVWZZZ1JZXW000002',
+    });
+    expect(result.diff).toEqual({
+      vin: {
+        before: 'WVWZZZ1JZXW000001',
+        after: 'WVWZZZ1JZXW000002',
+      },
+    });
+    expect(result.redactedFields).toEqual([
+      'identity_resolution_generation',
+      'identity_resolution_token',
+    ]);
+  });
+
   it('normalizes dates, decimal-like values, and omits undefined fields', () => {
     const normalized = normalizeAuditValue({
       createdAt: new Date('2026-05-26T10:00:00.000Z'),

@@ -16,6 +16,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  VEHICLE_IDENTITY_RESET,
+  normalizeVehicleIdentityValue,
+  normalizeVehicleIdentityValueOrNull,
+} from '../vehicle/vehicle-identity.util';
 import { VehicleLedgerService } from './vehicle-ledger.service';
 import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
 import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto';
@@ -56,7 +61,7 @@ export class VehiclePurchaseService {
             ? dto.customer_id
             : null,
         acquisition_kind: VehicleAcquisitionKind.DIRECT,
-        vin: this.normalizeVin(dto.vin),
+        vin: normalizeVehicleIdentityValueOrNull(dto.vin),
         make: dto.make,
         model: dto.model,
         year: dto.year,
@@ -146,7 +151,12 @@ export class VehiclePurchaseService {
     });
 
     const updated = await this.prisma.vehiclePurchase.updateMany({
-      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
+      where: {
+        id,
+        tenant_id: tenantId,
+        status: VehiclePurchaseStatus.DRAFT,
+        updatedAt: purchase.updatedAt,
+      },
       data: {
         seller_type: dto.seller_type,
         vendor_id:
@@ -161,7 +171,10 @@ export class VehiclePurchaseService {
             : dto.seller_type === VehiclePurchaseSellerType.VENDOR
               ? null
               : undefined,
-        vin: dto.vin ? this.normalizeVin(dto.vin) : undefined,
+        vin:
+          dto.vin !== undefined
+            ? normalizeVehicleIdentityValueOrNull(dto.vin)
+            : undefined,
         make: dto.make,
         model: dto.model,
         year: dto.year,
@@ -205,10 +218,13 @@ export class VehiclePurchaseService {
         throw new NotFoundException(`Vehicle purchase ${id} not found`);
       }
 
-      const vin = this.normalizeVin(purchase.vin);
-      const existing = await tx.vehicle.findFirst({
-        where: { tenant_id: tenantId, vin },
-      });
+      const vin = normalizeVehicleIdentityValueOrNull(purchase.vin);
+      const existing =
+        vin === null
+          ? null
+          : await tx.vehicle.findFirst({
+              where: { tenant_id: tenantId, vin },
+            });
 
       const stockData = {
         make: purchase.make,
@@ -225,6 +241,11 @@ export class VehiclePurchaseService {
         inventory_role: VehicleInventoryRole.USED,
         stock_status: VehicleStockStatus.IN_STOCK,
         tax_scheme: VehicleTaxScheme.MARGIN,
+        ...(existing &&
+        normalizeVehicleIdentityValue(existing.plate) !==
+          normalizeVehicleIdentityValue(purchase.plate)
+          ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
+          : {}),
       };
 
       let vehicleId: string;
@@ -233,6 +254,12 @@ export class VehiclePurchaseService {
           where: {
             id: existing.id,
             tenant_id: tenantId,
+            vin,
+            plate: existing.plate,
+            identity_resolution_generation:
+              existing.identity_resolution_generation ?? null,
+            identity_resolution_token:
+              existing.identity_resolution_token ?? null,
             OR: [
               { inventory_role: { not: VehicleInventoryRole.USED } },
               { stock_status: null },
@@ -276,10 +303,25 @@ export class VehiclePurchaseService {
         tx,
       );
 
-      return tx.vehiclePurchase.update({
-        where: { id: purchase.id },
+      const linkedPurchase = await tx.vehiclePurchase.updateMany({
+        where: { id: purchase.id, tenant_id: tenantId },
         data: { vehicle_id: vehicleId },
       });
+      if (linkedPurchase.count === 0) {
+        throw new ConflictException(
+          'Vehicle purchase changed while receiving; please retry',
+        );
+      }
+
+      const receivedPurchase = await tx.vehiclePurchase.findFirst({
+        where: { id: purchase.id, tenant_id: tenantId },
+      });
+      if (!receivedPurchase) {
+        throw new NotFoundException(
+          `Vehicle purchase ${purchase.id} not found`,
+        );
+      }
+      return receivedPurchase;
     });
   }
 
@@ -380,10 +422,6 @@ export class VehiclePurchaseService {
         throw new NotFoundException(`Location ${refs.location_id} not found`);
       }
     }
-  }
-
-  private normalizeVin(vin: string) {
-    return vin.trim().toUpperCase();
   }
 
   private async nextPurchaseNumber(tenantId: string) {
