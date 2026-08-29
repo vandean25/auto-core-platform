@@ -18,8 +18,11 @@ describe('SalesOrderService', () => {
       findFirst: jest.fn(),
     },
     salesOrder: {
+      create: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      count: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -29,6 +32,10 @@ describe('SalesOrderService', () => {
   };
 
   const transactionContext = {
+    financeSettings: {
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
     salesOrder: {
       updateMany: jest.fn(),
       findFirst: jest.fn(),
@@ -58,6 +65,77 @@ describe('SalesOrderService', () => {
 
     service = module.get<SalesOrderService>(SalesOrderService);
     jest.clearAllMocks();
+  });
+
+  it('does not expose identity resolution state from created sales order vehicles', async () => {
+    const vehicle = {
+      id: 'vehicle-1',
+      identity_resolution_generation: 'generation-1',
+      identity_resolution_token: 'token-1',
+    };
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'customer-1' });
+    transactionContext.financeSettings.upsert.mockResolvedValue({});
+    transactionContext.financeSettings.update.mockResolvedValue({
+      sales_order_prefix: 'SO-2026-',
+      next_sales_order_number: 1002,
+    });
+    mockPrisma.$transaction.mockImplementation(async (callback: any) =>
+      callback(transactionContext),
+    );
+    mockPrisma.salesOrder.create.mockResolvedValue({
+      id: 'so-1',
+      vehicle,
+    });
+
+    const result = await service.create({
+      customer_id: 'customer-1',
+      items: [],
+    });
+
+    expect(result.vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+  });
+
+  it('does not expose identity resolution state from listed sales order vehicles', async () => {
+    const vehicle = {
+      id: 'vehicle-1',
+      identity_resolution_generation: 'generation-1',
+      identity_resolution_token: 'token-1',
+    };
+    mockPrisma.salesOrder.findMany.mockResolvedValue([
+      { id: 'so-1', vehicle },
+    ]);
+    mockPrisma.salesOrder.count.mockResolvedValue(1);
+
+    const result = await service.findAll();
+
+    expect(result.data[0].vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.data[0].vehicle).not.toHaveProperty(
+      'identity_resolution_token',
+    );
+  });
+
+  it('does not expose identity resolution state from sales order detail vehicles', async () => {
+    const vehicle = {
+      id: 'vehicle-1',
+      identity_resolution_generation: 'generation-1',
+      identity_resolution_token: 'token-1',
+    };
+    mockPrisma.salesOrder.findFirst.mockResolvedValue({
+      id: 'so-1',
+      vehicle,
+    });
+
+    const result = await service.findOne('so-1');
+
+    expect(result.vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
   it('deletes sales order only when it is DRAFT and has no invoice', async () => {

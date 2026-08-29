@@ -61,6 +61,24 @@ describe('SalesService', () => {
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
   });
 
+  it('does not expose identity resolution state from invoice detail vehicles', async () => {
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: 'invoice-1',
+      vehicle: {
+        id: 'vehicle-1',
+        identity_resolution_generation: 'generation-1',
+        identity_resolution_token: 'token-1',
+      },
+    });
+
+    const result = await service.findOne('invoice-1');
+
+    expect(result.vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+  });
+
   it('returns 409 when finalizing a stale DRAFT invoice', async () => {
     mockPrisma.invoice.findFirst.mockResolvedValue({
       id: 'inv-1',

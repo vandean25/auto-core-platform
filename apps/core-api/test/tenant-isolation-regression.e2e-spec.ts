@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
 import {
   createTenantAwarePrisma,
   createTestTenant,
@@ -113,6 +114,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantAId,
         name: sharedName,
+        normalized_name: normalizeVehicleMakeAlias(sharedName),
         isVehicleMake: true,
         isPartManufacturer: false,
       },
@@ -122,6 +124,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantBId,
         name: sharedName,
+        normalized_name: normalizeVehicleMakeAlias(sharedName),
         isVehicleMake: true,
         isPartManufacturer: false,
       },
@@ -155,6 +158,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantAId,
         name: `${prefix}-STAMPED`,
+        normalized_name: normalizeVehicleMakeAlias(`${prefix}-STAMPED`),
         isVehicleMake: true,
         isPartManufacturer: false,
       },
@@ -178,6 +182,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantBId,
         name: `${prefix}-B-ONLY`,
+        normalized_name: normalizeVehicleMakeAlias(`${prefix}-B-ONLY`),
         isVehicleMake: false,
         isPartManufacturer: true,
       },
@@ -256,6 +261,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantAId,
         name: `${prefix}-AGG-A-1`,
+        normalized_name: normalizeVehicleMakeAlias(`${prefix}-AGG-A-1`),
         isVehicleMake: true,
         isPartManufacturer: false,
       },
@@ -264,6 +270,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantAId,
         name: `${prefix}-AGG-A-2`,
+        normalized_name: normalizeVehicleMakeAlias(`${prefix}-AGG-A-2`),
         isVehicleMake: false,
         isPartManufacturer: true,
       },
@@ -272,6 +279,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
       data: {
         tenant_id: tenantBId,
         name: `${prefix}-AGG-B-1`,
+        normalized_name: normalizeVehicleMakeAlias(`${prefix}-AGG-B-1`),
         isVehicleMake: true,
         isPartManufacturer: false,
       },

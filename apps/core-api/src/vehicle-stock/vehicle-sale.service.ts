@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 import { VehicleLedgerService } from './vehicle-ledger.service';
 import { costBasis, marginVatGross } from './vehicle-cost';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto';
@@ -67,6 +68,7 @@ export class VehicleSaleService {
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
     return {
       ...sale,
+      vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
       cost_basis_preview: basis,
       margin_vat_preview: vat,
     };
@@ -223,7 +225,14 @@ export class VehicleSaleService {
       return {
         ...posted,
         status: VehicleSaleStatus.INVOICED,
-        invoice: { ...invoice, snapshot },
+        vehicle: stripVehicleIdentityResolutionState(posted.vehicle),
+        invoice: {
+          ...invoice,
+          vehicle: invoice.vehicle
+            ? stripVehicleIdentityResolutionState(invoice.vehicle)
+            : invoice.vehicle,
+          snapshot,
+        },
       };
     });
   }

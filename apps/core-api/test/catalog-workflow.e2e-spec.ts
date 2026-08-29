@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
 import { cleanupTestTenantGraph, createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -82,6 +83,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     const skodaBrand = await prisma.brand.create({
       data: {
         name: `${PREFIX}Skoda-${ts}`,
+        normalized_name: normalizeVehicleMakeAlias(`${PREFIX}Skoda-${ts}`),
         isVehicleMake: true,
         isPartManufacturer: false,
       },
@@ -91,6 +93,7 @@ describe('Catalog Workflow Search (e2e)', () => {
     const bmwBrand = await prisma.brand.create({
       data: {
         name: `${PREFIX}BMW-${ts}`,
+        normalized_name: normalizeVehicleMakeAlias(`${PREFIX}BMW-${ts}`),
         isVehicleMake: true,
         isPartManufacturer: true,
       },

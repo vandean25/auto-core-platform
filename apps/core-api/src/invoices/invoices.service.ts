@@ -18,6 +18,7 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -90,7 +91,7 @@ export class InvoicesService {
             'Workshop order has no customer to invoice',
           );
         }
-        return await tx.invoice.create({
+        const invoice = await tx.invoice.create({
           data: {
             tenant_id: tenantId,
             customer_id: order.customer_id,
@@ -114,6 +115,12 @@ export class InvoicesService {
             workshop_order: true,
           },
         });
+        return {
+          ...invoice,
+          vehicle: invoice.vehicle
+            ? stripVehicleIdentityResolutionState(invoice.vehicle)
+            : invoice.vehicle,
+        };
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -202,7 +209,12 @@ export class InvoicesService {
         throw new NotFoundException('Invoice not found');
       }
 
-      return updated;
+      return {
+        ...updated,
+        vehicle: updated.vehicle
+          ? stripVehicleIdentityResolutionState(updated.vehicle)
+          : updated.vehicle,
+      };
     });
   }
 

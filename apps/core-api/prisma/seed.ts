@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, LocationType, TransactionType } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
 import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
 import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers';
 
@@ -216,7 +217,7 @@ async function main() {
     const dualBrandRecords = await Promise.all(
         dualBrands.map(name =>
             prisma.brand.create({
-                data: { tenant_id: defaultTenant.id, name, isVehicleMake: true, isPartManufacturer: true }
+                data: { tenant_id: defaultTenant.id, name, normalized_name: normalizeVehicleMakeAlias(name), isVehicleMake: true, isPartManufacturer: true }
             })
         )
     );
@@ -226,7 +227,7 @@ async function main() {
     const pureVehicleMakeRecords = await Promise.all(
         pureVehicleMakes.map(name =>
             prisma.brand.create({
-                data: { tenant_id: defaultTenant.id, name, isVehicleMake: true, isPartManufacturer: false }
+                data: { tenant_id: defaultTenant.id, name, normalized_name: normalizeVehicleMakeAlias(name), isVehicleMake: true, isPartManufacturer: false }
             })
         )
     );
@@ -236,7 +237,7 @@ async function main() {
     const purePartManufacturerRecords = await Promise.all(
         purePartManufacturers.map(name =>
             prisma.brand.create({
-                data: { tenant_id: defaultTenant.id, name, isVehicleMake: false, isPartManufacturer: true }
+                data: { tenant_id: defaultTenant.id, name, normalized_name: normalizeVehicleMakeAlias(name), isVehicleMake: false, isPartManufacturer: true }
             })
         )
     );

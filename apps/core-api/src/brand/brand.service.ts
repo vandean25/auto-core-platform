@@ -17,6 +17,7 @@ import {
   ConflictError,
   NotFoundError,
 } from '../common/errors/application-errors';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
 
 @Injectable()
 export class BrandService {
@@ -103,6 +104,7 @@ export class BrandService {
     try {
       return await this.getBrandRepository().create({
         ...createBrandDto,
+        normalized_name: normalizeVehicleMakeAlias(createBrandDto.name),
         tenant_id: tenantId,
       });
     } catch (error) {
@@ -123,10 +125,12 @@ export class BrandService {
     await this.validateUpdateFlags(brandId, updateBrandDto);
 
     try {
-      return await this.getBrandRepository().update(
-        brandId,
-        updateBrandDto as unknown as Record<string, unknown>,
-      );
+      return await this.getBrandRepository().update(brandId, {
+        ...updateBrandDto,
+        ...(updateBrandDto.name !== undefined
+          ? { normalized_name: normalizeVehicleMakeAlias(updateBrandDto.name) }
+          : {}),
+      });
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw new NotFoundException(`Brand with ID ${brandId} not found`);

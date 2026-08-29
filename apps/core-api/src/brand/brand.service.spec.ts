@@ -207,6 +207,29 @@ describe('BrandService', () => {
       expect(result).toEqual(mockBrand);
       expect(mockRepository.create).toHaveBeenCalledWith({
         ...dto,
+        normalized_name: 'TOYOTA',
+        tenant_id: 'test-tenant-id',
+      });
+    });
+
+    it('persists the exact normalized name key when creating a brand', async () => {
+      const dto = {
+        name: 'Citroën SA',
+        isVehicleMake: true,
+        isPartManufacturer: true,
+      };
+      const mockBrand = {
+        id: 1,
+        ...dto,
+        normalized_name: 'CITROENSA',
+      };
+      mockRepository.create.mockResolvedValue(mockBrand);
+
+      await expect(service.create(dto)).resolves.toEqual(mockBrand);
+
+      expect(mockRepository.create).toHaveBeenCalledWith({
+        ...dto,
+        normalized_name: 'CITROENSA',
         tenant_id: 'test-tenant-id',
       });
     });
@@ -257,6 +280,31 @@ describe('BrandService', () => {
       // findFirst should be called for finding the brand before update
       expect(mockPrisma.brand.findFirst).toHaveBeenCalledWith({
         where: { id: 1, tenant_id: 'test-tenant-id' },
+      });
+    });
+
+    it('persists the exact normalized name key when renaming a brand', async () => {
+      mockPrisma.brand.findFirst.mockResolvedValue({
+        id: 1,
+        name: 'Citroen',
+        isVehicleMake: true,
+        isPartManufacturer: true,
+        tenant_id: 'test-tenant-id',
+      });
+      const dto = { name: 'Citroën SA' };
+      mockRepository.update.mockResolvedValue({
+        id: 1,
+        name: dto.name,
+        normalized_name: 'CITROENSA',
+      });
+
+      await expect(service.update(1, dto)).resolves.toMatchObject({
+        normalized_name: 'CITROENSA',
+      });
+
+      expect(mockRepository.update).toHaveBeenCalledWith(1, {
+        name: dto.name,
+        normalized_name: 'CITROENSA',
       });
     });
 

@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { QueryBuilder } from '../common/utils/query-builder';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 import { costBasis } from './vehicle-cost';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto';
 
@@ -193,7 +194,7 @@ export class VehicleStockQueryService {
           updatedAt: purchase.updatedAt,
         })),
         ...vehicles.map((vehicle) => ({
-          ...vehicle,
+          ...stripVehicleIdentityResolutionState(vehicle),
           draft_purchase_id: null,
         })),
       ],
@@ -245,7 +246,7 @@ export class VehicleStockQueryService {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
     }
     return {
-      ...vehicle,
+      ...stripVehicleIdentityResolutionState(vehicle),
       cost_basis: costBasis(vehicle.ledger_entries),
     };
   }

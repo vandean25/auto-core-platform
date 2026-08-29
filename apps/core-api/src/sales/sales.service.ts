@@ -19,6 +19,7 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 
 @Injectable()
 export class SalesService {
@@ -538,6 +539,11 @@ export class SalesService {
     if (!invoice) {
       throw new NotFoundException(`Invoice with ID ${id} not found`);
     }
-    return invoice;
+    return {
+      ...invoice,
+      vehicle: invoice.vehicle
+        ? stripVehicleIdentityResolutionState(invoice.vehicle)
+        : invoice.vehicle,
+    };
   }
 }

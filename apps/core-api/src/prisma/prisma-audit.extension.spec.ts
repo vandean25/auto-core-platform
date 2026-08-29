@@ -180,6 +180,59 @@ describe('Prisma Audit Extension', () => {
       );
     });
 
+    it('omits private Vehicle identity state from persisted audit snapshots', async () => {
+      const beforeRow = {
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000001',
+        identity_resolution_token: 'token-before',
+        identity_resolution_generation: 1,
+      };
+      const afterRow = {
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000002',
+        identity_resolution_token: 'token-after',
+        identity_resolution_generation: 2,
+      };
+
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          mockContext,
+          mockContext,
+          'Vehicle',
+          {
+            where: { id: 'vehicle-1' },
+            data: {
+              vin: 'WVWZZZ1JZXW000002',
+              identity_resolution_token: 'token-after',
+              identity_resolution_generation: 2,
+            },
+          },
+          queryFn,
+        ),
+      );
+
+      const auditData = mockAuditLogCreate.mock.calls[0][0].data;
+      expect(auditData.before).toEqual({
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000001',
+      });
+      expect(auditData.after).toEqual({
+        id: 'vehicle-1',
+        vin: 'WVWZZZ1JZXW000002',
+      });
+      expect(auditData).toEqual(
+        expect.objectContaining({
+          redacted_fields: [
+            'identity_resolution_generation',
+            'identity_resolution_token',
+          ],
+        }),
+      );
+    });
+
     it('stamps SYSTEM actor_type for JOB source or worker role', async () => {
       const row = { id: 'cust-1', name: 'Customer' };
       mockModelFindFirst.mockResolvedValue(row);

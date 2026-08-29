@@ -9,6 +9,12 @@ import { Prisma } from '@prisma/client';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import {
+  VEHICLE_IDENTITY_RESET,
+  normalizeVehicleIdentityValue,
+  normalizeVehicleIdentityValueOrNull,
+  stripVehicleIdentityResolutionState,
+} from './vehicle-identity.util';
 
 @Injectable()
 export class VehicleService {
@@ -20,7 +26,7 @@ export class VehicleService {
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const { customer_id, ...scalarData } = createVehicleDto;
+    const { customer_id, vin, ...scalarData } = createVehicleDto;
 
     if (customer_id) {
       const customerExists = await this.prisma.customer.findFirst({
@@ -37,6 +43,9 @@ export class VehicleService {
 
     const data: Prisma.VehicleCreateInput = {
       ...scalarData,
+      ...(vin !== undefined
+        ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
+        : {}),
       tenant: { connect: { id: tenantId } },
       ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
     };
@@ -47,7 +56,7 @@ export class VehicleService {
         include: { customer: true },
       });
 
-      return createdVehicle;
+      return stripVehicleIdentityResolutionState(createdVehicle);
     } catch (error: unknown) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -144,7 +153,7 @@ export class VehicleService {
     ]);
 
     return {
-      data,
+      data: data.map(stripVehicleIdentityResolutionState),
       meta: {
         total,
         page,
@@ -193,14 +202,20 @@ export class VehicleService {
       throw new NotFoundException(`Vehicle with ID ${id} not found`);
     }
 
-    return vehicle;
+    return stripVehicleIdentityResolutionState(vehicle);
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const existingVehicle = await this.prisma.vehicle.findFirst({
       where: { id, tenant_id: tenantId },
-      select: { id: true },
+      select: {
+        id: true,
+        vin: true,
+        plate: true,
+        identity_resolution_generation: true,
+        identity_resolution_token: true,
+      },
     });
 
     if (!existingVehicle) {
@@ -220,24 +235,65 @@ export class VehicleService {
       }
     }
 
-    const { customer_id, ...scalarData } = updateVehicleDto;
-    const data: Prisma.VehicleUpdateInput = {
+    const { customer_id, vin, ...scalarData } = updateVehicleDto;
+    const originalVin = existingVehicle.vin;
+    const originalPlate = existingVehicle.plate;
+    const originalResolutionGeneration =
+      existingVehicle.identity_resolution_generation ?? null;
+    const originalResolutionToken =
+      existingVehicle.identity_resolution_token ?? null;
+    const identityChanged =
+      (updateVehicleDto.vin !== undefined &&
+        normalizeVehicleIdentityValue(existingVehicle.vin) !==
+          normalizeVehicleIdentityValue(updateVehicleDto.vin)) ||
+      (updateVehicleDto.plate !== undefined &&
+        normalizeVehicleIdentityValue(existingVehicle.plate) !==
+          normalizeVehicleIdentityValue(updateVehicleDto.plate));
+    const data: Prisma.VehicleUncheckedUpdateManyInput = {
       ...scalarData,
-      ...(customer_id !== undefined
-        ? customer_id
-          ? { customer: { connect: { id: customer_id } } }
-          : { customer: { disconnect: true } }
+      ...(vin !== undefined
+        ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
+        : {}),
+      ...(customer_id !== undefined ? { customer_id } : {}),
+      ...(identityChanged
+        ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
         : {}),
     };
 
     try {
-      const updatedVehicle = await this.prisma.vehicle.update({
-        where: { id },
+      const updated = await this.prisma.vehicle.updateMany({
+        where: {
+          id,
+          tenant_id: tenantId,
+          vin: originalVin,
+          plate: originalPlate,
+          identity_resolution_generation: originalResolutionGeneration,
+          identity_resolution_token: originalResolutionToken,
+        },
         data,
+      });
+      if (updated.count === 0) {
+        const currentVehicle = await this.prisma.vehicle.findFirst({
+          where: { id, tenant_id: tenantId },
+          select: { id: true },
+        });
+        if (currentVehicle) {
+          throw new ConflictException(
+            'Vehicle VIN or plate changed while updating; please retry',
+          );
+        }
+        throw new NotFoundException('Vehicle not found');
+      }
+
+      const updatedVehicle = await this.prisma.vehicle.findFirst({
+        where: { id, tenant_id: tenantId },
         include: { customer: true },
       });
+      if (!updatedVehicle) {
+        throw new NotFoundException('Vehicle not found');
+      }
 
-      return updatedVehicle;
+      return stripVehicleIdentityResolutionState(updatedVehicle);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

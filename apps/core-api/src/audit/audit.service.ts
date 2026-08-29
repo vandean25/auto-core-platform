@@ -7,6 +7,25 @@ import {
   AuditLogResponseDto,
 } from './dto';
 import { Prisma } from '@prisma/client';
+import { redactAuditSecrets } from './audit-redaction.util';
+import type { AuditJsonValue } from './audit.types';
+
+const redactAuditResponseValue = (
+  value: unknown,
+  pathPrefix: string,
+): { value: unknown; redactedPaths: string[] } => {
+  if (value === null || value === undefined) {
+    return { value: value ?? null, redactedPaths: [] };
+  }
+
+  const redacted = redactAuditSecrets(value as AuditJsonValue);
+  return {
+    value: redacted.value,
+    redactedPaths: redacted.redactedPaths.map((path) =>
+      pathPrefix ? `${pathPrefix}.${path}` : path,
+    ),
+  };
+};
 
 @Injectable()
 export class AuditService {
@@ -72,31 +91,45 @@ export class AuditService {
 
     const totalPages = Math.ceil(total / limit) || 1;
 
-    const data: AuditLogResponseDto[] = records.map((record) => ({
-      id: record.id,
-      tenantId: record.tenant_id,
-      entityType: record.entity_type,
-      entityId: record.entity_id,
-      action: record.action,
-      actorUserId: record.actor_user_id,
-      actorEmail: record.actor_email,
-      actorRole: record.actor_role,
-      actorType: record.actor_type,
-      requestId: record.request_id,
-      source: record.source,
-      ipAddress: record.ip_address,
-      userAgent: record.user_agent,
-      before: record.before ?? null,
-      after: record.after ?? null,
-      diff: record.diff ?? null,
-      changedFields: Array.isArray(record.changed_fields)
-        ? (record.changed_fields as string[])
-        : null,
-      redactedFields: Array.isArray(record.redacted_fields)
+    const data: AuditLogResponseDto[] = records.map((record) => {
+      const redactedBefore = redactAuditResponseValue(record.before, 'before');
+      const redactedAfter = redactAuditResponseValue(record.after, 'after');
+      const redactedDiff = redactAuditResponseValue(record.diff, 'diff');
+      const redactedFields = Array.isArray(record.redacted_fields)
         ? (record.redacted_fields as string[])
-        : null,
-      occurredAt: record.occurred_at,
-    }));
+        : [];
+
+      return {
+        id: record.id,
+        tenantId: record.tenant_id,
+        entityType: record.entity_type,
+        entityId: record.entity_id,
+        action: record.action,
+        actorUserId: record.actor_user_id,
+        actorEmail: record.actor_email,
+        actorRole: record.actor_role,
+        actorType: record.actor_type,
+        requestId: record.request_id,
+        source: record.source,
+        ipAddress: record.ip_address,
+        userAgent: record.user_agent,
+        before: redactedBefore.value,
+        after: redactedAfter.value,
+        diff: redactedDiff.value,
+        changedFields: Array.isArray(record.changed_fields)
+          ? (record.changed_fields as string[])
+          : null,
+        redactedFields: [
+          ...new Set([
+            ...redactedFields,
+            ...redactedBefore.redactedPaths,
+            ...redactedAfter.redactedPaths,
+            ...redactedDiff.redactedPaths,
+          ]),
+        ].sort(),
+        occurredAt: record.occurred_at,
+      };
+    });
 
     return {
       data,

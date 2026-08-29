@@ -14,6 +14,7 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../../common/utils/status-transition';
+import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
 
 const SALES_ORDER_NEXT_STATUS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
   [SalesOrderStatus.DRAFT]: [SalesOrderStatus.CONFIRMED],
@@ -21,6 +22,17 @@ const SALES_ORDER_NEXT_STATUS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
   [SalesOrderStatus.IN_PROGRESS]: [SalesOrderStatus.COMPLETED],
   [SalesOrderStatus.COMPLETED]: [SalesOrderStatus.INVOICED],
   [SalesOrderStatus.INVOICED]: [],
+};
+
+type SalesOrderWithRelations = Prisma.SalesOrderGetPayload<{
+  include: { customer: true; vehicle: true; items: true };
+}>;
+
+type PublicSalesOrder = Omit<SalesOrderWithRelations, 'vehicle'> & {
+  vehicle: Omit<
+    NonNullable<SalesOrderWithRelations['vehicle']>,
+    'identity_resolution_generation' | 'identity_resolution_token'
+  > | null;
 };
 
 @Injectable()
@@ -142,15 +154,18 @@ export class SalesOrderService {
       },
     });
 
-    return createdOrder;
+    return {
+      ...createdOrder,
+      vehicle: createdOrder.vehicle
+        ? stripVehicleIdentityResolutionState(createdOrder.vehicle)
+        : createdOrder.vehicle,
+    };
   }
 
   async findAll(
     params?: Prisma.SalesOrderFindManyArgs | SalesOrderStatus,
   ): Promise<{
-    data: Prisma.SalesOrderGetPayload<{
-      include: { customer: true; vehicle: true; items: true };
-    }>[];
+    data: PublicSalesOrder[];
     total: number;
   }> {
     const tenantId = await this.tenantContext.getTenantId();
@@ -174,7 +189,15 @@ export class SalesOrderService {
           where: { ...(params.where ?? {}), tenant_id: tenantId },
         }),
       ]);
-      return { data, total };
+      return {
+        data: data.map((order) => ({
+          ...order,
+          vehicle: order.vehicle
+            ? stripVehicleIdentityResolutionState(order.vehicle)
+            : order.vehicle,
+        })),
+        total,
+      };
     }
 
     const status = typeof params === 'string' ? params : undefined;
@@ -187,7 +210,15 @@ export class SalesOrderService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return { data, total: data.length };
+    return {
+      data: data.map((order) => ({
+        ...order,
+        vehicle: order.vehicle
+          ? stripVehicleIdentityResolutionState(order.vehicle)
+          : order.vehicle,
+      })),
+      total: data.length,
+    };
   }
 
   async findOne(id: string) {
@@ -206,7 +237,12 @@ export class SalesOrderService {
       },
     });
     if (!order) throw new NotFoundException(`Sales Order ${id} not found`);
-    return order;
+    return {
+      ...order,
+      vehicle: order.vehicle
+        ? stripVehicleIdentityResolutionState(order.vehicle)
+        : order.vehicle,
+    };
   }
 
   async update(id: string, updateDto: UpdateSalesOrderDto) {

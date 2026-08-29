@@ -6,6 +6,7 @@ import {
 import type { Customer, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
@@ -148,6 +149,13 @@ export class CustomerService {
 
     return {
       ...customer,
+      vehicles: customer.vehicles?.map(stripVehicleIdentityResolutionState),
+      workshop_orders: customer.workshop_orders?.map((order) => ({
+        ...order,
+        vehicle: order.vehicle
+          ? stripVehicleIdentityResolutionState(order.vehicle)
+          : order.vehicle,
+      })),
       workshop_orders_meta: {
         page: historyPage,
         pageSize: historyLimit,

@@ -38,6 +38,36 @@ describe('CustomerService', () => {
     jest.clearAllMocks();
   });
 
+  it('does not expose identity resolution state from customer detail vehicles', async () => {
+    const vehicle = {
+      id: 'vehicle-1',
+      identity_resolution_generation: 'generation-1',
+      identity_resolution_token: 'token-1',
+    };
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'customer-1',
+      vehicles: [vehicle],
+      sales_orders: [],
+      workshop_orders: [{ vehicle }],
+      invoices: [],
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+
+    const result = await service.findOne('customer-1');
+
+    expect(result.vehicles[0]).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.vehicles[0]).not.toHaveProperty('identity_resolution_token');
+    expect(result.workshop_orders[0].vehicle).not.toHaveProperty(
+      'identity_resolution_generation',
+    );
+    expect(result.workshop_orders[0].vehicle).not.toHaveProperty(
+      'identity_resolution_token',
+    );
+  });
+
   it('deletes customer when no linked business records exist', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.salesOrder.count.mockResolvedValue(0);

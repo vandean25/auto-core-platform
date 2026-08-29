@@ -5,9 +5,10 @@ import { VehicleResponseDto } from '../../vehicle/dto/vehicle-response.dto';
 export class WorkshopSearchVehicleDto extends VehicleResponseDto {
   @ApiProperty({
     type: () => CustomerResponseDto,
+    required: true,
     nullable: true,
   })
-  customer!: CustomerResponseDto | null;
+  declare customer: CustomerResponseDto | null;
 }
 
 export class WorkshopSearchCustomerDto extends CustomerResponseDto {
