@@ -1,4 +1,5 @@
 import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import { IsArray } from 'class-validator';
 
 export class CatalogExternalPartsItemDto {
   @ApiProperty()
@@ -82,6 +83,7 @@ export class CatalogExternalSearchResponseDto {
   @ApiProperty()
   retryOemAvailable!: boolean;
 
+  @IsArray()
   @ApiProperty({
     type: 'array',
     items: {

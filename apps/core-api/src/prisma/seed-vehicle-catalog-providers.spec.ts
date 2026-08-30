@@ -1,4 +1,5 @@
 import { CatalogOemConcernCode } from '@prisma/client';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
 import {
   resolveOemConcernForBrand,
   resolveVehicleMakeBrand,
@@ -418,7 +419,19 @@ describe('seedVehicleCatalogProviders', () => {
     expect(prisma.catalogProviderSettings.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { tenant_id: 'tenant-1' },
-        create: { tenant_id: 'tenant-1' },
+        create: {
+          tenant_id: 'tenant-1',
+          default_parts_aftermarket_adapter_id:
+            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+          default_labor_aftermarket_adapter_id:
+            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
+        },
+        update: {
+          default_parts_aftermarket_adapter_id:
+            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+          default_labor_aftermarket_adapter_id:
+            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
+        },
       }),
     );
     expect(prisma.catalogProviderSettings.create).not.toHaveBeenCalled();
