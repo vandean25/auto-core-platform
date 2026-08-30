@@ -11,3 +11,14 @@ alwaysApply: true
   ```bash
   gh pr ready <PR_NUMBER>
   ```
+
+## Cloud Agent subscriptions (required until merge)
+
+After pushing a branch and creating or updating its PR, each Cloud Agent **must** subscribe to both CI and PR activity using the `cursor-subscriptions` MCP tools — do not poll in a loop.
+
+1. **CI:** `subscribe_github_ci` for the branch — wake on terminal check results (pass/fail).
+2. **PR comments:** `subscribe_github_pr` with scope `pr` (PR URL or repo + number) — wake on review comments, `@cursoragent` mentions, reviews, and other PR activity.
+
+Keep both subscriptions active for the entire PR lifecycle. Re-subscribe after each push or when a subscription expires (`list_subscriptions` → check `expiresAt`). **Unsubscribe only after the PR is merged or closed.**
+
+On wake: re-read the PR (comments and checks) from the source of truth; fix failures or address review feedback; push; re-subscribe; repeat until merged.

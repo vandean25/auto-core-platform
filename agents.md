@@ -198,6 +198,10 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   ```bash
   gh pr ready <PR_NUMBER>
   ```
+- **Cloud Agents — subscribe until merge:** After pushing and opening/updating a PR, subscribe via `cursor-subscriptions` MCP (see `.agents/skills/` subscribe skill if needed):
+  - `subscribe_github_ci` on the branch for CI completion.
+  - `subscribe_github_pr` (scope `pr`) on the PR for review comments, `@cursoragent` mentions, and review activity.
+  Keep both active until the PR merges or closes; re-subscribe after each push or when expired; unsubscribe only then. On wake, re-read the PR and address CI failures or review feedback before ending the turn.
 
 ### Mandatory backend checks before creating a PR
 All of the following CI-equivalent backend checks must pass before creating a PR:
@@ -343,6 +347,15 @@ Never commit real secret values or generated local `.env` files.
 ## Cursor Cloud specific instructions
 
 This section captures non-obvious, durable setup notes for Cloud Agents. Standard commands live in `README.md` and the root `package.json` workspace scripts; only the caveats below are cloud-specific. The startup update script already runs root `npm ci` plus `prisma generate`.
+
+### PR comment subscriptions (mandatory)
+Every Cloud Agent with an open PR must subscribe to PR comments and keep listening until the PR is merged or closed. CI-only subscriptions miss review feedback (including `@cursoragent` comments from Cursor PR Review).
+
+After each push that updates the PR:
+1. `subscribe_github_ci` — branch CI terminal state.
+2. `subscribe_github_pr` — scope `pr`, same PR URL/number.
+
+Use `list_subscriptions` before subscribing to reuse active ones; re-subscribe when `expiresAt` passes. Unsubscribe both when the PR is merged or closed. End the turn after subscribing so wake notifications can arrive for CI and review comments.
 
 ### Services
 - **PostgreSQL 15+** on `localhost:5432` (installed via apt as PG 16). Local dev DB is `core_platform`, credentials `postgres` / `postgres`. A separate empty `auto_core_test` DB exists for e2e.
