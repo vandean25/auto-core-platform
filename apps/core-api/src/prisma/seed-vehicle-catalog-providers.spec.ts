@@ -186,7 +186,7 @@ function createPrismaMock() {
         },
       ),
     },
-    catalogOemConcern: {
+      catalogOemConcern: {
       findMany: jest.fn(
         async ({
           where,
@@ -206,9 +206,16 @@ function createPrismaMock() {
         async ({
           where,
           create,
+          update,
         }: {
           where: { tenant_id_code: { code: CatalogOemConcernCode } };
-          create: { tenant_id: string; code: CatalogOemConcernCode };
+          create: {
+            tenant_id: string;
+            code: CatalogOemConcernCode;
+            parts_adapter_id: string;
+            labor_adapter_id: string;
+          };
+          update: Record<string, never>;
         }) => {
           const code = where.tenant_id_code.code;
           const existing = concerns.get(code);
@@ -426,15 +433,39 @@ describe('seedVehicleCatalogProviders', () => {
           default_labor_aftermarket_adapter_id:
             SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
         },
-        update: {
-          default_parts_aftermarket_adapter_id:
-            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
-          default_labor_aftermarket_adapter_id:
-            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
-        },
+        update: {},
       }),
     );
     expect(prisma.catalogProviderSettings.create).not.toHaveBeenCalled();
+  });
+
+  it('seeds sandbox adapter ids on create but not on update', async () => {
+    const { prisma } = createPrismaMock();
+
+    await seedVehicleCatalogProviders(prisma, 'tenant-1');
+    await seedVehicleCatalogProviders(prisma, 'tenant-1');
+
+    expect(prisma.catalogOemConcern.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          parts_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_BMW_PARTS,
+          labor_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_BMW_LABOR,
+        }),
+        update: {},
+      }),
+    );
+    expect(prisma.catalogOemConcern.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: {} }),
+    );
+    expect(prisma.catalogProviderSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          default_parts_aftermarket_adapter_id:
+            SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+        }),
+        update: {},
+      }),
+    );
   });
 
   it('does not resolve a tenant-B Brand through tenant-A alias or concern rows', async () => {

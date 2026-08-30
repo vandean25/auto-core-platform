@@ -71,11 +71,126 @@ function signaturesMatch(expectedHex: string, providedHex: string): boolean {
 }
 
 export function getCatalogHitSecret(): string {
-  return (
-    process.env.CATALOG_HIT_HMAC_SECRET ??
-    process.env.TEST_JWT_SECRET ??
-    'catalog-hit-test-secret'
-  );
+  const configured = process.env.CATALOG_HIT_HMAC_SECRET?.trim();
+  if (configured) {
+    return configured;
+  }
+  if (process.env.NODE_ENV === 'test') {
+    return process.env.TEST_JWT_SECRET ?? 'catalog-hit-test-secret';
+  }
+  throw new Error('CATALOG_HIT_HMAC_SECRET is required');
+}
+
+function readRequiredString(
+  record: Record<string, unknown>,
+  key: string,
+): string {
+  const value = record[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('Invalid catalog hit token');
+  }
+  return value;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw new Error('Invalid catalog hit token');
+  }
+  return value;
+}
+
+function readOptionalNumber(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new Error('Invalid catalog hit token');
+  }
+  return value;
+}
+
+function readOptionalNullableNumber(
+  record: Record<string, unknown>,
+  key: string,
+) {
+  const value = record[key];
+  if (value === null) {
+    return null;
+  }
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new Error('Invalid catalog hit token');
+  }
+  return value;
+}
+
+function readOptionalNullableString(
+  record: Record<string, unknown>,
+  key: string,
+) {
+  const value = record[key];
+  if (value === null) {
+    return null;
+  }
+  return readOptionalString(record, key);
+}
+
+function readOptionalStringArray(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (
+    !Array.isArray(value) ||
+    !value.every((entry) => typeof entry === 'string')
+  ) {
+    throw new Error('Invalid catalog hit token');
+  }
+  return value;
+}
+
+function parseSignedClaims(
+  record: Record<string, unknown>,
+): CatalogHitPayloadClaims {
+  const concern = record.concern;
+  if (concern !== 'PARTS' && concern !== 'LABOR') {
+    throw new Error('Invalid catalog hit token');
+  }
+
+  const exp = record.exp;
+  if (typeof exp !== 'number' || Number.isNaN(exp)) {
+    throw new Error('Invalid catalog hit token');
+  }
+
+  return {
+    tenantId: readRequiredString(record, 'tenantId'),
+    workshopOrderId: readRequiredString(record, 'workshopOrderId'),
+    vehicleId: readRequiredString(record, 'vehicleId'),
+    concern,
+    sourceSystem: readRequiredString(record, 'sourceSystem'),
+    externalId: readRequiredString(record, 'externalId'),
+    jti: readRequiredString(record, 'jti'),
+    exp,
+    name: readRequiredString(record, 'name'),
+    articleNumber: readOptionalString(record, 'articleNumber'),
+    unitPrice: readOptionalNumber(record, 'unitPrice'),
+    brandLabel: readOptionalString(record, 'brandLabel'),
+    ean: readOptionalNullableString(record, 'ean'),
+    unit: readOptionalNullableString(record, 'unit'),
+    fitmentNotes: readOptionalNullableString(record, 'fitmentNotes'),
+    costPriceEst: readOptionalNullableNumber(record, 'costPriceEst'),
+    oemNumbers: readOptionalStringArray(record, 'oemNumbers'),
+    externalOperationCode: readOptionalString(record, 'externalOperationCode'),
+    standardAw: readOptionalNullableNumber(record, 'standardAw'),
+    plannedHours: readOptionalNullableNumber(record, 'plannedHours'),
+  };
 }
 
 export function signCatalogHitPayload(
@@ -117,11 +232,7 @@ export function verifyCatalogHitPayload(
     throw new Error('Invalid catalog hit token signature');
   }
 
-  const claims = { ...record } as CatalogHitPayloadClaims & {
-    signature?: string;
-  };
-  delete claims.signature;
-
+  const claims = parseSignedClaims(record);
   const expected = hmacSignature(claims, secret);
   if (!signaturesMatch(expected, signature)) {
     throw new Error('Invalid catalog hit token signature');

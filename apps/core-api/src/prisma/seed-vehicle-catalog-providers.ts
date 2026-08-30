@@ -223,7 +223,7 @@ export async function seedVehicleCatalogProviders(
           code,
         },
       },
-      update: concernAdapterIds[code],
+      update: {},
       create: {
         tenant_id: tenantId,
         code,
@@ -273,12 +273,7 @@ export async function seedVehicleCatalogProviders(
 
   await prisma.catalogProviderSettings.upsert({
     where: { tenant_id: tenantId },
-    update: {
-      default_parts_aftermarket_adapter_id:
-        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
-      default_labor_aftermarket_adapter_id:
-        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
-    },
+    update: {},
     create: {
       tenant_id: tenantId,
       default_parts_aftermarket_adapter_id:

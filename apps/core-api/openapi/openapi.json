@@ -12265,7 +12265,14 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CatalogExternalPartsItemDto"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CatalogExternalPartsItemDto"
+                },
+                {
+                  "$ref": "#/components/schemas/CatalogExternalLaborItemDto"
+                }
+              ]
             }
           }
         },

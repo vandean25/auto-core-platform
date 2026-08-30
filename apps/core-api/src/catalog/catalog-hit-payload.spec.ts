@@ -94,4 +94,17 @@ describe('catalog-hit-payload', () => {
     expect(ttl).toBeLessThanOrEqual(CATALOG_HIT_TTL_SECONDS);
     expect(ttl).toBeGreaterThan(CATALOG_HIT_TTL_SECONDS - 5);
   });
+
+  it('rejects tokens with injected unsigned fields', () => {
+    const token = signCatalogHitPayload(baseClaims);
+    const parsed = JSON.parse(
+      Buffer.from(token, 'base64url').toString('utf8'),
+    ) as CatalogHitPayloadClaims & { signature: string; injectedTenantId?: string };
+    parsed.injectedTenantId = randomUUID();
+    const tampered = Buffer.from(JSON.stringify(parsed)).toString('base64url');
+
+    const claims = verifyCatalogHitPayload(tampered);
+    expect(claims.tenantId).toBe(baseClaims.tenantId);
+    expect(claims).not.toHaveProperty('injectedTenantId');
+  });
 });
