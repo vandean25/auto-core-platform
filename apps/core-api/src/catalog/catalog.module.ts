@@ -25,21 +25,21 @@ class CompositePartsCatalogProvider implements PartsCatalogProvider {
     private readonly aftermarketProvider: SandboxAftermarketPartsCatalogProvider,
   ) {}
 
-  search(context: Parameters<PartsCatalogProvider['search']>[0], adapterId: string) {
+  search(
+    context: Parameters<PartsCatalogProvider['search']>[0],
+    adapterId: string,
+  ) {
     if (adapterId.includes('aftermarket')) {
       return this.aftermarketProvider.search(context, adapterId);
     }
     return this.oemProvider.search(context, adapterId);
   }
 
-  listAssemblyGroups(
-    context: CatalogAssemblyGroupContext,
-    adapterId: string,
-  ) {
+  listAssemblyGroups(context: CatalogAssemblyGroupContext, adapterId: string) {
     if (adapterId.includes('aftermarket')) {
-      return this.aftermarketProvider.listAssemblyGroups!(context, adapterId);
+      return this.aftermarketProvider.listAssemblyGroups(context, adapterId);
     }
-    return this.oemProvider.listAssemblyGroups!(context, adapterId);
+    return this.oemProvider.listAssemblyGroups(context, adapterId);
   }
 }
 
@@ -49,7 +49,10 @@ class CompositeLaborCatalogProvider implements LaborCatalogProvider {
     private readonly aftermarketProvider: SandboxAftermarketLaborCatalogProvider,
   ) {}
 
-  search(context: Parameters<LaborCatalogProvider['search']>[0], adapterId: string) {
+  search(
+    context: Parameters<LaborCatalogProvider['search']>[0],
+    adapterId: string,
+  ) {
     if (adapterId.includes('aftermarket')) {
       return this.aftermarketProvider.search(context, adapterId);
     }

@@ -52,7 +52,10 @@ function canonicalString(claims: CatalogHitPayloadClaims): string {
   });
 }
 
-function hmacSignature(claims: CatalogHitPayloadClaims, secret: string): string {
+function hmacSignature(
+  claims: CatalogHitPayloadClaims,
+  secret: string,
+): string {
   return createHmac('sha256', secret)
     .update(canonicalString(claims))
     .digest('hex');

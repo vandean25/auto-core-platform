@@ -12005,6 +12005,98 @@
           }
         }
       },
+      "CatalogExternalPartsItemDto": {
+        "type": "object",
+        "properties": {
+          "externalId": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "articleNumber": {
+            "type": "string"
+          },
+          "brandLabel": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "costPriceEst": {
+            "type": "number",
+            "nullable": true
+          },
+          "ean": {
+            "type": "string",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "fitmentNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "oemNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hitToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalId",
+          "sourceSystem",
+          "name",
+          "articleNumber",
+          "brandLabel",
+          "unitPrice",
+          "hitToken"
+        ]
+      },
+      "CatalogExternalLaborItemDto": {
+        "type": "object",
+        "properties": {
+          "externalId": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "externalOperationCode": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number",
+            "nullable": true
+          },
+          "plannedHours": {
+            "type": "number",
+            "nullable": true
+          },
+          "hitToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalId",
+          "sourceSystem",
+          "name",
+          "externalOperationCode",
+          "hitToken"
+        ]
+      },
       "CatalogLaborSearchItemDto": {
         "type": "object",
         "properties": {

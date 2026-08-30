@@ -45,9 +45,7 @@ function buildAftermarketPartsHits(
 }
 
 @Injectable()
-export class SandboxAftermarketPartsCatalogProvider
-  implements PartsCatalogProvider
-{
+export class SandboxAftermarketPartsCatalogProvider implements PartsCatalogProvider {
   search(
     context: CatalogSearchContext,
     adapterId: string,

@@ -51,12 +51,7 @@ export class CatalogRouterService {
       params;
 
     if (source === 'AFTERMARKET') {
-      const items = await this.searchAftermarket(
-        context,
-        concern,
-        settings,
-        oemConcern,
-      );
+      const items = await this.searchAftermarket(context, concern, settings);
       return {
         concern,
         sourceUsed: 'AFTERMARKET',
@@ -116,13 +111,15 @@ export class CatalogRouterService {
     settings: ProviderSettingsSnapshot;
     oemConcern: OemConcernSnapshot;
   }): Promise<CatalogExternalSearchResult> {
-    const oemAdapterId = this.getOemAdapterId(params.oemConcern, params.concern);
+    const oemAdapterId = this.getOemAdapterId(
+      params.oemConcern,
+      params.concern,
+    );
     if (!oemAdapterId) {
       const items = await this.searchAftermarket(
         params.context,
         params.concern,
         params.settings,
-        params.oemConcern,
       );
       return {
         concern: params.concern,
@@ -149,13 +146,15 @@ export class CatalogRouterService {
     oemConcern: OemConcernSnapshot;
     allowAftermarketFallback: boolean;
   }): Promise<CatalogExternalSearchResult> {
-    const oemAdapterId = this.getOemAdapterId(params.oemConcern, params.concern);
+    const oemAdapterId = this.getOemAdapterId(
+      params.oemConcern,
+      params.concern,
+    );
     if (!oemAdapterId) {
       const items = await this.searchAftermarket(
         params.context,
         params.concern,
         params.settings,
-        params.oemConcern,
       );
       return {
         concern: params.concern,
@@ -202,7 +201,6 @@ export class CatalogRouterService {
         params.context,
         params.concern,
         params.settings,
-        params.oemConcern,
       );
       return {
         concern: params.concern,
@@ -234,7 +232,6 @@ export class CatalogRouterService {
         params.context,
         params.concern,
         params.settings,
-        params.oemConcern,
       );
       return {
         concern: params.concern,
@@ -254,9 +251,7 @@ export class CatalogRouterService {
     adapterId: string,
   ): Promise<CatalogPartsHit[] | CatalogLaborHit[]> {
     if (concern === 'PARTS') {
-      return this.adapters
-        .getPartsProvider()
-        .search(context, adapterId);
+      return this.adapters.getPartsProvider().search(context, adapterId);
     }
 
     return this.adapters.getLaborProvider().search(context, adapterId);
@@ -266,7 +261,6 @@ export class CatalogRouterService {
     context: CatalogSearchContext,
     concern: CatalogSearchConcern,
     settings: ProviderSettingsSnapshot,
-    oemConcern: OemConcernSnapshot,
   ): Promise<CatalogPartsHit[] | CatalogLaborHit[]> {
     const adapterId =
       concern === 'PARTS'
@@ -313,8 +307,6 @@ export class CatalogRouterService {
     oemConcern: OemConcernSnapshot,
     concern: CatalogSearchConcern,
   ): CatalogOemStatus {
-    return this.hasOemAdapter(oemConcern, concern)
-      ? 'HIT'
-      : 'NOT_CONFIGURED';
+    return this.hasOemAdapter(oemConcern, concern) ? 'HIT' : 'NOT_CONFIGURED';
   }
 }

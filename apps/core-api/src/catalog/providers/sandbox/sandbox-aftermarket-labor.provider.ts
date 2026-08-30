@@ -39,9 +39,7 @@ function buildAftermarketLaborHits(
 }
 
 @Injectable()
-export class SandboxAftermarketLaborCatalogProvider
-  implements LaborCatalogProvider
-{
+export class SandboxAftermarketLaborCatalogProvider implements LaborCatalogProvider {
   search(
     context: CatalogSearchContext,
     adapterId: string,

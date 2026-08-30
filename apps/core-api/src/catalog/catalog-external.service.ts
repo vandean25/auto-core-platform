@@ -236,17 +236,23 @@ export class CatalogExternalService {
     vehicleId: string;
     concern: CatalogSearchConcern;
     items: CatalogPartsHit[] | CatalogLaborHit[];
-  }) {
-    return params.items.map((item) => ({
-      ...item,
-      hitToken: this.createHitToken({
+  }): Array<(CatalogPartsHit | CatalogLaborHit) & { hitToken: string }> {
+    const results: Array<
+      (CatalogPartsHit | CatalogLaborHit) & { hitToken: string }
+    > = [];
+
+    for (const item of params.items) {
+      const hitToken = this.createHitToken({
         tenantId: params.tenantId,
         workshopOrderId: params.workshopOrderId,
         vehicleId: params.vehicleId,
         concern: params.concern,
         item,
-      }),
-    }));
+      });
+      results.push({ ...item, hitToken });
+    }
+
+    return results;
   }
 
   private createHitToken(params: {
@@ -256,8 +262,8 @@ export class CatalogExternalService {
     concern: CatalogSearchConcern;
     item: CatalogPartsHit | CatalogLaborHit;
   }): string {
-    if (params.concern === 'PARTS') {
-      const part = params.item as CatalogPartsHit;
+    if (params.concern === 'PARTS' && 'articleNumber' in params.item) {
+      const part = params.item;
       return signCatalogHitPayload({
         tenantId: params.tenantId,
         workshopOrderId: params.workshopOrderId,
@@ -277,19 +283,23 @@ export class CatalogExternalService {
       });
     }
 
-    const labor = params.item as CatalogLaborHit;
-    return signCatalogHitPayload({
-      tenantId: params.tenantId,
-      workshopOrderId: params.workshopOrderId,
-      vehicleId: params.vehicleId,
-      concern: 'LABOR',
-      sourceSystem: labor.sourceSystem,
-      externalId: labor.externalId,
-      name: labor.name,
-      externalOperationCode: labor.externalOperationCode,
-      standardAw: labor.standardAw ?? null,
-      plannedHours: labor.plannedHours ?? null,
-    });
+    if ('externalOperationCode' in params.item) {
+      const labor = params.item;
+      return signCatalogHitPayload({
+        tenantId: params.tenantId,
+        workshopOrderId: params.workshopOrderId,
+        vehicleId: params.vehicleId,
+        concern: 'LABOR',
+        sourceSystem: labor.sourceSystem,
+        externalId: labor.externalId,
+        name: labor.name,
+        externalOperationCode: labor.externalOperationCode,
+        standardAw: labor.standardAw ?? null,
+        plannedHours: labor.plannedHours ?? null,
+      });
+    }
+
+    throw new Error('Unsupported catalog hit item shape');
   }
 }
 

@@ -4,11 +4,7 @@ export type CatalogSearchConcern = 'PARTS' | 'LABOR';
 
 export type CatalogSearchSource = 'AUTO' | 'OEM' | 'AFTERMARKET';
 
-export type CatalogOemStatus =
-  | 'HIT'
-  | 'EMPTY'
-  | 'ERROR'
-  | 'NOT_CONFIGURED';
+export type CatalogOemStatus = 'HIT' | 'EMPTY' | 'ERROR' | 'NOT_CONFIGURED';
 
 export type CatalogFallbackReason = 'EMPTY' | 'ERROR' | null;
 
@@ -22,8 +18,7 @@ export interface CatalogSearchContext {
   query: string;
 }
 
-export interface CatalogAssemblyGroupContext
-  extends Omit<CatalogSearchContext, 'query'> {}
+export type CatalogAssemblyGroupContext = Omit<CatalogSearchContext, 'query'>;
 
 export interface CatalogAssemblyGroupNode {
   id: string;

@@ -1,10 +1,17 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { CatalogExternalService } from './catalog-external.service';
 import { CatalogSearchResponseDto } from './dto/catalog-search.dto';
 import {
   CatalogAssemblyGroupsResponseDto,
+  CatalogExternalLaborItemDto,
+  CatalogExternalPartsItemDto,
   CatalogExternalSearchResponseDto,
 } from './dto/catalog-external-search.dto';
 import {
@@ -13,6 +20,7 @@ import {
 } from './dto/catalog-external-search-query.dto';
 
 @ApiTags('catalog')
+@ApiExtraModels(CatalogExternalPartsItemDto, CatalogExternalLaborItemDto)
 @Controller('catalog')
 export class CatalogController {
   constructor(

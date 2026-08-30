@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
 
 export class CatalogExternalPartsItemDto {
   @ApiProperty()
@@ -86,14 +86,12 @@ export class CatalogExternalSearchResponseDto {
     type: 'array',
     items: {
       oneOf: [
-        { $ref: '#/components/schemas/CatalogExternalPartsItemDto' },
-        { $ref: '#/components/schemas/CatalogExternalLaborItemDto' },
+        { $ref: getSchemaPath(CatalogExternalPartsItemDto) },
+        { $ref: getSchemaPath(CatalogExternalLaborItemDto) },
       ],
     },
   })
-  items!: Array<
-    CatalogExternalPartsItemDto | CatalogExternalLaborItemDto
-  >;
+  items!: Array<CatalogExternalPartsItemDto | CatalogExternalLaborItemDto>;
 }
 
 export class CatalogAssemblyGroupNodeDto {
