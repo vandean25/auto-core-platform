@@ -3553,7 +3553,7 @@ export interface components {
             /** @enum {string|null} */
             fallbackReason: "EMPTY" | "ERROR" | null;
             retryOemAvailable: boolean;
-            items: (components["schemas"]["CatalogExternalPartsItemDto"] | components["schemas"]["CatalogExternalLaborItemDto"])[];
+            items: components["schemas"]["CatalogExternalPartsItemDto"][];
         };
         CatalogAssemblyGroupNodeDto: {
             id: string;
