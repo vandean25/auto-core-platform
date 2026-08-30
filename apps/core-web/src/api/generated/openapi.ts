@@ -1424,6 +1424,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/external/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CatalogController_externalSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog/external/assembly-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CatalogController_externalAssemblyGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles": {
         parameters: {
             query?: never;
@@ -3456,6 +3488,29 @@ export interface components {
             /** @description Whether the category is active */
             is_active?: boolean;
         };
+        CatalogExternalPartsItemDto: {
+            externalId: string;
+            sourceSystem: string;
+            name: string;
+            articleNumber: string;
+            brandLabel: string;
+            unitPrice: number;
+            costPriceEst?: number | null;
+            ean?: string | null;
+            unit?: string | null;
+            fitmentNotes?: string | null;
+            oemNumbers?: string[];
+            hitToken: string;
+        };
+        CatalogExternalLaborItemDto: {
+            externalId: string;
+            sourceSystem: string;
+            name: string;
+            externalOperationCode: string;
+            standardAw?: number | null;
+            plannedHours?: number | null;
+            hitToken: string;
+        };
         CatalogLaborSearchItemDto: {
             /** Format: uuid */
             id: string;
@@ -3486,6 +3541,27 @@ export interface components {
             labor: components["schemas"]["CatalogLaborSearchItemDto"][];
             parts: components["schemas"]["CatalogPartSearchItemDto"][];
             meta: components["schemas"]["CatalogSearchMetaDto"];
+        };
+        CatalogExternalSearchResponseDto: {
+            /** @enum {string} */
+            concern: "PARTS" | "LABOR";
+            /** @enum {string} */
+            sourceUsed: "OEM" | "AFTERMARKET";
+            /** @enum {string} */
+            oemStatus: "HIT" | "EMPTY" | "ERROR" | "NOT_CONFIGURED";
+            fallbackRequired: boolean;
+            /** @enum {string|null} */
+            fallbackReason: "EMPTY" | "ERROR" | null;
+            retryOemAvailable: boolean;
+            items: (components["schemas"]["CatalogExternalPartsItemDto"] | components["schemas"]["CatalogExternalLaborItemDto"])[];
+        };
+        CatalogAssemblyGroupNodeDto: {
+            id: string;
+            name: string;
+            children?: components["schemas"]["CatalogAssemblyGroupNodeDto"][];
+        };
+        CatalogAssemblyGroupsResponseDto: {
+            groups: components["schemas"]["CatalogAssemblyGroupNodeDto"][];
         };
         VehiclePaginatedResponseDto: {
             data: components["schemas"]["VehicleListItemDto"][];
@@ -7126,6 +7202,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogSearchResponseDto"];
+                };
+            };
+        };
+    };
+    CatalogController_externalSearch: {
+        parameters: {
+            query: {
+                workshopOrderId: string;
+                concern: "PARTS" | "LABOR";
+                q?: string;
+                source?: "AUTO" | "OEM" | "AFTERMARKET";
+                confirmFallback?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogExternalSearchResponseDto"];
+                };
+            };
+        };
+    };
+    CatalogController_externalAssemblyGroups: {
+        parameters: {
+            query: {
+                workshopOrderId: string;
+                concern: "PARTS";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogAssemblyGroupsResponseDto"];
                 };
             };
         };

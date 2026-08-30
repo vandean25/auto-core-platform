@@ -11,6 +11,7 @@ function productionEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/core',
     FIREBASE_PROJECT_ID: 'auto-core-platform',
     SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
+    CATALOG_HIT_HMAC_SECRET: 'catalog-hit-production-secret',
     FRONTEND_URL: 'https://app.example.com',
     CLOUD_TASKS_ENABLED: 'false',
     ...overrides,
@@ -33,6 +34,7 @@ describe('validateEnv', () => {
     expect(validationError.missing).toEqual([
       'DATABASE_URL',
       'SECRET_ENCRYPTION_KEY',
+      'CATALOG_HIT_HMAC_SECRET',
       'FIREBASE_PROJECT_ID',
       'FRONTEND_URL',
       'CLOUD_TASKS_WORKER_SECRET',
@@ -131,11 +133,12 @@ describe('validateEnv', () => {
     expect(validationError.message).toMatch(/base64-encoded 32-byte key/);
   });
 
-  it('requires DATABASE_URL and SECRET_ENCRYPTION_KEY in development', () => {
+  it('requires DATABASE_URL, SECRET_ENCRYPTION_KEY, and CATALOG_HIT_HMAC_SECRET in development', () => {
     const validationError = expectEnvError({ NODE_ENV: 'development' });
     expect(validationError.missing).toEqual([
       'DATABASE_URL',
       'SECRET_ENCRYPTION_KEY',
+      'CATALOG_HIT_HMAC_SECRET',
     ]);
   });
 
@@ -145,6 +148,7 @@ describe('validateEnv', () => {
         NODE_ENV: 'development',
         DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/core',
         SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
+        CATALOG_HIT_HMAC_SECRET: 'catalog-hit-dev-secret',
       }),
     ).not.toThrow();
   });
