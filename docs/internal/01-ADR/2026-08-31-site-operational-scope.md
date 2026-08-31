@@ -98,7 +98,7 @@ ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit t
 
 ### 6. Same-GmbH transfers
 
-`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. **Ship is one-shot and full** (`shipped_qty = approved_qty` on every line). Receive/return require `expectedVersion` **and** `idempotencyKey`. Ledger pairs persist the **applicable** `site_id` and a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
+`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty` on every line). Receive/return require `expectedVersion` **and** `idempotencyKey`. Ledger pairs persist the **applicable** `site_id` and a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
 
 ## Consequences
 

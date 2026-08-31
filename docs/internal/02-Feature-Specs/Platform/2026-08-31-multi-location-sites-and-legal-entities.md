@@ -94,7 +94,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 ### Transfers (same GmbH only)
 
 24. **`StockTransfer`** is a document with immutable `from_site_id` and `to_site_id` (must differ). Both sites must share `legal_entity_id` at **create, approve, and ship**. Cross-GmbH → **422**. Intercompany sale is Legal Invoicing, not this spec.
-25. **Requester membership is on either endpoint**, not both. A destination-only user may create a request naming `from_site_id` + qty, and **must not** inspect or set a source bin. Source membership selects `source_location_id` at **approve or ship**. If the requester also has from-site membership, they may suggest a source bin at create.
+25. **Requester membership is on either endpoint**, not both. A destination-only user may create a request naming `from_site_id` + qty, and **must not** inspect or set a source bin. Source membership selects `source_location_id` at **approve or ship**. If the requester also has from-site membership, they may suggest a source bin at create. **Create UX:** From-site picker is the names-only directory (`GET /api/sites`), not memberships-only. To-site picker defaults to the current site and also uses the directory so a from-only clerk can name dest. Submit **422** unless the caller has active membership on from **or** to. Source-bin field is omitted unless the caller has from-site membership.
 26. **Line qty columns:** `requested_qty`, `approved_qty`, `shipped_qty`, `received_qty`, `returned_qty`. Enforce `received_qty + returned_qty ≤ shipped_qty` atomically. `approved_qty ≤ requested_qty`.
 27. **States:** `REQUESTED` → `APPROVED` → `SHIPPED` → `COMPLETED`. Also `REJECTED` (from `REQUESTED`), `CANCELLED` (from `REQUESTED` or `APPROVED` only — no ledger yet). **Ship is one-shot and full:** `APPROVED → SHIPPED` happens once. The ship action must set `shipped_qty = approved_qty` on **every** line, require `source_location_id` on every line, and include at least one line with `approved_qty > 0`. Partial ship is out of scope (no remaining-to-ship, no second ship). Partial **receipt** leaves the document `SHIPPED`. When outstanding shipped qty is zero (`received + returned = shipped` on every line), the document becomes **`COMPLETED`**. Do not call a mixed receive/return `RECEIVED`.
 28. **Receive and return** require **both** `expectedVersion` and `idempotencyKey`. Replay of the same key **and** the same body returns the first result (no second ledger write). Reusing a key with a **different** body → **409**. Stale `expectedVersion` → **409**. Approve/reject/cancel/ship use `expectedVersion` only (no ledger partials).
@@ -168,7 +168,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 Uniques required for composite FKs (Prisma cannot reference a tuple that is not unique):
 
-- `legal_entities (tenant_id, id)`
+- `legal_entities (tenant_id, id)` and `(tenant_id, name)`
 - `sites (tenant_id, id)` and `(tenant_id, code)`
 - `bays (tenant_id, site_id, id)` and `(tenant_id, site_id, name)`
 - `storage_locations (tenant_id, site_id, id)` and `(tenant_id, site_id, code)`
@@ -280,7 +280,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 ### Transfers
 
 - List: transfers touching any site the user belongs to. Invalidated via **user-room** transfer events, not by joining every membership’s site room.
-- Create: from/to site pickers limited to memberships; dest-only requester has no source-bin field.
+- Create: **From-site** = names-only directory (`GET /api/sites`). **To-site** = directory, default current site. Source-bin field omitted unless the caller has from-site membership. Memberships-only pickers are forbidden (they hide Wien from a München-only clerk).
 - Receive/return: qty fields; document stays Shipped until complete.
 
 ### List Pages
