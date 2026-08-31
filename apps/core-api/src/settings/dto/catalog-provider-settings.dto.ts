@@ -39,12 +39,14 @@ export class CatalogProviderOemConcernResponseDto {
   laborAdapterId!: string | null;
 
   @ApiProperty({
-    description: 'Whether OEM parts credentials are configured in tenant secrets.',
+    description:
+      'Whether OEM parts credentials are configured in tenant secrets.',
   })
   hasPartsCredential!: boolean;
 
   @ApiProperty({
-    description: 'Whether OEM labor credentials are configured in tenant secrets.',
+    description:
+      'Whether OEM labor credentials are configured in tenant secrets.',
   })
   hasLaborCredential!: boolean;
 
@@ -111,13 +113,15 @@ export class CatalogProviderSettingsResponseDto {
   defaultLaborCategory!: CatalogProviderDefaultLaborCategoryDto | null;
 
   @ApiProperty({
-    description: 'Minutes per AW (Arbeitswert) used when converting provider AW to hours.',
+    description:
+      'Minutes per AW (Arbeitswert) used when converting provider AW to hours.',
     example: 6,
   })
   awMinutes!: number;
 
   @ApiProperty({
-    description: 'Whether identity provider credentials are configured in tenant secrets.',
+    description:
+      'Whether identity provider credentials are configured in tenant secrets.',
   })
   hasIdentityCredential!: boolean;
 
@@ -135,7 +139,8 @@ export class CatalogProviderSettingsResponseDto {
 
   @ApiProperty({
     type: [CatalogProviderOemConcernResponseDto],
-    description: 'OEM concerns (BMW, Mercedes, Stellantis) and their member makes.',
+    description:
+      'OEM concerns (BMW, Mercedes, Stellantis) and their member makes.',
   })
   oemConcerns!: CatalogProviderOemConcernResponseDto[];
 

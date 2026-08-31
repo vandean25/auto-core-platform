@@ -57,9 +57,7 @@ type ConcernWithMakes = CatalogOemConcern & {
   }>;
 };
 
-function toHourlyRate(
-  value: Prisma.Decimal | null | undefined,
-): number | null {
+function toHourlyRate(value: Prisma.Decimal | null | undefined): number | null {
   return value !== null && value !== undefined ? Number(value) : null;
 }
 
@@ -259,8 +257,8 @@ export class CatalogProviderSettingsService {
       }
     }
 
-    const existingAssignments = await this.prisma.catalogOemConcernMake.findMany(
-      {
+    const existingAssignments =
+      await this.prisma.catalogOemConcernMake.findMany({
         where: {
           tenant_id: tenantId,
           brand_id: { in: allBrandIds },
@@ -269,8 +267,7 @@ export class CatalogProviderSettingsService {
           concern: { select: { code: true } },
           brand: { select: { name: true } },
         },
-      },
-    );
+      });
 
     for (const update of updates) {
       for (const brandId of update.memberBrandIds) {
@@ -290,7 +287,9 @@ export class CatalogProviderSettingsService {
   private async syncConcernMemberMakes(
     tx: Prisma.TransactionClient,
     tenantId: string,
-    update: NonNullable<UpdateCatalogProviderSettingsDto['oemConcerns']>[number],
+    update: NonNullable<
+      UpdateCatalogProviderSettingsDto['oemConcerns']
+    >[number],
   ): Promise<void> {
     const concern = await tx.catalogOemConcern.findFirst({
       where: { tenant_id: tenantId, code: update.code },
