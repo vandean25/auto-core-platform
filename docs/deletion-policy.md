@@ -14,11 +14,12 @@ This document defines when deletion is allowed in Auto Core Platform.
 | Entity | Delete Allowed | Rule |
 |---|---|---|
 | FinanceSettings | No | Singleton configuration record; never deleted. |
-| LegalEntity | Deactivate preferred | Set `is_active = false`. Hard delete only when the entity has **no sites** (unused setup mistake). |
-| Site | Deactivate preferred | Set `is_active = false`. Hard delete only for a pristine unused site: no transfers, no ledger history, no storage locations (except the empty system `in_transit` location, which may be removed **internally** with the site), no memberships, no bays, and no site-owned documents (workshop/sales/purchase/vehicle). Direct delete of the system transit location is forbidden. |
+| LegalEntity | Deactivate preferred | Set `is_active = false` **only when every site of the entity is already inactive** (422 while any `Site.is_active`). Hard delete only when the entity has **no sites** (unused setup mistake). |
+| Site | Deactivate preferred | Set `is_active = false` **only when** there are no `REQUESTED`/`APPROVED`/`SHIPPED` transfers (from or to), no non-terminal site-owned documents, and no on-hand, reserved, or in-transit qty at the site’s locations (422 otherwise). Hard delete only for a pristine unused site: no transfers, no ledger history, no storage locations (except the empty system `in_transit` location, which may be removed **internally** with the site), no memberships, no bays, and no site-owned documents (workshop/sales/purchase/vehicle). Direct delete of the system transit location is forbidden. |
 | SiteMembership | Yes | Hard delete allowed. If the row matches `User.active_site_id`, clear `active_site_id` atomically in the same transaction. |
 | StockTransfer | No | Operational/financial movement document; use `REJECTED` / `CANCELLED` / complete via receive+return. Never hard-delete after create. |
 | StockTransferLine | No direct delete | Managed by parent `StockTransfer` lifecycle. |
+| StockTransferCommand | No | Durable receive/return idempotency record. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Never deleted through ordinary APIs; tenant purge only. |
 | VoiceTranslationSettings | No | Singleton tenant configuration record for voice translation; update in place only. |
 | CatalogProviderSettings | No | Singleton tenant configuration for identity/parts/labor adapters; update in place only. |
 | CatalogOemConcern | Conditional | Hard delete when no `CatalogOemConcernMake` rows remain. |
@@ -89,5 +90,5 @@ This document defines when deletion is allowed in Auto Core Platform.
 - ADR-0013: Row-Level Multi-Tenancy & Tenant Isolation
 - ADR-0015: Audit Tracing and Operational Logging — AuditLog ledger immutability
 - ADR-0021 / Vehicle Intelligence spec — LaborCategory default, Brand vehicle-make refs, PartsReservation **release**
-- ADR-0022 / Multi-Location spec — `LegalEntity`, `Site`, `SiteMembership`, `StockTransfer`; site-owned documents; system `in_transit` locations
+- ADR-0022 / Multi-Location spec — `LegalEntity`, `Site`, `SiteMembership`, `StockTransfer`, `StockTransferCommand`; site-owned documents; system `in_transit` locations; site/entity deactivation guards
 

@@ -89,6 +89,7 @@ erDiagram
     WORKSHOP_ORDER ||--o{ VEHICLE_LEDGER_ENTRY : capitalizes
 
     STOCK_TRANSFER ||--|{ STOCK_TRANSFER_LINE : contains
+    STOCK_TRANSFER ||--o{ STOCK_TRANSFER_COMMAND : idempotency
     STORAGE_LOCATION ||--o{ STOCK_TRANSFER_LINE : source_or_dest
 
     FINANCE_SETTINGS ||--o{ INVOICE_SEQUENCE : guards
@@ -104,7 +105,8 @@ erDiagram
 - **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable.
 - **`Site`**: Physical shop. Owns bays, locations, planner hours, and site-owned documents. N:1 under `LegalEntity`.
 - **`SiteMembership`**: Which users may activate a site. Not employee home-site.
-- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Cross-entity moves are not warehouse transfers.
+- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Unique `(tenant_id, id)`. Lines copy `from_site_id`/`to_site_id`. Cross-entity moves are not warehouse transfers.
+- **`StockTransferCommand`**: Durable receive/return idempotency keyed by `(tenant_id, transfer_id, action, idempotency_key)`.
 
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
