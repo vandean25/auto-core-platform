@@ -192,6 +192,10 @@ vi.mock('@/components/settings/WorkshopHoursSettingsTab', () => ({
   WorkshopHoursSettingsTab: () => <div>Hours tab content</div>,
 }))
 
+vi.mock('@/components/settings/VehicleDataSettingsTab', () => ({
+  VehicleDataSettingsTab: () => <div>Vehicle data tab content</div>,
+}))
+
 vi.mock('@/components/settings/TeamSettingsTab', () => ({
   TeamSettingsTab: () => <div>Team tab content</div>,
 }))
@@ -226,6 +230,7 @@ describe('SettingsPage tab integration', () => {
     expect(screen.getByRole('tab', { name: 'Employees' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Hours' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Vehicle data' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
@@ -236,6 +241,13 @@ describe('SettingsPage tab integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Bays tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=bays')
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Vehicle data' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Vehicle data tab content')).toBeVisible()
+      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=vehicle-data')
     })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Audit Logs' }))
