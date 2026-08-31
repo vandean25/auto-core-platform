@@ -52,6 +52,11 @@ export type FinanceSettings = OpenApiSchemas['FinanceSettingsResponseDto']
 export type RevenueGroup = OpenApiSchemas['RevenueGroupResponseDto']
 export type RevenueAnalytics = OpenApiSchemas['RevenueAnalyticsResponseDto']
 
+export type CatalogProviderSettings = OpenApiSchemas['CatalogProviderSettingsResponseDto']
+export type CatalogProviderOemConcern = CatalogProviderSettings['oemConcerns'][number]
+export type UpdateCatalogProviderSettingsPayload =
+  OpenApiSchemas['UpdateCatalogProviderSettingsDto']
+
 export type WorkshopOrderStatus = OpenApiSchemas['WorkshopOrderResponseDto']['status']
 export type WorkshopTaskStatus = OpenApiSchemas['WorkshopTaskResponseDto']['status']
 export type WorkshopLineItemType = OpenApiSchemas['WorkshopTaskLineItemResponseDto']['type']

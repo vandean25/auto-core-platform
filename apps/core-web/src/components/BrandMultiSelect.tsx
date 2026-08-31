@@ -23,16 +23,22 @@ interface BrandMultiSelectProps {
   onChange: (brandIds: number[]) => void
   isUpdating?: boolean
   ariaLabel?: string
+  vehicleMakesOnly?: boolean
+  disabled?: boolean
 }
 
 export function BrandMultiSelect({ 
   value, 
   onChange, 
   isUpdating,
-  ariaLabel = "Select brands"
+  ariaLabel = "Select brands",
+  vehicleMakesOnly = false,
+  disabled = false,
 }: BrandMultiSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const { data: brands, isLoading } = useBrands()
+  const { data: brands, isLoading } = useBrands(
+    vehicleMakesOnly ? { isVehicleMake: true } : undefined,
+  )
 
   const selectedBrands = React.useMemo(() => 
     brands?.filter(b => value.includes(b.id)) || [],
@@ -52,8 +58,10 @@ export function BrandMultiSelect({
     }
   }
 
+  const isDisabled = disabled || isUpdating
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isUpdating) return
+    if (isDisabled) return
     
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
@@ -75,9 +83,9 @@ export function BrandMultiSelect({
             tabIndex={0}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
-              isUpdating && "opacity-70 pointer-events-none"
+              isDisabled && "opacity-70 pointer-events-none"
             )}
-            onClick={() => !isUpdating && setOpen(true)}
+            onClick={() => !isDisabled && setOpen(true)}
             onKeyDown={handleKeyDown}
           >
             <div className="flex flex-wrap gap-1.5 flex-1">
@@ -96,7 +104,7 @@ export function BrandMultiSelect({
                     {brand.name}
                     <button
                       type="button"
-                      disabled={isUpdating}
+                      disabled={isDisabled}
                       className="ml-1 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-slate-300 p-0.5 disabled:cursor-not-allowed"
                       onClick={(e) => handleRemove(e, brand.id)}
                     >
@@ -127,10 +135,10 @@ export function BrandMultiSelect({
                     <CommandItem
                       key={brand.id}
                       value={brand.name}
-                      onSelect={() => !isUpdating && toggleBrand(brand.id)}
+                      onSelect={() => !isDisabled && toggleBrand(brand.id)}
                       className={cn(
                         "cursor-pointer",
-                        isUpdating && "opacity-50 pointer-events-none"
+                        isDisabled && "opacity-50 pointer-events-none"
                       )}
                     >
                       <div className="mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary opacity-50 [&_svg]:invisible">
