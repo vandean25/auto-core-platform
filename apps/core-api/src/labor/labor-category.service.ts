@@ -280,6 +280,19 @@ export class LaborCategoryService {
       );
     }
 
+    const defaultCatalogSettingsCount =
+      await this.prisma.catalogProviderSettings.count({
+        where: {
+          tenant_id: tenantId,
+          default_labor_category_id: id,
+        },
+      });
+    if (defaultCatalogSettingsCount > 0) {
+      throw new ConflictException(
+        'Cannot delete category: it is the default labor category for catalog provider settings.',
+      );
+    }
+
     const deleteResult = await this.prisma.laborCategory.deleteMany({
       where: { id, tenant_id: tenantId },
     });
