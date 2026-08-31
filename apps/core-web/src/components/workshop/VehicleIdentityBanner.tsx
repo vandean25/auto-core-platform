@@ -1,6 +1,6 @@
 import { Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCatalogProviderSettings } from '@/api/catalog-providers'
+import { useCatalogProviderSettings } from '@/api/useCatalogProviderSettings'
 import { useResolveVehicleIdentity, useVehicle } from '@/api/vehicles'
 import type { Vehicle } from '@/api/types'
 import { Badge } from '@/components/ui/badge'

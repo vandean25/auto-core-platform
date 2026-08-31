@@ -136,8 +136,6 @@ export type CatalogExternalPartsItem = OpenApiSchemas['CatalogExternalPartsItemD
 export type CatalogExternalLaborItem = OpenApiSchemas['CatalogExternalLaborItemDto']
 export type CatalogAssemblyGroupsResponse = OpenApiSchemas['CatalogAssemblyGroupsResponseDto']
 export type CatalogAssemblyGroupNode = OpenApiSchemas['CatalogAssemblyGroupNodeDto']
-export type CatalogProviderSettings = OpenApiSchemas['CatalogProviderSettingsResponseDto']
-export type CatalogProviderOemConcern = OpenApiSchemas['CatalogProviderOemConcernResponseDto']
 
 export type CreateWorkshopOrderPayload = OpenApiSchemas['CreateWorkshopOrderDto']
 export type RegisterIntakePayload = OpenApiSchemas['RegisterIntakeDto']
