@@ -49,7 +49,13 @@ Legal Invoicing is **paused** until Site + Legal Entity exist. Transfers still n
 - `SiteMembership` — user ↔ site, `is_active`. Access only; not an `Employee` home site. `OWNER`/`ADMIN` remain `TenantMember` roles.
 - `User.active_site_id` — nullable. Valid only when it belongs to `active_tenant_id`, the site is active, and an active membership exists.
 
-Every new model stays tenant-scoped. Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot.
+Every new model stays tenant-scoped. Required unique keys so composite FKs compile:
+
+- `LegalEntity` and `Site`: `@@unique([tenant_id, id])`
+- Site-owned parents (`Bay`, `StorageLocation`, …): `@@unique([tenant_id, site_id, id])`
+- `User.active_site_id` is `(active_tenant_id, active_site_id) → Site (tenant_id, id)`, not a bare FK to `Site.id`
+
+Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot.
 
 ### 2. Request context — not a query parameter
 
@@ -70,7 +76,7 @@ Cross-site operations (transfers, site admin lists, later reports) use **named**
 
 Create stamps `site_id` from `SiteContext`. Later reads use the document column. The user’s current site must not “fix” a Wien invoice or job.
 
-Site changes are **guarded atomic transitions** (ADR-0011): stale status/site → **409**; past the boundary → **422**. The site PATCH and the commit transition cannot race.
+Site changes are **guarded atomic transitions** (ADR-0011): **active membership on the target site is required for every document type**. Stale status/site → **409**; past the boundary → **422**. The site PATCH and the commit transition cannot race.
 
 | Document | Site change allowed | Frozen at |
 |----------|---------------------|-----------|
@@ -88,11 +94,11 @@ Guardrails: composite indexes `(tenant_id, site_id)`; cross-site e2e on operatio
 
 ### 5. Realtime — site rooms on the server
 
-ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit to **`site:{siteId}`**. Clients join the active site room on connect and on switch. Transfer mutations publish to **both** endpoint rooms. Isolation is not “the React client ignores München events.”
+ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit to **`site:{siteId}`**. Clients join the active site room on connect. **`site_context_updated`** on the private **user room** forces every socket for that user (all tabs/devices) to leave the old site room and join the new one. Membership revoke and site deactivation emit the same event with `siteId: null`. Transfer mutations publish to **both endpoint site rooms** and to **user rooms** of members of from or to (cross-site transfer list). Isolation is not “the React client ignores München events.” Do not join every membership site room while viewing one shop’s planner.
 
 ### 6. Same-GmbH transfers
 
-`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Ledger pairs persist the **applicable** `site_id` and a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
+`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. **Ship is one-shot and full** (`shipped_qty = approved_qty` on every line). Receive/return require `expectedVersion` **and** `idempotencyKey`. Ledger pairs persist the **applicable** `site_id` and a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
 
 ## Consequences
 
@@ -107,7 +113,7 @@ ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit t
 
 - Every operational path must remember `siteContext.getSiteId()`. Tests and review rules have to catch omissions; the ORM will not.
 - Existing tenants need an expand/backfill/validate/contract migration before `NOT NULL`.
-- Socket.IO gains site rooms; transfer fan-out is two rooms.
+- Socket.IO gains site rooms plus user-room `site_context_updated`; transfer fan-out is two site rooms and member user rooms.
 
 ### Neutral
 

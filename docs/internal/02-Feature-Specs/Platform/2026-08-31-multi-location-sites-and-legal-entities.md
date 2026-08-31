@@ -69,15 +69,15 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 7. **`User.active_site_id`** is the session site. `SiteContextService` loads it and validates: active tenant, site belongs to that tenant, site `is_active`, active `SiteMembership`. Operational APIs call `siteContext.getSiteId()` — never `?siteId=` or `X-Site-Id`. Sending `siteId` as a list filter on an operational endpoint is **400**.
 8. **`422 ACTIVE_SITE_REQUIRED`** only from **site-dependent operational APIs**. Tenant-wide APIs, `GET /me/sites`, and `PATCH /me/active-site` remain usable so the user can recover. Switching **never auto-selects** another site.
-9. **`PATCH /me/active-site`** transactionally validates tenant, site, active membership, and site activity, then updates the user. Success **invalidates site-scoped frontend queries** and **moves the socket from the old site room to the new one**. Tenant-wide caches stay valid.
-10. Removing a `SiteMembership` that matches `User.active_site_id` **clears `active_site_id` atomically** (null). The user gets `ACTIVE_SITE_REQUIRED` on the next operational call until they PATCH a remaining site.
+9. **`PATCH /me/active-site`** transactionally validates tenant, site, active membership, and site activity, then updates the user. Success emits **`site_context_updated`** on that user’s private socket room (`user:{userId}`) with `{ siteId }` (or `null` when cleared). **Every** socket for that user must leave the previous site room and join the new one (or no site room). Tenant-wide caches stay valid. The initiating tab is not special.
+10. Removing a `SiteMembership` that matches `User.active_site_id` **clears `active_site_id` atomically** (null) and emits the same `site_context_updated` (`siteId: null`). Deactivating the user’s active site does likewise. The user gets `ACTIVE_SITE_REQUIRED` on the next operational call until they PATCH a remaining site.
 11. Named cross-site methods (`listAcrossAuthorizedSites()`, transfer APIs) derive permitted **operational** site IDs **only** from the caller’s active `SiteMembership` rows. They never accept an unrestricted caller-provided list. No generic “bypass site filtering” flag. **Exception — site directory (names only):** any user with at least one active `SiteMembership` may list active sites in the current tenant as `{ id, code, name, legalEntityId }` so a dest-only requester can name `from_site_id`. That directory **must not** include on-hand, bins, bays, or orders. Source locations remain from-site membership only.
 
 ### Document site ownership
 
 12. **Create** stamps `site_id = SiteContext.getSiteId()`. After create, **never infer** the document’s site from the user’s current switcher. Read `document.site_id`.
-13. **Site PATCH is a guarded atomic transition** (ADR-0011 style). Stale status/site → **409**. Past the permitted boundary → **422**. The site-change write and the commit transition cannot race: one guarded transaction wins.
-14. **WorkshopOrder:** site change allowed only while `SCHEDULED`. Caller needs membership on the **target** site. Atomically retarget: `bay_id` must be a bay of the target site (required; 422 if omitted or still a source-site bay). Clear or revalidate any reservations, kits, and staging bin so none remain on the source site. Frozen from `INTAKE`.
+13. **Site PATCH is a guarded atomic transition** (ADR-0011 style). **Every** document site change requires an **active `SiteMembership` on the target site** (workshop, sales, purchase order, vehicle purchase, vehicle sale). Names-only directory IDs are not authorization. Stale status/site → **409**. Past the permitted boundary → **422**. The site-change write and the commit transition cannot race: one guarded transaction wins.
+14. **WorkshopOrder:** site change allowed only while `SCHEDULED`. Atomically retarget: `bay_id` must be a bay of the target site (required; 422 if omitted or still a source-site bay). Clear or revalidate any reservations, kits, and staging bin so none remain on the source site. Frozen from `INTAKE`.
 15. **SalesOrder:** site change allowed only while `DRAFT`. Frozen at `CONFIRMED` (and after).
 16. **VehiclePurchase:** site change allowed only while `DRAFT`. Destination lot must belong to the target site. Frozen at `RECEIVED`.
 17. **VehicleSale:** site change allowed only while `DRAFT`. The parked vehicle must **already** belong to the target site (lot’s `site_id`). Otherwise the caller moves the vehicle first; a document-site edit is not a vehicle transfer. Frozen at `INVOICED`. `CANCELLED` stays frozen.
@@ -95,9 +95,9 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 24. **`StockTransfer`** is a document with immutable `from_site_id` and `to_site_id` (must differ). Both sites must share `legal_entity_id` at **create, approve, and ship**. Cross-GmbH → **422**. Intercompany sale is Legal Invoicing, not this spec.
 25. **Requester membership is on either endpoint**, not both. A destination-only user may create a request naming `from_site_id` + qty, and **must not** inspect or set a source bin. Source membership selects `source_location_id` at **approve or ship**. If the requester also has from-site membership, they may suggest a source bin at create.
-26. **Line qty columns:** `requested_qty`, `approved_qty`, `shipped_qty`, `received_qty`, `returned_qty`. Enforce `received_qty + returned_qty ≤ shipped_qty` atomically. `approved_qty ≤ requested_qty`. `shipped_qty ≤ approved_qty` (after approve).
-27. **States:** `REQUESTED` → `APPROVED` → `SHIPPED` → `COMPLETED`. Also `REJECTED` (from `REQUESTED`), `CANCELLED` (from `REQUESTED` or `APPROVED` only — no ledger yet). Partial receipt **leaves the document `SHIPPED`**. When outstanding shipped qty is zero (`received + returned = shipped` on every line), the document becomes **`COMPLETED`**. Do not call a mixed receive/return `RECEIVED`.
-28. **Partial receive and return** require `expectedVersion` (or an idempotency key). Duplicate key + same body returns the first result. Stale version → **409**.
+26. **Line qty columns:** `requested_qty`, `approved_qty`, `shipped_qty`, `received_qty`, `returned_qty`. Enforce `received_qty + returned_qty ≤ shipped_qty` atomically. `approved_qty ≤ requested_qty`.
+27. **States:** `REQUESTED` → `APPROVED` → `SHIPPED` → `COMPLETED`. Also `REJECTED` (from `REQUESTED`), `CANCELLED` (from `REQUESTED` or `APPROVED` only — no ledger yet). **Ship is one-shot and full:** `APPROVED → SHIPPED` happens once. The ship action must set `shipped_qty = approved_qty` on **every** line, require `source_location_id` on every line, and include at least one line with `approved_qty > 0`. Partial ship is out of scope (no remaining-to-ship, no second ship). Partial **receipt** leaves the document `SHIPPED`. When outstanding shipped qty is zero (`received + returned = shipped` on every line), the document becomes **`COMPLETED`**. Do not call a mixed receive/return `RECEIVED`.
+28. **Receive and return** require **both** `expectedVersion` and `idempotencyKey`. Replay of the same key **and** the same body returns the first result (no second ledger write). Reusing a key with a **different** body → **409**. Stale `expectedVersion` → **409**. Approve/reject/cancel/ship use `expectedVersion` only (no ledger partials).
 29. **Authz:**
     - Request: active membership on **to** or **from**.
     - Approve / reject: active membership on **from** and `TenantMember` `OWNER`/`ADMIN`.
@@ -107,11 +107,11 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 30. **Ship availability** is atomic against `on_hand - reserved` at the source location, under the established stock locking order (ADR-0021: globally sorted ids, `SELECT … FOR UPDATE`). Reserved kit qty cannot ship.
 31. **In-transit:** each site has one system location `type = in_transit`, `code` deterministic (e.g. `TRANSIT`). Non-selectable, non-deletable, non-disableable; excluded from normal location lists and from ATP/kitting. Ship: `TRANSFER_OUT` source bin + `TRANSFER_IN` from-site in-transit; both rows `site_id = from_site_id`. Receive: `TRANSFER_OUT` from-site in-transit + `TRANSFER_IN` dest bin (`site_id = to_site_id`). Return: from-site in-transit back to the **original source bin**. That bin cannot be disabled or soft-deleted while transfer qty remains outstanding.
 32. **Every movement pair** has a unique `movement_group_id` in addition to `reference_id` = transfer id, so partial receipts reconcile. **Cost basis** follows the stock through in-transit, receipt, and return (copy; do not re-read live catalog).
-33. Transfer mutations **publish to both endpoint site rooms**.
+33. Transfer mutations **publish to both endpoint site rooms** and to the **user room of every user** with an active `SiteMembership` on from or to. That keeps the cross-site transfer list current for a Salzburg-active user who also belongs to Wien. Do **not** join all membership site rooms on the operational board (that would mix Wien planner events into a Salzburg session).
 
 ### Realtime
 
-34. Isolation is **server-side site rooms**, not client-side filtering. On connect and on switch: join `site:{siteId}` for the active site; stay in the tenant room. Operational entity events emit to the document’s site room. Tenant-wide entities (catalog, customer, vendor, employee, …) emit to the tenant room only.
+34. Isolation is **server-side site rooms**, not client-side filtering. On connect: join `site:{siteId}` for the active site (if any) and the user room. Stay in the tenant room. Operational entity events emit to the document’s site room. Tenant-wide entities emit to the tenant room only. `site_context_updated` on the user room is the only way a second tab learns the switch.
 
 ### Deletion
 
@@ -126,12 +126,12 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 | Table | Column | Type | Nullable | Notes |
 |-------|--------|------|----------|-------|
-| `legal_entities` | `id` | uuid | no | PK |
+| `legal_entities` | `id` | uuid | no | PK. Also unique `(tenant_id, id)` |
 | | `tenant_id` | uuid | no | Tenant-safe |
 | | `name` | string | no | |
 | | `country_iso` | `AT` \| `DE` | no | Slice 1 DACH only |
 | | `is_active` | boolean | no | default true |
-| `sites` | `id` | uuid | no | PK |
+| `sites` | `id` | uuid | no | PK. Also unique `(tenant_id, id)` |
 | | `tenant_id` | uuid | no | |
 | | `legal_entity_id` | uuid | no | **Immutable** after insert. Composite FK `(tenant_id, legal_entity_id)` |
 | | `code` | string | no | Unique per tenant. Seed `MAIN` |
@@ -166,7 +166,16 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `site_id` | uuid | no after contract | Site of the location at post time |
 | | `stock_transfer_id` | uuid | yes | Set on transfer movements |
 
-Uniques: `legal_entities (tenant_id, name)`; `sites (tenant_id, code)`; `stock_transfers (tenant_id, transfer_number)`.
+Uniques required for composite FKs (Prisma cannot reference a tuple that is not unique):
+
+- `legal_entities (tenant_id, id)`
+- `sites (tenant_id, id)` and `(tenant_id, code)`
+- `bays (tenant_id, site_id, id)` and `(tenant_id, site_id, name)`
+- `storage_locations (tenant_id, site_id, id)` and `(tenant_id, site_id, code)`
+- `site_memberships (tenant_id, user_id, site_id)`
+- `stock_transfers (tenant_id, transfer_number)`
+
+`Site.legal_entity_id` FK is `(tenant_id, legal_entity_id) → legal_entities (tenant_id, id)`. Workshop order `bay_id` / staging location FKs are `(tenant_id, site_id, bay_id) → bays (tenant_id, site_id, id)` (same pattern for storage locations). `User.active_site_id` is a **composite** FK `(active_tenant_id, active_site_id) → sites (tenant_id, id)` so a site cannot be the active site for another tenant. When `active_site_id` is null (recovery, revoked membership), the FK is not applied.
 
 Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, from_site_id)` and `(tenant_id, to_site_id)`).
 
@@ -174,7 +183,7 @@ Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, 
 
 | Table | Change | Migration |
 |-------|--------|-----------|
-| `users` | `active_site_id` nullable FK to `sites` | Yes |
+| `users` | `active_site_id` nullable; composite FK `(active_tenant_id, active_site_id) → sites(tenant_id, id)` | Yes |
 | `bays` | `site_id` NOT NULL after contract; unique `(tenant_id, site_id, name)` | Yes |
 | `storage_locations` | `site_id` NOT NULL; unique `(tenant_id, site_id, code)`; new `LocationType.in_transit` | Yes |
 | `workshop_orders` | `site_id` NOT NULL; bay/staging composite site-safe FKs | Yes |
@@ -200,12 +209,12 @@ Tenant-wide (no `site_id`): `catalog_items`, `customers`, `revenue_groups`, `bra
 
 ### Backfill rules
 
-- One `LegalEntity` per existing tenant: `name = Tenant.name`, `country_iso` from old `WorkshopSettings.holiday_country_iso` default `AT`.
-- One `Site`: `code = MAIN`, name from tenant, timezone/slot/holiday fields from workshop settings, **nullable address**.
+- One `LegalEntity` per existing tenant: `name = Tenant.name`, `country_iso` from `WorkshopSettings.holiday_country_iso` when that row exists, else **`AT`**.
+- One `Site`: `code = MAIN`, name from tenant, **nullable address**. Timezone / slot / holiday country from `WorkshopSettings` when present, else **`Europe/Vienna`**, **`30`**, **`AT`** (`holiday_subdivision_code` null). `WorkshopSettings` is created lazily today; missing row must not fail the contract.
 - One system `in_transit` location per site.
-- Copy weekday hours and holidays onto that site.
+- Opening hours: copy existing weekday rows when present; otherwise insert the **default seven** weekday rows (same defaults as current `WorkshopOpeningHour`: open `07:30`–`17:00`, not closed). Copy holidays when present.
 - `SiteMembership` for **every** `TenantMember`, `is_active` copied from the membership.
-- Set `User.active_site_id` **only** when that user’s `active_tenant_id` is this tenant **and** they have an active `TenantMember` there. Users without a valid active tenant membership remain `null`.
+- Set `User.active_site_id` **only** when that user’s `active_tenant_id` is this tenant **and** they have an active `TenantMember` there. Users without a valid active tenant membership remain `null`. The composite FK must hold.
 
 ### Deletion Policy Impact
 
@@ -233,16 +242,16 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 | POST | `/api/stock-transfers/:id/approve` | `{ expectedVersion, lines?: [{ id, approvedQty, sourceLocationId? }] }` | `APPROVED`. Omitted `approvedQty` defaults to `requested_qty`. `sourceLocationId` may be set here if still null. | from + OWNER/ADMIN |
 | POST | `/api/stock-transfers/:id/reject` | `{ expectedVersion }` | `REJECTED` | from + OWNER/ADMIN |
 | POST | `/api/stock-transfers/:id/cancel` | `{ expectedVersion }` | `CANCELLED` | requester or from OWNER/ADMIN; only REQUESTED/APPROVED |
-| POST | `/api/stock-transfers/:id/ship` | `{ expectedVersion, lines: [{ id, shipQty, sourceLocationId }] }` | `SHIPPED` | from membership |
-| POST | `/api/stock-transfers/:id/receive` | `{ expectedVersion, idempotencyKey?, lines: [{ id, receiveQty, destLocationId }] }` | `SHIPPED` or `COMPLETED` | to membership |
-| POST | `/api/stock-transfers/:id/return` | `{ expectedVersion, idempotencyKey?, lines: [{ id, returnQty }] }` | `SHIPPED` or `COMPLETED` | to, or from OWNER/ADMIN |
+| POST | `/api/stock-transfers/:id/ship` | `{ expectedVersion, lines: [{ id, sourceLocationId }] }` | `SHIPPED`. Ships **full** `approved_qty` on every line. 422 if any `shipQty` would be partial or a line is omitted. | from membership |
+| POST | `/api/stock-transfers/:id/receive` | `{ expectedVersion, idempotencyKey, lines: [{ id, receiveQty, destLocationId }] }` | `SHIPPED` or `COMPLETED` | to membership |
+| POST | `/api/stock-transfers/:id/return` | `{ expectedVersion, idempotencyKey, lines: [{ id, returnQty }] }` | `SHIPPED` or `COMPLETED` | to, or from OWNER/ADMIN |
 
 ### Modified endpoints
 
 | Method | Route | Change |
 |--------|-------|--------|
 | Operational lists/creates (planner, board, bays, stock, ATP, workshop/sales/vehicle/PO) | Scope to `SiteContext.getSiteId()`. Reject `siteId` query. `422 ACTIVE_SITE_REQUIRED` when active site missing/invalid. |
-| PATCH workshop/sales/vehicle/PO | Site change only inside the state machine; 409 stale; 422 past boundary; atomic retarget. |
+| PATCH workshop/sales/vehicle/PO | Site change only inside the state machine; **target membership required**; 409 stale; 422 past boundary; atomic retarget. |
 | `GET /api/workshop/settings` (or replacement) | Read/write **current site** hours/timezone, not a tenant singleton. |
 
 ### OpenAPI Regeneration
@@ -262,7 +271,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 ### Site switcher
 
 - Header control: current site name, dropdown of `GET /me/sites`. Hidden in chrome when the user has **exactly one** active membership (recovery APIs still exist).
-- After switch: site-scoped TanStack keys invalidated; socket leaves old site room, joins new. Catalog/customer/employee queries stay.
+- After switch: `site_context_updated` on the user room drives **all** tabs to leave/join site rooms and invalidate site-scoped TanStack keys. Catalog/customer/employee queries stay.
 
 ### Settings
 
@@ -270,7 +279,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 
 ### Transfers
 
-- List: transfers touching any site the user belongs to.
+- List: transfers touching any site the user belongs to. Invalidated via **user-room** transfer events, not by joining every membership’s site room.
 - Create: from/to site pickers limited to memberships; dest-only requester has no source-bin field.
 - Receive/return: qty fields; document stays Shipped until complete.
 
@@ -287,9 +296,9 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 ### Real-Time Sync
 
 - [ ] `STOCK_TRANSFER` added to `SUPPORTED_ENTITY_TYPES`.
-- [ ] Operational types emit to **site rooms**; payload includes `siteId`. Transfers include `fromSiteId` / `toSiteId` and emit to **both** rooms.
+- [ ] Operational types emit to **site rooms**; payload includes `siteId`. Transfers emit to **both site rooms** and to **user rooms** of members of from or to.
+- [ ] `site_context_updated` on the user room; second-tab switch/revoke covered.
 - [ ] Tenant-wide types stay on the tenant room.
-- [ ] Frontend maps site-scoped query keys; ignores operational events for a site room the socket is not in (server already does not deliver them).
 
 ---
 
@@ -320,11 +329,14 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 - [ ] Sales `CONFIRMED`, vehicle purchase `RECEIVED`, vehicle sale `INVOICED` freeze site.
 - [ ] Vehicle sale site PATCH when the lot is the other site → 422 (requires a vehicle move, not a document edit).
 - [ ] Dest-only transfer request: 201 without source bin; site directory returns Wien **name** but not Wien bins; GET source locations of from-site → 403/404; cannot set `sourceLocationId`.
-- [ ] Same-GmbH ship/receive/partial receive/return; `received + returned ≤ shipped`; mixed receive/return ends `COMPLETED` not `RECEIVED`.
+- [ ] Sales/PO/vehicle site PATCH without target membership → 422 (directory ID is not enough).
+- [ ] Same-GmbH full ship then partial receive/return; `received + returned ≤ shipped`; mixed receive/return ends `COMPLETED` not `RECEIVED`. Ship omitting a line or `shipQty < approved_qty` → 422.
 - [ ] Cross-GmbH create/approve/ship → 422.
-- [ ] Ship blocked when qty > `on_hand - reserved`.
-- [ ] Partial receive retry with same idempotency key is a no-op; stale `expectedVersion` → 409.
-- [ ] Transfer dual-room: Wien and München sockets both get the event; a third site does not.
+- [ ] Ship blocked when `approved_qty` > `on_hand - reserved`.
+- [ ] Tenant with **no** `WorkshopSettings` row backfills `Europe/Vienna`, `30`, `AT`, seven default opening-hour rows.
+- [ ] Partial receive retry with same `idempotencyKey` **and** body is a no-op; same key different body → 409; stale `expectedVersion` → 409.
+- [ ] Transfer dual-room: Wien and München **site** sockets both get the event; a third site does not. A Salzburg-active user who is a Wien member gets the event on the **user room** (transfer list), not Wien planner events.
+- [ ] Second socket for the same user leaves the old site room after `site_context_updated`.
 - [ ] In-transit location absent from location pickers; direct delete 409; source bin disable blocked while outstanding.
 - [ ] Concurrent site-switch vs document commit: guarded transaction decides the winner.
 
@@ -343,6 +355,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 - ZUGFeRD / XRechnung.
 - Full operational split beyond planner + stock (no per-site employee roster).
 - Request→approve extra workflow beyond the states above (no multi-level approval).
+- Partial ship / remaining-to-ship (ship is one-shot full `approved_qty`).
 - Site as a second Prisma `$extends` filter.
 
 ---
