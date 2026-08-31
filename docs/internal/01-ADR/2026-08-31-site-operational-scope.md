@@ -45,7 +45,7 @@ Legal Invoicing is **paused** until Site + Legal Entity exist. Transfers still n
 ### 1. Models
 
 - `LegalEntity` — `tenant_id`, name, `country_iso` (`AT` \| `DE`), `is_active`. No tax IDs in this ADR. Deactivation blocked while the entity has any active `Site`.
-- `Site` — `tenant_id`, **immutable** `legal_entity_id`, code, name, nullable address, planner hours fields, `is_active`. N:1 sites per entity. Deactivation blocked while open transfers, non-terminal site-owned documents, or on-hand/reserved/in-transit qty remain.
+- `Site` — `tenant_id`, **immutable** `legal_entity_id`, code, name, nullable address, planner hours fields, `is_active`. N:1 sites per entity. Deactivation blocked unless remaining documents are in the live enum terminals (`WorkshopOrder` `INVOICED`; `SalesOrder` `INVOICED`; `PurchaseOrder` `COMPLETED`; `VehiclePurchase` `RECEIVED`/`CANCELLED`; `VehicleSale` `INVOICED`/`CANCELLED`), transfers are `COMPLETED`/`REJECTED`/`CANCELLED`, and on-hand/reserved/in-transit qty is zero.
 - `SiteMembership` — user ↔ site, `is_active`. Access only; not an `Employee` home site. `OWNER`/`ADMIN` remain `TenantMember` roles.
 - `User.active_site_id` — nullable. Valid only when it belongs to `active_tenant_id`, the site is active, and an active membership exists. Composite FK `(active_tenant_id, active_site_id) → Site (tenant_id, id)`.
 - `StockTransfer` — unique `(tenant_id, id)` so lines, ledger rows, and command rows can use tenant-safe composite FKs. Also unique `(tenant_id, id, from_site_id, to_site_id)`.
@@ -56,10 +56,12 @@ Every new model stays tenant-scoped. Required unique keys so composite FKs compi
 
 - `LegalEntity` and `Site`: `@@unique([tenant_id, id])`
 - Site-owned parents (`Bay`, `StorageLocation`, …): `@@unique([tenant_id, site_id, id])`
+- `StorageLocation.parent_id`: `(tenant_id, site_id, parent_id) → StorageLocation (tenant_id, site_id, id)`, null for roots
+- `InventoryTransaction.location_id`: `(tenant_id, site_id, location_id) → StorageLocation (tenant_id, site_id, id)`
 - `StockTransfer`: `@@unique([tenant_id, id])` and `@@unique([tenant_id, id, from_site_id, to_site_id])`
 - `User.active_site_id` is `(active_tenant_id, active_site_id) → Site (tenant_id, id)`, not a bare FK to `Site.id`
 
-Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot.
+Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot; a ledger row cannot claim Wien while pointing at a München location; a bin cannot parent under another site’s aisle.
 
 ### 2. Request context — not a query parameter
 
@@ -104,7 +106,7 @@ ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit t
 
 ### 6. Same-GmbH transfers
 
-`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Lines copy those site ids and constrain source/dest locations with composite FKs to the parent tuple plus `storage_locations (tenant_id, site_id, id)`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty` on every line). Receive/return require `expectedVersion` **and** `idempotencyKey`, persisted on `StockTransferCommand` (unique `(tenant_id, transfer_id, action, idempotency_key)`), written atomically with counters and ledger. First receive freezes `dest_location_id`; later receives must match. Ledger pairs persist the **applicable** `site_id` and a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
+`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Lines copy those site ids and constrain source/dest locations with composite FKs to the parent tuple plus `storage_locations (tenant_id, site_id, id)`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty` on every line). Receive/return require `expectedVersion` **and** `idempotencyKey`, persisted on `StockTransferCommand` (unique `(tenant_id, transfer_id, action, idempotency_key)`), written atomically with counters and ledger. Concurrent same-key losers **re-read the command row** after OCC or unique-key conflict and return the stored response when the hash matches. First receive freezes `dest_location_id`; later receives must match. Ledger pairs persist the **applicable** `site_id` with `(tenant_id, site_id, location_id)` onto the location, plus a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
 
 ## Consequences
 

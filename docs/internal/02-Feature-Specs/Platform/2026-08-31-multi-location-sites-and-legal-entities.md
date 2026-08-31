@@ -87,8 +87,8 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 ### Planner and stock
 
 20. **Bays, opening hours, holidays, timezone, slot length** are per site. Tenant singleton `WorkshopSettings` is replaced: those fields live on `Site`; `WorkshopOpeningHour` / `WorkshopHoliday` FK to `Site`.
-21. **Every `StorageLocation` belongs to exactly one site.** ATP, kitting, and on-hand lists use locations of the current site only. Tote / staging locations cannot be another site’s.
-22. **`InventoryStock.site_id` is not independently writable.** Stock is site-scoped through `StorageLocation.site_id`. If denormalized for query performance, it is mechanically derived and protected against disagreement with the location.
+21. **Every `StorageLocation` belongs to exactly one site.** ATP, kitting, and on-hand lists use locations of the current site only. Tote / staging locations cannot be another site’s. Hierarchy is site-safe: `parent_id` is a composite FK `(tenant_id, site_id, parent_id) → storage_locations (tenant_id, site_id, id)`, nullable for roots. A München bin cannot parent under a Wien aisle.
+22. **`InventoryStock.site_id` is not independently writable.** Stock is site-scoped through `StorageLocation.site_id`. If denormalized for query performance, it is mechanically derived and protected against disagreement with the location via `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)`. The same composite FK is required on **`inventory_transactions`**: a ledger row cannot claim Wien while pointing at a München location.
 23. **Same-site bin→tote** stays an instant `TRANSFER_OUT` + `TRANSFER_IN` pair (ADR-0002 / kitting). That is **not** a `StockTransfer` document.
 24. **No shared pool.** ATP must not see another site’s on-hand.
 
@@ -99,7 +99,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 27. **Line qty columns:** `requested_qty`, `approved_qty`, `shipped_qty`, `received_qty`, `returned_qty`. Enforce `received_qty + returned_qty ≤ shipped_qty` atomically. `approved_qty ≤ requested_qty`.
 28. **Each line copies immutable `from_site_id` / `to_site_id` from the parent at create.** Composite FKs prove source bin belongs to from-site and dest bin belongs to to-site (see Database Impact). Service-only checks are not sufficient.
 29. **States:** `REQUESTED` → `APPROVED` → `SHIPPED` → `COMPLETED`. Also `REJECTED` (from `REQUESTED`), `CANCELLED` (from `REQUESTED` or `APPROVED` only — no ledger yet). **Ship is one-shot and full:** `APPROVED → SHIPPED` happens once. The ship action must set `shipped_qty = approved_qty` on **every** line, require `source_location_id` on every line, and include at least one line with `approved_qty > 0`. Partial ship is out of scope (no remaining-to-ship, no second ship). Partial **receipt** leaves the document `SHIPPED`. When outstanding shipped qty is zero (`received + returned = shipped` on every line), the document becomes **`COMPLETED`**. Do not call a mixed receive/return `RECEIVED`.
-30. **Receive and return** require **both** `expectedVersion` and `idempotencyKey`. Lookup the durable command row **before** OCC: same `(tenant_id, transfer_id, action, idempotency_key)` + same request hash returns the stored first result (no second ledger write), even if `version` has since incremented. Same key, different body hash → **409**. Missing row + stale `expectedVersion` → **409**. Persist the command row **atomically** with qty counters and ledger pairs (table below). In-memory keys are not enough for multi-instance Cloud Run. Approve/reject/cancel/ship use `expectedVersion` only (no ledger partials).
+30. **Receive and return** require **both** `expectedVersion` and `idempotencyKey`. Lookup the durable command row **before** OCC: same `(tenant_id, transfer_id, action, idempotency_key)` + same request hash returns the stored first result (no second ledger write), even if `version` has since incremented. Same key, different body hash → **409**. Missing row + stale `expectedVersion` → **409**. Persist the command row **atomically** with qty counters and ledger pairs (table below). In-memory keys are not enough for multi-instance Cloud Run. **Concurrent same-key:** two instances may both miss the pre-OCC lookup. The winner commits the version, ledger, and command row. The loser that hits OCC **or** the unique `(tenant_id, transfer_id, action, idempotency_key)` constraint **must re-read the command row** and return the stored response when the hash matches — not a stale-version 409. Hash mismatch after that re-read → **409**. Approve/reject/cancel/ship use `expectedVersion` only (no ledger partials).
 31. **Destination bin is frozen on first receive.** `StockTransferLine` has one `dest_location_id`. The first successful receive that writes it locks that bin. Every later partial receive for that line must send the **same** `destLocationId` → **422** on mismatch. Slice 1 does not persist per-receipt destination allocations.
 32. **Authz:**
     - Request: active membership on **to** or **from**.
@@ -118,7 +118,16 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 ### Deletion
 
-38. Normal `LegalEntity` / `Site` removal is **deactivation** (`is_active = false`). **`PATCH /api/sites/:id` `is_active=false` is 422** while any of the following exist for that site: a `StockTransfer` in `REQUESTED`, `APPROVED`, or `SHIPPED` (as from or to); a non-terminal site-owned document (workshop not `INVOICED`/`CANCELLED`; sales/PO/vehicle not in a terminal status); on-hand, reserved, or in-transit quantity at any of the site’s locations. OWNER/ADMIN must complete, cancel, or move that work first. Slice 1 has **no** privileged “deactivate anyway / read-only completion” path. **`PATCH /api/legal-entities/:id` `is_active=false` is 422** while the entity has any `Site` with `is_active = true`. When site deactivation is allowed, clear `active_site_id` for users whose active site is this site and emit `site_context_updated` (`siteId: null`) plus `site_access_scope_updated`. Hard delete only for unused setup mistakes (see `docs/deletion-policy.md`). Pristine site hard-delete may internally remove its empty system transit location and hours/holiday config; that location remains forbidden from **direct** deletion APIs.
+38. Normal `LegalEntity` / `Site` removal is **deactivation** (`is_active = false`). **`PATCH /api/sites/:id` `is_active=false` is 422** while any of the following exist for that site:
+    - a `StockTransfer` **not** in `COMPLETED` / `REJECTED` / `CANCELLED` (as from or to)
+    - a site-owned document **not** in that type’s terminal set (locked from the live enums; there is **no** `WorkshopOrderStatus.CANCELLED` and **no** `SalesOrderStatus.CANCELLED`):
+      - `WorkshopOrder`: terminal `INVOICED` only (`SCHEDULED` may be hard-deleted instead; `COMPLETED` is still live — vehicle ready, not invoiced)
+      - `SalesOrder`: terminal `INVOICED` only
+      - `PurchaseOrder`: terminal `COMPLETED` only
+      - `VehiclePurchase`: terminal `RECEIVED` or `CANCELLED`
+      - `VehicleSale`: terminal `INVOICED` or `CANCELLED`
+    - on-hand, reserved, or in-transit quantity at any of the site’s locations
+    OWNER/ADMIN must complete, invoice, cancel (where the enum exists), or move that work first. Slice 1 has **no** privileged “deactivate anyway / read-only completion” path. **`PATCH /api/legal-entities/:id` `is_active=false` is 422** while the entity has any `Site` with `is_active = true`. When site deactivation is allowed, clear `active_site_id` for users whose active site is this site and emit `site_context_updated` (`siteId: null`) plus `site_access_scope_updated`. Hard delete only for unused setup mistakes (see `docs/deletion-policy.md`). Pristine site hard-delete may internally remove its empty system transit location and hours/holiday config; that location remains forbidden from **direct** deletion APIs.
 39. Site hard-delete checks **transfers, ledger history, storage locations, memberships, bays, and every site-owned document** — not only stock and bays.
 
 ---
@@ -175,7 +184,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `response_status` | int | no | HTTP status of the first outcome |
 | | `response_body` | jsonb | no | Stored first result |
 | `inventory_transactions` | `movement_group_id` | uuid | yes | Required on transfer ship/receive/return pairs |
-| | `site_id` | uuid | no after contract | Site of the location at post time |
+| | `site_id` | uuid | no after contract | Site of the location at post time. Composite FK `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` |
 | | `stock_transfer_id` | uuid | yes | Composite FK `(tenant_id, stock_transfer_id) → stock_transfers (tenant_id, id)` |
 
 Uniques required for composite FKs (Prisma cannot reference a tuple that is not unique):
@@ -197,6 +206,9 @@ Child FKs that those uniques enable:
 - `stock_transfer_lines.dest_location_id` (when not null): `(tenant_id, to_site_id, dest_location_id) → storage_locations (tenant_id, site_id, id)`
 - `stock_transfer_commands.transfer_id`: `(tenant_id, transfer_id) → stock_transfers (tenant_id, id)`
 - `inventory_transactions.stock_transfer_id` (when not null): `(tenant_id, stock_transfer_id) → stock_transfers (tenant_id, id)`
+- `inventory_transactions` location: `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` (replaces the bare `location_id` FK)
+- `storage_locations.parent_id` (when not null): `(tenant_id, site_id, parent_id) → storage_locations (tenant_id, site_id, id)`
+- `inventory_stocks` if denormalized `site_id`: `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)`
 - `User.active_site_id`: composite `(active_tenant_id, active_site_id) → sites (tenant_id, id)` so a site cannot be the active site for another tenant. When `active_site_id` is null (recovery, revoked membership, tenant switch), the FK is not applied.
 
 Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, from_site_id)` and `(tenant_id, to_site_id)`). `stock_transfer_commands (tenant_id, transfer_id)`.
@@ -207,13 +219,13 @@ Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, 
 |-------|--------|-----------|
 | `users` | `active_site_id` nullable; composite FK `(active_tenant_id, active_site_id) → sites(tenant_id, id)` | Yes |
 | `bays` | `site_id` NOT NULL after contract; unique `(tenant_id, site_id, name)` | Yes |
-| `storage_locations` | `site_id` NOT NULL; unique `(tenant_id, site_id, code)`; new `LocationType.in_transit` | Yes |
+| `storage_locations` | `site_id` NOT NULL; unique `(tenant_id, site_id, code)` and `(tenant_id, site_id, id)`; composite parent FK `(tenant_id, site_id, parent_id) → storage_locations (tenant_id, site_id, id)` (null for roots); new `LocationType.in_transit` | Yes |
 | `workshop_orders` | `site_id` NOT NULL; bay/staging composite site-safe FKs | Yes |
 | `sales_orders` | `site_id` NOT NULL | Yes |
 | `purchase_orders` | `site_id` NOT NULL | Yes |
 | `vehicle_purchases` | `site_id` NOT NULL; lot site-safe | Yes |
 | `vehicle_sales` | `site_id` NOT NULL | Yes |
-| `inventory_transactions` | `site_id` NOT NULL; `movement_group_id`; optional `stock_transfer_id` with composite FK `(tenant_id, stock_transfer_id) → stock_transfers (tenant_id, id)` | Yes |
+| `inventory_transactions` | `site_id` NOT NULL; `movement_group_id`; optional `stock_transfer_id` with composite FK `(tenant_id, stock_transfer_id) → stock_transfers (tenant_id, id)`; location FK becomes `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` | Yes |
 | `inventory_stocks` | optional denormalized `site_id` generated/maintained from location — **not** independently writable | Optional |
 | `workshop_opening_hours` | FK to `site` instead of tenant `WorkshopSettings`; unique `(tenant_id, site_id, weekday)` | Yes |
 | `workshop_holidays` | FK to `site` | Yes |
@@ -257,7 +269,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 | GET | `/api/sites` | — | Directory: `{ id, code, name, legalEntityId }` for active sites in the tenant. No bins, stock, or orders. | Any user with ≥1 active `SiteMembership` |
 | GET | `/api/sites/:id` | — | Full site (hours, address) if membership **or** OWNER/ADMIN | |
 | POST | `/api/sites` | legalEntityId, code, name, address, hours | site | OWNER/ADMIN |
-| PATCH | `/api/sites/:id` | name, address, hours, `is_active` | site | OWNER/ADMIN; **not** `legalEntityId`. `is_active=false` **422** while open transfers, non-terminal site-owned documents, or on-hand/reserved/in-transit qty remain. |
+| PATCH | `/api/sites/:id` | name, address, hours, `is_active` | site | OWNER/ADMIN; **not** `legalEntityId`. `is_active=false` **422** while open transfers, non-terminal site-owned documents (terminals: WO `INVOICED`; SO `INVOICED`; PO `COMPLETED`; VP `RECEIVED`/`CANCELLED`; VS `INVOICED`/`CANCELLED`), or on-hand/reserved/in-transit qty remain. |
 | POST/DELETE | `/api/sites/:id/memberships` | `{ userId }` | membership | OWNER/ADMIN |
 | GET | `/api/stock-transfers` | — | transfers where caller has membership on from **or** to | named cross-site |
 | POST | `/api/stock-transfers` | `fromSiteId`, `toSiteId`, lines (`catalogItemId`, `requestedQty`, optional `sourceLocationId` if from-member) | transfer `REQUESTED` | membership on from or to |
@@ -364,10 +376,14 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 - [ ] Ship blocked when `approved_qty` > `on_hand - reserved`.
 - [ ] Tenant with **no** `WorkshopSettings` row backfills `Europe/Vienna`, `30`, `AT`, and `DEFAULT_OPENING_HOURS` (Saturday `08:00`–`12:00`, Sunday closed — not seven open `07:30`–`17:00` days).
 - [ ] Partial receive retry with same `idempotencyKey` **and** body is a no-op even across API instances (durable `stock_transfer_commands` row); same key different body → 409; stale `expectedVersion` on a **new** key → 409.
+- [ ] **Simultaneous** same-key receive from two instances: one commits; the loser re-reads the command and returns the stored result (not OCC 409).
 - [ ] Transfer dual-room: Wien and München **site** sockets both get the event; a third site does not. A Salzburg-active user who is a Wien member gets the event on **`user_{firebaseUid}`** (transfer list), not Wien planner events. Emitting to `user_{User.id}` must not be treated as success.
 - [ ] Line insert with `source_location_id` of the to-site (or dest of the from-site) is rejected by the composite FK.
+- [ ] Ledger insert with `site_id` = Wien and `location_id` of a München bin is rejected by `(tenant_id, site_id, location_id)`.
+- [ ] Storage-location `parent_id` pointing at another site’s aisle is rejected by `(tenant_id, site_id, parent_id)`.
 - [ ] Second socket for the same user leaves the old site room after `site_context_updated`.
-- [ ] `PATCH` site `is_active=false` with a `SHIPPED` transfer, open workshop order, or on-hand qty → 422; empty site with only `COMPLETED` history → 200.
+- [ ] `PATCH` site `is_active=false` with a `SHIPPED` transfer, `WorkshopOrder` `COMPLETED` (not invoiced), `SalesOrder` `CONFIRMED`, `PurchaseOrder` `SENT`, or on-hand qty → 422.
+- [ ] `PATCH` site `is_active=false` allowed when remaining docs are only `WorkshopOrder` `INVOICED`, `SalesOrder` `INVOICED`, `PurchaseOrder` `COMPLETED`, `VehiclePurchase` `RECEIVED`/`CANCELLED`, `VehicleSale` `INVOICED`/`CANCELLED`, `StockTransfer` `COMPLETED`/`REJECTED`/`CANCELLED`, and stock qty is zero.
 - [ ] `PATCH` legal entity `is_active=false` while it still has an active site → 422.
 - [ ] In-transit location absent from location pickers; direct delete 409; source bin disable blocked while outstanding.
 - [ ] Concurrent site-switch vs document commit: guarded transaction decides the winner.
