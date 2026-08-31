@@ -372,6 +372,6 @@ None. Product rulings above are the decisions from the 2026-08-31 design review.
 
 | Field | Value |
 |-------|-------|
-| Project | None yet (docs first). Legal Invoicing project remains paused. |
+| Project | None yet. Legal Invoicing project remains paused. |
 | Milestone | Slice 1 — planner + stock + same-GmbH transfers |
-| Issues | Cut after spec approval |
+| Issues | [AUT-249](https://linear.app/auto-core-platform/issue/AUT-249/docs-multi-location-sites-feature-spec-and-adr-0022) (this spec/ADR docs PR). Implementation issues cut after spec approval. |

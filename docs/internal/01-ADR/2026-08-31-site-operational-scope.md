@@ -144,4 +144,4 @@ ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit t
 |-------|-------|
 | Project | None yet. Legal Invoicing Linear project remains paused. |
 | Milestone | Slice 1 — planner + stock + same-GmbH transfers |
-| Issues | Cut after Feature Spec approval |
+| Issues | [AUT-249](https://linear.app/auto-core-platform/issue/AUT-249/docs-multi-location-sites-feature-spec-and-adr-0022) |
