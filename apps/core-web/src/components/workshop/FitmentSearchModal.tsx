@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -100,6 +100,7 @@ export function FitmentSearchModal({
   const [isSearching, setIsSearching] = useState(false)
   const [pendingFallback, setPendingFallback] = useState<PendingFallbackState | null>(null)
   const [identityConflict, setIdentityConflict] = useState(false)
+  const searchGenerationRef = useRef(0)
 
   const { data: assemblyGroupsData, isFetching: isLoadingAssemblyGroups } =
     useCatalogAssemblyGroups(workshopOrderId, open && activeConcern === 'PARTS' && !isIdentityStale)
@@ -142,6 +143,14 @@ export function FitmentSearchModal({
     [onSearchSessionUpdate],
   )
 
+  const clearConcernResult = useCallback((concern: CatalogSearchConcern) => {
+    if (concern === 'PARTS') {
+      setPartsResult(null)
+    } else {
+      setLaborResult(null)
+    }
+  }, [])
+
   const runSearch = useCallback(
     async (params: {
       concern: CatalogSearchConcern
@@ -154,6 +163,9 @@ export function FitmentSearchModal({
         return
       }
 
+      const generation = ++searchGenerationRef.current
+      clearConcernResult(params.concern)
+      setPendingFallback(null)
       setIsSearching(true)
       setIdentityConflict(false)
       try {
@@ -165,7 +177,12 @@ export function FitmentSearchModal({
           confirmFallback: params.confirmFallback ?? false,
         })
 
+        if (generation !== searchGenerationRef.current) {
+          return
+        }
+
         if (response.fallbackRequired && !params.confirmFallback) {
+          clearConcernResult(params.concern)
           const fallbackReason = response.fallbackReason ?? 'EMPTY'
           setPendingFallback({
             concern: params.concern,
@@ -177,18 +194,24 @@ export function FitmentSearchModal({
 
         applySearchResult(params.concern, response)
       } catch (error: unknown) {
+        if (generation !== searchGenerationRef.current) {
+          return
+        }
         const apiError = error as CatalogApiError
         if (apiError.status === 409) {
+          clearConcernResult(params.concern)
           setIdentityConflict(true)
           toast.error('Vehicle identity is stale. Re-resolve before searching.')
           return
         }
         toast.error(apiError.message || 'Failed to search catalog')
       } finally {
-        setIsSearching(false)
+        if (generation === searchGenerationRef.current) {
+          setIsSearching(false)
+        }
       }
     },
-    [applySearchResult, isIdentityStale, workshopOrderId],
+    [applySearchResult, clearConcernResult, isIdentityStale, workshopOrderId],
   )
 
   useEffect(() => {

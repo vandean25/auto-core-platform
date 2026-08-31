@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type {
   CatalogAssemblyGroupsResponse,
@@ -55,12 +55,6 @@ export async function fetchExternalCatalogSearch(
     throw await parseCatalogError(response, 'Failed to search external catalog')
   }
   return response.json()
-}
-
-export function useExternalCatalogSearchMutation() {
-  return useMutation({
-    mutationFn: fetchExternalCatalogSearch,
-  })
 }
 
 export function useCatalogAssemblyGroups(workshopOrderId: string, enabled = true) {

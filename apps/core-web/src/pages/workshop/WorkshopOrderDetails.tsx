@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useCatalogProviderSettings } from '@/api/useCatalogProviderSettings'
-import { useVehicle } from '@/api/vehicles'
+import { useVehicle, useResolveVehicleIdentity } from '@/api/vehicles'
 import { FitmentSearchModal } from '@/components/workshop/FitmentSearchModal'
 import { VehicleIdentityBanner } from '@/components/workshop/VehicleIdentityBanner'
 import {
@@ -94,6 +94,7 @@ export function WorkshopOrderDetails() {
   const issueInvoice = useIssueInvoice()
   const updateInvoiceDiscount = useUpdateInvoiceDiscount()
   const generateWorkshopPdf = useGenerateWorkshopPdf()
+  const resolveIdentity = useResolveVehicleIdentity()
 
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -541,11 +542,17 @@ export function WorkshopOrderDetails() {
   }
 
   const handleRequestResolveIdentity = () => {
-    const resolveButton = document.querySelector<HTMLButtonElement>(
-      '[data-testid="resolve-vehicle-identity-button"]',
-    )
-    resolveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    resolveButton?.focus()
+    setFitmentSearchTaskId(null)
+    const vehicleId = order.vehicle.id
+    if (!vehicleId) return
+    void resolveIdentity
+      .mutateAsync(vehicleId)
+      .then(() => {
+        toast.success('Vehicle identity resolved')
+      })
+      .catch((error: unknown) => {
+        toast.error(getErrorMessage(error, 'Failed to resolve vehicle identity'))
+      })
   }
   const checkoutFooterTotal =
     activeInvoiceId && fetchedInvoice ? checkoutGrossTotal : orderGrandTotal
