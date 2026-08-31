@@ -72,6 +72,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         name: 'Tech Leave Mechanic',
         role: 'MECHANIC',
         userId: techUser.id,
+        hiredOn: new Date('2026-01-01T00:00:00.000Z'),
       });
       techEmployeeId = techEmployee.id;
 
@@ -98,6 +99,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         name: 'Sales Advisor',
         role: 'SERVICE_ADVISOR',
         userId: salesUser.id,
+        hiredOn: new Date('2026-01-01T00:00:00.000Z'),
       });
       deskEmployeeId = deskEmployee.id;
 
