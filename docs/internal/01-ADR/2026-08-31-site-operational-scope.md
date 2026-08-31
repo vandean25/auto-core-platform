@@ -44,10 +44,10 @@ Legal Invoicing is **paused** until Site + Legal Entity exist. Transfers still n
 
 ### 1. Models
 
-- `LegalEntity` — `tenant_id`, name, `country_iso` (`AT` \| `DE`), `is_active`. No tax IDs in this ADR. Deactivation blocked while the entity has any active `Site`. Site create and `is_active=true` require the parent entity to be active (no atomic dual reactivation in slice 1).
-- `Site` — `tenant_id`, **immutable** `legal_entity_id`, code, name, nullable address, planner hours fields, `is_active`. N:1 sites per entity. Deactivation blocked unless remaining documents are in the live enum terminals (`WorkshopOrder` `INVOICED`; `SalesOrder` `INVOICED`; `PurchaseOrder` `COMPLETED`; `VehiclePurchase` `RECEIVED`/`CANCELLED`; `VehicleSale` `INVOICED`/`CANCELLED`), transfers are `COMPLETED`/`REJECTED`/`CANCELLED`, and on-hand/reserved/in-transit qty is zero.
-- `SiteMembership` — user ↔ site, `is_active`. Access only; not an `Employee` home site. `OWNER`/`ADMIN` remain `TenantMember` roles. Composite FK `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`.
-- `User.active_site_id` — nullable. Valid only when it belongs to `active_tenant_id`, the site is active, and an active membership exists. Composite FK `(active_tenant_id, active_site_id) → Site (tenant_id, id)`.
+- `LegalEntity` — `tenant_id`, name, `country_iso` (`AT` \| `DE`), `is_active`. No tax IDs in this ADR. Deactivation blocked while the entity has any active `Site`. Site create and `is_active=true` require the parent entity to be active (no atomic dual reactivation in slice 1). Backfill: non-AT/DE `WorkshopSettings.holiday_country_iso` maps `LegalEntity.country_iso` to **`AT`**; the original code stays on `Site.holiday_country_iso`.
+- `Site` — `tenant_id`, **immutable** `legal_entity_id`, code, name, nullable address, planner hours fields, `is_active`. N:1 sites per entity. Deactivation blocked unless remaining documents are in the live enum terminals (`WorkshopOrder` `INVOICED`; `SalesOrder` `INVOICED`; `PurchaseOrder` `COMPLETED`; `VehiclePurchase` `RECEIVED`/`CANCELLED`; `VehicleSale` `INVOICED`/`CANCELLED`), transfers are `COMPLETED`/`REJECTED`/`CANCELLED`, on-hand/reserved/in-transit qty is zero, **and no non-`SOLD` dealer vehicle still resolves to the site** (`location.site_id` or `VehiclePurchase.site_id`).
+- `SiteMembership` — user ↔ site, `is_active`. Access only; not an `Employee` home site. `OWNER`/`ADMIN` remain `TenantMember` roles. Composite FK `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`. **Authorization and realtime fan-out also require `TenantMember.is_active`**; the FK only proves the row exists.
+- `User.active_site_id` — nullable. Valid only when it belongs to `active_tenant_id`, the site is active, and an active membership exists. Composite FK `(active_tenant_id, active_site_id) → Site (tenant_id, id)`. **Every write that changes `active_tenant_id`** (`switchTenant` and `ensureActiveMembership`) uses one helper that also sets `active_site_id = null`.
 - `StockTransfer` — unique `(tenant_id, id)` so lines, ledger rows, and command rows can use tenant-safe composite FKs. Also unique `(tenant_id, id, from_site_id, to_site_id)`.
 - `StockTransferLine` — copies immutable `from_site_id` / `to_site_id` from the parent; source/dest location FKs are `(tenant_id, from_or_to_site_id, location_id) → StorageLocation (tenant_id, site_id, id)`.
 - `StockTransferCommand` — durable receive/return idempotency. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Written in the same transaction as counters and ledger pairs.
@@ -60,6 +60,7 @@ Every new model stays tenant-scoped. Required unique keys so composite FKs compi
 - `InventoryTransaction.location_id`: `(tenant_id, site_id, location_id) → StorageLocation (tenant_id, site_id, id)`
 - `StockTransfer`: `@@unique([tenant_id, id])` and `@@unique([tenant_id, id, from_site_id, to_site_id])`
 - `SiteMembership`: `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`
+- `WorkshopHoliday`: drop `@@unique([tenant_id, observed_on])`; add `@@unique([tenant_id, site_id, observed_on])` and `(tenant_id, site_id) → Site (tenant_id, id)`
 - `User.active_site_id` is `(active_tenant_id, active_site_id) → Site (tenant_id, id)`, not a bare FK to `Site.id`
 
 Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot; a ledger row cannot claim Wien while pointing at a München location; a bin cannot parent under another site’s aisle.
@@ -71,15 +72,15 @@ const tenantId = tenantContext.getTenantId();
 const siteId = siteContext.getSiteId();
 ```
 
-`SiteContextService` is populated from the authenticated session (`User.active_site_id`), never from `?siteId=` or `X-Site-Id`. Operational list/create endpoints that receive `siteId` as a filter return **400**.
+`SiteContextService` is populated from the authenticated session (`User.active_site_id`), never from `?siteId=` or `X-Site-Id`. It requires an active `TenantMember` and an active `SiteMembership`. Operational list/create endpoints that receive `siteId` as a filter return **400**.
 
-`422 ACTIVE_SITE_REQUIRED` is returned **only** from site-dependent operational APIs. `GET /me/sites` and `PATCH /me/active-site` stay available. Switching never auto-selects a site. `PATCH /me/active-site` validates tenant, site, membership, and activity in one transaction.
+`422 ACTIVE_SITE_REQUIRED` is returned **only** from site-dependent operational APIs. `GET /me/sites` and `PATCH /me/active-site` stay available. Switching never auto-selects a site. `PATCH /me/active-site` validates tenant, site, both memberships, and activity in one transaction.
 
-`POST /api/auth/switch-tenant` atomically updates `active_tenant_id` **and** sets `active_site_id = null`. It must not leave the previous tenant’s site id in place (that would violate the composite FK) and must not auto-pick a site in the destination tenant. Emit `site_context_updated` `{ siteId: null }` to `user_{firebaseUid}` in addition to `auth:claims_updated`.
+`POST /api/auth/switch-tenant` **and** `AuthSessionService.ensureActiveMembership` share one tenant-change helper: atomically update `active_tenant_id` **and** set `active_site_id = null`. Neither path may write `active_tenant_id` alone (that would violate the composite FK). Never auto-pick a site in the destination tenant. Emit `site_context_updated` `{ siteId: null }` to `user_{firebaseUid}` (switch-tenant also keeps `auth:claims_updated`). `TenantMember.is_active = false` emits `site_access_scope_updated` and, when that tenant is `active_tenant_id`, runs the same helper.
 
 Deleting or deactivating the membership that matches `active_site_id` clears the active site atomically. Any membership grant/revoke/deactivate also emits `site_access_scope_updated` on `user_{firebaseUid}` so transfer-list and site-directory caches drop even when the row was not the active site.
 
-Cross-site operations (transfers, site admin lists, later reports) use **named** methods such as `listAcrossAuthorizedSites()`. Permitted operational IDs come from the caller’s active memberships. There is **no** generic bypass flag. A **names-only site directory** (id, code, name, legalEntityId) is visible to any member so a dest-only user can request from a sister site without seeing that site’s bins or on-hand.
+Cross-site operations (transfers, site admin lists, later reports) use **named** methods such as `listAcrossAuthorizedSites()`. Permitted operational IDs come from the caller’s **active `SiteMembership` joined to an active `TenantMember`**. There is **no** generic bypass flag. A **names-only site directory** (id, code, name, legalEntityId) is visible to any such member so a dest-only user can request from a sister site without seeing that site’s bins or on-hand.
 
 ### 3. Persisted ownership, not inferred from the switcher
 
@@ -95,6 +96,8 @@ Site changes are **guarded atomic transitions** (ADR-0011): **active membership 
 | `VehiclePurchase` | `DRAFT`; lot must be target site | `RECEIVED` |
 | `VehicleSale` | `DRAFT`; parked vehicle must already be on the target site | `INVOICED` |
 
+Same-site lot change uses `PATCH /api/vehicle-stock/:id` constrained to the vehicle’s current site. Cross-site same-GmbH uses `POST /api/vehicle-stock/:id/move-site` with membership on both sites; cross-GmbH is 422. `PATCH location_id` with a tenant-only location check is not a site contract.
+
 ### 4. Do not extend Prisma `$extends` with `site_id`
 
 The tenant extension stays tenant-only. Site-operational models are queried with `{ tenant_id, site_id }` (or a named cross-site helper) in services/repositories. Shared master data has no `site_id` and needs no allowlist.
@@ -103,11 +106,11 @@ Guardrails: composite indexes `(tenant_id, site_id)`; cross-site e2e on operatio
 
 ### 5. Realtime — site rooms on the server
 
-ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit to **`site:{siteId}`**. Clients join the active site room on connect. The private user room is the existing gateway identity **`user_{firebaseUid}`** (`DashboardGateway.USER_ROOM_PREFIX`; `socket.data.userId` is already the Firebase UID). **`site_context_updated`** on that room forces every socket for that user (all tabs/devices) to leave the old site room and join the new one. Membership revoke of the active site, site deactivation, and tenant switch emit the same event with `siteId: null`. **`site_access_scope_updated`** fires on any membership change, including a site that is not `active_site_id`. Transfer mutations publish to **both endpoint site rooms** and to **`user_{firebaseUid}` of members of from or to**, resolving `User.firebaseUid` from `SiteMembership.user_id` — emitting to the relational UUID reaches no socket. Isolation is not “the React client ignores München events.” Do not join every membership site room while viewing one shop’s planner.
+ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit to **`site:{siteId}`**. Clients join the active site room on connect. The private user room is the existing gateway identity **`user_{firebaseUid}`** (`DashboardGateway.USER_ROOM_PREFIX`; `socket.data.userId` is already the Firebase UID). **`site_context_updated`** on that room forces every socket for that user (all tabs/devices) to leave the old site room and join the new one. Membership revoke of the active site, site deactivation, tenant switch, **and `TenantMember` deactivation** emit the same event with `siteId: null` when the active site is cleared. **`site_access_scope_updated`** fires on any membership change, including a site that is not `active_site_id` and including tenant-membership suspend. Transfer mutations publish to **both endpoint site rooms** and to **`user_{firebaseUid}` of members of from or to who have an active `TenantMember`**, resolving `User.firebaseUid` from `SiteMembership.user_id` — emitting to the relational UUID reaches no socket. Isolation is not “the React client ignores München events.” Do not join every membership site room while viewing one shop’s planner.
 
 ### 6. Same-GmbH transfers
 
-`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Lines copy those site ids and constrain source/dest locations with composite FKs to the parent tuple plus `storage_locations (tenant_id, site_id, id)`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty`). Source bin required only where `approved_qty > 0`; zero-approved lines have no ledger pair. Receive/return require `expectedVersion` **and** `idempotencyKey`, persisted on `StockTransferCommand` (unique `(tenant_id, transfer_id, action, idempotency_key)`), written atomically with counters and ledger. Concurrent same-key losers **re-read the command row** after OCC or unique-key conflict and return the stored response when the hash matches. First receive freezes `dest_location_id`; later receives must match. Ledger pairs persist the **applicable** `site_id` with `(tenant_id, site_id, location_id)` onto the location, plus a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
+`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Lines copy those site ids and constrain source/dest locations with composite FKs to the parent tuple plus `storage_locations (tenant_id, site_id, id)`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin. Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty`). Source bin required only where `approved_qty > 0`; zero-approved lines have no ledger pair. Qty domains: `requested_qty > 0`; `0 <= approved_qty <= requested_qty`; persisted counters `>= 0`; submitted receive/return qty `> 0`; unique line ids per payload; ≥1 action line. Receive/return require `expectedVersion` **and** `idempotencyKey`, persisted on `StockTransferCommand` (unique `(tenant_id, transfer_id, action, idempotency_key)`), written atomically with counters and ledger. Concurrent same-key losers **re-read the command row** after OCC or unique-key conflict and return the stored response when the hash matches. First receive freezes `dest_location_id`; later receives must match; **that dest bin cannot be disabled/soft-deleted while receipt remains outstanding**. Ledger pairs persist the **applicable** `site_id` with `(tenant_id, site_id, location_id)` onto the location, plus a `movement_group_id`. Cost basis copies through in-transit. Details: Feature Spec.
 
 ## Consequences
 
@@ -123,7 +126,7 @@ ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit t
 - Every operational path must remember `siteContext.getSiteId()`. Tests and review rules have to catch omissions; the ORM will not.
 - Existing tenants need an expand/backfill/validate/contract migration before `NOT NULL`.
 - Socket.IO gains site rooms plus user-room `site_context_updated` / `site_access_scope_updated` on `user_{firebaseUid}`; transfer fan-out is two site rooms and member user rooms resolved via `User.firebaseUid`.
-- `POST /api/auth/switch-tenant` must clear `active_site_id` in the same write as `active_tenant_id`.
+- `POST /api/auth/switch-tenant` **and** `ensureActiveMembership` must clear `active_site_id` in the same write as `active_tenant_id`.
 
 ### Neutral
 

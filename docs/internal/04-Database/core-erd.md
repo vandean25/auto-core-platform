@@ -103,14 +103,14 @@ erDiagram
 ### Platform (ADR-0022)
 
 - **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable.
-- **`Site`**: Physical shop. Owns bays, locations, planner hours, and site-owned documents. N:1 under `LegalEntity`.
-- **`SiteMembership`**: Which users may activate a site. Not employee home-site.
+- **`Site`**: Physical shop. Owns bays, locations, planner hours/holidays (`workshop_holidays` unique `(tenant_id, site_id, observed_on)`), and site-owned documents. N:1 under `LegalEntity`.
+- **`SiteMembership`**: Which users may activate a site. Not employee home-site. Authorization and transfer fan-out also require an active `TenantMember`.
 - **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Unique `(tenant_id, id)`. Lines copy `from_site_id`/`to_site_id`. Cross-entity moves are not warehouse transfers.
 - **`StockTransferCommand`**: Durable receive/return idempotency keyed by `(tenant_id, transfer_id, action, idempotency_key)`.
 
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
-- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). Optionally linked to Sales Orders (parts context) and Workshop Orders. Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`.
+- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). Optionally linked to Sales Orders (parts context) and Workshop Orders. Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`. Site of a parked dealer car is `location.site_id` (or `VehiclePurchase.site_id` when the lot is still null). Same-site lot PATCH; cross-site same-GmbH uses a named `move-site` operation.
 
 ### Inventory & Catalog
 - **`CatalogItem`**: The master product definition. Supports supersession chains (self-referencing relation) for replacement part tracking.
