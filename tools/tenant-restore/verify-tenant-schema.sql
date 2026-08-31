@@ -233,6 +233,8 @@ VALUES
   ('workshop_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_task_line_items', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_task_line_items', 'labor_categories', 'labor_category_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_task_line_items', 'labor_operations', 'labor_operation_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_task_line_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_task_line_items', 'workshop_tasks', 'tenant_id,workshop_task_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
