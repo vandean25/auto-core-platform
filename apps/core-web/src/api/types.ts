@@ -124,5 +124,15 @@ export type LaborOperationDetail = OpenApiSchemas['LaborOperationResponseDto']
 export type CatalogPartSearchItem = OpenApiSchemas['CatalogPartSearchItemDto']
 export type CatalogSearchResponse = OpenApiSchemas['CatalogSearchResponseDto']
 
+export type CatalogSearchConcern = 'PARTS' | 'LABOR'
+export type CatalogSearchSource = 'AUTO' | 'OEM' | 'AFTERMARKET'
+export type CatalogExternalSearchResponse = OpenApiSchemas['CatalogExternalSearchResponseDto']
+export type CatalogExternalPartsItem = OpenApiSchemas['CatalogExternalPartsItemDto']
+export type CatalogExternalLaborItem = OpenApiSchemas['CatalogExternalLaborItemDto']
+export type CatalogAssemblyGroupsResponse = OpenApiSchemas['CatalogAssemblyGroupsResponseDto']
+export type CatalogAssemblyGroupNode = OpenApiSchemas['CatalogAssemblyGroupNodeDto']
+export type CatalogProviderSettings = OpenApiSchemas['CatalogProviderSettingsResponseDto']
+export type CatalogProviderOemConcern = OpenApiSchemas['CatalogProviderOemConcernResponseDto']
+
 export type CreateWorkshopOrderPayload = OpenApiSchemas['CreateWorkshopOrderDto']
 export type RegisterIntakePayload = OpenApiSchemas['RegisterIntakeDto']

@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { useCatalogProviderSettings } from '@/api/catalog-providers'
+import { useVehicle } from '@/api/vehicles'
+import { FitmentSearchModal } from '@/components/workshop/FitmentSearchModal'
+import { VehicleIdentityBanner } from '@/components/workshop/VehicleIdentityBanner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +51,13 @@ import type { DiscountState } from './hooks/useWorkshopCalculations'
 import { OrderTopBar, CustomerVehicleInfo } from './components/OrderHeader'
 import { TaskList } from './components/TaskList'
 import { CheckoutFooter } from './components/CheckoutFooter'
+import {
+  createEmptyCatalogSearchSession,
+  findOemConcernForMakeBrandId,
+  isVehicleIdentityStale,
+  type CatalogSearchSession,
+  type CatalogSourceMetadata,
+} from '@/features/workshop/catalog-source-copy'
 
 const EMPTY_DISCOUNT_STATE: DiscountState = { type: null, value: '' }
 
@@ -93,10 +104,21 @@ export function WorkshopOrderDetails() {
   const [checkoutInvoiceIdOverride, setCheckoutInvoiceIdOverride] = useState<string | null>(null)
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<Record<string, WorkshopTask['lineItems']>>({})
   const [taskPendingDelete, setTaskPendingDelete] = useState<WorkshopTask | null>(null)
+  const [catalogSearchSession, setCatalogSearchSession] = useState<CatalogSearchSession>(
+    createEmptyCatalogSearchSession,
+  )
+  const [fitmentSearchTaskId, setFitmentSearchTaskId] = useState<string | null>(null)
   const lineItemSaveSeq = useRef<Record<string, number>>({})
 
   const activeInvoiceId = order?.invoice?.id ?? checkoutInvoiceIdOverride
   const { data: fetchedInvoice, isLoading: isInvoiceLoading } = useInvoice(activeInvoiceId ?? '')
+  const { data: vehicleIdentity } = useVehicle(order?.vehicle.id ?? '')
+  const { data: catalogProviderSettings } = useCatalogProviderSettings()
+  const oemConcern = findOemConcernForMakeBrandId(
+    vehicleIdentity?.make_brand_id,
+    catalogProviderSettings?.oemConcerns,
+  )
+  const isIdentityStale = isVehicleIdentityStale(vehicleIdentity)
 
   // ── All calculation logic delegated to the hook ─────────────────────────
   const {
@@ -506,6 +528,25 @@ export function WorkshopOrderDetails() {
     setIsCheckoutOpen(false)
     setExpandedTaskId(taskId)
   }
+
+  const handleCatalogSearchSessionUpdate = (metadata: CatalogSourceMetadata) => {
+    setCatalogSearchSession((previous) => ({
+      ...previous,
+      [metadata.concern === 'PARTS' ? 'parts' : 'labor']: metadata,
+    }))
+  }
+
+  const handleOpenFitmentSearch = (taskId: string) => {
+    setFitmentSearchTaskId(taskId)
+  }
+
+  const handleRequestResolveIdentity = () => {
+    const resolveButton = document.querySelector<HTMLButtonElement>(
+      '[data-testid="resolve-vehicle-identity-button"]',
+    )
+    resolveButton?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    resolveButton?.focus()
+  }
   const checkoutFooterTotal =
     activeInvoiceId && fetchedInvoice ? checkoutGrossTotal : orderGrandTotal
   const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice ? 'Open Invoice' : 'Checkout'
@@ -519,8 +560,12 @@ export function WorkshopOrderDetails() {
             order={order}
             assignedTechName={assignedTechName}
             bayName={assignedBayName}
+            catalogSearchSession={catalogSearchSession}
+            oemConcernCode={oemConcern?.code ?? null}
             onPrint={handlePrint}
           />
+
+          <VehicleIdentityBanner vehicleId={order.vehicle.id} />
 
           <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
             <motion.div
@@ -572,6 +617,7 @@ export function WorkshopOrderDetails() {
                 isDeletingTask={deleteTask.isPending}
                 onSaveReportedIssue={(value) => void handleSaveReportedIssue(value)}
                 onSaveNotes={(value) => void handleSaveNotes(value)}
+                onOpenFitmentSearch={isLocked ? undefined : handleOpenFitmentSearch}
               />
             </motion.div>
           </div>
@@ -607,6 +653,22 @@ export function WorkshopOrderDetails() {
             onReopenTask={handleReopenTask}
           />
         </motion.div>
+
+      {fitmentSearchTaskId && (
+        <FitmentSearchModal
+          open={fitmentSearchTaskId !== null}
+          onOpenChange={(open) => {
+            if (!open) setFitmentSearchTaskId(null)
+          }}
+          workshopOrderId={order.id}
+          taskId={fitmentSearchTaskId}
+          vehicleId={order.vehicle.id}
+          oemConcernCode={oemConcern?.code ?? null}
+          isIdentityStale={isIdentityStale}
+          onSearchSessionUpdate={handleCatalogSearchSessionUpdate}
+          onRequestResolveIdentity={handleRequestResolveIdentity}
+        />
+      )}
 
       <AlertDialog
         open={taskPendingDelete !== null}

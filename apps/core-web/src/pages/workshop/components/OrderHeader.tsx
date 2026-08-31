@@ -9,7 +9,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StatusBadge } from '@/components/status/StatusBadge'
-import type { WorkshopOrder } from '@/api/types'
+import { CatalogSourceBanner } from '@/components/workshop/CatalogSourceBanner'
+import type { CatalogProviderOemConcern, WorkshopOrder } from '@/api/types'
+import type { CatalogSearchSession } from '@/features/workshop/catalog-source-copy'
 
 type WorkshopMechanicOption = {
   id: string
@@ -36,6 +38,8 @@ export interface OrderTopBarProps {
   order: WorkshopOrder
   assignedTechName?: string | null
   bayName?: string | null
+  catalogSearchSession?: CatalogSearchSession
+  oemConcernCode?: CatalogProviderOemConcern['code'] | null
   onPrint: () => void
 }
 
@@ -43,6 +47,8 @@ export function OrderTopBar({
   order,
   assignedTechName,
   bayName,
+  catalogSearchSession,
+  oemConcernCode,
   onPrint,
 }: OrderTopBarProps) {
   const customerName = getCustomerName(order)
@@ -65,6 +71,24 @@ export function OrderTopBar({
               <p className='text-sm text-slate-500'>
                 Promised time: Not set · Tech: {assignedTechName ?? 'Unassigned'} · Bay: {bayName ?? 'Unassigned'}
               </p>
+              {(catalogSearchSession?.parts || catalogSearchSession?.labor) && (
+                <div className='flex flex-wrap gap-2 pt-1'>
+                  {catalogSearchSession.parts && (
+                    <CatalogSourceBanner
+                      metadata={catalogSearchSession.parts}
+                      oemConcernCode={oemConcernCode}
+                      compact
+                    />
+                  )}
+                  {catalogSearchSession.labor && (
+                    <CatalogSourceBanner
+                      metadata={catalogSearchSession.labor}
+                      oemConcernCode={oemConcernCode}
+                      compact
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <Button variant='outline' onClick={onPrint}>
