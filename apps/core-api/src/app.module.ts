@@ -36,6 +36,7 @@ import { AuthModule } from './auth/auth.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 import { TenantMemberModule } from './tenant-member/tenant-member.module';
 import { VoiceTranslationModule } from './voice-translation/voice-translation.module';
+import { SettingsModule } from './settings/settings.module';
 import { AuditModule } from './audit/audit.module';
 import { HrModule } from './hr/hr.module';
 import { HealthController } from './health.controller';
@@ -67,6 +68,7 @@ import { HealthController } from './health.controller';
     PlatformAdminModule,
     TenantMemberModule,
     VoiceTranslationModule,
+    SettingsModule,
     AuditModule,
     HrModule,
   ],

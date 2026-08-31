@@ -22,6 +22,9 @@ const mockPrisma = {
   laborOperation: {
     count: jest.fn(),
   },
+  catalogProviderSettings: {
+    count: jest.fn(),
+  },
 };
 
 const mockTenantContextService = {
@@ -487,6 +490,16 @@ describe('LaborCategoryService', () => {
       mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
       mockPrisma.laborCategory.count.mockResolvedValue(0); // no children
       mockPrisma.laborOperation.count.mockResolvedValue(3); // has operations
+
+      await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
+      expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when category is default for catalog provider settings', async () => {
+      mockPrisma.laborCategory.findFirst.mockResolvedValue(existingCategory);
+      mockPrisma.laborCategory.count.mockResolvedValue(0);
+      mockPrisma.laborOperation.count.mockResolvedValue(0);
+      mockPrisma.catalogProviderSettings.count.mockResolvedValue(1);
 
       await expect(service.remove('cat-1')).rejects.toThrow(ConflictException);
       expect(mockPrisma.laborCategory.deleteMany).not.toHaveBeenCalled();

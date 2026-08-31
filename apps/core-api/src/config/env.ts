@@ -27,6 +27,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'CLOUD_TASKS_INVOKER_SA',
   'GCP_CREDENTIALS',
   'SECRET_ENCRYPTION_KEY',
+  'CATALOG_HIT_HMAC_SECRET',
   'DEFAULT_VAT_RATE',
   'GOOGLE_CLOUD_PROJECT',
   'FIREBASE_PROJECT_ID',
@@ -94,6 +95,7 @@ const envSchema = z
     CLOUD_TASKS_INVOKER_SA: optionalString,
     GCP_CREDENTIALS: optionalString,
     SECRET_ENCRYPTION_KEY: optionalString,
+    CATALOG_HIT_HMAC_SECRET: optionalString,
     DEFAULT_VAT_RATE: optionalString,
     GOOGLE_CLOUD_PROJECT: optionalString,
     FIREBASE_PROJECT_ID: optionalString,
@@ -108,6 +110,11 @@ const envSchema = z
 
     addRequiredIssue(ctx, 'DATABASE_URL', env.DATABASE_URL);
     addEncryptionKeyIssues(ctx, env.SECRET_ENCRYPTION_KEY);
+    addRequiredIssue(
+      ctx,
+      'CATALOG_HIT_HMAC_SECRET',
+      env.CATALOG_HIT_HMAC_SECRET,
+    );
 
     if (env.NODE_ENV === 'production') {
       addRequiredIssue(

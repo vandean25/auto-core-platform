@@ -37,6 +37,7 @@ import { WorkshopHoursSettingsTab } from "@/components/settings/WorkshopHoursSet
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
+import { VehicleDataSettingsTab } from "@/components/settings/VehicleDataSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -273,7 +274,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "hours", "labor", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -281,8 +282,12 @@ export default function SettingsPage() {
     const [searchParams, setSearchParams] = useSearchParams()
     const rawTab = searchParams.get("tab")
     const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
+    const canManageVehicleData = canManageTeam
     const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
-    const activeTab: SettingsTab = requestedTab === 'team' && !canManageTeam ? 'finance' : requestedTab
+    const activeTab: SettingsTab =
+        requestedTab === 'team' && !canManageTeam ? 'finance'
+        : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
+        : requestedTab
 
     // ── Finance state ──
     const { data: settings, isLoading } = useFinanceSettings()
@@ -357,7 +362,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-11' : 'grid-cols-10')}>
+                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-12' : 'grid-cols-10')}>
                     <TabsTrigger value="finance">Finance</TabsTrigger>
                     <TabsTrigger value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
@@ -367,6 +372,7 @@ export default function SettingsPage() {
                     <TabsTrigger value="bays">Bays</TabsTrigger>
                     <TabsTrigger value="hours">Hours</TabsTrigger>
                     <TabsTrigger value="labor">Labor</TabsTrigger>
+                    {canManageVehicleData ? <TabsTrigger value="vehicle-data">Vehicle data</TabsTrigger> : null}
                     {canManageTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
                     <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>
                 </TabsList>
@@ -497,6 +503,12 @@ export default function SettingsPage() {
                 <TabsContent value="labor" className="space-y-6">
                     <LaborCategoriesTab />
                 </TabsContent>
+
+                {canManageVehicleData ? (
+                    <TabsContent value="vehicle-data" className="space-y-6">
+                        <VehicleDataSettingsTab />
+                    </TabsContent>
+                ) : null}
 
                 {/* ── Team Tab ── */}
                 {canManageTeam ? (

@@ -1,5 +1,6 @@
 import { CatalogOemConcernCode, Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
 import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 
@@ -196,10 +197,25 @@ export async function seedVehicleCatalogProviders(
   const concernByCode = new Map(
     existingConcerns.map((concern) => [concern.code, concern]),
   );
-  const missingConcernCodes = OEM_CONCERN_CODES.filter(
-    (code) => !concernByCode.has(code),
-  );
-  const createdConcerns = await chunkedPromiseAll(missingConcernCodes, (code) =>
+  const concernAdapterIds: Record<
+    CatalogOemConcernCode,
+    { parts_adapter_id: string; labor_adapter_id: string }
+  > = {
+    BMW: {
+      parts_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_BMW_PARTS,
+      labor_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_BMW_LABOR,
+    },
+    MERCEDES: {
+      parts_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_MERCEDES_PARTS,
+      labor_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_MERCEDES_LABOR,
+    },
+    STELLANTIS: {
+      parts_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_STELLANTIS_PARTS,
+      labor_adapter_id: SANDBOX_CATALOG_ADAPTER_IDS.OEM_STELLANTIS_LABOR,
+    },
+  };
+
+  const createdConcerns = await chunkedPromiseAll(OEM_CONCERN_CODES, (code) =>
     prisma.catalogOemConcern.upsert({
       where: {
         tenant_id_code: {
@@ -211,6 +227,7 @@ export async function seedVehicleCatalogProviders(
       create: {
         tenant_id: tenantId,
         code,
+        ...concernAdapterIds[code],
       },
       select: { id: true, code: true },
     }),
@@ -257,7 +274,13 @@ export async function seedVehicleCatalogProviders(
   await prisma.catalogProviderSettings.upsert({
     where: { tenant_id: tenantId },
     update: {},
-    create: { tenant_id: tenantId },
+    create: {
+      tenant_id: tenantId,
+      default_parts_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+      default_labor_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
+    },
   });
 
   return {

@@ -316,29 +316,34 @@ model VehicleMakeAlias {
 // ============================================================================
 
 model CatalogItem {
-  id               String                 @id @default(uuid())
-  tenant_id        String
-  tenant           Tenant                 @relation(fields: [tenant_id], references: [id])
-  sku              String
-  name             String
-  cost_price       Decimal                @db.Decimal(10, 2)
-  retail_price     Decimal                @db.Decimal(10, 2)
-  unit             String                 @default("pcs")
-  specs            Json?
-  superseded_by_id String?
-  superseded_by    CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
-  supersedes       CatalogItem[]          @relation("Supersession")
-  revenue_group_id Int?
-  revenue_group    RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
-  brand_id         Int?                   @map("brand_id")
-  brand            Brand?                 @relation(fields: [brand_id], references: [id])
-  stocks           InventoryStock[]
-  transactions     InventoryTransaction[]
+  id                  String                 @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                 @relation(fields: [tenant_id], references: [id])
+  sku                 String
+  name                String
+  cost_price          Decimal?               @db.Decimal(10, 2)
+  retail_price        Decimal                @db.Decimal(10, 2)
+  unit                String                 @default("pcs")
+  source_system       String?
+  external_article_id String?
+  ean                 String?
+  oem_numbers         Json?
+  specs               Json?
+  superseded_by_id    String?
+  superseded_by       CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
+  supersedes          CatalogItem[]          @relation("Supersession")
+  revenue_group_id    Int?
+  revenue_group       RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
+  brand_id            Int?                   @map("brand_id")
+  brand               Brand?                 @relation(fields: [brand_id], references: [id])
+  stocks              InventoryStock[]
+  transactions        InventoryTransaction[]
   purchase_order_items PurchaseOrderItem[]
-  invoice_items    InvoiceItem[]
-  sales_order_items SalesOrderItem[]
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  invoice_items       InvoiceItem[]
+  sales_order_items   SalesOrderItem[]
+  workshop_task_line_items WorkshopTaskLineItem[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([tenant_id])
   @@unique([tenant_id, sku]) // tenant-scoped
@@ -1348,6 +1353,7 @@ model WorkshopTask {
   labor_entries     LaborEntry[]
   media             WorkshopMedia[]
   voice_note_drafts WorkshopVoiceNoteDraft[]
+  line_items_version Int               @default(0)
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -1374,6 +1380,17 @@ model WorkshopTaskLineItem {
   description       String
   quantity          Decimal              @db.Decimal(10, 2)
   unit_price        Decimal              @db.Decimal(10, 2)
+  catalog_item_id   String?
+  catalog_item      CatalogItem?         @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source_system     String?
+  external_operation_code String?
+  fitment_notes     String?
+  cost_price_est    Decimal?             @db.Decimal(10, 2)
+  oem_numbers       Json?
+  labor_category_id String?              @db.Uuid
+  labor_category    LaborCategory?       @relation(fields: [labor_category_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hourly_rate_snapshot Decimal?          @db.Decimal(10, 2)
+  catalog_hit_jti   String?
   labor_operation_id String?             @db.Uuid
   labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   standard_aw        Decimal?            @db.Decimal(10, 2)
@@ -1386,6 +1403,8 @@ model WorkshopTaskLineItem {
   @@map("workshop_task_line_items")
   @@index([tenant_id])
   @@index([labor_operation_id])
+  @@index([catalog_item_id])
+  @@index([labor_category_id])
   @@index([tenant_id, type, part_execution_status], map: "idx_workshop_task_line_items_part_status")
 }
 
@@ -1592,9 +1611,11 @@ model LaborCategory {
   children            LaborCategory[]   @relation("CategoryHierarchy")
   is_active           Boolean           @default(true)
   default_hourly_rate Decimal?          @db.Decimal(10, 2)
+  default_internal_cost_rate Decimal?   @db.Decimal(10, 2)
 
   labor_operations    LaborOperation[]
   catalogProviderSettings CatalogProviderSettings[]
+  workshop_task_line_items WorkshopTaskLineItem[]
 
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt

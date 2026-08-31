@@ -52,6 +52,11 @@ export type FinanceSettings = OpenApiSchemas['FinanceSettingsResponseDto']
 export type RevenueGroup = OpenApiSchemas['RevenueGroupResponseDto']
 export type RevenueAnalytics = OpenApiSchemas['RevenueAnalyticsResponseDto']
 
+export type CatalogProviderSettings = OpenApiSchemas['CatalogProviderSettingsResponseDto']
+export type CatalogProviderOemConcern = CatalogProviderSettings['oemConcerns'][number]
+export type UpdateCatalogProviderSettingsPayload =
+  OpenApiSchemas['UpdateCatalogProviderSettingsDto']
+
 export type WorkshopOrderStatus = OpenApiSchemas['WorkshopOrderResponseDto']['status']
 export type WorkshopTaskStatus = OpenApiSchemas['WorkshopTaskResponseDto']['status']
 export type WorkshopLineItemType = OpenApiSchemas['WorkshopTaskLineItemResponseDto']['type']
@@ -123,6 +128,14 @@ export type LaborOperationDetail = OpenApiSchemas['LaborOperationResponseDto']
 
 export type CatalogPartSearchItem = OpenApiSchemas['CatalogPartSearchItemDto']
 export type CatalogSearchResponse = OpenApiSchemas['CatalogSearchResponseDto']
+
+export type CatalogSearchConcern = 'PARTS' | 'LABOR'
+export type CatalogSearchSource = 'AUTO' | 'OEM' | 'AFTERMARKET'
+export type CatalogExternalSearchResponse = OpenApiSchemas['CatalogExternalSearchResponseDto']
+export type CatalogExternalPartsItem = OpenApiSchemas['CatalogExternalPartsItemDto']
+export type CatalogExternalLaborItem = OpenApiSchemas['CatalogExternalLaborItemDto']
+export type CatalogAssemblyGroupsResponse = OpenApiSchemas['CatalogAssemblyGroupsResponseDto']
+export type CatalogAssemblyGroupNode = OpenApiSchemas['CatalogAssemblyGroupNodeDto']
 
 export type CreateWorkshopOrderPayload = OpenApiSchemas['CreateWorkshopOrderDto']
 export type RegisterIntakePayload = OpenApiSchemas['RegisterIntakeDto']

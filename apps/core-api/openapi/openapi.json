@@ -4690,6 +4690,120 @@
         ]
       }
     },
+    "/api/catalog/external/search": {
+      "get": {
+        "operationId": "CatalogController_externalSearch",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "concern",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PARTS",
+                "LABOR"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "AUTO",
+              "type": "string",
+              "enum": [
+                "AUTO",
+                "OEM",
+                "AFTERMARKET"
+              ]
+            }
+          },
+          {
+            "name": "confirmFallback",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogExternalSearchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/catalog/external/assembly-groups": {
+      "get": {
+        "operationId": "CatalogController_externalAssemblyGroups",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "concern",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PARTS"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogAssemblyGroupsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/vehicles": {
       "get": {
         "operationId": "VehicleController_findAll",
@@ -6162,6 +6276,56 @@
         },
         "tags": [
           "tenant-members"
+        ]
+      }
+    },
+    "/api/settings/catalog-providers": {
+      "get": {
+        "operationId": "CatalogProviderSettingsController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProviderSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "operationId": "CatalogProviderSettingsController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCatalogProviderSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProviderSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "settings"
         ]
       }
     },
@@ -11891,6 +12055,98 @@
           }
         }
       },
+      "CatalogExternalPartsItemDto": {
+        "type": "object",
+        "properties": {
+          "externalId": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "articleNumber": {
+            "type": "string"
+          },
+          "brandLabel": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "costPriceEst": {
+            "type": "number",
+            "nullable": true
+          },
+          "ean": {
+            "type": "string",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "fitmentNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "oemNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hitToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalId",
+          "sourceSystem",
+          "name",
+          "articleNumber",
+          "brandLabel",
+          "unitPrice",
+          "hitToken"
+        ]
+      },
+      "CatalogExternalLaborItemDto": {
+        "type": "object",
+        "properties": {
+          "externalId": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "externalOperationCode": {
+            "type": "string"
+          },
+          "standardAw": {
+            "type": "number",
+            "nullable": true
+          },
+          "plannedHours": {
+            "type": "number",
+            "nullable": true
+          },
+          "hitToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalId",
+          "sourceSystem",
+          "name",
+          "externalOperationCode",
+          "hitToken"
+        ]
+      },
       "CatalogLaborSearchItemDto": {
         "type": "object",
         "properties": {
@@ -12014,6 +12270,105 @@
           "labor",
           "parts",
           "meta"
+        ]
+      },
+      "CatalogExternalSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "concern": {
+            "type": "string",
+            "enum": [
+              "PARTS",
+              "LABOR"
+            ]
+          },
+          "sourceUsed": {
+            "type": "string",
+            "enum": [
+              "OEM",
+              "AFTERMARKET"
+            ]
+          },
+          "oemStatus": {
+            "type": "string",
+            "enum": [
+              "HIT",
+              "EMPTY",
+              "ERROR",
+              "NOT_CONFIGURED"
+            ]
+          },
+          "fallbackRequired": {
+            "type": "boolean"
+          },
+          "fallbackReason": {
+            "type": "string",
+            "enum": [
+              "EMPTY",
+              "ERROR"
+            ],
+            "nullable": true
+          },
+          "retryOemAvailable": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CatalogExternalPartsItemDto"
+                },
+                {
+                  "$ref": "#/components/schemas/CatalogExternalLaborItemDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "concern",
+          "sourceUsed",
+          "oemStatus",
+          "fallbackRequired",
+          "fallbackReason",
+          "retryOemAvailable",
+          "items"
+        ]
+      },
+      "CatalogAssemblyGroupNodeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogAssemblyGroupNodeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CatalogAssemblyGroupsResponseDto": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogAssemblyGroupNodeDto"
+            }
+          }
+        },
+        "required": [
+          "groups"
         ]
       },
       "VehiclePaginatedResponseDto": {
@@ -13490,6 +13845,235 @@
           },
           "isActive": {
             "type": "boolean"
+          }
+        }
+      },
+      "CatalogProviderDefaultLaborCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "General Workshop"
+          },
+          "defaultHourlyRate": {
+            "type": "number",
+            "description": "Default hourly selling rate for this category.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CatalogProviderMemberMakeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Peugeot"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CatalogProviderOemConcernResponseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "BMW",
+              "MERCEDES",
+              "STELLANTIS"
+            ],
+            "example": "STELLANTIS"
+          },
+          "partsAdapterId": {
+            "type": "string",
+            "description": "OEM parts adapter id for this concern.",
+            "nullable": true
+          },
+          "laborAdapterId": {
+            "type": "string",
+            "description": "OEM labor adapter id for this concern.",
+            "nullable": true
+          },
+          "hasPartsCredential": {
+            "type": "boolean",
+            "description": "Whether OEM parts credentials are configured in tenant secrets."
+          },
+          "hasLaborCredential": {
+            "type": "boolean",
+            "description": "Whether OEM labor credentials are configured in tenant secrets."
+          },
+          "memberMakes": {
+            "description": "Vehicle-make brands assigned to this OEM concern.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogProviderMemberMakeDto"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "hasPartsCredential",
+          "hasLaborCredential",
+          "memberMakes"
+        ]
+      },
+      "CatalogProviderSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "defaultIdentityAdapterId": {
+            "type": "string",
+            "description": "Default vehicle identity adapter id.",
+            "nullable": true
+          },
+          "defaultPartsAftermarketAdapterId": {
+            "type": "string",
+            "description": "Default aftermarket parts adapter id.",
+            "nullable": true
+          },
+          "defaultLaborAftermarketAdapterId": {
+            "type": "string",
+            "description": "Default aftermarket labor adapter id.",
+            "nullable": true
+          },
+          "defaultLaborCategoryId": {
+            "type": "string",
+            "description": "Default labor category used for external labor catalog hits.",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "defaultLaborCategory": {
+            "description": "Summary of the configured default labor category.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogProviderDefaultLaborCategoryDto"
+              }
+            ]
+          },
+          "awMinutes": {
+            "type": "number",
+            "description": "Minutes per AW (Arbeitswert) used when converting provider AW to hours.",
+            "example": 6
+          },
+          "hasIdentityCredential": {
+            "type": "boolean",
+            "description": "Whether identity provider credentials are configured in tenant secrets."
+          },
+          "hasPartsAftermarketCredential": {
+            "type": "boolean",
+            "description": "Whether aftermarket parts provider credentials are configured in tenant secrets."
+          },
+          "hasLaborAftermarketCredential": {
+            "type": "boolean",
+            "description": "Whether aftermarket labor provider credentials are configured in tenant secrets."
+          },
+          "oemConcerns": {
+            "description": "OEM concerns (BMW, Mercedes, Stellantis) and their member makes.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogProviderOemConcernResponseDto"
+            }
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "awMinutes",
+          "hasIdentityCredential",
+          "hasPartsAftermarketCredential",
+          "hasLaborAftermarketCredential",
+          "oemConcerns",
+          "updatedAt"
+        ]
+      },
+      "UpdateCatalogProviderOemConcernDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "BMW",
+              "MERCEDES",
+              "STELLANTIS"
+            ],
+            "example": "STELLANTIS"
+          },
+          "memberBrandIds": {
+            "description": "Vehicle-make brand ids assigned to this OEM concern.",
+            "example": [
+              1,
+              2,
+              3
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "memberBrandIds"
+        ]
+      },
+      "UpdateCatalogProviderSettingsDto": {
+        "type": "object",
+        "properties": {
+          "defaultIdentityAdapterId": {
+            "type": "string",
+            "description": "Default vehicle identity adapter id.",
+            "nullable": true
+          },
+          "defaultPartsAftermarketAdapterId": {
+            "type": "string",
+            "description": "Default aftermarket parts adapter id.",
+            "nullable": true
+          },
+          "defaultLaborAftermarketAdapterId": {
+            "type": "string",
+            "description": "Default aftermarket labor adapter id.",
+            "nullable": true
+          },
+          "defaultLaborCategoryId": {
+            "type": "string",
+            "description": "Default labor category used for external labor catalog hits.",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "awMinutes": {
+            "type": "number",
+            "description": "Minutes per AW (Arbeitswert). Must be a positive integer.",
+            "example": 6
+          },
+          "oemConcerns": {
+            "description": "OEM concern member-make assignments to upsert.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateCatalogProviderOemConcernDto"
+            }
           }
         }
       },

@@ -4,7 +4,7 @@ date: "2026-08-28"
 status: accepted
 deciders: "Product Owner, Architecture Team"
 linear-project: "https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b"
-linear-milestone: "M1 Vehicle identity & ephemeral search"
+linear-milestone: "M2 JIT parts & labor snapshot"
 tags:
   - adr
   - vehicle
@@ -20,7 +20,7 @@ tags:
 
 **Accepted** — 2026-08-28
 
-PO review (passes 1–12 on PR 446) approved the Feature Spec and this ADR as the implementation source of truth. M1 issues are cut next; Nest/React starts from those issues only.
+PO review (passes 1–12 on PR 446) approved the Feature Spec and this ADR as the implementation source of truth. M1 is Done (AUT-229–AUT-235). Implement M2 from AUT-236–AUT-240, then M3 from AUT-241–AUT-247; Nest/React starts from those issues only. M3 is blocked by remaining M2 schema/API issues (AUT-237–AUT-239).
 
 ## Context
 
@@ -218,5 +218,5 @@ Hit tokens are a complete signed `CatalogHitPayload` (HMAC, TTL ≤ 15 minutes):
 | Field | Value |
 |-------|-------|
 | Project | [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b) |
-| Milestone | M1 Vehicle identity & ephemeral search (issues AUT-229–AUT-235); M2–M3 later; M4 wholesaler later |
-| Issues | [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229) · [AUT-230](https://linear.app/auto-core-platform/issue/AUT-230) · [AUT-231](https://linear.app/auto-core-platform/issue/AUT-231) · [AUT-233](https://linear.app/auto-core-platform/issue/AUT-233) · [AUT-232](https://linear.app/auto-core-platform/issue/AUT-232) · [AUT-234](https://linear.app/auto-core-platform/issue/AUT-234) · [AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) |
+| Milestone | M1 Done (AUT-229–AUT-235); **M2 JIT parts & labor snapshot** (AUT-236–AUT-240); M3 Requisition, PO & reservations (AUT-241–AUT-247, blocked by AUT-237–AUT-239); M4 wholesaler later |
+| Issues | M2: [AUT-236](https://linear.app/auto-core-platform/issue/AUT-236) · [AUT-237](https://linear.app/auto-core-platform/issue/AUT-237) · [AUT-238](https://linear.app/auto-core-platform/issue/AUT-238) · [AUT-239](https://linear.app/auto-core-platform/issue/AUT-239) · [AUT-240](https://linear.app/auto-core-platform/issue/AUT-240). M3 (blocked): [AUT-241](https://linear.app/auto-core-platform/issue/AUT-241) · [AUT-242](https://linear.app/auto-core-platform/issue/AUT-242) · [AUT-243](https://linear.app/auto-core-platform/issue/AUT-243) · [AUT-244](https://linear.app/auto-core-platform/issue/AUT-244) · [AUT-245](https://linear.app/auto-core-platform/issue/AUT-245) · [AUT-246](https://linear.app/auto-core-platform/issue/AUT-246) · [AUT-247](https://linear.app/auto-core-platform/issue/AUT-247). M1: [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229)–[AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) |
