@@ -281,6 +281,76 @@ describe('CatalogProviderSettingsService', () => {
     ).rejects.toThrow(UnprocessableEntityException);
   });
 
+  it('rejects the same brand assigned to two concerns in one PATCH payload', async () => {
+    mockPrisma.catalogOemConcern.upsert.mockResolvedValue({});
+    mockPrisma.catalogProviderSettings.findFirst.mockResolvedValue({
+      id: 'settings-1',
+      tenant_id: tenantId,
+      default_identity_adapter_id: null,
+      default_parts_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+      default_labor_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
+      default_labor_category_id: null,
+      defaultLaborCategory: null,
+      aw_minutes: 6,
+      identity_credentials_secret_ref: null,
+      parts_aftermarket_credentials_secret_ref: null,
+      labor_aftermarket_credentials_secret_ref: null,
+      updatedAt: new Date('2026-08-28T00:00:00.000Z'),
+    });
+    mockPrisma.brand.findMany.mockResolvedValue([
+      { id: 10, isVehicleMake: true, name: 'BMW' },
+    ]);
+    mockPrisma.catalogOemConcernMake.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.updateSettings({
+        oemConcerns: [
+          { code: 'BMW', memberBrandIds: [10] },
+          { code: 'STELLANTIS', memberBrandIds: [10] },
+        ],
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+
+    expect(mockPrisma.catalogOemConcernMake.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate concern code entries in one PATCH payload', async () => {
+    mockPrisma.catalogOemConcern.upsert.mockResolvedValue({});
+    mockPrisma.catalogProviderSettings.findFirst.mockResolvedValue({
+      id: 'settings-1',
+      tenant_id: tenantId,
+      default_identity_adapter_id: null,
+      default_parts_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_PARTS,
+      default_labor_aftermarket_adapter_id:
+        SANDBOX_CATALOG_ADAPTER_IDS.AFTERMARKET_LABOR,
+      default_labor_category_id: null,
+      defaultLaborCategory: null,
+      aw_minutes: 6,
+      identity_credentials_secret_ref: null,
+      parts_aftermarket_credentials_secret_ref: null,
+      labor_aftermarket_credentials_secret_ref: null,
+      updatedAt: new Date('2026-08-28T00:00:00.000Z'),
+    });
+    mockPrisma.brand.findMany.mockResolvedValue([
+      { id: 10, isVehicleMake: true, name: 'Peugeot' },
+    ]);
+    mockPrisma.catalogOemConcernMake.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.updateSettings({
+        oemConcerns: [
+          { code: 'STELLANTIS', memberBrandIds: [10] },
+          { code: 'STELLANTIS', memberBrandIds: [10] },
+        ],
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+
+    expect(mockPrisma.catalogOemConcernMake.upsert).not.toHaveBeenCalled();
+  });
+
   it('rejects unknown labor category id', async () => {
     mockPrisma.catalogOemConcern.upsert.mockResolvedValue({});
     mockPrisma.laborCategory.findFirst.mockResolvedValue(null);

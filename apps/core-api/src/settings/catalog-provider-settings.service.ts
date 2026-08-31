@@ -269,8 +269,26 @@ export class CatalogProviderSettingsService {
         },
       });
 
+    const claimedBy = new Map<number, CatalogOemConcernCode>();
+    const seenCodes = new Set<CatalogOemConcernCode>();
     for (const update of updates) {
+      if (seenCodes.has(update.code)) {
+        throw new UnprocessableEntityException(
+          `OEM concern "${update.code}" appears more than once in the request.`,
+        );
+      }
+      seenCodes.add(update.code);
+
       for (const brandId of update.memberBrandIds) {
+        const payloadConflict = claimedBy.get(brandId);
+        if (payloadConflict && payloadConflict !== update.code) {
+          const brand = brandById.get(brandId);
+          throw new UnprocessableEntityException(
+            `Brand "${brand?.name ?? brandId}" cannot be assigned to both ${payloadConflict} and ${update.code}.`,
+          );
+        }
+        claimedBy.set(brandId, update.code);
+
         const assignment = existingAssignments.find(
           (row) => row.brand_id === brandId,
         );
