@@ -1858,6 +1858,22 @@ export interface paths {
         patch: operations["TenantMemberController_update"];
         trace?: never;
     };
+    "/api/settings/catalog-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CatalogProviderSettingsController_getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["CatalogProviderSettingsController_updateSettings"];
+        trace?: never;
+    };
     "/api/audit-logs": {
         parameters: {
             query?: never;
@@ -4057,6 +4073,105 @@ export interface components {
         UpdateTenantMemberDto: {
             role?: components["schemas"]["TenantMemberRole"];
             isActive?: boolean;
+        };
+        CatalogProviderDefaultLaborCategoryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example General Workshop */
+            name: string;
+            /** @description Default hourly selling rate for this category. */
+            defaultHourlyRate?: number | null;
+        };
+        CatalogProviderMemberMakeDto: {
+            /** @example 42 */
+            id: number;
+            /** @example Peugeot */
+            name: string;
+        };
+        CatalogProviderOemConcernResponseDto: {
+            /**
+             * @example STELLANTIS
+             * @enum {string}
+             */
+            code: "BMW" | "MERCEDES" | "STELLANTIS";
+            /** @description OEM parts adapter id for this concern. */
+            partsAdapterId?: string | null;
+            /** @description OEM labor adapter id for this concern. */
+            laborAdapterId?: string | null;
+            /** @description Whether OEM parts credentials are configured in tenant secrets. */
+            hasPartsCredential: boolean;
+            /** @description Whether OEM labor credentials are configured in tenant secrets. */
+            hasLaborCredential: boolean;
+            /** @description Vehicle-make brands assigned to this OEM concern. */
+            memberMakes: components["schemas"]["CatalogProviderMemberMakeDto"][];
+        };
+        CatalogProviderSettingsResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Default vehicle identity adapter id. */
+            defaultIdentityAdapterId?: string | null;
+            /** @description Default aftermarket parts adapter id. */
+            defaultPartsAftermarketAdapterId?: string | null;
+            /** @description Default aftermarket labor adapter id. */
+            defaultLaborAftermarketAdapterId?: string | null;
+            /**
+             * Format: uuid
+             * @description Default labor category used for external labor catalog hits.
+             */
+            defaultLaborCategoryId?: string | null;
+            /** @description Summary of the configured default labor category. */
+            defaultLaborCategory?: components["schemas"]["CatalogProviderDefaultLaborCategoryDto"] | null;
+            /**
+             * @description Minutes per AW (Arbeitswert) used when converting provider AW to hours.
+             * @example 6
+             */
+            awMinutes: number;
+            /** @description Whether identity provider credentials are configured in tenant secrets. */
+            hasIdentityCredential: boolean;
+            /** @description Whether aftermarket parts provider credentials are configured in tenant secrets. */
+            hasPartsAftermarketCredential: boolean;
+            /** @description Whether aftermarket labor provider credentials are configured in tenant secrets. */
+            hasLaborAftermarketCredential: boolean;
+            /** @description OEM concerns (BMW, Mercedes, Stellantis) and their member makes. */
+            oemConcerns: components["schemas"]["CatalogProviderOemConcernResponseDto"][];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateCatalogProviderOemConcernDto: {
+            /**
+             * @example STELLANTIS
+             * @enum {string}
+             */
+            code: "BMW" | "MERCEDES" | "STELLANTIS";
+            /**
+             * @description Vehicle-make brand ids assigned to this OEM concern.
+             * @example [
+             *       1,
+             *       2,
+             *       3
+             *     ]
+             */
+            memberBrandIds: number[];
+        };
+        UpdateCatalogProviderSettingsDto: {
+            /** @description Default vehicle identity adapter id. */
+            defaultIdentityAdapterId?: string | null;
+            /** @description Default aftermarket parts adapter id. */
+            defaultPartsAftermarketAdapterId?: string | null;
+            /** @description Default aftermarket labor adapter id. */
+            defaultLaborAftermarketAdapterId?: string | null;
+            /**
+             * Format: uuid
+             * @description Default labor category used for external labor catalog hits.
+             */
+            defaultLaborCategoryId?: string | null;
+            /**
+             * @description Minutes per AW (Arbeitswert). Must be a positive integer.
+             * @example 6
+             */
+            awMinutes?: number;
+            /** @description OEM concern member-make assignments to upsert. */
+            oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
         AuditLogResponseDto: {
             /** @description Audit log unique identifier */
@@ -8209,6 +8324,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantMemberResponseDto"];
+                };
+            };
+        };
+    };
+    CatalogProviderSettingsController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogProviderSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    CatalogProviderSettingsController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCatalogProviderSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogProviderSettingsResponseDto"];
                 };
             };
         };
