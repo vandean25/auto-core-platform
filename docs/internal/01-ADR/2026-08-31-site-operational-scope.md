@@ -61,6 +61,7 @@ Every new model stays tenant-scoped. Required unique keys so composite FKs compi
 - `StockTransfer`: `@@unique([tenant_id, id])` and `@@unique([tenant_id, id, from_site_id, to_site_id])`
 - `SiteMembership`: `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`
 - `WorkshopHoliday`: drop `@@unique([tenant_id, observed_on])`; add `@@unique([tenant_id, site_id, observed_on])` and `(tenant_id, site_id) → Site (tenant_id, id)`
+- `VehiclePurchase.location_id` at `RECEIVED` and dealer `Vehicle.location_id`: `(tenant_id, site_id, location_id) → StorageLocation (tenant_id, site_id, id)`
 - `User.active_site_id` is `(active_tenant_id, active_site_id) → Site (tenant_id, id)`, not a bare FK to `Site.id`
 
 Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot; a ledger row cannot claim Wien while pointing at a München location; a bin cannot parent under another site’s aisle.

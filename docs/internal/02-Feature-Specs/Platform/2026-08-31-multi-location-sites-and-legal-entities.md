@@ -315,6 +315,8 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 | `AuthSessionService.ensureActiveMembership` | Same helper when auto-repairing `active_tenant_id` (must not write tenant id alone). |
 | `PATCH` tenant-member `is_active=false` | Emit `site_access_scope_updated`; if that tenant is `active_tenant_id`, run the helper (null `active_site_id`, `site_context_updated`). |
 | `PATCH /api/vehicle-stock/:vehicleId` `location_id` | Same-site `vehicle_lot` only (ruling 40). Requires `expectedLocationId`. Cross-site lot → 422; use `POST .../move-site`. Stale source → 409. |
+| `POST /api/vehicle-purchases/:id/receive` | **422** unless `location_id` is a `vehicle_lot` of the purchase’s site. Composite FK as ruling 40. |
+| Operational creates / receipts / transfer writes / document site PATCH / vehicle move | Recheck target `Site.is_active` under the site-row lock (ruling 41). Inactive target → 422. |
 
 ### OpenAPI Regeneration
 
