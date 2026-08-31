@@ -349,7 +349,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 
 ## Open Questions
 
-None. Product rulings above are the decisions from the 2026-08-31 design review. Linear project for Multi-Location is not cut yet; Legal Invoicing Linear project stays paused.
+None. Product rulings above are the decisions from the 2026-08-31 design review. Multi-Location implementation issues are cut after spec approval. Legal Invoicing Linear project stays paused.
 
 ---
 
