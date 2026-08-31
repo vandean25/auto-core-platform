@@ -156,6 +156,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - **Tenant Isolation (Critical — Zero-Tolerance)**: Every Prisma query against a tenant-scoped model **must** include `tenant_id: tenantId` in its `where` clause. This applies to all read queries (`findMany`, `findFirst`, `findUnique`), write validation lookups, and any `include`/subquery that resolves a related entity the caller owns. Omitting `tenant_id` is a cross-tenant data leak vulnerability. The `tenantId` must be obtained from `this.tenantContext.getTenantId()` at the top of each service method — never trust an ID supplied directly from the request body for scoping. Tenant-scoped models are those with a `tenant_id` column (e.g., `Employee`, `Bay`, `Customer`, `Vehicle`, `WorkshopOrder`, `InventoryStock`, etc.).
   - 🔴 **DON'T:** `prisma.employee.findMany({ where: { role: 'MECHANIC' } })` — leaks employees from all tenants.
   - 🟢 **DO:** `prisma.employee.findMany({ where: { tenant_id: tenantId, role: 'MECHANIC' } })`
+- **Site operational scope (ADR-0022)**: `site_id` is **not** a second Prisma `$extends` filter. Operational models (bays, locations, planner, stock, site-owned documents) are queried with `{ tenant_id: tenantId, site_id: siteContext.getSiteId() }` or a named `listAcrossAuthorizedSites()` helper whose IDs come from `SiteMembership`. Do not take `?siteId=` as authorization. Do not infer a document’s site from the user’s current switcher. Tenant-wide models (catalog, customers, employees, …) have no `site_id`.
   
 ### API Conventions
 - **Prefix**: All endpoints are prefixed with `/api`.
@@ -238,6 +239,7 @@ The Playwright browser installation is required before the frontend UI smoke tes
 - **Supersession chains**: use self-referencing relations.
 - **Centralized Brands**: Uses `Brand` entity to standardize vehicle makes and part manufacturers.
 - **Row-level tenancy**: Tenant-scoped models include `tenant_id`. Every query against those models must filter by `tenant_id` from `TenantContextService`.
+- **Site operational scope**: Site-owned models also filter by `site_id` from `SiteContextService` (ADR-0022). Not a second tenant extension.
 - **Ledger-based Inventory**: Every stock movement is recorded in `InventoryTransaction`.
 - **Workshop**: `WorkshopOrder` / `WorkshopTask` job cards; parts pick writes inventory transfers.
 - **Vehicle stock**: `VehiclePurchase` / `VehicleSale` / `VehicleLedgerEntry` — dealer cars, not parts inventory.

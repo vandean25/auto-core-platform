@@ -55,6 +55,7 @@ stitch-downloads/
 
 # Docs
 docs/superpowers/
+.superpowers/
 
 # Worktrees
 .worktrees/

@@ -27,5 +27,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Proposed | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
 | ADR-0020 | HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday) | Accepted | 2026-08-22 | [2026-08-22-hr-time-and-leave.md](2026-08-22-hr-time-and-leave.md) |
 | ADR-0021 | Vehicle Intelligence — Provider Ports, JIT Catalog, Make-Based Routing | Accepted | 2026-08-28 | [2026-08-28-vehicle-intelligence-catalog-providers.md](2026-08-28-vehicle-intelligence-catalog-providers.md) |
+| ADR-0022 | Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged) | Proposed | 2026-08-31 | [2026-08-31-site-operational-scope.md](2026-08-31-site-operational-scope.md) |
 
-Next free number: **ADR-0022**.
+Next free number: **ADR-0023**.

@@ -13,6 +13,23 @@ This ERD represents the high-level relationships between the major domains in th
 
 ```mermaid
 erDiagram
+    TENANT ||--o{ LEGAL_ENTITY : owns
+    LEGAL_ENTITY ||--o{ SITE : operates
+    TENANT ||--o{ SITE : owns
+    SITE ||--o{ SITE_MEMBERSHIP : grants
+    USER ||--o{ SITE_MEMBERSHIP : holds
+    USER }o--o| SITE : active_site
+
+    SITE ||--o{ BAY : has
+    SITE ||--o{ STORAGE_LOCATION : has
+    SITE ||--o{ WORKSHOP_ORDER : books
+    SITE ||--o{ SALES_ORDER : sells
+    SITE ||--o{ PURCHASE_ORDER : receives_at
+    SITE ||--o{ VEHICLE_PURCHASE : lands
+    SITE ||--o{ VEHICLE_SALE : sells_from
+    SITE ||--o{ STOCK_TRANSFER : ships_from
+    SITE ||--o{ STOCK_TRANSFER : receives_into
+
     CUSTOMER ||--o{ SALES_ORDER : places
     CUSTOMER ||--o{ WORKSHOP_ORDER : requests
     CUSTOMER ||--o{ VEHICLE : owns
@@ -71,6 +88,9 @@ erDiagram
     VEHICLE_SALE ||--o{ VEHICLE_LEDGER_ENTRY : posts
     WORKSHOP_ORDER ||--o{ VEHICLE_LEDGER_ENTRY : capitalizes
 
+    STOCK_TRANSFER ||--|{ STOCK_TRANSFER_LINE : contains
+    STORAGE_LOCATION ||--o{ STOCK_TRANSFER_LINE : source_or_dest
+
     FINANCE_SETTINGS ||--o{ INVOICE_SEQUENCE : guards
     REVENUE_GROUP ||--o{ INVOICE_ITEM : categorizes
 
@@ -78,6 +98,13 @@ erDiagram
 ```
 
 ## Domain Legends
+
+### Platform (ADR-0022)
+
+- **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable.
+- **`Site`**: Physical shop. Owns bays, locations, planner hours, and site-owned documents. N:1 under `LegalEntity`.
+- **`SiteMembership`**: Which users may activate a site. Not employee home-site.
+- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Cross-entity moves are not warehouse transfers.
 
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
@@ -126,7 +153,7 @@ erDiagram
 
 ## References
 
-- ADR-0016: Vehicle Stock Is a Parallel Ledger Domain — VIN master + vehicle ledger; vehicles are not `CatalogItem` stock
+- ADR-0022: Site Is Request-Scoped Operational Ownership — `LegalEntity` / `Site` / `SiteMembership`; site rooms; same-GmbH `StockTransfer`
 - ADR-0002: Ledger-Based Inventory — defines the `InventoryTransaction` taxonomy and eager cache model
 - ADR-0003: Fiscal Lock Date — defines `FinanceSettings.lock_date` enforcement
 - ADR-0004: Invoice Snapshotting — defines field-level snapshots on `InvoiceItem` and `PurchaseInvoiceLine`
