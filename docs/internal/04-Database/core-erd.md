@@ -110,7 +110,7 @@ erDiagram
 
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
-- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). Optionally linked to Sales Orders (parts context) and Workshop Orders. Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`. Site of a parked dealer car is `location.site_id` (or `VehiclePurchase.site_id` when the lot is still null). Same-site lot PATCH; cross-site same-GmbH uses a named `move-site` operation.
+- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). Optionally linked to Sales Orders (parts context) and Workshop Orders. Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`. Parked dealer site is **lot-only** (`location.site_id`). `VehiclePurchase.vehicle_id` is not unique; do not resolve site from purchases. Receive requires a site-safe `vehicle_lot`. Same-site lot PATCH and cross-site `move-site` use `expectedLocationId` OCC.
 
 ### Inventory & Catalog
 - **`CatalogItem`**: The master product definition. Supports supersession chains (self-referencing relation) for replacement part tracking.
