@@ -84,6 +84,29 @@ export function useCreateVehicle() {
   })
 }
 
+export function useResolveVehicleIdentity() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (vehicleId: string) => {
+      const response = await fetchWithAuth(`/api/vehicles/${vehicleId}/resolve-identity`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ message: 'Failed to resolve vehicle identity' }))
+        throw new Error(payload.message || 'Failed to resolve vehicle identity')
+      }
+      return response.json() as Promise<Vehicle>
+    },
+    onSuccess: (vehicle) => {
+      queryClient.setQueryData(vehicleKeys.detail(vehicle.id), vehicle)
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+    },
+  })
+}
+
 export function useUpdateVehicle() {
   const queryClient = useQueryClient()
 

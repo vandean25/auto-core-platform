@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -32,6 +32,7 @@ export interface TaskListProps {
   isDeletingTask: boolean
   onSaveReportedIssue: (value: string) => void
   onSaveNotes: (value: string) => void
+  onOpenFitmentSearch?: (taskId: string) => void
 }
 
 export function TaskList({
@@ -52,6 +53,7 @@ export function TaskList({
   isDeletingTask,
   onSaveReportedIssue,
   onSaveNotes,
+  onOpenFitmentSearch,
 }: TaskListProps) {
   return (
     <>
@@ -128,6 +130,7 @@ export function TaskList({
               onTaskDelete={onTaskDelete}
               canDeleteTask={canDeleteTask}
               isDeletingTask={isDeletingTask}
+              onOpenFitmentSearch={onOpenFitmentSearch}
             />
           ))}
         </CardContent>
@@ -167,6 +170,7 @@ interface TaskAccordionRowProps {
   onTaskDelete: (taskId: string) => void
   canDeleteTask: boolean
   isDeletingTask: boolean
+  onOpenFitmentSearch?: (taskId: string) => void
 }
 
 function TaskAccordionRow({
@@ -182,6 +186,7 @@ function TaskAccordionRow({
   onTaskDelete,
   canDeleteTask,
   isDeletingTask,
+  onOpenFitmentSearch,
 }: TaskAccordionRowProps) {
   const lineItems: TaskLineItem[] = (task.lineItems ?? []).map((item, index) => ({
     id: item.id ?? `tmp-${task.id}-${index}`,
@@ -253,17 +258,32 @@ function TaskAccordionRow({
               <div className='text-sm font-semibold'>{task.title}</div>
               <div className='mt-1 text-xs text-muted-foreground'>Task details and estimate lines</div>
             </div>
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
-              className='h-8 text-destructive hover:text-destructive'
-              onClick={() => onTaskDelete(task.id)}
-              disabled={!canDeleteTask || isDeletingTask}
-            >
-              <Trash2 className='mr-1.5 h-3.5 w-3.5' />
-              Delete task
-            </Button>
+            <div className='flex items-center gap-2'>
+              {!isLocked && onOpenFitmentSearch && (
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='h-8'
+                  onClick={() => onOpenFitmentSearch(task.id)}
+                  data-testid='open-fitment-search-button'
+                >
+                  <Search className='mr-1.5 h-3.5 w-3.5' />
+                  Fitment search
+                </Button>
+              )}
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='h-8 text-destructive hover:text-destructive'
+                onClick={() => onTaskDelete(task.id)}
+                disabled={!canDeleteTask || isDeletingTask}
+              >
+                <Trash2 className='mr-1.5 h-3.5 w-3.5' />
+                Delete task
+              </Button>
+            </div>
           </div>
 
           <TaskLineItemEditor
