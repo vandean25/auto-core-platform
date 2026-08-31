@@ -4,7 +4,7 @@ date: "2026-08-28"
 module: "Vehicle"
 status: approved
 linear-project: "https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b"
-linear-milestone: "M3 Requisition, PO & reservations"
+linear-milestone: "M2 JIT parts & labor snapshot"
 tags:
   - feature-spec
   - vehicle
@@ -880,5 +880,5 @@ None blocking after review pass 12 (2026-08-28): requisition terminal states req
 | Field | Value |
 |-------|-------|
 | Project | [Vehicle Intelligence & Parts Catalog](https://linear.app/auto-core-platform/project/vehicle-intelligence-and-parts-catalog-bb669a797c7b) |
-| Milestone | M1 Done (AUT-229–AUT-235); M2 JIT (AUT-236–AUT-240); **M3 Requisition, PO & reservations** (AUT-241–AUT-247) |
-| Issues | M3: [AUT-241](https://linear.app/auto-core-platform/issue/AUT-241) (parent); [AUT-242](https://linear.app/auto-core-platform/issue/AUT-242) DB-3; [AUT-243](https://linear.app/auto-core-platform/issue/AUT-243) BE-6; [AUT-244](https://linear.app/auto-core-platform/issue/AUT-244) BE-7; [AUT-245](https://linear.app/auto-core-platform/issue/AUT-245) BE-8; [AUT-246](https://linear.app/auto-core-platform/issue/AUT-246) BE-9; [AUT-247](https://linear.app/auto-core-platform/issue/AUT-247) FE-4. M2: [AUT-236](https://linear.app/auto-core-platform/issue/AUT-236)–[AUT-240](https://linear.app/auto-core-platform/issue/AUT-240). M1 Done: [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229)–[AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) |
+| Milestone | M1 Done (AUT-229–AUT-235); **M2 JIT parts & labor snapshot** (AUT-236–AUT-240); M3 Requisition, PO & reservations (AUT-241–AUT-247, blocked by AUT-237–AUT-239) |
+| Issues | M2: [AUT-236](https://linear.app/auto-core-platform/issue/AUT-236) (parent); [AUT-237](https://linear.app/auto-core-platform/issue/AUT-237) DB-2; [AUT-238](https://linear.app/auto-core-platform/issue/AUT-238) BE-4; [AUT-239](https://linear.app/auto-core-platform/issue/AUT-239) BE-5; [AUT-240](https://linear.app/auto-core-platform/issue/AUT-240) FE-3. M3 (blocked): [AUT-241](https://linear.app/auto-core-platform/issue/AUT-241) (parent); [AUT-242](https://linear.app/auto-core-platform/issue/AUT-242) DB-3; [AUT-243](https://linear.app/auto-core-platform/issue/AUT-243) BE-6; [AUT-244](https://linear.app/auto-core-platform/issue/AUT-244) BE-7; [AUT-245](https://linear.app/auto-core-platform/issue/AUT-245) BE-8; [AUT-246](https://linear.app/auto-core-platform/issue/AUT-246) BE-9; [AUT-247](https://linear.app/auto-core-platform/issue/AUT-247) FE-4. M1 Done: [AUT-229](https://linear.app/auto-core-platform/issue/AUT-229)–[AUT-235](https://linear.app/auto-core-platform/issue/AUT-235) |
