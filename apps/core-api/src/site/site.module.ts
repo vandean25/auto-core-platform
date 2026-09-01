@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { SiteController } from './site.controller';
+import { LegalEntityController, SiteController } from './site.controller';
 import { SiteService } from './site.service';
 
 /**
@@ -10,7 +10,7 @@ import { SiteService } from './site.service';
 @Global()
 @Module({
   imports: [PrismaModule],
-  controllers: [SiteController],
+  controllers: [LegalEntityController, SiteController],
   providers: [SiteService],
   exports: [SiteService],
 })

@@ -5946,6 +5946,312 @@
         ]
       }
     },
+    "/api/legal-entities": {
+      "get": {
+        "operationId": "LegalEntityController_listLegalEntities",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List legal entities (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "post": {
+        "operationId": "LegalEntityController_createLegalEntity",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLegalEntityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/legal-entities/{id}": {
+      "patch": {
+        "operationId": "LegalEntityController_updateLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "delete": {
+        "operationId": "LegalEntityController_deleteLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete an unused legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/sites": {
+      "get": {
+        "operationId": "SiteController_listSites",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Active site directory or full list (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_createSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}": {
+      "get": {
+        "operationId": "SiteController_getSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a single site",
+        "tags": [
+          "sites"
+        ]
+      },
+      "patch": {
+        "operationId": "SiteController_updateSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "delete": {
+        "operationId": "SiteController_deleteSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete a pristine site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships": {
+      "get": {
+        "operationId": "SiteController_listSiteMemberships",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List site memberships",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_addSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships/{userId}": {
+      "delete": {
+        "operationId": "SiteController_removeSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
     "/api/platform/tenants": {
       "get": {
         "operationId": "PlatformAdminController_findAll",
@@ -6857,7 +7163,8 @@
               "bin",
               "customer_storage",
               "staging_tote",
-              "vehicle_lot"
+              "vehicle_lot",
+              "in_transit"
             ]
           },
           "parent_id": {
@@ -6908,7 +7215,8 @@
               "bin",
               "customer_storage",
               "staging_tote",
-              "vehicle_lot"
+              "vehicle_lot",
+              "in_transit"
             ]
           },
           "parent_id": {
@@ -6967,7 +7275,8 @@
               "bin",
               "customer_storage",
               "staging_tote",
-              "vehicle_lot"
+              "vehicle_lot",
+              "in_transit"
             ]
           },
           "parent_id": {
@@ -13483,6 +13792,22 @@
         "required": [
           "id"
         ]
+      },
+      "CreateLegalEntityDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSiteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSiteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateSiteMembershipDto": {
+        "type": "object",
+        "properties": {}
       },
       "TenantPlan": {
         "type": "string",

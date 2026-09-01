@@ -288,17 +288,22 @@ function selfReferences(models, selectedModels) {
       const model = models.find(
         (candidate) => candidate.name === relation.model,
       );
-      const columns = dbFields(
-        model,
-        relation.fields.filter(
-          (field) => model.fields.get(field)?.dbField !== 'tenant_id',
-        ),
+      const linkFields = relation.fields.filter(
+        (field) => model.fields.get(field)?.dbField !== 'tenant_id',
       );
-      const nullable = relation.fields
-        .filter((field) => model.fields.get(field)?.dbField !== 'tenant_id')
-        .every((field) => model.fields.get(field)?.nullable);
+      const columns = dbFields(model, linkFields);
+      // Tenant restore copies rows with the self-link stripped (NULLed), then
+      // re-links them from a staging table. Only NULLABLE link columns can be
+      // stripped; non-nullable grouping columns of a composite self-FK (e.g.
+      // storage_locations.site_id) are carried through as-is and are NOT part
+      // of the link/nullation set. A self-reference with no nullable column is
+      // un-restorable.
+      const linkColumns = dbFields(
+        model,
+        linkFields.filter((field) => model.fields.get(field)?.nullable),
+      );
 
-      if (!nullable) {
+      if (linkColumns.length === 0) {
         throw new Error(
           `Self-reference on ${model.table} must use nullable columns: ${columns.join(', ')}`,
         );
@@ -306,9 +311,9 @@ function selfReferences(models, selectedModels) {
 
       return {
         table: model.table,
-        columns,
+        columns: linkColumns,
         keyColumns: dbFields(model, model.keyFields),
-        nullable,
+        nullable: true,
       };
     })
     .filter((reference) => reference.columns.length > 0);
