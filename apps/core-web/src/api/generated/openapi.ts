@@ -788,6 +788,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopController_addTaskLineFromCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/pick-parts": {
         parameters: {
             query?: never;
@@ -1984,7 +2000,7 @@ export interface components {
             id: string;
             sku: string;
             name: string;
-            cost_price: string;
+            cost_price?: string | null;
             retail_price: string;
             unit: string;
             brand_id?: number | null;
@@ -2806,6 +2822,39 @@ export interface components {
         };
         CreateWorkshopTaskDto: {
             title: string;
+        };
+        AddWorkshopTaskLineFromCatalogDto: {
+            hitToken: string;
+            /** Format: uuid */
+            laborCategoryId?: string;
+        };
+        WorkshopCatalogLineItemResponseDto: {
+            id: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
+            itemNo: string;
+            description: string;
+            qty: number;
+            unitPrice: number;
+            /** @enum {string|null} */
+            partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
+            catalogItemId?: string | null;
+            sourceSystem?: string | null;
+            externalOperationCode?: string | null;
+            fitmentNotes?: string | null;
+            costPriceEst?: number | null;
+            oemNumbers?: string[] | null;
+            laborCategoryId?: string | null;
+            hourlyRateSnapshot?: number | null;
+            catalogHitJti?: string | null;
+            laborOperationId?: string | null;
+            standardAw?: number | null;
+            actualHours?: number | null;
+            internalCostRate?: number | null;
+        };
+        AddWorkshopTaskLineFromCatalogResponseDto: {
+            line: components["schemas"]["WorkshopCatalogLineItemResponseDto"];
+            lineItemsVersion: number;
         };
         PickWorkshopPartsLineDto: {
             /** Format: uuid */
@@ -6081,6 +6130,46 @@ export interface operations {
             };
         };
     };
+    WorkshopController_addTaskLineFromCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddWorkshopTaskLineFromCatalogDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddWorkshopTaskLineFromCatalogResponseDto"];
+                };
+            };
+            /** @description Invalid catalog hit token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Catalog hit context conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkshopController_pickParts: {
         parameters: {
             query?: never;
@@ -7325,6 +7414,7 @@ export interface operations {
         parameters: {
             query: {
                 workshopOrderId: string;
+                taskId: string;
                 concern: "PARTS" | "LABOR";
                 q?: string;
                 source?: "AUTO" | "OEM" | "AFTERMARKET";
@@ -7343,6 +7433,20 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CatalogExternalSearchResponseDto"];
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Workshop context conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

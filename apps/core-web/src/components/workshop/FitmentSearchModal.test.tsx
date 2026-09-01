@@ -186,6 +186,7 @@ describe('FitmentSearchModal', () => {
       expect.objectContaining({
         confirmFallback: true,
         q: 'missing-part',
+        taskId: 'task-1',
       }),
     )
     expect(screen.getByText('Filter Element')).toBeInTheDocument()
@@ -214,6 +215,7 @@ describe('FitmentSearchModal', () => {
       expect.objectContaining({
         source: 'AFTERMARKET',
         q: 'brake',
+        taskId: 'task-1',
       }),
     )
     expect(screen.getByText('Filter Element')).toBeInTheDocument()

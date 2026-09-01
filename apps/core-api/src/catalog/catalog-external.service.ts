@@ -42,6 +42,7 @@ export class CatalogExternalService {
 
   async search(params: {
     workshopOrderId: string;
+    taskId: string;
     concern: CatalogSearchConcern;
     q?: string;
     source?: CatalogSearchSource;
@@ -49,19 +50,21 @@ export class CatalogExternalService {
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const workshopOrderId = params.workshopOrderId.trim();
+    const taskId = params.taskId.trim();
     const concern = params.concern;
     const source = params.source ?? 'AUTO';
     const confirmFallback = params.confirmFallback ?? false;
     const query = params.q?.trim() ?? '';
 
-    if (!workshopOrderId) {
-      throw new BadRequestException('workshopOrderId is required');
+    if (!workshopOrderId || !taskId) {
+      throw new BadRequestException('workshopOrderId and taskId are required');
     }
 
     const { vehicle, settings, oemConcern, context } =
       await this.loadSearchContext({
         tenantId,
         workshopOrderId,
+        taskId,
         query,
       });
 
@@ -81,6 +84,7 @@ export class CatalogExternalService {
       items: this.attachHitTokens({
         tenantId,
         workshopOrderId,
+        taskId,
         vehicleId: vehicle.id,
         concern,
         items: result.items,
@@ -124,6 +128,7 @@ export class CatalogExternalService {
   private async loadSearchContext(params: {
     tenantId: string;
     workshopOrderId: string;
+    taskId?: string;
     query: string;
   }) {
     const workshopOrder = await this.prisma.workshopOrder.findFirst({
@@ -155,6 +160,22 @@ export class CatalogExternalService {
       throw new NotFoundException(
         `Workshop order ${params.workshopOrderId} was not found`,
       );
+    }
+
+    if (params.taskId) {
+      const task = await this.prisma.workshopTask.findFirst({
+        where: {
+          id: params.taskId,
+          tenant_id: params.tenantId,
+          workshop_order_id: params.workshopOrderId,
+        },
+        select: { id: true },
+      });
+      if (!task) {
+        throw new NotFoundException(
+          `Workshop task ${params.taskId} was not found`,
+        );
+      }
     }
 
     const vehicle = workshopOrder.vehicle;
@@ -233,6 +254,7 @@ export class CatalogExternalService {
   private attachHitTokens(params: {
     tenantId: string;
     workshopOrderId: string;
+    taskId: string;
     vehicleId: string;
     concern: CatalogSearchConcern;
     items: CatalogPartsHit[] | CatalogLaborHit[];
@@ -245,6 +267,7 @@ export class CatalogExternalService {
       const hitToken = this.createHitToken({
         tenantId: params.tenantId,
         workshopOrderId: params.workshopOrderId,
+        taskId: params.taskId,
         vehicleId: params.vehicleId,
         concern: params.concern,
         item,
@@ -258,6 +281,7 @@ export class CatalogExternalService {
   private createHitToken(params: {
     tenantId: string;
     workshopOrderId: string;
+    taskId: string;
     vehicleId: string;
     concern: CatalogSearchConcern;
     item: CatalogPartsHit | CatalogLaborHit;
@@ -267,6 +291,7 @@ export class CatalogExternalService {
       return signCatalogHitPayload({
         tenantId: params.tenantId,
         workshopOrderId: params.workshopOrderId,
+        taskId: params.taskId,
         vehicleId: params.vehicleId,
         concern: 'PARTS',
         sourceSystem: part.sourceSystem,
@@ -288,6 +313,7 @@ export class CatalogExternalService {
       return signCatalogHitPayload({
         tenantId: params.tenantId,
         workshopOrderId: params.workshopOrderId,
+        taskId: params.taskId,
         vehicleId: params.vehicleId,
         concern: 'LABOR',
         sourceSystem: labor.sourceSystem,

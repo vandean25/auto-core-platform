@@ -2854,6 +2854,60 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/tasks/{taskId}/lines/from-catalog": {
+      "post": {
+        "operationId": "WorkshopController_addTaskLineFromCatalog",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWorkshopTaskLineFromCatalogDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddWorkshopTaskLineFromCatalogResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid catalog hit token"
+          },
+          "409": {
+            "description": "Catalog hit context conflict"
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{id}/pick-parts": {
       "post": {
         "operationId": "WorkshopController_pickParts",
@@ -4703,6 +4757,14 @@
             }
           },
           {
+            "name": "taskId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "concern",
             "required": true,
             "in": "query",
@@ -4756,6 +4818,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Workshop context conflict"
           }
         },
         "tags": [
@@ -6810,7 +6878,8 @@
             "type": "string"
           },
           "cost_price": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "retail_price": {
             "type": "string"
@@ -6831,7 +6900,6 @@
           "id",
           "sku",
           "name",
-          "cost_price",
           "retail_price",
           "unit"
         ]
@@ -9825,6 +9893,136 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "AddWorkshopTaskLineFromCatalogDto": {
+        "type": "object",
+        "properties": {
+          "hitToken": {
+            "type": "string"
+          },
+          "laborCategoryId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "hitToken"
+        ]
+      },
+      "WorkshopCatalogLineItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "partExecutionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING_PICK",
+              "STAGED",
+              "CONSUMED",
+              "CANCELLED"
+            ],
+            "nullable": true
+          },
+          "catalogItemId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceSystem": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalOperationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fitmentNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "costPriceEst": {
+            "type": "number",
+            "nullable": true
+          },
+          "oemNumbers": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "laborCategoryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "hourlyRateSnapshot": {
+            "type": "number",
+            "nullable": true
+          },
+          "catalogHitJti": {
+            "type": "string",
+            "nullable": true
+          },
+          "laborOperationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "standardAw": {
+            "type": "number",
+            "nullable": true
+          },
+          "actualHours": {
+            "type": "number",
+            "nullable": true
+          },
+          "internalCostRate": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "itemNo",
+          "description",
+          "qty",
+          "unitPrice"
+        ]
+      },
+      "AddWorkshopTaskLineFromCatalogResponseDto": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/WorkshopCatalogLineItemResponseDto"
+          },
+          "lineItemsVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "line",
+          "lineItemsVersion"
         ]
       },
       "PickWorkshopPartsLineDto": {

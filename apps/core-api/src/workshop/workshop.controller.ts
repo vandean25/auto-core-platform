@@ -14,12 +14,14 @@ import {
   Res,
 } from '@nestjs/common';
 import {
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiProduces,
   ApiQuery,
   ApiResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
@@ -27,6 +29,7 @@ import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
 import { PdfWorker } from '../common';
 import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
 import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
+import { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto';
 import { RegisterIntakeDto } from './dto/register-intake.dto';
 import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
 import { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
@@ -38,6 +41,7 @@ import {
   WorkshopOrderResponseDto,
   WorkshopTaskResponseDto,
 } from './dto/workshop-response.dto';
+import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto';
 import { WorkshopSearchResponseDto } from './dto/workshop-search-response.dto';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
 import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto';
@@ -72,6 +76,7 @@ import { WorkshopPdfService } from './workshop-pdf.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
 
 @Controller('workshop')
 export class WorkshopController {
@@ -85,6 +90,7 @@ export class WorkshopController {
     private readonly settingsService: WorkshopSettingsService,
     private readonly holidayService: WorkshopHolidayService,
     private readonly plannerService: WorkshopPlannerService,
+    private readonly catalogLineService: WorkshopCatalogLineService,
   ) {}
 
   @Get('settings')
@@ -216,6 +222,19 @@ export class WorkshopController {
   @ApiCreatedResponse({ type: WorkshopTaskResponseDto })
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
     return this.taskService.createTask(id, dto);
+  }
+
+  @Post('orders/:id/tasks/:taskId/lines/from-catalog')
+  @HttpCode(200)
+  @ApiOkResponse({ type: AddWorkshopTaskLineFromCatalogResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid catalog hit token' })
+  @ApiConflictResponse({ description: 'Catalog hit context conflict' })
+  addTaskLineFromCatalog(
+    @Param('id') orderId: string,
+    @Param('taskId') taskId: string,
+    @Body() dto: AddWorkshopTaskLineFromCatalogDto,
+  ) {
+    return this.catalogLineService.addLineFromCatalog(orderId, taskId, dto);
   }
 
   @Post('orders/:id/pick-parts')

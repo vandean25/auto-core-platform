@@ -27,6 +27,10 @@ export class CatalogExternalSearchQueryDto {
   @IsString()
   workshopOrderId!: string;
 
+  @ApiProperty()
+  @IsString()
+  taskId!: string;
+
   @ApiProperty({ enum: ['PARTS', 'LABOR'] })
   @IsEnum(['PARTS', 'LABOR'] as const)
   concern!: CatalogSearchConcern;

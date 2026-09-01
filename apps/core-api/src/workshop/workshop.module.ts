@@ -16,6 +16,7 @@ import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopScheduleService } from './workshop-schedule.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
 import { WorkshopController } from './workshop.controller';
 
 @Module({
@@ -30,6 +31,7 @@ import { WorkshopController } from './workshop.controller';
   providers: [
     WorkshopIntakeService,
     WorkshopTaskService,
+    WorkshopCatalogLineService,
     WorkshopPickPartsService,
     WorkshopBoardService,
     WorkshopInvoiceService,

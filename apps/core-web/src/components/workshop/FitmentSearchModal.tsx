@@ -171,6 +171,7 @@ export function FitmentSearchModal({
       try {
         const response = await fetchExternalCatalogSearch({
           workshopOrderId,
+          taskId,
           concern: params.concern,
           q: params.query,
           source: params.source ?? 'AUTO',
@@ -211,7 +212,7 @@ export function FitmentSearchModal({
         }
       }
     },
-    [applySearchResult, clearConcernResult, isIdentityStale, workshopOrderId],
+    [applySearchResult, clearConcernResult, isIdentityStale, taskId, workshopOrderId],
   )
 
   useEffect(() => {
