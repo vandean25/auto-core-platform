@@ -360,8 +360,8 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 
 ### Transfers
 
-- List: transfers touching any site the user belongs to. Invalidated via **`user_{firebaseUid}`** transfer events **and** `site_access_scope_updated` on membership revoke (including non-active sites). Do not join every membership’s site room. List/detail **hide source bin** for dest-only members.
-- Detail: `GET /api/stock-transfers/:id`. Source-bin fields absent unless the session has from-site membership.
+- List: transfers touching any site the user belongs to. Invalidated via **`user_{firebaseUid}`** transfer events **and** `site_access_scope_updated` on membership revoke (including non-active sites). Do not join every membership’s site room. List/detail/**receive/return** **hide source bin** for dest-only members.
+- Detail: `GET /api/stock-transfers/:id`. Source-bin fields absent unless the session has from-site membership. Create and action POSTs use the same serializer.
 - Create: **From-site** = names-only directory (`GET /api/sites`). **To-site** = directory, default current site. Source-bin field omitted unless the caller has from-site membership. Memberships-only pickers are forbidden (they hide Wien from a München-only clerk).
 - Receive/return: qty fields; document stays Shipped until complete. Destination bin locked after the first receive on that line.
 
