@@ -5964,7 +5964,7 @@
             "description": ""
           }
         },
-        "summary": "List legal entities (OWNER/ADMIN)",
+        "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
         "tags": [
           "legal-entities"
         ]
@@ -13795,19 +13795,140 @@
       },
       "CreateLegalEntityDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "countryIso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "countryIso"
+        ]
+      },
+      "CreateSiteOpeningHourDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "example": "17:00"
+          }
+        },
+        "required": [
+          "weekday",
+          "isClosed",
+          "openTime",
+          "closeTime"
+        ]
       },
       "CreateSiteDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 60
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string"
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSiteOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "code",
+          "name"
+        ]
       },
       "UpdateSiteDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateSiteMembershipDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ]
       },
       "TenantPlan": {
         "type": "string",

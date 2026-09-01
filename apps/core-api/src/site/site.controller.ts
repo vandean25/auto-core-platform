@@ -23,10 +23,14 @@ export class LegalEntityController {
   constructor(private readonly siteService: SiteService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List legal entities (OWNER/ADMIN)' })
+  @ApiOperation({
+    summary: 'List legal entities (OWNER/ADMIN, includes inactive by default)',
+  })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   listLegalEntities(@Query('includeInactive') includeInactive?: string) {
-    return this.siteService.listLegalEntities(includeInactive === 'true');
+    // Ruling 53: GET /api/legal-entities includes inactive entities unless the
+    // caller explicitly hides them with includeInactive=false.
+    return this.siteService.listLegalEntities(includeInactive !== 'false');
   }
 
   @Post()

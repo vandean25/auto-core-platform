@@ -1,22 +1,25 @@
-import { INestApplication, ConflictException } from '@nestjs/common';
+import { INestApplication, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
+import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { LocationService } from '../src/inventory/location.service';
 import { SiteService } from '../src/site/site.service';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
+  createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
   type TestTenantResult,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
-
 describe('Multi-Location guards (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let authService: AuthService;
   let locationService: LocationService;
   let siteService: SiteService;
 
@@ -33,6 +36,7 @@ describe('Multi-Location guards (e2e)', () => {
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    authService = app.get<AuthService>(AuthService);
     locationService = app.get<LocationService>(LocationService);
     siteService = app.get<SiteService>(SiteService);
   });
@@ -258,6 +262,257 @@ describe('Multi-Location guards (e2e)', () => {
           siteService.guardSiteDeactivation(tenantA.tenantId, siteA.id),
         ),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('HTTP read authorization (P1-2 rulings 12/53)', () => {
+    it('GET /api/legal-entities includes inactive rows by default for OWNER/ADMIN', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const legalEntity = await tenantAPrisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId },
+      });
+      await tenantAPrisma.legalEntity.update({
+        where: { id: legalEntity.id },
+        data: { is_active: false },
+      });
+
+      const authHeader = `Bearer ${createTestAuthToken(authService, tenantA)}`;
+      const res = await request(app.getHttpServer())
+        .get('/legal-entities')
+        .set('Authorization', authHeader)
+        .expect(200);
+
+      expect(res.body.some((le: { id: string }) => le.id === legalEntity.id)).toBe(
+        true,
+      );
+    });
+
+    it('GET /api/legal-entities forbids non-admins', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const salesUser = await tenantAPrisma.user.create({
+        data: {
+          firebaseUid: `e2e-sales-http-${tenantA.tenantId}`,
+          email: `sales-http-${tenantA.tenantId}@example.com`,
+          active_tenant_id: tenantA.tenantId,
+          active_site_id: null,
+          memberships: {
+            create: {
+              tenant_id: tenantA.tenantId,
+              role: 'SALES',
+              is_active: true,
+            },
+          },
+        },
+      });
+
+      const authHeader = `Bearer ${createTestAuthToken(authService, {
+        ...tenantA,
+        firebaseUid: salesUser.firebaseUid,
+        email: salesUser.email,
+      })}`;
+      await request(app.getHttpServer())
+        .get('/legal-entities')
+        .set('Authorization', authHeader)
+        .expect(403);
+    });
+
+    it('GET /api/sites?includeInactive=true forbids non-admins', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const salesUser = await tenantAPrisma.user.create({
+        data: {
+          firebaseUid: `e2e-sales-http2-${tenantA.tenantId}`,
+          email: `sales-http2-${tenantA.tenantId}@example.com`,
+          active_tenant_id: tenantA.tenantId,
+          active_site_id: null,
+          memberships: {
+            create: {
+              tenant_id: tenantA.tenantId,
+              role: 'SALES',
+              is_active: true,
+            },
+          },
+        },
+      });
+
+      const authHeader = `Bearer ${createTestAuthToken(authService, {
+        ...tenantA,
+        firebaseUid: salesUser.firebaseUid,
+        email: salesUser.email,
+      })}`;
+      await request(app.getHttpServer())
+        .get('/sites?includeInactive=true')
+        .set('Authorization', authHeader)
+        .expect(403);
+    });
+  });
+
+  describe('vehicle-lot tenant-safety (P1-6)', () => {
+    it('rejects a Vehicle whose lot belongs to another tenant', async () => {
+      const siteB = await mainSite(tenantB.tenantId);
+      const lotB = await lotLocation(tenantB.tenantId, siteB.id);
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+
+      const attempt = tenantAPrisma.vehicle.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          inventory_role: 'USED',
+          stock_status: 'IN_STOCK',
+          location_id: lotB.id,
+        },
+      });
+
+      await expect(attempt).rejects.toMatchObject({ code: 'P2003' });
+    });
+  });
+
+  describe('site deactivation is rejected until the serialized guard lands (P1-3)', () => {
+    it('PATCH updateSite isActive=false is rejected', async () => {
+      const siteA = await mainSite(tenantA.tenantId);
+      await expect(
+        runWithTenantContext(tenantA.tenantId, () =>
+          siteService.updateSite(siteA.id, { isActive: false }),
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('site read authorization (P1-2)', () => {
+    it('directory listSites requires at least one active SiteMembership', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const noGrantUser = await tenantAPrisma.user.create({
+        data: {
+          firebaseUid: 'e2e-test-user',
+          email: `no-grant-${tenantA.tenantId}@example.com`,
+          active_tenant_id: tenantA.tenantId,
+          active_site_id: null,
+          memberships: {
+            create: {
+              tenant_id: tenantA.tenantId,
+              role: 'ADMIN',
+              is_active: true,
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      await expect(
+        runWithTenantContext(tenantA.tenantId, () => siteService.listSites()),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(noGrantUser.id).toBeDefined();
+    });
+
+    it('getSite requires membership or OWNER/ADMIN', async () => {
+      const siteA = await mainSite(tenantA.tenantId);
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const salesUser = await tenantAPrisma.user.create({
+        data: {
+          firebaseUid: 'e2e-sales-user',
+          email: `sales-${tenantA.tenantId}@example.com`,
+          active_tenant_id: tenantA.tenantId,
+          active_site_id: null,
+          memberships: {
+            create: {
+              tenant_id: tenantA.tenantId,
+              role: 'SALES',
+              is_active: true,
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      // Sales role with no site membership → Forbidden on getSite.
+      await expect(
+        runWithTenantContext(
+          tenantA.tenantId,
+          () => siteService.getSite(siteA.id),
+          { userId: 'e2e-sales-user', role: 'SALES' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(salesUser.id).toBeDefined();
+    });
+
+    it('getSite allows an active SiteMembership on that site', async () => {
+      const siteA = await mainSite(tenantA.tenantId);
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const siteMember = await tenantAPrisma.user.create({
+        data: {
+          firebaseUid: 'e2e-site-member',
+          email: `site-member-${tenantA.tenantId}@example.com`,
+          active_tenant_id: tenantA.tenantId,
+          active_site_id: null,
+          memberships: {
+            create: {
+              tenant_id: tenantA.tenantId,
+              role: 'SALES',
+              is_active: true,
+            },
+          },
+        },
+        select: { id: true },
+      });
+      await tenantAPrisma.siteMembership.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          user_id: siteMember.id,
+          site_id: siteA.id,
+          is_active: true,
+        },
+      });
+
+      const result = await runWithTenantContext(
+        tenantA.tenantId,
+        () => siteService.getSite(siteA.id),
+        { userId: 'e2e-site-member', role: 'SALES' },
+      );
+      expect(result.id).toBe(siteA.id);
+    });
+  });
+
+  describe('create-to-delete lifecycle (P2-5)', () => {
+    it('a pristine site created via createSite can be hard-deleted', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const legalEntity = await tenantAPrisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId },
+      });
+
+      const created = await runWithTenantContext(tenantA.tenantId, () =>
+        siteService.createSite({
+          legalEntityId: legalEntity.id,
+          code: 'TEST-SITE',
+          name: 'Test Site',
+        }),
+      );
+
+      const result = await runWithTenantContext(tenantA.tenantId, () =>
+        siteService.deleteSite(created.id),
+      );
+      expect(result).toEqual({ deleted: true });
+
+      const gone = await tenantAPrisma.site.findFirst({
+        where: { tenant_id: tenantA.tenantId, id: created.id },
+      });
+      expect(gone).toBeNull();
+    });
+  });
+
+  describe('all-inactive resolveDefaultSite regression (P1-8)', () => {
+    it('resolveDefaultSiteId fails when the tenant has no active site', async () => {
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      await tenantAPrisma.site.updateMany({
+        where: { tenant_id: tenantA.tenantId },
+        data: { is_active: false },
+      });
+
+      await expect(
+        runWithTenantContext(tenantA.tenantId, () =>
+          siteService.resolveDefaultSiteId(tenantA.tenantId),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

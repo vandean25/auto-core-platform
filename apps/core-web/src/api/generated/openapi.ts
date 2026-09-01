@@ -1767,7 +1767,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List legal entities (OWNER/ADMIN) */
+        /** List legal entities (OWNER/ADMIN, includes inactive by default) */
         get: operations["LegalEntityController_listLegalEntities"];
         put?: never;
         /** Create a legal entity (OWNER/ADMIN) */
@@ -4071,10 +4071,46 @@ export interface components {
             isActive?: boolean;
             deleted?: boolean;
         };
-        CreateLegalEntityDto: Record<string, never>;
-        CreateSiteDto: Record<string, never>;
-        UpdateSiteDto: Record<string, never>;
-        CreateSiteMembershipDto: Record<string, never>;
+        CreateLegalEntityDto: {
+            name: string;
+            /** @enum {string} */
+            countryIso: "AT" | "DE";
+        };
+        CreateSiteOpeningHourDto: {
+            weekday: number;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime: string;
+            /** @example 17:00 */
+            closeTime: string;
+        };
+        CreateSiteDto: {
+            legalEntityId: string;
+            code: string;
+            name: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            /** @example Europe/Vienna */
+            timezone?: string;
+            slotMinutes?: number;
+            /** @example AT */
+            holidayCountryIso?: string;
+            holidaySubdivisionCode?: string;
+            openingHours?: components["schemas"]["CreateSiteOpeningHourDto"][];
+        };
+        UpdateSiteDto: {
+            name?: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            isActive?: boolean;
+        };
+        CreateSiteMembershipDto: {
+            userId: string;
+        };
         /** @enum {string} */
         TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
         PlatformTenantResponseDto: {

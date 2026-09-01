@@ -220,6 +220,43 @@ fi
 echo "OK: migration rejected persisted ON_ORDER vehicle as required"
 
 # ---------------------------------------------------------------------------
+# 4b. failure-path verification: schema/data must be unchanged and rerunnable
+# ---------------------------------------------------------------------------
+step "Asserting failed migration left the schema/data unchanged"
+# The ON_ORDER preflight runs before ANY mutation, so no new types/tables may
+# exist yet (Prisma also rolls back the whole transaction on failure).
+TBL=$(psql_cmd "SELECT to_regclass('public.legal_entities');")
+[ "$TBL" = "NULL" ] || [ -z "$TBL" ] || fail "Expected legal_entities to NOT exist after failed preflight, got: $TBL"
+
+TBL=$(psql_cmd "SELECT to_regclass('public.sites');")
+[ "$TBL" = "NULL" ] || [ -z "$TBL" ] || fail "Expected sites to NOT exist after failed preflight, got: $TBL"
+
+# The legacy seed row must still be intact (no partial backfill).
+COUNT=$(psql_cmd "SELECT COUNT(*) FROM tenants WHERE id = 't-onorder';")
+[ "$COUNT" = "1" ] || fail "Legacy tenant row disappeared after failed migration"
+
+# Rerunnable: applying the migration after removing the bad row succeeds.
+# The failed attempt is recorded in _prisma_migrations; because the preflight
+# ran before ANY mutation, resolving it as rolled back is safe (nothing was
+# applied), then a fresh deploy re-runs the whole expand→backfill→contract.
+step "Asserting the migration is rerunnable after fixing the data"
+psql_cmd "DELETE FROM vehicles WHERE id = 'v-onorder';" >/dev/null
+(
+  cd "$APP"
+  npx prisma migrate resolve --rolled-back 20260901000000_multi_location_legal_entity_site >/dev/null 2>&1 || true
+)
+if ! (
+  cd "$APP"
+  npx prisma migrate deploy
+) >/dev/null 2>&1; then
+  fail "Migration was not rerunnable after the preflight blocker was removed"
+fi
+COUNT=$(psql_cmd "SELECT COUNT(*) FROM legal_entities WHERE tenant_id = 't-onorder';")
+[ "$COUNT" = "1" ] || fail "Rerun did not backfill a legal entity for tenant t-onorder"
+COUNT=$(psql_cmd "SELECT COUNT(*) FROM sites WHERE tenant_id = 't-onorder' AND code = 'MAIN';")
+[ "$COUNT" = "1" ] || fail "Rerun did not backfill a MAIN site for tenant t-onorder"
+
+# ---------------------------------------------------------------------------
 # 5. cleanup
 # ---------------------------------------------------------------------------
 psql_cmd "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null

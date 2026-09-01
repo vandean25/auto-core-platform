@@ -4,10 +4,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEFAULT_OPENING_HOURS } from '../workshop/workshop-hours.defaults';
 import {
   CreateLegalEntityDto,
   CreateSiteDto,
@@ -21,6 +23,11 @@ const SYSTEM_LOCATION_CODE = 'TRANSIT';
 const DEALER_STOCK_STATUSES = ['IN_STOCK', 'RESERVED', 'IN_PREP'] as const;
 const DEALER_INVENTORY_ROLES = ['USED', 'NEW', 'DEMO'] as const;
 
+const TIMEZONE_BY_COUNTRY: Record<string, string> = {
+  AT: 'Europe/Vienna',
+  DE: 'Europe/Berlin',
+};
+
 type TenantAdminUser = {
   role?: string;
 };
@@ -31,8 +38,10 @@ type TenantAdminUser = {
  * Covers:
  *  - LegalEntity / Site / SiteMembership creation with validation
  *  - immutable `Site.legal_entity_id`
- *  - deactivation + hard-delete guards matching docs/deletion-policy.md
- *  - system (`in_transit`, MAIN `LOT`) location delete guards
+ *  - read authorization per rulings 12/44/53
+ *  - deactivation is REJECTED until the serialized guard (ruling 41) lands
+ *  - hard-delete guards matching docs/deletion-policy.md
+ *  - system (`in_transit`) location delete guards
  *  - cross-tenant FK rejection via composite FKs (DB) and service checks
  */
 @Injectable()
@@ -46,7 +55,13 @@ export class SiteService {
   // LegalEntity
   // ---------------------------------------------------------------------------
 
-  async listLegalEntities(includeInactive = false) {
+  /**
+   * OWNER/ADMIN only. Includes inactive rows by default (ruling 53):
+   * `GET /api/legal-entities` lists active AND inactive entities unless the
+   * caller explicitly passes `includeInactive=false`.
+   */
+  async listLegalEntities(includeInactive = true) {
+    this.assertTenantAdmin();
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.legalEntity.findMany({
       where: {
@@ -145,35 +160,43 @@ export class SiteService {
   }
 
   // ---------------------------------------------------------------------------
-  // Site
+  // Site — reads (rulings 12/44/53)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Names-only active directory (default): any user with an active TenantMember
+   * AND at least one active SiteMembership may list active sites.
+   * `includeInactive=true` is OWNER/ADMIN and returns full rows (active and
+   * inactive) without requiring a SiteMembership (ruling 53).
+   */
   async listSites(includeInactive = false) {
     const tenantId = await this.tenantContext.getTenantId();
-    const rows = await this.prisma.site.findMany({
-      where: {
-        tenant_id: tenantId,
-        ...(includeInactive ? {} : { is_active: true }),
-      },
-      orderBy: [{ code: 'asc' }],
-      include: includeInactive
-        ? {
-            legal_entity: {
-              select: { id: true, name: true, country_iso: true },
-            },
-            openingHours: { orderBy: { weekday: 'asc' } },
-            _count: {
-              select: { memberships: true, bays: true, storageLocations: true },
-            },
-          }
-        : {
-            legal_entity: { select: { id: true, name: true } },
-          },
-    });
 
     if (includeInactive) {
-      return rows;
+      this.assertTenantAdmin();
+      return this.prisma.site.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: [{ code: 'asc' }],
+        include: {
+          legal_entity: {
+            select: { id: true, name: true, country_iso: true },
+          },
+          openingHours: { orderBy: { weekday: 'asc' } },
+          _count: {
+            select: { memberships: true, bays: true, storageLocations: true },
+          },
+        },
+      });
     }
+
+    await this.assertActiveMemberWithSiteAccess(tenantId);
+    const rows = await this.prisma.site.findMany({
+      where: { tenant_id: tenantId, is_active: true },
+      orderBy: [{ code: 'asc' }],
+      include: {
+        legal_entity: { select: { id: true, name: true } },
+      },
+    });
 
     // Names-only directory (ruling 12): { id, code, name, legalEntityId }
     return rows.map((site) => ({
@@ -185,8 +208,12 @@ export class SiteService {
     }));
   }
 
+  /**
+   * getSite requires an active SiteMembership on that site OR OWNER/ADMIN.
+   */
   async getSite(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    await this.assertSiteReadAccess(tenantId, id);
     const site = await this.prisma.site.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
@@ -213,6 +240,18 @@ export class SiteService {
     return site;
   }
 
+  // ---------------------------------------------------------------------------
+  // Site — writes
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a Site, its seven opening-hour rows, and its system in_transit
+   * location atomically (ruling 4/34/56). Defaults are derived from the legal
+   * entity's country (AT → Europe/Vienna + AT; DE → Europe/Berlin + DE) unless
+   * the DTO overrides them. No default LOT is created for new sites (a LOT is
+   * only a MAIN-backfill default when the tenant has none) so a pristine
+   * created site remains hard-deletable.
+   */
   async createSite(dto: CreateSiteDto) {
     this.assertTenantAdmin();
     const tenantId = await this.tenantContext.getTenantId();
@@ -220,13 +259,13 @@ export class SiteService {
     // POST /api/sites → 422 unless the legal entity is active (ruling 4)
     const legalEntity = await this.prisma.legalEntity.findFirst({
       where: { id: dto.legalEntityId, tenant_id: tenantId },
-      select: { id: true, is_active: true },
+      select: { id: true, is_active: true, country_iso: true },
     });
     if (!legalEntity) {
       throw new NotFoundException('Legal entity not found in this tenant');
     }
     if (!legalEntity.is_active) {
-      throw new ConflictException(
+      throw new UnprocessableEntityException(
         'Cannot create a site under an inactive legal entity. Reactivate the entity first.',
       );
     }
@@ -241,27 +280,50 @@ export class SiteService {
       );
     }
 
-    const site = await this.prisma.site.create({
-      data: {
-        tenant_id: tenantId,
-        legal_entity_id: legalEntity.id,
-        code: dto.code.trim(),
-        name: dto.name.trim(),
-        address_street: dto.addressStreet ?? null,
-        address_city: dto.addressCity ?? null,
-        address_zip: dto.addressZip ?? null,
-        address_country: dto.addressCountry ?? null,
-        timezone: 'Europe/Vienna',
-        slot_minutes: 30,
-        holiday_country_iso: 'AT',
-        is_active: true,
-      },
-    });
+    const country = legalEntity.country_iso;
+    const timezone =
+      dto.timezone ?? TIMEZONE_BY_COUNTRY[country] ?? 'Europe/Vienna';
+    const holidayCountry = dto.holidayCountryIso ?? country;
+    const slotMinutes = dto.slotMinutes ?? 30;
+    const openingHours: readonly {
+      weekday: number;
+      isClosed: boolean;
+      openTime: string;
+      closeTime: string;
+    }[] = dto.openingHours ?? DEFAULT_OPENING_HOURS;
 
-    // Every site gets its system in_transit location + a default LOT (ruling 34, 40)
-    await this.prisma.storageLocation.createMany({
-      data: [
-        {
+    return this.prisma.$transaction(async (tx) => {
+      const site = await tx.site.create({
+        data: {
+          tenant_id: tenantId,
+          legal_entity_id: legalEntity.id,
+          code: dto.code.trim(),
+          name: dto.name.trim(),
+          address_street: dto.addressStreet ?? null,
+          address_city: dto.addressCity ?? null,
+          address_zip: dto.addressZip ?? null,
+          address_country: dto.addressCountry ?? null,
+          timezone,
+          slot_minutes: slotMinutes,
+          holiday_country_iso: holidayCountry,
+          holiday_subdivision_code: dto.holidaySubdivisionCode ?? null,
+          is_active: true,
+        },
+      });
+
+      await tx.workshopOpeningHour.createMany({
+        data: openingHours.map((hour) => ({
+          tenant_id: tenantId,
+          site_id: site.id,
+          weekday: hour.weekday,
+          is_closed: hour.isClosed,
+          open_time: hour.openTime,
+          close_time: hour.closeTime,
+        })),
+        skipDuplicates: true,
+      });
+      await tx.storageLocation.create({
+        data: {
           tenant_id: tenantId,
           site_id: site.id,
           code: SYSTEM_LOCATION_CODE,
@@ -269,19 +331,10 @@ export class SiteService {
           type: SYSTEM_LOCATION_TYPE,
           is_system: true,
         },
-        {
-          tenant_id: tenantId,
-          site_id: site.id,
-          code: 'LOT',
-          name: 'Vehicle Lot',
-          type: 'vehicle_lot',
-          is_system: false,
-        },
-      ],
-      skipDuplicates: true,
-    });
+      });
 
-    return site;
+      return site;
+    });
   }
 
   async updateSite(id: string, dto: UpdateSiteDto) {
@@ -312,14 +365,21 @@ export class SiteService {
         select: { is_active: true },
       });
       if (!legalEntity?.is_active) {
-        throw new ConflictException(
+        throw new UnprocessableEntityException(
           'Cannot reactivate a site whose legal entity is inactive. Reactivate the entity first.',
         );
       }
     }
 
     if (dto.isActive === false) {
-      await this.guardSiteDeactivation(tenantId, id);
+      // Ruling 41 requires a serialized, lock-guarded deactivation (site-row
+      // lock, recheck of documents/transfers/qty/parked vehicles, coordinated
+      // locks in every targeting write, and clearing active_site_id). That
+      // contract ships with the SiteContext issue; until then, deactivation is
+      // rejected rather than exposed with a check-then-toggle race.
+      throw new ConflictException(
+        'Site deactivation is not yet available: it requires the serialized deactivation guard (ruling 41) which ships with the SiteContext follow-up.',
+      );
     }
 
     return this.prisma.site.update({
@@ -430,19 +490,21 @@ export class SiteService {
   }
 
   /**
-   * Resolves the tenant's MAIN (default) site. Falls back to the first active
-   * site ordered by code. Used by services that must stamp site_id but do not
-   * have a SiteContext yet (single-site legacy tenants have exactly one site).
+   * Resolves the tenant's default ACTIVE site. Used by services that must
+   * stamp site_id but do not have a SiteContext yet (single-site legacy
+   * tenants have exactly one active site). Fails when the tenant has no active
+   * site so BayService/LocationService/PurchaseService never stamp rows into an
+   * inactive target.
    */
   async resolveDefaultSiteId(tenantId: string): Promise<string> {
     const site = await this.prisma.site.findFirst({
-      where: { tenant_id: tenantId },
-      orderBy: [{ is_active: 'desc' }, { code: 'asc' }],
+      where: { tenant_id: tenantId, is_active: true },
+      orderBy: { code: 'asc' },
       select: { id: true },
     });
     if (!site) {
       throw new NotFoundException(
-        'No site exists for this tenant. Create a site before creating site-scoped records.',
+        'No active site exists for this tenant. Create or activate a site before creating site-scoped records.',
       );
     }
     return site.id;
@@ -450,8 +512,8 @@ export class SiteService {
 
   async resolveDefaultSite(tenantId: string) {
     return this.prisma.site.findFirst({
-      where: { tenant_id: tenantId },
-      orderBy: [{ is_active: 'desc' }, { code: 'asc' }],
+      where: { tenant_id: tenantId, is_active: true },
+      orderBy: { code: 'asc' },
     });
   }
 
@@ -460,6 +522,7 @@ export class SiteService {
   // ---------------------------------------------------------------------------
 
   async listSiteMemberships(siteId: string) {
+    this.assertTenantAdmin();
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertSiteInTenant(tenantId, siteId);
     return this.prisma.siteMembership.findMany({
@@ -490,7 +553,7 @@ export class SiteService {
       );
     }
     if (!member.is_active) {
-      throw new ConflictException(
+      throw new UnprocessableEntityException(
         'Cannot grant a site membership to an inactive TenantMember.',
       );
     }
@@ -568,17 +631,10 @@ export class SiteService {
   }
 
   /**
-   * Guard: site deactivation. Blocks when:
-   *   - on-hand or reserved qty exists at any site location
-   *   - a parked dealer vehicle's lot belongs to this site
-   * Document-site terminal checks arrive with the SiteContext issue (site_id
-   * is not yet stamped on workshop/sales/purchase/vehicle documents).
-   *
-   * Note: the ruling-41 serialization (site-row `SELECT … FOR UPDATE` plus
-   * recheck) is deferred to the SiteContext/operational-split issue. Prisma
-   * raw `$executeRaw` is banned by AUT-65, and a typed Prisma row lock needs
-   * the operational write paths that stamp site_id. Until then, deactivation
-   * and creates race exactly as they do today for tenant-level checks.
+   * Guard: site deactivation (ruling 41 will serialize this with every write
+   * that creates site-owned work). Currently not exposed via updateSite;
+   * kept for the SiteContext follow-up and for e2e coverage of the checks it
+   * does implement today (stock qty + parked dealer vehicles).
    */
   async guardSiteDeactivation(tenantId: string, siteId: string) {
     const [stockQty, parkedVehicles] = await Promise.all([
@@ -612,6 +668,73 @@ export class SiteService {
         'Cannot deactivate a site with parked dealer vehicles on a lot at this site.',
       );
     }
+  }
+
+  private async assertActiveMemberWithSiteAccess(tenantId: string) {
+    const currentUser = await this.resolveCurrentUser(tenantId);
+    if (!currentUser) {
+      throw new ForbiddenException('Active tenant membership is required.');
+    }
+    const siteGrant = await this.prisma.siteMembership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        user_id: currentUser.id,
+        is_active: true,
+      },
+      select: { id: true },
+    });
+    if (!siteGrant) {
+      throw new ForbiddenException(
+        'At least one active site membership is required.',
+      );
+    }
+  }
+
+  private async assertSiteReadAccess(tenantId: string, siteId: string) {
+    const user = this.tenantContext.getAuthenticatedUser() as
+      TenantAdminUser | undefined;
+    if (user && (user.role === 'OWNER' || user.role === 'ADMIN')) {
+      return;
+    }
+    const currentUser = await this.resolveCurrentUser(tenantId);
+    if (!currentUser) {
+      throw new ForbiddenException('Active tenant membership is required.');
+    }
+    const siteGrant = await this.prisma.siteMembership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        user_id: currentUser.id,
+        is_active: true,
+      },
+      select: { id: true },
+    });
+    if (!siteGrant) {
+      throw new ForbiddenException(
+        'An active site membership on this site is required.',
+      );
+    }
+  }
+
+  /** Resolves the authenticated user's relational User row in this tenant. */
+  private async resolveCurrentUser(tenantId: string) {
+    const authUser = this.tenantContext.getAuthenticatedUser() as
+      (TenantAdminUser & { userId?: string }) | undefined;
+    if (!authUser?.userId) {
+      return null;
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid: authUser.userId },
+      select: { id: true },
+    });
+    if (!user) {
+      return null;
+    }
+    const member = await this.prisma.tenantMember.findFirst({
+      where: { tenant_id: tenantId, user_id: user.id, is_active: true },
+      select: { id: true },
+    });
+    return member ? user : null;
   }
 
   private async assertSiteInTenant(tenantId: string, siteId: string) {

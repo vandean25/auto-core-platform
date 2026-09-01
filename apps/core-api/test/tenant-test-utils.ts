@@ -90,9 +90,16 @@ function buildTestTenantIdentity(tenantId: string) {
   } as const;
 }
 
-export function runWithTenantContext<T>(tenantId: string, fn: () => T): T {
+export function runWithTenantContext<T>(
+  tenantId: string,
+  fn: () => T,
+  identity?: { userId?: string; email?: string; role?: string },
+): T {
   return TenantContextStorage.run(() => {
-    TenantContextStorage.setUser(buildTestTenantIdentity(tenantId));
+    TenantContextStorage.setUser({
+      ...buildTestTenantIdentity(tenantId),
+      ...identity,
+    });
     return fn();
   });
 }
@@ -195,7 +202,10 @@ export async function seedTestTenantMember(
   await prisma.user.update({
     where: { id: params.userId },
     data: {
+      // Ruling 11: writing active_tenant_id must null active_site_id in the
+      // same update (or be absent) so the composite FK is never violated.
       active_tenant_id: params.tenantId,
+      active_site_id: null,
       memberships: {
         create: {
           tenant_id: params.tenantId,
@@ -258,6 +268,7 @@ export async function cleanupTestUsers(
         where: { id: userId },
         data: {
           active_tenant_id: null,
+          active_site_id: null,
           memberships: {
             deleteMany: {},
           },
