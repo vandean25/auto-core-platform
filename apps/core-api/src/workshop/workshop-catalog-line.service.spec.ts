@@ -431,6 +431,15 @@ describe('WorkshopCatalogLineService', () => {
 
     expect(mockPrisma.$queryRaw).toHaveBeenCalled();
     expect(mockPrisma.workshopTaskLineItem.findFirst).toHaveBeenCalled();
+
+    const [queryTemplate] = mockPrisma.$queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...string[],
+    ];
+    expect(Array.from(queryTemplate).join('')).toContain(
+      'WHERE id =  AND tenant_id = ',
+    );
+    expect(Array.from(queryTemplate).join('')).not.toContain('::uuid');
   });
 
   it('checks both deterministic SKU candidates in one bounded query', async () => {

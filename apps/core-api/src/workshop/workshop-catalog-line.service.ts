@@ -246,7 +246,7 @@ export class WorkshopCatalogLineService {
     >`
       SELECT id, status, purpose
       FROM workshop_orders
-      WHERE id = ${orderId}::uuid AND tenant_id = ${tenantId}::uuid
+      WHERE id = ${orderId} AND tenant_id = ${tenantId}
       FOR UPDATE
     `;
     const order = orders[0];
