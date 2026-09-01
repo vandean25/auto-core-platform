@@ -1,7 +1,7 @@
 ---
 title: "ADR-0022: Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged)"
 date: "2026-08-31"
-status: proposed
+status: accepted
 deciders: "Product Owner, Architecture Team"
 linear-project: ""
 linear-milestone: ""
@@ -18,9 +18,9 @@ tags:
 
 ## Status
 
-**Proposed** — 2026-08-31
+**Accepted** — 2026-08-31
 
-Product design for Multi-Location slice 1 (planner + stock + same-GmbH transfers) is locked. Nest/React starts only after the Feature Spec is approved and issues are cut.
+Approved at `6159dad` (PR 456). Product design for Multi-Location slice 1 (planner + stock + same-GmbH transfers) is locked. Nest/React starts only after implementation issues are cut.
 
 ## Context
 

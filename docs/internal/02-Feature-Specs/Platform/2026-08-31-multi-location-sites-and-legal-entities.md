@@ -2,7 +2,7 @@
 title: "Multi-Location Sites and Legal Entities"
 date: "2026-08-31"
 module: "Platform"
-status: draft
+status: approved
 linear-project: ""
 linear-milestone: ""
 tags:
