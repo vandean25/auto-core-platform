@@ -112,6 +112,7 @@ export class WorkshopCatalogLineService {
 
             this.assertCurrentBinding(task, claims, orderId);
             this.assertOrderEditable(task.workshop_order);
+            await this.lockEditableOrder(tx, tenantId, orderId);
 
             const existingLine = await tx.workshopTaskLineItem.findFirst({
               where: {
@@ -226,6 +227,35 @@ export class WorkshopCatalogLineService {
     ) {
       throw new ConflictException('Workshop order cannot be edited');
     }
+  }
+
+  private async lockEditableOrder(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    // This is the only request-scoped FOR UPDATE query. Typed Prisma reads
+    // cannot acquire row locks, and updating the order would emit a mutation.
+    // eslint-disable-next-line no-restricted-syntax -- Tenant-qualified lock required to close the status race without a write.
+    const orders = await tx.$queryRaw<
+      Array<{
+        id: string;
+        status: WorkshopOrderStatus;
+        purpose: WorkshopOrderPurpose;
+      }>
+    >`
+      SELECT id, status, purpose
+      FROM workshop_orders
+      WHERE id = ${orderId}::uuid AND tenant_id = ${tenantId}::uuid
+      FOR UPDATE
+    `;
+    const order = orders[0];
+    if (!order) {
+      throw new ConflictException(
+        'Workshop order changed while adding catalog line',
+      );
+    }
+    this.assertOrderEditable(order);
   }
 
   private async buildPartLine(params: {

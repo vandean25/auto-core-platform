@@ -72,6 +72,7 @@ describe('WorkshopCatalogLineService', () => {
   let service: WorkshopCatalogLineService;
   const mockPrisma = {
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     workshopTask: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
@@ -120,6 +121,13 @@ describe('WorkshopCatalogLineService', () => {
     mockPrisma.$transaction.mockImplementation(
       (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
     );
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: ORDER_ID,
+        status: WorkshopOrderStatus.INTAKE,
+        purpose: WorkshopOrderPurpose.CUSTOMER_REPAIR,
+      },
+    ]);
     mockPrisma.workshopTask.findFirst.mockResolvedValue(task);
     mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.workshopTaskLineItem.findFirst.mockResolvedValue(null);
@@ -400,13 +408,13 @@ describe('WorkshopCatalogLineService', () => {
       id: 'catalog-item-1',
       sku: 'SKU-1',
     });
-    mockPrisma.workshopTask.findFirst.mockResolvedValue({
-      ...task,
-      workshop_order: {
-        ...task.workshop_order,
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: ORDER_ID,
         status: WorkshopOrderStatus.INVOICED,
+        purpose: WorkshopOrderPurpose.CUSTOMER_REPAIR,
       },
-    });
+    ]);
 
     await expect(
       service.addLineFromCatalog(ORDER_ID, TASK_ID, {
@@ -414,6 +422,15 @@ describe('WorkshopCatalogLineService', () => {
       }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(mockPrisma.workshopTaskLineItem.create).not.toHaveBeenCalled();
+  });
+
+  it('locks the current order status before replay detection', async () => {
+    await service.addLineFromCatalog(ORDER_ID, TASK_ID, {
+      hitToken: createPartToken(),
+    });
+
+    expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.findFirst).toHaveBeenCalled();
   });
 
   it('checks both deterministic SKU candidates in one bounded query', async () => {
