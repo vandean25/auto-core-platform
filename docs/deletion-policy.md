@@ -19,7 +19,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SiteMembership | Yes | Hard delete allowed. If the row matches `User.active_site_id`, clear `active_site_id` atomically in the same transaction. |
 | StockTransfer | No | Operational/financial movement document; use `REJECTED` / `CANCELLED` / complete via receive+return. Never hard-delete after create. |
 | StockTransferLine | No direct delete | Managed by parent `StockTransfer` lifecycle. |
-| StockTransferCommand | No | Durable receive/return idempotency record. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Never deleted through ordinary APIs; tenant purge only. |
+| StockTransferCommand | No | Durable receive/return idempotency record. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Required `created_at`. Never deleted through ordinary APIs; tenant purge only. Unbounded in slice 1 — do **not** purge when the parent transfer is `COMPLETED`. A later retention spec may add a COMPLETED + N-days rule. |
 | VoiceTranslationSettings | No | Singleton tenant configuration record for voice translation; update in place only. |
 | CatalogProviderSettings | No | Singleton tenant configuration for identity/parts/labor adapters; update in place only. |
 | CatalogOemConcern | Conditional | Hard delete when no `CatalogOemConcernMake` rows remain. |

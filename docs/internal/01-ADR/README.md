@@ -24,7 +24,7 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0016 | Vehicle Stock Is a Parallel Ledger Domain | Proposed | 2026-08-15 | [2026-08-15-vehicle-stock-not-parts-inventory.md](2026-08-15-vehicle-stock-not-parts-inventory.md) |
 | ADR-0017 | Shared TypeScript 7 Compiler With TS 6 Tooling Shim | Accepted | 2026-08-18 (amended 2026-08-25) | [2026-08-18-typescript-5-9-shared-major.md](2026-08-18-typescript-5-9-shared-major.md) |
 | ADR-0018 | Workshop Planner Kanban Board (Real-Time Drag & Drop) | Proposed | 2026-04-18 | [2026-04-18-workshop-planner-kanban-board.md](2026-04-18-workshop-planner-kanban-board.md) |
-| ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Proposed | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
+| ADR-0019 | Workshop Planner Calendar (Time + Bay Occupancy) | Accepted | 2026-08-21 | [2026-08-21-workshop-planner-calendar.md](2026-08-21-workshop-planner-calendar.md) |
 | ADR-0020 | HR Time and Leave (Attendance ≠ Labor, Leave ≠ Shop Holiday) | Accepted | 2026-08-22 | [2026-08-22-hr-time-and-leave.md](2026-08-22-hr-time-and-leave.md) |
 | ADR-0021 | Vehicle Intelligence — Provider Ports, JIT Catalog, Make-Based Routing | Accepted | 2026-08-28 | [2026-08-28-vehicle-intelligence-catalog-providers.md](2026-08-28-vehicle-intelligence-catalog-providers.md) |
 | ADR-0022 | Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged) | Accepted | 2026-08-31 | [2026-08-31-site-operational-scope.md](2026-08-31-site-operational-scope.md) |

@@ -72,6 +72,8 @@ Free space is the inverse of those intervals against tenant opening hours. No `A
 
 New singleton `WorkshopSettings` + child `WorkshopOpeningHour` rows (one per weekday) + `WorkshopHoliday` rows (tenant-owned closed or short days). Do **not** hang operational hours off `FinanceSettings`. Fiscal lock date and invoice prefixes are a different concern.
 
+**Amendment (ADR-0022):** timezone, slot length, holiday country, opening hours, and holidays move off this tenant singleton onto **`Site`**. `GET`/`PUT /api/workshop/settings` stay those routes and become SiteContext read/write of the **current site**. The `workshop_settings` table is dropped in the Multi-Location **contract** migration after expand/backfill/validate. Unique `workshop_holidays` becomes `(tenant_id, site_id, observed_on)`. This ADR’s occupancy model is otherwise unchanged.
+
 Defaults for a new workshop tenant:
 
 - Timezone `Europe/Vienna`
@@ -182,6 +184,8 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 - [ADR-0018: Workshop Planner Kanban Board](2026-04-18-workshop-planner-kanban-board.md)
 - [ADR-0014: Mechanic Digital Repair Order Tablet RBAC](2026-04-27-mechanic-digital-repair-order-tablet-rbac.md) — `scheduled_date` is queue date, not booking time
 - [ADR-0013: Row-Level Multi-Tenancy](2026-04-15-row-level-multi-tenancy.md)
+- [ADR-0022: Site is request-scoped operational ownership](2026-08-31-site-operational-scope.md) — hours/holidays/timezone/slot on `Site`
+- [Feature Spec: Multi-Location Sites and Legal Entities](../02-Feature-Specs/Platform/2026-08-31-multi-location-sites-and-legal-entities.md)
 - [Feature Spec: Workshop Planner Calendar](../02-Feature-Specs/Workshop/2026-08-21-workshop-planner-calendar.md)
 - [OpenHolidays API](https://www.openholidaysapi.org/en/) — chosen public-holiday import
 - [Nager.Date](https://date.nager.at/api) — considered and rejected

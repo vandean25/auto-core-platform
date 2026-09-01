@@ -57,7 +57,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 1. **`tenant_id`** is the customer-security boundary. ADR-0013 and the Prisma tenant extension stay unchanged. Every new model is tenant-scoped. Composite tenant-safe relations: a site cannot reference another tenant’s legal entity; a document cannot reference another site’s bay, bin, or lot.
 2. **`site_id`** is operational ownership and visibility inside that customer. It is **not** a second RLS key in Prisma `$extends`.
-3. **`legal_entity_id`** is the future fiscal/accounting boundary. Slice 1 stores a thin entity (name, country `AT` \| `DE`, `is_active`) so transfers can require the same GmbH. No Steuernummer, UID, IBAN, or invoice number series here.
+3. **`legal_entity_id`** is the future fiscal/accounting boundary. Slice 1 stores a thin entity (name, country `AT` \| `DE`, `is_active`) so transfers can require the same GmbH. No Steuernummer, UID, IBAN, or invoice number series here. **Known limitation:** a tenant whose `WorkshopSettings.holiday_country_iso` is neither AT nor DE (e.g. `CH`) still gets a LegalEntity `country_iso = AT` (ruling 39 backfill). Slice 1 does not invent a second entity for that tenant; a later spec adds a real non-AT/DE LegalEntity when needed.
 4. **`Site.legal_entity_id` is immutable** after insert. Changing GmbH would silently rewrite historical transfers and future invoice issuer resolution. **Create and reactivate require an active parent entity:** `POST /api/sites` and `PATCH /api/sites/:id` `is_active=true` → **422** unless `LegalEntity.is_active`. Slice 1 has no atomic “reactivate entity + site” endpoint; reactivate the entity first.
 
 ### Membership vs employees
@@ -67,11 +67,18 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 
 ### Session and SiteContext
 
+Ruling numbers are **append-only** from review rounds (not sequential in this file). Implementation issues cite these numbers as locked; do not renumber.
+
 7. **`User.active_site_id`** is the session site. `SiteContextService` loads it and validates: active tenant, site belongs to that tenant, site `is_active`, **active `TenantMember` in that tenant**, and active `SiteMembership`. The composite FK on `site_memberships` proves a `TenantMember` **row** exists; it does **not** imply `TenantMember.is_active`. Operational APIs call `siteContext.getSiteId()` — never `?siteId=` or `X-Site-Id`. Sending `siteId` as a list filter on an operational endpoint is **400**.
 8. **`422 ACTIVE_SITE_REQUIRED`** only from **site-dependent operational APIs**. Tenant-wide APIs, `GET /me/sites`, and `PATCH /me/active-site` remain usable so the user can recover. `GET /me/sites` lists only activatable sites (ruling 47). Switching **never auto-selects** another site.
 9. **`PATCH /me/active-site`** transactionally validates tenant, site, active membership, and site activity, then updates the user. Success emits **`site_context_updated`** on that user’s private socket room with `{ siteId }` (or `null` when cleared). The room identity is the existing gateway prefix **`user_{firebaseUid}`** (`DashboardGateway.USER_ROOM_PREFIX`). `AuthenticatedUser.userId` and `socket.data.userId` are already the Firebase UID (`auth-session.service.ts` `buildSession`). **Do not** emit to `user_{User.id}` — `SiteMembership.user_id` is the relational UUID and that room has no sockets. **Every** socket for that user must leave the previous site room and join the new one (or no site room). Tenant-wide caches stay valid. The initiating tab is not special.
 10. Removing a `SiteMembership` that matches `User.active_site_id` **clears `active_site_id` atomically** (null) and emits `site_context_updated` (`siteId: null`). Deactivating the user’s active site does likewise. The user gets `ACTIVE_SITE_REQUIRED` on the next operational call until they PATCH a remaining site. **Any** membership grant, revoke, or deactivate — including a site that is **not** `active_site_id` — also emits **`site_access_scope_updated`** on `user_{firebaseUid}` so cached `GET /api/stock-transfers`, `GET /api/sites`, and `GET /me/sites` results are dropped. Resolve `User.firebaseUid` from `SiteMembership.user_id` before emit. **`TenantMember.is_active = false`** is the same class of event: emit `site_access_scope_updated`; if `User.active_tenant_id` is that tenant, run the shared tenant-change helper (ruling 11) so `active_site_id` is nulled in the same write (do not wait for the next session load).
-11. **Every mutation of `User.active_tenant_id` uses one shared helper.** Today both `POST /api/auth/switch-tenant` (`AuthController.switchTenant`; frontend `fetchWithAuth('/api/auth/switch-tenant')`) **and** `AuthSessionService.ensureActiveMembership` (auto-repair when the current tenant membership is missing) update `active_tenant_id` **alone**. After the composite FK `(active_tenant_id, active_site_id) → sites(tenant_id, id)`, leftover `active_site_id` from the previous tenant violates the constraint on **either** path. The helper **must** atomically set `active_tenant_id` **and** `active_site_id = null`. Never auto-pick a site in the destination tenant. Emit `site_context_updated` with `siteId: null` to every socket in `user_{firebaseUid}` (switch-tenant also keeps existing `auth:claims_updated`). Clients leave the old site room and invalidate site-scoped caches. Recovery: `GET /me/sites` then `PATCH /me/active-site`.
+11. **Every mutation of `User.active_tenant_id` uses one shared helper — that helper is the only production writer of the column.** Live code has **four** writers that today set `active_tenant_id` **alone**:
+    - `AuthSessionService.switchTenant` (`auth-session.service.ts`; `POST /api/auth/switch-tenant`)
+    - `AuthSessionService.ensureActiveMembership`
+    - `TenantMemberService` invite/create when the user has no active tenant (`tenant-member.service.ts` auto-assign)
+    - `TenantMemberService.syncUserClaims` — membership-deactivation / claims-reconcile (the path ruling 10 legislates)
+    After the composite FK `(active_tenant_id, active_site_id) → sites(tenant_id, id)`, leftover `active_site_id` from a previous tenant violates the constraint on **any** of these paths. The helper **must** atomically set `active_tenant_id` **and** `active_site_id = null`. Never auto-pick a site in the destination tenant. Emit `site_context_updated` with `siteId: null` to every socket in `user_{firebaseUid}` (switch-tenant also keeps existing `auth:claims_updated`). Seed scripts that write `active_tenant_id` must use the helper or include `active_site_id` in the same update. Static/e2e guard: no service writes `active_tenant_id` except through the helper. Recovery: `GET /me/sites` then `PATCH /me/active-site`.
 12. Named cross-site methods (`listAcrossAuthorizedSites()`, transfer APIs) derive permitted **operational** site IDs **only** from the caller’s **active `SiteMembership` rows joined to an active `TenantMember`**. They never accept an unrestricted caller-provided list. No generic “bypass site filtering” flag. **Exception — site directory (names only):** any user with at least one such grant may list active sites in the current tenant as `{ id, code, name, legalEntityId }` so a dest-only requester can name `from_site_id`. That directory **must not** include on-hand, bins, bays, or orders. Source locations remain from-site membership only. **Nested includes of site-owned models** (ruling 44) use this helper or `SiteContext` — never a tenant-only `include`.
 
 ### Document site ownership
@@ -122,7 +129,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
     - Receive: active membership on **to**.
     - Return-unreceived: membership on **to**, or **from** `OWNER`/`ADMIN`.
 33. **Ship availability** is atomic against `on_hand - reserved` at the source location, under the established stock locking order (ADR-0021: globally sorted ids, `SELECT … FOR UPDATE`). Reserved kit qty cannot ship.
-34. **In-transit:** each site has one system location `type = in_transit`, `code` deterministic (e.g. `TRANSIT`). Non-selectable, non-deletable, non-disableable; excluded from normal location lists and from ATP/kitting. Ship: `TRANSFER_OUT` source bin + `TRANSFER_IN` from-site in-transit; both rows `site_id = from_site_id`. Receive: `TRANSFER_OUT` from-site in-transit + `TRANSFER_IN` dest bin (`site_id = to_site_id`). Return: from-site in-transit back to the **original source bin**. The **source bin**, **from-site in-transit**, and **frozen dest bin** cannot be disabled or soft-deleted while transfer qty remains outstanding on that line (`shipped_qty > received_qty + returned_qty` for dest; remaining in-transit for source).
+34. **In-transit:** each site has one system location `type = in_transit`, `code` deterministic (e.g. `TRANSIT`). Non-selectable, non-deletable, non-disableable; excluded from normal location lists and from ATP/kitting. **Each ledger row’s `site_id` is the site of that row’s `location_id`** (composite FK). A pair-level `to_site_id` on a from-site location is unsatisfiable. Ship: `TRANSFER_OUT` source bin + `TRANSFER_IN` from-site in-transit — **both** `site_id = from_site_id`. Receive: `TRANSFER_OUT` from-site in-transit (`site_id = from_site_id`) + `TRANSFER_IN` dest bin (`site_id = to_site_id`). Return: `TRANSFER_OUT` from-site in-transit (`site_id = from_site_id`) + `TRANSFER_IN` original source bin (`site_id = from_site_id`). The **source bin**, **from-site in-transit**, and **frozen dest bin** cannot be disabled or soft-deleted while transfer qty remains outstanding on that line (`shipped_qty > received_qty + returned_qty` for dest; remaining in-transit for source).
 35. **Every movement pair** has a unique `movement_group_id` in addition to `reference_id` = transfer id, so partial receipts reconcile. **Cost basis** follows the stock through in-transit, receipt, and return (copy; do not re-read live catalog).
 36. Transfer mutations **publish to both endpoint site rooms** and to **`user_{firebaseUid}` of every user** with an **active `SiteMembership` and an active `TenantMember`** on from or to. Resolve Firebase UID from `SiteMembership.user_id` → `User.firebaseUid`; emitting to the relational UUID reaches no socket. Do **not** select a site grant whose tenant membership is suspended. That keeps the cross-site transfer list current for a Salzburg-active user who also belongs to Wien. Do **not** join all membership site rooms on the operational board (that would mix Wien planner events into a Salzburg session). **Source-bin redaction is per recipient** (ruling 43): payloads sent to a socket whose user lacks active from-site membership omit source location identifiers/details. Do not broadcast one unredacted payload to mixed from/to rooms.
 
@@ -145,7 +152,14 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
     OWNER/ADMIN must complete, invoice, cancel (where the enum exists), sell, or **move** that work first (ruling 40 for vehicles). Slice 1 has **no** privileged “deactivate anyway / read-only completion” path. **`PATCH /api/legal-entities/:id` `is_active=false` is 422** while the entity has any `Site` with `is_active = true`. When site deactivation is allowed, clear `active_site_id` for users whose active site is this site and emit `site_context_updated` (`siteId: null`) plus `site_access_scope_updated`. Hard delete only for unused setup mistakes (see `docs/deletion-policy.md`). Pristine site hard-delete may internally remove its empty system transit location and hours/holiday config; that location remains forbidden from **direct** deletion APIs.
 39. Site hard-delete checks **transfers, ledger history, storage locations, memberships, bays, parked vehicles, and every site-owned document** — not only stock and bays.
 41. **Site deactivation is serialized with every write that can create new site-owned work or stock.** The `is_active=false` guard is not check-then-toggle. Deactivation `SELECT … FOR UPDATE`s the site row, rechecks transfers/documents/qty/parked vehicles, then toggles. Workshop/sales/PO/vehicle create, goods receipt, transfer create/approve/ship/receive, document site PATCH, and vehicle move/lot PATCH **recheck `Site.is_active` under that same site-row lock** at commit — `SiteContext` at request start is not enough. Two-site operations lock both sites in **globally sorted `site_id` order** (then vehicle/transfer ids). Every caller-supplied target site (directory id, `toSiteId`, document site PATCH) must be `is_active` or the write is **422**. Concurrent deactivate-vs-create/receipt/transfer/move: one 409/422 for the loser.
-42. **Do not merge this PR while the Feature Spec is `draft` or ADR-0022 is `Proposed`.** The commit at the approved head SHA (or the immediate follow-up on that SHA) sets Feature Spec frontmatter `status: approved` and ADR-0022 frontmatter + body plus the ADR index row to **Accepted**. This finding-lock commit keeps `draft` / `Proposed` so the repository does not claim approval before the review does.
+42. **Status gate (historical).** Feature Spec frontmatter is `approved` and ADR-0022 is **Accepted** as of the ruling-42 follow-up after approval at `6159dad`. Later finding-lock commits keep those statuses; they do not revert to `draft` / `Proposed`.
+50. **The tenant-change helper is the only production writer of `User.active_tenant_id`.** See ruling 11 for the four live call sites (`switchTenant`, `ensureActiveMembership`, `TenantMemberService` invite auto-assign, `syncUserClaims`). A Prisma `user.update` of `active_tenant_id` outside the helper is a composite-FK bug.
+51. **Ledger `site_id` is per row, not per pair.** See ruling 34. Receive/return OUT rows that point at from-site in-transit **must** carry `from_site_id`.
+52. **Transfer numbers are a tenant-wide ADR-0009 series.** Add `finance_settings.next_stock_transfer_number` (default `1`) and `stock_transfer_prefix` (default `TR-{YYYY}-`). Assign at **create** (same as workshop orders). Unique `(tenant_id, transfer_number)`. Not per site and not per legal entity in slice 1; Legal Invoicing may later split legal document series.
+53. **Admin listing includes inactive sites/entities.** Default `GET /api/sites` stays the names-only **active** directory (membership-gated). `GET /api/sites?includeInactive=true` is **OWNER/ADMIN**, full rows, active **and** inactive, **no** `SiteMembership` required — this is how reactivation gets an id after deactivation. `GET /api/legal-entities` is OWNER/ADMIN and includes inactive entities (optional `includeInactive=false` to hide them). `GET /api/sites/:id` already allows OWNER/ADMIN without membership.
+54. **New tables carry timestamps (and transfer actors).** `legal_entities`, `sites`, `site_memberships`, `stock_transfers`, `stock_transfer_lines` have `createdAt` / `updatedAt` like every comparable document in `schema.prisma`. `stock_transfers` also: nullable `approved_by_user_id`, `shipped_by_user_id`, `received_by_user_id`; nullable `reject_reason` / `cancel_reason`. Reject/cancel POST may send `{ expectedVersion, reason? }`.
+55. **`stock_transfer_commands.created_at` is required.** Slice 1 retains rows for the tenant lifetime (deletion policy: never deleted through ordinary APIs; tenant purge only). Do not purge on `COMPLETED`. Unbounded by design until a later retention spec.
+56. **`GET`/`PUT /api/workshop/settings` stay the route** (`WorkshopController` today). They become SiteContext read/write of the **current site’s** timezone, slot, holiday country, and opening hours. Drop the `workshop_settings` table in the **contract** migration after expand/backfill/validate — not in expand.
 43. **Every transfer HTTP and realtime response uses one caller-aware serializer.** Add `GET /api/stock-transfers/:id` (membership on from **or** to; **404** if neither). Omit or null `sourceLocationId` and any resolved source-bin name/code/path unless the caller has **active from-site `SiteMembership` and active `TenantMember`**. `fromSiteId` / from-site directory name remain. Apply this to **list, detail, create, approve, reject, cancel, ship, receive, return**, realtime payloads (ruling 36), **and** idempotent command replays (do not return stored `response_body` raw). Dest-only receive/return after the source bin is frozen is the leak path if those POSTs return the Prisma row.
 45. **A `vehicle_lot` referenced by a parked dealer vehicle cannot be disabled or deleted.** See ruling 40. `LocationService.remove` must count non-`SOLD` dealer `Vehicle.location_id` in addition to children, parts stock, and outstanding transfer references. FK `onDelete: Restrict`.
 46. **Zero persisted dealer `Vehicle` rows with `stock_status = ON_ORDER`.** Enum value stays for the draft-purchase list DTO only. Service/DB must reject future writes. Migration asserts zero such rows and does not park them on `MAIN` `LOT`. Deactivation and lot-required guards therefore list `IN_STOCK`/`RESERVED`/`IN_PREP` only — there is no ON_ORDER parked car to include or exclude inconsistently.
@@ -166,6 +180,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `name` | string | no | |
 | | `country_iso` | `AT` \| `DE` | no | Slice 1 DACH only |
 | | `is_active` | boolean | no | default true |
+| | `createdAt`, `updatedAt` | datetime | no | Same as other tenant documents |
 | `sites` | `id` | uuid | no | PK. Also unique `(tenant_id, id)` |
 | | `tenant_id` | uuid | no | |
 | | `legal_entity_id` | uuid | no | **Immutable** after insert. Composite FK `(tenant_id, legal_entity_id)` |
@@ -177,19 +192,24 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `holiday_country_iso` | string | no | |
 | | `holiday_subdivision_code` | string | yes | |
 | | `is_active` | boolean | no | default true |
+| | `createdAt`, `updatedAt` | datetime | no | |
 | `site_memberships` | `id` | uuid | no | |
 | | `tenant_id` | uuid | no | |
 | | `user_id` | uuid | no | Composite FK `(tenant_id, user_id) → tenant_members (tenant_id, user_id)` |
 | | `site_id` | uuid | no | Composite tenant+site FK |
 | | `is_active` | boolean | no | Preserve `TenantMember.is_active` on backfill |
 | | | | | Unique `(tenant_id, user_id, site_id)` |
+| | `createdAt`, `updatedAt` | datetime | no | |
 | `stock_transfers` | `id` | uuid | no | PK. Also unique `(tenant_id, id)` |
 | | `tenant_id` | uuid | no | |
-| | `transfer_number` | string | no | Unique per tenant. `TR-{YYYY}-{XXXX}` |
+| | `transfer_number` | string | no | Unique per tenant. Assigned at create from `finance_settings` `TR-{YYYY}-{XXXX}` (ruling 52) |
 | | `from_site_id`, `to_site_id` | uuid | no | Immutable, must differ, composite site FKs |
 | | `status` | enum | no | see rulings |
 | | `version` | int | no | OCC for partial receive/return; start at 1 |
 | | `requested_by_user_id` | uuid | no | |
+| | `approved_by_user_id`, `shipped_by_user_id`, `received_by_user_id` | uuid | yes | Set on the matching transition |
+| | `reject_reason`, `cancel_reason` | string | yes | |
+| | `createdAt`, `updatedAt` | datetime | no | |
 | `stock_transfer_lines` | `id` | uuid | no | |
 | | `tenant_id` | uuid | no | |
 | | `transfer_id` | uuid | no | Composite FK `(tenant_id, transfer_id) → stock_transfers (tenant_id, id)` |
@@ -198,6 +218,7 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `source_location_id` | uuid | yes | Null until source membership sets it. When set: `(tenant_id, from_site_id, source_location_id) → storage_locations (tenant_id, site_id, id)` |
 | | `dest_location_id` | uuid | yes | Frozen on first receive; later receives must match. When set: `(tenant_id, to_site_id, dest_location_id) → storage_locations (tenant_id, site_id, id)` |
 | | `requested_qty`, `approved_qty`, `shipped_qty`, `received_qty`, `returned_qty` | Decimal(10,3) | no | Defaults 0 except requested |
+| | `createdAt`, `updatedAt` | datetime | no | |
 | `stock_transfer_commands` | `id` | uuid | no | Durable receive/return idempotency |
 | | `tenant_id` | uuid | no | |
 | | `transfer_id` | uuid | no | Composite FK `(tenant_id, transfer_id) → stock_transfers (tenant_id, id)` |
@@ -206,8 +227,9 @@ Architecture: [ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md).
 | | `request_hash` | string | no | Canonical hash of the request body (including line ids/qtys/dest bins; including `expectedVersion`) |
 | | `response_status` | int | no | HTTP status of the first outcome |
 | | `response_body` | jsonb | no | Canonical first result for replay. HTTP still runs the caller-aware serializer (ruling 43); do not send an unredacted stored body to a dest-only caller. |
+| | `createdAt` | datetime | no | Required. Unbounded retention in slice 1 (ruling 55) |
 | `inventory_transactions` | `movement_group_id` | uuid | yes | Required on transfer ship/receive/return pairs |
-| | `site_id` | uuid | no after contract | Site of the location at post time. Composite FK `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` |
+| | `site_id` | uuid | no after contract | **This row’s** `location_id` site (ruling 51), not a pair-level dest site. Composite FK `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` |
 | | `stock_transfer_id` | uuid | yes | Composite FK `(tenant_id, stock_transfer_id) → stock_transfers (tenant_id, id)` |
 
 Uniques required for composite FKs (Prisma cannot reference a tuple that is not unique):
@@ -252,7 +274,6 @@ Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, 
 | `bays` | `site_id` NOT NULL after contract; unique `(tenant_id, site_id, name)` | Yes |
 | `storage_locations` | `site_id` NOT NULL; unique `(tenant_id, site_id, code)` and `(tenant_id, site_id, id)`; composite parent FK `(tenant_id, site_id, parent_id) → storage_locations (tenant_id, site_id, id)` (null for roots); new `LocationType.in_transit`. Soft-delete/disable **409** while a non-`SOLD` dealer vehicle references the lot (ruling 45) | Yes |
 | `workshop_orders` | `site_id` NOT NULL; bay/staging composite site-safe FKs | Yes |
-| `workshop_orders` | `site_id` NOT NULL; bay/staging composite site-safe FKs | Yes |
 | `sales_orders` | `site_id` NOT NULL | Yes |
 | `purchase_orders` | `site_id` NOT NULL | Yes |
 | `vehicle_purchases` | `site_id` NOT NULL; `location_id` at `RECEIVED` required and composite `(tenant_id, site_id, location_id) → storage_locations (tenant_id, site_id, id)` (`vehicle_lot` of that site) | Yes |
@@ -262,11 +283,12 @@ Indexes: every site-owned table `(tenant_id, site_id)` (transfers: `(tenant_id, 
 | `inventory_stocks` | optional denormalized `site_id` generated/maintained from location — **not** independently writable | Optional |
 | `workshop_opening_hours` | FK to `site` instead of tenant `WorkshopSettings`; unique `(tenant_id, site_id, weekday)` | Yes |
 | `workshop_holidays` | Drop unique `(tenant_id, observed_on)`. Add `site_id` NOT NULL, composite site FK `(tenant_id, site_id) → sites (tenant_id, id)`, unique **`(tenant_id, site_id, observed_on)`** | Yes |
-| `workshop_settings` | **Removed** after backfill (fields live on `Site`) | Yes |
+| `workshop_settings` | **Removed in the contract migration** after expand/backfill/validate (fields live on `Site`). Route `GET`/`PUT /api/workshop/settings` stays (ruling 56) | Yes |
+| `finance_settings` | `next_stock_transfer_number` default `1`; `stock_transfer_prefix` default `TR-{YYYY}-` (ruling 52) | Yes |
 
 ### Site-owned migration manifest
 
-Expand / backfill / validate / contract. Maintain this list in the migration. Backfill each row. **Assert zero missing or mismatched `site_id`**, then `NOT NULL` and composite FKs.
+Expand / backfill / validate / contract. Maintain this list in the migration. Backfill each row. **Assert zero missing or mismatched `site_id`**, then `NOT NULL` and composite FKs. Drop `workshop_settings` in the **contract** phase only (ruling 56) — expand keeps the table so the existing `GET`/`PUT /api/workshop/settings` route still reads it until Site columns are populated and validated.
 
 `bays`, `storage_locations`, `workshop_orders`, `sales_orders`, `purchase_orders`, `vehicle_purchases`, `vehicle_sales`, `inventory_transactions`, `workshop_opening_hours`, `workshop_holidays`.
 
@@ -299,9 +321,10 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 |--------|-------|---------|----------|------|
 | GET | `/api/me/sites` | — | Sites with **`Site.is_active` and active `SiteMembership` and active `TenantMember`** (current tenant). Inactive sites are omitted even if the membership row remains. | session |
 | PATCH | `/api/me/active-site` | `{ siteId }` | `{ activeSiteId }` | session; validates both memberships |
-| GET/POST | `/api/legal-entities` | create: name, country | list/create | OWNER/ADMIN |
+| GET/POST | `/api/legal-entities` | create: name, country | GET includes **inactive** entities (optional `includeInactive=false` hides them). POST create. | OWNER/ADMIN |
 | PATCH | `/api/legal-entities/:id` | name, `is_active` | entity | OWNER/ADMIN. `country_iso` immutable after create. `is_active=false` **422** while any site of the entity is active. |
-| GET | `/api/sites` | — | Directory: `{ id, code, name, legalEntityId }` for active sites in the tenant. No bins, stock, or orders. | Any user with ≥1 active `SiteMembership` **and** active `TenantMember` |
+| GET | `/api/sites` | — | Directory: `{ id, code, name, legalEntityId }` for **active** sites in the tenant. No bins, stock, or orders. | Any user with ≥1 active `SiteMembership` **and** active `TenantMember` |
+| GET | `/api/sites?includeInactive=true` | — | Full site rows (hours, address, `is_active`), active **and** inactive. This is how reactivation gets an id after deactivation. | OWNER/ADMIN; **no** `SiteMembership` required |
 | GET | `/api/sites/:id` | — | Full site (hours, address) if membership **or** OWNER/ADMIN | |
 | POST | `/api/sites` | legalEntityId, code, name, address, hours | site | OWNER/ADMIN. **422** unless the legal entity is `is_active`. |
 | PATCH | `/api/sites/:id` | name, address, hours, `is_active` | site | OWNER/ADMIN; **not** `legalEntityId`. `is_active=false` locks the site row then rechecks (ruling 41). **422** while open transfers, non-terminal site-owned documents, on-hand/reserved/in-transit qty, **or parked dealer vehicles on a lot at this site** remain. `is_active=true` **422** unless the parent `LegalEntity` is `is_active`. |
@@ -311,8 +334,8 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 | GET | `/api/stock-transfers/:id` | — | full transfer for the detail page. Same membership and serializer as list. **404** if the caller has neither from nor to membership | named cross-site |
 | POST | `/api/stock-transfers` | `fromSiteId`, `toSiteId`, lines (`catalogItemId`, `requestedQty` `> 0`, optional `sourceLocationId` if from-member) | transfer `REQUESTED`, **same serializer** | membership on from or to. ≥1 line; omitted/`[]` → 400. Both sites `is_active`. |
 | POST | `/api/stock-transfers/:id/approve` | `{ expectedVersion, lines?: [{ id, approvedQty, sourceLocationId? }] }` | `APPROVED`. **Omitted `lines`:** server expands to all lines, `approved_qty = requested_qty`. **Present `lines`:** non-empty, unique ids; `[]` → 400. Omitted `approvedQty` on a present row defaults to `requested_qty`. `sourceLocationId` may be set here if still null. | from + OWNER/ADMIN |
-| POST | `/api/stock-transfers/:id/reject` | `{ expectedVersion }` | `REJECTED` | from + OWNER/ADMIN |
-| POST | `/api/stock-transfers/:id/cancel` | `{ expectedVersion }` | `CANCELLED` | requester or from OWNER/ADMIN; only REQUESTED/APPROVED |
+| POST | `/api/stock-transfers/:id/reject` | `{ expectedVersion, reason? }` | `REJECTED`. Optional `reject_reason` stored. | from + OWNER/ADMIN |
+| POST | `/api/stock-transfers/:id/cancel` | `{ expectedVersion, reason? }` | `CANCELLED`. Optional `cancel_reason` stored. | requester or from OWNER/ADMIN; only REQUESTED/APPROVED |
 | POST | `/api/stock-transfers/:id/ship` | `{ expectedVersion, lines: [{ id, sourceLocationId? }] }` | `SHIPPED`. `shipped_qty = approved_qty`. Unique line ids; ≥1 positive line. `sourceLocationId` required only when `approved_qty > 0`. Zero-approved lines: `shipped_qty = 0`, no ledger. 422 if a positive line is omitted or would ship partial. | from membership |
 | POST | `/api/stock-transfers/:id/receive` | `{ expectedVersion, idempotencyKey, lines: [{ id, receiveQty, destLocationId }] }` | `SHIPPED` or `COMPLETED`, **same serializer** (dest-only must not see source bin) | to membership. First receive freezes `dest_location_id`; later `destLocationId` must match. `receiveQty > 0`; unique line ids; ≥1 line. |
 | POST | `/api/stock-transfers/:id/return` | `{ expectedVersion, idempotencyKey, lines: [{ id, returnQty }] }` | `SHIPPED` or `COMPLETED`, **same serializer** | to, or from OWNER/ADMIN. `returnQty > 0`; unique line ids; ≥1 line. |
@@ -325,9 +348,11 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 | `GET /api/customers/:id`, `GET /api/vehicles`, `GET /api/vehicles/:id` | Nested site-owned histories use `listAcrossAuthorizedSites()` (ruling 44). Dealer-stock `location_id` / lot / `stock_status` / dealer `inventory_role` omitted unless authorized for that lot site (ruling 48). Invoices stay tenant-wide. |
 | `GET /api/vehicle-stock/:id` | Missing/invalid SiteContext → **422 `ACTIVE_SITE_REQUIRED`**. Valid context + lot site ≠ active site (or unknown id) → **404**. Nested `purchases` / `sales` / `workshop_orders` may use the authorized-sites helper. |
 | PATCH workshop/sales/vehicle/PO | Site change only inside the state machine; **target membership required**; 409 stale; 422 past boundary; atomic retarget. |
-| `GET /api/workshop/settings` (or replacement) | Read/write **current site** hours/timezone, not a tenant singleton. |
+| `GET`/`PUT /api/workshop/settings` | Stay this route (`WorkshopController`). Read/write **current site** hours/timezone/slot/holiday country, not a tenant singleton. Table drop is contract-phase only (ruling 56). |
 | `POST /api/auth/switch-tenant` | Uses the shared tenant-change helper: atomically set `active_tenant_id` and **`active_site_id = null`**. Never auto-pick. Emit `site_context_updated` `{ siteId: null }` to `user_{firebaseUid}` plus existing `auth:claims_updated`. |
 | `AuthSessionService.ensureActiveMembership` | Same helper when auto-repairing `active_tenant_id` (must not write tenant id alone). |
+| `TenantMemberService` invite/create auto-assign | Same helper when a user has no `active_tenant_id` (ruling 11). |
+| `TenantMemberService.syncUserClaims` | Same helper when reconciling `active_tenant_id` to another membership or `null` (membership-deactivation path). |
 | `PATCH` tenant-member `is_active=false` | Emit `site_access_scope_updated`; if that tenant is `active_tenant_id`, run the helper (null `active_site_id`, `site_context_updated`). |
 | `PATCH /api/vehicle-stock/:vehicleId` `location_id` | Same-site `vehicle_lot` only (ruling 40). Requires `expectedLocationId`. Cross-site lot → 422; use `POST .../move-site`. Stale source → 409. |
 | `POST /api/vehicle-purchases/:id/receive` | **422** unless `location_id` is a `vehicle_lot` of the purchase’s site. Composite FK as ruling 40. Never write `Vehicle.stock_status = ON_ORDER`. |
@@ -407,6 +432,8 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 - [ ] `ACTIVE_SITE_REQUIRED` on operational GET; `GET /me/sites` and `PATCH /me/active-site` still 200.
 - [ ] PATCH active-site rejects other-tenant site, inactive site, and missing membership.
 - [ ] `POST /api/auth/switch-tenant` atomically nulls `active_site_id`; does not auto-pick a dest-tenant site; leftover previous-tenant site would violate the composite FK. Emits `site_context_updated` `{ siteId: null }` to `user_{firebaseUid}`.
+- [ ] Invite/create that auto-assigns `active_tenant_id` and `syncUserClaims` membership-deactivation both go through the same helper (null `active_site_id` in the same write).
+- [ ] Guard (static rule or test): no production service writes `User.active_tenant_id` except through the helper.
 - [ ] Deactivating the **active `TenantMember`** while another tenant membership exists: `ensureActiveMembership` (and the deactivate write) nulls `active_site_id` in the same tenant-change helper; leftover previous-tenant site would violate the composite FK. Emits `site_context_updated` and `site_access_scope_updated`.
 - [ ] Transfer fan-out skips a user whose `TenantMember` is inactive even if `SiteMembership.is_active` is still true.
 - [ ] Membership revoke that matches `active_site_id` nulls it atomically.
@@ -447,6 +474,13 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 - [ ] Transfer dual-room: Wien and München **site** sockets both get the event; a third site does not. A Salzburg-active user who is a Wien member gets the event on **`user_{firebaseUid}`** (transfer list), not Wien planner events. Emitting to `user_{User.id}` must not be treated as success.
 - [ ] Line insert with `source_location_id` of the to-site (or dest of the from-site) is rejected by the composite FK.
 - [ ] Ledger insert with `site_id` = Wien and `location_id` of a München bin is rejected by `(tenant_id, site_id, location_id)`.
+- [ ] Receive pair: `TRANSFER_OUT` (from-site in-transit) has `site_id = from_site_id`; `TRANSFER_IN` dest bin has `site_id = to_site_id`. Return OUT is from-site; IN is from-site source bin.
+- [ ] Transfer number is assigned at create from `finance_settings.next_stock_transfer_number` / `stock_transfer_prefix`; unique `(tenant_id, transfer_number)`; tenant-wide (two sites share one series).
+- [ ] `GET /api/sites?includeInactive=true` as OWNER/ADMIN with **no** `SiteMembership` returns inactive sites (full rows). Default `GET /api/sites` without the flag stays names-only active and membership-gated.
+- [ ] `GET /api/legal-entities` includes an inactive entity; `includeInactive=false` omits it.
+- [ ] New `legal_entities` / `sites` / `site_memberships` / `stock_transfers` / `stock_transfer_lines` rows have `createdAt`/`updatedAt`. Approve/ship/receive set the matching `*_by_user_id`. Reject/cancel persist optional `reason`.
+- [ ] `stock_transfer_commands` persist `createdAt`; completing a transfer does not delete command rows.
+- [ ] `GET`/`PUT /api/workshop/settings` remain those routes and read/write the **current site**. Expand still has `workshop_settings`; contract drops the table.
 - [ ] Storage-location `parent_id` pointing at another site’s aisle is rejected by `(tenant_id, site_id, parent_id)`.
 - [ ] Second socket for the same user leaves the old site room after `site_context_updated`.
 - [ ] `PATCH` site `is_active=false` with a `SHIPPED` transfer, `WorkshopOrder` `COMPLETED` (not invoiced), `SalesOrder` `CONFIRMED`, `PurchaseOrder` `SENT`, on-hand qty, or an `IN_STOCK` vehicle on a site lot → 422.
@@ -497,8 +531,9 @@ None. Product rulings above are the decisions from the 2026-08-31 design review.
 - ADR-0001: Real-time sync (amended: site rooms)
 - ADR-0002: Ledger-based inventory
 - ADR-0005 / `docs/deletion-policy.md`
-- ADR-0009: Sequential numbering (`TR-{YYYY}-{XXXX}` for transfers)
+- ADR-0009: Sequential numbering (`TR-{YYYY}-{XXXX}` tenant-wide at transfer create)
 - ADR-0011: Atomic status transition guards
+- ADR-0019: Workshop planner calendar — hours/holidays/timezone/slot move from tenant `WorkshopSettings` onto `Site`
 - ADR-0020: HR remains tenant-wide
 - ADR-0021: Stock locking order, cost basis, ATP `on_hand - reserved`
 - Linear (paused): [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695)

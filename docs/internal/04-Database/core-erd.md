@@ -102,11 +102,11 @@ erDiagram
 
 ### Platform (ADR-0022)
 
-- **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable.
-- **`Site`**: Physical shop. Owns bays, locations, planner hours/holidays (`workshop_holidays` unique `(tenant_id, site_id, observed_on)`), and site-owned documents. N:1 under `LegalEntity`.
-- **`SiteMembership`**: Which users may activate a site. Not employee home-site. Authorization and transfer fan-out also require an active `TenantMember`.
-- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Unique `(tenant_id, id)`. Lines copy `from_site_id`/`to_site_id`. Every transfer response (list/detail/create/actions/realtime) redacts `source_location_id` unless the caller has from-site membership. Cross-entity moves are not warehouse transfers.
-- **`StockTransferCommand`**: Durable receive/return idempotency keyed by `(tenant_id, transfer_id, action, idempotency_key)`.
+- **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable. `createdAt`/`updatedAt`. Non-AT/DE tenants still backfill `country_iso = AT`.
+- **`Site`**: Physical shop. Owns bays, locations, planner hours/holidays (`workshop_holidays` unique `(tenant_id, site_id, observed_on)`), and site-owned documents. N:1 under `LegalEntity`. `createdAt`/`updatedAt`. OWNER/ADMIN may list inactive sites (`GET /api/sites?includeInactive=true`) without a SiteMembership.
+- **`SiteMembership`**: Which users may activate a site. Not employee home-site. Authorization and transfer fan-out also require an active `TenantMember`. `createdAt`/`updatedAt`.
+- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Unique `(tenant_id, id)` and `(tenant_id, transfer_number)`. Number from tenant-wide `finance_settings` at create. Lines copy `from_site_id`/`to_site_id`. Actors `approved_by` / `shipped_by` / `received_by`; optional reject/cancel reason; `createdAt`/`updatedAt`. Every transfer response (list/detail/create/actions/realtime) redacts `source_location_id` unless the caller has from-site membership. Cross-entity moves are not warehouse transfers. Ledger `site_id` is **per row** (that row’s location).
+- **`StockTransferCommand`**: Durable receive/return idempotency keyed by `(tenant_id, transfer_id, action, idempotency_key)`. Required `createdAt`. Unbounded retention until tenant purge.
 
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
@@ -115,7 +115,7 @@ erDiagram
 ### Inventory & Catalog
 - **`CatalogItem`**: The master product definition. Supports supersession chains (self-referencing relation) for replacement part tracking.
 - **`InventoryStock`**: Per-location stock cache. `quantity_on_hand` is an eager cache derived from ledger entries — never mutated directly (ADR-0002).
-- **`InventoryTransaction`**: Append-only ledger recording every stock movement. Types: `RECEIPT`, `SALE`, `ADJUSTMENT`, `TRANSFER_OUT`, `TRANSFER_IN`, `RETURN`, `WORKSHOP_CONSUMPTION` (ADR-0002).
+- **`InventoryTransaction`**: Append-only ledger recording every stock movement. Types: `RECEIPT`, `SALE`, `ADJUSTMENT`, `TRANSFER_OUT`, `TRANSFER_IN`, `RETURN`, `WORKSHOP_CONSUMPTION` (ADR-0002). `site_id` is the site of **this row’s** `location_id` (composite FK). Transfer receive OUT therefore carries `from_site_id` even when the IN row is `to_site_id`.
 - **`StorageLocation`**: Physical warehouse location. Each `InventoryStock` record ties a `CatalogItem` to a `StorageLocation`. Type `vehicle_lot` parks dealer-owned vehicles (not parts bins). Disable/soft-delete/hard-delete is blocked while a non-`SOLD` dealer vehicle references the lot.
 
 ### Procurement
