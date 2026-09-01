@@ -224,6 +224,8 @@ describe('WorkshopCatalogLineService', () => {
     expect(result.line.id).toBe('line-existing');
     expect(result.lineItemsVersion).toBe(3);
     expect(mockPrisma.workshopTaskLineItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopOrder.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalledWith({
       where: { id: TASK_ID, tenant_id: TENANT_ID },
       data: { line_items_version: { increment: 1 } },
@@ -288,6 +290,49 @@ describe('WorkshopCatalogLineService', () => {
         hitToken: createPartToken(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it.each([
+    ['Citroën', 'CITROEN'],
+    ['Škoda', 'SKODA'],
+  ])('reuses a canonical brand for %s', async (brandLabel, normalizedName) => {
+    mockPrisma.brand.findFirst.mockResolvedValue({ id: BRAND_ID });
+    mockPrisma.catalogItem.findFirst.mockResolvedValue(null);
+    mockPrisma.catalogItem.create.mockResolvedValue({
+      id: 'catalog-item-1',
+      sku: 'SKU-1',
+    });
+    mockPrisma.workshopTaskLineItem.create.mockResolvedValue({
+      id: 'line-1',
+      type: 'PART',
+      item_no: 'SKU-1',
+      description: 'Brake pad',
+      quantity: new Prisma.Decimal(1),
+      unit_price: new Prisma.Decimal('79.99'),
+      catalog_item_id: 'catalog-item-1',
+      source_system: 'tecdoc',
+      external_operation_code: null,
+      fitment_notes: null,
+      cost_price_est: null,
+      oem_numbers: null,
+      labor_category_id: null,
+      hourly_rate_snapshot: null,
+      catalog_hit_jti: 'jti-1',
+      standard_aw: null,
+      actual_hours: null,
+      internal_cost_rate: null,
+      part_execution_status: 'PENDING_PICK',
+    });
+
+    await service.addLineFromCatalog(ORDER_ID, TASK_ID, {
+      hitToken: createPartToken({ brandLabel }),
+    });
+
+    expect(mockPrisma.brand.findFirst).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID, normalized_name: normalizedName },
+      select: { id: true },
+    });
+    expect(mockPrisma.brand.create).not.toHaveBeenCalled();
   });
 
   it('retries the whole transaction after a catalog-item unique conflict', async () => {
@@ -355,7 +400,13 @@ describe('WorkshopCatalogLineService', () => {
       id: 'catalog-item-1',
       sku: 'SKU-1',
     });
-    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      ...task,
+      workshop_order: {
+        ...task.workshop_order,
+        status: WorkshopOrderStatus.INVOICED,
+      },
+    });
 
     await expect(
       service.addLineFromCatalog(ORDER_ID, TASK_ID, {
@@ -522,6 +573,43 @@ describe('WorkshopCatalogLineService', () => {
           unit_price: new Prisma.Decimal(0),
           internal_cost_rate: null,
         }),
+      }),
+    );
+  });
+
+  it('rejects an explicitly requested inactive labor category', async () => {
+    mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.addLineFromCatalog(ORDER_ID, TASK_ID, {
+        hitToken: createLaborToken(),
+        laborCategoryId: CATEGORY_ID,
+      }),
+    ).rejects.toThrow('Labor category must have a selling rate');
+
+    expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ is_active: true }),
+      }),
+    );
+  });
+
+  it('rejects an inactive configured default labor category', async () => {
+    mockPrisma.catalogProviderSettings.findFirst.mockResolvedValue({
+      aw_minutes: 6,
+      default_labor_category_id: CATEGORY_ID,
+    });
+    mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.addLineFromCatalog(ORDER_ID, TASK_ID, {
+        hitToken: createLaborToken(),
+      }),
+    ).rejects.toThrow('Labor category must have a selling rate');
+
+    expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ is_active: true }),
       }),
     );
   });

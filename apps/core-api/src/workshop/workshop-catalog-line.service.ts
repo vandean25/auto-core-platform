@@ -7,14 +7,16 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  WorkshopOrderPurpose,
+  WorkshopOrderStatus,
   WorkshopLineItemType,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
 import { verifyCatalogHitPayload } from '../catalog/catalog-hit-payload';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { assertOrderEditable } from './workshop-order.helpers';
 import type { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto';
 
 const MAX_CATALOG_LINE_TRANSACTION_ATTEMPTS = 2;
@@ -53,8 +55,8 @@ type WorkshopTaskForCatalogLine = {
   workshop_order_id: string;
   line_items_version: number;
   workshop_order: {
-    status: Parameters<typeof assertOrderEditable>[0]['status'];
-    purpose: Parameters<typeof assertOrderEditable>[0]['purpose'];
+    status: WorkshopOrderStatus;
+    purpose: WorkshopOrderPurpose;
     vehicle_id: string;
   };
 };
@@ -83,84 +85,80 @@ export class WorkshopCatalogLineService {
       lineItemsVersion: number;
     }> => {
       try {
-        return await this.prisma.$transaction(async (tx) => {
-          await this.lockTask(tx, tenantId, taskId);
-
-          const task = await tx.workshopTask.findFirst({
-            where: { id: taskId, tenant_id: tenantId },
-            select: {
-              id: true,
-              tenant_id: true,
-              workshop_order_id: true,
-              line_items_version: true,
-              workshop_order: {
-                select: {
-                  status: true,
-                  purpose: true,
-                  vehicle_id: true,
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const task = await tx.workshopTask.findFirst({
+              where: { id: taskId, tenant_id: tenantId },
+              select: {
+                id: true,
+                tenant_id: true,
+                workshop_order_id: true,
+                line_items_version: true,
+                workshop_order: {
+                  select: {
+                    status: true,
+                    purpose: true,
+                    vehicle_id: true,
+                  },
                 },
               },
-            },
-          });
+            });
 
-          if (!task) {
-            throw new NotFoundException(
-              `Workshop task ${taskId} was not found`,
-            );
-          }
+            if (!task) {
+              throw new NotFoundException(
+                `Workshop task ${taskId} was not found`,
+              );
+            }
 
-          this.assertCurrentBinding(task, claims, orderId);
-          assertOrderEditable(task.workshop_order);
-          await this.lockLineItems(tx, tenantId, taskId);
-          await this.lockEditableOrder(
-            tx,
-            tenantId,
-            orderId,
-            task.workshop_order.status,
-          );
+            this.assertCurrentBinding(task, claims, orderId);
+            this.assertOrderEditable(task.workshop_order);
 
-          const existingLine = await tx.workshopTaskLineItem.findFirst({
-            where: {
-              tenant_id: tenantId,
-              workshop_task_id: taskId,
-              catalog_hit_jti: claims.jti,
-            },
-          });
+            const existingLine = await tx.workshopTaskLineItem.findFirst({
+              where: {
+                tenant_id: tenantId,
+                workshop_task_id: taskId,
+                catalog_hit_jti: claims.jti,
+              },
+            });
 
-          if (existingLine) {
+            if (existingLine) {
+              return {
+                line: this.mapLine(existingLine),
+                lineItemsVersion: task.line_items_version,
+              };
+            }
+
+            const lineData =
+              claims.concern === 'PARTS'
+                ? await this.buildPartLine({ tx, tenantId, taskId, claims })
+                : await this.buildLaborLine({
+                    tx,
+                    tenantId,
+                    taskId,
+                    claims,
+                    requestedCategoryId: dto.laborCategoryId,
+                  });
+            const line = await tx.workshopTaskLineItem.create({
+              data: lineData,
+            });
+            const versionUpdate = await tx.workshopTask.updateMany({
+              where: { id: taskId, tenant_id: tenantId },
+              data: { line_items_version: { increment: 1 } },
+            });
+
+            if (versionUpdate.count !== 1) {
+              throw new ConflictException(
+                'Workshop task changed while adding line',
+              );
+            }
+
             return {
-              line: this.mapLine(existingLine),
-              lineItemsVersion: task.line_items_version,
+              line: this.mapLine(line),
+              lineItemsVersion: task.line_items_version + 1,
             };
-          }
-
-          const lineData =
-            claims.concern === 'PARTS'
-              ? await this.buildPartLine({ tx, tenantId, taskId, claims })
-              : await this.buildLaborLine({
-                  tx,
-                  tenantId,
-                  taskId,
-                  claims,
-                  requestedCategoryId: dto.laborCategoryId,
-                });
-          const line = await tx.workshopTaskLineItem.create({ data: lineData });
-          const versionUpdate = await tx.workshopTask.updateMany({
-            where: { id: taskId, tenant_id: tenantId },
-            data: { line_items_version: { increment: 1 } },
-          });
-
-          if (versionUpdate.count !== 1) {
-            throw new ConflictException(
-              'Workshop task changed while adding line',
-            );
-          }
-
-          return {
-            line: this.mapLine(line),
-            lineItemsVersion: task.line_items_version + 1,
-          };
-        });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
       } catch (error) {
         if (!this.isUniqueViolation(error)) {
           throw error;
@@ -217,45 +215,16 @@ export class WorkshopCatalogLineService {
     }
   }
 
-  private async lockTask(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    taskId: string,
-  ): Promise<void> {
-    const lockedTask = await tx.workshopTask.updateMany({
-      where: { id: taskId, tenant_id: tenantId },
-      data: { line_items_version: { increment: 0 } },
-    });
-    if (lockedTask.count !== 1) {
-      throw new NotFoundException(`Workshop task ${taskId} was not found`);
-    }
-  }
-
-  private async lockLineItems(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    taskId: string,
-  ): Promise<void> {
-    await tx.workshopTaskLineItem.updateMany({
-      where: { tenant_id: tenantId, workshop_task_id: taskId },
-      data: { quantity: { increment: 0 } },
-    });
-  }
-
-  private async lockEditableOrder(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    orderId: string,
-    status: WorkshopTaskForCatalogLine['workshop_order']['status'],
-  ): Promise<void> {
-    const lockedOrder = await tx.workshopOrder.updateMany({
-      where: { id: orderId, tenant_id: tenantId, status },
-      data: { updatedAt: new Date() },
-    });
-    if (lockedOrder.count !== 1) {
-      throw new ConflictException(
-        'Workshop order changed while adding catalog line',
-      );
+  private assertOrderEditable(order: {
+    status: WorkshopOrderStatus;
+    purpose: WorkshopOrderPurpose;
+  }): void {
+    if (
+      order.status === WorkshopOrderStatus.INVOICED ||
+      (order.purpose === WorkshopOrderPurpose.STOCK_PREP &&
+        order.status === WorkshopOrderStatus.COMPLETED)
+    ) {
+      throw new ConflictException('Workshop order cannot be edited');
     }
   }
 
@@ -335,7 +304,7 @@ export class WorkshopCatalogLineService {
     }
 
     const category = await tx.laborCategory.findFirst({
-      where: { id: laborCategoryId, tenant_id: tenantId },
+      where: { id: laborCategoryId, tenant_id: tenantId, is_active: true },
       select: {
         id: true,
         default_hourly_rate: true,
@@ -393,7 +362,7 @@ export class WorkshopCatalogLineService {
     brandLabel: string | null | undefined,
   ): Promise<number> {
     const name = brandLabel?.trim() || 'UNKNOWN';
-    const normalizedName = normalizeCompactSegment(name) || 'UNKNOWN';
+    const normalizedName = normalizeVehicleMakeAlias(name) || 'UNKNOWN';
     const existing = await tx.brand.findFirst({
       where: { tenant_id: tenantId, normalized_name: normalizedName },
       select: { id: true },
