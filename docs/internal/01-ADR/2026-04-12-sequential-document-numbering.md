@@ -39,7 +39,7 @@ We use a **singleton counter model** backed by the `FinanceSettings` table (and 
 | Sales Invoice | `RE-{YYYY}-{XXXX}` | `RE-2026-0042` | `InvoiceSequence` (per fiscal year) |
 | Sales Order | `SO-{YYYY}-{XXXX}` | `SO-2026-0187` | `FinanceSettings.next_sales_order_number` |
 | Workshop Order | `WO-{YYYY}-{XXXX}` | `WO-2026-0063` | `FinanceSettings.next_workshop_order_number` |
-| Stock Transfer | `TR-{YYYY}-{XXXX}` | `TR-2026-0001` | `FinanceSettings.next_stock_transfer_number` (prefix `stock_transfer_prefix`, default `TR-{YYYY}-`) |
+| Stock Transfer | `TR-{YYYY}-{XXXX}` | `TR-2026-0001` | `FinanceSettings.next_stock_transfer_number` + literal `stock_transfer_prefix` (Prisma/seed default `TR-2026-`, same family as `invoice_prefix`; not a `{YYYY}` template) |
 
 - `{YYYY}` — the fiscal year at the time of number assignment.
 - `{XXXX}` — zero-padded sequential counter, resettable per fiscal year.
@@ -123,7 +123,7 @@ Once a sequential number is assigned, it is **permanently bound** to that docume
 - ADR-0004: Invoice Snapshotting — `DRAFT → FINALIZED` assigns the number and triggers field snapshots simultaneously
 - ADR-0005: Deletion Policy — `InvoiceSequence` is Forbidden (immutable); Draft-Only documents can be deleted before number assignment
 - ADR-0011: Atomic Status Transition Guards — the number assignment transaction also uses the `updateMany` guard pattern
-- ADR-0022 / Multi-Location Feature Spec — `StockTransfer` tenant-wide `TR-{YYYY}-{XXXX}` at create (`next_stock_transfer_number`, `stock_transfer_prefix`)
+- ADR-0022 / Multi-Location Feature Spec — `StockTransfer` tenant-wide `TR-{YYYY}-{XXXX}` at create (`next_stock_transfer_number`, literal `stock_transfer_prefix` default `TR-2026-`)
 - `docs/internal/04-Database/core-erd.md` — `InvoiceSequence` and `FinanceSettings` entities
 - `docs/internal/04-Database/state-machines.md` — trigger transitions per document type
 
