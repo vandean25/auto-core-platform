@@ -884,7 +884,9 @@ describe('Prisma Audit Extension', () => {
       expect(AUDITED_MODELS.has('VehiclePurchase')).toBe(true);
       expect(AUDITED_MODELS.has('VehicleSale')).toBe(true);
       expect(AUDITED_MODELS.has('VehicleLedgerEntry')).toBe(true);
-      expect(AUDITED_MODELS.has('WorkshopSettings')).toBe(true);
+      expect(AUDITED_MODELS.has('LegalEntity')).toBe(true);
+      expect(AUDITED_MODELS.has('Site')).toBe(true);
+      expect(AUDITED_MODELS.has('SiteMembership')).toBe(true);
       expect(AUDITED_MODELS.has('WorkshopOpeningHour')).toBe(true);
       expect(AUDITED_MODELS.has('WorkshopHoliday')).toBe(true);
       expect(AUDITED_MODELS.has('CatalogProviderSettings')).toBe(true);

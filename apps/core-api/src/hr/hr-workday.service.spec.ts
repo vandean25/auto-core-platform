@@ -110,7 +110,7 @@ function createEmployeeSchedule() {
 describe('HrWorkdayService', () => {
   let service: HrWorkdayService;
   const mockPrisma = {
-    workshopSettings: { findFirst: jest.fn() },
+    site: { findFirst: jest.fn() },
     workshopHoliday: { findMany: jest.fn() },
     employeeWorkSchedule: { findMany: jest.fn() },
   };

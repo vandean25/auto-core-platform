@@ -44,7 +44,7 @@ describe('HR Prisma schema', () => {
       '@@unique([tenant_id, schedule_id, weekday])',
     );
     expect(schema).toContain(
-      'employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)',
+      'employee       Employee                  @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)',
     );
     expect(schema).toContain(
       'schedule      EmployeeWorkSchedule @relation(fields: [tenant_id, schedule_id], references: [tenant_id, id], onDelete: Cascade)',

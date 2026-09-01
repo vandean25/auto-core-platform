@@ -11,6 +11,7 @@ describe('Staging Tote Seed (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let warehouseId: string;
+  let siteId: string;
   let tenantId: string;
 
   const toteCodes = Array.from({ length: 50 }, (_, index) => {
@@ -33,10 +34,16 @@ describe('Staging Tote Seed (e2e)', () => {
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     tenantId = testTenant.tenantId;
 
+    const tenantPrisma = prisma;
+    const site = await prisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantId, code: 'MAIN' },
+    });
+    siteId = site.id;
     const warehouse = await prisma.storageLocation.upsert({
       where: {
-        tenant_id_code: {
+        tenant_id_site_id_code: {
           tenant_id: tenantId,
+          site_id: site.id,
           code: 'WH-STAGE-TOTE-E2E',
         },
       },
@@ -47,6 +54,7 @@ describe('Staging Tote Seed (e2e)', () => {
       },
       create: {
         tenant_id: tenantId,
+        site_id: site.id,
         code: 'WH-STAGE-TOTE-E2E',
         name: 'Staging Tote E2E Warehouse',
         type: 'warehouse',
@@ -84,6 +92,7 @@ describe('Staging Tote Seed (e2e)', () => {
     const firstRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
       tenantId,
+      siteId,
     });
 
     expect(firstRun).toEqual({
@@ -111,6 +120,7 @@ describe('Staging Tote Seed (e2e)', () => {
     const secondRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
       tenantId,
+      siteId,
     });
 
     expect(secondRun).toEqual({
@@ -122,8 +132,9 @@ describe('Staging Tote Seed (e2e)', () => {
 
     await prisma.storageLocation.update({
       where: {
-        tenant_id_code: {
+        tenant_id_site_id_code: {
           tenant_id: tenantId,
+          site_id: siteId,
           code: 'TOTE-010',
         },
       },
@@ -135,6 +146,7 @@ describe('Staging Tote Seed (e2e)', () => {
     const thirdRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: warehouseId,
       tenantId,
+      siteId,
     });
 
     expect(thirdRun).toEqual({

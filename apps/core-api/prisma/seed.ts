@@ -34,6 +34,7 @@ async function cleanDb() {
         'voice_note_rate_limits',
         'catalog_oem_concern_makes', 'catalog_oem_concerns', 'vehicle_make_aliases',
         'catalog_provider_settings',
+        'site_memberships', 'workshop_opening_hours', 'workshop_holidays', 'sites', 'legal_entities',
     ];
 
     const existingTables = new Set<string>();
@@ -49,12 +50,18 @@ async function cleanDb() {
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
     if (existingTables.has('purchase_orders')) await prisma.purchaseOrder.deleteMany();
+    // inventory_transactions and inventory_stocks reference storage_locations; delete them first
     if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
     if (existingTables.has('inventory_stocks')) await prisma.inventoryStock.deleteMany();
     if (existingTables.has('invoice_items')) await prisma.invoiceItem.deleteMany();
     if (existingTables.has('invoices')) await prisma.invoice.deleteMany();
     if (existingTables.has('catalog_items')) await prisma.catalogItem.deleteMany();
+    if (existingTables.has('workshop_opening_hours')) await prisma.workshopOpeningHour.deleteMany();
+    if (existingTables.has('workshop_holidays')) await prisma.workshopHoliday.deleteMany();
     if (existingTables.has('storage_locations')) await prisma.storageLocation.deleteMany();
+    if (existingTables.has('site_memberships')) await prisma.siteMembership.deleteMany();
+    if (existingTables.has('sites')) await prisma.site.deleteMany();
+    if (existingTables.has('legal_entities')) await prisma.legalEntity.deleteMany();
     if (existingTables.has('revenue_groups')) await prisma.revenueGroup.deleteMany();
     if (existingTables.has('finance_settings')) await prisma.financeSettings.deleteMany();
     if (existingTables.has('catalog_provider_settings')) {
@@ -150,6 +157,51 @@ async function main() {
             slug: 'default-workshop',
             plan: 'STANDARD',
         },
+    });
+
+    console.log('Seeding multi-location foundation (legal entity + MAIN site)...');
+    const defaultLegalEntity = await prisma.legalEntity.create({
+        data: {
+            tenant_id: defaultTenant.id,
+            name: defaultTenant.name,
+            country_iso: 'AT',
+            is_active: true,
+        },
+    });
+
+    const mainSite = await prisma.site.create({
+        data: {
+            tenant_id: defaultTenant.id,
+            legal_entity_id: defaultLegalEntity.id,
+            code: 'MAIN',
+            name: defaultTenant.name,
+            timezone: 'Europe/Vienna',
+            slot_minutes: 30,
+            holiday_country_iso: 'AT',
+            is_active: true,
+        },
+    });
+
+    await prisma.storageLocation.createMany({
+        data: [
+            {
+                tenant_id: defaultTenant.id,
+                site_id: mainSite.id,
+                code: 'TRANSIT',
+                name: 'In Transit',
+                type: 'in_transit',
+                is_system: true,
+            },
+            {
+                tenant_id: defaultTenant.id,
+                site_id: mainSite.id,
+                code: 'LOT',
+                name: 'Vehicle Lot',
+                type: 'vehicle_lot',
+                is_system: false,
+            },
+        ],
+        skipDuplicates: true,
     });
 
     console.log('Seeding Finance Module settings...');
@@ -257,6 +309,7 @@ async function main() {
     const showroom = await prisma.storageLocation.create({
         data: {
             tenant_id: defaultTenant.id,
+            site_id: mainSite.id,
             name: 'Main Showroom (Vienna)',
             code: 'WH-VIE-01',
             type: LocationType.warehouse,
@@ -266,6 +319,7 @@ async function main() {
     const storage = await prisma.storageLocation.create({
         data: {
             tenant_id: defaultTenant.id,
+            site_id: mainSite.id,
             name: 'Workshop Storage (Graz)',
             code: 'WH-GRZ-01',
             type: LocationType.warehouse,
@@ -275,6 +329,7 @@ async function main() {
     const tireHotel = await prisma.storageLocation.create({
         data: {
             tenant_id: defaultTenant.id,
+            site_id: mainSite.id,
             name: 'Tire Hotel (Basement)',
             code: 'WH-TIRE-01',
             type: LocationType.warehouse,
@@ -287,6 +342,7 @@ async function main() {
     const stagingToteSummary = await seedFixedStagingTotes(prisma, {
         parentLocationId: storage.id,
         tenantId: defaultTenant.id,
+        siteId: mainSite.id,
     });
     console.log(
         `Staging totes summary: created=${stagingToteSummary.created}, updated=${stagingToteSummary.updated}, unchanged=${stagingToteSummary.unchanged}`,

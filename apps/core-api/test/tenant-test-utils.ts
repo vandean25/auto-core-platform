@@ -168,6 +168,22 @@ export async function seedTestEmployee(
   return employee;
 }
 
+/**
+ * Resolves the tenant's MAIN site id (created by createTestTenant or the
+ * backfill migration). Throws if the tenant has no site.
+ */
+export async function resolveTestMainSiteId(
+  prisma: PrismaService,
+  tenantId: string,
+): Promise<string> {
+  const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+  const site = await tenantPrisma.site.findFirstOrThrow({
+    where: { tenant_id: tenantId, code: 'MAIN' },
+    select: { id: true },
+  });
+  return site.id;
+}
+
 export async function seedTestTenantMember(
   prisma: PrismaService,
   params: {
@@ -296,7 +312,7 @@ export async function createTestTenant(
   const email = `e2e-${tenant.id}@example.com`;
   const role: TenantMemberRole = 'ADMIN';
 
-  await prisma.user.create({
+  const createdUser = await prisma.user.create({
     data: {
       firebaseUid,
       email,
@@ -309,6 +325,75 @@ export async function createTestTenant(
         },
       },
     },
+    select: { id: true },
+  });
+
+  // Multi-Location foundation: one LegalEntity + one MAIN Site + membership
+  // so every e2e tenant has a working site (backfill equivalent).
+  const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
+  const legalEntity = await tenantPrisma.legalEntity.create({
+    data: {
+      tenant_id: tenant.id,
+      name: `E2E GmbH ${unique}`,
+      country_iso: 'AT',
+      is_active: true,
+    },
+  });
+  const site = await tenantPrisma.site.create({
+    data: {
+      tenant_id: tenant.id,
+      legal_entity_id: legalEntity.id,
+      code: 'MAIN',
+      name: `E2E Site ${unique}`,
+      timezone: 'Europe/Vienna',
+      slot_minutes: 30,
+      holiday_country_iso: 'AT',
+      is_active: true,
+    },
+  });
+  await tenantPrisma.siteMembership.create({
+    data: {
+      tenant_id: tenant.id,
+      user_id: createdUser.id,
+      site_id: site.id,
+      is_active: true,
+    },
+  });
+  await tenantPrisma.workshopOpeningHour.createMany({
+    data: DEFAULT_SCHEDULE_DAYS.map((day) => ({
+      tenant_id: tenant.id,
+      site_id: site.id,
+      weekday: day.weekday,
+      is_closed: !day.is_working,
+      open_time: day.start_time ?? '07:30',
+      close_time: day.end_time ?? '17:00',
+    })),
+    skipDuplicates: true,
+  });
+  await tenantPrisma.storageLocation.createMany({
+    data: [
+      {
+        tenant_id: tenant.id,
+        site_id: site.id,
+        code: 'TRANSIT',
+        name: 'In Transit',
+        type: 'in_transit',
+        is_system: true,
+      },
+      {
+        tenant_id: tenant.id,
+        site_id: site.id,
+        code: 'LOT',
+        name: 'Vehicle Lot',
+        type: 'vehicle_lot',
+        is_system: false,
+      },
+    ],
+    skipDuplicates: true,
+  });
+  await tenantPrisma.user.update({
+    where: { id: createdUser.id },
+    data: { active_site_id: site.id },
   });
 
   return {
@@ -367,7 +452,9 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.brand.deleteMany({});
   await tenantPrisma.workshopHoliday.deleteMany({});
   await tenantPrisma.workshopOpeningHour.deleteMany({});
-  await tenantPrisma.workshopSettings.deleteMany({});
+  await tenantPrisma.siteMembership.deleteMany({});
+  await tenantPrisma.site.deleteMany({});
+  await tenantPrisma.legalEntity.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
 
   const memberships = await tenantPrisma.tenantMember.findMany({

@@ -7,16 +7,23 @@ describe('Workshop planner Prisma schema', () => {
     'utf8',
   );
 
-  it('defines WorkshopSettings singleton and holiday source enum', () => {
+  it('defines site-owned planner settings and holiday source enum', () => {
     expect(schema).toContain('enum WorkshopHolidaySource');
-    expect(schema).toContain('model WorkshopSettings');
+    expect(schema).toContain('model Site');
     expect(schema).toContain('model WorkshopOpeningHour');
     expect(schema).toContain('model WorkshopHoliday');
     expect(schema).toContain('scheduled_start_at');
     expect(schema).toContain('scheduled_end_at');
     expect(schema).toContain('idx_workshop_orders_bay_schedule');
-    expect(schema).toContain('@@map("workshop_settings")');
+    expect(schema).toContain('@@map("sites")');
     expect(schema).toContain('@@map("workshop_opening_hours")');
     expect(schema).toContain('@@map("workshop_holidays")');
+  });
+
+  it('moves planner fields onto Site instead of a tenant singleton', () => {
+    expect(schema).not.toContain('model WorkshopSettings');
+    expect(schema).toContain('timezone                 String                @default("Europe/Vienna")');
+    expect(schema).toContain('slot_minutes             Int                   @default(30)');
+    expect(schema).toContain('holiday_country_iso      String                @default("AT")');
   });
 });

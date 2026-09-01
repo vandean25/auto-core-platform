@@ -81,8 +81,9 @@ export class HrAttendanceService {
   ) {}
 
   private async getTenantTimezone(tenantId: string): Promise<string> {
-    const settings = await this.prisma.workshopSettings.findFirst({
-      where: { tenant_id: tenantId },
+    const settings = await this.prisma.site.findFirst({
+      where: { tenant_id: tenantId, is_active: true },
+      orderBy: [{ code: 'asc' }],
       select: { timezone: true },
     });
     return settings?.timezone || 'Europe/Vienna';

@@ -5,7 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant, resolveTestMainSiteId } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('Sales Order Workflow (e2e)', () => {
@@ -78,11 +78,13 @@ describe('Sales Order Workflow (e2e)', () => {
     });
     catalogItemId = item.id;
 
+    const siteId = await resolveTestMainSiteId(prisma, testTenant.tenantId);
     const location = await prisma.storageLocation.create({
       data: {
         code: `LOC-SO-${Date.now()}`,
         name: `SO-Location-${Date.now()}`,
         type: 'warehouse',
+        site_id: siteId,
       },
     });
     locationId = location.id;

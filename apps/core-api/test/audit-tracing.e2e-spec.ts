@@ -11,6 +11,7 @@ import {
   createTestAuthToken,
   createTestTenant,
   cleanupTestTenantGraph,
+  resolveTestMainSiteId,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 import { AuditLogAction } from '@prisma/client';
@@ -184,11 +185,13 @@ describe('Audit Tracing and Governance (e2e)', () => {
       },
     });
 
+    const siteId = await resolveTestMainSiteId(prisma, tenantA);
     const location = await prismaA.storageLocation.create({
       data: {
         name: 'Main Shelf',
         code: `LOC-${Date.now()}`,
         type: 'warehouse',
+        site_id: siteId,
       },
     });
 

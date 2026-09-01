@@ -211,16 +211,25 @@ describe('Tenant Isolation Regression (e2e)', () => {
   it('keeps upsert isolated by tenant-scoped unique selector', async () => {
     const sharedCode = `${prefix}-LOC-001`;
 
+    const siteA = await tenantAPrisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantAId, code: 'MAIN' },
+    });
+    const siteB = await tenantBPrisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantBId, code: 'MAIN' },
+    });
+
     const upsertA = await tenantAPrisma.storageLocation.upsert({
       where: {
-        tenant_id_code: {
+        tenant_id_site_id_code: {
           tenant_id: tenantAId,
+          site_id: siteA.id,
           code: sharedCode,
         },
       },
       update: { name: `${prefix}-A-updated` },
       create: {
         tenant_id: tenantAId,
+        site_id: siteA.id,
         code: sharedCode,
         name: `${prefix}-A-created`,
         type: 'warehouse',
@@ -229,14 +238,16 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
     const upsertB = await tenantBPrisma.storageLocation.upsert({
       where: {
-        tenant_id_code: {
+        tenant_id_site_id_code: {
           tenant_id: tenantBId,
+          site_id: siteB.id,
           code: sharedCode,
         },
       },
       update: { name: `${prefix}-B-updated` },
       create: {
         tenant_id: tenantBId,
+        site_id: siteB.id,
         code: sharedCode,
         name: `${prefix}-B-created`,
         type: 'warehouse',
@@ -318,11 +329,19 @@ describe('Tenant Isolation Regression (e2e)', () => {
     const sharedBayName = `${prefix}-BAY-SHARED`;
     const sharedEmployeeName = `${prefix}-EMP-SHARED`;
 
+    const siteA = await tenantAPrisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantAId, code: 'MAIN' },
+    });
+    const siteB = await tenantBPrisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantBId, code: 'MAIN' },
+    });
+
     const bayA = await tenantAPrisma.bay.create({
       data: {
         name: sharedBayName,
         is_active: true,
         sort_order: 1,
+        site_id: siteA.id,
       },
     });
     const bayB = await tenantBPrisma.bay.create({
@@ -330,6 +349,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
         name: sharedBayName,
         is_active: true,
         sort_order: 1,
+        site_id: siteB.id,
       },
     });
 

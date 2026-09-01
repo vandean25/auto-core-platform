@@ -1,11 +1,13 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LocationType, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteService } from '../site/site.service';
 
 const locationInclude = {
   parent: true,
@@ -27,6 +29,7 @@ export class LocationService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteService: SiteService,
   ) {}
 
   async findAll(): Promise<LocationWithRelations[]> {
@@ -94,9 +97,12 @@ export class LocationService {
       throw new BadRequestException('Location code must be unique');
     }
 
+    const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
+
     return this.prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
+        site_id: siteId,
         name: data.name,
         code: data.code,
         type: data.type,
@@ -166,6 +172,13 @@ export class LocationService {
 
     if (!location) throw new NotFoundException('Location not found');
 
+    // System locations (in_transit) are never directly deletable (ruling 34).
+    if (location.is_system) {
+      throw new ConflictException(
+        'System locations (in_transit) cannot be deleted. They are removed only when a pristine site is hard-deleted.',
+      );
+    }
+
     if (location._count.children > 0) {
       throw new BadRequestException(
         'Cannot delete location with children. Delete children first.',
@@ -174,6 +187,22 @@ export class LocationService {
 
     if (location._count.stocks > 0) {
       throw new BadRequestException('Cannot delete location containing stock.');
+    }
+
+    // Ruling 45 / deletion policy StorageLocation: block disable, soft-delete
+    // and hard-delete while a non-SOLD dealer vehicle references this lot.
+    const parkedVehicles = await this.prisma.vehicle.count({
+      where: {
+        tenant_id: tenantId,
+        location_id: id,
+        inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
+        stock_status: { in: ['IN_STOCK', 'RESERVED', 'IN_PREP'] },
+      },
+    });
+    if (parkedVehicles > 0) {
+      throw new ConflictException(
+        'Cannot delete or disable a lot with parked dealer vehicles. Move or sell the vehicles first.',
+      );
     }
 
     await this.prisma.storageLocation.updateMany({

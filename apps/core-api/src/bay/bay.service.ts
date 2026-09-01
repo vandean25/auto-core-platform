@@ -5,11 +5,17 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteService } from '../site/site.service';
 import { CreateBayDto, ListBaysQueryDto, UpdateBayDto } from './dto/bay.dto';
 
 @Injectable()
 export class BayService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+    private readonly siteService: SiteService,
+  ) {}
 
   private mapBay(bay: {
     id: string;
@@ -76,8 +82,11 @@ export class BayService {
 
   async create(dto: CreateBayDto) {
     try {
+      const tenantId = await this.tenantContext.getTenantId();
+      const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
       const created = await this.prisma.bay.create({
         data: {
+          site_id: siteId,
           name: dto.name.trim(),
           is_active: dto.isActive ?? true,
           sort_order: dto.sortOrder ?? 0,

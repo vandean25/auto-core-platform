@@ -15,10 +15,15 @@ type StorageLocationSeedClient =
 
 export async function seedFixedStagingTotes(
   prisma: StorageLocationSeedClient,
-  options: { parentLocationId?: string | null; tenantId: string },
+  options: {
+    parentLocationId?: string | null;
+    tenantId: string;
+    siteId: string;
+  },
 ): Promise<StagingToteSeedSummary> {
   const parentLocationId = options.parentLocationId ?? null;
   const tenantId = options.tenantId;
+  const siteId = options.siteId;
   const stagingToteType = 'staging_tote' as LocationType;
   const toteDefinitions = Array.from(
     { length: FIXED_TOTE_COUNT },
@@ -74,8 +79,9 @@ export async function seedFixedStagingTotes(
 
     return prisma.storageLocation.upsert({
       where: {
-        tenant_id_code: {
+        tenant_id_site_id_code: {
           tenant_id: tenantId,
+          site_id: siteId,
           code: definition.code,
         },
       },
@@ -87,6 +93,7 @@ export async function seedFixedStagingTotes(
       },
       create: {
         tenant_id: tenantId,
+        site_id: siteId,
         code: definition.code,
         name: definition.name,
         type: definition.type,

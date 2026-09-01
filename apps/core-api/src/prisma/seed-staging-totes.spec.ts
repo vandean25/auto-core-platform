@@ -37,7 +37,7 @@ describe('seedFixedStagingTotes', () => {
         ),
       upsert: jest.fn().mockImplementation(
         async (args: {
-          where: { tenant_id_code: { tenant_id: string; code: string } };
+          where: { tenant_id_site_id_code: { tenant_id: string; site_id: string; code: string } };
           update: {
             name: string;
             type: 'staging_tote';
@@ -53,7 +53,7 @@ describe('seedFixedStagingTotes', () => {
             deletedAt?: Date | null;
           };
         }) => {
-          const code = args.where.tenant_id_code.code;
+          const code = args.where.tenant_id_site_id_code.code;
           const existing = locationMap.get(code);
           const next = existing
             ? {
@@ -93,6 +93,7 @@ describe('seedFixedStagingTotes', () => {
     const firstRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
       tenantId: 'tenant-1',
+      siteId: 'site-1',
     });
 
     expect(firstRun).toEqual({
@@ -109,6 +110,7 @@ describe('seedFixedStagingTotes', () => {
     const secondRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
       tenantId: 'tenant-1',
+      siteId: 'site-1',
     });
 
     expect(secondRun).toEqual({
@@ -131,6 +133,7 @@ describe('seedFixedStagingTotes', () => {
     const thirdRun = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
       tenantId: 'tenant-1',
+      siteId: 'site-1',
     });
 
     expect(thirdRun).toEqual({
@@ -158,6 +161,7 @@ describe('seedFixedStagingTotes', () => {
     const result = await seedFixedStagingTotes(prisma, {
       parentLocationId: 'warehouse-1',
       tenantId: 'tenant-1',
+      siteId: 'site-1',
     });
 
     expect(result).toEqual({
