@@ -14,6 +14,12 @@ This document defines when deletion is allowed in Auto Core Platform.
 | Entity | Delete Allowed | Rule |
 |---|---|---|
 | FinanceSettings | No | Singleton configuration record; never deleted. |
+| LegalEntity | Deactivate preferred | Set `is_active = false` **only when every site of the entity is already inactive** (422 while any `Site.is_active`). Hard delete only when the entity has **no sites** (unused setup mistake). |
+| Site | Deactivate preferred | Set `is_active = false` **only when**, under a site-row lock, remaining `StockTransfer` rows (from or to) are `COMPLETED`/`REJECTED`/`CANCELLED`; remaining site-owned documents are terminal (`WorkshopOrder` `INVOICED`; `SalesOrder` `INVOICED`; `PurchaseOrder` `COMPLETED`; `VehiclePurchase` `RECEIVED`/`CANCELLED`; `VehicleSale` `INVOICED`/`CANCELLED`); no on-hand, reserved, or in-transit qty; **and no non-`SOLD` dealer vehicle has a `vehicle_lot` at this site** (lot-only; never `VehiclePurchase.site_id`). `VehiclePurchase` `DRAFT` is a non-terminal document. 422 otherwise. Creates/receipts/transfers/moves that target the site recheck `is_active` on the same lock. There is no `WorkshopOrderStatus.CANCELLED` or `SalesOrderStatus.CANCELLED`. Hard delete only for a pristine unused site: no transfers, no ledger history, no storage locations (except the empty system `in_transit` location, which may be removed **internally** with the site), no memberships, no bays, no parked vehicles, and no site-owned documents (workshop/sales/purchase/vehicle). Direct delete of the system transit location is forbidden. |
+| SiteMembership | Yes | Hard delete allowed. If the row matches `User.active_site_id`, clear `active_site_id` atomically in the same transaction. |
+| StockTransfer | No | Operational/financial movement document; use `REJECTED` / `CANCELLED` / complete via receive+return. Never hard-delete after create. |
+| StockTransferLine | No direct delete | Managed by parent `StockTransfer` lifecycle. |
+| StockTransferCommand | No | Durable receive/return idempotency record. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Required `created_at`. Never deleted through ordinary APIs; tenant purge only. Unbounded in slice 1 — do **not** purge when the parent transfer is `COMPLETED`. A later retention spec may add a COMPLETED + N-days rule. |
 | VoiceTranslationSettings | No | Singleton tenant configuration record for voice translation; update in place only. |
 | CatalogProviderSettings | No | Singleton tenant configuration for identity/parts/labor adapters; update in place only. |
 | CatalogOemConcern | Conditional | Hard delete when no `CatalogOemConcernMake` rows remain. |
@@ -27,9 +33,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | RevenueGroup | Conditional | Allow only when no `CatalogItem` references it. |
 | Brand | Conditional | Allow only when no `CatalogItem`, `Vendor.supportedBrands`, `Vehicle.make_brand_id`, `VehicleMakeAlias`, or `CatalogOemConcernMake` references it. |
 | CatalogItem | No (current API) | Inventory ledger and historical documents depend on item identity; use supersession/inactive approach. |
-| StorageLocation | Conditional (soft delete) | Allow only when no child locations and no stock exists; soft-delete via `deletedAt`. |
+| StorageLocation | Conditional (soft delete) | Allow only when no child locations and no stock exists; soft-delete via `deletedAt`. **Block** while outstanding `StockTransfer` qty references this location as **source** (including in-transit remaining) **or as frozen dest** (`dest_location_id` on a line with `shipped_qty > received_qty + returned_qty`), even if dest on-hand is already zero. **Block disable / soft-delete / hard-delete** while any non-`SOLD` dealer vehicle (`IN_STOCK`/`RESERVED`/`IN_PREP`) has `Vehicle.location_id` = this lot (move or sell first). `VehicleLot` FK is `onDelete: Restrict` (live code is `SetNull`). System `in_transit` locations: no direct delete, no disable; removed only internally when a pristine site is hard-deleted. |
 | InventoryStock | No | Derived operational state; managed by ledger operations. |
-| InventoryTransaction | No | Immutable audit trail; never deleted. |
+| InventoryTransaction | No | Immutable audit trail; never deleted. Includes transfer ship/receive/return pairs (`movement_group_id`). |
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
@@ -44,9 +50,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
 | PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
-| WorkshopSettings | No | Singleton configuration record; never deleted. Update in place only. |
-| WorkshopOpeningHour | No | Seven weekday rows; replaced by updating hours, never deleted independently. |
-| WorkshopHoliday | Yes | Hard delete allowed. Not referenced by orders. Removing a holiday only changes future grid hours. |
+| WorkshopSettings | No (removed) | Tenant singleton is replaced by per-site fields on `Site` (ADR-0022). Do not reintroduce a tenant-wide hours singleton. |
+| WorkshopOpeningHour | No | Seven weekday rows **per site**; replaced by updating hours, never deleted independently. Cascade when a pristine site is hard-deleted. |
+| WorkshopHoliday | Yes | Hard delete allowed (site-scoped). Not referenced by orders. Removing a holiday only changes future grid hours for that site. |
 | WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, no `LaborEntry` records exist for the task, and **no child line has a `PartsReservation` or inventory activity**. |
 | WorkshopTaskLineItem | Soft-cancel after operational history | Hard delete forbidden once any `PartsReservation` or `InventoryTransaction` exists. Consumed > 0: leftover-release shrinks `quantity` to consumed, status `CONSUMED` (still billable). Consumed = 0: status `CANCELLED`. Keep the row so reservations retain `workshop_task_line_item_id`. `replaceTaskLineItems` must not `deleteMany` operational lines. |
@@ -84,4 +90,5 @@ This document defines when deletion is allowed in Auto Core Platform.
 - ADR-0013: Row-Level Multi-Tenancy & Tenant Isolation
 - ADR-0015: Audit Tracing and Operational Logging — AuditLog ledger immutability
 - ADR-0021 / Vehicle Intelligence spec — LaborCategory default, Brand vehicle-make refs, PartsReservation **release**
+- ADR-0022 / Multi-Location spec — `LegalEntity`, `Site`, `SiteMembership`, `StockTransfer`, `StockTransferCommand`; site-owned documents; system `in_transit` locations; site/entity deactivation guards
 

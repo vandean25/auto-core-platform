@@ -15,6 +15,12 @@ import {
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
+function utcDateOnly(daysFromToday: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + daysFromToday);
+  return d.toISOString().slice(0, 10);
+}
+
 describe('HR Attendance Clock & Management (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -300,7 +306,7 @@ describe('HR Attendance Clock & Management (e2e)', () => {
 
     it('OWNER can query attendance within 31 days', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/hr/attendance?from=2026-08-01&to=2026-08-31')
+        .get(`/api/hr/attendance?from=${utcDateOnly(-1)}&to=${utcDateOnly(1)}`)
         .set('Authorization', `Bearer ${ownerAuthToken}`)
         .expect(200);
 

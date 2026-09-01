@@ -16,6 +16,17 @@ tags:
 
 **Accepted** — 2026-04-12
 
+## Amendment (2026-09-01) — site rooms
+
+[ADR-0022](2026-08-31-site-operational-scope.md) adds operational **site rooms** (`site:{siteId}`) and two events on the existing private user room:
+
+- **`site_context_updated`** `{ siteId }` (or `null`) — every socket for that user leaves the previous site room and joins the new one (or no site room).
+- **`site_access_scope_updated`** — membership grant/revoke/deactivate, including a site that is not the active site and including `TenantMember` suspend.
+
+The private user room identity is the existing gateway prefix **`user_{firebaseUid}`** (`DashboardGateway.USER_ROOM_PREFIX`; `socket.data.userId` is the Firebase UID). Tenant rooms stay for tenant-wide entities. Operational entity events emit to the document’s site room. Transfer mutations also fan out to both endpoint site rooms and to member user rooms. Isolation is server-side; clients do not join every membership site room while viewing one shop.
+
+This amendment does not change Layer 1 (`Prisma.$extends`) or tenant-room routing. Details: ADR-0022 §5 and the Multi-Location Feature Spec.
+
 ## Context
 
 Auto Core Platform has a dashboard that displays live widget data sourced from multiple domain entities (Purchase Orders, Sales Orders, Inventory, Workshop Orders, etc.). Without real-time synchronization the UI becomes stale immediately after any mutation, forcing users to manually refresh.
@@ -198,7 +209,7 @@ sequenceDiagram
 - **Type-safe** — Both backend and frontend use strict union types (`DashboardEntityType`, `DashboardEntityAction`) preventing typo-based bugs.
 - **Selective invalidation** — Only active dashboard queries for the affected entity type are refetched, minimizing network overhead.
 - **Extensible** — Adding a new entity to real-time sync requires just two changes: add to `SUPPORTED_ENTITY_TYPES` (backend) and `entityToDashboardSourceKeys` (frontend).
-- **Tenant & User Room Scoping** — Events are routed to tenant-isolated rooms (`tenant_{tenantId}`) and user-specific rooms (`user_{userId}`), preventing cross-tenant data leaks and targeting cache invalidation accurately.
+- **Tenant, user, and (from ADR-0022) site room scoping** — Events are routed to tenant-isolated rooms (`tenant_{tenantId}`), user-specific rooms (`user_{firebaseUid}`), and operational site rooms (`site:{siteId}`). See the 2026-09-01 amendment.
 
 ### Negative
 
@@ -230,6 +241,7 @@ sequenceDiagram
 ## References
 
 - [Prisma Client Extensions docs](https://www.prisma.io/docs/orm/prisma-client/client-extensions)
+- ADR-0022: [Site is request-scoped operational ownership](2026-08-31-site-operational-scope.md) — site rooms, `site_context_updated`, `site_access_scope_updated`
 - `RealtimeDashboardSyncProvider` implementation: `apps/core-web/src/features/realtime/RealtimeDashboardSyncProvider.tsx`
 - Runbook: `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`
 - Source files:

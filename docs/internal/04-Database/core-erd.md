@@ -13,6 +13,23 @@ This ERD represents the high-level relationships between the major domains in th
 
 ```mermaid
 erDiagram
+    TENANT ||--o{ LEGAL_ENTITY : owns
+    LEGAL_ENTITY ||--o{ SITE : operates
+    TENANT ||--o{ SITE : owns
+    SITE ||--o{ SITE_MEMBERSHIP : grants
+    USER ||--o{ SITE_MEMBERSHIP : holds
+    USER }o--o| SITE : active_site
+
+    SITE ||--o{ BAY : has
+    SITE ||--o{ STORAGE_LOCATION : has
+    SITE ||--o{ WORKSHOP_ORDER : books
+    SITE ||--o{ SALES_ORDER : sells
+    SITE ||--o{ PURCHASE_ORDER : receives_at
+    SITE ||--o{ VEHICLE_PURCHASE : lands
+    SITE ||--o{ VEHICLE_SALE : sells_from
+    SITE ||--o{ STOCK_TRANSFER : ships_from
+    SITE ||--o{ STOCK_TRANSFER : receives_into
+
     CUSTOMER ||--o{ SALES_ORDER : places
     CUSTOMER ||--o{ WORKSHOP_ORDER : requests
     CUSTOMER ||--o{ VEHICLE : owns
@@ -71,6 +88,10 @@ erDiagram
     VEHICLE_SALE ||--o{ VEHICLE_LEDGER_ENTRY : posts
     WORKSHOP_ORDER ||--o{ VEHICLE_LEDGER_ENTRY : capitalizes
 
+    STOCK_TRANSFER ||--|{ STOCK_TRANSFER_LINE : contains
+    STOCK_TRANSFER ||--o{ STOCK_TRANSFER_COMMAND : idempotency
+    STORAGE_LOCATION ||--o{ STOCK_TRANSFER_LINE : source_or_dest
+
     FINANCE_SETTINGS ||--o{ INVOICE_SEQUENCE : guards
     REVENUE_GROUP ||--o{ INVOICE_ITEM : categorizes
 
@@ -79,15 +100,23 @@ erDiagram
 
 ## Domain Legends
 
+### Platform (ADR-0022)
+
+- **`LegalEntity`**: Thin GmbH record (`name`, `country_iso` AT|DE). Future fiscal issuer. `Site.legal_entity_id` is immutable. `createdAt`/`updatedAt`. Non-AT/DE tenants still backfill `country_iso = AT`.
+- **`Site`**: Physical shop. Owns bays, locations, planner hours/holidays (`workshop_holidays` unique `(tenant_id, site_id, observed_on)`), and site-owned documents. N:1 under `LegalEntity`. `createdAt`/`updatedAt`. OWNER/ADMIN may list inactive sites (`GET /api/sites?includeInactive=true`) without a SiteMembership.
+- **`SiteMembership`**: Which users may activate a site. Not employee home-site. Authorization and transfer fan-out also require an active `TenantMember`. `createdAt`/`updatedAt`.
+- **`StockTransfer`**: Same-GmbH request → approve → ship → receive. Unique `(tenant_id, id)` and `(tenant_id, transfer_number)`. Number from tenant-wide `finance_settings` at create: literal `stock_transfer_prefix` (default `TR-2026-`) + padded counter. Lines copy `from_site_id`/`to_site_id`. Actors `approved_by` / `shipped_by` / `received_by`; optional reject/cancel reason; `createdAt`/`updatedAt`. Every transfer response (list/detail/create/actions/realtime) redacts `source_location_id` unless the caller has from-site membership. Cross-entity moves are not warehouse transfers. Ledger `site_id` is **per row** (that row’s location).
+- **`StockTransferCommand`**: Durable receive/return idempotency keyed by `(tenant_id, transfer_id, action, idempotency_key)`. Required `createdAt`. Unbounded retention until tenant purge.
+
 ### CRM (Sales & Operations Front)
 - **`Customer`**: The central actor requesting work or buying parts. Types: `PRIVATE` (individual) or `COMPANY`.
-- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). Optionally linked to Sales Orders (parts context) and Workshop Orders. Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`.
+- **`Vehicle`**: The VIN master. `inventory_role = CUSTOMER` is a service/CRM car; `USED` (and later `NEW`/`DEMO`) is dealer stock (ADR-0016). CRM identity is tenant-wide; dealer-stock location/site/status fields require lot-site authorization. Nested order histories on customer/vehicle detail are site-scoped via authorized memberships. `GET /api/vehicle-stock/:id` is the active site only (404 if the lot is another site; 422 only when SiteContext is missing). Stock cars also link to `VehiclePurchase`, `VehicleSale`, and `VehicleLedgerEntry`. Parked dealer site is **lot-only** (`location.site_id`). `VehiclePurchase.vehicle_id` is not unique; do not resolve site from purchases. Receive requires a site-safe `vehicle_lot`. Same-site lot PATCH and cross-site `move-site` use `expectedLocationId` OCC. **`stock_status = ON_ORDER` is not persisted** on `Vehicle` (draft-purchase list DTO only). `VehicleLot` is `onDelete: Restrict`.
 
 ### Inventory & Catalog
 - **`CatalogItem`**: The master product definition. Supports supersession chains (self-referencing relation) for replacement part tracking.
 - **`InventoryStock`**: Per-location stock cache. `quantity_on_hand` is an eager cache derived from ledger entries — never mutated directly (ADR-0002).
-- **`InventoryTransaction`**: Append-only ledger recording every stock movement. Types: `RECEIPT`, `SALE`, `ADJUSTMENT`, `TRANSFER_OUT`, `TRANSFER_IN`, `RETURN`, `WORKSHOP_CONSUMPTION` (ADR-0002).
-- **`StorageLocation`**: Physical warehouse location. Each `InventoryStock` record ties a `CatalogItem` to a `StorageLocation`. Type `vehicle_lot` parks dealer-owned vehicles (not parts bins).
+- **`InventoryTransaction`**: Append-only ledger recording every stock movement. Types: `RECEIPT`, `SALE`, `ADJUSTMENT`, `TRANSFER_OUT`, `TRANSFER_IN`, `RETURN`, `WORKSHOP_CONSUMPTION` (ADR-0002). `site_id` is the site of **this row’s** `location_id` (composite FK). Transfer receive OUT therefore carries `from_site_id` even when the IN row is `to_site_id`.
+- **`StorageLocation`**: Physical warehouse location. Each `InventoryStock` record ties a `CatalogItem` to a `StorageLocation`. Type `vehicle_lot` parks dealer-owned vehicles (not parts bins). Disable/soft-delete/hard-delete is blocked while a non-`SOLD` dealer vehicle references the lot.
 
 ### Procurement
 - **`Vendor`**: External supplier. Linked to supported `Brand` entities.
@@ -126,7 +155,7 @@ erDiagram
 
 ## References
 
-- ADR-0016: Vehicle Stock Is a Parallel Ledger Domain — VIN master + vehicle ledger; vehicles are not `CatalogItem` stock
+- ADR-0022: Site Is Request-Scoped Operational Ownership — `LegalEntity` / `Site` / `SiteMembership`; site rooms; same-GmbH `StockTransfer`
 - ADR-0002: Ledger-Based Inventory — defines the `InventoryTransaction` taxonomy and eager cache model
 - ADR-0003: Fiscal Lock Date — defines `FinanceSettings.lock_date` enforcement
 - ADR-0004: Invoice Snapshotting — defines field-level snapshots on `InvoiceItem` and `PurchaseInvoiceLine`

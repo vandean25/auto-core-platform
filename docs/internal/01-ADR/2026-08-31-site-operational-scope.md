@@ -1,0 +1,171 @@
+---
+title: "ADR-0022: Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged)"
+date: "2026-08-31"
+status: accepted
+deciders: "Product Owner, Architecture Team"
+linear-project: ""
+linear-milestone: ""
+tags:
+  - adr
+  - tenancy
+  - site
+  - legal-entity
+  - realtime
+  - inventory
+---
+
+# ADR-0022: Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged)
+
+## Status
+
+**Accepted** — 2026-08-31
+
+Approved at `6159dad` (PR 456). Product design for Multi-Location slice 1 (planner + stock + same-GmbH transfers) is locked. Nest/React starts only after implementation issues are cut.
+
+## Context
+
+ACP isolates customers with a universal `tenant_id` column and a Prisma Client extension that injects that filter (ADR-0013). That boundary is **hard security**: a mechanic at Workshop A must not read Workshop B.
+
+We now need **several physical sites and several legal entities inside one tenant** (Wien / München, AT GmbH / DE GmbH). Three different questions got collapsed in early brainstorming:
+
+| Id | Question | Kind |
+|----|----------|------|
+| `tenant_id` | Which customer owns this row? | Security (automatic) |
+| `site_id` | Which shop’s planner/warehouse is this? | Operational ownership |
+| `legal_entity_id` | Which GmbH will (later) issue the Rechnung? | Fiscal (thin now) |
+
+Putting all three through the same generic Prisma extension would make tenant-wide master data (catalog, customers, employees) an exception list, and would confuse “cannot see another company” with “cannot see the other stall”.
+
+Legal Invoicing is **paused** until Site + Legal Entity exist. Transfers still need `legal_entity_id` today so Wien→München cannot be treated as a warehouse move when those shops are different GmbHs.
+
+## Decision
+
+**Retain ADR-0013 unchanged as the automatic tenant-security boundary. Introduce site as an authenticated request context and an explicit operational scope, backed by persisted document ownership and domain-specific invariants. Legal Entity is a thin tenant-scoped record so same-GmbH rules can run now and invoicing can attach later without a tenancy redesign.**
+
+### 1. Models
+
+- `LegalEntity` — `tenant_id`, name, `country_iso` (`AT` \| `DE`), `is_active`. No tax IDs in this ADR. Deactivation blocked while the entity has any active `Site`. Site create and `is_active=true` require the parent entity to be active (no atomic dual reactivation in slice 1). Backfill: non-AT/DE `WorkshopSettings.holiday_country_iso` maps `LegalEntity.country_iso` to **`AT`**; the original code stays on `Site.holiday_country_iso`.
+- `Site` — `tenant_id`, **immutable** `legal_entity_id`, code, name, nullable address, planner hours fields, `is_active`. N:1 sites per entity. Deactivation `SELECT … FOR UPDATE`s the site row, then rechecks live enum terminals (`WorkshopOrder` `INVOICED`; `SalesOrder` `INVOICED`; `PurchaseOrder` `COMPLETED`; `VehiclePurchase` `RECEIVED`/`CANCELLED`; `VehicleSale` `INVOICED`/`CANCELLED`), transfers `COMPLETED`/`REJECTED`/`CANCELLED`, on-hand/reserved/in-transit qty zero, **and no non-`SOLD` dealer vehicle whose lot is at the site**. Creates, receipts, transfers, retargets, and vehicle moves recheck `is_active` under that same site-row lock (two-site ops: globally sorted site ids).
+- `SiteMembership` — user ↔ site, `is_active`. Access only; not an `Employee` home site. `OWNER`/`ADMIN` remain `TenantMember` roles. Composite FK `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`. **Authorization and realtime fan-out also require `TenantMember.is_active`**; the FK only proves the row exists.
+- `User.active_site_id` — nullable. Valid only when it belongs to `active_tenant_id`, the site is active, and an active membership exists. Composite FK `(active_tenant_id, active_site_id) → Site (tenant_id, id)`. **The tenant-change helper is the only production writer of `active_tenant_id`.** Live call sites: `switchTenant`, `ensureActiveMembership`, `TenantMemberService` invite/create auto-assign, and `syncUserClaims`. The helper atomically sets `active_tenant_id` **and** `active_site_id = null`. Seed scripts must use the helper or write both columns.
+- `StockTransfer` — unique `(tenant_id, id)` so lines, ledger rows, and command rows can use tenant-safe composite FKs. Also unique `(tenant_id, id, from_site_id, to_site_id)` and `(tenant_id, transfer_number)`. Number assigned at **create** from tenant-wide `finance_settings.next_stock_transfer_number` and literal `stock_transfer_prefix` (Prisma/seed default `TR-2026-`, same family as `invoice_prefix`; concatenate prefix + padded counter; no `{YYYY}` token in the column). Not per site or per legal entity in slice 1. `createdAt`/`updatedAt`; nullable `approved_by_user_id` / `shipped_by_user_id` / `received_by_user_id` and `reject_reason` / `cancel_reason`.
+- `StockTransferLine` — copies immutable `from_site_id` / `to_site_id` from the parent; source/dest location FKs are `(tenant_id, from_or_to_site_id, location_id) → StorageLocation (tenant_id, site_id, id)`. `createdAt`/`updatedAt`.
+- `StockTransferCommand` — durable receive/return idempotency. Unique `(tenant_id, transfer_id, action, idempotency_key)`. Written in the same transaction as counters and ledger pairs. Required `createdAt`. Unbounded retention in slice 1 (tenant purge only; not purged on `COMPLETED`).
+- `LegalEntity` / `Site` / `SiteMembership` also carry `createdAt`/`updatedAt`.
+
+Every new model stays tenant-scoped. Required unique keys so composite FKs compile:
+
+- `LegalEntity` and `Site`: `@@unique([tenant_id, id])`
+- Site-owned parents (`Bay`, `StorageLocation`, …): `@@unique([tenant_id, site_id, id])`
+- `StorageLocation.parent_id`: `(tenant_id, site_id, parent_id) → StorageLocation (tenant_id, site_id, id)`, null for roots
+- `InventoryTransaction.location_id`: `(tenant_id, site_id, location_id) → StorageLocation (tenant_id, site_id, id)`
+- `StockTransfer`: `@@unique([tenant_id, id])`, `@@unique([tenant_id, transfer_number])`, and `@@unique([tenant_id, id, from_site_id, to_site_id])`
+- `SiteMembership`: `(tenant_id, user_id) → TenantMember (tenant_id, user_id)`
+- `WorkshopHoliday`: drop `@@unique([tenant_id, observed_on])`; add `@@unique([tenant_id, site_id, observed_on])` and `(tenant_id, site_id) → Site (tenant_id, id)`
+- `VehiclePurchase.location_id` at `RECEIVED` and dealer `Vehicle.location_id`: `(tenant_id, site_id, location_id) → StorageLocation (tenant_id, site_id, id)`
+- `User.active_site_id` is `(active_tenant_id, active_site_id) → Site (tenant_id, id)`, not a bare FK to `Site.id`
+
+Composite tenant-safe (and site-safe) relations: a site cannot point at another tenant’s legal entity; a Wien order cannot point at a München bay, bin, or lot; a ledger row cannot claim Wien while pointing at a München location; a bin cannot parent under another site’s aisle.
+
+### 2. Request context — not a query parameter
+
+```ts
+const tenantId = tenantContext.getTenantId();
+const siteId = siteContext.getSiteId();
+```
+
+`SiteContextService` is populated from the authenticated session (`User.active_site_id`), never from `?siteId=` or `X-Site-Id`. It requires an active `TenantMember` and an active `SiteMembership`. Operational list/create endpoints that receive `siteId` as a filter return **400**.
+
+`422 ACTIVE_SITE_REQUIRED` is returned **only** from site-dependent operational APIs. `GET /me/sites` and `PATCH /me/active-site` stay available. `GET /me/sites` returns only **`Site.is_active` + active `SiteMembership` + active `TenantMember`**. Switching never auto-selects a site. `PATCH /me/active-site` validates tenant, site, both memberships, and activity in one transaction.
+
+`POST /api/auth/switch-tenant`, `AuthSessionService.ensureActiveMembership`, `TenantMemberService` invite/create auto-assign, **and** `syncUserClaims` share one tenant-change helper: atomically update `active_tenant_id` **and** set `active_site_id = null`. That helper is the **only** production writer of `active_tenant_id`. No path may write `active_tenant_id` alone (that would violate the composite FK). Never auto-pick a site in the destination tenant. Emit `site_context_updated` `{ siteId: null }` to `user_{firebaseUid}` (switch-tenant also keeps `auth:claims_updated`). `TenantMember.is_active = false` emits `site_access_scope_updated` and, when that tenant is `active_tenant_id`, runs the same helper.
+
+Deleting or deactivating the membership that matches `active_site_id` clears the active site atomically. Any membership grant/revoke/deactivate also emits `site_access_scope_updated` on `user_{firebaseUid}` so transfer-list and site-directory caches drop even when the row was not the active site.
+
+Cross-site operations (transfers, site admin lists, later reports) use **named** methods such as `listAcrossAuthorizedSites()`. Permitted operational IDs come from the caller’s **active `SiteMembership` joined to an active `TenantMember`**. There is **no** generic bypass flag. A **names-only site directory** (id, code, name, legalEntityId) of **active** sites is visible to any such member so a dest-only user can request from a sister site without seeing that site’s bins or on-hand. `GET /api/sites?includeInactive=true` is OWNER/ADMIN, full rows, active **and** inactive, **no** SiteMembership required — reactivation needs that id. `GET /api/legal-entities` is OWNER/ADMIN and includes inactive entities (`includeInactive=false` to hide them). `GET /api/sites/:id` already allows OWNER/ADMIN without membership.
+
+### 3. Persisted ownership, not inferred from the switcher
+
+Create stamps `site_id` from `SiteContext`. Later reads use the document column. The user’s current site must not “fix” a Wien invoice or job.
+
+Site changes are **guarded atomic transitions** (ADR-0011): **active membership on the target site is required for every document type**. Stale status/site → **409**; past the boundary → **422**. The site PATCH and the commit transition cannot race.
+
+| Document | Site change allowed | Frozen at |
+|----------|---------------------|-----------|
+| `WorkshopOrder` | `SCHEDULED` only; retarget bay; clear/revalidate kits/bins | `INTAKE` |
+| `SalesOrder` | `DRAFT` | `CONFIRMED` |
+| `PurchaseOrder` | `DRAFT` | leaving `DRAFT` |
+| `VehiclePurchase` | `DRAFT`; lot must be target site | `RECEIVED` |
+| `VehicleSale` | `DRAFT`; parked vehicle’s **lot** must already be on the target site | `INVOICED` |
+
+Same-site lot change uses `PATCH /api/vehicle-stock/:id` with `expectedLocationId`, constrained to the vehicle’s current lot site. Cross-site same-GmbH uses `POST /api/vehicle-stock/:id/move-site` with membership on both sites, `expectedLocationId`, and both sites `is_active`; cross-GmbH is 422. Stale source lot → 409. Lock order: sorted site ids, then vehicle, then sale. Parked site is **lot-only**; `VehiclePurchase.RECEIVED` requires a site-safe `vehicle_lot`. `Vehicle.stock_status = ON_ORDER` is **not persisted** (draft-purchase list DTO only; migration asserts zero such rows). Disable/soft-delete/hard-delete of a `vehicle_lot` is **409** while a non-`SOLD` dealer vehicle references it; `VehicleLot` is `onDelete: Restrict` (live `SetNull` is not allowed). `PATCH location_id` with a tenant-only location check is not a site contract.
+
+### 4. Do not extend Prisma `$extends` with `site_id`
+
+The tenant extension stays tenant-only. Site-operational models are queried with `{ tenant_id, site_id }` (or a named cross-site helper) in services/repositories. Shared master data has no `site_id` and needs no allowlist. **Nested includes of site-owned relations** on tenant-wide parents (`Customer.findOne` `sales_orders`/`workshop_orders`, `Vehicle.findOne` the same) must use the authorized-sites helper, not a tenant-only `include`. **Dealer-stock scalars** on CRM vehicle payloads (`location_id`, lot/site, `stock_status`, dealer `inventory_role`) are omitted unless the caller is authorized for that lot site. `GET /api/vehicle-stock/:id` is SiteContext (active site): **422 `ACTIVE_SITE_REQUIRED`** when context is missing/invalid; **404** when a valid active-site lookup misses (including a vehicle parked at another site). Only its nested histories may use the authorized-sites helper.
+
+Guardrails: composite indexes `(tenant_id, site_id)`; cross-site e2e on operational endpoints **and** on nested customer/vehicle histories **and** CRM vehicle operational-field redaction; tests that tenant-wide identity rows remain visible after a switch; review/static rule for site-scoped Prisma models.
+
+### 5. Realtime — site rooms on the server
+
+ADR-0001 tenant rooms remain for tenant-wide entities. Operational events emit to **`site:{siteId}`**. Clients join the active site room on connect. The private user room is the existing gateway identity **`user_{firebaseUid}`** (`DashboardGateway.USER_ROOM_PREFIX`; `socket.data.userId` is already the Firebase UID). **`site_context_updated`** on that room forces every socket for that user (all tabs/devices) to leave the old site room and join the new one. Membership revoke of the active site, site deactivation, tenant switch, **and `TenantMember` deactivation** emit the same event with `siteId: null` when the active site is cleared. **`site_access_scope_updated`** fires on any membership change, including a site that is not `active_site_id` and including tenant-membership suspend. Transfer mutations publish to **both endpoint site rooms** and to **`user_{firebaseUid}` of members of from or to who have an active `TenantMember`**, resolving `User.firebaseUid` from `SiteMembership.user_id` — emitting to the relational UUID reaches no socket. Isolation is not “the React client ignores München events.” Do not join every membership site room while viewing one shop’s planner.
+
+### 6. Same-GmbH transfers
+
+`StockTransfer` stores immutable `from_site_id` / `to_site_id`. Lines copy those site ids and constrain source/dest locations with composite FKs to the parent tuple plus `storage_locations (tenant_id, site_id, id)`. Same `legal_entity_id` is checked at create, approve, and ship. Requester needs membership on **either** endpoint; destination-only users cannot choose a source bin **and must not receive `source_location_id` or resolved source-bin details on any transfer HTTP or realtime response** (list, detail, create, approve/reject/cancel/ship/receive/return, and idempotent command replay). One caller-aware serializer. `GET /api/stock-transfers/:id` is the detail contract (404 if neither membership). Create UX uses the names-only site directory for from/to pickers, not memberships-only lists. **Ship is one-shot and full** (`shipped_qty = approved_qty`). Source bin required only where `approved_qty > 0`; zero-approved lines have no ledger pair. Qty domains: `requested_qty > 0`; `0 <= approved_qty <= requested_qty`; persisted counters `>= 0`; submitted receive/return qty `> 0`; unique line ids per present payload; create requires ≥1 line (`[]`/omitted → 400). Approve **omitted `lines`** expands to all requested qtys; present `lines: []` is 400. Receive/return require `expectedVersion` **and** `idempotencyKey`, persisted on `StockTransferCommand` (unique `(tenant_id, transfer_id, action, idempotency_key)`), written atomically with counters and ledger. Concurrent same-key losers **re-read the command row** after OCC or unique-key conflict and return the stored response when the hash matches. First receive freezes `dest_location_id`; later receives must match; **that dest bin cannot be disabled/soft-deleted while receipt remains outstanding**. Ledger pairs persist **per-row** `site_id` equal to that row’s `location_id` site, with `(tenant_id, site_id, location_id)` onto the location, plus a `movement_group_id`. Ship: both rows `from_site_id`. Receive: OUT `from_site_id` (in-transit) + IN `to_site_id` (dest bin). Return: OUT `from_site_id` (in-transit) + IN `from_site_id` (original source bin). A pair-level dest `site_id` on a from-site OUT row violates the composite FK. Cost basis copies through in-transit. `GET`/`PUT /api/workshop/settings` stay those routes and become SiteContext of the current site; drop `workshop_settings` in the **contract** migration. Details: Feature Spec.
+
+## Consequences
+
+### Positive
+
+- Customer isolation stays one automatic mechanism (ADR-0013).
+- Wien stock and München planner cannot leak through a missing `?siteId=`.
+- Legal Invoicing can snapshot `site.legal_entity` later without moving `tenant_id`.
+- Sister shops in one GmbH can transfer stock without pretending two companies are one warehouse.
+
+### Negative
+
+- Every operational path must remember `siteContext.getSiteId()`. Tests and review rules have to catch omissions; the ORM will not. Site-owned creates also recheck `Site.is_active` under a site-row lock so deactivation cannot race a new document.
+- Existing tenants need an expand/backfill/validate/contract migration before `NOT NULL`.
+- Socket.IO gains site rooms plus user-room `site_context_updated` / `site_access_scope_updated` on `user_{firebaseUid}`; transfer fan-out is two site rooms and member user rooms resolved via `User.firebaseUid`.
+- The four live `active_tenant_id` writers (`switchTenant`, `ensureActiveMembership`, invite auto-assign, `syncUserClaims`) must clear `active_site_id` in the same write via the shared helper.
+
+### Neutral
+
+- Thin `LegalEntity` will grow tax IDs and number series in the Legal Invoicing spec; `Site.legal_entity_id` stays immutable so that growth does not rewrite history. Slice 1 transfer numbers stay tenant-wide on `finance_settings`.
+- Non-AT/DE tenants still backfill `LegalEntity.country_iso = AT`; a later spec adds a real second entity when needed.
+- HR stays tenant-wide until a later spec.
+
+## Alternatives Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **A+ Request-scoped site context** | Matches `active_tenant_id`; master data stays simple; documents own their site. | Discipline + tests instead of ORM auto-filter. **Chosen.** |
+| **B Site in Prisma `$extends`** | Harder to forget a WHERE. | Catalog/customers/employees become bypasses; two-layer RLS. |
+| **C Query-parameter site** | No session column. | Client filter is authorization; missing param leaks. |
+| **One tenant per site** | Zero new dimension. | Dual-company / dual-shop customer becomes two SaaS tenants. |
+| **1:1 site = legal entity** | Fewer tables. | Second Wien shop under the same GmbH requires a rewrite. |
+| **Intercompany transfer in slice 1** | Wien→München “just works”. | Needs a legal Rechnung; pulls paused Legal Invoicing back in. |
+
+## References
+
+- Feature Spec: `docs/internal/02-Feature-Specs/Platform/2026-08-31-multi-location-sites-and-legal-entities.md`
+- ADR-0013: `2026-04-15-row-level-multi-tenancy.md`
+- ADR-0001: `2026-04-12-prisma-extends-realtime-sync.md` (amended: site rooms)
+- ADR-0002: `2026-04-12-ledger-based-inventory.md`
+- ADR-0009: `2026-04-12-sequential-document-numbering.md` (stock transfer series)
+- ADR-0011: `2026-04-12-atomic-status-transition-guards.md`
+- ADR-0019: `2026-08-21-workshop-planner-calendar.md` (hours/holidays/timezone/slot move onto `Site`)
+- ADR-0020: `2026-08-22-hr-time-and-leave.md`
+- ADR-0021: `2026-08-28-vehicle-intelligence-catalog-providers.md`
+- `docs/deletion-policy.md`
+
+---
+
+## Linear Tracking
+
+| Field | Value |
+|-------|-------|
+| Project | None yet. Legal Invoicing Linear project remains paused. |
+| Milestone | Slice 1 — planner + stock + same-GmbH transfers |
+| Issues | [AUT-249](https://linear.app/auto-core-platform/issue/AUT-249/docs-multi-location-sites-feature-spec-and-adr-0022) |
