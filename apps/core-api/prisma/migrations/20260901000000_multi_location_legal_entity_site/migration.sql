@@ -7,7 +7,34 @@
 -- All site-owned columns are added nullable in EXPAND; backfill populates them;
 -- VALIDATE asserts zero missing rows; CONTRACT sets NOT NULL, adds composite FKs,
 -- drops tenant-singleton WorkshopSettings, and locks down deletion invariants.
+--
+-- Atomicity: Prisma Migrate wraps each migration in a transaction for
+-- PostgreSQL (verified empirically: a mid-script RAISE rolls back all DDL and
+-- DML). We deliberately do NOT add an explicit BEGIN/COMMIT here — an inner
+-- COMMIT would commit Prisma's wrapping transaction early and leave partial
+-- state on a later failure. To make failures happen before anything is
+-- touched, every data-integrity preflight (persisted ON_ORDER rows) runs in
+-- the PREFLIGHT section below, before any type/table is created.
 -- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- PREFLIGHT — data-integrity gates that must fail BEFORE any mutation
+-- ----------------------------------------------------------------------------
+
+-- Ruling 46: ON_ORDER is a purchase-list projection, never a persisted Vehicle
+-- row. Fail the whole migration before creating any type/table so a retry is
+-- safe (Prisma rolls back everything on failure).
+DO $$
+DECLARE
+  on_order_count INT;
+BEGIN
+  SELECT COUNT(*) INTO on_order_count FROM vehicles
+   WHERE inventory_role IN ('USED','NEW','DEMO') AND stock_status = 'ON_ORDER';
+  IF on_order_count <> 0 THEN
+    RAISE EXCEPTION
+      'Preflight failed: % persisted dealer Vehicle rows with stock_status=ON_ORDER exist. Migrate draft purchases to the ON_ORDER-list projection first.', on_order_count;
+  END IF;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- EXPAND — new enums, tables, and nullable columns
@@ -317,18 +344,9 @@ BEGIN
 
     -- ------------------------------------------------------------------
     -- 10. Existing dealer vehicles remediation (ruling 40)
-    --     * assert zero ON_ORDER rows
     --     * assign MAIN LOT to non-SOLD dealer vehicles missing/non-lot location
+    --     * the lot lookup is tenant-safe (sl.tenant_id = v.tenant_id)
     -- ------------------------------------------------------------------
-    PERFORM 1 FROM vehicles
-       WHERE tenant_id = tenant_rec.id
-         AND inventory_role IN ('USED','NEW','DEMO')
-         AND stock_status = 'ON_ORDER';
-    IF FOUND THEN
-      RAISE EXCEPTION
-        'Backfill failed for tenant %: persisted Vehicle rows with stock_status=ON_ORDER exist. Migrate draft purchases to ON_ORDER-list projection first.', tenant_rec.id;
-    END IF;
-
     UPDATE vehicles v
        SET location_id = v_default_lot_id
      WHERE v.tenant_id = tenant_rec.id
@@ -339,6 +357,7 @@ BEGIN
          OR NOT EXISTS (
            SELECT 1 FROM storage_locations sl
             WHERE sl.id = v.location_id
+              AND sl.tenant_id = v.tenant_id
               AND sl.type = 'vehicle_lot'
          )
        );
@@ -361,7 +380,9 @@ BEGIN
     RAISE EXCEPTION 'Validation failed: % persisted ON_ORDER dealer Vehicle rows.', bad_count;
   END IF;
 
-  -- Every non-SOLD dealer vehicle must have a vehicle_lot location.
+  -- Every non-SOLD dealer vehicle must have a vehicle_lot location of the
+  -- SAME tenant (sl.tenant_id = v.tenant_id) — a vehicle cannot point at
+  -- another tenant's lot (ADR-0013).
   SELECT COUNT(*) INTO bad_count FROM vehicles v
    WHERE v.inventory_role IN ('USED','NEW','DEMO')
      AND v.stock_status IN ('IN_STOCK','RESERVED','IN_PREP')
@@ -369,11 +390,13 @@ BEGIN
        v.location_id IS NULL
        OR NOT EXISTS (
          SELECT 1 FROM storage_locations sl
-          WHERE sl.id = v.location_id AND sl.type = 'vehicle_lot'
+          WHERE sl.id = v.location_id
+            AND sl.tenant_id = v.tenant_id
+            AND sl.type = 'vehicle_lot'
        )
      );
   IF bad_count <> 0 THEN
-    RAISE EXCEPTION 'Validation failed: % parked dealer vehicles without a vehicle_lot.', bad_count;
+    RAISE EXCEPTION 'Validation failed: % parked dealer vehicles without a same-tenant vehicle_lot.', bad_count;
   END IF;
 
   -- Every bay / storage_location / workshop_opening_hour / workshop_holiday must
@@ -542,12 +565,19 @@ DROP TABLE IF EXISTS "workshop_settings";
 
 -- System locations (in_transit and the MAIN LOT) cannot be disabled or deleted
 -- while they hold non-SOLD dealer vehicles (ruling 45). The service layer
--- enforces direct-delete protection on is_system=true; FK changes here make
--- the contract binding at the DB level.
+-- enforces direct-delete protection on is_system=true.
+--
+-- The vehicle→lot FK is tenant-safe at the DB boundary: a Vehicle's lot must
+-- belong to the SAME tenant (ADR-0013). We replace the single-column FK with a
+-- composite `(tenant_id, location_id) → storage_locations (tenant_id, id)`.
+-- Deliberately unmodeled in schema.prisma (Vehicle.tenant_id is already bound
+-- to the Tenant relation, so Prisma cannot express this composite); `migrate
+-- deploy` applies it, `migrate dev` would want to drop it (use deploy, as CI
+-- does). `storage_locations (tenant_id, id)` is unique.
 ALTER TABLE "vehicles"
     DROP CONSTRAINT IF EXISTS "vehicles_location_id_fkey";
 ALTER TABLE "vehicles"
-    ADD CONSTRAINT "vehicles_location_id_fkey"
-    FOREIGN KEY ("location_id")
-    REFERENCES "storage_locations" ("id")
+    ADD CONSTRAINT "vehicles_tenant_id_location_id_fkey"
+    FOREIGN KEY ("tenant_id", "location_id")
+    REFERENCES "storage_locations" ("tenant_id", "id")
     ON UPDATE CASCADE ON DELETE RESTRICT;
