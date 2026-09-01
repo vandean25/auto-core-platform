@@ -160,7 +160,7 @@ export class WorkshopCatalogLineService {
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (!this.isUniqueViolation(error)) {
+        if (!this.isRetryableTransactionError(error)) {
           throw error;
         }
         if (attempt >= MAX_CATALOG_LINE_TRANSACTION_ATTEMPTS) {
@@ -485,6 +485,14 @@ export class WorkshopCatalogLineService {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
+    );
+  }
+
+  private isRetryableTransactionError(error: unknown): boolean {
+    return (
+      this.isUniqueViolation(error) ||
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034')
     );
   }
 

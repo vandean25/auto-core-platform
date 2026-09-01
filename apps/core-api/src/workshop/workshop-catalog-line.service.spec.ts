@@ -577,6 +577,27 @@ describe('WorkshopCatalogLineService', () => {
     );
   });
 
+  it('retries the whole transaction after a serializable write conflict', async () => {
+    const writeConflict = new Prisma.PrismaClientKnownRequestError(
+      'Transaction failed due to a write conflict or a deadlock',
+      { code: 'P2034', clientVersion: '7.0.0' },
+    );
+    const replayedResult = {
+      line: { id: 'line-replayed' },
+      lineItemsVersion: 3,
+    };
+    mockPrisma.$transaction
+      .mockRejectedValueOnce(writeConflict)
+      .mockResolvedValueOnce(replayedResult);
+
+    await expect(
+      service.addLineFromCatalog(ORDER_ID, TASK_ID, {
+        hitToken: createPartToken(),
+      }),
+    ).resolves.toEqual(replayedResult);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects an explicitly requested inactive labor category', async () => {
     mockPrisma.laborCategory.findFirst.mockResolvedValue(null);
 
