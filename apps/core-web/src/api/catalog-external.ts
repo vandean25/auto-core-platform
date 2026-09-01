@@ -21,6 +21,7 @@ export const catalogExternalKeys = {
 
 export interface ExternalCatalogSearchParams {
   workshopOrderId: string
+  taskId: string
   concern: CatalogSearchConcern
   q?: string
   source?: CatalogSearchSource
@@ -37,6 +38,7 @@ async function parseCatalogError(response: Response, fallbackMessage: string): P
 function buildExternalSearchUrl(params: ExternalCatalogSearchParams): string {
   const searchParams = new URLSearchParams({
     workshopOrderId: params.workshopOrderId,
+    taskId: params.taskId,
     concern: params.concern,
     source: params.source ?? 'AUTO',
     confirmFallback: String(params.confirmFallback ?? false),

@@ -8,6 +8,7 @@ export type CatalogHitPayloadClaims = {
   tenantId: string;
   workshopOrderId: string;
   vehicleId: string;
+  taskId: string;
   concern: CatalogHitConcern;
   sourceSystem: string;
   externalId: string;
@@ -16,7 +17,7 @@ export type CatalogHitPayloadClaims = {
   name: string;
   articleNumber?: string;
   unitPrice?: number;
-  brandLabel?: string;
+  brandLabel?: string | null;
   ean?: string | null;
   unit?: string | null;
   fitmentNotes?: string | null;
@@ -32,6 +33,7 @@ function canonicalString(claims: CatalogHitPayloadClaims): string {
     tenantId: claims.tenantId,
     workshopOrderId: claims.workshopOrderId,
     vehicleId: claims.vehicleId,
+    taskId: claims.taskId,
     concern: claims.concern,
     sourceSystem: claims.sourceSystem,
     externalId: claims.externalId,
@@ -86,7 +88,7 @@ function readRequiredString(
   key: string,
 ): string {
   const value = record[key];
-  if (typeof value !== 'string' || value.length === 0) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error('Invalid catalog hit token');
   }
   return value;
@@ -108,10 +110,10 @@ function readOptionalNumber(record: Record<string, unknown>, key: string) {
   if (value === undefined || value === null) {
     return undefined;
   }
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error('Invalid catalog hit token');
   }
-  return value;
+  return readNonNegativeNumber(value);
 }
 
 function readOptionalNullableNumber(
@@ -125,7 +127,14 @@ function readOptionalNullableNumber(
   if (value === undefined) {
     return undefined;
   }
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Invalid catalog hit token');
+  }
+  return readNonNegativeNumber(value);
+}
+
+function readNonNegativeNumber(value: number): number {
+  if (value < 0) {
     throw new Error('Invalid catalog hit token');
   }
   return value;
@@ -165,7 +174,7 @@ function parseSignedClaims(
   }
 
   const exp = record.exp;
-  if (typeof exp !== 'number' || Number.isNaN(exp)) {
+  if (typeof exp !== 'number' || !Number.isInteger(exp)) {
     throw new Error('Invalid catalog hit token');
   }
 
@@ -173,6 +182,7 @@ function parseSignedClaims(
     tenantId: readRequiredString(record, 'tenantId'),
     workshopOrderId: readRequiredString(record, 'workshopOrderId'),
     vehicleId: readRequiredString(record, 'vehicleId'),
+    taskId: readRequiredString(record, 'taskId'),
     concern,
     sourceSystem: readRequiredString(record, 'sourceSystem'),
     externalId: readRequiredString(record, 'externalId'),
@@ -181,7 +191,7 @@ function parseSignedClaims(
     name: readRequiredString(record, 'name'),
     articleNumber: readOptionalString(record, 'articleNumber'),
     unitPrice: readOptionalNumber(record, 'unitPrice'),
-    brandLabel: readOptionalString(record, 'brandLabel'),
+    brandLabel: readOptionalNullableString(record, 'brandLabel'),
     ean: readOptionalNullableString(record, 'ean'),
     unit: readOptionalNullableString(record, 'unit'),
     fitmentNotes: readOptionalNullableString(record, 'fitmentNotes'),
@@ -191,6 +201,23 @@ function parseSignedClaims(
     standardAw: readOptionalNullableNumber(record, 'standardAw'),
     plannedHours: readOptionalNullableNumber(record, 'plannedHours'),
   };
+}
+
+function assertCompleteClaims(claims: CatalogHitPayloadClaims): void {
+  if (claims.concern === 'PARTS') {
+    if (
+      !claims.articleNumber?.trim() ||
+      claims.unitPrice === undefined ||
+      claims.unitPrice === null
+    ) {
+      throw new Error('Incomplete catalog hit token');
+    }
+    return;
+  }
+
+  if (!claims.externalOperationCode?.trim()) {
+    throw new Error('Incomplete catalog hit token');
+  }
 }
 
 export function signCatalogHitPayload(
@@ -237,6 +264,8 @@ export function verifyCatalogHitPayload(
   if (!signaturesMatch(expected, signature)) {
     throw new Error('Invalid catalog hit token signature');
   }
+
+  assertCompleteClaims(claims);
 
   if (claims.exp <= Math.floor(Date.now() / 1000)) {
     throw new Error('Catalog hit token expired');

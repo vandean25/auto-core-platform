@@ -1,9 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import {
   ApiExtraModels,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiQuery,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { CatalogExternalService } from './catalog-external.service';
@@ -45,6 +47,8 @@ export class CatalogController {
 
   @Get('external/search')
   @ApiOkResponse({ type: CatalogExternalSearchResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiConflictResponse({ description: 'Workshop context conflict' })
   externalSearch(@Query() query: CatalogExternalSearchQueryDto) {
     return this.catalogExternalService.search(query);
   }

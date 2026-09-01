@@ -12,14 +12,17 @@ import { WorkshopPickPartsService } from './workshop-pick-parts.service';
 import { WorkshopPlannerService } from './workshop-planner.service';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import { WorkshopTaskService } from './workshop-task.service';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto';
+import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto';
 
 describe('WorkshopController', () => {
   let controller: WorkshopController;
 
   const mockIntakeService = {};
   const mockTaskService = {};
+  const mockCatalogLineService = {};
   const mockPickPartsService = {};
   const mockBoardService = {};
   const mockInvoiceService = {};
@@ -35,6 +38,10 @@ describe('WorkshopController', () => {
         WorkshopController,
         { provide: WorkshopIntakeService, useValue: mockIntakeService },
         { provide: WorkshopTaskService, useValue: mockTaskService },
+        {
+          provide: WorkshopCatalogLineService,
+          useValue: mockCatalogLineService,
+        },
         { provide: WorkshopPickPartsService, useValue: mockPickPartsService },
         { provide: WorkshopBoardService, useValue: mockBoardService },
         { provide: WorkshopInvoiceService, useValue: mockInvoiceService },
@@ -100,5 +107,28 @@ describe('WorkshopController', () => {
     ) as Record<string, { type?: unknown }>;
 
     expect(responses?.['201']?.type).toBe(PickWorkshopPartsResponseDto);
+  });
+
+  it('registers the token-only catalog line route with a 200 response', () => {
+    const routePath = Reflect.getMetadata(
+      PATH_METADATA,
+      controller.addTaskLineFromCatalog,
+    );
+    const routeMethod = Reflect.getMetadata(
+      METHOD_METADATA,
+      controller.addTaskLineFromCatalog,
+    );
+    const responses = Reflect.getMetadata(
+      SWAGGER_API_RESPONSE,
+      controller.addTaskLineFromCatalog,
+    ) as Record<string, { type?: unknown }>;
+
+    expect(routePath).toBe('orders/:id/tasks/:taskId/lines/from-catalog');
+    expect(routeMethod).toBe(RequestMethod.POST);
+    expect(responses?.['200']?.type).toBe(
+      AddWorkshopTaskLineFromCatalogResponseDto,
+    );
+    expect(responses?.['401']).toBeDefined();
+    expect(responses?.['409']).toBeDefined();
   });
 });

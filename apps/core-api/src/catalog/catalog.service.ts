@@ -257,7 +257,7 @@ export class CatalogService {
         brand: item.brand?.name ?? 'N/A',
         quantityOnHand,
         binLocation: preferredLocation?.location.code ?? null,
-        costPrice: Number(item.cost_price),
+        costPrice: item.cost_price === null ? null : Number(item.cost_price),
         retailPrice: Number(item.retail_price),
       });
       if (partResults.length >= SEARCH_LIMIT) {

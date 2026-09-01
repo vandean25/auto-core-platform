@@ -13,6 +13,7 @@ describe('catalog-hit-payload', () => {
     tenantId: randomUUID(),
     workshopOrderId: randomUUID(),
     vehicleId: randomUUID(),
+    taskId: randomUUID(),
     concern: 'PARTS' as const,
     sourceSystem: 'stellantis',
     externalId: 'part-1',
@@ -27,6 +28,7 @@ describe('catalog-hit-payload', () => {
     const claims = verifyCatalogHitPayload(token);
 
     expect(claims.tenantId).toBe(baseClaims.tenantId);
+    expect(claims.taskId).toBe(baseClaims.taskId);
     expect(claims.articleNumber).toBe(baseClaims.articleNumber);
     expect(claims.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
   });
@@ -57,6 +59,7 @@ describe('catalog-hit-payload', () => {
           tenantId: payload.tenantId,
           workshopOrderId: payload.workshopOrderId,
           vehicleId: payload.vehicleId,
+          taskId: payload.taskId,
           concern: payload.concern,
           sourceSystem: payload.sourceSystem,
           externalId: payload.externalId,
@@ -106,5 +109,63 @@ describe('catalog-hit-payload', () => {
     const claims = verifyCatalogHitPayload(tampered);
     expect(claims.tenantId).toBe(baseClaims.tenantId);
     expect(claims).not.toHaveProperty('injectedTenantId');
+  });
+
+  it('rejects incomplete part claims after signature verification', () => {
+    const token = signCatalogHitPayload({
+      ...baseClaims,
+      articleNumber: undefined,
+    });
+
+    expect(() => verifyCatalogHitPayload(token)).toThrow(
+      'Incomplete catalog hit token',
+    );
+  });
+
+  it('accepts a labor claim with an explicitly zero planned duration', () => {
+    const token = signCatalogHitPayload({
+      ...baseClaims,
+      concern: 'LABOR',
+      externalOperationCode: 'LABOR-1',
+      standardAw: null,
+      plannedHours: 0,
+    });
+
+    expect(verifyCatalogHitPayload(token).plannedHours).toBe(0);
+  });
+
+  it.each([
+    ['unitPrice', { unitPrice: -0.01 }],
+    ['costPriceEst', { costPriceEst: -0.01 }],
+    [
+      'standardAw',
+      { concern: 'LABOR' as const, externalOperationCode: 'LABOR-1', standardAw: -1 },
+    ],
+    [
+      'plannedHours',
+      {
+        concern: 'LABOR' as const,
+        externalOperationCode: 'LABOR-1',
+        plannedHours: -0.1,
+      },
+    ],
+  ])('rejects a negative %s claim', (_field, overrides) => {
+    const token = signCatalogHitPayload({
+      ...baseClaims,
+      ...overrides,
+    });
+
+    expect(() => verifyCatalogHitPayload(token)).toThrow(
+      'Invalid catalog hit token',
+    );
+  });
+
+  it('accepts a zero part price', () => {
+    const token = signCatalogHitPayload({
+      ...baseClaims,
+      unitPrice: 0,
+    });
+
+    expect(verifyCatalogHitPayload(token).unitPrice).toBe(0);
   });
 });

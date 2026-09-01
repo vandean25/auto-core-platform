@@ -117,8 +117,8 @@ export class CatalogItemResponseDto {
   @ApiProperty()
   name!: string;
 
-  @ApiProperty()
-  cost_price!: string;
+  @ApiProperty({ type: String, required: false, nullable: true })
+  cost_price!: string | null;
 
   @ApiProperty()
   retail_price!: string;
