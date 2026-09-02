@@ -482,6 +482,7 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 | `GET` | `/api/workshop/orders` | List workshop orders (paginated) |
 | `POST` | `/api/workshop/orders` | Create a workshop order |
 | `GET` | `/api/workshop/orders/:id` | Get workshop order details |
+| `POST` | `/api/workshop/orders/:id/tasks/:taskId/lines/from-catalog` | Apply or replay a signed external catalog hit to a task line |
 | `POST` | `/api/workshop/orders/:id/pick-parts` | Pick / stage parts for a job |
 | `POST` | `/api/workshop/orders/:id/create-invoice` | Invoice a completed workshop order |
 
