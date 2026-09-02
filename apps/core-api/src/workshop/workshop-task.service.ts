@@ -380,13 +380,54 @@ export class WorkshopTaskService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await tx.workshopTaskLineItem.deleteMany({
-          where: { workshop_task_id: taskId },
+        const versionUpdate = await tx.workshopTask.updateMany({
+          where: {
+            id: taskId,
+            tenant_id: tenantId,
+            line_items_version: dto.version,
+          },
+          data: { line_items_version: { increment: 1 } },
         });
+        if (versionUpdate.count !== 1) {
+          throw new ConflictException(
+            'Workshop task line items changed; please reload and retry',
+          );
+        }
 
-        if (dto.items.length > 0) {
+        const existingItems = (await tx.workshopTaskLineItem.findMany({
+          where: { tenant_id: tenantId, workshop_task_id: taskId },
+          select: { id: true },
+        })) ?? [];
+        const submittedIds = dto.items
+          .map((item) => item.id)
+          .filter((id): id is string => id !== undefined);
+        if (new Set(submittedIds).size !== submittedIds.length) {
+          throw new BadRequestException('Duplicate line-item IDs are not allowed');
+        }
+        const existingIds = new Set(existingItems.map((item) => item.id));
+        if (submittedIds.some((id) => !existingIds.has(id))) {
+          throw new BadRequestException(
+            'One or more line-item IDs were not found for this task',
+          );
+        }
+        const deletedIds = existingItems
+          .map((item) => item.id)
+          .filter((id) => !submittedIds.includes(id));
+
+        if (deletedIds.length > 0) {
+          await tx.workshopTaskLineItem.deleteMany({
+            where: {
+              tenant_id: tenantId,
+              workshop_task_id: taskId,
+              id: { in: deletedIds },
+            },
+          });
+        }
+
+        const newItems = dto.items.filter((item) => !item.id);
+        if (newItems.length > 0) {
           await tx.workshopTaskLineItem.createMany({
-            data: dto.items.map((item) => ({
+            data: newItems.map((item) => ({
               tenant_id: tenantId,
               workshop_task_id: taskId,
               type:
@@ -417,6 +458,36 @@ export class WorkshopTaskService {
             })),
           });
         }
+
+        await Promise.all(
+          dto.items
+            .filter((item): item is typeof item & { id: string } => !!item.id)
+            .map((item) =>
+              tx.workshopTaskLineItem.updateMany({
+                where: {
+                  id: item.id,
+                  tenant_id: tenantId,
+                  workshop_task_id: taskId,
+                },
+                data: {
+                  type: item.type === WorkshopLineItemType.LABOR
+                    ? WorkshopLineItemType.LABOR
+                    : WorkshopLineItemType.PART,
+                  item_no: item.itemNo,
+                  description: item.description,
+                  quantity: new Prisma.Decimal(item.qty),
+                  unit_price: new Prisma.Decimal(item.unitPrice),
+                  part_execution_status: item.type === WorkshopLineItemType.PART
+                    ? WorkshopPartLineExecutionStatus.PENDING_PICK
+                    : null,
+                  labor_operation_id: item.laborOperationId ?? null,
+                  standard_aw: item.standardAw == null ? null : new Prisma.Decimal(item.standardAw),
+                  actual_hours: item.actualHours == null ? null : new Prisma.Decimal(item.actualHours),
+                  internal_cost_rate: item.internalCostRate == null ? null : new Prisma.Decimal(item.internalCostRate),
+                },
+              }),
+            ),
+        );
       });
     } catch (error) {
       const fieldName =

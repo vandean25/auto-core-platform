@@ -2,6 +2,7 @@ import { WorkshopLineItemType } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -13,6 +14,10 @@ import {
 import { Type } from 'class-transformer';
 
 class WorkshopTaskLineItemDto {
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsEnum(WorkshopLineItemType)
   type!: WorkshopLineItemType;
 
@@ -58,6 +63,10 @@ class WorkshopTaskLineItemDto {
 }
 
 export class ReplaceWorkshopTaskLineItemsDto {
+  @IsInt()
+  @Min(0)
+  version!: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkshopTaskLineItemDto)

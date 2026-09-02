@@ -286,14 +286,17 @@ describe('WorkshopTaskService', () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
       id: 't-1',
       workshop_order_id: 'wo-1',
+      line_items_version: 0,
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 2 });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.laborOperation.count.mockResolvedValue(1);
     jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.replaceTaskLineItems('wo-1', 't-1', {
+      version: 0,
       items: [
         {
           type: WorkshopLineItemType.LABOR,
@@ -338,17 +341,76 @@ describe('WorkshopTaskService', () => {
     );
   });
 
+  it('rejects a line-item patch when the task version is stale', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 4,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        version: 3,
+        items: [],
+      } as any),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('patches existing line items by id and increments the task version', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 3,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      { id: 'line-1' },
+      { id: 'line-2' },
+    ]);
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.laborOperation.count.mockResolvedValue(0);
+    jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await service.replaceTaskLineItems('wo-1', 't-1', {
+      version: 3,
+      items: [
+        { id: 'line-1', type: WorkshopLineItemType.PART, itemNo: 'P-1', description: 'Pad', qty: 2, unitPrice: 10 },
+        { type: WorkshopLineItemType.PART, itemNo: 'P-2', description: 'Disc', qty: 1, unitPrice: 20 },
+      ],
+    } as any);
+
+    expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith({
+      where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001', line_items_version: 3 },
+      data: { line_items_version: { increment: 1 } },
+    });
+    expect(mockPrisma.workshopTaskLineItem.deleteMany).toHaveBeenCalledWith({
+      where: { tenant_id: '00000000-0000-0000-0000-000000000001', workshop_task_id: 't-1', id: { in: ['line-2'] } },
+    });
+    expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.createMany).toHaveBeenCalled();
+  });
+
   it('returns a bad request error for invalid laborOperationId', async () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
       id: 't-1',
       workshop_order_id: 'wo-1',
+      line_items_version: 0,
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
     mockPrisma.workshopTaskLineItem.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.laborOperation.count.mockResolvedValue(0); // Simulate missing/wrong tenant ID
 
     await expect(
       service.replaceTaskLineItems('wo-1', 't-1', {
+        version: 0,
         items: [
           {
             type: WorkshopLineItemType.LABOR,
