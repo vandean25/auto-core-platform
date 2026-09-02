@@ -11,6 +11,7 @@ import {
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   CreateLegalEntityDto,
+  UpdateLegalEntityDto,
   CreateSiteDto,
   CreateSiteMembershipDto,
   UpdateSiteDto,
@@ -43,7 +44,7 @@ export class LegalEntityController {
   @ApiOperation({ summary: 'Update a legal entity (OWNER/ADMIN)' })
   updateLegalEntity(
     @Param('id') id: string,
-    @Body() dto: { name?: string; isActive?: boolean },
+    @Body() dto: UpdateLegalEntityDto,
   ) {
     return this.siteService.updateLegalEntity(id, dto);
   }

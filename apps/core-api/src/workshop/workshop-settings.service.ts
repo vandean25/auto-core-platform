@@ -97,12 +97,16 @@ export class WorkshopSettingsService {
    */
   async getOrCreateSettings(tenantId: string): Promise<SiteWithHours> {
     const existing = await this.prisma.site.findFirst({
-      where: { tenant_id: tenantId, is_active: true },
-      orderBy: [{ code: 'asc' }],
+      where: { tenant_id: tenantId, code: 'MAIN' },
       include: { openingHours: { orderBy: { weekday: 'asc' } } },
     });
 
     if (existing) {
+      if (!existing.is_active) {
+        throw new BadRequestException(
+          'The MAIN site is inactive and must be reactivated before workshop settings can be used.',
+        );
+      }
       if (existing.openingHours.length === 7) {
         return existing;
       }

@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { WorkshopSettingsService } from './workshop-settings.service';
 import {
   mockPrisma,
@@ -107,7 +104,11 @@ describe('WorkshopSettingsService', () => {
     expect(mockPrisma.storageLocation.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.arrayContaining([
-          expect.objectContaining({ code: 'TRANSIT', type: 'in_transit', is_system: true }),
+          expect.objectContaining({
+            code: 'TRANSIT',
+            type: 'in_transit',
+            is_system: true,
+          }),
           expect.objectContaining({ code: 'LOT', type: 'vehicle_lot' }),
         ]),
       }),
@@ -116,6 +117,24 @@ describe('WorkshopSettingsService', () => {
     expect(result.timezone).toBe('Europe/Vienna');
     expect(result.slotMinutes).toBe(30);
     expect(result.holidayCountryIso).toBe('AT');
+  });
+
+  it('selects MAIN even when another active site sorts first', async () => {
+    mockPrisma.site.findFirst.mockResolvedValue({
+      id: 'main',
+      code: 'MAIN',
+      is_active: true,
+      openingHours: DEFAULT_OPENING_HOURS,
+      timezone: 'Europe/Vienna',
+      slot_minutes: 30,
+      holiday_country_iso: 'AT',
+    });
+    await service.getSettings();
+    expect(mockPrisma.site.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenant_id: TENANT_ID, code: 'MAIN' },
+      }),
+    );
   });
 
   it('rejects PUT when a weekday is missing', async () => {

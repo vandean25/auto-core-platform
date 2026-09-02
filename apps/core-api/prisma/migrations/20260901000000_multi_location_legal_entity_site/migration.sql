@@ -8,13 +8,11 @@
 -- VALIDATE asserts zero missing rows; CONTRACT sets NOT NULL, adds composite FKs,
 -- drops tenant-singleton WorkshopSettings, and locks down deletion invariants.
 --
--- Atomicity: Prisma Migrate wraps each migration in a transaction for
--- PostgreSQL (verified empirically: a mid-script RAISE rolls back all DDL and
--- DML). We deliberately do NOT add an explicit BEGIN/COMMIT here — an inner
--- COMMIT would commit Prisma's wrapping transaction early and leave partial
--- state on a later failure. To make failures happen before anything is
--- touched, every data-integrity preflight (persisted ON_ORDER rows) runs in
--- the PREFLIGHT section below, before any type/table is created.
+-- Atomicity: keep the migration's transaction explicit so direct execution and
+-- Prisma execution have the same all-or-nothing behavior. A failure anywhere
+-- before COMMIT must roll back both DDL and backfill DML.
+
+BEGIN;
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -581,3 +579,5 @@ ALTER TABLE "vehicles"
     FOREIGN KEY ("tenant_id", "location_id")
     REFERENCES "storage_locations" ("tenant_id", "id")
     ON UPDATE CASCADE ON DELETE RESTRICT;
+
+COMMIT;

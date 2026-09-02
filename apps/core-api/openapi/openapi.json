@@ -6006,6 +6006,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLegalEntityDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -13812,6 +13822,18 @@
           "name",
           "countryIso"
         ]
+      },
+      "UpdateLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateSiteOpeningHourDto": {
         "type": "object",

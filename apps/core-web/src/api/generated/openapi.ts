@@ -4076,6 +4076,10 @@ export interface components {
             /** @enum {string} */
             countryIso: "AT" | "DE";
         };
+        UpdateLegalEntityDto: {
+            name?: string;
+            isActive?: boolean;
+        };
         CreateSiteOpeningHourDto: {
             weekday: number;
             isClosed: boolean;
@@ -8325,7 +8329,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLegalEntityDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

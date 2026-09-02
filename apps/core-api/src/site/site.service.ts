@@ -15,6 +15,7 @@ import {
   CreateSiteDto,
   CreateSiteMembershipDto,
   SUPPORTED_LEGAL_ENTITY_COUNTRIES,
+  UpdateLegalEntityDto,
   UpdateSiteDto,
 } from './dto/site.dto';
 
@@ -103,10 +104,7 @@ export class SiteService {
     });
   }
 
-  async updateLegalEntity(
-    id: string,
-    dto: { name?: string; isActive?: boolean },
-  ) {
+  async updateLegalEntity(id: string, dto: UpdateLegalEntityDto) {
     this.assertTenantAdmin();
     const tenantId = await this.tenantContext.getTenantId();
     const existing = await this.prisma.legalEntity.findFirst({
@@ -118,7 +116,32 @@ export class SiteService {
 
     // country_iso is immutable after create (ruling 326)
     if (dto.isActive === false) {
-      await this.guardLegalEntityDeactivation(tenantId, id);
+      return this.prisma.$transaction(async (tx) => {
+        // A no-op update takes a row lock, serializing this check with
+        // createSite's matching lock before either operation commits.
+        const lock = await tx.legalEntity.updateMany({
+          where: { id: existing.id, tenant_id: tenantId, is_active: true },
+          data: { is_active: true },
+        });
+        if (lock.count !== 1) {
+          throw new ConflictException(
+            'Cannot deactivate an inactive or concurrently changed legal entity.',
+          );
+        }
+        const activeSite = await tx.site.findFirst({
+          where: { tenant_id: tenantId, legal_entity_id: id, is_active: true },
+          select: { id: true },
+        });
+        if (activeSite) {
+          throw new ConflictException(
+            'Cannot deactivate a legal entity that still has an active site.',
+          );
+        }
+        return tx.legalEntity.update({
+          where: { id: existing.id },
+          data: { name: dto.name?.trim() ?? existing.name, is_active: false },
+        });
+      });
     }
 
     return this.prisma.legalEntity.update({
@@ -292,7 +315,37 @@ export class SiteService {
       closeTime: string;
     }[] = dto.openingHours ?? DEFAULT_OPENING_HOURS;
 
+    const weekdays = openingHours
+      .map((hour) => hour.weekday)
+      .sort((a, b) => a - b);
+    if (
+      weekdays.length !== 7 ||
+      weekdays.some((weekday, index) => weekday !== index + 1)
+    ) {
+      throw new BadRequestException(
+        'openingHours must contain exactly one entry for each weekday 1 through 7',
+      );
+    }
+    for (const hour of openingHours) {
+      if (!hour.isClosed && hour.closeTime <= hour.openTime) {
+        throw new BadRequestException(
+          `closeTime must be after openTime for weekday ${hour.weekday}`,
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      // Serialize site creation with legal-entity deactivation. The guarded
+      // update in updateLegalEntity takes the same row lock before checking sites.
+      const lock = await tx.legalEntity.updateMany({
+        where: { id: legalEntity.id, tenant_id: tenantId, is_active: true },
+        data: { is_active: true },
+      });
+      if (lock.count !== 1) {
+        throw new UnprocessableEntityException(
+          'Cannot create a site under an inactive legal entity. Reactivate the entity first.',
+        );
+      }
       const site = await tx.site.create({
         data: {
           tenant_id: tenantId,

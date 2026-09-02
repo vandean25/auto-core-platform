@@ -53,8 +53,7 @@ export class WorkshopTaskService {
     }
 
     const settings = await tx.site.findFirst({
-      where: { tenant_id: tenantId, is_active: true },
-      orderBy: [{ code: 'asc' }],
+      where: { tenant_id: tenantId, code: 'MAIN', is_active: true },
       select: { timezone: true },
     });
     const timeZone = settings?.timezone ?? 'Europe/Vienna';

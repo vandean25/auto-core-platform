@@ -20,11 +20,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 APP="$ROOT/apps/core-api"
 MIGRATIONS="$APP/prisma/migrations"
 STASH_DIR="$(mktemp -d)"
-
+TEMP_MIGRATION_SQL="$STASH_DIR/migration-with-failure.sql"
 NEW_MIGRATIONS=(
   "20260831180000_add_in_transit_location_type"
   "20260901000000_multi_location_legal_entity_site"
 )
+cleanup() {
+  for name in "${NEW_MIGRATIONS[@]}"; do
+    if [[ ! -d "$MIGRATIONS/$name" && -d "$STASH_DIR/$name" ]]; then
+      mv "$STASH_DIR/$name" "$MIGRATIONS/"
+    fi
+  done
+  rm -rf "$STASH_DIR"
+}
+trap cleanup EXIT
 
 DB_URL="${DATABASE_URL:?DATABASE_URL is required (must be a dedicated scratch DB)}"
 PSQL_URL="${DB_URL%%\?*}"
@@ -128,6 +137,23 @@ INSERT INTO vehicles (id, tenant_id, make, model, year, inventory_role, stock_st
 VALUES ('v-c1', 't-c', 'Ford', 'Mustang', 2020, 'USED', 'IN_STOCK', NOW(), NOW()),
        ('v-c2', 't-c', 'Dodge', 'Charger', 2021, 'NEW', 'RESERVED', NOW(), NOW());
 SQL
+
+step "Asserting post-DDL failure rolls back DDL and backfill DML"
+grep -q '^BEGIN;$' "$MIGRATIONS/20260901000000_multi_location_legal_entity_site/migration.sql" || fail "migration has no explicit BEGIN"
+grep -q '^COMMIT;$' "$MIGRATIONS/20260901000000_multi_location_legal_entity_site/migration.sql" || fail "migration has no explicit COMMIT"
+mv "$MIGRATIONS/20260901000000_multi_location_legal_entity_site" "$STASH_DIR/"
+(
+  cd "$APP"
+  npx prisma migrate deploy
+) >/dev/null
+mv "$STASH_DIR/20260901000000_multi_location_legal_entity_site" "$MIGRATIONS/"
+sed 's/^COMMIT;$/DO $$ BEGIN RAISE EXCEPTION '\''intentional verifier failure after DDL and backfill'\''; END $$;\nCOMMIT;/' "$MIGRATIONS/20260901000000_multi_location_legal_entity_site/migration.sql" > "$TEMP_MIGRATION_SQL"
+TEMP_FAILURE_LOG="$STASH_DIR/post-ddl-failure.log"
+if psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f "$TEMP_MIGRATION_SQL" >"$TEMP_FAILURE_LOG" 2>&1; then fail "post-DDL failure injection unexpectedly succeeded"; fi
+grep -Fq "intentional verifier failure after DDL and backfill" "$TEMP_FAILURE_LOG" || fail "injected migration did not reach the post-DDL failure point"
+[[ "$(psql_cmd "SELECT to_regclass('public.legal_entities');")" =~ ^(NULL)?$ ]] || fail "post-DDL failure did not roll back DDL"
+[[ "$(psql_cmd "SELECT COUNT(*) FROM tenants WHERE id = 't-a';")" == "1" ]] || fail "legacy tenant row was not preserved"
+[[ "$(psql_cmd "SELECT COUNT(*) FROM vehicles WHERE id = 'v-c1' AND location_id IS NULL;")" == "1" ]] || fail "legacy vehicle row was modified"
 
 # ---------------------------------------------------------------------------
 # 3. apply the new migration and assert

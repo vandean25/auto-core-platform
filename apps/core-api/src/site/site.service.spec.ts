@@ -6,9 +6,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { validate } from 'class-validator';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SiteService } from './site.service';
+import { UpdateLegalEntityDto } from './dto/site.dto';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -25,6 +27,7 @@ function createPrismaMock() {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       delete: jest.fn(),
       findMany: jest.fn(),
     },
@@ -68,16 +71,29 @@ function createPrismaMock() {
     },
     $transaction: jest.fn(),
   };
-  mock.$transaction.mockImplementation(
-    (callback: (tx: unknown) => unknown) => callback(mock),
+  mock.$transaction.mockImplementation((callback: (tx: unknown) => unknown) =>
+    callback(mock),
   );
   return mock;
 }
 
 describe('SiteService', () => {
+  it('runtime-validates UpdateLegalEntityDto types', async () => {
+    const dto = Object.assign(new UpdateLegalEntityDto(), {
+      name: 123,
+      isActive: 'false',
+    });
+    const errors = await validate(dto);
+    expect(
+      errors.flatMap((error) => Object.keys(error.constraints ?? {})),
+    ).toEqual(expect.arrayContaining(['isString', 'isBoolean']));
+  });
   let service: SiteService;
   let prisma: ReturnType<typeof createPrismaMock>;
-  let tenantContext: { getTenantId: jest.Mock; getAuthenticatedUser: jest.Mock };
+  let tenantContext: {
+    getTenantId: jest.Mock;
+    getAuthenticatedUser: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -316,6 +332,64 @@ describe('SiteService', () => {
   });
 
   describe('createSite', () => {
+    const validHours = Array.from({ length: 7 }, (_, index) => ({
+      weekday: index + 1,
+      isClosed: false,
+      openTime: '08:00',
+      closeTime: '17:00',
+    }));
+
+    it.each([
+      ['missing weekday', validHours.slice(0, 6)],
+      ['duplicate weekday', [...validHours.slice(0, 6), { ...validHours[0] }]],
+    ])('rejects %s schedules', async (_label, openingHours) => {
+      prisma.legalEntity.findFirst.mockResolvedValue({
+        id: 'le-1',
+        is_active: true,
+        country_iso: 'AT',
+      });
+      await expect(
+        service.createSite({
+          legalEntityId: 'le-1',
+          code: 'W',
+          name: 'Wien',
+          openingHours,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an invalid opening window', async () => {
+      prisma.legalEntity.findFirst.mockResolvedValue({
+        id: 'le-1',
+        is_active: true,
+        country_iso: 'AT',
+      });
+      const openingHours = validHours.map((hour, index) =>
+        index === 0 ? { ...hour, openTime: '18:00' } : hour,
+      );
+      await expect(
+        service.createSite({
+          legalEntityId: 'le-1',
+          code: 'W',
+          name: 'Wien',
+          openingHours,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects when the legal entity becomes inactive while creation waits for its lock', async () => {
+      prisma.legalEntity.findFirst.mockResolvedValue({
+        id: 'le-1',
+        is_active: true,
+        country_iso: 'AT',
+      });
+      prisma.legalEntity.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.createSite({ legalEntityId: 'le-1', code: 'W', name: 'Wien' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.site.create).not.toHaveBeenCalled();
+    });
+
     it('creates a site with seven hours + TRANSIT atomically and derives AT defaults', async () => {
       prisma.legalEntity.findFirst.mockResolvedValue({
         id: 'le-1',
@@ -353,7 +427,9 @@ describe('SiteService', () => {
         }),
       );
       expect(prisma.workshopOpeningHour.createMany).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.arrayContaining([expect.any(Object)]) }),
+        expect.objectContaining({
+          data: expect.arrayContaining([expect.any(Object)]),
+        }),
       );
       expect(prisma.storageLocation.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -428,7 +504,11 @@ describe('SiteService', () => {
       });
 
       await expect(
-        service.createSite({ legalEntityId: 'le-1', code: 'MAIN', name: 'Wien' }),
+        service.createSite({
+          legalEntityId: 'le-1',
+          code: 'MAIN',
+          name: 'Wien',
+        }),
       ).rejects.toThrow('transaction aborted');
 
       // The whole create flow is wrapped in $transaction, so a mid-way
@@ -439,7 +519,11 @@ describe('SiteService', () => {
     it('rejects a legal entity of another tenant (cross-tenant FK protection)', async () => {
       prisma.legalEntity.findFirst.mockResolvedValue(null);
       await expect(
-        service.createSite({ legalEntityId: 'le-other-tenant', code: 'W', name: 'Wien' }),
+        service.createSite({
+          legalEntityId: 'le-other-tenant',
+          code: 'W',
+          name: 'Wien',
+        }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -578,9 +662,9 @@ describe('SiteService', () => {
     it('fails when the tenant has no active site (all-inactive regression)', async () => {
       prisma.site.findFirst.mockResolvedValue(null);
 
-      await expect(service.resolveDefaultSiteId(TENANT_ID)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.resolveDefaultSiteId(TENANT_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

@@ -226,8 +226,7 @@ describe('EmployeeService', () => {
       _sum: { minutes_charged: true },
     });
     expect(mockPrisma.site.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: 'tenant-1', is_active: true },
-      orderBy: [{ code: 'asc' }],
+      where: { tenant_id: 'tenant-1', code: 'MAIN', is_active: true },
       select: { timezone: true },
     });
   });
