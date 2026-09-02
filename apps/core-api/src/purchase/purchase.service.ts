@@ -11,6 +11,7 @@ import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteService } from '../site/site.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
@@ -31,6 +32,7 @@ export class PurchaseService {
     private prisma: PrismaService,
     private ledgerService: LedgerService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteService: SiteService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -155,9 +157,11 @@ export class PurchaseService {
           where: { tenant_id: tenantId, type: 'warehouse' },
         });
         if (!warehouse) {
+          const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
           warehouse = await tx.storageLocation.create({
             data: {
               tenant_id: tenantId,
+              site_id: siteId,
               name: 'Default Warehouse',
               code: 'WH-001',
               type: 'warehouse',
@@ -179,6 +183,7 @@ export class PurchaseService {
           generalBin = await tx.storageLocation.create({
             data: {
               tenant_id: tenantId,
+              site_id: warehouse.site_id,
               name: 'General Bin',
               code: `${warehouse.code}-GEN`,
               type: 'bin',

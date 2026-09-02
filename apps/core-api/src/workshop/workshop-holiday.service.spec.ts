@@ -87,7 +87,7 @@ describe('WorkshopHolidayService', () => {
     expect(mockPrisma.workshopHoliday.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          workshop_settings_id: SETTINGS_ID,
+          site_id: SETTINGS_ID,
           is_closed: true,
           source: 'MANUAL',
         }),

@@ -43,11 +43,17 @@ export const mockPrisma = {
     delete: jest.fn(),
     deleteMany: jest.fn(),
   },
-  workshopSettings: {
+  site: {
     findFirst: jest.fn(),
     findFirstOrThrow: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+  },
+  legalEntity: {
+    create: jest.fn(),
+  },
+  tenant: {
+    findFirst: jest.fn(),
   },
   workshopOpeningHour: {
     findMany: jest.fn(),
@@ -75,6 +81,7 @@ export const mockPrisma = {
   storageLocation: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    createMany: jest.fn(),
   },
   workshopTask: {
     findFirst: jest.fn(),

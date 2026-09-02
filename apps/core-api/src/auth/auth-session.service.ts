@@ -7,6 +7,7 @@ import {
 import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
+import { setActiveTenant } from '../common/services/user-active-tenant';
 import { getFirebaseAdminAuth } from './firebase-admin';
 import type {
   AuthenticatedUser,
@@ -179,10 +180,13 @@ export class AuthSessionService {
     }
 
     if (userRecord.active_tenant_id !== requestedMembership.tenant_id) {
-      await this.systemPrisma.user.update({
-        where: { id: userRecord.id },
-        data: { active_tenant_id: requestedMembership.tenant_id },
-      });
+      // Ruling 11: the shared helper atomically nulls active_site_id so the
+      // composite FK (active_tenant_id, active_site_id) is never violated.
+      await setActiveTenant(
+        this.systemPrisma.user,
+        userRecord.id,
+        requestedMembership.tenant_id,
+      );
       userRecord.active_tenant_id = requestedMembership.tenant_id;
     }
 
@@ -251,10 +255,13 @@ export class AuthSessionService {
     }
 
     if ((user.active_tenant_id ?? null) !== activeMembership.tenant_id) {
-      await this.systemPrisma.user.update({
-        where: { id: user.id },
-        data: { active_tenant_id: activeMembership.tenant_id },
-      });
+      // Ruling 11: the shared helper atomically nulls active_site_id so the
+      // composite FK (active_tenant_id, active_site_id) is never violated.
+      await setActiveTenant(
+        this.systemPrisma.user,
+        user.id,
+        activeMembership.tenant_id,
+      );
       user.active_tenant_id = activeMembership.tenant_id;
     }
 

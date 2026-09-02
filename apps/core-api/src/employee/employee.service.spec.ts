@@ -41,7 +41,7 @@ const mockPrisma = {
   laborEntry: {
     count: jest.fn(),
   },
-  workshopSettings: {
+  site: {
     findFirst: jest.fn(),
   },
   workshopOrder: {
@@ -88,7 +88,7 @@ describe('EmployeeService', () => {
       async (callback: (transaction: typeof mockPrisma) => unknown) =>
         callback(mockPrisma),
     );
-    mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+    mockPrisma.site.findFirst.mockResolvedValue({
       timezone: 'Europe/Vienna',
     });
     mockPrisma.employeeLeaveBalance.findMany.mockResolvedValue([]);
@@ -225,8 +225,8 @@ describe('EmployeeService', () => {
       },
       _sum: { minutes_charged: true },
     });
-    expect(mockPrisma.workshopSettings.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: 'tenant-1' },
+    expect(mockPrisma.site.findFirst).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', code: 'MAIN', is_active: true },
       select: { timezone: true },
     });
   });
@@ -303,7 +303,7 @@ describe('EmployeeService', () => {
   it('seeds a schedule from the tenant-local current date when hire date is omitted', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-02T01:00:00.000Z'));
     try {
-      mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+      mockPrisma.site.findFirst.mockResolvedValue({
         timezone: 'America/Los_Angeles',
       });
       const createdEmployee = {

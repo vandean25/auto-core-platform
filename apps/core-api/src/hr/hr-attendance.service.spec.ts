@@ -18,7 +18,7 @@ describe('HrAttendanceService', () => {
       findFirst: jest.Mock;
       findMany: jest.Mock;
     };
-    workshopSettings: {
+    site: {
       findFirst: jest.Mock;
     };
     employeeLeaveBalance: {
@@ -48,7 +48,7 @@ describe('HrAttendanceService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
       },
-      workshopSettings: {
+      site: {
         findFirst: jest.fn().mockResolvedValue({ timezone: 'Europe/Vienna' }),
       },
       employeeLeaveBalance: {
@@ -283,7 +283,7 @@ describe('HrAttendanceService', () => {
 
   describe('getMeProfile', () => {
     it('returns the resolved tenant timezone', async () => {
-      prisma.workshopSettings.findFirst.mockResolvedValue({
+      prisma.site.findFirst.mockResolvedValue({
         timezone: 'America/Los_Angeles',
       });
       prisma.attendanceEvent.findFirst.mockResolvedValue(null);
@@ -300,7 +300,7 @@ describe('HrAttendanceService', () => {
 
   describe('clock response timezone', () => {
     it('includes the tenant timezone for self clock state', async () => {
-      prisma.workshopSettings.findFirst.mockResolvedValue({
+      prisma.site.findFirst.mockResolvedValue({
         timezone: 'America/Los_Angeles',
       });
       prisma.attendanceEvent.findMany.mockResolvedValue([]);
@@ -362,7 +362,7 @@ describe('HrAttendanceService', () => {
 
   describe('getEmployeeClock', () => {
     it('returns the target employee current state independently of the selected history range', async () => {
-      prisma.workshopSettings.findFirst.mockResolvedValue({
+      prisma.site.findFirst.mockResolvedValue({
         timezone: 'America/Los_Angeles',
       });
       prisma.employee.findFirst.mockResolvedValue({ id: 'emp-2' });

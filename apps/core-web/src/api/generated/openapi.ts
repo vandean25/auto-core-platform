@@ -1776,6 +1776,114 @@ export interface paths {
         patch: operations["BayController_update"];
         trace?: never;
     };
+    "/api/legal-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List legal entities (OWNER/ADMIN, includes inactive by default) */
+        get: operations["LegalEntityController_listLegalEntities"];
+        put?: never;
+        /** Create a legal entity (OWNER/ADMIN) */
+        post: operations["LegalEntityController_createLegalEntity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Hard-delete an unused legal entity (OWNER/ADMIN) */
+        delete: operations["LegalEntityController_deleteLegalEntity"];
+        options?: never;
+        head?: never;
+        /** Update a legal entity (OWNER/ADMIN) */
+        patch: operations["LegalEntityController_updateLegalEntity"];
+        trace?: never;
+    };
+    "/api/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active site directory or full list (OWNER/ADMIN) */
+        get: operations["SiteController_listSites"];
+        put?: never;
+        /** Create a site (OWNER/ADMIN) */
+        post: operations["SiteController_createSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single site */
+        get: operations["SiteController_getSite"];
+        put?: never;
+        post?: never;
+        /** Hard-delete a pristine site (OWNER/ADMIN) */
+        delete: operations["SiteController_deleteSite"];
+        options?: never;
+        head?: never;
+        /** Update a site (OWNER/ADMIN) */
+        patch: operations["SiteController_updateSite"];
+        trace?: never;
+    };
+    "/api/sites/{id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List site memberships */
+        get: operations["SiteController_listSiteMemberships"];
+        put?: never;
+        /** Add a site membership (OWNER/ADMIN) */
+        post: operations["SiteController_addSiteMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{id}/memberships/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a site membership (OWNER/ADMIN) */
+        delete: operations["SiteController_removeSiteMembership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/tenants": {
         parameters: {
             query?: never;
@@ -2011,7 +2119,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
             parent_id?: string | null;
         };
         LocationCountsDto: {
@@ -2023,7 +2131,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
             parent_id?: string | null;
             parent?: components["schemas"]["LocationParentResponseDto"];
             _count?: components["schemas"]["LocationCountsDto"];
@@ -2038,7 +2146,7 @@ export interface components {
             name: string;
             code: string;
             /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot";
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
             parent_id?: string | null;
             parent?: components["schemas"]["LocationParentResponseDto"];
             _count?: components["schemas"]["LocationCountsDto"];
@@ -4011,6 +4119,50 @@ export interface components {
             id: string;
             isActive?: boolean;
             deleted?: boolean;
+        };
+        CreateLegalEntityDto: {
+            name: string;
+            /** @enum {string} */
+            countryIso: "AT" | "DE";
+        };
+        UpdateLegalEntityDto: {
+            name?: string;
+            isActive?: boolean;
+        };
+        CreateSiteOpeningHourDto: {
+            weekday: number;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime: string;
+            /** @example 17:00 */
+            closeTime: string;
+        };
+        CreateSiteDto: {
+            legalEntityId: string;
+            code: string;
+            name: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            /** @example Europe/Vienna */
+            timezone?: string;
+            slotMinutes?: number;
+            /** @example AT */
+            holidayCountryIso?: string;
+            holidaySubdivisionCode?: string;
+            openingHours?: components["schemas"]["CreateSiteOpeningHourDto"][];
+        };
+        UpdateSiteDto: {
+            name?: string;
+            addressStreet?: string;
+            addressCity?: string;
+            addressZip?: string;
+            addressCountry?: string;
+            isActive?: boolean;
+        };
+        CreateSiteMembershipDto: {
+            userId: string;
         };
         /** @enum {string} */
         TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
@@ -8206,6 +8358,251 @@ export interface operations {
             };
             /** @description Bay name already exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalEntityController_listLegalEntities: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalEntityController_createLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLegalEntityDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalEntityController_deleteLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LegalEntityController_updateLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLegalEntityDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_listSites: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_createSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSiteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_getSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_deleteSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_updateSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSiteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_listSiteMemberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_addSiteMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSiteMembershipDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SiteController_removeSiteMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

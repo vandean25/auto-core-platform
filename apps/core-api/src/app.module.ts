@@ -32,6 +32,7 @@ import { VehicleStockModule } from './vehicle-stock/vehicle-stock.module';
 import { DashboardRealtimeModule } from './dashboard-realtime/dashboard-realtime.module';
 import { EmployeeModule } from './employee/employee.module';
 import { BayModule } from './bay/bay.module';
+import { SiteModule } from './site/site.module';
 import { AuthModule } from './auth/auth.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 import { TenantMemberModule } from './tenant-member/tenant-member.module';
@@ -64,6 +65,7 @@ import { HealthController } from './health.controller';
     DashboardRealtimeModule,
     EmployeeModule,
     BayModule,
+    SiteModule,
     AuthModule,
     PlatformAdminModule,
     TenantMemberModule,

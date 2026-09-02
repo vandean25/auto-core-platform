@@ -11,6 +11,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
   seedTestEmployee,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
@@ -26,6 +27,7 @@ describe('Workshop planner booking (e2e)', () => {
   let vehicleCId: string;
   let bayId: string;
   let tenantId: string;
+  let siteId: string;
   let isolatedTenantId: string;
 
   beforeAll(async () => {
@@ -45,6 +47,7 @@ describe('Workshop planner booking (e2e)', () => {
     );
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    siteId = await resolveTestMainSiteId(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     const customer = await prisma.customer.create({
@@ -90,6 +93,7 @@ describe('Workshop planner booking (e2e)', () => {
           name: `Planner Bay ${Date.now()}`,
           is_active: true,
           sort_order: 1,
+          site_id: siteId,
         },
       }),
     ]);

@@ -376,7 +376,7 @@ describe('WorkshopTaskService', () => {
       tasks: [],
       invoice: null,
     });
-    mockPrisma.workshopSettings.findFirst.mockResolvedValue({
+    mockPrisma.site.findFirst.mockResolvedValue({
       timezone: 'Europe/Vienna',
     });
     mockPrisma.workshopTask.create.mockResolvedValue({

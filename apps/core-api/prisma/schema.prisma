@@ -40,76 +40,80 @@ model Tenant {
   updated_at DateTime   @updatedAt
   is_active  Boolean    @default(true)
 
-  revenueGroups        RevenueGroup[]
-  financeSettings      FinanceSettings?
+  revenueGroups            RevenueGroup[]
+  financeSettings          FinanceSettings?
   voiceTranslationSettings VoiceTranslationSettings?
-  brands               Brand[]
-  catalogItems         CatalogItem[]
-  storageLocations     StorageLocation[]
-  inventoryStocks      InventoryStock[]
-  inventoryTransactions InventoryTransaction[]
-  vendors              Vendor[]
-  purchaseOrders       PurchaseOrder[]
-  purchaseOrderItems   PurchaseOrderItem[]
-  customers            Customer[]
-  vehicles             Vehicle[]
-  vehiclePurchases     VehiclePurchase[]
-  vehicleSales         VehicleSale[]
-  vehicleLedgerEntries VehicleLedgerEntry[]
-  salesOrders          SalesOrder[]
-  salesOrderItems      SalesOrderItem[]
-  invoices             Invoice[]
-  invoiceSequences     InvoiceSequence[]
-  invoiceItems         InvoiceItem[]
-  purchaseInvoices     PurchaseInvoice[]
-  purchaseInvoiceLines PurchaseInvoiceLine[]
-  inspectionTemplates  InspectionTemplate[]
-  inspectionTemplateItems InspectionTemplateItem[]
-  workshopInspections  WorkshopInspection[]
-  workshopInspectionItems WorkshopInspectionItem[]
-  workshopMedia        WorkshopMedia[]
-  workshopVoiceNoteDrafts WorkshopVoiceNoteDraft[]
-  voiceNoteRateLimits  VoiceNoteRateLimit[]
-  workshopOrders       WorkshopOrder[]
-  workshopTasks        WorkshopTask[]
-  workshopTaskLineItems WorkshopTaskLineItem[]
-  employees            Employee[]
-  bays                 Bay[]
-  workshopSettings     WorkshopSettings?
-  workshopOpeningHours WorkshopOpeningHour[]
-  workshopHolidays     WorkshopHoliday[]
-  employeeLeaveBalances EmployeeLeaveBalance[]
-  leaveRequests        LeaveRequest[]
-  attendanceEvents     AttendanceEvent[]
-  employeeWorkSchedules EmployeeWorkSchedule[]
+  brands                   Brand[]
+  catalogItems             CatalogItem[]
+  storageLocations         StorageLocation[]
+  inventoryStocks          InventoryStock[]
+  inventoryTransactions    InventoryTransaction[]
+  vendors                  Vendor[]
+  purchaseOrders           PurchaseOrder[]
+  purchaseOrderItems       PurchaseOrderItem[]
+  customers                Customer[]
+  vehicles                 Vehicle[]
+  vehiclePurchases         VehiclePurchase[]
+  vehicleSales             VehicleSale[]
+  vehicleLedgerEntries     VehicleLedgerEntry[]
+  salesOrders              SalesOrder[]
+  salesOrderItems          SalesOrderItem[]
+  invoices                 Invoice[]
+  invoiceSequences         InvoiceSequence[]
+  invoiceItems             InvoiceItem[]
+  purchaseInvoices         PurchaseInvoice[]
+  purchaseInvoiceLines     PurchaseInvoiceLine[]
+  inspectionTemplates      InspectionTemplate[]
+  inspectionTemplateItems  InspectionTemplateItem[]
+  workshopInspections      WorkshopInspection[]
+  workshopInspectionItems  WorkshopInspectionItem[]
+  workshopMedia            WorkshopMedia[]
+  workshopVoiceNoteDrafts  WorkshopVoiceNoteDraft[]
+  voiceNoteRateLimits      VoiceNoteRateLimit[]
+  workshopOrders           WorkshopOrder[]
+  workshopTasks            WorkshopTask[]
+  workshopTaskLineItems    WorkshopTaskLineItem[]
+  employees                Employee[]
+  bays                     Bay[]
+  workshopOpeningHours     WorkshopOpeningHour[]
+  workshopHolidays         WorkshopHoliday[]
+  employeeLeaveBalances    EmployeeLeaveBalance[]
+  leaveRequests            LeaveRequest[]
+  attendanceEvents         AttendanceEvent[]
+  employeeWorkSchedules    EmployeeWorkSchedule[]
   employeeWorkScheduleDays EmployeeWorkScheduleDay[]
-  laborCategories      LaborCategory[]
-  laborOperations      LaborOperation[]
-  laborEntries         LaborEntry[]
-  catalogProviderSettings CatalogProviderSettings?
-  catalogOemConcerns   CatalogOemConcern[]
-  catalogOemConcernMakes CatalogOemConcernMake[]
-  vehicleMakeAliases   VehicleMakeAlias[]
-  auditLogs            AuditLog[]
-  memberships          TenantMember[]
-  activeUsers          User[]         @relation("UserActiveTenant")
+  laborCategories          LaborCategory[]
+  laborOperations          LaborOperation[]
+  laborEntries             LaborEntry[]
+  catalogProviderSettings  CatalogProviderSettings?
+  catalogOemConcerns       CatalogOemConcern[]
+  catalogOemConcernMakes   CatalogOemConcernMake[]
+  vehicleMakeAliases       VehicleMakeAlias[]
+  auditLogs                AuditLog[]
+  memberships              TenantMember[]
+  siteMemberships          SiteMembership[]
+  activeUsers              User[]                    @relation("UserActiveTenant")
+  legalEntities            LegalEntity[]
+  sites                    Site[]
 
   @@map("tenants")
 }
 
 model User {
-  id               String         @id @default(uuid())
-  firebaseUid      String         @unique @map("firebase_uid")
-  email            String         @unique
-  firstName        String?        @map("first_name")
-  lastName         String?        @map("last_name")
+  id               String           @id @default(uuid())
+  firebaseUid      String           @unique @map("firebase_uid")
+  email            String           @unique
+  firstName        String?          @map("first_name")
+  lastName         String?          @map("last_name")
   active_tenant_id String?
-  activeTenant     Tenant?        @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  activeTenant     Tenant?          @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  active_site_id   String?
   memberships      TenantMember[]
+  siteMemberships  SiteMembership[]
   platformAdmin    PlatformAdmin?
   employees        Employee[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@index([active_tenant_id])
   @@map("users")
@@ -126,9 +130,11 @@ model TenantMember {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
+  siteMemberships SiteMembership[]
+
+  @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
-  @@unique([tenant_id, user_id])
   @@map("tenant_members")
 }
 
@@ -145,64 +151,138 @@ model PlatformAdmin {
 }
 
 // ============================================================================
+// Multi-Location: LegalEntity + Site + SiteMembership (ADR-0022)
+// ============================================================================
+
+model LegalEntity {
+  id          String             @id @default(uuid())
+  tenant_id   String
+  tenant      Tenant             @relation(fields: [tenant_id], references: [id])
+  name        String
+  country_iso LegalEntityCountry
+  is_active   Boolean            @default(true)
+  sites       Site[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, name])
+  @@index([tenant_id])
+  @@map("legal_entities")
+}
+
+model Site {
+  id                       String                @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                @relation(fields: [tenant_id], references: [id])
+  legal_entity_id          String
+  legal_entity             LegalEntity           @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  code                     String
+  name                     String
+  address_street           String?
+  address_city             String?
+  address_zip              String?
+  address_country          String?
+  timezone                 String                @default("Europe/Vienna")
+  slot_minutes             Int                   @default(30)
+  holiday_country_iso      String                @default("AT")
+  holiday_subdivision_code String?
+  is_active                Boolean               @default(true)
+  memberships              SiteMembership[]
+  openingHours             WorkshopOpeningHour[]
+  holidays                 WorkshopHoliday[]
+  bays                     Bay[]
+  storageLocations         StorageLocation[]
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, code])
+  @@index([tenant_id])
+  @@map("sites")
+}
+
+model SiteMembership {
+  id        String   @id @default(uuid())
+  tenant_id String
+  tenant    Tenant   @relation(fields: [tenant_id], references: [id])
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id])
+  site_id   String
+  site      Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Composite tenant-safe FK to TenantMember (ruling 5 / ADR-0022 §1)
+  tenantMember TenantMember @relation(fields: [tenant_id, user_id], references: [tenant_id, user_id], onDelete: Cascade)
+
+  @@unique([tenant_id, user_id, site_id])
+  @@index([tenant_id])
+  @@index([tenant_id, user_id])
+  @@index([tenant_id, site_id])
+  @@map("site_memberships")
+}
+
+// ============================================================================
 // Finance Settings & Revenue Groups
 // ============================================================================
 
 model RevenueGroup {
-  id             Int           @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   tenant_id      String
-  tenant         Tenant        @relation(fields: [tenant_id], references: [id])
+  tenant         Tenant  @relation(fields: [tenant_id], references: [id])
   name           String
-  tax_rate       Decimal       @db.Decimal(5, 2)
+  tax_rate       Decimal @db.Decimal(5, 2)
   account_number String
-  is_default     Boolean       @default(false)
-  
-  catalog_items  CatalogItem[]
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  is_default     Boolean @default(false)
 
-  @@index([tenant_id])
+  catalog_items CatalogItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([tenant_id, name]) // tenant-scoped
+  @@index([tenant_id])
   @@map("revenue_groups")
 }
 
 model FinanceSettings {
-  id                      String    @id @default(uuid())
-  tenant_id               String
-  tenant                  Tenant    @relation(fields: [tenant_id], references: [id])
-  fiscal_year_start_month Int       @default(1)
-  lock_date               DateTime?
-  next_invoice_number     Int       @default(1001)
-  invoice_prefix          String    @default("RE-2026-")
-  next_sales_order_number Int       @default(1001)
-  sales_order_prefix      String    @default("SO-2026-")
-  next_workshop_order_number Int    @default(1)
-  workshop_order_prefix      String
-  next_vehicle_purchase_number Int    @default(1)
-  vehicle_purchase_prefix      String @default("VP-2026-")
-  next_vehicle_sale_number     Int    @default(1)
-  vehicle_sale_prefix          String @default("VS-2026-")
+  id                           String    @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant    @relation(fields: [tenant_id], references: [id])
+  fiscal_year_start_month      Int       @default(1)
+  lock_date                    DateTime?
+  next_invoice_number          Int       @default(1001)
+  invoice_prefix               String    @default("RE-2026-")
+  next_sales_order_number      Int       @default(1001)
+  sales_order_prefix           String    @default("SO-2026-")
+  next_workshop_order_number   Int       @default(1)
+  workshop_order_prefix        String
+  next_vehicle_purchase_number Int       @default(1)
+  vehicle_purchase_prefix      String    @default("VP-2026-")
+  next_vehicle_sale_number     Int       @default(1)
+  vehicle_sale_prefix          String    @default("VS-2026-")
 
-  updatedAt               DateTime  @updatedAt
+  updatedAt DateTime @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id]) // tenant-scoped
+  @@index([tenant_id])
   @@map("finance_settings")
 }
 
 model VoiceTranslationSettings {
-  id                              String   @id @default(uuid())
-  tenant_id                       String
-  tenant                          Tenant   @relation(fields: [tenant_id], references: [id])
-  target_language_code            String   @default("de")
-  google_project_id               String?
-  google_location                 String   @default("global")
+  id                               String   @id @default(uuid())
+  tenant_id                        String
+  tenant                           Tenant   @relation(fields: [tenant_id], references: [id])
+  target_language_code             String   @default("de")
+  google_project_id                String?
+  google_location                  String   @default("global")
   google_service_account_encrypted String?
-  updatedAt                       DateTime @updatedAt
+  updatedAt                        DateTime @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id])
+  @@index([tenant_id])
   @@map("voice_translation_settings")
 }
 
@@ -211,26 +291,26 @@ model VoiceTranslationSettings {
 // ============================================================================
 
 model Brand {
-  id                 Int       @id @default(autoincrement())
+  id                 Int      @id @default(autoincrement())
   tenant_id          String
-  tenant             Tenant    @relation(fields: [tenant_id], references: [id])
+  tenant             Tenant   @relation(fields: [tenant_id], references: [id])
   name               String
-  normalized_name    String    @map("normalized_name")
-  isVehicleMake      Boolean   @default(false) @map("is_vehicle_make")
-  isPartManufacturer Boolean   @default(false) @map("is_part_manufacturer")
-  logoUrl            String?   @map("logo_url")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  normalized_name    String   @map("normalized_name")
+  isVehicleMake      Boolean  @default(false) @map("is_vehicle_make")
+  isPartManufacturer Boolean  @default(false) @map("is_part_manufacturer")
+  logoUrl            String?  @map("logo_url")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  vendors      Vendor[]      @relation("VendorBrands")
-  catalogItems CatalogItem[]
-  vehiclesAsMake Vehicle[] @relation("VehicleMakeBrand")
-  vehicleMakeAliases VehicleMakeAlias[]
+  vendors                Vendor[]                @relation("VendorBrands")
+  catalogItems           CatalogItem[]
+  vehiclesAsMake         Vehicle[]               @relation("VehicleMakeBrand")
+  vehicleMakeAliases     VehicleMakeAlias[]
   catalogOemConcernMakes CatalogOemConcernMake[]
 
-  @@index([tenant_id])
   @@unique([tenant_id, name]) // tenant-scoped
   @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
+  @@index([tenant_id])
   @@map("brands")
 }
 
@@ -241,57 +321,57 @@ enum CatalogOemConcernCode {
 }
 
 model CatalogProviderSettings {
-  id                                   String         @id @default(uuid())
-  tenant_id                            String
-  tenant                               Tenant         @relation(fields: [tenant_id], references: [id])
-  default_identity_adapter_id          String?        @map("default_identity_adapter_id")
-  default_parts_aftermarket_adapter_id String?        @map("default_parts_aftermarket_adapter_id")
-  default_labor_aftermarket_adapter_id String?        @map("default_labor_aftermarket_adapter_id")
-  default_labor_category_id            String?        @db.Uuid @map("default_labor_category_id")
-  defaultLaborCategory                 LaborCategory? @relation(fields: [default_labor_category_id], references: [id], onDelete: Restrict)
-  aw_minutes                           Int            @default(6) @map("aw_minutes")
-  identity_credentials_secret_ref      String?        @map("identity_credentials_secret_ref")
-  parts_aftermarket_credentials_secret_ref String?    @map("parts_aftermarket_credentials_secret_ref")
-  labor_aftermarket_credentials_secret_ref String?    @map("labor_aftermarket_credentials_secret_ref")
-  updatedAt                            DateTime       @updatedAt
+  id                                       String         @id @default(uuid())
+  tenant_id                                String
+  tenant                                   Tenant         @relation(fields: [tenant_id], references: [id])
+  default_identity_adapter_id              String?        @map("default_identity_adapter_id")
+  default_parts_aftermarket_adapter_id     String?        @map("default_parts_aftermarket_adapter_id")
+  default_labor_aftermarket_adapter_id     String?        @map("default_labor_aftermarket_adapter_id")
+  default_labor_category_id                String?        @map("default_labor_category_id") @db.Uuid
+  defaultLaborCategory                     LaborCategory? @relation(fields: [default_labor_category_id], references: [id], onDelete: Restrict)
+  aw_minutes                               Int            @default(6) @map("aw_minutes")
+  identity_credentials_secret_ref          String?        @map("identity_credentials_secret_ref")
+  parts_aftermarket_credentials_secret_ref String?        @map("parts_aftermarket_credentials_secret_ref")
+  labor_aftermarket_credentials_secret_ref String?        @map("labor_aftermarket_credentials_secret_ref")
+  updatedAt                                DateTime       @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id])
+  @@index([tenant_id])
   @@map("catalog_provider_settings")
 }
 
 model CatalogOemConcern {
-  id                             String                @id @default(uuid())
-  tenant_id                      String
-  tenant                         Tenant                @relation(fields: [tenant_id], references: [id])
-  code                           CatalogOemConcernCode
-  parts_adapter_id               String?               @map("parts_adapter_id")
-  labor_adapter_id               String?               @map("labor_adapter_id")
-  parts_credentials_secret_ref   String?               @map("parts_credentials_secret_ref")
-  labor_credentials_secret_ref   String?               @map("labor_credentials_secret_ref")
-  memberMakes                    CatalogOemConcernMake[]
-  createdAt                      DateTime              @default(now())
-  updatedAt                      DateTime              @updatedAt
+  id                           String                  @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                  @relation(fields: [tenant_id], references: [id])
+  code                         CatalogOemConcernCode
+  parts_adapter_id             String?                 @map("parts_adapter_id")
+  labor_adapter_id             String?                 @map("labor_adapter_id")
+  parts_credentials_secret_ref String?                 @map("parts_credentials_secret_ref")
+  labor_credentials_secret_ref String?                 @map("labor_credentials_secret_ref")
+  memberMakes                  CatalogOemConcernMake[]
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, code])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@map("catalog_oem_concerns")
 }
 
 model CatalogOemConcernMake {
-  id          String            @id @default(uuid())
-  tenant_id   String
-  tenant      Tenant            @relation(fields: [tenant_id], references: [id])
-  concern_id  String            @map("concern_id")
-  concern     CatalogOemConcern @relation(fields: [tenant_id, concern_id], references: [tenant_id, id], onDelete: Cascade)
-  brand_id    Int               @map("brand_id")
-  brand       Brand             @relation(fields: [brand_id], references: [id], onDelete: Restrict)
-  createdAt   DateTime          @default(now())
+  id         String            @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id])
+  concern_id String            @map("concern_id")
+  concern    CatalogOemConcern @relation(fields: [tenant_id, concern_id], references: [tenant_id, id], onDelete: Cascade)
+  brand_id   Int               @map("brand_id")
+  brand      Brand             @relation(fields: [brand_id], references: [id], onDelete: Restrict)
+  createdAt  DateTime          @default(now())
 
-  @@index([tenant_id])
   @@unique([tenant_id, brand_id])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@map("catalog_oem_concern_makes")
 }
 
@@ -305,9 +385,9 @@ model VehicleMakeAlias {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, alias_normalized])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@map("vehicle_make_aliases")
 }
 
@@ -316,37 +396,37 @@ model VehicleMakeAlias {
 // ============================================================================
 
 model CatalogItem {
-  id                  String                 @id @default(uuid())
-  tenant_id           String
-  tenant              Tenant                 @relation(fields: [tenant_id], references: [id])
-  sku                 String
-  name                String
-  cost_price          Decimal?               @db.Decimal(10, 2)
-  retail_price        Decimal                @db.Decimal(10, 2)
-  unit                String                 @default("pcs")
-  source_system       String?
-  external_article_id String?
-  ean                 String?
-  oem_numbers         Json?
-  specs               Json?
-  superseded_by_id    String?
-  superseded_by       CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
-  supersedes          CatalogItem[]          @relation("Supersession")
-  revenue_group_id    Int?
-  revenue_group       RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
-  brand_id            Int?                   @map("brand_id")
-  brand               Brand?                 @relation(fields: [brand_id], references: [id])
-  stocks              InventoryStock[]
-  transactions        InventoryTransaction[]
-  purchase_order_items PurchaseOrderItem[]
-  invoice_items       InvoiceItem[]
-  sales_order_items   SalesOrderItem[]
+  id                       String                 @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                 @relation(fields: [tenant_id], references: [id])
+  sku                      String
+  name                     String
+  cost_price               Decimal?               @db.Decimal(10, 2)
+  retail_price             Decimal                @db.Decimal(10, 2)
+  unit                     String                 @default("pcs")
+  source_system            String?
+  external_article_id      String?
+  ean                      String?
+  oem_numbers              Json?
+  specs                    Json?
+  superseded_by_id         String?
+  superseded_by            CatalogItem?           @relation("Supersession", fields: [superseded_by_id], references: [id])
+  supersedes               CatalogItem[]          @relation("Supersession")
+  revenue_group_id         Int?
+  revenue_group            RevenueGroup?          @relation(fields: [revenue_group_id], references: [id])
+  brand_id                 Int?                   @map("brand_id")
+  brand                    Brand?                 @relation(fields: [brand_id], references: [id])
+  stocks                   InventoryStock[]
+  transactions             InventoryTransaction[]
+  purchase_order_items     PurchaseOrderItem[]
+  invoice_items            InvoiceItem[]
+  sales_order_items        SalesOrderItem[]
   workshop_task_line_items WorkshopTaskLineItem[]
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, sku]) // tenant-scoped
+  @@index([tenant_id])
   @@map("catalog_items")
 }
 
@@ -358,28 +438,40 @@ enum LocationType {
   customer_storage
   staging_tote
   vehicle_lot
+  in_transit
+}
+
+enum LegalEntityCountry {
+  AT
+  DE
 }
 
 model StorageLocation {
-  id           String                 @id @default(uuid())
-  tenant_id    String
-  tenant       Tenant                 @relation(fields: [tenant_id], references: [id])
-  code         String
-  name         String
-  type         LocationType
-  parent_id    String?
-  parent       StorageLocation?       @relation("Hierarchy", fields: [parent_id], references: [id])
-  children     StorageLocation[]      @relation("Hierarchy")
-  stocks       InventoryStock[]
-  transactions InventoryTransaction[]
-  stagingWorkshopOrders WorkshopOrder[] @relation("WorkshopOrderStagingLocation")
-  parkedVehicles        Vehicle[]       @relation("VehicleLot")
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  deletedAt    DateTime?
+  id                    String                 @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                 @relation(fields: [tenant_id], references: [id])
+  site_id               String
+  site                  Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  code                  String
+  name                  String
+  type                  LocationType
+  is_system             Boolean                @default(false)
+  parent_id             String?
+  parent                StorageLocation?       @relation("Hierarchy", fields: [tenant_id, site_id, parent_id], references: [tenant_id, site_id, id])
+  children              StorageLocation[]      @relation("Hierarchy")
+  stocks                InventoryStock[]
+  transactions          InventoryTransaction[]
+  stagingWorkshopOrders WorkshopOrder[]        @relation("WorkshopOrderStagingLocation")
+  parkedVehicles        Vehicle[]              @relation("VehicleLot")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
 
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, id])
+  @@unique([tenant_id, site_id, code])
   @@index([tenant_id])
-  @@unique([tenant_id, code]) // tenant-scoped
+  @@index([tenant_id, site_id])
   @@map("storage_locations")
 }
 
@@ -396,8 +488,8 @@ model InventoryStock {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, catalog_item_id, location_id]) // tenant-scoped
+  @@index([tenant_id])
   @@map("inventory_stocks")
 }
 
@@ -432,38 +524,38 @@ model InventoryTransaction {
   location     StorageLocation @relation(fields: [location_id], references: [id])
   quantity     Decimal         @db.Decimal(10, 3) // Signed: positive = add, negative = remove
   type         TransactionType
-  reference_id String?         // Invoice #, Workshop Order #, User ID, etc.
+  reference_id String? // Invoice #, Workshop Order #, User ID, etc.
   cost_basis   Decimal?        @db.Decimal(10, 2) // For profit calculation
   createdAt    DateTime        @default(now())
 
-  @@map("inventory_transactions")
   @@index([tenant_id])
   @@index([item_id, location_id])
   @@index([type])
   @@index([createdAt])
+  @@map("inventory_transactions")
 }
 
 model AuditLog {
-  id                String         @id @default(uuid())
-  tenant_id         String
-  tenant            Tenant         @relation(fields: [tenant_id], references: [id])
-  entity_type       String
-  entity_id         String
-  action            AuditLogAction
-  actor_user_id     String?
-  actor_email       String?
-  actor_role        String?
-  actor_type        AuditActorType
-  request_id        String?
-  source            String?
-  ip_address        String?
-  user_agent        String?
-  before            Json?
-  after             Json?
-  diff              Json?
-  changed_fields    Json?
-  redacted_fields   Json?
-  occurred_at       DateTime       @default(now())
+  id              String         @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id])
+  entity_type     String
+  entity_id       String
+  action          AuditLogAction
+  actor_user_id   String?
+  actor_email     String?
+  actor_role      String?
+  actor_type      AuditActorType
+  request_id      String?
+  source          String?
+  ip_address      String?
+  user_agent      String?
+  before          Json?
+  after           Json?
+  diff            Json?
+  changed_fields  Json?
+  redacted_fields Json?
+  occurred_at     DateTime       @default(now())
 
   @@index([tenant_id, occurred_at])
   @@index([tenant_id, entity_type, entity_id, occurred_at])
@@ -472,19 +564,19 @@ model AuditLog {
 }
 
 model Vendor {
-  id               String   @id @default(uuid())
-  tenant_id        String
-  tenant           Tenant   @relation(fields: [tenant_id], references: [id])
-  name             String
-  email            String
-  account_number   String
-  supportedBrands  Brand[]  @relation("VendorBrands")
+  id              String  @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant  @relation(fields: [tenant_id], references: [id])
+  name            String
+  email           String
+  account_number  String
+  supportedBrands Brand[] @relation("VendorBrands")
 
-  purchase_orders  PurchaseOrder[]
+  purchase_orders   PurchaseOrder[]
   purchase_invoices PurchaseInvoice[]
   vehicle_purchases VehiclePurchase[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   @@index([tenant_id])
   @@map("vendors")
@@ -510,25 +602,25 @@ model PurchaseOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, order_number]) // tenant-scoped
+  @@index([tenant_id])
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
-  id                String  @id @default(uuid())
+  id                String        @id @default(uuid())
   tenant_id         String
-  tenant            Tenant  @relation(fields: [tenant_id], references: [id])
+  tenant            Tenant        @relation(fields: [tenant_id], references: [id])
   purchase_order_id String
   purchase_order    PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
   catalog_item_id   String
   catalog_item      CatalogItem   @relation(fields: [catalog_item_id], references: [id])
-  
+
   quantity          Int
   quantity_received Int     @default(0)
   quantity_invoiced Decimal @default(0) @db.Decimal(10, 2)
   unit_cost         Decimal @db.Decimal(10, 2)
-  
+
   purchase_invoice_lines PurchaseInvoiceLine[]
 
   createdAt DateTime @default(now())
@@ -544,81 +636,81 @@ enum CustomerType {
 }
 
 model Customer {
-  id             String       @id @default(uuid())
-  tenant_id      String
-  tenant         Tenant       @relation(fields: [tenant_id], references: [id])
-  type           CustomerType @default(PRIVATE)
-  company_name   String?
-  first_name     String
-  last_name      String
-  email          String?
-  phone          String?
-  vat_id         String?      // UID-Nummer
-  
-  address_street String?
-  address_city   String?
-  address_zip    String?
-  address_country String?     @default("AT")
-  
-  vehicles       Vehicle[]
-  reserved_stock_vehicles Vehicle[] @relation("VehicleStockReservation")
-  invoices       Invoice[]
-  sales_orders   SalesOrder[]
-  workshop_orders WorkshopOrder[]
-  vehicle_purchases VehiclePurchase[] @relation("VehiclePurchaseSeller")
-  vehicle_sales     VehicleSale[]
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id           String       @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id])
+  type         CustomerType @default(PRIVATE)
+  company_name String?
+  first_name   String
+  last_name    String
+  email        String?
+  phone        String?
+  vat_id       String? // UID-Nummer
 
-  @@index([tenant_id])
+  address_street  String?
+  address_city    String?
+  address_zip     String?
+  address_country String? @default("AT")
+
+  vehicles                Vehicle[]
+  reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
+  invoices                Invoice[]
+  sales_orders            SalesOrder[]
+  workshop_orders         WorkshopOrder[]
+  vehicle_purchases       VehiclePurchase[] @relation("VehiclePurchaseSeller")
+  vehicle_sales           VehicleSale[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([tenant_id, email]) // tenant-scoped
+  @@index([tenant_id])
   @@map("customers")
 }
 
 model Vehicle {
-  id           String    @id @default(uuid())
-  tenant_id    String    
-  tenant       Tenant    @relation(fields: [tenant_id], references: [id])
-  make         String
-  model        String
-  year         Int
-  engine_code  String?
-  vin          String?
-  plate        String?
-  make_brand_id Int?     @map("make_brand_id")
-  makeBrand    Brand?    @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
-  hsn          String?
-  tsn          String?
-  identity_keys Json?    @map("identity_keys")
-  identity_input_fingerprint String? @map("identity_input_fingerprint")
-  identity_resolved_at DateTime? @map("identity_resolved_at")
-  identity_resolution_generation String? @map("identity_resolution_generation")
-  identity_resolution_token String? @map("identity_resolution_token")
-  fuel_type    String?   @map("fuel_type")
-  power_kw     Int?      @map("power_kw")
-  customer_id  String?
-  customer     Customer? @relation(fields: [customer_id], references: [id])
-  inventory_role VehicleInventoryRole @default(CUSTOMER)
-  stock_status   VehicleStockStatus?
-  tax_scheme     VehicleTaxScheme?
-  mileage        Int?
-  color          String?
-  key_number     String?
-  registration_certificate_no String?
-  location_id    String?
-  location       StorageLocation? @relation("VehicleLot", fields: [location_id], references: [id], onDelete: SetNull)
-  reserved_for_customer_id String?
-  reserved_for_customer    Customer? @relation("VehicleStockReservation", fields: [reserved_for_customer_id], references: [id], onDelete: SetNull)
-  invoices     Invoice[]
-  sales_orders SalesOrder[]
-  workshop_orders WorkshopOrder[]
-  purchases    VehiclePurchase[]
-  sales        VehicleSale[]
-  ledger_entries VehicleLedgerEntry[]
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                             String               @id @default(uuid())
+  tenant_id                      String
+  tenant                         Tenant               @relation(fields: [tenant_id], references: [id])
+  make                           String
+  model                          String
+  year                           Int
+  engine_code                    String?
+  vin                            String?
+  plate                          String?
+  make_brand_id                  Int?                 @map("make_brand_id")
+  makeBrand                      Brand?               @relation("VehicleMakeBrand", fields: [make_brand_id], references: [id], onDelete: SetNull)
+  hsn                            String?
+  tsn                            String?
+  identity_keys                  Json?                @map("identity_keys")
+  identity_input_fingerprint     String?              @map("identity_input_fingerprint")
+  identity_resolved_at           DateTime?            @map("identity_resolved_at")
+  identity_resolution_generation String?              @map("identity_resolution_generation")
+  identity_resolution_token      String?              @map("identity_resolution_token")
+  fuel_type                      String?              @map("fuel_type")
+  power_kw                       Int?                 @map("power_kw")
+  customer_id                    String?
+  customer                       Customer?            @relation(fields: [customer_id], references: [id])
+  inventory_role                 VehicleInventoryRole @default(CUSTOMER)
+  stock_status                   VehicleStockStatus?
+  tax_scheme                     VehicleTaxScheme?
+  mileage                        Int?
+  color                          String?
+  key_number                     String?
+  registration_certificate_no    String?
+  location_id                    String?
+  location                       StorageLocation?     @relation("VehicleLot", fields: [location_id], references: [id], onDelete: Restrict)
+  reserved_for_customer_id       String?
+  reserved_for_customer          Customer?            @relation("VehicleStockReservation", fields: [reserved_for_customer_id], references: [id], onDelete: SetNull)
+  invoices                       Invoice[]
+  sales_orders                   SalesOrder[]
+  workshop_orders                WorkshopOrder[]
+  purchases                      VehiclePurchase[]
+  sales                          VehicleSale[]
+  ledger_entries                 VehicleLedgerEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenant_id])
   @@index([tenant_id, inventory_role, stock_status])
@@ -688,83 +780,83 @@ enum WorkshopOrderPurpose {
 }
 
 model VehiclePurchase {
-  id               String                     @id @default(uuid())
-  tenant_id        String
-  tenant           Tenant                     @relation(fields: [tenant_id], references: [id])
-  purchase_number  String
-  status           VehiclePurchaseStatus      @default(DRAFT)
-  seller_type      VehiclePurchaseSellerType
-  vendor_id        String?
-  vendor           Vendor?                    @relation(fields: [vendor_id], references: [id])
-  customer_id      String?
-  customer         Customer?                  @relation("VehiclePurchaseSeller", fields: [customer_id], references: [id])
-  acquisition_kind VehicleAcquisitionKind     @default(DIRECT)
-  vehicle_id       String?
-  vehicle          Vehicle?                   @relation(fields: [vehicle_id], references: [id])
-  vin              String?
-  make             String
-  model            String
-  year             Int
-  engine_code      String?
-  plate            String?
-  color            String?
-  mileage          Int?
-  key_number       String?
+  id                          String                    @id @default(uuid())
+  tenant_id                   String
+  tenant                      Tenant                    @relation(fields: [tenant_id], references: [id])
+  purchase_number             String
+  status                      VehiclePurchaseStatus     @default(DRAFT)
+  seller_type                 VehiclePurchaseSellerType
+  vendor_id                   String?
+  vendor                      Vendor?                   @relation(fields: [vendor_id], references: [id])
+  customer_id                 String?
+  customer                    Customer?                 @relation("VehiclePurchaseSeller", fields: [customer_id], references: [id])
+  acquisition_kind            VehicleAcquisitionKind    @default(DIRECT)
+  vehicle_id                  String?
+  vehicle                     Vehicle?                  @relation(fields: [vehicle_id], references: [id])
+  vin                         String?
+  make                        String
+  model                       String
+  year                        Int
+  engine_code                 String?
+  plate                       String?
+  color                       String?
+  mileage                     Int?
+  key_number                  String?
   registration_certificate_no String?
-  purchase_price   Decimal                    @db.Decimal(12, 2)
-  location_id      String?
-  received_at      DateTime?
-  ledger_entries   VehicleLedgerEntry[]
-  createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
+  purchase_price              Decimal                   @db.Decimal(12, 2)
+  location_id                 String?
+  received_at                 DateTime?
+  ledger_entries              VehicleLedgerEntry[]
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, purchase_number])
+  @@index([tenant_id])
   @@map("vehicle_purchases")
 }
 
 model VehicleSale {
-  id                   String            @id @default(uuid())
+  id                   String               @id @default(uuid())
   tenant_id            String
-  tenant               Tenant            @relation(fields: [tenant_id], references: [id])
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id])
   sale_number          String
-  status               VehicleSaleStatus @default(DRAFT)
+  status               VehicleSaleStatus    @default(DRAFT)
   vehicle_id           String
-  vehicle              Vehicle           @relation(fields: [vehicle_id], references: [id])
+  vehicle              Vehicle              @relation(fields: [vehicle_id], references: [id])
   customer_id          String
-  customer             Customer          @relation(fields: [customer_id], references: [id])
-  sale_price           Decimal           @db.Decimal(12, 2)
-  cost_basis_snapshot  Decimal?          @db.Decimal(12, 2)
-  margin_vat_snapshot  Decimal?          @db.Decimal(12, 2)
+  customer             Customer             @relation(fields: [customer_id], references: [id])
+  sale_price           Decimal              @db.Decimal(12, 2)
+  cost_basis_snapshot  Decimal?             @db.Decimal(12, 2)
+  margin_vat_snapshot  Decimal?             @db.Decimal(12, 2)
   trade_in_purchase_id String?
   invoice              Invoice?
   ledger_entries       VehicleLedgerEntry[]
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
   @@unique([tenant_id, sale_number])
+  @@index([tenant_id])
   @@map("vehicle_sales")
 }
 
 model VehicleLedgerEntry {
-  id                  String                  @id @default(uuid())
+  id                  String                 @id @default(uuid())
   tenant_id           String
-  tenant              Tenant                  @relation(fields: [tenant_id], references: [id])
+  tenant              Tenant                 @relation(fields: [tenant_id], references: [id])
   vehicle_id          String
-  vehicle             Vehicle                 @relation(fields: [vehicle_id], references: [id])
+  vehicle             Vehicle                @relation(fields: [vehicle_id], references: [id])
   entry_type          VehicleLedgerEntryType
-  amount              Decimal                 @db.Decimal(12, 2)
+  amount              Decimal                @db.Decimal(12, 2)
   posting_date        DateTime
   vehicle_purchase_id String?
-  vehicle_purchase    VehiclePurchase?        @relation(fields: [vehicle_purchase_id], references: [id])
+  vehicle_purchase    VehiclePurchase?       @relation(fields: [vehicle_purchase_id], references: [id])
   vehicle_sale_id     String?
-  vehicle_sale        VehicleSale?            @relation(fields: [vehicle_sale_id], references: [id])
+  vehicle_sale        VehicleSale?           @relation(fields: [vehicle_sale_id], references: [id])
   workshop_order_id   String?
-  workshop_order      WorkshopOrder?          @relation(fields: [workshop_order_id], references: [id])
+  workshop_order      WorkshopOrder?         @relation(fields: [workshop_order_id], references: [id])
   notes               String?
-  createdAt           DateTime                @default(now())
+  createdAt           DateTime               @default(now())
 
   @@index([tenant_id])
   @@index([tenant_id, vehicle_id])
@@ -780,49 +872,49 @@ enum SalesOrderStatus {
 }
 
 model SalesOrder {
-  id           String           @id @default(uuid())
+  id           String   @id @default(uuid())
   tenant_id    String
-  tenant       Tenant           @relation(fields: [tenant_id], references: [id])
-  order_number String           // e.g., SO-2026-001
+  tenant       Tenant   @relation(fields: [tenant_id], references: [id])
+  order_number String // e.g., SO-2026-001
   customer_id  String
-  customer     Customer         @relation(fields: [customer_id], references: [id])
+  customer     Customer @relation(fields: [customer_id], references: [id])
   vehicle_id   String?
-  vehicle      Vehicle?         @relation(fields: [vehicle_id], references: [id])
-  
+  vehicle      Vehicle? @relation(fields: [vehicle_id], references: [id])
+
   status       SalesOrderStatus @default(DRAFT)
   total_amount Decimal          @db.Decimal(10, 2)
   notes        String?
-  
-  items        SalesOrderItem[]
-  invoice      Invoice?
 
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  items   SalesOrderItem[]
+  invoice Invoice?
 
-  @@index([tenant_id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([tenant_id, id])
   @@unique([tenant_id, order_number]) // tenant-scoped
+  @@index([tenant_id])
   @@map("sales_orders")
 }
 
 model SalesOrderItem {
-  id              String       @id @default(uuid())
-  tenant_id       String
-  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
-  sales_order_id  String
-  sales_order     SalesOrder   @relation(fields: [sales_order_id], references: [id], onDelete: Cascade)
-  
+  id             String     @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant     @relation(fields: [tenant_id], references: [id])
+  sales_order_id String
+  sales_order    SalesOrder @relation(fields: [sales_order_id], references: [id], onDelete: Cascade)
+
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
-  
-  description     String
-  quantity        Decimal      @db.Decimal(10, 2)
-  unit_price      Decimal      @db.Decimal(10, 2)
-  total           Decimal      @db.Decimal(10, 2) // quantity * unit_price
-  tax_rate        Decimal      @default(20) @db.Decimal(5, 2)
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unit_price  Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2) // quantity * unit_price
+  tax_rate    Decimal @default(20) @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenant_id])
   @@map("sales_order_items")
@@ -842,53 +934,53 @@ enum DiscountType {
 }
 
 model Invoice {
-  id             String        @id @default(uuid())
-  tenant_id      String
-  tenant         Tenant        @relation(fields: [tenant_id], references: [id])
-  invoice_number String?       // Nullable because it's only generated on FINALIZED
-  customer_id    String
-  customer       Customer      @relation(fields: [customer_id], references: [id])
-  vehicle_id     String?
-  vehicle        Vehicle?      @relation(fields: [vehicle_id], references: [id])
-  sales_order_id String?
-  sales_order    SalesOrder?   @relation(fields: [tenant_id, sales_order_id], references: [tenant_id, id])
+  id                String         @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant         @relation(fields: [tenant_id], references: [id])
+  invoice_number    String? // Nullable because it's only generated on FINALIZED
+  customer_id       String
+  customer          Customer       @relation(fields: [customer_id], references: [id])
+  vehicle_id        String?
+  vehicle           Vehicle?       @relation(fields: [vehicle_id], references: [id])
+  sales_order_id    String?
+  sales_order       SalesOrder?    @relation(fields: [tenant_id, sales_order_id], references: [tenant_id, id])
   workshop_order_id String?
-  workshop_order  WorkshopOrder? @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id])
-  vehicle_sale_id String?
-  vehicle_sale    VehicleSale?   @relation(fields: [tenant_id, vehicle_sale_id], references: [tenant_id, id])
-  tax_mode       InvoiceTaxMode @default(STANDARD)
-  
-  status         InvoiceStatus @default(DRAFT)
-  date           DateTime      @default(now())
-  due_date       DateTime
+  workshop_order    WorkshopOrder? @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id])
+  vehicle_sale_id   String?
+  vehicle_sale      VehicleSale?   @relation(fields: [tenant_id, vehicle_sale_id], references: [tenant_id, id])
+  tax_mode          InvoiceTaxMode @default(STANDARD)
+
+  status   InvoiceStatus @default(DRAFT)
+  date     DateTime      @default(now())
+  due_date DateTime
 
   global_discount_type  DiscountType?
   global_discount_value Decimal?      @db.Decimal(10, 2)
-  
-  total_net      Decimal       @db.Decimal(10, 2)
-  total_tax      Decimal       @db.Decimal(10, 2)
-  total_gross    Decimal       @db.Decimal(10, 2)
-  
+
+  total_net   Decimal @db.Decimal(10, 2)
+  total_tax   Decimal @db.Decimal(10, 2)
+  total_gross Decimal @db.Decimal(10, 2)
+
   notes          String?
   internal_notes String?
 
-  snapshot       Json?
+  snapshot Json?
 
   pdf_storage_bucket   String?
   pdf_storage_key      String?
   pdf_generated_at     DateTime?
   pdf_generation_error String?
-  
-  items          InvoiceItem[]
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
 
-  @@index([tenant_id])
+  items InvoiceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([tenant_id, invoice_number]) // tenant-scoped
   @@unique([tenant_id, sales_order_id]) // tenant-scoped
   @@unique([tenant_id, workshop_order_id]) // tenant-scoped
   @@unique([tenant_id, vehicle_sale_id])
+  @@index([tenant_id])
   @@map("invoices")
 }
 
@@ -899,36 +991,36 @@ model InvoiceSequence {
   year      Int
   current   Int    @default(0)
 
-  @@index([tenant_id])
   @@unique([tenant_id, year]) // tenant-scoped
+  @@index([tenant_id])
   @@map("invoice_sequences")
 }
 
 model InvoiceItem {
-  id              String       @id @default(uuid())
-  tenant_id       String
-  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
-  invoice_id      String
-  invoice         Invoice      @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
-  
+  id         String  @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant  @relation(fields: [tenant_id], references: [id])
+  invoice_id String
+  invoice    Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
-  
-  description        String
-  quantity           Decimal      @db.Decimal(10, 2)
-  unit_price         Decimal      @db.Decimal(10, 2)
-  tax_rate           Decimal      @db.Decimal(5, 2)
+
+  description         String
+  quantity            Decimal       @db.Decimal(10, 2)
+  unit_price          Decimal       @db.Decimal(10, 2)
+  tax_rate            Decimal       @db.Decimal(5, 2)
   line_discount_type  DiscountType?
   line_discount_value Decimal?      @db.Decimal(10, 2)
   line_total          Decimal?      @db.Decimal(10, 2)
-  revenue_group_name String?      // Snapshot for accounting export
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  revenue_group_name  String? // Snapshot for accounting export
 
-  @@map("invoice_items")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenant_id])
   @@index([catalog_item_id])
+  @@map("invoice_items")
 }
 
 enum PurchaseInvoiceStatus {
@@ -949,34 +1041,34 @@ model PurchaseInvoice {
   invoice_date          DateTime
   due_date              DateTime
   total_amount          Decimal               @db.Decimal(10, 2)
-  
-  lines                 PurchaseInvoiceLine[]
 
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  lines PurchaseInvoiceLine[]
 
-  @@index([tenant_id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([tenant_id, invoice_number]) // tenant-scoped
+  @@index([tenant_id])
   @@map("purchase_invoices")
 }
 
 model PurchaseInvoiceLine {
-  id                      String             @id @default(uuid())
-  tenant_id               String
-  tenant                  Tenant             @relation(fields: [tenant_id], references: [id])
-  purchase_invoice_id     String
-  purchase_invoice        PurchaseInvoice    @relation(fields: [purchase_invoice_id], references: [id], onDelete: Cascade)
-  purchase_order_item_id  String?
-  purchase_order_item     PurchaseOrderItem? @relation(fields: [purchase_order_item_id], references: [id])
-  
-  description             String
-  quantity                Decimal            @db.Decimal(10, 2)
-  unit_price              Decimal            @db.Decimal(10, 2)
-  tax_rate                Decimal            @default(20) @db.Decimal(5, 2)
-  line_total              Decimal            @db.Decimal(10, 2)
+  id                     String             @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant             @relation(fields: [tenant_id], references: [id])
+  purchase_invoice_id    String
+  purchase_invoice       PurchaseInvoice    @relation(fields: [purchase_invoice_id], references: [id], onDelete: Cascade)
+  purchase_order_item_id String?
+  purchase_order_item    PurchaseOrderItem? @relation(fields: [purchase_order_item_id], references: [id])
 
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unit_price  Decimal @db.Decimal(10, 2)
+  tax_rate    Decimal @default(20) @db.Decimal(5, 2)
+  line_total  Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenant_id])
   @@map("purchase_invoice_lines")
@@ -1001,49 +1093,49 @@ enum EmployeeRole {
 }
 
 model Employee {
-  id                      String          @id @default(uuid())
-  tenant_id               String
-  tenant                  Tenant          @relation(fields: [tenant_id], references: [id])
-  user_id                 String?         @map("user_id")
-  user                    User?           @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  name                    String
-  role                    EmployeeRole
-  is_active               Boolean         @default(true)
-  sort_order              Int             @default(0)
-  mother_language_code    String?
-  workshopOrdersAsMechanic WorkshopOrder[] @relation("WorkshopOrderMechanic")
-  workshopTasksAsMechanic  WorkshopTask[]  @relation("WorkshopTaskMechanic")
-  laborEntries             LaborEntry[]    @relation("EmployeeLaborEntries")
-  uploadedWorkshopMedia    WorkshopMedia[] @relation("WorkshopMediaUploadedByEmployee")
+  id                       String                   @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant                   @relation(fields: [tenant_id], references: [id])
+  user_id                  String?                  @map("user_id")
+  user                     User?                    @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  name                     String
+  role                     EmployeeRole
+  is_active                Boolean                  @default(true)
+  sort_order               Int                      @default(0)
+  mother_language_code     String?
+  workshopOrdersAsMechanic WorkshopOrder[]          @relation("WorkshopOrderMechanic")
+  workshopTasksAsMechanic  WorkshopTask[]           @relation("WorkshopTaskMechanic")
+  laborEntries             LaborEntry[]             @relation("EmployeeLaborEntries")
+  uploadedWorkshopMedia    WorkshopMedia[]          @relation("WorkshopMediaUploadedByEmployee")
   createdVoiceNoteDrafts   WorkshopVoiceNoteDraft[] @relation("CreatedVoiceNoteDrafts")
   acceptedVoiceNoteDrafts  WorkshopVoiceNoteDraft[] @relation("AcceptedVoiceNoteDrafts")
   voiceNoteRateLimits      VoiceNoteRateLimit[]
-  hired_on                DateTime?       @db.Date
-  annual_leave_minutes    Int             @default(0)
-  workSchedules           EmployeeWorkSchedule[]
-  leaveBalances           EmployeeLeaveBalance[]
-  leaveRequests           LeaveRequest[]
-  attendanceEvents        AttendanceEvent[]
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
+  hired_on                 DateTime?                @db.Date
+  annual_leave_minutes     Int                      @default(0)
+  workSchedules            EmployeeWorkSchedule[]
+  leaveBalances            EmployeeLeaveBalance[]
+  leaveRequests            LeaveRequest[]
+  attendanceEvents         AttendanceEvent[]
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
 
-  @@index([tenant_id])
-  @@index([user_id])
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
+  @@index([tenant_id])
+  @@index([user_id])
   @@map("employees")
 }
 
 model EmployeeWorkSchedule {
-  id             String   @id @default(uuid())
+  id             String                    @id @default(uuid())
   tenant_id      String
-  tenant         Tenant   @relation(fields: [tenant_id], references: [id])
+  tenant         Tenant                    @relation(fields: [tenant_id], references: [id])
   employee_id    String
-  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)
-  effective_from DateTime @db.Date
+  employee       Employee                  @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)
+  effective_from DateTime                  @db.Date
   days           EmployeeWorkScheduleDay[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, employee_id, effective_from])
@@ -1075,16 +1167,16 @@ enum LeaveRequestStatus {
 }
 
 model EmployeeLeaveBalance {
-  id             String   @id @default(uuid())
-  tenant_id      String
-  tenant         Tenant   @relation(fields: [tenant_id], references: [id])
-  employee_id    String
-  employee       Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
-  year           Int
+  id                String   @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant   @relation(fields: [tenant_id], references: [id])
+  employee_id       String
+  employee          Employee @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  year              Int
   allowance_minutes Int
   carryover_minutes Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, employee_id, year])
@@ -1093,19 +1185,19 @@ model EmployeeLeaveBalance {
 }
 
 model LeaveRequest {
-  id                  String             @id @default(uuid())
-  tenant_id           String
-  tenant              Tenant             @relation(fields: [tenant_id], references: [id])
-  employee_id         String
-  employee            Employee           @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
-  start_on            DateTime           @db.Date
-  end_on              DateTime           @db.Date
-  status              LeaveRequestStatus @default(BOOKED)
-  minutes_charged     Int
-  note                String?
-  created_by_user_id  String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                 String             @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant             @relation(fields: [tenant_id], references: [id])
+  employee_id        String
+  employee           Employee           @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  start_on           DateTime           @db.Date
+  end_on             DateTime           @db.Date
+  status             LeaveRequestStatus @default(BOOKED)
+  minutes_charged    Int
+  note               String?
+  created_by_user_id String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -1127,16 +1219,16 @@ enum AttendanceEventSource {
 }
 
 model AttendanceEvent {
-  id           String                @id @default(uuid())
-  tenant_id    String
-  tenant       Tenant                @relation(fields: [tenant_id], references: [id])
-  employee_id  String
-  employee     Employee              @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
-  type         AttendanceEventType
-  source       AttendanceEventSource @default(SELF)
-  occurred_at  DateTime
-  note         String?
-  createdAt    DateTime              @default(now())
+  id          String                @id @default(uuid())
+  tenant_id   String
+  tenant      Tenant                @relation(fields: [tenant_id], references: [id])
+  employee_id String
+  employee    Employee              @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  type        AttendanceEventType
+  source      AttendanceEventSource @default(SELF)
+  occurred_at DateTime
+  note        String?
+  createdAt   DateTime              @default(now())
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -1153,6 +1245,8 @@ model Bay {
   id             String          @id @default(uuid())
   tenant_id      String
   tenant         Tenant          @relation(fields: [tenant_id], references: [id])
+  site_id        String
+  site           Site            @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   name           String
   is_active      Boolean         @default(true)
   sort_order     Int             @default(0)
@@ -1161,9 +1255,10 @@ model Bay {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
-  @@unique([tenant_id, name]) // tenant-scoped
+  @@unique([tenant_id, site_id, name])
+  @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@map("bays")
 }
 
@@ -1172,105 +1267,86 @@ enum WorkshopHolidaySource {
   IMPORTED
 }
 
-model WorkshopSettings {
-  id                         String                @id @default(uuid())
-  tenant_id                  String
-  tenant                     Tenant                @relation(fields: [tenant_id], references: [id])
-  timezone                   String                @default("Europe/Vienna")
-  slot_minutes               Int                   @default(30)
-  holiday_country_iso        String                @default("AT")
-  holiday_subdivision_code   String?
-  openingHours               WorkshopOpeningHour[]
-  holidays                   WorkshopHoliday[]
-  createdAt                  DateTime              @default(now())
-  updatedAt                  DateTime              @updatedAt
-
-  @@unique([tenant_id])
-  @@unique([tenant_id, id])
-  @@index([tenant_id])
-  @@map("workshop_settings")
-}
-
 model WorkshopOpeningHour {
-  id                   String           @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
-  workshop_settings_id String
-  workshop_settings    WorkshopSettings @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
-  weekday              Int
-  is_closed            Boolean          @default(false)
-  open_time            String           @default("07:30")
-  close_time           String           @default("17:00")
+  id         String  @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant  @relation(fields: [tenant_id], references: [id])
+  site_id    String
+  site       Site    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  weekday    Int
+  is_closed  Boolean @default(false)
+  open_time  String  @default("07:30")
+  close_time String  @default("17:00")
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, weekday])
+  @@unique([tenant_id, site_id, weekday])
   @@index([tenant_id])
   @@map("workshop_opening_hours")
 }
 
 model WorkshopHoliday {
-  id                   String                 @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant                 @relation(fields: [tenant_id], references: [id])
-  workshop_settings_id String
-  workshop_settings    WorkshopSettings       @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
-  name                 String
-  observed_on          DateTime               @db.Date
-  repeats_annually     Boolean                @default(false)
-  is_closed            Boolean                @default(true)
-  open_time            String?
-  close_time           String?
-  source               WorkshopHolidaySource  @default(MANUAL)
-  external_id          String?
+  id               String                @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant                @relation(fields: [tenant_id], references: [id])
+  site_id          String
+  site             Site                  @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  name             String
+  observed_on      DateTime              @db.Date
+  repeats_annually Boolean               @default(false)
+  is_closed        Boolean               @default(true)
+  open_time        String?
+  close_time       String?
+  source           WorkshopHolidaySource @default(MANUAL)
+  external_id      String?
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, observed_on])
+  @@unique([tenant_id, site_id, observed_on])
   @@index([tenant_id])
   @@map("workshop_holidays")
 }
 
 model WorkshopOrder {
-  id           String              @id @default(uuid())
+  id           String               @id @default(uuid())
   tenant_id    String
-  tenant       Tenant              @relation(fields: [tenant_id], references: [id])
+  tenant       Tenant               @relation(fields: [tenant_id], references: [id])
   order_number String
-  status       WorkshopOrderStatus @default(INTAKE)
+  status       WorkshopOrderStatus  @default(INTAKE)
   purpose      WorkshopOrderPurpose @default(CUSTOMER_REPAIR)
 
-  customer_id  String?
-  customer     Customer?           @relation(fields: [customer_id], references: [id])
-  vehicle_id   String
-  vehicle      Vehicle             @relation(fields: [vehicle_id], references: [id])
+  customer_id         String?
+  customer            Customer?        @relation(fields: [customer_id], references: [id])
+  vehicle_id          String
+  vehicle             Vehicle          @relation(fields: [vehicle_id], references: [id])
   staging_location_id String?
-  stagingLocation StorageLocation? @relation("WorkshopOrderStagingLocation", fields: [staging_location_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  mechanic_id  String?
-  mechanic     Employee?           @relation("WorkshopOrderMechanic", fields: [mechanic_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  bay_id       String?
-  bay          Bay?                @relation(fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  stagingLocation     StorageLocation? @relation("WorkshopOrderStagingLocation", fields: [staging_location_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  mechanic_id         String?
+  mechanic            Employee?        @relation("WorkshopOrderMechanic", fields: [mechanic_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  bay_id              String?
+  bay                 Bay?             @relation(fields: [bay_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  odometer     Int
-  fuel_level   Int                 // 0-100
-  reported_issue String?
-  notes        String?
-  scheduled_start_at DateTime?
-  scheduled_end_at   DateTime?
-  inspections  WorkshopInspection[]
-  media        WorkshopMedia[]
-  tasks        WorkshopTask[]
-  invoice      Invoice?
+  odometer               Int
+  fuel_level             Int // 0-100
+  reported_issue         String?
+  notes                  String?
+  scheduled_start_at     DateTime?
+  scheduled_end_at       DateTime?
+  inspections            WorkshopInspection[]
+  media                  WorkshopMedia[]
+  tasks                  WorkshopTask[]
+  invoice                Invoice?
   vehicle_ledger_entries VehicleLedgerEntry[]
 
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   pdf_storage_bucket   String?
   pdf_storage_key      String?
   pdf_generated_at     DateTime?
   pdf_generation_error String?
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
   @@unique([tenant_id, order_number]) // tenant-scoped
+  @@index([tenant_id])
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
@@ -1325,38 +1401,38 @@ enum WorkshopMediaUrlStrategy {
 }
 
 model WorkshopTask {
-  id                String             @id @default(uuid())
+  id                String        @id @default(uuid())
   tenant_id         String
-  tenant            Tenant             @relation(fields: [tenant_id], references: [id])
+  tenant            Tenant        @relation(fields: [tenant_id], references: [id])
   workshop_order_id String
-  workshop_order    WorkshopOrder      @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade)
+  workshop_order    WorkshopOrder @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Cascade)
 
-  title             String
-  status            WorkshopTaskStatus @default(NOT_STARTED)
-  mechanic_notes    String?
+  title          String
+  status         WorkshopTaskStatus @default(NOT_STARTED)
+  mechanic_notes String?
 
   // Task-level assignments override order-level assignments independently when set.
   // Mechanic precedence: task.mechanic_id > order.mechanic_id.
   // Bay precedence: task.bay_id > order.bay_id.
   // See ADR-0014 §2.2 for full queue-visibility rules.
-  mechanic_id       String?
-  mechanic          Employee?          @relation("WorkshopTaskMechanic", fields: [tenant_id, mechanic_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
-  bay_id            String?
-  bay               Bay?               @relation("WorkshopTaskBay", fields: [tenant_id, bay_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  mechanic_id String?
+  mechanic    Employee? @relation("WorkshopTaskMechanic", fields: [tenant_id, mechanic_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  bay_id      String?
+  bay         Bay?      @relation("WorkshopTaskBay", fields: [tenant_id, bay_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
 
   // Scheduling and queue ordering
-  scheduled_date    DateTime?          @db.Date
-  sequence          Int                @default(0)
+  scheduled_date DateTime? @db.Date
+  sequence       Int       @default(0)
 
-  inspections       WorkshopInspection[]
-  line_items        WorkshopTaskLineItem[]
-  labor_entries     LaborEntry[]
-  media             WorkshopMedia[]
-  voice_note_drafts WorkshopVoiceNoteDraft[]
-  line_items_version Int               @default(0)
+  inspections        WorkshopInspection[]
+  line_items         WorkshopTaskLineItem[]
+  labor_entries      LaborEntry[]
+  media              WorkshopMedia[]
+  voice_note_drafts  WorkshopVoiceNoteDraft[]
+  line_items_version Int                      @default(0)
 
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -1367,45 +1443,45 @@ model WorkshopTask {
 }
 
 model WorkshopTaskLineItem {
-  id                String               @id @default(uuid())
-  tenant_id         String
-  tenant            Tenant               @relation(fields: [tenant_id], references: [id])
-  workshop_task_id  String
-  workshop_task     WorkshopTask         @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
+  id               String       @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant       @relation(fields: [tenant_id], references: [id])
+  workshop_task_id String
+  workshop_task    WorkshopTask @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade)
 
-  type              WorkshopLineItemType
-  part_execution_status WorkshopPartLineExecutionStatus?
+  type                    WorkshopLineItemType
+  part_execution_status   WorkshopPartLineExecutionStatus?
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
-  item_no           String
-  description       String
-  quantity          Decimal              @db.Decimal(10, 2)
-  unit_price        Decimal              @db.Decimal(10, 2)
-  catalog_item_id   String?
-  catalog_item      CatalogItem?         @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  source_system     String?
+  item_no                 String
+  description             String
+  quantity                Decimal                          @db.Decimal(10, 2)
+  unit_price              Decimal                          @db.Decimal(10, 2)
+  catalog_item_id         String?
+  catalog_item            CatalogItem?                     @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source_system           String?
   external_operation_code String?
-  fitment_notes     String?
-  cost_price_est    Decimal?             @db.Decimal(10, 2)
-  oem_numbers       Json?
-  labor_category_id String?              @db.Uuid
-  labor_category    LaborCategory?       @relation(fields: [labor_category_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  hourly_rate_snapshot Decimal?          @db.Decimal(10, 2)
-  catalog_hit_jti   String?
-  labor_operation_id String?             @db.Uuid
-  labor_operation    LaborOperation?     @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  standard_aw        Decimal?            @db.Decimal(10, 2)
-  actual_hours       Decimal?            @db.Decimal(10, 2)
-  internal_cost_rate Decimal?            @db.Decimal(10, 2)
+  fitment_notes           String?
+  cost_price_est          Decimal?                         @db.Decimal(10, 2)
+  oem_numbers             Json?
+  labor_category_id       String?                          @db.Uuid
+  labor_category          LaborCategory?                   @relation(fields: [labor_category_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hourly_rate_snapshot    Decimal?                         @db.Decimal(10, 2)
+  catalog_hit_jti         String?
+  labor_operation_id      String?                          @db.Uuid
+  labor_operation         LaborOperation?                  @relation(fields: [labor_operation_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  standard_aw             Decimal?                         @db.Decimal(10, 2)
+  actual_hours            Decimal?                         @db.Decimal(10, 2)
+  internal_cost_rate      Decimal?                         @db.Decimal(10, 2)
 
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("workshop_task_line_items")
   @@index([tenant_id])
   @@index([labor_operation_id])
   @@index([catalog_item_id])
   @@index([labor_category_id])
   @@index([tenant_id, type, part_execution_status], map: "idx_workshop_task_line_items_part_status")
+  @@map("workshop_task_line_items")
 }
 
 model InspectionTemplate {
@@ -1421,9 +1497,9 @@ model InspectionTemplate {
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
   @@unique([tenant_id, code, version])
+  @@index([tenant_id])
   @@map("inspection_templates")
 }
 
@@ -1444,9 +1520,9 @@ model InspectionTemplateItem {
   createdAt              DateTime                           @default(now())
   updatedAt              DateTime                           @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
   @@unique([tenant_id, inspection_template_id, code])
+  @@index([tenant_id])
   @@index([tenant_id, inspection_template_id], map: "idx_inspection_template_items_template")
   @@map("inspection_template_items")
 }
@@ -1466,8 +1542,8 @@ model WorkshopInspection {
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@index([tenant_id, workshop_order_id], map: "idx_workshop_inspections_order")
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_inspections_task")
   @@index([tenant_id, inspection_template_id], map: "idx_workshop_inspections_template")
@@ -1475,24 +1551,24 @@ model WorkshopInspection {
 }
 
 model WorkshopInspectionItem {
-  id                          String                     @id @default(uuid())
+  id                          String                      @id @default(uuid())
   tenant_id                   String
-  tenant                      Tenant                     @relation(fields: [tenant_id], references: [id])
+  tenant                      Tenant                      @relation(fields: [tenant_id], references: [id])
   workshop_inspection_id      String
-  workshop_inspection         WorkshopInspection         @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  workshop_inspection         WorkshopInspection          @relation(fields: [tenant_id, workshop_inspection_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   inspection_template_item_id String?
-  inspection_template_item    InspectionTemplateItem?    @relation(fields: [tenant_id, inspection_template_item_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  inspection_template_item    InspectionTemplateItem?     @relation(fields: [tenant_id, inspection_template_item_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   label_snapshot              String
   response_value              String?
   unit                        String?
   passed                      Boolean?
   severity                    WorkshopInspectionSeverity?
   notes                       String?
-  createdAt                   DateTime                   @default(now())
-  updatedAt                   DateTime                   @updatedAt
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@index([tenant_id, workshop_inspection_id], map: "idx_workshop_inspection_items_inspection")
   @@index([tenant_id, inspection_template_item_id], map: "idx_workshop_inspection_items_template_item")
   @@map("workshop_inspection_items")
@@ -1518,8 +1594,8 @@ model WorkshopMedia {
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 
-  @@index([tenant_id])
   @@unique([tenant_id, id])
+  @@index([tenant_id])
   @@index([tenant_id, workshop_order_id], map: "idx_workshop_media_order")
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_media_task")
   @@index([tenant_id, uploaded_by_employee_id], map: "idx_workshop_media_employee")
@@ -1527,13 +1603,13 @@ model WorkshopMedia {
 }
 
 model WorkshopVoiceNoteDraft {
-  id                      String                      @id @default(uuid())
+  id                      String                       @id @default(uuid())
   tenant_id               String
-  tenant                  Tenant                      @relation(fields: [tenant_id], references: [id])
+  tenant                  Tenant                       @relation(fields: [tenant_id], references: [id])
   workshop_task_id        String
-  workshop_task           WorkshopTask                @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
+  workshop_task           WorkshopTask                 @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   mechanic_employee_id    String
-  mechanic_employee       Employee                    @relation("CreatedVoiceNoteDrafts", fields: [tenant_id, mechanic_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
+  mechanic_employee       Employee                     @relation("CreatedVoiceNoteDrafts", fields: [tenant_id, mechanic_employee_id], references: [tenant_id, id], onDelete: Restrict, onUpdate: Cascade)
   status                  WorkshopVoiceNoteDraftStatus @default(PENDING)
   source_language_code    String?
   target_language_code    String
@@ -1541,12 +1617,12 @@ model WorkshopVoiceNoteDraft {
   translated_text         String
   provider                String
   model                   String
-  duration_seconds        Decimal?                    @db.Decimal(10, 2)
+  duration_seconds        Decimal?                     @db.Decimal(10, 2)
   accepted_at             DateTime?
   accepted_by_employee_id String?
-  accepted_by_employee    Employee?                   @relation("AcceptedVoiceNoteDrafts", fields: [tenant_id, accepted_by_employee_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
-  createdAt               DateTime                    @default(now())
-  updatedAt               DateTime                    @updatedAt
+  accepted_by_employee    Employee?                    @relation("AcceptedVoiceNoteDrafts", fields: [tenant_id, accepted_by_employee_id], references: [tenant_id, id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
 
   @@index([tenant_id])
   @@index([tenant_id, workshop_task_id], map: "idx_workshop_voice_note_drafts_task")
@@ -1576,20 +1652,20 @@ model VoiceNoteRateLimit {
 // ============================================================================
 
 model LaborEntry {
-  id               String            @id @default(uuid())
+  id               String       @id @default(uuid())
   tenant_id        String
-  tenant           Tenant            @relation(fields: [tenant_id], references: [id])
+  tenant           Tenant       @relation(fields: [tenant_id], references: [id])
   workshop_task_id String
-  workshop_task    WorkshopTask      @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_task    WorkshopTask @relation(fields: [tenant_id, workshop_task_id], references: [tenant_id, id], onDelete: Restrict)
   employee_id      String
-  employee         Employee          @relation("EmployeeLaborEntries", fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
+  employee         Employee     @relation("EmployeeLaborEntries", fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Restrict)
 
-  started_at       DateTime
-  ended_at         DateTime?
-  pause_reason     LaborPauseReason?
+  started_at   DateTime
+  ended_at     DateTime?
+  pause_reason LaborPauseReason?
 
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
@@ -1600,57 +1676,57 @@ model LaborEntry {
 }
 
 model LaborCategory {
-  id                  String            @id @default(uuid()) @db.Uuid
-  tenant_id           String
-  tenant              Tenant            @relation(fields: [tenant_id], references: [id])
-  name                String
-  description         String?
-  sort_order          Int               @default(0)
-  parent_id           String?           @db.Uuid
-  parent              LaborCategory?    @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  children            LaborCategory[]   @relation("CategoryHierarchy")
-  is_active           Boolean           @default(true)
-  default_hourly_rate Decimal?          @db.Decimal(10, 2)
-  default_internal_cost_rate Decimal?   @db.Decimal(10, 2)
+  id                         String          @id @default(uuid()) @db.Uuid
+  tenant_id                  String
+  tenant                     Tenant          @relation(fields: [tenant_id], references: [id])
+  name                       String
+  description                String?
+  sort_order                 Int             @default(0)
+  parent_id                  String?         @db.Uuid
+  parent                     LaborCategory?  @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  children                   LaborCategory[] @relation("CategoryHierarchy")
+  is_active                  Boolean         @default(true)
+  default_hourly_rate        Decimal?        @db.Decimal(10, 2)
+  default_internal_cost_rate Decimal?        @db.Decimal(10, 2)
 
-  labor_operations    LaborOperation[]
-  catalogProviderSettings CatalogProviderSettings[]
+  labor_operations         LaborOperation[]
+  catalogProviderSettings  CatalogProviderSettings[]
   workshop_task_line_items WorkshopTaskLineItem[]
 
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("labor_categories")
-  @@index([tenant_id])
   @@unique([tenant_id, name]) // tenant-scoped
+  @@index([tenant_id])
   @@index([parent_id])
+  @@map("labor_categories")
 }
 
 model LaborOperation {
-  id            String         @id @default(uuid()) @db.Uuid
-  tenant_id     String
-  tenant        Tenant         @relation(fields: [tenant_id], references: [id])
-  code          String
-  description   String
-  standard_aw   Decimal        @db.Decimal(10, 2)
-  hourly_rate   Decimal        @db.Decimal(10, 2)
-  internal_cost Decimal?       @db.Decimal(10, 2)
-  category_id   String?        @db.Uuid
-  category      LaborCategory? @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  is_active     Boolean        @default(true)
-  fitments      LaborFitment[]
+  id              String                 @id @default(uuid()) @db.Uuid
+  tenant_id       String
+  tenant          Tenant                 @relation(fields: [tenant_id], references: [id])
+  code            String
+  description     String
+  standard_aw     Decimal                @db.Decimal(10, 2)
+  hourly_rate     Decimal                @db.Decimal(10, 2)
+  internal_cost   Decimal?               @db.Decimal(10, 2)
+  category_id     String?                @db.Uuid
+  category        LaborCategory?         @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  is_active       Boolean                @default(true)
+  fitments        LaborFitment[]
   task_line_items WorkshopTaskLineItem[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("labor_operations")
-  @@index([tenant_id])
   @@unique([tenant_id, code]) // tenant-scoped
+  @@index([tenant_id])
   @@index([description])
   @@index([code, description])
   @@index([category_id])
   @@index([is_active, description], name: "labor_operations_is_active_description_idx")
+  @@map("labor_operations")
 }
 
 model LaborFitment {
@@ -1663,12 +1739,12 @@ model LaborFitment {
   year_to            Int?
   engine_code        String?
 
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("labor_fitments")
   @@index([labor_operation_id])
   @@index([make, model, year_from, year_to, engine_code])
+  @@map("labor_fitments")
 }
 
 model MasterPart {
@@ -1680,12 +1756,12 @@ model MasterPart {
   fitments             PartFitment[]
   local_inventory      LocalInventory?
 
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("master_parts")
   @@index([description])
   @@index([supplier_part_number, oem_number, description])
+  @@map("master_parts")
 }
 
 model PartFitment {
@@ -1698,12 +1774,12 @@ model PartFitment {
   year_to        Int?
   engine_code    String?
 
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("part_fitments")
   @@index([master_part_id])
   @@index([make, model, year_from, year_to, engine_code])
+  @@map("part_fitments")
 }
 
 model LocalInventory {
@@ -1715,9 +1791,9 @@ model LocalInventory {
   cost_price       Decimal    @db.Decimal(10, 2)
   retail_price     Decimal    @db.Decimal(10, 2)
 
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("local_inventories")
   @@index([quantity_on_hand])
+  @@map("local_inventories")
 }

@@ -120,6 +120,7 @@ export class WorkshopHolidayService {
     const rows = await this.prisma.workshopHoliday.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: settings.id,
         OR: [
           {
             repeats_annually: false,
@@ -149,7 +150,7 @@ export class WorkshopHolidayService {
     const observedOn = toUtcDateOnly(dto.observedOn.slice(0, 10));
     const repeatsAnnually = dto.repeatsAnnually ?? false;
 
-    await this.assertNoCollision(tenantId, {
+    await this.assertNoCollision(tenantId, settings.id, {
       observedOn,
       repeatsAnnually,
     });
@@ -157,7 +158,7 @@ export class WorkshopHolidayService {
     const created = await this.prisma.workshopHoliday.create({
       data: {
         tenant_id: tenantId,
-        workshop_settings_id: settings.id,
+        site_id: settings.id,
         name: dto.name.trim(),
         observed_on: observedOn,
         repeats_annually: repeatsAnnually,
@@ -202,6 +203,7 @@ export class WorkshopHolidayService {
 
     await this.assertNoCollision(
       tenantId,
+      existing.site_id,
       { observedOn, repeatsAnnually },
       existing.id,
     );
@@ -268,7 +270,7 @@ export class WorkshopHolidayService {
     }
 
     const existing = await this.prisma.workshopHoliday.findMany({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, site_id: settings.id },
     });
     const existingByDate = new Map(
       existing.map((row) => [formatUtcDateOnly(row.observed_on), row]),
@@ -308,7 +310,7 @@ export class WorkshopHolidayService {
         await tx.workshopHoliday.create({
           data: {
             tenant_id: tenantId,
-            workshop_settings_id: settings.id,
+            site_id: settings.id,
             name: day.name,
             observed_on: observedOn,
             repeats_annually: false,
@@ -326,11 +328,12 @@ export class WorkshopHolidayService {
 
   private async assertNoCollision(
     tenantId: string,
+    siteId: string,
     candidate: { observedOn: Date; repeatsAnnually: boolean },
     excludeId?: string,
   ): Promise<void> {
     const existing = await this.prisma.workshopHoliday.findMany({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, site_id: siteId },
       select: { id: true, observed_on: true, repeats_annually: true },
     });
     if (holidayCollides(existing, candidate, excludeId)) {

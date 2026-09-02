@@ -3,6 +3,7 @@ import { PurchaseService } from './purchase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteService } from '../site/site.service';
 import {
   BadRequestException,
   ConflictException,
@@ -73,6 +74,7 @@ describe('PurchaseService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContextService },
+        { provide: SiteService, useValue: { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } },
       ],
     }).compile();
 

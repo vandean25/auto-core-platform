@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BayService } from './bay.service';
+import { SiteService } from '../site/site.service';
 
 const mockPrisma = {
   bay: {
@@ -31,7 +32,11 @@ describe('BayService', () => {
   };
 
   beforeEach(() => {
-    service = new BayService(mockPrisma as unknown as PrismaService);
+    service = new BayService(
+      mockPrisma as unknown as PrismaService,
+      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as never,
+      { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } as SiteService,
+    );
     jest.clearAllMocks();
   });
 

@@ -400,8 +400,8 @@ export class EmployeeService {
 
   private async getCurrentLocalDateString(): Promise<string> {
     const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.prisma.workshopSettings.findFirst({
-      where: { tenant_id: tenantId },
+    const settings = await this.prisma.site.findFirst({
+      where: { tenant_id: tenantId, code: 'MAIN', is_active: true },
       select: { timezone: true },
     });
     return formatLocalDate(new Date(), settings?.timezone ?? DEFAULT_TIME_ZONE);

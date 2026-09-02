@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -22,6 +23,7 @@ describe('Workshop intake promote (e2e)', () => {
   let vehicleId: string;
   let bayId: string;
   let tenantId: string;
+  let siteId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -40,6 +42,7 @@ describe('Workshop intake promote (e2e)', () => {
     );
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    siteId = await resolveTestMainSiteId(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     const customer = await prisma.customer.create({
@@ -67,6 +70,7 @@ describe('Workshop intake promote (e2e)', () => {
           name: `Promote Bay ${Date.now()}`,
           is_active: true,
           sort_order: 1,
+          site_id: siteId,
         },
       }),
     ]);
@@ -147,6 +151,7 @@ describe('Workshop intake promote (e2e)', () => {
           name: `Task Date Bay ${Date.now()}`,
           is_active: true,
           sort_order: 2,
+          site_id: siteId,
         },
       }),
     ]);
