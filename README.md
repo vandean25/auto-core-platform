@@ -503,6 +503,23 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 | `PATCH` | `/api/finance/settings` | Update fiscal settings |
 | `GET` | `/api/finance/revenue-groups` | List revenue groups |
 
+### Sites & legal entities
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/legal-entities` | List legal entities (including inactive entities by default) |
+| `POST` | `/api/legal-entities` | Create a legal entity |
+| `PATCH` | `/api/legal-entities/:id` | Update a legal entity |
+| `DELETE` | `/api/legal-entities/:id` | Delete an unused legal entity |
+| `GET` | `/api/sites` | List the active site directory, or an admin's full site list with `includeInactive=true` |
+| `GET` | `/api/sites/:id` | Get a site |
+| `POST` | `/api/sites` | Create a site |
+| `PATCH` | `/api/sites/:id` | Update a site |
+| `DELETE` | `/api/sites/:id` | Delete a pristine site |
+| `GET` | `/api/sites/:id/memberships` | List a site's user memberships |
+| `POST` | `/api/sites/:id/memberships` | Add a user membership to a site |
+| `DELETE` | `/api/sites/:id/memberships/:userId` | Remove a user's site membership |
+
 ### Auth/tenancy
 
 | Method | Endpoint | Description |
