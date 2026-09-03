@@ -6,7 +6,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
+import {
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+} from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Invoicing (e2e)', () => {
@@ -86,7 +90,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -101,7 +105,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Replace brake pads' })
       .expect(201);
 
@@ -109,8 +113,9 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        version: 0,
         items: [
           {
             type: 'LABOR',
@@ -132,7 +137,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const completedRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
@@ -140,7 +145,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const invoiceRes = await api
       .post('/api/invoices/drafts')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
@@ -164,7 +169,7 @@ describe('Workshop Invoicing (e2e)', () => {
     const invoiceId = invoiceRes.body.id;
     const issueRes = await api
       .patch(`/api/invoices/${invoiceId}/issue`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(issueRes.body.status).toBe('ISSUED');
@@ -177,7 +182,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ notes: 'Attempt to edit after invoicing' })
       .expect(400);
   });
@@ -187,7 +192,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -201,7 +206,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Inspection task' })
       .expect(201);
 
@@ -209,8 +214,9 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        version: 0,
         items: [
           {
             type: 'LABOR',
@@ -225,7 +231,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const deleteRes = await api
       .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(deleteRes.body.id).toBe(orderId);
@@ -248,7 +254,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -262,7 +268,7 @@ describe('Workshop Invoicing (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Invoice protected task' })
       .expect(201);
 
@@ -270,8 +276,9 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        version: 0,
         items: [
           {
             type: 'PART',
@@ -286,19 +293,19 @@ describe('Workshop Invoicing (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
     await api
       .post('/api/invoices/drafts')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
     const deleteRes = await api
       .delete(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(400);
 
     expect(deleteRes.body.message).toBe(
