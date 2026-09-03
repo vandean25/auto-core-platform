@@ -106,6 +106,9 @@ export class WorkshopTaskResponseDto {
   @ApiProperty()
   title!: string;
 
+  @ApiProperty()
+  lineItemsVersion!: number;
+
   @ApiProperty({ enum: WorkshopTaskStatus })
   status!: WorkshopTaskStatus;
 

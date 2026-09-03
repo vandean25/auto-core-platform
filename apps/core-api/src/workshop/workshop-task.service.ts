@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
@@ -380,13 +381,92 @@ export class WorkshopTaskService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await tx.workshopTaskLineItem.deleteMany({
-          where: { workshop_task_id: taskId },
+        const versionUpdate = await tx.workshopTask.updateMany({
+          where: {
+            id: taskId,
+            tenant_id: tenantId,
+            line_items_version: dto.expectedLineItemsVersion,
+          },
+          data: { line_items_version: { increment: 1 } },
         });
+        if (versionUpdate.count !== 1) {
+          throw new ConflictException(
+            'Workshop task line items changed; please reload and retry',
+          );
+        }
 
-        if (dto.items.length > 0) {
+        const existingItems =
+          (await tx.workshopTaskLineItem.findMany({
+            where: { tenant_id: tenantId, workshop_task_id: taskId },
+            select: { id: true, part_execution_status: true },
+          })) ?? [];
+        const submittedIds = dto.items
+          .map((item) => item.id)
+          .filter((id): id is string => id !== undefined);
+        if (new Set(submittedIds).size !== submittedIds.length) {
+          throw new UnprocessableEntityException(
+            'Duplicate line-item IDs are not allowed',
+          );
+        }
+        const existingIds = new Set(existingItems.map((item) => item.id));
+        if (submittedIds.some((id) => !existingIds.has(id))) {
+          throw new UnprocessableEntityException(
+            'One or more line-item IDs were not found for this task',
+          );
+        }
+        const deletedIds = existingItems
+          .map((item) => item.id)
+          .filter((id) => !submittedIds.includes(id));
+
+        if (deletedIds.length > 0) {
+          // M2 has no reservation/consumption relation yet. Keep these
+          // branches explicit so M3 can populate the sets without changing
+          // PATCH semantics.
+          const reservedLineIds = new Set<string>();
+          const consumedQuantities = new Map<string, Prisma.Decimal>();
+          const isConsumed = (id: string) =>
+            consumedQuantities.get(id)?.greaterThan(0) ?? false;
+          const hardDeleteIds = deletedIds.filter(
+            (id) => !reservedLineIds.has(id) && !isConsumed(id),
+          );
+          const cancelIds = deletedIds.filter(
+            (id) => reservedLineIds.has(id) && !isConsumed(id),
+          );
+          const consumedIds = deletedIds.filter(isConsumed);
+
+          if (consumedIds.length > 0) {
+            throw new ConflictException(
+              'Consumed line items must be released before removal',
+            );
+          }
+          if (hardDeleteIds.length > 0) {
+            await tx.workshopTaskLineItem.deleteMany({
+              where: {
+                tenant_id: tenantId,
+                workshop_task_id: taskId,
+                id: { in: hardDeleteIds },
+              },
+            });
+          }
+          if (cancelIds.length > 0) {
+            await tx.workshopTaskLineItem.updateMany({
+              where: {
+                tenant_id: tenantId,
+                workshop_task_id: taskId,
+                id: { in: cancelIds },
+              },
+              data: {
+                part_execution_status:
+                  WorkshopPartLineExecutionStatus.CANCELLED,
+              },
+            });
+          }
+        }
+
+        const newItems = dto.items.filter((item) => !item.id);
+        if (newItems.length > 0) {
           await tx.workshopTaskLineItem.createMany({
-            data: dto.items.map((item) => ({
+            data: newItems.map((item) => ({
               tenant_id: tenantId,
               workshop_task_id: taskId,
               type:
@@ -417,6 +497,39 @@ export class WorkshopTaskService {
             })),
           });
         }
+
+        await Promise.all(
+          dto.items
+            .filter((item): item is typeof item & { id: string } => !!item.id)
+            .map((item) =>
+              tx.workshopTaskLineItem.updateMany({
+                where: {
+                  id: item.id,
+                  tenant_id: tenantId,
+                  workshop_task_id: taskId,
+                },
+                data: {
+                  description: item.description,
+                  quantity: new Prisma.Decimal(item.qty),
+                  unit_price: new Prisma.Decimal(item.unitPrice),
+                  ...(item.actualHours != null && {
+                    actual_hours: new Prisma.Decimal(item.actualHours),
+                  }),
+                  ...(item.standardAw != null && {
+                    standard_aw: new Prisma.Decimal(item.standardAw),
+                  }),
+                  ...(item.internalCostRate != null && {
+                    internal_cost_rate: new Prisma.Decimal(
+                      item.internalCostRate,
+                    ),
+                  }),
+                  ...(item.laborOperationId !== undefined && {
+                    labor_operation_id: item.laborOperationId,
+                  }),
+                },
+              }),
+            ),
+        );
       });
     } catch (error) {
       const fieldName =

@@ -103,7 +103,10 @@ describe('Workshop Domain Models (e2e)', () => {
 
   afterAll(async () => {
     if (tenantId) {
-      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
+      await cleanupTestTenantGraph(
+        app.get<PrismaService>(PrismaService),
+        tenantId,
+      );
     }
     await teardownTestApp(app, prisma);
   });

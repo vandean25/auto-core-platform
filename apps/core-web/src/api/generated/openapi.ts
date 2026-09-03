@@ -2877,6 +2877,7 @@ export interface components {
         WorkshopTaskResponseDto: {
             id: string;
             title: string;
+            lineItemsVersion: number;
             /** @enum {string} */
             status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
             mechanic_notes?: string | null;
@@ -3001,7 +3002,10 @@ export interface components {
             movedLines: components["schemas"]["PickWorkshopPartMovedLineResponseDto"][];
         };
         UpdateWorkshopTaskDto: Record<string, never>;
-        ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
+        ReplaceWorkshopTaskLineItemsDto: {
+            /** @description Version read before applying the patch. */
+            expectedLineItemsVersion: number;
+        };
         WorkshopSearchVehicleDto: {
             id: string;
             make: string;

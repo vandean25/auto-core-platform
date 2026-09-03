@@ -2,6 +2,7 @@ import { WorkshopLineItemType } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -11,8 +12,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 class WorkshopTaskLineItemDto {
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsEnum(WorkshopLineItemType)
   type!: WorkshopLineItemType;
 
@@ -58,6 +64,14 @@ class WorkshopTaskLineItemDto {
 }
 
 export class ReplaceWorkshopTaskLineItemsDto {
+  @ApiProperty({
+    minimum: 0,
+    description: 'Version read before applying the patch.',
+  })
+  @IsInt()
+  @Min(0)
+  expectedLineItemsVersion!: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkshopTaskLineItemDto)

@@ -10006,6 +10006,9 @@
           "title": {
             "type": "string"
           },
+          "lineItemsVersion": {
+            "type": "number"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -10052,6 +10055,7 @@
         "required": [
           "id",
           "title",
+          "lineItemsVersion",
           "status",
           "done",
           "lineItems",
@@ -10467,7 +10471,16 @@
       },
       "ReplaceWorkshopTaskLineItemsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "expectedLineItemsVersion": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Version read before applying the patch."
+          }
+        },
+        "required": [
+          "expectedLineItemsVersion"
+        ]
       },
       "WorkshopSearchVehicleDto": {
         "type": "object",

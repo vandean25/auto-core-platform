@@ -5,7 +5,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { createGlobalValidationPipe } from '../src/common';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
+import {
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+} from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
 describe('Workshop Labor Metadata (e2e)', () => {
@@ -104,7 +108,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -118,7 +122,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Engine diagnostic labor' })
       .expect(201);
 
@@ -126,8 +130,9 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const firstSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',
@@ -152,8 +157,9 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const secondSaveRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        expectedLineItemsVersion: 1,
         items: [
           {
             type: 'LABOR',
@@ -161,6 +167,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
             description: 'Engine diagnostic labor',
             qty: 1.5,
             unitPrice: 120,
+            id: firstLineItem.id,
             laborOperationId,
             standardAw: 1.5,
             actualHours: 2.25,
@@ -184,13 +191,13 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'DONE' })
       .expect(200);
 
     const draftInvoiceRes = await api
       .post('/api/invoices/drafts')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ workshopOrderId: orderId })
       .expect(201);
 
@@ -208,7 +215,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const orderRes = await api
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -222,7 +229,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const taskRes = await api
       .post(`/api/workshop/orders/${orderId}/tasks`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({ title: 'Invalid labor operation reference' })
       .expect(201);
 
@@ -230,8 +237,9 @@ describe('Workshop Labor Metadata (e2e)', () => {
 
     const invalidRes = await api
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',
