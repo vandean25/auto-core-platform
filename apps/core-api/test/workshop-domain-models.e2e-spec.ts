@@ -103,7 +103,10 @@ describe('Workshop Domain Models (e2e)', () => {
 
   afterAll(async () => {
     if (tenantId) {
-      await cleanupTestTenantGraph(app.get<PrismaService>(PrismaService), tenantId);
+      await cleanupTestTenantGraph(
+        app.get<PrismaService>(PrismaService),
+        tenantId,
+      );
     }
     await teardownTestApp(app, prisma);
   });
@@ -113,7 +116,7 @@ describe('Workshop Domain Models (e2e)', () => {
       data: {
         code: `MPI-${Date.now()}`,
         title: 'Multi-point inspection',
-        expectedLineItemsVersion: 1,
+        version: 1,
         is_active: true,
         items: {
           create: [
