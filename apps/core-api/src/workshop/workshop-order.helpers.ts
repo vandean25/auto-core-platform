@@ -62,6 +62,7 @@ export function normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
     tasks:
       order.tasks?.map((task) => ({
         ...task,
+        lineItemsVersion: task.line_items_version,
         done: task.status === WorkshopTaskStatus.DONE,
         lineItems:
           task.line_items?.map((line) => ({

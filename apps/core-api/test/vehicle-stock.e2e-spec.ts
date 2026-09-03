@@ -267,7 +267,7 @@ describe('Vehicle stock trading (e2e)', () => {
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'PART',
@@ -294,7 +294,7 @@ describe('Vehicle stock trading (e2e)', () => {
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 1,
+        expectedLineItemsVersion: 1,
         items: [
           {
             type: 'PART',

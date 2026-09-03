@@ -113,7 +113,7 @@ describe('Workshop Domain Models (e2e)', () => {
       data: {
         code: `MPI-${Date.now()}`,
         title: 'Multi-point inspection',
-        version: 1,
+        expectedLineItemsVersion: 1,
         is_active: true,
         items: {
           create: [

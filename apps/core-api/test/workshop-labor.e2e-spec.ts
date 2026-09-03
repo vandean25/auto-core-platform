@@ -132,7 +132,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',
@@ -159,7 +159,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 1,
+        expectedLineItemsVersion: 1,
         items: [
           {
             type: 'LABOR',
@@ -167,6 +167,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
             description: 'Engine diagnostic labor',
             qty: 1.5,
             unitPrice: 120,
+            id: firstLineItem.id,
             laborOperationId,
             standardAw: 1.5,
             actualHours: 2.25,
@@ -238,7 +239,7 @@ describe('Workshop Labor Metadata (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',

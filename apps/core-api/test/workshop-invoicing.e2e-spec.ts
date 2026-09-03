@@ -115,7 +115,7 @@ describe('Workshop Invoicing (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',
@@ -216,7 +216,7 @@ describe('Workshop Invoicing (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'LABOR',
@@ -278,7 +278,7 @@ describe('Workshop Invoicing (e2e)', () => {
       .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'PART',

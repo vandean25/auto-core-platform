@@ -299,7 +299,7 @@ describe('WorkshopTaskService', () => {
     jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.replaceTaskLineItems('wo-1', 't-1', {
-      version: 0,
+      expectedLineItemsVersion: 0,
       items: [
         {
           type: WorkshopLineItemType.LABOR,
@@ -355,7 +355,7 @@ describe('WorkshopTaskService', () => {
 
     await expect(
       service.replaceTaskLineItems('wo-1', 't-1', {
-        version: 3,
+        expectedLineItemsVersion: 3,
         items: [],
       }),
     ).rejects.toThrow(ConflictException);
@@ -382,7 +382,7 @@ describe('WorkshopTaskService', () => {
     jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
 
     await service.replaceTaskLineItems('wo-1', 't-1', {
-      version: 3,
+      expectedLineItemsVersion: 3,
       items: [
         {
           id: 'line-1',
@@ -434,7 +434,7 @@ describe('WorkshopTaskService', () => {
 
     await expect(
       service.replaceTaskLineItems('wo-1', 't-1', {
-        version: 0,
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: WorkshopLineItemType.LABOR,

@@ -12,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 class WorkshopTaskLineItemDto {
   @IsOptional()
@@ -63,9 +64,13 @@ class WorkshopTaskLineItemDto {
 }
 
 export class ReplaceWorkshopTaskLineItemsDto {
+  @ApiProperty({
+    minimum: 0,
+    description: 'Version read before applying the patch.',
+  })
   @IsInt()
   @Min(0)
-  version!: number;
+  expectedLineItemsVersion!: number;
 
   @IsArray()
   @ValidateNested({ each: true })
