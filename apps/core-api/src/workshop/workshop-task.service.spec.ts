@@ -32,7 +32,10 @@ describe('WorkshopTaskService', () => {
         workshopPrismaProvider,
         workshopTenantProvider,
         workshopVehicleLedgerProvider,
-        { provide: WorkshopScheduleService, useValue: { assertCanBook: jest.fn() } },
+        {
+          provide: WorkshopScheduleService,
+          useValue: { assertCanBook: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -354,7 +357,7 @@ describe('WorkshopTaskService', () => {
       service.replaceTaskLineItems('wo-1', 't-1', {
         version: 3,
         items: [],
-      } as any),
+      }),
     ).rejects.toThrow(ConflictException);
 
     expect(mockPrisma.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
@@ -381,17 +384,38 @@ describe('WorkshopTaskService', () => {
     await service.replaceTaskLineItems('wo-1', 't-1', {
       version: 3,
       items: [
-        { id: 'line-1', type: WorkshopLineItemType.PART, itemNo: 'P-1', description: 'Pad', qty: 2, unitPrice: 10 },
-        { type: WorkshopLineItemType.PART, itemNo: 'P-2', description: 'Disc', qty: 1, unitPrice: 20 },
+        {
+          id: 'line-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-1',
+          description: 'Pad',
+          qty: 2,
+          unitPrice: 10,
+        },
+        {
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-2',
+          description: 'Disc',
+          qty: 1,
+          unitPrice: 20,
+        },
       ],
-    } as any);
+    });
 
     expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith({
-      where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001', line_items_version: 3 },
+      where: {
+        id: 't-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        line_items_version: 3,
+      },
       data: { line_items_version: { increment: 1 } },
     });
     expect(mockPrisma.workshopTaskLineItem.deleteMany).toHaveBeenCalledWith({
-      where: { tenant_id: '00000000-0000-0000-0000-000000000001', workshop_task_id: 't-1', id: { in: ['line-2'] } },
+      where: {
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        workshop_task_id: 't-1',
+        id: { in: ['line-2'] },
+      },
     });
     expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalled();
     expect(mockPrisma.workshopTaskLineItem.createMany).toHaveBeenCalled();

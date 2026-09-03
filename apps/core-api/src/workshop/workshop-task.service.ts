@@ -394,15 +394,18 @@ export class WorkshopTaskService {
           );
         }
 
-        const existingItems = (await tx.workshopTaskLineItem.findMany({
-          where: { tenant_id: tenantId, workshop_task_id: taskId },
-          select: { id: true },
-        })) ?? [];
+        const existingItems =
+          (await tx.workshopTaskLineItem.findMany({
+            where: { tenant_id: tenantId, workshop_task_id: taskId },
+            select: { id: true },
+          })) ?? [];
         const submittedIds = dto.items
           .map((item) => item.id)
           .filter((id): id is string => id !== undefined);
         if (new Set(submittedIds).size !== submittedIds.length) {
-          throw new BadRequestException('Duplicate line-item IDs are not allowed');
+          throw new BadRequestException(
+            'Duplicate line-item IDs are not allowed',
+          );
         }
         const existingIds = new Set(existingItems.map((item) => item.id));
         if (submittedIds.some((id) => !existingIds.has(id))) {
@@ -470,20 +473,31 @@ export class WorkshopTaskService {
                   workshop_task_id: taskId,
                 },
                 data: {
-                  type: item.type === WorkshopLineItemType.LABOR
-                    ? WorkshopLineItemType.LABOR
-                    : WorkshopLineItemType.PART,
+                  type:
+                    item.type === WorkshopLineItemType.LABOR
+                      ? WorkshopLineItemType.LABOR
+                      : WorkshopLineItemType.PART,
                   item_no: item.itemNo,
                   description: item.description,
                   quantity: new Prisma.Decimal(item.qty),
                   unit_price: new Prisma.Decimal(item.unitPrice),
-                  part_execution_status: item.type === WorkshopLineItemType.PART
-                    ? WorkshopPartLineExecutionStatus.PENDING_PICK
-                    : null,
+                  part_execution_status:
+                    item.type === WorkshopLineItemType.PART
+                      ? WorkshopPartLineExecutionStatus.PENDING_PICK
+                      : null,
                   labor_operation_id: item.laborOperationId ?? null,
-                  standard_aw: item.standardAw == null ? null : new Prisma.Decimal(item.standardAw),
-                  actual_hours: item.actualHours == null ? null : new Prisma.Decimal(item.actualHours),
-                  internal_cost_rate: item.internalCostRate == null ? null : new Prisma.Decimal(item.internalCostRate),
+                  standard_aw:
+                    item.standardAw == null
+                      ? null
+                      : new Prisma.Decimal(item.standardAw),
+                  actual_hours:
+                    item.actualHours == null
+                      ? null
+                      : new Prisma.Decimal(item.actualHours),
+                  internal_cost_rate:
+                    item.internalCostRate == null
+                      ? null
+                      : new Prisma.Decimal(item.internalCostRate),
                 },
               }),
             ),
