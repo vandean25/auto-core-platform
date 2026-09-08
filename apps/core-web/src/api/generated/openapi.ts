@@ -2877,6 +2877,7 @@ export interface components {
         WorkshopTaskResponseDto: {
             id: string;
             title: string;
+            lineItemsVersion: number;
             /** @enum {string} */
             status: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
             mechanic_notes?: string | null;
@@ -3001,7 +3002,29 @@ export interface components {
             movedLines: components["schemas"]["PickWorkshopPartMovedLineResponseDto"][];
         };
         UpdateWorkshopTaskDto: Record<string, never>;
-        ReplaceWorkshopTaskLineItemsDto: Record<string, never>;
+        ReplaceWorkshopTaskLineItemDto: {
+            /**
+             * Format: uuid
+             * @description Existing line id for in-place update; omit to insert.
+             */
+            id?: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
+            itemNo: string;
+            description: string;
+            qty: number;
+            unitPrice: number;
+            /** Format: uuid */
+            laborOperationId?: string;
+            standardAw?: number;
+            actualHours?: number;
+            internalCostRate?: number;
+        };
+        ReplaceWorkshopTaskLineItemsDto: {
+            /** @description Version read before applying the patch. */
+            expectedLineItemsVersion: number;
+            items: components["schemas"]["ReplaceWorkshopTaskLineItemDto"][];
+        };
         WorkshopSearchVehicleDto: {
             id: string;
             make: string;

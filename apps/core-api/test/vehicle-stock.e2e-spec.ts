@@ -14,7 +14,11 @@ import {
 import { teardownTestApp } from './test-lifecycle';
 
 function vin(tag: string) {
-  return `WVW${tag.replace(/[^A-Z0-9]/gi, 'X').toUpperCase().padEnd(14, '0').slice(0, 14)}`;
+  return `WVW${tag
+    .replace(/[^A-Z0-9]/gi, 'X')
+    .toUpperCase()
+    .padEnd(14, '0')
+    .slice(0, 14)}`;
 }
 
 describe('Vehicle stock trading (e2e)', () => {
@@ -100,7 +104,8 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({
         seller_type: opts.sellerType,
         vendor_id: opts.sellerType === 'VENDOR' ? vendorId : undefined,
-        customer_id: opts.sellerType === 'CUSTOMER' ? sellerCustomerId : undefined,
+        customer_id:
+          opts.sellerType === 'CUSTOMER' ? sellerCustomerId : undefined,
         vin: opts.vin,
         make: 'Volkswagen',
         model: 'Golf',
@@ -262,6 +267,7 @@ describe('Vehicle stock trading (e2e)', () => {
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({
+        expectedLineItemsVersion: 0,
         items: [
           {
             type: 'PART',
@@ -288,6 +294,7 @@ describe('Vehicle stock trading (e2e)', () => {
       )
       .set('Authorization', `Bearer ${authToken}`)
       .send({
+        expectedLineItemsVersion: 1,
         items: [
           {
             type: 'PART',
@@ -300,7 +307,9 @@ describe('Vehicle stock trading (e2e)', () => {
       })
       .expect(400);
 
-    const restored = await prisma.vehicle.findFirst({ where: { id: vehicleId } });
+    const restored = await prisma.vehicle.findFirst({
+      where: { id: vehicleId },
+    });
     expect(restored?.stock_status).toBe('IN_STOCK');
 
     const costs = await prisma.vehicleLedgerEntry.findMany({
@@ -349,7 +358,9 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(Number(finalized.body.invoice.total_gross)).toBe(12000);
     expect(finalized.body.invoice.snapshot).toBeTruthy();
 
-    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId } });
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id: vehicleId },
+    });
     expect(vehicle?.inventory_role).toBe('CUSTOMER');
     expect(vehicle?.customer_id).toBe(buyerId);
     expect(vehicle?.stock_status).toBeNull();
@@ -566,7 +577,9 @@ describe('Vehicle stock trading (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    const row = listRes.body.data.find((item: { vin: string }) => item.vin === draftVin);
+    const row = listRes.body.data.find(
+      (item: { vin: string }) => item.vin === draftVin,
+    );
     expect(row).toMatchObject({
       id: createRes.body.id,
       draft_purchase_id: createRes.body.id,
@@ -604,7 +617,9 @@ describe('Vehicle stock trading (e2e)', () => {
 
     const years = listRes.body.data
       .filter((item: { id: string }) =>
-        [older.received.vehicle_id, newer.received.vehicle_id].includes(item.id),
+        [older.received.vehicle_id, newer.received.vehicle_id].includes(
+          item.id,
+        ),
       )
       .map((item: { year: number }) => item.year);
 
@@ -683,7 +698,9 @@ describe('Vehicle stock trading (e2e)', () => {
       .expect(200);
 
     expect(
-      foreignList.body.data.filter((item: { vin: string }) => item.vin === draftVin),
+      foreignList.body.data.filter(
+        (item: { vin: string }) => item.vin === draftVin,
+      ),
     ).toEqual([]);
 
     await request(app.getHttpServer())
