@@ -357,13 +357,9 @@ export class SalesService {
         if (!item.catalog_item_id) continue;
 
         const quantityToDeduct = Number(item.quantity);
-        if (
-          !Number.isFinite(quantityToDeduct) ||
-          !Number.isInteger(quantityToDeduct) ||
-          quantityToDeduct <= 0
-        ) {
+        if (!Number.isFinite(quantityToDeduct) || quantityToDeduct <= 0) {
           throw new BadRequestException(
-            `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+            `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive quantity.`,
           );
         }
 
@@ -371,7 +367,7 @@ export class SalesService {
 
         // Find first location with sufficient stock, or fallback to first one available
         const stock =
-          stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
+          stocks.find((s) => Number(s.quantity_on_hand) >= quantityToDeduct) ||
           stocks[0];
 
         if (!stock) {
@@ -381,9 +377,9 @@ export class SalesService {
         }
 
         // Dry run validation
-        if (stock.quantity_on_hand < quantityToDeduct) {
+        if (Number(stock.quantity_on_hand) < quantityToDeduct) {
           throw new BadRequestException(
-            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand.toString()})`,
           );
         }
 
@@ -400,7 +396,9 @@ export class SalesService {
         stockUpdatesMap.set(compositeKey, existingUpdate);
 
         // Update local stock map for subsequent items of the same catalog ID sequentially
-        stock.quantity_on_hand -= quantityToDeduct;
+        stock.quantity_on_hand = new Prisma.Decimal(stock.quantity_on_hand).sub(
+          quantityToDeduct,
+        );
 
         // Preserve 1:1 audit trail granularity for transactions
         transactionCreations.push({
@@ -437,7 +435,7 @@ export class SalesService {
             },
           });
           throw new BadRequestException(
-            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand.toString() ?? '0'})`,
           );
         }
       });

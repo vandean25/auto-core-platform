@@ -436,7 +436,11 @@ export class WorkshopPickPartsService {
               stock.catalog_item_id,
               stock.location_id,
             ),
-            stock,
+            {
+              catalog_item_id: stock.catalog_item_id,
+              location_id: stock.location_id,
+              quantity_on_hand: Number(stock.quantity_on_hand),
+            },
           );
         }
       }
@@ -474,7 +478,12 @@ export class WorkshopPickPartsService {
         });
         for (const stock of stocks) {
           const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
-          list.push(stock);
+          list.push({
+            catalog_item_id: stock.catalog_item_id,
+            location_id: stock.location_id,
+            quantity_on_hand: Number(stock.quantity_on_hand),
+            createdAt: stock.createdAt,
+          });
           autoAllocationStocks.set(stock.catalog_item_id, list);
         }
       }

@@ -101,18 +101,21 @@ export class LedgerService {
     // Aggregate quantities by stock key to prevent multiple inserts for the same item/location in a single transaction
     const aggregatedStocks = new Map<
       string,
-      { itemId: string; locationId: string; quantity: number | Decimal }
+      { itemId: string; locationId: string; quantity: Decimal }
     >();
 
     for (const params of paramsArray) {
       const stockKey = `${params.itemId}-${params.locationId}`;
       const existing = aggregatedStocks.get(stockKey);
+      const paramQty = new Decimal(params.quantity);
       if (existing) {
-        // We need to safely add these. Since they might be Decimal or number, we'll cast to number for aggregation.
-        // If Decimal precision is strictly required, we should use Decimal.add, but for this app Number is likely safe enough.
-        existing.quantity = Number(existing.quantity) + Number(params.quantity);
+        existing.quantity = existing.quantity.add(paramQty);
       } else {
-        aggregatedStocks.set(stockKey, { ...params });
+        aggregatedStocks.set(stockKey, {
+          itemId: params.itemId,
+          locationId: params.locationId,
+          quantity: paramQty,
+        });
       }
     }
 
@@ -149,7 +152,7 @@ export class LedgerService {
           where: { id: existingStock.id, tenant_id: tenantId },
           data: {
             quantity_on_hand: {
-              increment: Number(params.quantity),
+              increment: params.quantity,
             },
           },
         });
@@ -177,16 +180,16 @@ export class LedgerService {
             tenant_id: tenantId,
             catalog_item_id: params.itemId,
             location_id: params.locationId,
-            quantity_on_hand: Number(params.quantity),
-            quantity_reserved: 0,
+            quantity_on_hand: params.quantity,
+            quantity_reserved: new Decimal(0),
           },
         });
         existingStocksMap.set(stockKey, stock); // Update map for subsequent operations in same transaction
       }
 
-      if (stock.quantity_on_hand < 0) {
+      if (new Decimal(stock.quantity_on_hand).lt(0)) {
         throw new BadRequestException(
-          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand}) for item ${params.itemId} at location ${params.locationId}`,
+          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${params.itemId} at location ${params.locationId}`,
         );
       }
     });
@@ -256,10 +259,11 @@ export class LedgerService {
     ]);
 
     const sumFromTransactions = transactions.reduce(
-      (sum, tx) => sum + Number(tx.quantity),
-      0,
+      (sum, tx) => sum.add(new Decimal(tx.quantity)),
+      new Decimal(0),
     );
 
-    return sumFromTransactions === (stock?.quantity_on_hand || 0);
+    const onHand = stock ? new Decimal(stock.quantity_on_hand) : new Decimal(0);
+    return sumFromTransactions.equals(onHand);
   }
 }

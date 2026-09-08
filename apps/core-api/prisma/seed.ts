@@ -27,8 +27,12 @@ async function cleanDb() {
     
     const tables = [
         'tenants',
+        'inventory_transactions',
+        'parts_reservations',
+        'parts_requisition_lines',
+        'parts_requisitions',
         'purchase_invoice_lines', 'purchase_invoices', 'purchase_order_items', 'purchase_orders',
-        'vendors', 'inventory_transactions', 'inventory_stocks', 'invoice_items', 'invoices',
+        'vendors', 'inventory_stocks', 'invoice_items', 'invoices',
         'catalog_items', 'storage_locations', 'revenue_groups', 'finance_settings', 'brands',
         'labor_operations', 'labor_categories', 'workshop_orders', 'vehicles', 'customers',
         'voice_note_rate_limits',
@@ -46,12 +50,15 @@ async function cleanDb() {
 
     // Delete in order to satisfy foreign key constraints
     // NOTE: tenants must be deleted LAST because all other models have FK references to it
+    if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
+    if (existingTables.has('parts_reservations')) await prisma.partsReservation.deleteMany();
+    if (existingTables.has('parts_requisition_lines')) await prisma.partsRequisitionLine.deleteMany();
+    if (existingTables.has('parts_requisitions')) await prisma.partsRequisition.deleteMany();
     if (existingTables.has('purchase_invoice_lines')) await prisma.purchaseInvoiceLine.deleteMany();
     if (existingTables.has('purchase_invoices')) await prisma.purchaseInvoice.deleteMany();
     if (existingTables.has('purchase_order_items')) await prisma.purchaseOrderItem.deleteMany();
     if (existingTables.has('purchase_orders')) await prisma.purchaseOrder.deleteMany();
-    // inventory_transactions and inventory_stocks reference storage_locations; delete them first
-    if (existingTables.has('inventory_transactions')) await prisma.inventoryTransaction.deleteMany();
+    // inventory_stocks references storage_locations; delete first
     if (existingTables.has('inventory_stocks')) await prisma.inventoryStock.deleteMany();
     if (existingTables.has('invoice_items')) await prisma.invoiceItem.deleteMany();
     if (existingTables.has('invoices')) await prisma.invoice.deleteMany();

@@ -92,6 +92,9 @@ model Tenant {
   auditLogs                AuditLog[]
   memberships              TenantMember[]
   siteMemberships          SiteMembership[]
+  partsReservations        PartsReservation[]
+  partsRequisitions        PartsRequisition[]
+  partsRequisitionLines    PartsRequisitionLine[]
   activeUsers              User[]                    @relation("UserActiveTenant")
   legalEntities            LegalEntity[]
   sites                    Site[]
@@ -307,6 +310,7 @@ model Brand {
   vehiclesAsMake         Vehicle[]               @relation("VehicleMakeBrand")
   vehicleMakeAliases     VehicleMakeAlias[]
   catalogOemConcernMakes CatalogOemConcernMake[]
+  partsRequisitions      PartsRequisition[]
 
   @@unique([tenant_id, name]) // tenant-scoped
   @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
@@ -463,6 +467,7 @@ model StorageLocation {
   transactions          InventoryTransaction[]
   stagingWorkshopOrders WorkshopOrder[]        @relation("WorkshopOrderStagingLocation")
   parkedVehicles        Vehicle[]              @relation("VehicleLot")
+  partsReservations     PartsReservation[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deletedAt             DateTime?
@@ -483,8 +488,8 @@ model InventoryStock {
   catalog_item      CatalogItem     @relation(fields: [catalog_item_id], references: [id])
   location_id       String
   location          StorageLocation @relation(fields: [location_id], references: [id])
-  quantity_on_hand  Int             @default(0)
-  quantity_reserved Int             @default(0)
+  quantity_on_hand  Decimal         @default(0) @db.Decimal(10, 3)
+  quantity_reserved Decimal         @default(0) @db.Decimal(10, 3)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -500,6 +505,7 @@ enum TransactionType {
   TRANSFER_IN
   TRANSFER_OUT
   INITIAL_BALANCE
+  WORKSHOP_CONSUMPTION
 }
 
 enum AuditLogAction {
@@ -515,23 +521,28 @@ enum AuditActorType {
 }
 
 model InventoryTransaction {
-  id           String          @id @default(uuid())
-  tenant_id    String
-  tenant       Tenant          @relation(fields: [tenant_id], references: [id])
-  item_id      String
-  item         CatalogItem     @relation(fields: [item_id], references: [id])
-  location_id  String
-  location     StorageLocation @relation(fields: [location_id], references: [id])
-  quantity     Decimal         @db.Decimal(10, 3) // Signed: positive = add, negative = remove
-  type         TransactionType
-  reference_id String? // Invoice #, Workshop Order #, User ID, etc.
-  cost_basis   Decimal?        @db.Decimal(10, 2) // For profit calculation
-  createdAt    DateTime        @default(now())
+  id                   String            @id @default(uuid())
+  seq                  BigInt            @default(autoincrement())
+  tenant_id            String
+  tenant               Tenant            @relation(fields: [tenant_id], references: [id])
+  item_id              String
+  item                 CatalogItem       @relation(fields: [item_id], references: [id])
+  location_id          String
+  location             StorageLocation   @relation(fields: [location_id], references: [id])
+  quantity             Decimal           @db.Decimal(10, 3) // Signed: positive = add, negative = remove
+  type                 TransactionType
+  reference_id         String? // Invoice #, Workshop Order #, User ID, etc.
+  cost_basis           Decimal?          @db.Decimal(10, 2) // For profit calculation
+  parts_reservation_id String?
+  parts_reservation    PartsReservation? @relation(fields: [parts_reservation_id], references: [id])
+  createdAt            DateTime          @default(now())
 
+  @@unique([tenant_id, seq])
   @@index([tenant_id])
   @@index([item_id, location_id])
   @@index([type])
   @@index([createdAt])
+  @@index([seq])
   @@map("inventory_transactions")
 }
 
@@ -616,16 +627,18 @@ model PurchaseOrderItem {
   catalog_item_id   String
   catalog_item      CatalogItem   @relation(fields: [catalog_item_id], references: [id])
 
-  quantity          Int
-  quantity_received Int     @default(0)
-  quantity_invoiced Decimal @default(0) @db.Decimal(10, 2)
+  quantity          Decimal @db.Decimal(10, 3)
+  quantity_received Decimal @default(0) @db.Decimal(10, 3)
+  quantity_invoiced Decimal @default(0) @db.Decimal(10, 3)
   unit_cost         Decimal @db.Decimal(10, 2)
 
   purchase_invoice_lines PurchaseInvoiceLine[]
+  parts_reservation      PartsReservation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@index([tenant_id])
   @@map("purchase_order_items")
 }
@@ -908,7 +921,7 @@ model SalesOrderItem {
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
 
   description String
-  quantity    Decimal @db.Decimal(10, 2)
+  quantity    Decimal @db.Decimal(10, 3)
   unit_price  Decimal @db.Decimal(10, 2)
   total       Decimal @db.Decimal(10, 2) // quantity * unit_price
   tax_rate    Decimal @default(20) @db.Decimal(5, 2)
@@ -1007,7 +1020,7 @@ model InvoiceItem {
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
 
   description         String
-  quantity            Decimal       @db.Decimal(10, 2)
+  quantity            Decimal       @db.Decimal(10, 3)
   unit_price          Decimal       @db.Decimal(10, 2)
   tax_rate            Decimal       @db.Decimal(5, 2)
   line_discount_type  DiscountType?
@@ -1062,7 +1075,7 @@ model PurchaseInvoiceLine {
   purchase_order_item    PurchaseOrderItem? @relation(fields: [purchase_order_item_id], references: [id])
 
   description String
-  quantity    Decimal @db.Decimal(10, 2)
+  quantity    Decimal @db.Decimal(10, 3)
   unit_price  Decimal @db.Decimal(10, 2)
   tax_rate    Decimal @default(20) @db.Decimal(5, 2)
   line_total  Decimal @db.Decimal(10, 2)
@@ -1454,7 +1467,7 @@ model WorkshopTaskLineItem {
   // For PART this stores SKU/part number; for LABOR this stores a labor code.
   item_no                 String
   description             String
-  quantity                Decimal                          @db.Decimal(10, 2)
+  quantity                Decimal                          @db.Decimal(10, 3)
   unit_price              Decimal                          @db.Decimal(10, 2)
   catalog_item_id         String?
   catalog_item            CatalogItem?                     @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -1472,6 +1485,7 @@ model WorkshopTaskLineItem {
   standard_aw             Decimal?                         @db.Decimal(10, 2)
   actual_hours            Decimal?                         @db.Decimal(10, 2)
   internal_cost_rate      Decimal?                         @db.Decimal(10, 2)
+  parts_reservations      PartsReservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1482,6 +1496,98 @@ model WorkshopTaskLineItem {
   @@index([labor_category_id])
   @@index([tenant_id, type, part_execution_status], map: "idx_workshop_task_line_items_part_status")
   @@map("workshop_task_line_items")
+}
+
+// ============================================================================
+// Parts Reservations & Requisitions (M3)
+// ============================================================================
+
+enum PartsReservationKind {
+  ON_HAND
+  REQUISITION
+}
+
+enum PartsReservationStatus {
+  OPEN
+  ORDERED
+  STAGED
+  FULFILLED
+  CANCELLED
+}
+
+enum PartsRequisitionStatus {
+  DRAFT
+  ORDERED
+  COMPLETED
+  CANCELLED
+}
+
+model PartsReservation {
+  id                         String                 @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant                 @relation(fields: [tenant_id], references: [id])
+  workshop_task_line_item_id String
+  workshop_task_line_item    WorkshopTaskLineItem   @relation(fields: [workshop_task_line_item_id], references: [id], onDelete: Restrict)
+  quantity                   Decimal                @db.Decimal(10, 3)
+  quantity_received          Decimal                @default(0) @db.Decimal(10, 3)
+  quantity_consumed          Decimal                @default(0) @db.Decimal(10, 3)
+  quantity_staged            Decimal                @default(0) @db.Decimal(10, 3)
+  quantity_returned          Decimal                @default(0) @db.Decimal(10, 3)
+  kind                       PartsReservationKind
+  status                     PartsReservationStatus @default(OPEN)
+  location_id                String?
+  location                   StorageLocation?       @relation(fields: [location_id], references: [id])
+  requisition_line_id        String?
+  requisition_line           PartsRequisitionLine?  @relation(fields: [tenant_id, requisition_line_id], references: [tenant_id, id], onDelete: SetNull)
+  purchase_order_item_id     String?
+  purchase_order_item        PurchaseOrderItem?     @relation(fields: [tenant_id, purchase_order_item_id], references: [tenant_id, id], onDelete: Restrict)
+  detached_at                DateTime?
+  tote_cost_basis            Decimal?               @db.Decimal(10, 2)
+  inventory_transactions     InventoryTransaction[]
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, requisition_line_id])
+  @@unique([tenant_id, purchase_order_item_id])
+  @@index([tenant_id])
+  @@index([workshop_task_line_item_id])
+  @@index([location_id])
+  @@index([status])
+  @@map("parts_reservations")
+}
+
+model PartsRequisition {
+  id                    String                 @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                 @relation(fields: [tenant_id], references: [id])
+  vehicle_make_brand_id Int
+  vehicle_make_brand    Brand                  @relation(fields: [vehicle_make_brand_id], references: [id])
+  status                PartsRequisitionStatus @default(DRAFT)
+  lines                 PartsRequisitionLine[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([tenant_id, vehicle_make_brand_id])
+  @@map("parts_requisitions")
+}
+
+model PartsRequisitionLine {
+  id             String            @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant            @relation(fields: [tenant_id], references: [id])
+  requisition_id String
+  requisition    PartsRequisition  @relation(fields: [requisition_id], references: [id], onDelete: Cascade)
+  reservation    PartsReservation?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([requisition_id])
+  @@map("parts_requisition_lines")
 }
 
 model InspectionTemplate {

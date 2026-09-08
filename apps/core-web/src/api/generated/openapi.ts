@@ -2062,7 +2062,7 @@ export interface components {
             is_superseded: boolean;
         };
         /** @enum {string} */
-        TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE";
+        TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE" | "WORKSHOP_CONSUMPTION";
         InventoryTransactionItemDto: {
             sku: string;
             name: string;

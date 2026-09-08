@@ -243,11 +243,11 @@ export class CatalogService {
       }
       seenPartNumbers.add(normalizedSku);
       const quantityOnHand = item.stocks.reduce(
-        (sum, stock) => sum + stock.quantity_on_hand,
+        (sum, stock) => sum + Number(stock.quantity_on_hand),
         0,
       );
       const preferredLocation = item.stocks.find(
-        (stock) => stock.quantity_on_hand > 0,
+        (stock) => Number(stock.quantity_on_hand) > 0,
       );
       partResults.push({
         id: item.id,

@@ -49,7 +49,7 @@ export class PurchaseInvoiceService {
 
     return poItems
       .filter((item) => {
-        const received = item.quantity_received;
+        const received = Number(item.quantity_received);
         const invoiced = Number(item.quantity_invoiced);
         const onCurrentInvoice = invoiceId
           ? item.purchase_invoice_lines?.length > 0
@@ -62,10 +62,10 @@ export class PurchaseInvoiceService {
         purchaseOrderNumber: item.purchase_order.order_number,
         catalogItemId: item.catalog_item_id,
         catalogItemName: item.catalog_item.name,
-        quantityReceived: item.quantity_received,
+        quantityReceived: Number(item.quantity_received),
         quantityInvoiced: Number(item.quantity_invoiced),
         quantityPending:
-          item.quantity_received - Number(item.quantity_invoiced),
+          Number(item.quantity_received) - Number(item.quantity_invoiced),
         lastUnitCost: Number(item.unit_cost),
       }));
   }
@@ -122,7 +122,7 @@ export class PurchaseInvoiceService {
           }
 
           const pending =
-            poItem.quantity_received - Number(poItem.quantity_invoiced);
+            Number(poItem.quantity_received) - Number(poItem.quantity_invoiced);
           if (requestedQuantity > pending) {
             throw new BadRequestException(
               `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
@@ -282,7 +282,7 @@ export class PurchaseInvoiceService {
           }
 
           const pending =
-            poItem.quantity_received - Number(poItem.quantity_invoiced);
+            Number(poItem.quantity_received) - Number(poItem.quantity_invoiced);
           if (requestedQuantity > pending) {
             throw new BadRequestException(
               `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
