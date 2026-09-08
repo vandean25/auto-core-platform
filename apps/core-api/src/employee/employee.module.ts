@@ -2,11 +2,14 @@ import { Module } from '@nestjs/common';
 import { HrModule } from '../hr/hr.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EmployeeController } from './employee.controller';
+import { EmployeeLeaveService } from './employee-leave.service';
+import { EmployeeLifecycleService } from './employee-lifecycle.service';
 import { EmployeeService } from './employee.service';
 
 @Module({
   imports: [PrismaModule, HrModule],
   controllers: [EmployeeController],
-  providers: [EmployeeService],
+  providers: [EmployeeService, EmployeeLifecycleService, EmployeeLeaveService],
+  exports: [EmployeeService],
 })
 export class EmployeeModule {}
