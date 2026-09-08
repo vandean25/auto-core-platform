@@ -1,10 +1,15 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TransactionType, Prisma } from '@prisma/client';
+import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
 import Decimal = Prisma.Decimal;
+
+export const STOCK_ENABLED_LOCATION_TYPES: ReadonlySet<LocationType> = new Set([
+  LocationType.bin,
+  LocationType.staging_tote,
+]);
 
 export interface RecordTransactionParams {
   itemId: string;
@@ -13,6 +18,12 @@ export interface RecordTransactionParams {
   type: TransactionType;
   referenceId?: string;
   costBasis?: number | Decimal | null;
+}
+
+interface AggregatedStockDelta {
+  itemId: string;
+  locationId: string;
+  quantity: Decimal;
 }
 
 @Injectable()
@@ -47,35 +58,55 @@ export class LedgerService {
   async recordTransactions(
     paramsArray: RecordTransactionParams[],
     prismaVal?: Prisma.TransactionClient,
-  ) {
+  ): Promise<void> {
     if (paramsArray.length === 0) return;
 
     const tx = prismaVal || this.prisma;
     const tenantId = await this.tenantContext.getTenantId();
 
-    // PRE-FETCH & MAP Location validation
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
+    await this.validateLocations(tx, tenantId, locationIds);
+
+    await this.persistTransactions(tx, tenantId, paramsArray);
+
+    const aggregatedDeltas = this.aggregateStockDeltas(paramsArray);
+    await this.applyStockUpdates(tx, tenantId, aggregatedDeltas);
+  }
+
+  /**
+   * Validates that all destination locations exist and are eligible to hold stock.
+   */
+  private async validateLocations(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    locationIds: string[],
+  ): Promise<void> {
     const locations = await tx.storageLocation.findMany({
       where: { tenant_id: tenantId, id: { in: locationIds } },
     });
     const locationsMap = new Map(locations.map((loc) => [loc.id, loc]));
-    const stockEnabledLocationTypes = new Set(['bin', 'staging_tote']);
 
-    for (const params of paramsArray) {
-      const location = locationsMap.get(params.locationId);
+    for (const locationId of locationIds) {
+      const location = locationsMap.get(locationId);
       if (!location) {
-        throw new BadRequestException(
-          `Location ${params.locationId} not found`,
-        );
+        throw new BadRequestException(`Location ${locationId} not found`);
       }
-      if (!stockEnabledLocationTypes.has(location.type)) {
+      if (!STOCK_ENABLED_LOCATION_TYPES.has(location.type)) {
         throw new BadRequestException(
           `Stock can only be stored in BIN or STAGING_TOTE locations. Current type: ${location.type} (${location.name})`,
         );
       }
     }
+  }
 
-    // Create transactions in bulk
+  /**
+   * Persists inventory transactions in bulk.
+   */
+  private async persistTransactions(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    paramsArray: RecordTransactionParams[],
+  ): Promise<void> {
     const transactionsData = paramsArray.map((params) => ({
       tenant_id: tenantId,
       item_id: params.itemId,
@@ -92,22 +123,22 @@ export class LedgerService {
     await tx.inventoryTransaction.createMany({
       data: transactionsData,
     });
+  }
 
-    // We need to fetch the created transactions to return them if needed, but since it's hard to match
-    // them exactly to the input without a unique ID in the input, we might just return true for bulk.
-    // For now, let's fetch them based on reference_id if available, or just omit the returned objects.
-
-    // Update stocks
-    // Aggregate quantities by stock key to prevent multiple inserts for the same item/location in a single transaction
-    const aggregatedStocks = new Map<
-      string,
-      { itemId: string; locationId: string; quantity: Decimal }
-    >();
+  /**
+   * Aggregates quantities by stock key to prevent multiple concurrent mutations
+   * for the same item/location in a single transaction.
+   */
+  private aggregateStockDeltas(
+    paramsArray: RecordTransactionParams[],
+  ): AggregatedStockDelta[] {
+    const aggregatedStocks = new Map<string, AggregatedStockDelta>();
 
     for (const params of paramsArray) {
       const stockKey = `${params.itemId}-${params.locationId}`;
       const existing = aggregatedStocks.get(stockKey);
       const paramQty = new Decimal(params.quantity);
+
       if (existing) {
         existing.quantity = existing.quantity.add(paramQty);
       } else {
@@ -119,15 +150,23 @@ export class LedgerService {
       }
     }
 
-    const aggregatedArray = Array.from(aggregatedStocks.values());
+    return Array.from(aggregatedStocks.values());
+  }
 
-    // Find all existing stocks for the item/location combinations
+  /**
+   * Updates cached stock balances concurrently and guards against negative inventory on hand.
+   */
+  private async applyStockUpdates(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    deltas: AggregatedStockDelta[],
+  ): Promise<void> {
     const existingStocks = await tx.inventoryStock.findMany({
       where: {
         tenant_id: tenantId,
-        OR: aggregatedArray.map((p) => ({
-          catalog_item_id: p.itemId,
-          location_id: p.locationId,
+        OR: deltas.map((d) => ({
+          catalog_item_id: d.itemId,
+          location_id: d.locationId,
         })),
       },
     });
@@ -141,9 +180,8 @@ export class LedgerService {
 
     type InventoryStockRecord = (typeof existingStocks)[number];
 
-    // Process stock updates concurrently using chunkedPromiseAll
-    await chunkedPromiseAll(aggregatedArray, async (params) => {
-      const stockKey = `${params.itemId}-${params.locationId}`;
+    await chunkedPromiseAll(deltas, async (delta) => {
+      const stockKey = `${delta.itemId}-${delta.locationId}`;
       const existingStock = existingStocksMap.get(stockKey);
 
       let stock: InventoryStockRecord;
@@ -152,7 +190,7 @@ export class LedgerService {
           where: { id: existingStock.id, tenant_id: tenantId },
           data: {
             quantity_on_hand: {
-              increment: params.quantity,
+              increment: delta.quantity,
             },
           },
         });
@@ -178,18 +216,18 @@ export class LedgerService {
         stock = await tx.inventoryStock.create({
           data: {
             tenant_id: tenantId,
-            catalog_item_id: params.itemId,
-            location_id: params.locationId,
-            quantity_on_hand: params.quantity,
+            catalog_item_id: delta.itemId,
+            location_id: delta.locationId,
+            quantity_on_hand: delta.quantity,
             quantity_reserved: new Decimal(0),
           },
         });
-        existingStocksMap.set(stockKey, stock); // Update map for subsequent operations in same transaction
+        existingStocksMap.set(stockKey, stock);
       }
 
       if (new Decimal(stock.quantity_on_hand).lt(0)) {
         throw new BadRequestException(
-          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${params.itemId} at location ${params.locationId}`,
+          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${delta.itemId} at location ${delta.locationId}`,
         );
       }
     });
