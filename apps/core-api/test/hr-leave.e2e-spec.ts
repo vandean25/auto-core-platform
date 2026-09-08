@@ -198,8 +198,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-09-05',
-          endOn: '2026-09-01',
+          startOn: '2026-10-05',
+          endOn: '2026-10-01',
         })
         .expect(400);
 
@@ -226,16 +226,16 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-09-07',
-          endOn: '2026-09-11',
+          startOn: '2026-10-12',
+          endOn: '2026-10-16',
           note: 'Autumn holiday',
         })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.employeeId).toBe(techEmployeeId);
-      expect(res.body.startOn).toBe('2026-09-07');
-      expect(res.body.endOn).toBe('2026-09-11');
+      expect(res.body.startOn).toBe('2026-10-12');
+      expect(res.body.endOn).toBe('2026-10-16');
       expect(res.body.status).toBe('BOOKED');
       expect(res.body.minutesCharged).toBe(HR_TEST_WEEK_LEAVE_MINUTES);
       createdBookingId = res.body.id;
@@ -257,8 +257,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-09-10',
-          endOn: '2026-09-18',
+          startOn: '2026-10-15',
+          endOn: '2026-10-23',
         })
         .expect(409);
 
@@ -270,8 +270,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-10-05',
-          endOn: '2026-11-06',
+          startOn: '2026-11-02',
+          endOn: '2026-12-04',
         })
         .expect(409);
 

@@ -16,6 +16,10 @@
     "tenant-restore:verify": "node tools/tenant-restore/verify-table-list.mjs && node --test tools/tenant-restore/tenant-schema.test.mjs tools/tenant-restore/restore-guards.test.mjs tools/tenant-restore/dump-validation.test.mjs",
     "docs:verify-mintignore": "node tools/verify-mintignore.mjs",
     "docs:verify-site": "node tools/verify-mintlify-site.mjs",
+    "repowise:health": "uvx --from repowise==0.49.0 repowise health",
+    "repowise:dead-code": "uvx --from repowise==0.49.0 repowise dead-code",
+    "repowise:serve": "uvx --from repowise==0.49.0 repowise serve --port 7338",
+    "repowise:update": "uvx --from repowise==0.49.0 repowise update",
     "ci": "npm run lint && npm test && npm run build"
   },
   "devDependencies": {

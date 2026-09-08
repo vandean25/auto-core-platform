@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "repowise": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "repowise==0.49.0",
+        "repowise",
+        "mcp",
+        ".",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence \u2014 docs, graph, git signals, dead code, decisions"
+    }
+  }
+}
