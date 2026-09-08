@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "repowise": {
-      "command": "repowise",
+      "command": "uvx",
       "args": [
+        "--from",
+        "repowise==0.49.0",
+        "repowise",
         "mcp",
         ".",
         "--transport",

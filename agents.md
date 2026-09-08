@@ -372,9 +372,9 @@ Use `list_subscriptions` before subscribing to reuse active ones; re-subscribe w
 ### Codebase Intelligence & Repowise in Cloud Environments
 Repowise MCP server is configured in `.mcp.json` at the root of the workspace. Cloud agents can bootstrap the index without requiring external LLM API keys:
 ```bash
-uvx repowise init --no-prose --no-agents --no-claude-md --yes
+uvx --from repowise==0.49.0 repowise init --no-prose --no-agents --no-claude-md --yes
 ```
-This indexes the codebase in ~15s, enabling MCP tools (`get_context`, `get_change_risk`, `get_health`, `get_dead_code`) for the cloud agent.
+This indexes the codebase in ~1-2 minutes in standard CI / cold environments (~15s incremental locally), enabling MCP tools (`get_context`, `get_change_risk`, `get_health`, `get_dead_code`) for the agent. For frequent local use, you can also install the pinned CLI globally via `uv tool install repowise==0.49.0`. The local SQLite index and cache live in `.repowise/` (which is gitignored).
 
 ### Postgres is not auto-started on boot
 `systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:
