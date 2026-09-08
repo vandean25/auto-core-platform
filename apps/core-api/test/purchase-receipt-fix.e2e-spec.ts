@@ -134,7 +134,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       });
 
       expect(stock).toBeDefined();
-      expect(stock?.quantity_on_hand).toBe(5);
+      expect(Number(stock?.quantity_on_hand)).toBe(5);
     });
 
     it('should successfully receive additional items and UPDATE inventory stock (second receipt)', async () => {
@@ -212,7 +212,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
       });
 
       expect(stock).toBeDefined();
-      expect(stock?.quantity_on_hand).toBe(10);
+      expect(Number(stock?.quantity_on_hand)).toBe(10);
     });
   });
 });

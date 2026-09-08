@@ -171,8 +171,8 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       expect(updatedPO.status).toBe('COMPLETED');
       expect(updatedPO.items).toHaveLength(2);
-      expect(updatedPO.items[0].quantity_received).toBe(3);
-      expect(updatedPO.items[1].quantity_received).toBe(2);
+      expect(Number(updatedPO.items[0].quantity_received)).toBe(3);
+      expect(Number(updatedPO.items[1].quantity_received)).toBe(2);
 
       // Verify ledger transactions created
       const transactions = await prisma.inventoryTransaction.findMany({
@@ -193,8 +193,8 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         where: { catalog_item_id: item2.id },
       });
 
-      expect(stock1.quantity_on_hand).toBeGreaterThanOrEqual(3);
-      expect(stock2.quantity_on_hand).toBeGreaterThanOrEqual(2);
+      expect(Number(stock1.quantity_on_hand)).toBeGreaterThanOrEqual(3);
+      expect(Number(stock2.quantity_on_hand)).toBeGreaterThanOrEqual(2);
     });
 
     it('should handle partial receipts correctly', async () => {
@@ -294,7 +294,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       if (finalPO.status === 'COMPLETED') {
         finalPO.items.forEach((item) => {
-          expect(item.quantity_received).toBe(item.quantity);
+          expect(Number(item.quantity_received)).toBe(Number(item.quantity));
         });
       }
     });
