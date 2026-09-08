@@ -53,7 +53,7 @@ auto-core-platform/
 
 ## Prerequisites
 
-- **Node.js** v20+ (recommended: v22)
+- **Node.js** v22+
 - **PostgreSQL** v15+ (or use Docker)
 - **npm** v9+
 
