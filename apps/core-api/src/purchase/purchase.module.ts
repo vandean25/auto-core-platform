@@ -8,6 +8,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module';
 
+import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service';
+
 @Module({
   imports: [InventoryModule, PrismaModule, DashboardRealtimeModule],
   controllers: [
@@ -15,6 +17,10 @@ import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtim
     PurchaseInvoiceController,
     VendorUnbilledController,
   ],
-  providers: [PurchaseService, PurchaseInvoiceService],
+  providers: [
+    PurchaseService,
+    PurchaseInvoiceService,
+    PurchaseInvoiceLifecycleService,
+  ],
 })
 export class PurchaseModule {}
