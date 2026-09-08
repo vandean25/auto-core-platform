@@ -23,7 +23,9 @@ function readJsonFile<T>(filePath: string): T {
 
 function readPlaywrightVersionFromLockfile(): string {
   const lockfile = readJsonFile<Lockfile>(LOCKFILE_PATH);
-  const version = lockfile.packages?.['node_modules/playwright']?.version;
+  const version =
+    lockfile.packages?.['apps/core-api/node_modules/playwright']?.version ??
+    lockfile.packages?.['node_modules/playwright']?.version;
   if (!version) {
     throw new Error('Could not find playwright version in package-lock.json');
   }
