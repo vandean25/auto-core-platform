@@ -419,18 +419,21 @@ export class WorkshopTaskService {
           .filter((id) => !submittedIds.includes(id));
 
         if (deletedIds.length > 0) {
-          // M2 has no reservation/consumption relation yet. Keep these
+          // M2 has no reservation/consumption/ledger relation yet. Keep these
           // branches explicit so M3 can populate the sets without changing
           // PATCH semantics.
           const reservedLineIds = new Set<string>();
+          const ledgerLineIds = new Set<string>();
           const consumedQuantities = new Map<string, Prisma.Decimal>();
           const isConsumed = (id: string) =>
             consumedQuantities.get(id)?.greaterThan(0) ?? false;
+          const hasOperationalHistory = (id: string) =>
+            reservedLineIds.has(id) || ledgerLineIds.has(id);
           const hardDeleteIds = deletedIds.filter(
-            (id) => !reservedLineIds.has(id) && !isConsumed(id),
+            (id) => !hasOperationalHistory(id) && !isConsumed(id),
           );
           const cancelIds = deletedIds.filter(
-            (id) => reservedLineIds.has(id) && !isConsumed(id),
+            (id) => hasOperationalHistory(id) && !isConsumed(id),
           );
           const consumedIds = deletedIds.filter(isConsumed);
 

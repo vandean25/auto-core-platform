@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service';
@@ -419,6 +420,155 @@ describe('WorkshopTaskService', () => {
     });
     expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalled();
     expect(mockPrisma.workshopTaskLineItem.createMany).toHaveBeenCalled();
+  });
+
+  it('rejects duplicate line-item ids with UnprocessableEntityException', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 1,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      { id: 'line-1', part_execution_status: null },
+    ]);
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Pad',
+            qty: 1,
+            unitPrice: 10,
+          },
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Pad duplicate',
+            qty: 2,
+            unitPrice: 10,
+          },
+        ],
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+
+    expect(mockPrisma.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown line-item ids with UnprocessableEntityException', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 1,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      { id: 'line-1', part_execution_status: null },
+    ]);
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'foreign-line',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-9',
+            description: 'Foreign line',
+            qty: 1,
+            unitPrice: 10,
+          },
+        ],
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+
+    expect(mockPrisma.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('preserves catalog snapshots when patching an existing line by id', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 2,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'jit-line-1',
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+      },
+    ]);
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.laborOperation.count.mockResolvedValue(0);
+    jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await service.replaceTaskLineItems('wo-1', 't-1', {
+      expectedLineItemsVersion: 2,
+      items: [
+        {
+          id: 'jit-line-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'PAD-001',
+          description: 'Updated pad',
+          qty: 2,
+          unitPrice: 95,
+        },
+      ],
+    });
+
+    const updateCall =
+      mockPrisma.workshopTaskLineItem.updateMany.mock.calls[0]?.[0];
+    expect(updateCall?.data).toEqual({
+      description: 'Updated pad',
+      quantity: new Prisma.Decimal(2),
+      unit_price: new Prisma.Decimal(95),
+    });
+    expect(updateCall?.data).not.toHaveProperty('catalog_hit_jti');
+    expect(updateCall?.data).not.toHaveProperty('catalog_item_id');
+    expect(updateCall?.data).not.toHaveProperty('part_execution_status');
+  });
+
+  it('returns the incremented lineItemsVersion after patching line items', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 3,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      { id: 'line-1', part_execution_status: null },
+    ]);
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.laborOperation.count.mockResolvedValue(0);
+    jest.spyOn(orders, 'findOne').mockResolvedValue({
+      id: 'wo-1',
+      tasks: [{ id: 't-1', lineItemsVersion: 4, lineItems: [] }],
+    } as any);
+
+    const result = await service.replaceTaskLineItems('wo-1', 't-1', {
+      expectedLineItemsVersion: 3,
+      items: [
+        {
+          id: 'line-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-1',
+          description: 'Pad',
+          qty: 1,
+          unitPrice: 10,
+        },
+      ],
+    });
+
+    expect(result.tasks[0].lineItemsVersion).toBe(4);
   });
 
   it('returns a bad request error for invalid laborOperationId', async () => {

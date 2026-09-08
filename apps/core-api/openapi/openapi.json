@@ -10150,17 +10150,78 @@
         "type": "object",
         "properties": {}
       },
+      "ReplaceWorkshopTaskLineItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Existing line id for in-place update; omit to insert."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "laborOperationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standardAw": {
+            "type": "number",
+            "minimum": 0
+          },
+          "actualHours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "internalCostRate": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "type",
+          "itemNo",
+          "description",
+          "qty",
+          "unitPrice"
+        ]
+      },
       "ReplaceWorkshopTaskLineItemsDto": {
         "type": "object",
         "properties": {
           "expectedLineItemsVersion": {
-            "type": "number",
+            "type": "integer",
             "minimum": 0,
             "description": "Version read before applying the patch."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplaceWorkshopTaskLineItemDto"
+            }
           }
         },
         "required": [
-          "expectedLineItemsVersion"
+          "expectedLineItemsVersion",
+          "items"
         ]
       },
       "WorkshopSearchVehicleDto": {

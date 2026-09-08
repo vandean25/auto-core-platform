@@ -178,7 +178,9 @@ describe('Workshop Labor Metadata (e2e)', () => {
       .expect(200);
 
     const updatedLineItem = secondSaveRes.body.tasks[0].lineItems[0];
+    expect(updatedLineItem.id).toBe(firstLineItem.id);
     expect(updatedLineItem.actualHours).toBe(2.25);
+    expect(secondSaveRes.body.tasks[0].lineItemsVersion).toBe(2);
 
     const persistedLineItem = await prisma.workshopTaskLineItem.findFirst({
       where: { workshop_task_id: taskId },
