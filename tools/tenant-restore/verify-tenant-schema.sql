@@ -147,7 +147,7 @@ VALUES
   ('inventory_stocks', 'storage_locations', 'location_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'catalog_items', 'item_id', 'id', 'RESTRICT', 'CASCADE'),
-  ('inventory_transactions', 'parts_reservations', 'parts_reservation_id', 'id', 'SET NULL', 'CASCADE'),
+  ('inventory_transactions', 'parts_reservations', 'parts_reservation_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'storage_locations', 'location_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('invoice_items', 'catalog_items', 'catalog_item_id', 'id', 'SET NULL', 'CASCADE'),

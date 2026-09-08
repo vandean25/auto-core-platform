@@ -534,7 +534,7 @@ model InventoryTransaction {
   reference_id         String? // Invoice #, Workshop Order #, User ID, etc.
   cost_basis           Decimal?          @db.Decimal(10, 2) // For profit calculation
   parts_reservation_id String?
-  parts_reservation    PartsReservation? @relation(fields: [parts_reservation_id], references: [id])
+  parts_reservation    PartsReservation? @relation(fields: [parts_reservation_id], references: [id], onDelete: Restrict)
   createdAt            DateTime          @default(now())
 
   @@unique([tenant_id, seq])

@@ -184,4 +184,4 @@ ALTER TABLE "parts_reservations"
 ALTER TABLE "inventory_transactions"
   ADD CONSTRAINT "inventory_transactions_parts_reservation_id_fkey"
   FOREIGN KEY ("parts_reservation_id") REFERENCES "parts_reservations"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+  ON DELETE RESTRICT ON UPDATE CASCADE;
