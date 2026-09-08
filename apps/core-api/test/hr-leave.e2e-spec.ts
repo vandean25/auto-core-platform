@@ -270,8 +270,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-10-05',
-          endOn: '2026-11-06',
+          startOn: '2026-11-02',
+          endOn: '2026-12-04',
         })
         .expect(409);
 
