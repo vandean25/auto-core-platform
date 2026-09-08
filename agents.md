@@ -309,6 +309,7 @@ This project uses the following MCP servers:
   - **Change risk & blast radius**: Before executing refactoring or architectural modifications, call `get_change_risk` or `get_risk` to evaluate downstream impact and statistical co-change partners.
   - **Dead code**: Run `npm run repowise:dead-code` or call `get_dead_code` to detect unused exports and orphaned symbols.
   - **Health biomarkers**: Use `npm run repowise:health` or call `get_health` to review file complexity, nesting depth, and defect likelihood.
+  - **Web UI**: Run `npm run repowise:serve` to launch the local web UI (configured to bind to port `7338` to avoid colliding with NestJS on port 3000).
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
 
@@ -374,7 +375,7 @@ Repowise MCP server is configured in `.mcp.json` at the root of the workspace. C
 ```bash
 uvx --from repowise==0.49.0 repowise init --no-prose --no-agents --no-claude-md --yes
 ```
-This indexes the codebase in ~1-2 minutes in standard CI / cold environments (~15s incremental locally), enabling MCP tools (`get_context`, `get_change_risk`, `get_health`, `get_dead_code`) for the agent. For frequent local use, you can also install the pinned CLI globally via `uv tool install repowise==0.49.0`. The local SQLite index and cache live in `.repowise/` (which is gitignored).
+This indexes the codebase in ~1-2 minutes in standard CI / cold environments (~15s incremental locally), enabling MCP tools (`get_context`, `get_change_risk`, `get_health`, `get_dead_code`) for the agent. For frequent local use, you can also install the pinned CLI globally via `uv tool install repowise==0.49.0`. The local SQLite index and cache live in `.repowise/` (which is gitignored). To run the web explorer, `npm run repowise:serve` binds to port `7338` (avoiding collision with NestJS on 3000).
 
 ### Postgres is not auto-started on boot
 `systemd`/`invoke-rc.d` is disabled in this VM, so Postgres does not start automatically. Start it before running the backend, tests, or seeds:
