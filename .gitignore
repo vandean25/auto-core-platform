@@ -64,5 +64,9 @@ docs/superpowers/
 infra/.terraform/
 *.tfstate
 *.tfstate.*
+
 # TypeScript incremental build artifacts
 *.tsbuildinfo
+
+# Repowise
+.repowise/

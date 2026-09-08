@@ -66,15 +66,6 @@ export function parseHhMm(value: string): { hour: number; minute: number } {
   return { hour, minute }
 }
 
-export function formatTimeInZone(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(date)
-}
-
 export function formatDateLabel(date: string, timeZone: string): string {
   const { year, month, day } = parseLocalDate(date)
   const utc = Date.UTC(year, month - 1, day, 12, 0, 0)
