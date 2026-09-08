@@ -9,7 +9,9 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PurchaseOrderStatus, TransactionType } from '@prisma/client';
+import { PurchaseOrderStatus, TransactionType, Prisma } from '@prisma/client';
+
+import Decimal = Prisma.Decimal;
 
 describe('PurchaseService', () => {
   let service: PurchaseService;
@@ -218,9 +220,9 @@ describe('PurchaseService', () => {
         where: {
           id: 'poi1',
           tenant_id: 'tenant-1',
-          quantity_received: 0,
+          quantity_received: new Decimal(0),
         },
-        data: { quantity_received: { increment: 5 } },
+        data: { quantity_received: { increment: new Decimal(5) } },
       });
 
       expect(mockLedgerService.recordTransactions).toHaveBeenCalledTimes(1);
@@ -229,7 +231,7 @@ describe('PurchaseService', () => {
           expect.objectContaining({
             itemId: 'item1',
             locationId: 'loc1',
-            quantity: 5,
+            quantity: new Decimal(5),
             type: TransactionType.PURCHASE_RECEIPT,
             costBasis: 50,
           }),

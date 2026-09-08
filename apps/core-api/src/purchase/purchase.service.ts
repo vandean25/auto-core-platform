@@ -212,10 +212,10 @@ export class PurchaseService {
         const aggregatedReceived = new Map<
           string,
           {
-            quantity: number;
+            quantity: Decimal;
             received: { itemId: string; quantity: number };
             poItem: Prisma.PurchaseOrderItemGetPayload<Record<string, never>>;
-            quantityReceived: number;
+            quantityReceived: Decimal;
           }
         >();
 
@@ -240,14 +240,16 @@ export class PurchaseService {
 
           const existing = aggregatedReceived.get(poItem.id);
           if (existing) {
-            existing.quantity += received.quantity;
+            existing.quantity = existing.quantity.add(received.quantity);
           } else {
             const currentItem = currentItemsMap.get(poItem.id);
             aggregatedReceived.set(poItem.id, {
-              quantity: received.quantity,
+              quantity: new Decimal(received.quantity),
               received,
               poItem,
-              quantityReceived: Number(currentItem?.quantity_received ?? 0),
+              quantityReceived: new Decimal(
+                currentItem?.quantity_received ?? 0,
+              ),
             });
           }
         }
@@ -264,8 +266,9 @@ export class PurchaseService {
             );
 
           if (
-            Number(currentItem.quantity_received) + quantity >
-            Number(currentItem.quantity)
+            new Decimal(currentItem.quantity_received)
+              .add(quantity)
+              .gt(currentItem.quantity)
           ) {
             throw new BadRequestException(
               `Cannot receive more than ordered for item ${received.itemId}`,
@@ -316,11 +319,11 @@ export class PurchaseService {
 
         if (!updatedPO) throw new Error('Failed to retrieve updated PO');
 
-        const allReceived = updatedPO.items.every(
-          (i) => Number(i.quantity_received) >= Number(i.quantity),
+        const allReceived = updatedPO.items.every((i) =>
+          new Decimal(i.quantity_received).gte(i.quantity),
         );
-        const anyReceived = updatedPO.items.some(
-          (i) => Number(i.quantity_received) > 0,
+        const anyReceived = updatedPO.items.some((i) =>
+          new Decimal(i.quantity_received).gt(0),
         );
         let newStatus: PurchaseOrderStatus = po.status;
 
@@ -502,7 +505,7 @@ export class PurchaseService {
     // Validate that new quantity is not less than already received
     if (
       updates.quantity !== undefined &&
-      updates.quantity < Number(poItem.quantity_received)
+      new Decimal(updates.quantity).lt(poItem.quantity_received)
     ) {
       throw new BadRequestException(
         `Cannot reduce quantity below ${poItem.quantity_received.toString()} already received`,
@@ -577,7 +580,7 @@ export class PurchaseService {
     if (!poItem)
       throw new BadRequestException('Item not found in this purchase order');
 
-    if (Number(poItem.quantity_received) > 0) {
+    if (new Decimal(poItem.quantity_received).gt(0)) {
       throw new BadRequestException(
         'Cannot delete an item that has already been received',
       );
@@ -794,8 +797,8 @@ export class PurchaseService {
         );
       }
 
-      const hasReceivedItems = order.items.some(
-        (item) => Number(item.quantity_received) > 0,
+      const hasReceivedItems = order.items.some((item) =>
+        new Decimal(item.quantity_received).gt(0),
       );
       if (hasReceivedItems) {
         throw new BadRequestException(

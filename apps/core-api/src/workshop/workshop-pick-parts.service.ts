@@ -13,10 +13,13 @@ import {
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
+  Prisma,
 } from '@prisma/client';
 import { LedgerService } from '../inventory/ledger.service';
 import type { RecordTransactionParams } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+
+import Decimal = Prisma.Decimal;
 
 const PICK_ELIGIBLE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.INTAKE,
@@ -28,7 +31,7 @@ type SourceAllocation = {
   quantity: number;
 };
 
-type AllocationReservationMap = Map<string, number>;
+type AllocationReservationMap = Map<string, Decimal>;
 
 type PrefetchedLocation = {
   id: string;
@@ -39,7 +42,7 @@ type PrefetchedLocation = {
 type PrefetchedStock = {
   catalog_item_id: string;
   location_id: string;
-  quantity_on_hand: number;
+  quantity_on_hand: Decimal;
 };
 
 type PrefetchedAutoStock = PrefetchedStock & {
@@ -110,11 +113,13 @@ export class WorkshopPickPartsService {
       catalogItemId,
       sourceLocationId,
     );
-    const reservedQuantity = reservations.get(reservationKey) ?? 0;
-    const available = (sourceStock?.quantity_on_hand ?? 0) - reservedQuantity;
-    if (available < quantity) {
+    const reservedQuantity = reservations.get(reservationKey) ?? new Decimal(0);
+    const onHand = sourceStock?.quantity_on_hand ?? new Decimal(0);
+    const available = onHand.sub(reservedQuantity);
+    const requestedQty = new Decimal(quantity);
+    if (available.lt(requestedQty)) {
       throw new UnprocessableEntityException(
-        `Insufficient stock in location ${sourceLocationId}. Requested ${quantity}, available ${Math.max(available, 0)}.`,
+        `Insufficient stock in location ${sourceLocationId}. Requested ${quantity}, available ${Decimal.max(available, 0).toString()}.`,
       );
     }
 
@@ -136,11 +141,11 @@ export class WorkshopPickPartsService {
       return left.location_id.localeCompare(right.location_id);
     });
 
-    let remaining = quantity;
+    let remaining = new Decimal(quantity);
     const allocations: SourceAllocation[] = [];
 
     for (const stock of orderedStocks) {
-      if (remaining <= 0) {
+      if (remaining.lte(0)) {
         break;
       }
 
@@ -148,28 +153,29 @@ export class WorkshopPickPartsService {
         catalogItemId,
         stock.location_id,
       );
-      const reservedQuantity = reservations.get(reservationKey) ?? 0;
-      const availableQuantity = stock.quantity_on_hand - reservedQuantity;
+      const reservedQuantity =
+        reservations.get(reservationKey) ?? new Decimal(0);
+      const availableQuantity = stock.quantity_on_hand.sub(reservedQuantity);
 
-      if (availableQuantity <= 0) {
+      if (availableQuantity.lte(0)) {
         continue;
       }
 
-      const allocatedQuantity = Math.min(remaining, availableQuantity);
-      if (allocatedQuantity <= 0) {
+      const allocatedQuantity = Decimal.min(remaining, availableQuantity);
+      if (allocatedQuantity.lte(0)) {
         continue;
       }
 
       allocations.push({
         sourceLocationId: stock.location_id,
-        quantity: allocatedQuantity,
+        quantity: allocatedQuantity.toNumber(),
       });
-      remaining -= allocatedQuantity;
+      remaining = remaining.sub(allocatedQuantity);
     }
 
-    if (remaining > 0) {
+    if (remaining.gt(0)) {
       throw new UnprocessableEntityException(
-        `Insufficient stock for auto-allocation. Missing quantity ${remaining}.`,
+        `Insufficient stock for auto-allocation. Missing quantity ${remaining.toString()}.`,
       );
     }
 
@@ -188,7 +194,9 @@ export class WorkshopPickPartsService {
       );
       reservations.set(
         reservationKey,
-        (reservations.get(reservationKey) ?? 0) + allocation.quantity,
+        (reservations.get(reservationKey) ?? new Decimal(0)).add(
+          allocation.quantity,
+        ),
       );
     }
   }
@@ -439,7 +447,7 @@ export class WorkshopPickPartsService {
             {
               catalog_item_id: stock.catalog_item_id,
               location_id: stock.location_id,
-              quantity_on_hand: Number(stock.quantity_on_hand),
+              quantity_on_hand: new Decimal(stock.quantity_on_hand),
             },
           );
         }
@@ -481,7 +489,7 @@ export class WorkshopPickPartsService {
           list.push({
             catalog_item_id: stock.catalog_item_id,
             location_id: stock.location_id,
-            quantity_on_hand: Number(stock.quantity_on_hand),
+            quantity_on_hand: new Decimal(stock.quantity_on_hand),
             createdAt: stock.createdAt,
           });
           autoAllocationStocks.set(stock.catalog_item_id, list);

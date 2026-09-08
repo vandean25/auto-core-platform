@@ -34,6 +34,7 @@ export class ReceiveItemDto {
 }
 
 export class ReceivePurchaseOrderDto {
+  @ApiProperty({ type: () => [ReceiveItemDto] })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ReceiveItemDto)

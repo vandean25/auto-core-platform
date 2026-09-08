@@ -7602,9 +7602,42 @@
           "createdAt"
         ]
       },
+      "ReceiveItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "itemId",
+          "quantity"
+        ]
+      },
       "ReceivePurchaseOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiveItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "PurchaseOrderPaginatedResponseDto": {
         "type": "object",

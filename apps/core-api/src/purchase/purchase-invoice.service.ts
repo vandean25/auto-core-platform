@@ -10,6 +10,8 @@ import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realti
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
+import Decimal = Prisma.Decimal;
+
 @Injectable()
 export class PurchaseInvoiceService {
   constructor(
@@ -49,12 +51,12 @@ export class PurchaseInvoiceService {
 
     return poItems
       .filter((item) => {
-        const received = Number(item.quantity_received);
-        const invoiced = Number(item.quantity_invoiced);
+        const received = new Decimal(item.quantity_received);
+        const invoiced = new Decimal(item.quantity_invoiced);
         const onCurrentInvoice = invoiceId
           ? item.purchase_invoice_lines?.length > 0
           : false;
-        return received > invoiced || onCurrentInvoice;
+        return received.gt(invoiced) || onCurrentInvoice;
       })
       .map((item) => ({
         purchaseOrderItemId: item.id,
@@ -121,11 +123,12 @@ export class PurchaseInvoiceService {
             );
           }
 
-          const pending =
-            Number(poItem.quantity_received) - Number(poItem.quantity_invoiced);
-          if (requestedQuantity > pending) {
+          const pending = new Decimal(poItem.quantity_received).sub(
+            poItem.quantity_invoiced,
+          );
+          if (new Decimal(requestedQuantity).gt(pending)) {
             throw new BadRequestException(
-              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
+              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending.toString()} pending.`,
             );
           }
         }
@@ -281,11 +284,12 @@ export class PurchaseInvoiceService {
             );
           }
 
-          const pending =
-            Number(poItem.quantity_received) - Number(poItem.quantity_invoiced);
-          if (requestedQuantity > pending) {
+          const pending = new Decimal(poItem.quantity_received).sub(
+            poItem.quantity_invoiced,
+          );
+          if (new Decimal(requestedQuantity).gt(pending)) {
             throw new BadRequestException(
-              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
+              `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending.toString()} pending.`,
             );
           }
         }

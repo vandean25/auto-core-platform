@@ -2226,7 +2226,17 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        ReceivePurchaseOrderDto: Record<string, never>;
+        ReceiveItemDto: {
+            /** Format: uuid */
+            itemId: string;
+            /** @example 1.5 */
+            quantity: number;
+            /** Format: uuid */
+            locationId?: string;
+        };
+        ReceivePurchaseOrderDto: {
+            items: components["schemas"]["ReceiveItemDto"][];
+        };
         PurchaseOrderPaginatedResponseDto: {
             data: components["schemas"]["PurchaseOrderResponseDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
