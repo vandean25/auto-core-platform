@@ -13,6 +13,15 @@ export { PdfTaskTenantGuard } from './pdf-task-tenant.guard';
 export { PdfWorker } from './pdf-worker.decorator';
 export {
   resolvePdfGenerationDispatch,
+  enqueueOrGeneratePdf,
   type PdfGenerationDispatchMode,
+  type EnqueueOrGeneratePdfParams,
+  type EnqueueOrGeneratePdfResult,
 } from './pdf-generation-dispatch';
 export { renderAndUploadPdf, type PdfUploadResult } from './pdf-render-upload';
+export {
+  escapeHtml,
+  buildBasePdfStyles,
+  buildPdfFooterTemplate,
+  type EscapeHtml,
+} from './pdf-layout';
