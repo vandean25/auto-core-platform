@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util';
 import { VehicleService } from './vehicle.service';
 
@@ -331,6 +332,202 @@ describe('VehicleService', () => {
         identity_resolution_token: null,
       },
       data: expect.objectContaining({ plate: 'PLATE-2' }),
+    });
+  });
+
+  describe('create edge cases', () => {
+    it('throws NotFoundException when customer does not exist', async () => {
+      prisma.customer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2022,
+          customer_id: 'nonexistent-customer',
+        }),
+      ).rejects.toThrow(
+        new NotFoundException(
+          'Customer with ID nonexistent-customer not found',
+        ),
+      );
+    });
+
+    it('connects customer when customer exists', async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
+      prisma.vehicle.create.mockResolvedValue({
+        id: 'veh-1',
+        customer: { id: 'cust-1' },
+      });
+
+      await service.create({
+        make: 'Toyota',
+        model: 'Corolla',
+        year: 2022,
+        customer_id: 'cust-1',
+      });
+
+      expect(prisma.vehicle.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          customer: { connect: { id: 'cust-1' } },
+          tenant: { connect: { id: tenantId } },
+        }),
+        include: { customer: true },
+      });
+    });
+
+    it('throws ConflictException with field names on P2002 error', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint violation',
+        {
+          code: 'P2002',
+          clientVersion: '5.0.0',
+          meta: { target: ['vin', 'plate'] },
+        },
+      );
+      prisma.vehicle.create.mockRejectedValue(error);
+
+      await expect(
+        service.create({ make: 'Toyota', model: 'Corolla', year: 2022 }),
+      ).rejects.toThrow(
+        new ConflictException('Unique constraint failed on fields: vin, plate'),
+      );
+    });
+
+    it('throws ConflictException with default message on P2002 error without target', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint violation',
+        { code: 'P2002', clientVersion: '5.0.0' },
+      );
+      prisma.vehicle.create.mockRejectedValue(error);
+
+      await expect(
+        service.create({ make: 'Toyota', model: 'Corolla', year: 2022 }),
+      ).rejects.toThrow(new ConflictException('Unique constraint violation'));
+    });
+
+    it('rethrows unexpected errors on create', async () => {
+      prisma.vehicle.create.mockRejectedValue(
+        new Error('Database unavailable'),
+      );
+
+      await expect(
+        service.create({ make: 'Toyota', model: 'Corolla', year: 2022 }),
+      ).rejects.toThrow('Database unavailable');
+    });
+  });
+
+  describe('update edge cases', () => {
+    it('throws NotFoundException when vehicle to update is not found', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update('nonexistent-id', { make: 'Ford' }),
+      ).rejects.toThrow(
+        new NotFoundException('Vehicle with ID nonexistent-id not found'),
+      );
+    });
+
+    it('throws NotFoundException when customer on update does not exist', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: vehicleId,
+        vin: 'VIN-1',
+        plate: 'PLATE-1',
+      });
+      prisma.customer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(vehicleId, { customer_id: 'bad-cust' }),
+      ).rejects.toThrow(
+        new NotFoundException('Customer with ID bad-cust not found'),
+      );
+    });
+
+    it('throws ConflictException on P2002 error during update', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: vehicleId,
+        vin: 'VIN-1',
+        plate: 'PLATE-1',
+      });
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint violation',
+        { code: 'P2002', clientVersion: '5.0.0', meta: { target: ['plate'] } },
+      );
+      prisma.vehicle.updateMany.mockRejectedValue(error);
+
+      await expect(
+        service.update(vehicleId, { plate: 'TAKEN-PLATE' }),
+      ).rejects.toThrow(
+        new ConflictException('Unique constraint failed on fields: plate'),
+      );
+    });
+
+    it('throws NotFoundException on P2025 error during update', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: vehicleId,
+        vin: 'VIN-1',
+        plate: 'PLATE-1',
+      });
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Record not found',
+        { code: 'P2025', clientVersion: '5.0.0' },
+      );
+      prisma.vehicle.updateMany.mockRejectedValue(error);
+
+      await expect(
+        service.update(vehicleId, { make: 'Updated' }),
+      ).rejects.toThrow(new NotFoundException('Vehicle not found'));
+    });
+
+    it('rethrows unexpected errors on update', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: vehicleId,
+        vin: 'VIN-1',
+        plate: 'PLATE-1',
+      });
+      prisma.vehicle.updateMany.mockRejectedValue(new Error('Connection lost'));
+
+      await expect(
+        service.update(vehicleId, { make: 'Updated' }),
+      ).rejects.toThrow('Connection lost');
+    });
+  });
+
+  describe('findOne edge cases', () => {
+    it('throws NotFoundException when vehicle is not found', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('nonexistent-id')).rejects.toThrow(
+        new NotFoundException('Vehicle with ID nonexistent-id not found'),
+      );
+    });
+  });
+
+  describe('findAll ordering and search', () => {
+    it('applies search filters and sort params', async () => {
+      prisma.vehicle.findMany.mockResolvedValue([]);
+      prisma.vehicle.count.mockResolvedValue(0);
+
+      await service.findAll({
+        search: 'BMW',
+        page: 2,
+        pageSize: 10,
+        sortField: 'make',
+        sortDirection: 'asc',
+      });
+
+      expect(prisma.vehicle.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          tenant_id: tenantId,
+          OR: expect.arrayContaining([
+            { make: { contains: 'BMW', mode: 'insensitive' } },
+          ]),
+        }),
+        include: { customer: true },
+        skip: 10,
+        take: 10,
+        orderBy: { make: 'asc' },
+      });
     });
   });
 });
