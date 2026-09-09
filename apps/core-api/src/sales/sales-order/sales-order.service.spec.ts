@@ -119,6 +119,51 @@ describe('SalesOrderService', () => {
     );
   });
 
+  it('findAll uses paginated query path when prisma args are provided', async () => {
+    mockPrisma.salesOrder.findMany.mockResolvedValue([{ id: 'so-1', vehicle: null }]);
+    mockPrisma.salesOrder.count.mockResolvedValue(5);
+
+    const result = await service.findAll({
+      where: { status: SalesOrderStatus.DRAFT },
+      skip: 10,
+      take: 10,
+    });
+
+    expect(mockPrisma.salesOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: SalesOrderStatus.DRAFT,
+          tenant_id: 'tenant-1',
+        },
+        skip: 10,
+        take: 10,
+      }),
+    );
+    expect(mockPrisma.salesOrder.count).toHaveBeenCalledWith({
+      where: {
+        status: SalesOrderStatus.DRAFT,
+        tenant_id: 'tenant-1',
+      },
+    });
+    expect(result.total).toBe(5);
+  });
+
+  it('findAll filters by status when a status string is provided', async () => {
+    mockPrisma.salesOrder.findMany.mockResolvedValue([{ id: 'so-1', vehicle: null }]);
+
+    await service.findAll(SalesOrderStatus.CONFIRMED);
+
+    expect(mockPrisma.salesOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: 'tenant-1',
+          status: SalesOrderStatus.CONFIRMED,
+        },
+      }),
+    );
+    expect(mockPrisma.salesOrder.count).not.toHaveBeenCalled();
+  });
+
   it('does not expose identity resolution state from sales order detail vehicles', async () => {
     const vehicle = {
       id: 'vehicle-1',
