@@ -106,7 +106,7 @@ export class PurchaseService {
     >,
     vendor: {
       name: string;
-      supportedBrands: Array<{ id: string; name: string }>;
+      supportedBrands: Array<{ id: number; name: string }>;
     },
     existingPoItems?: Array<{ catalog_item_id: string }>,
   ) {

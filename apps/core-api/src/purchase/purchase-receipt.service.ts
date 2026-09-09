@@ -181,10 +181,7 @@ export class PurchaseReceiptService {
         throw new NotFoundException('Failed to retrieve updated PO');
       }
 
-      const newStatus = determinePostReceiptStatus(
-        updatedPO.items,
-        po.status,
-      );
+      const newStatus = determinePostReceiptStatus(updatedPO.items, po.status);
 
       if (newStatus !== po.status) {
         await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {

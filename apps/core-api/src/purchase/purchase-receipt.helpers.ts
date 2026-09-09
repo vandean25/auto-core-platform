@@ -40,7 +40,9 @@ export function aggregateAndValidateReceiptItems(
 
   for (const received of receivedItems) {
     if (!received.itemId) {
-      throw new BadRequestException('itemId is required for each received item');
+      throw new BadRequestException(
+        'itemId is required for each received item',
+      );
     }
 
     const poItem = poItemsMap.get(received.itemId);
@@ -104,9 +106,7 @@ export function determinePostReceiptStatus(
   const allReceived = items.every((i) =>
     new Decimal(i.quantity_received).gte(new Decimal(i.quantity)),
   );
-  const anyReceived = items.some((i) =>
-    new Decimal(i.quantity_received).gt(0),
-  );
+  const anyReceived = items.some((i) => new Decimal(i.quantity_received).gt(0));
 
   if (allReceived) {
     return PurchaseOrderStatus.COMPLETED;
