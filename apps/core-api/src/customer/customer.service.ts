@@ -5,13 +5,12 @@ import {
 } from '@nestjs/common';
 import type { Customer, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { resolveHistoryPagination } from '../common/utils/history-pagination.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
+import { buildCustomerDetailInclude } from './customer-detail.query';
+import { projectCustomerDetail } from './customer-detail.projection';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-
-const DEFAULT_HISTORY_LIMIT = 20;
-const MAX_HISTORY_LIMIT = 100;
 
 @Injectable()
 export class CustomerService {
@@ -88,49 +87,15 @@ export class CustomerService {
     options?: { historyPage?: number; historyLimit?: number },
   ) {
     const tenantId = await this.tenantContext.getTenantId();
-    const historyPage =
-      options?.historyPage && options.historyPage > 0 ? options.historyPage : 1;
-    const requestedHistoryLimit =
-      options?.historyLimit && options.historyLimit > 0
-        ? options.historyLimit
-        : DEFAULT_HISTORY_LIMIT;
-    const historyLimit = Math.min(requestedHistoryLimit, MAX_HISTORY_LIMIT);
-    const historySkip = (historyPage - 1) * historyLimit;
+    const pagination = resolveHistoryPagination({
+      page: options?.historyPage,
+      limit: options?.historyLimit,
+    });
 
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
       this.prisma.customer.findFirst({
         where: { id, tenant_id: tenantId },
-        include: {
-          vehicles: true,
-          sales_orders: {
-            orderBy: { createdAt: 'desc' },
-            skip: historySkip,
-            take: historyLimit,
-          },
-          workshop_orders: {
-            orderBy: { createdAt: 'desc' },
-            skip: historySkip,
-            take: historyLimit,
-            include: {
-              tasks: {
-                include: {
-                  line_items: {
-                    select: {
-                      quantity: true,
-                      unit_price: true,
-                    },
-                  },
-                },
-              },
-              vehicle: true,
-            },
-          },
-          invoices: {
-            orderBy: { date: 'desc' },
-            skip: historySkip,
-            take: historyLimit,
-          },
-        },
+        include: buildCustomerDetailInclude(pagination),
       }),
       this.prisma.workshopOrder.count({
         where: { tenant_id: tenantId, customer_id: id },
@@ -139,41 +104,15 @@ export class CustomerService {
         where: { tenant_id: tenantId, customer_id: id },
       }),
     ]);
-    if (!customer)
+
+    if (!customer) {
       throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
 
-    const workshopOrderPageCount = Math.ceil(
-      workshopOrdersTotal / historyLimit,
-    );
-    const invoicesPageCount = Math.ceil(invoicesTotal / historyLimit);
-
-    return {
-      ...customer,
-      vehicles: customer.vehicles?.map(stripVehicleIdentityResolutionState),
-      workshop_orders: customer.workshop_orders?.map((order) => ({
-        ...order,
-        vehicle: order.vehicle
-          ? stripVehicleIdentityResolutionState(order.vehicle)
-          : order.vehicle,
-      })),
-      workshop_orders_meta: {
-        page: historyPage,
-        pageSize: historyLimit,
-        totalCount: workshopOrdersTotal,
-        pageCount: workshopOrderPageCount,
-        hasMore:
-          historyPage <
-          (workshopOrderPageCount === 0 ? 1 : workshopOrderPageCount),
-      },
-      invoices_meta: {
-        page: historyPage,
-        pageSize: historyLimit,
-        totalCount: invoicesTotal,
-        pageCount: invoicesPageCount,
-        hasMore:
-          historyPage < (invoicesPageCount === 0 ? 1 : invoicesPageCount),
-      },
-    };
+    return projectCustomerDetail(customer, pagination, {
+      workshopOrders: workshopOrdersTotal,
+      invoices: invoicesTotal,
+    });
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
