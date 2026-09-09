@@ -1,4 +1,3 @@
-import type { Prisma } from '@prisma/client';
 import {
   stripVehicleListIdentity,
   stripWorkshopOrdersVehicleIdentity,
@@ -7,19 +6,27 @@ import {
   buildHistoryMeta,
   type HistoryPagination,
 } from '../common/utils/history-pagination.util';
-import { buildCustomerDetailInclude } from './customer-detail.query';
-
-export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
-  include: ReturnType<typeof buildCustomerDetailInclude>;
-}>;
+import type { CustomerDetailRecord } from './customer-detail.query';
 
 export interface CustomerDetailCounts {
   workshopOrders: number;
   invoices: number;
 }
 
+type CustomerDetailProjectionInput = Omit<
+  CustomerDetailRecord,
+  'vehicles' | 'workshop_orders'
+> & {
+  vehicles?: CustomerDetailRecord['vehicles'];
+  workshop_orders?: Array<
+    Record<string, unknown> & {
+      vehicle?: CustomerDetailRecord['workshop_orders'][number]['vehicle'];
+    }
+  >;
+};
+
 export function projectCustomerDetail(
-  customer: CustomerDetailRecord,
+  customer: CustomerDetailProjectionInput,
   pagination: HistoryPagination,
   counts: CustomerDetailCounts,
 ) {

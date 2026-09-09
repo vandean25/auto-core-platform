@@ -2,6 +2,10 @@ import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-ident
 
 type VehicleLike = Parameters<typeof stripVehicleIdentityResolutionState>[0];
 
+type WorkshopOrderWithVehicle = Record<string, unknown> & {
+  vehicle?: VehicleLike | null;
+};
+
 export function stripVehicleListIdentity<T extends VehicleLike>(
   vehicles?: T[] | null,
 ) {
@@ -9,7 +13,7 @@ export function stripVehicleListIdentity<T extends VehicleLike>(
 }
 
 export function stripWorkshopOrderVehicleIdentity<
-  T extends { vehicle?: VehicleLike | null },
+  T extends WorkshopOrderWithVehicle,
 >(order: T) {
   return {
     ...order,
@@ -20,7 +24,7 @@ export function stripWorkshopOrderVehicleIdentity<
 }
 
 export function stripWorkshopOrdersVehicleIdentity<
-  T extends { vehicle?: VehicleLike | null },
+  T extends WorkshopOrderWithVehicle,
 >(orders?: T[] | null) {
   return orders?.map(stripWorkshopOrderVehicleIdentity);
 }

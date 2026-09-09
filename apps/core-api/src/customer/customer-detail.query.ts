@@ -6,6 +6,29 @@ import {
 } from '../common/queries/entity-history.query';
 import type { HistoryPagination } from '../common/utils/history-pagination.util';
 
+export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
+  include: {
+    vehicles: true;
+    sales_orders: true;
+    workshop_orders: {
+      include: {
+        tasks: {
+          include: {
+            line_items: {
+              select: {
+                quantity: true;
+                unit_price: true;
+              };
+            };
+          };
+        };
+        vehicle: true;
+      };
+    };
+    invoices: true;
+  };
+}>;
+
 export function buildCustomerDetailInclude(
   pagination: HistoryPagination,
 ): Prisma.CustomerInclude {
