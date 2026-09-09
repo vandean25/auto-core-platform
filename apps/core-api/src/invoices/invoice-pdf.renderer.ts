@@ -5,6 +5,8 @@ import type { InvoiceSnapshot } from './invoice-snapshot';
 import {
   buildInvoiceFooterTemplate,
   buildInvoiceHtmlDocument,
+  type EscapeHtml,
+  type FormatDate,
 } from './invoice-pdf.layout';
 
 @Injectable()
@@ -22,11 +24,13 @@ export class InvoicePdfRenderer {
         const page = await browser.newPage();
 
         try {
+          const escapeHtml: EscapeHtml = (value) => this.escapeHtmlValue(value);
+          const formatDate: FormatDate = (value) => this.formatDateValue(value);
           const html = buildInvoiceHtmlDocument(
             snapshot,
             invoiceNumber,
-            this.escapeHtml.bind(this),
-            this.formatDate.bind(this),
+            escapeHtml,
+            formatDate,
           );
           await page.setContent(html, { timeout: 10_000 });
 
@@ -46,7 +50,7 @@ export class InvoicePdfRenderer {
                   headerTemplate: '<div></div>',
                   footerTemplate: buildInvoiceFooterTemplate(
                     invoiceNumber,
-                    this.escapeHtml.bind(this),
+                    escapeHtml,
                   ),
                   printBackground: true,
                 }),
@@ -71,7 +75,7 @@ export class InvoicePdfRenderer {
     );
   }
 
-  private escapeHtml(value: string | number | null | undefined): string {
+  private escapeHtmlValue(value: string | number | null | undefined): string {
     if (value === null || value === undefined) {
       return '';
     }
@@ -84,7 +88,7 @@ export class InvoicePdfRenderer {
       .replace(/'/g, '&#39;');
   }
 
-  private formatDate(value: string | Date) {
+  private formatDateValue(value: string | Date) {
     const date = typeof value === 'string' ? new Date(value) : value;
     if (Number.isNaN(date.getTime())) {
       return String(value);

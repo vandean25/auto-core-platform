@@ -153,7 +153,10 @@ export class InvoicePdfService {
       async (span) => {
         span.setAttribute('invoiceId', invoiceId);
         const tenantId = await this.tenantContext.getTenantId();
-        const invoice = await this.loadInvoiceForGeneration(invoiceId, tenantId);
+        const invoice = await this.loadInvoiceForGeneration(
+          invoiceId,
+          tenantId,
+        );
 
         span.setAttribute('customerId', invoice.customer_id);
         if (invoice.workshop_order_id) {
@@ -207,7 +210,12 @@ export class InvoicePdfService {
           });
 
           const generatedAt = new Date();
-          await this.persistGeneratedPdf(invoiceId, tenantId, upload, generatedAt);
+          await this.persistGeneratedPdf(
+            invoiceId,
+            tenantId,
+            upload,
+            generatedAt,
+          );
 
           return {
             invoiceId,
@@ -299,10 +307,7 @@ export class InvoicePdfService {
     return invoice;
   }
 
-  private recordCacheHit(cachedPdf: {
-    bucket: string;
-    key: string;
-  }) {
+  private recordCacheHit(cachedPdf: { bucket: string; key: string }) {
     Sentry.addBreadcrumb({
       message: 'Invoice PDF cache hit',
       category: 'pdf',

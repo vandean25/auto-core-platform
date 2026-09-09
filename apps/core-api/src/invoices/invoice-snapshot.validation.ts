@@ -115,6 +115,5 @@ export const isInvoiceSnapshot = (value: unknown): value is InvoiceSnapshot => {
   return true;
 };
 
-export const parseInvoiceSnapshot = (
-  value: unknown,
-): InvoiceSnapshot | null => (isInvoiceSnapshot(value) ? value : null);
+export const parseInvoiceSnapshot = (value: unknown): InvoiceSnapshot | null =>
+  isInvoiceSnapshot(value) ? value : null;

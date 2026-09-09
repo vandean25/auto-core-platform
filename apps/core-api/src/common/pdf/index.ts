@@ -15,7 +15,4 @@ export {
   resolvePdfGenerationDispatch,
   type PdfGenerationDispatchMode,
 } from './pdf-generation-dispatch';
-export {
-  renderAndUploadPdf,
-  type PdfUploadResult,
-} from './pdf-render-upload';
+export { renderAndUploadPdf, type PdfUploadResult } from './pdf-render-upload';

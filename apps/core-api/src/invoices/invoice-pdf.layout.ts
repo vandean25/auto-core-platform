@@ -1,7 +1,7 @@
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
-type EscapeHtml = (value: string | number | null | undefined) => string;
-type FormatDate = (value: string | Date) => string;
+export type EscapeHtml = (value: string | number | null | undefined) => string;
+export type FormatDate = (value: string | Date) => string;
 
 export const buildInvoiceDocumentStyles = (): string => `
   * { box-sizing: border-box; }
@@ -75,7 +75,10 @@ export const buildInvoiceCustomerSection = (
   escapeHtml: EscapeHtml,
 ): string => {
   const customerName = buildCustomerName(snapshot);
-  const cityLine = [snapshot.customer.address_zip, snapshot.customer.address_city]
+  const cityLine = [
+    snapshot.customer.address_zip,
+    snapshot.customer.address_city,
+  ]
     .filter(Boolean)
     .join(' ');
 

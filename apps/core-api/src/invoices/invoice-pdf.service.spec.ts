@@ -219,8 +219,8 @@ describe('InvoicePdfService.generateNow', () => {
 
     service = new InvoicePdfService(
       prisma as unknown as PrismaService,
-      renderer as unknown as InvoicePdfRenderer,
-      storage as unknown as PdfStorage,
+      renderer,
+      storage,
       {} as CloudTasksService,
       {
         getTenantId: jest.fn().mockResolvedValue(tenantId),
