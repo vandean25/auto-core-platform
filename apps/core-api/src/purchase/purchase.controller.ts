@@ -17,7 +17,6 @@ import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
 import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
 import { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto';
 import {
-  PurchaseOrderPaginatedResponseDto,
   PurchaseOrderResponseDto,
   PurchaseOrderItemResponseDto,
 } from './dto/purchase-order-response.dto';
@@ -59,9 +58,7 @@ export class PurchaseController {
 
   @Get()
   @ApiPaginatedResponse(PurchaseOrderResponseDto)
-  async findAll(
-    @Query() query: FindPurchaseOrdersQueryDto,
-  ): Promise<PurchaseOrderPaginatedResponseDto> {
+  async findAll(@Query() query: FindPurchaseOrdersQueryDto) {
     if (PurchaseOrderQueryBuilder.usesAdvancedQuery(query)) {
       const prismaQuery = PurchaseOrderQueryBuilder.toPrismaQuery(query);
       const result = await this.purchaseService.findAll(prismaQuery);

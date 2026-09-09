@@ -2237,10 +2237,6 @@ export interface components {
         ReceivePurchaseOrderDto: {
             items: components["schemas"]["ReceiveItemDto"][];
         };
-        PurchaseOrderPaginatedResponseDto: {
-            data: components["schemas"]["PurchaseOrderResponseDto"][];
-            meta: components["schemas"]["PaginationMetaDto"];
-        };
         AddPurchaseOrderItemsDto: {
             /** @description Items to add to the purchase order */
             items: components["schemas"]["PurchaseOrderItemDto"][];
@@ -4860,7 +4856,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PurchaseOrderPaginatedResponseDto"];
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PurchaseOrderResponseDto"][];
+                    };
                 };
             };
         };
