@@ -21,6 +21,15 @@ import {
   normalizeVehicleIdentityValueOrNull,
   stripVehicleIdentityResolutionState,
 } from './vehicle-identity.util';
+import { VehicleQueryBuilder } from './vehicle-query.builder';
+
+interface ExistingVehicleIdentity {
+  id: string;
+  vin: string | null;
+  plate: string | null;
+  identity_resolution_generation?: string | null;
+  identity_resolution_token?: string | null;
+}
 
 @Injectable()
 export class VehicleService {
@@ -32,29 +41,12 @@ export class VehicleService {
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const { customer_id, vin, ...scalarData } = createVehicleDto;
 
-    if (customer_id) {
-      const customerExists = await this.prisma.customer.findFirst({
-        where: { id: customer_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-
-      if (!customerExists) {
-        throw new NotFoundException(
-          `Customer with ID ${customer_id} not found`,
-        );
-      }
+    if (createVehicleDto.customer_id) {
+      await this.validateCustomerExists(createVehicleDto.customer_id, tenantId);
     }
 
-    const data: Prisma.VehicleCreateInput = {
-      ...scalarData,
-      ...(vin !== undefined
-        ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
-        : {}),
-      tenant: { connect: { id: tenantId } },
-      ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
-    };
+    const data = this.buildCreatePayload(createVehicleDto, tenantId);
 
     try {
       const createdVehicle = await this.prisma.vehicle.create({
@@ -64,19 +56,7 @@ export class VehicleService {
 
       return stripVehicleIdentityResolutionState(createdVehicle);
     } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target) ? target.join(', ') : undefined;
-        throw new ConflictException(
-          fields
-            ? `Unique constraint failed on fields: ${fields}`
-            : 'Unique constraint violation',
-        );
-      }
-      throw error;
+      this.handlePrismaError(error);
     }
   }
 
@@ -88,71 +68,20 @@ export class VehicleService {
     sortDirection?: 'asc' | 'desc';
   }) {
     const tenantId = await this.tenantContext.getTenantId();
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const resolvedPageSize =
-      params.pageSize && params.pageSize > 0 ? params.pageSize : 25;
-    const pageSize = Math.min(resolvedPageSize, 100);
-    const sortDirection = params.sortDirection ?? 'desc';
+    const { page, pageSize, skip, take } =
+      VehicleQueryBuilder.resolvePagination(params.page, params.pageSize);
+    const sortDirection =
+      params.sortDirection ?? VehicleQueryBuilder.DEFAULT_SORT_DIRECTION;
 
-    const where: Prisma.VehicleWhereInput = params.search
-      ? {
-          tenant_id: tenantId,
-          OR: [
-            { make: { contains: params.search, mode: 'insensitive' } },
-            { model: { contains: params.search, mode: 'insensitive' } },
-            { plate: { contains: params.search, mode: 'insensitive' } },
-            { vin: { contains: params.search, mode: 'insensitive' } },
-            { engine_code: { contains: params.search, mode: 'insensitive' } },
-            {
-              customer: {
-                OR: [
-                  {
-                    first_name: {
-                      contains: params.search,
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    last_name: { contains: params.search, mode: 'insensitive' },
-                  },
-                  {
-                    company_name: {
-                      contains: params.search,
-                      mode: 'insensitive',
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        }
-      : { tenant_id: tenantId };
-
-    const sortField = params.sortField ?? 'createdAt';
-    let orderBy: Prisma.VehicleOrderByWithRelationInput = {
-      createdAt: sortDirection,
-    };
-
-    if (sortField === 'make') {
-      orderBy = { make: sortDirection };
-    } else if (sortField === 'model') {
-      orderBy = { model: sortDirection };
-    } else if (sortField === 'year') {
-      orderBy = { year: sortDirection };
-    } else if (sortField === 'plate') {
-      orderBy = { plate: sortDirection };
-    } else if (sortField === 'vin') {
-      orderBy = { vin: sortDirection };
-    } else if (sortField === 'customer') {
-      orderBy = { customer: { last_name: sortDirection } };
-    }
+    const where = VehicleQueryBuilder.buildWhere(tenantId, params.search);
+    const orderBy = this.compute_orderby(params, sortDirection);
 
     const [data, total] = await Promise.all([
       this.prisma.vehicle.findMany({
         where,
         include: { customer: true },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip,
+        take,
         orderBy,
       }),
       this.prisma.vehicle.count({ where }),
@@ -210,33 +139,93 @@ export class VehicleService {
     }
 
     if (updateVehicleDto.customer_id) {
-      const customerExists = await this.prisma.customer.findFirst({
-        where: { id: updateVehicleDto.customer_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-
-      if (!customerExists) {
-        throw new NotFoundException(
-          `Customer with ID ${updateVehicleDto.customer_id} not found`,
-        );
-      }
+      await this.validateCustomerExists(updateVehicleDto.customer_id, tenantId);
     }
 
+    const data = this.prepareUpdatePayload(existingVehicle, updateVehicleDto);
+
+    try {
+      const updated = await this.prisma.vehicle.updateMany({
+        where: {
+          id,
+          tenant_id: tenantId,
+          vin: existingVehicle.vin,
+          plate: existingVehicle.plate,
+          identity_resolution_generation:
+            existingVehicle.identity_resolution_generation ?? null,
+          identity_resolution_token:
+            existingVehicle.identity_resolution_token ?? null,
+        },
+        data,
+      });
+
+      if (updated.count === 0) {
+        await this.handleStaleOrMissingVehicle(id, tenantId);
+      }
+
+      const updatedVehicle = await this.prisma.vehicle.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: { customer: true },
+      });
+
+      if (!updatedVehicle) {
+        throw new NotFoundException('Vehicle not found');
+      }
+
+      return stripVehicleIdentityResolutionState(updatedVehicle);
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  private compute_orderby(
+    params: { sortField?: string },
+    sortDirection: 'asc' | 'desc',
+  ): Prisma.VehicleOrderByWithRelationInput {
+    return VehicleQueryBuilder.computeOrderBy(params.sortField, sortDirection);
+  }
+
+  private async validateCustomerExists(
+    customerId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const customerExists = await this.prisma.customer.findFirst({
+      where: { id: customerId, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (!customerExists) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+  }
+
+  private buildCreatePayload(
+    dto: CreateVehicleDto,
+    tenantId: string,
+  ): Prisma.VehicleCreateInput {
+    const { customer_id, vin, ...scalarData } = dto;
+
+    return {
+      ...scalarData,
+      ...(vin !== undefined
+        ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
+        : {}),
+      tenant: { connect: { id: tenantId } },
+      ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
+    };
+  }
+
+  private prepareUpdatePayload(
+    existingVehicle: ExistingVehicleIdentity,
+    updateVehicleDto: UpdateVehicleDto,
+  ): Prisma.VehicleUncheckedUpdateManyInput {
     const { customer_id, vin, ...scalarData } = updateVehicleDto;
-    const originalVin = existingVehicle.vin;
-    const originalPlate = existingVehicle.plate;
-    const originalResolutionGeneration =
-      existingVehicle.identity_resolution_generation ?? null;
-    const originalResolutionToken =
-      existingVehicle.identity_resolution_token ?? null;
-    const identityChanged =
-      (updateVehicleDto.vin !== undefined &&
-        normalizeVehicleIdentityValue(existingVehicle.vin) !==
-          normalizeVehicleIdentityValue(updateVehicleDto.vin)) ||
-      (updateVehicleDto.plate !== undefined &&
-        normalizeVehicleIdentityValue(existingVehicle.plate) !==
-          normalizeVehicleIdentityValue(updateVehicleDto.plate));
-    const data: Prisma.VehicleUncheckedUpdateManyInput = {
+    const identityChanged = this.hasIdentityChanged(
+      existingVehicle,
+      updateVehicleDto,
+    );
+
+    return {
       ...scalarData,
       ...(vin !== undefined
         ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
@@ -246,61 +235,64 @@ export class VehicleService {
         ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
         : {}),
     };
+  }
 
-    try {
-      const updated = await this.prisma.vehicle.updateMany({
-        where: {
-          id,
-          tenant_id: tenantId,
-          vin: originalVin,
-          plate: originalPlate,
-          identity_resolution_generation: originalResolutionGeneration,
-          identity_resolution_token: originalResolutionToken,
-        },
-        data,
-      });
-      if (updated.count === 0) {
-        const currentVehicle = await this.prisma.vehicle.findFirst({
-          where: { id, tenant_id: tenantId },
-          select: { id: true },
-        });
-        if (currentVehicle) {
-          throw new ConflictException(
-            'Vehicle VIN or plate changed while updating; please retry',
-          );
-        }
-        throw new NotFoundException('Vehicle not found');
-      }
+  private hasIdentityChanged(
+    existingVehicle: Pick<ExistingVehicleIdentity, 'vin' | 'plate'>,
+    updateVehicleDto: UpdateVehicleDto,
+  ): boolean {
+    const vinChanged =
+      updateVehicleDto.vin !== undefined &&
+      normalizeVehicleIdentityValue(existingVehicle.vin) !==
+        normalizeVehicleIdentityValue(updateVehicleDto.vin);
 
-      const updatedVehicle = await this.prisma.vehicle.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: { customer: true },
-      });
-      if (!updatedVehicle) {
-        throw new NotFoundException('Vehicle not found');
-      }
+    const plateChanged =
+      updateVehicleDto.plate !== undefined &&
+      normalizeVehicleIdentityValue(existingVehicle.plate) !==
+        normalizeVehicleIdentityValue(updateVehicleDto.plate);
 
-      return stripVehicleIdentityResolutionState(updatedVehicle);
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new NotFoundException('Vehicle not found');
-      }
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target) ? target.join(', ') : undefined;
-        throw new ConflictException(
-          fields
-            ? `Unique constraint failed on fields: ${fields}`
-            : 'Unique constraint violation',
-        );
-      }
-      throw error;
+    return vinChanged || plateChanged;
+  }
+
+  private async handleStaleOrMissingVehicle(
+    id: string,
+    tenantId: string,
+  ): Promise<never> {
+    const currentVehicle = await this.prisma.vehicle.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (currentVehicle) {
+      throw new ConflictException(
+        'Vehicle VIN or plate changed while updating; please retry',
+      );
     }
+
+    throw new NotFoundException('Vehicle not found');
+  }
+
+  private handlePrismaError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
+      throw new NotFoundException('Vehicle not found');
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const target = error.meta?.target;
+      const fields = Array.isArray(target) ? target.join(', ') : undefined;
+      throw new ConflictException(
+        fields
+          ? `Unique constraint failed on fields: ${fields}`
+          : 'Unique constraint violation',
+      );
+    }
+
+    throw error;
   }
 }
