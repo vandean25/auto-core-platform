@@ -5,24 +5,23 @@ import {
   Body,
   Param,
   Get,
-  BadRequestException,
   Query,
   HttpCode,
   Patch,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
-import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
 import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
 import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
+import { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto';
 import {
-  PurchaseOrderPaginatedResponseDto,
   PurchaseOrderResponseDto,
   PurchaseOrderItemResponseDto,
 } from './dto/purchase-order-response.dto';
-import type { Prisma } from '@prisma/client';
+import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
 
 @Controller('purchase-orders')
 export class PurchaseController {
@@ -30,9 +29,7 @@ export class PurchaseController {
 
   @Post()
   @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
-  async createPurchaseOrder(
-    @Body() createPurchaseOrderDto: CreatePurchaseOrderDto,
-  ) {
+  createPurchaseOrder(@Body() createPurchaseOrderDto: CreatePurchaseOrderDto) {
     return this.purchaseService.createPurchaseOrder(
       createPurchaseOrderDto.vendorId,
       createPurchaseOrderDto.items,
@@ -42,156 +39,58 @@ export class PurchaseController {
   @Post(':id/receive')
   @HttpCode(201)
   @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
-  async receiveItems(
+  receiveItems(
     @Param('id') orderId: string,
     @Body() receivePurchaseOrderDto: ReceivePurchaseOrderDto,
   ) {
-    const result = await this.purchaseService.receiveItems(
+    return this.purchaseService.receiveItems(
       orderId,
       receivePurchaseOrderDto.items,
     );
-    if (!result) {
-      throw new BadRequestException('Receipt failed to return data');
-    }
-    return result;
   }
 
   @Post(':id/mark-as-sent')
   @HttpCode(200)
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
-  async markAsSent(@Param('id') id: string) {
+  markAsSent(@Param('id') id: string) {
     return this.purchaseService.markAsSent(id);
   }
 
   @Get()
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    schema: {
-      type: 'string',
-      enum: ['DRAFT', 'SENT', 'PARTIAL', 'COMPLETED', 'open', 'all'],
-    },
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    schema: {
-      type: 'string',
-    },
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'sortField',
-    required: false,
-    schema: {
-      type: 'string',
-    },
-  })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
-  @ApiOkResponse({ type: PurchaseOrderPaginatedResponseDto })
-  async findAll(
-    @Query('status') status?: string,
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-    @Query('sortField') sortField?: string,
-    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
-  ) {
-    const queryParams: QueryParams = {};
-    const parsedPage = page ? parseInt(page, 10) : NaN;
-    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
-
-    if (search) queryParams.search = search;
-    if (Number.isFinite(parsedPage) && parsedPage > 0) {
-      queryParams.page = parsedPage;
-    }
-    if (Number.isFinite(parsedPageSize) && parsedPageSize > 0) {
-      queryParams.pageSize = parsedPageSize;
-    }
-    if (sortField) {
-      queryParams.sorting = [
-        {
-          field: sortField,
-          direction: sortDirection ?? 'asc',
-        },
-      ];
-    }
-    if (status && status !== 'open' && status !== 'all') {
-      queryParams.filters = [
-        { field: 'status', operator: 'equals', value: status },
-      ];
-    }
-
-    if (Object.keys(queryParams).length > 0) {
-      const whitelist = [
-        'order_number',
-        'status',
-        'vendor.name',
-        'total_amount',
-        'createdAt',
-        'created_at',
-        'expected_date',
-      ];
-      const searchFields = ['order_number', 'vendor.name'];
-      const prismaQuery: Prisma.PurchaseOrderFindManyArgs =
-        QueryBuilder.buildPrismaQuery(queryParams, whitelist, searchFields);
+  @ApiPaginatedResponse(PurchaseOrderResponseDto)
+  async findAll(@Query() query: FindPurchaseOrdersQueryDto) {
+    if (PurchaseOrderQueryBuilder.usesAdvancedQuery(query)) {
+      const prismaQuery = PurchaseOrderQueryBuilder.toPrismaQuery(query);
       const result = await this.purchaseService.findAll(prismaQuery);
-      return {
-        data: result.data,
-        meta: {
-          total: result.total,
-          page: queryParams.page ?? 1,
-          pageSize: queryParams.pageSize ?? 25,
-          pageCount: Math.ceil(result.total / (queryParams.pageSize ?? 25)),
-        },
-      };
+      return PurchaseOrderQueryBuilder.toPaginatedResponse(result, query);
     }
 
-    const result = await this.purchaseService.findAll(status);
-    return {
-      data: result.data,
-      meta: {
-        total: result.total,
-        page: 1,
-        pageSize: result.data.length || 1,
-        pageCount: 1,
-      },
-    };
+    const result = await this.purchaseService.findAll(
+      PurchaseOrderQueryBuilder.toLegacyStatus(query),
+    );
+    return PurchaseOrderQueryBuilder.toLegacyPaginatedResponse(result);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
-  async findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  remove(@Param('id') id: string) {
     return this.purchaseService.remove(id);
   }
 
   @Get(':id/items')
   @ApiOkResponse({ type: [PurchaseOrderItemResponseDto] })
-  async getPurchaseOrderItems(@Param('id') id: string) {
+  getPurchaseOrderItems(@Param('id') id: string) {
     return this.purchaseService.getPurchaseOrderItems(id);
   }
 
   @Get(':id/items/:itemId')
   @ApiOkResponse({ type: PurchaseOrderItemResponseDto })
-  async getPurchaseOrderItem(
+  getPurchaseOrderItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,
   ) {
@@ -200,7 +99,7 @@ export class PurchaseController {
 
   @Post(':id/items')
   @ApiCreatedResponse({ type: PurchaseOrderResponseDto })
-  async addItems(
+  addItems(
     @Param('id') orderId: string,
     @Body() dto: AddPurchaseOrderItemsDto,
   ) {
@@ -209,7 +108,7 @@ export class PurchaseController {
 
   @Patch(':id/items/:itemId')
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
-  async updateItem(
+  updateItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,
     @Body() dto: UpdatePurchaseOrderItemDto,
@@ -218,10 +117,7 @@ export class PurchaseController {
   }
 
   @Delete(':id/items/:itemId')
-  async deleteItem(
-    @Param('id') orderId: string,
-    @Param('itemId') itemId: string,
-  ) {
+  deleteItem(@Param('id') orderId: string, @Param('itemId') itemId: string) {
     return this.purchaseService.deleteItemFromPurchaseOrder(orderId, itemId);
   }
 }

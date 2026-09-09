@@ -561,8 +561,8 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "type": "number"
             }
           },
           {
@@ -570,8 +570,8 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "type": "number"
             }
           },
           {
@@ -601,7 +601,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PurchaseOrderPaginatedResponseDto"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -7637,24 +7651,6 @@
         },
         "required": [
           "items"
-        ]
-      },
-      "PurchaseOrderPaginatedResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PurchaseOrderResponseDto"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/PaginationMetaDto"
-          }
-        },
-        "required": [
-          "data",
-          "meta"
         ]
       },
       "AddPurchaseOrderItemsDto": {
