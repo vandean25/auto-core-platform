@@ -7,10 +7,12 @@ import {
 } from '@prisma/client';
 import { chunkedPromiseAll } from '../../common/utils/promise.util';
 
+import Decimal = Prisma.Decimal;
+
 type StockUpdate = {
   catalog_item_id: string;
   locationId: string;
-  quantityToDeduct: number;
+  quantityToDeduct: Decimal;
 };
 
 export async function processSaleInventoryDeduction(
@@ -49,21 +51,18 @@ export async function processSaleInventoryDeduction(
   for (const item of invoiceItems) {
     if (!item.catalog_item_id) continue;
 
-    const quantityToDeduct = Number(item.quantity);
-    if (
-      !Number.isFinite(quantityToDeduct) ||
-      !Number.isInteger(quantityToDeduct) ||
-      quantityToDeduct <= 0
-    ) {
+    const quantityToDeduct = new Decimal(item.quantity);
+    if (!quantityToDeduct.isFinite() || quantityToDeduct.lte(0)) {
       throw new BadRequestException(
-        `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+        `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive quantity.`,
       );
     }
 
     const stocks = stockMap.get(item.catalog_item_id) || [];
     const stock =
-      stocks.find((entry) => entry.quantity_on_hand >= quantityToDeduct) ||
-      stocks[0];
+      stocks.find((entry) =>
+        new Decimal(entry.quantity_on_hand).gte(quantityToDeduct),
+      ) || stocks[0];
 
     if (!stock) {
       throw new BadRequestException(
@@ -71,9 +70,9 @@ export async function processSaleInventoryDeduction(
       );
     }
 
-    if (stock.quantity_on_hand < quantityToDeduct) {
+    if (new Decimal(stock.quantity_on_hand).lt(quantityToDeduct)) {
       throw new BadRequestException(
-        `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+        `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct.toString()}, Available: ${stock.quantity_on_hand.toString()})`,
       );
     }
 
@@ -82,12 +81,15 @@ export async function processSaleInventoryDeduction(
     const existingUpdate = stockUpdatesMap.get(compositeKey) || {
       catalog_item_id: item.catalog_item_id,
       locationId,
-      quantityToDeduct: 0,
+      quantityToDeduct: new Decimal(0),
     };
 
-    existingUpdate.quantityToDeduct += quantityToDeduct;
+    existingUpdate.quantityToDeduct =
+      existingUpdate.quantityToDeduct.add(quantityToDeduct);
     stockUpdatesMap.set(compositeKey, existingUpdate);
-    stock.quantity_on_hand -= quantityToDeduct;
+    stock.quantity_on_hand = new Decimal(stock.quantity_on_hand).sub(
+      quantityToDeduct,
+    );
 
     transactionCreations.push({
       tenant_id: tenantId,
@@ -121,7 +123,7 @@ export async function processSaleInventoryDeduction(
         },
       });
       throw new BadRequestException(
-        `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+        `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct.toString()}, Available: ${latestStock?.quantity_on_hand.toString() ?? '0'})`,
       );
     }
   });

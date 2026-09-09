@@ -54,29 +54,38 @@ describe('invoice-inventory.helpers', () => {
     expect(tx.inventoryTransaction.createMany).toHaveBeenCalled();
   });
 
-  it('rejects fractional quantities for stock-tracked items', async () => {
+  it('deducts fractional quantities for stock-tracked items', async () => {
     tx.inventoryStock.findMany.mockResolvedValue([
       {
         catalog_item_id: 'catalog-1',
         location_id: 'loc-1',
-        quantity_on_hand: 5,
+        quantity_on_hand: new Prisma.Decimal(5),
       },
     ]);
 
-    await expect(
-      processSaleInventoryDeduction(
-        tx as never,
-        'tenant-1',
-        [
-          {
-            catalog_item_id: 'catalog-1',
-            description: 'Filter',
-            quantity: new Prisma.Decimal(1.5),
-          } as never,
-        ],
-        'RE-2026-0001',
-      ),
-    ).rejects.toThrow(BadRequestException);
+    await processSaleInventoryDeduction(
+      tx as never,
+      'tenant-1',
+      [
+        {
+          catalog_item_id: 'catalog-1',
+          description: 'Filter',
+          quantity: new Prisma.Decimal('1.5'),
+        } as never,
+      ],
+      'RE-2026-0001',
+    );
+
+    expect(tx.inventoryStock.updateMany).toHaveBeenCalledWith({
+      where: {
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-1',
+        quantity_on_hand: { gte: new Prisma.Decimal('1.5') },
+      },
+      data: {
+        quantity_on_hand: { decrement: new Prisma.Decimal('1.5') },
+      },
+    });
   });
 
   it('rejects deductions when stock is insufficient', async () => {
