@@ -2,19 +2,19 @@ import { randomInt } from 'node:crypto';
 import {
   Injectable,
   BadRequestException,
-  ConflictException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
-import { PurchaseOrderStatus, TransactionType, Prisma } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { SiteService } from '../site/site.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition';
+import { PurchaseReceiptService } from './purchase-receipt.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -27,14 +27,36 @@ export interface PaginatedPurchaseOrderResult {
   total: number;
 }
 
+function isPurchaseOrderFindManyArgs(
+  params?: Prisma.PurchaseOrderFindManyArgs | string,
+): params is Prisma.PurchaseOrderFindManyArgs {
+  return (
+    typeof params === 'object' &&
+    params !== null &&
+    ('where' in params || 'orderBy' in params || 'skip' in params)
+  );
+}
+
 @Injectable()
 export class PurchaseService {
+  private readonly receiptService: PurchaseReceiptService;
+
   constructor(
     private prisma: PrismaService,
     private ledgerService: LedgerService,
     private readonly tenantContext: TenantContextService,
     private readonly siteService: SiteService,
-  ) {}
+    @Optional() receiptService?: PurchaseReceiptService,
+  ) {
+    this.receiptService =
+      receiptService ??
+      new PurchaseReceiptService(
+        prisma,
+        ledgerService,
+        tenantContext,
+        siteService,
+      );
+  }
 
   private generateOrderNumber(): string {
     const date = new Date();
@@ -76,6 +98,90 @@ export class PurchaseService {
     }
   }
 
+  private validateCatalogItemsForVendor(
+    items: { catalogItemId: string }[],
+    catalogItemsMap: Map<
+      string,
+      Prisma.CatalogItemGetPayload<{ include: { brand: true } }>
+    >,
+    vendor: {
+      name: string;
+      supportedBrands: Array<{ id: string; name: string }>;
+    },
+    existingPoItems?: Array<{ catalog_item_id: string }>,
+  ) {
+    for (const item of items) {
+      const catalogItem = catalogItemsMap.get(item.catalogItemId);
+      if (!catalogItem) {
+        throw new BadRequestException(
+          `Catalog Item ${item.catalogItemId} not found`,
+        );
+      }
+
+      if (
+        catalogItem.brand &&
+        !vendor.supportedBrands.some((b) => b.id === catalogItem.brand_id)
+      ) {
+        const supportedNames = vendor.supportedBrands
+          .map((b) => b.name)
+          .join(', ');
+        throw new BadRequestException(
+          `Vendor ${vendor.name} does not support brand ${catalogItem.brand.name}. Supported: ${supportedNames}`,
+        );
+      }
+
+      if (existingPoItems) {
+        const existingItem = existingPoItems.find(
+          (i) => i.catalog_item_id === item.catalogItemId,
+        );
+        if (existingItem) {
+          throw new BadRequestException(
+            `Item ${catalogItem.name} is already in this purchase order`,
+          );
+        }
+      }
+    }
+  }
+
+  private async syncPurchaseOrderStatusAndFetch(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    tenantId: string,
+    previousStatus: PurchaseOrderStatus,
+  ) {
+    const updatedPO = await tx.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      include: { items: true },
+    });
+    if (!updatedPO) throw new NotFoundException('Purchase Order not found');
+
+    const newStatus = this.recomputePurchaseOrderStatus(
+      updatedPO.items,
+      previousStatus,
+    );
+
+    if (newStatus !== previousStatus) {
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+        id: orderId,
+        tenantId,
+        from: previousStatus,
+        to: newStatus,
+        conflictMessage:
+          'Purchase order status changed concurrently. Please refresh and try again.',
+      });
+    }
+
+    return tx.purchaseOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      include: {
+        vendor: true,
+        items: {
+          include: { catalog_item: true },
+        },
+      },
+    });
+  }
+
   async createPurchaseOrder(
     vendorId: string,
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
@@ -94,26 +200,7 @@ export class PurchaseService {
     });
 
     const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
-
-    for (const item of items) {
-      const catalogItem = catalogItemsMap.get(item.catalogItemId);
-      if (!catalogItem)
-        throw new BadRequestException(
-          `Catalog Item ${item.catalogItemId} not found`,
-        );
-
-      if (
-        catalogItem.brand &&
-        !vendor.supportedBrands.some((b) => b.id === catalogItem.brand_id)
-      ) {
-        const supportedNames = vendor.supportedBrands
-          .map((b) => b.name)
-          .join(', ');
-        throw new BadRequestException(
-          `Vendor ${vendor.name} does not support brand ${catalogItem.brand.name}. Supported: ${supportedNames}`,
-        );
-      }
-    }
+    this.validateCatalogItemsForVendor(items, catalogItemsMap, vendor);
 
     const purchaseOrder = await this.prisma.purchaseOrder.create({
       data: {
@@ -141,233 +228,7 @@ export class PurchaseService {
     orderId: string,
     receivedItems: { itemId: string; quantity: number }[],
   ) {
-    try {
-      const tenantId = await this.tenantContext.getTenantId();
-      const updatedPO = await this.prisma.$transaction(async (tx) => {
-        const po = await tx.purchaseOrder.findFirst({
-          where: { id: orderId, tenant_id: tenantId },
-          include: { items: true },
-        });
-        if (!po) throw new NotFoundException('Purchase Order not found');
-
-        if (
-          po.status !== PurchaseOrderStatus.DRAFT &&
-          po.status !== PurchaseOrderStatus.SENT &&
-          po.status !== PurchaseOrderStatus.PARTIAL
-        ) {
-          throw new BadRequestException(
-            'Only DRAFT, SENT, or PARTIAL purchase orders can receive items',
-          );
-        }
-
-        let warehouse = await tx.storageLocation.findFirst({
-          where: { tenant_id: tenantId, type: 'warehouse' },
-        });
-        if (!warehouse) {
-          const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
-          warehouse = await tx.storageLocation.create({
-            data: {
-              tenant_id: tenantId,
-              site_id: siteId,
-              name: 'Default Warehouse',
-              code: 'WH-001',
-              type: 'warehouse',
-            },
-          });
-        }
-
-        // Ensure General Bin exists for this warehouse
-        let generalBin = await tx.storageLocation.findFirst({
-          where: {
-            tenant_id: tenantId,
-            parent_id: warehouse.id,
-            type: 'bin',
-            name: 'General Bin',
-          },
-        });
-
-        if (!generalBin) {
-          generalBin = await tx.storageLocation.create({
-            data: {
-              tenant_id: tenantId,
-              site_id: warehouse.site_id,
-              name: 'General Bin',
-              code: `${warehouse.code}-GEN`,
-              type: 'bin',
-              parent_id: warehouse.id,
-            },
-          });
-        }
-
-        // PRE-FETCH & MAP PATTERN
-        const poItemIds = po.items.map((item) => item.id);
-        const currentItems = await tx.purchaseOrderItem.findMany({
-          where: { id: { in: poItemIds } },
-        });
-        const currentItemsMap = new Map(
-          currentItems.map((item) => [item.id, item]),
-        );
-
-        // Aggregate received items by poItem.id to prevent duplicate itemIds from exceeding the limit
-        const aggregatedReceived = new Map<
-          string,
-          {
-            quantity: Decimal;
-            received: { itemId: string; quantity: number };
-            poItem: Prisma.PurchaseOrderItemGetPayload<Record<string, never>>;
-            quantityReceived: Decimal;
-          }
-        >();
-
-        const poItemsMap = new Map(po.items.map((i) => [i.catalog_item_id, i]));
-
-        for (const received of receivedItems) {
-          if (!received.itemId) {
-            throw new BadRequestException(
-              'itemId is required for each received item',
-            );
-          }
-
-          const poItem = poItemsMap.get(received.itemId);
-          if (!poItem) {
-            const availableIds = po.items
-              .map((i) => i.catalog_item_id)
-              .join(', ');
-            throw new BadRequestException(
-              `Item ${received.itemId} not in this PO. Available: ${availableIds}`,
-            );
-          }
-
-          const existing = aggregatedReceived.get(poItem.id);
-          if (existing) {
-            existing.quantity = existing.quantity.add(received.quantity);
-          } else {
-            const currentItem = currentItemsMap.get(poItem.id);
-            aggregatedReceived.set(poItem.id, {
-              quantity: new Decimal(received.quantity),
-              received,
-              poItem,
-              quantityReceived: new Decimal(
-                currentItem?.quantity_received ?? 0,
-              ),
-            });
-          }
-        }
-
-        const validatedAggregatedItems = Array.from(
-          aggregatedReceived.values(),
-        );
-
-        for (const { poItem, quantity, received } of validatedAggregatedItems) {
-          const currentItem = currentItemsMap.get(poItem.id);
-          if (!currentItem)
-            throw new BadRequestException(
-              `Item ${received.itemId} not found in DB`,
-            );
-
-          if (
-            new Decimal(currentItem.quantity_received)
-              .add(quantity)
-              .gt(currentItem.quantity)
-          ) {
-            throw new BadRequestException(
-              `Cannot receive more than ordered for item ${received.itemId}`,
-            );
-          }
-        }
-
-        // BATCH WRITES (using aggregated quantities)
-        await chunkedPromiseAll(
-          validatedAggregatedItems,
-          async ({ poItem, quantity, received, quantityReceived }) => {
-            const updateResult = await tx.purchaseOrderItem.updateMany({
-              where: {
-                id: poItem.id,
-                tenant_id: tenantId,
-                quantity_received: quantityReceived,
-              },
-              data: { quantity_received: { increment: quantity } },
-            });
-
-            if (updateResult.count === 0) {
-              throw new ConflictException(
-                `Purchase order item ${poItem.id} was updated concurrently. Please refresh and try again.`,
-              );
-            }
-
-            // Record the inventory transaction using the ledger service
-            await this.ledgerService.recordTransactions(
-              [
-                {
-                  itemId: received.itemId,
-                  locationId: generalBin.id,
-                  quantity: quantity,
-                  type: TransactionType.PURCHASE_RECEIPT,
-                  referenceId: po.order_number,
-                  costBasis: poItem.unit_cost,
-                },
-              ],
-              tx,
-            );
-          },
-        );
-
-        const updatedPO = await tx.purchaseOrder.findFirst({
-          where: { id: orderId },
-          include: { items: true },
-        });
-
-        if (!updatedPO) throw new Error('Failed to retrieve updated PO');
-
-        const allReceived = updatedPO.items.every((i) =>
-          new Decimal(i.quantity_received).gte(i.quantity),
-        );
-        const anyReceived = updatedPO.items.some((i) =>
-          new Decimal(i.quantity_received).gt(0),
-        );
-        let newStatus: PurchaseOrderStatus = po.status;
-
-        if (allReceived) newStatus = PurchaseOrderStatus.COMPLETED;
-        else if (anyReceived) newStatus = PurchaseOrderStatus.PARTIAL;
-
-        if (newStatus !== po.status) {
-          await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
-            id: orderId,
-            tenantId,
-            from: po.status,
-            to: newStatus,
-            conflictMessage:
-              'Purchase order status changed concurrently. Please refresh and try again.',
-          });
-
-          const refreshedPO = await tx.purchaseOrder.findFirst({
-            where: { id: orderId, tenant_id: tenantId },
-            include: { items: true },
-          });
-
-          if (!refreshedPO) {
-            throw new Error('Failed to retrieve refreshed PO');
-          }
-
-          return refreshedPO;
-        }
-
-        return updatedPO;
-      });
-
-      return updatedPO;
-    } catch (error) {
-      console.error('===== receiveItems ERROR =====');
-      console.error(
-        'Error type:',
-        error instanceof Error ? error.constructor.name : typeof error,
-      );
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error('Error message:', errorMessage);
-      console.error('Full error:', error);
-      throw error;
-    }
+    return this.receiptService.receiveItems(orderId, receivedItems);
   }
 
   async addItemsToPurchaseOrder(
@@ -399,36 +260,12 @@ export class PurchaseService {
     });
 
     const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
-
-    for (const item of items) {
-      const catalogItem = catalogItemsMap.get(item.catalogItemId);
-      if (!catalogItem)
-        throw new BadRequestException(
-          `Catalog Item ${item.catalogItemId} not found`,
-        );
-
-      if (
-        catalogItem.brand &&
-        !po.vendor.supportedBrands.some((b) => b.id === catalogItem.brand_id)
-      ) {
-        const supportedNames = po.vendor.supportedBrands
-          .map((b) => b.name)
-          .join(', ');
-        throw new BadRequestException(
-          `Vendor ${po.vendor.name} does not support brand ${catalogItem.brand.name}. Supported: ${supportedNames}`,
-        );
-      }
-
-      // Check if item already exists in PO
-      const existingItem = po.items.find(
-        (i) => i.catalog_item_id === item.catalogItemId,
-      );
-      if (existingItem) {
-        throw new BadRequestException(
-          `Item ${catalogItem.name} is already in this purchase order`,
-        );
-      }
-    }
+    this.validateCatalogItemsForVendor(
+      items,
+      catalogItemsMap,
+      po.vendor,
+      po.items,
+    );
 
     // Add items to PO in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
@@ -448,39 +285,12 @@ export class PurchaseService {
         ),
       );
 
-      // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findFirst({
-        where: { id: orderId },
-        include: { items: true },
-      });
-      if (!updatedPO) throw new NotFoundException('Purchase Order not found');
-
-      // Recompute status, preserving previous status if needed
-      const newStatus = this.recomputePurchaseOrderStatus(
-        updatedPO.items,
+      return this.syncPurchaseOrderStatusAndFetch(
+        tx,
+        orderId,
+        tenantId,
         po.status,
       );
-
-      if (newStatus !== po.status) {
-        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
-          id: orderId,
-          tenantId,
-          from: po.status,
-          to: newStatus,
-          conflictMessage:
-            'Purchase order status changed concurrently. Please refresh and try again.',
-        });
-      }
-
-      return tx.purchaseOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
-        include: {
-          vendor: true,
-          items: {
-            include: { catalog_item: true },
-          },
-        },
-      });
     });
 
     return updatedOrder;
@@ -530,39 +340,12 @@ export class PurchaseService {
         throw new NotFoundException('Purchase order item not found');
       }
 
-      // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findFirst({
-        where: { id: orderId },
-        include: { items: true },
-      });
-      if (!updatedPO) throw new NotFoundException('Purchase Order not found');
-
-      // Recompute status, preserving previous status if needed
-      const newStatus = this.recomputePurchaseOrderStatus(
-        updatedPO.items,
+      return this.syncPurchaseOrderStatusAndFetch(
+        tx,
+        orderId,
+        tenantId,
         po.status,
       );
-
-      if (newStatus !== po.status) {
-        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
-          id: orderId,
-          tenantId,
-          from: po.status,
-          to: newStatus,
-          conflictMessage:
-            'Purchase order status changed concurrently. Please refresh and try again.',
-        });
-      }
-
-      return tx.purchaseOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
-        include: {
-          vendor: true,
-          items: {
-            include: { catalog_item: true },
-          },
-        },
-      });
     });
 
     return updatedOrder;
@@ -596,39 +379,12 @@ export class PurchaseService {
         throw new NotFoundException('Purchase order item not found');
       }
 
-      // Re-read the PO with updated items
-      const updatedPO = await tx.purchaseOrder.findFirst({
-        where: { id: orderId },
-        include: { items: true },
-      });
-      if (!updatedPO) throw new NotFoundException('Purchase Order not found');
-
-      // Recompute status, preserving previous status if needed
-      const newStatus = this.recomputePurchaseOrderStatus(
-        updatedPO.items,
+      return this.syncPurchaseOrderStatusAndFetch(
+        tx,
+        orderId,
+        tenantId,
         po.status,
       );
-
-      if (newStatus !== po.status) {
-        await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
-          id: orderId,
-          tenantId,
-          from: po.status,
-          to: newStatus,
-          conflictMessage:
-            'Purchase order status changed concurrently. Please refresh and try again.',
-        });
-      }
-
-      return tx.purchaseOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
-        include: {
-          vendor: true,
-          items: {
-            include: { catalog_item: true },
-          },
-        },
-      });
     });
 
     return updatedOrder;
@@ -674,11 +430,7 @@ export class PurchaseService {
     params?: Prisma.PurchaseOrderFindManyArgs | string,
   ): Promise<PaginatedPurchaseOrderResult> {
     const tenantId = await this.tenantContext.getTenantId();
-    if (
-      params &&
-      typeof params === 'object' &&
-      ('where' in params || 'orderBy' in params || 'skip' in params)
-    ) {
+    if (isPurchaseOrderFindManyArgs(params)) {
       const scopedWhere = { ...(params.where ?? {}), tenant_id: tenantId };
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
