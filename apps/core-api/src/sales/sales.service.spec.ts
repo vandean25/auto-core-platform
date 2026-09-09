@@ -5,6 +5,7 @@ import { TenantContextService } from '../common/services/tenant-context.service'
 import { FinanceService } from '../finance/finance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesService } from './sales.service';
+import { InvoiceFinalizationService } from './invoice-finalization.service';
 
 describe('SalesService', () => {
   let service: SalesService;
@@ -53,6 +54,7 @@ describe('SalesService', () => {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
         },
+        InvoiceFinalizationService,
       ],
     }).compile();
 

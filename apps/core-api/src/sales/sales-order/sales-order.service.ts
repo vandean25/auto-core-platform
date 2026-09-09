@@ -15,6 +15,12 @@ import {
   guardedStatusUpdate,
 } from '../../common/utils/status-transition';
 import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
+import {
+  assertCatalogItemsBelongToTenant,
+  assertCustomerBelongsToTenant,
+  assertVehicleBelongsToTenant,
+} from '../helpers/sales-tenant-validation.helpers';
+import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers';
 
 const SALES_ORDER_NEXT_STATUS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
   [SalesOrderStatus.DRAFT]: [SalesOrderStatus.CONFIRMED],
@@ -47,45 +53,30 @@ export class SalesOrderService {
   async create(createDto: CreateSalesOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
 
-    // Tenant isolation checks
     if (createDto.customer_id) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: createDto.customer_id, tenant_id: tenantId },
-      });
-      if (!customer) {
-        throw new BadRequestException(
-          'Customer not found or belongs to another tenant',
-        );
-      }
+      await assertCustomerBelongsToTenant(
+        this.prisma,
+        createDto.customer_id,
+        tenantId,
+      );
     }
 
     if (createDto.vehicle_id) {
-      const vehicle = await this.prisma.vehicle.findFirst({
-        where: { id: createDto.vehicle_id, tenant_id: tenantId },
-      });
-      if (!vehicle) {
-        throw new BadRequestException(
-          'Vehicle not found or belongs to another tenant',
-        );
-      }
+      await assertVehicleBelongsToTenant(
+        this.prisma,
+        createDto.vehicle_id,
+        tenantId,
+      );
     }
 
-    // Tenant isolation checks for catalog items
     const catalogItemIds = createDto.items
-      .map((i) => i.catalog_item_id)
+      .map((item) => item.catalog_item_id)
       .filter((id): id is string => typeof id === 'string');
-
-    if (catalogItemIds.length > 0) {
-      const uniqueIds = [...new Set(catalogItemIds)];
-      const count = await this.prisma.catalogItem.count({
-        where: { id: { in: uniqueIds }, tenant_id: tenantId },
-      });
-      if (count !== uniqueIds.length) {
-        throw new BadRequestException(
-          'One or more catalog items not found or belong to another tenant',
-        );
-      }
-    }
+    await assertCatalogItemsBelongToTenant(
+      this.prisma,
+      catalogItemIds,
+      tenantId,
+    );
 
     // Get and increment sales order number atomically
     const currentYear = new Date().getFullYear();
@@ -249,27 +240,20 @@ export class SalesOrderService {
     const tenantId = await this.tenantContext.getTenantId();
     const order = await this.findOne(id);
 
-    // Tenant isolation checks
     if (updateDto.customer_id) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: updateDto.customer_id, tenant_id: tenantId },
-      });
-      if (!customer) {
-        throw new BadRequestException(
-          'Customer not found or belongs to another tenant',
-        );
-      }
+      await assertCustomerBelongsToTenant(
+        this.prisma,
+        updateDto.customer_id,
+        tenantId,
+      );
     }
 
     if (updateDto.vehicle_id) {
-      const vehicle = await this.prisma.vehicle.findFirst({
-        where: { id: updateDto.vehicle_id, tenant_id: tenantId },
-      });
-      if (!vehicle) {
-        throw new BadRequestException(
-          'Vehicle not found or belongs to another tenant',
-        );
-      }
+      await assertVehicleBelongsToTenant(
+        this.prisma,
+        updateDto.vehicle_id,
+        tenantId,
+      );
     }
 
     // If updating items, recalculate total
@@ -300,17 +284,11 @@ export class SalesOrderService {
         );
       }
 
-      if (catalogItemIds.length > 0) {
-        const uniqueIds = [...new Set(catalogItemIds)];
-        const count = await this.prisma.catalogItem.count({
-          where: { id: { in: uniqueIds }, tenant_id: tenantId },
-        });
-        if (count !== uniqueIds.length) {
-          throw new BadRequestException(
-            'One or more catalog items not found or belong to another tenant',
-          );
-        }
-      }
+      await assertCatalogItemsBelongToTenant(
+        this.prisma,
+        catalogItemIds,
+        tenantId,
+      );
 
       newItemsData = replacementItems.map((item) => {
         const quantity = new Prisma.Decimal(item.quantity);
@@ -445,7 +423,7 @@ export class SalesOrderService {
             vehicle_id: order.vehicle_id,
             sales_order_id: order.id,
             status: InvoiceStatus.DRAFT,
-            due_date: new Date(new Date().setDate(new Date().getDate() + 14)), // Default 14 days
+            due_date: buildInvoiceDueDate(),
             total_net: totalNet,
             total_tax: totalTax,
             total_gross: totalGross,
