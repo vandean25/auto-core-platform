@@ -12,16 +12,6 @@ export interface TableCleaner {
  */
 export const TABLE_CLEANERS: TableCleaner[] = [
   {
-    table: 'purchase_invoice_lines',
-    clean: (p) => p.purchaseInvoiceLine.deleteMany(),
-  },
-  { table: 'purchase_invoices', clean: (p) => p.purchaseInvoice.deleteMany() },
-  {
-    table: 'purchase_order_items',
-    clean: (p) => p.purchaseOrderItem.deleteMany(),
-  },
-  { table: 'purchase_orders', clean: (p) => p.purchaseOrder.deleteMany() },
-  {
     table: 'inventory_transactions',
     clean: (p) => p.inventoryTransaction.deleteMany(),
   },
@@ -37,6 +27,16 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'parts_requisitions',
     clean: (p) => p.partsRequisition.deleteMany(),
   },
+  {
+    table: 'purchase_invoice_lines',
+    clean: (p) => p.purchaseInvoiceLine.deleteMany(),
+  },
+  { table: 'purchase_invoices', clean: (p) => p.purchaseInvoice.deleteMany() },
+  {
+    table: 'purchase_order_items',
+    clean: (p) => p.purchaseOrderItem.deleteMany(),
+  },
+  { table: 'purchase_orders', clean: (p) => p.purchaseOrder.deleteMany() },
   { table: 'inventory_stocks', clean: (p) => p.inventoryStock.deleteMany() },
   { table: 'invoice_items', clean: (p) => p.invoiceItem.deleteMany() },
   { table: 'invoices', clean: (p) => p.invoice.deleteMany() },

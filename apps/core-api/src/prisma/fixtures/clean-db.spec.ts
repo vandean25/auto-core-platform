@@ -12,6 +12,13 @@ describe('cleanDb', () => {
           { table_name: 'brands' },
           { table_name: 'storage_locations' },
           { table_name: 'inventory_stocks' },
+          { table_name: 'purchase_orders' },
+          { table_name: 'purchase_order_items' },
+          { table_name: 'purchase_invoices' },
+          { table_name: 'purchase_invoice_lines' },
+          { table_name: 'parts_requisitions' },
+          { table_name: 'parts_requisition_lines' },
+          { table_name: 'parts_reservations' },
           { table_name: 'inventory_transactions' },
         ]),
       tenant: {
@@ -38,6 +45,55 @@ describe('cleanDb', () => {
             executedDeletes.push('inventory_stocks'),
           ),
       },
+      purchaseOrder: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('purchase_orders'),
+          ),
+      },
+      purchaseOrderItem: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('purchase_order_items'),
+          ),
+      },
+      purchaseInvoice: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('purchase_invoices'),
+          ),
+      },
+      purchaseInvoiceLine: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('purchase_invoice_lines'),
+          ),
+      },
+      partsRequisition: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('parts_requisitions'),
+          ),
+      },
+      partsRequisitionLine: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('parts_requisition_lines'),
+          ),
+      },
+      partsReservation: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('parts_reservations'),
+          ),
+      },
       inventoryTransaction: {
         deleteMany: jest
           .fn()
@@ -52,6 +108,13 @@ describe('cleanDb', () => {
     expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(cleaned).toEqual([
       'inventory_transactions',
+      'parts_reservations',
+      'parts_requisition_lines',
+      'parts_requisitions',
+      'purchase_invoice_lines',
+      'purchase_invoices',
+      'purchase_order_items',
+      'purchase_orders',
       'inventory_stocks',
       'storage_locations',
       'brands',
@@ -59,6 +122,13 @@ describe('cleanDb', () => {
     ]);
     expect(executedDeletes).toEqual([
       'inventory_transactions',
+      'parts_reservations',
+      'parts_requisition_lines',
+      'parts_requisitions',
+      'purchase_invoice_lines',
+      'purchase_invoices',
+      'purchase_order_items',
+      'purchase_orders',
       'inventory_stocks',
       'storage_locations',
       'brands',
