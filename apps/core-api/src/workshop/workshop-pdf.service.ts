@@ -6,11 +6,11 @@ import {
 } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
-import retry from 'async-retry';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
 import { CloudTasksService, PdfStorage } from '../common';
 import { resolvePdfGenerationDispatch } from '../common/pdf/pdf-generation-dispatch';
+import { renderAndUploadPdf } from '../common/pdf/pdf-render-upload';
 import { TenantContextService } from '../common/services/tenant-context.service';
 
 export type WorkshopPdfRequestGenerationResponse = {
@@ -175,42 +175,22 @@ export class WorkshopPdfService {
 
         let upload: { bucket: string; key: string; etag: string | null };
         try {
-          upload = await retry(
-            async (bail) => {
-              try {
-                const pdf = await this.renderer.render(order);
-                return await this.storage.uploadPdf({
-                  key,
-                  body: pdf,
-                  contentType: 'application/pdf',
-                });
-              } catch (error) {
-                const maybeStatus = (
-                  error as { status?: unknown } | null | undefined
-                )?.status;
-                const status =
-                  typeof maybeStatus === 'number' ? maybeStatus : undefined;
-                if (status && status >= 400 && status < 500) {
-                  bail(
-                    error instanceof Error ? error : new Error(String(error)),
-                  );
-                }
-                throw error;
-              }
+          upload = await renderAndUploadPdf({
+            render: () => this.renderer.render(order),
+            upload: (pdf) =>
+              this.storage.uploadPdf({
+                key,
+                body: pdf,
+                contentType: 'application/pdf',
+              }),
+            onRetry: (error, attempt) => {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              this.logger.warn(
+                `Workshop PDF generation attempt ${attempt} failed: ${message}`,
+              );
             },
-            {
-              retries: 2,
-              minTimeout: 1000,
-              maxTimeout: 5000,
-              onRetry: (error, attempt) => {
-                const message =
-                  error instanceof Error ? error.message : String(error);
-                this.logger.warn(
-                  `Workshop PDF generation attempt ${attempt} failed: ${message}`,
-                );
-              },
-            },
-          );
+          });
 
           const generatedAt = new Date();
           await this.prisma.client.workshopOrder.updateMany({
