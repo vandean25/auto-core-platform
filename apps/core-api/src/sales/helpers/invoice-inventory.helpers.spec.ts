@@ -24,7 +24,7 @@ describe('invoice-inventory.helpers', () => {
       {
         catalog_item_id: 'catalog-1',
         location_id: 'loc-1',
-        quantity_on_hand: 5,
+        quantity_on_hand: new Prisma.Decimal(5),
       },
     ]);
 
@@ -45,10 +45,10 @@ describe('invoice-inventory.helpers', () => {
       where: {
         catalog_item_id: 'catalog-1',
         location_id: 'loc-1',
-        quantity_on_hand: { gte: 2 },
+        quantity_on_hand: { gte: new Prisma.Decimal(2) },
       },
       data: {
-        quantity_on_hand: { decrement: 2 },
+        quantity_on_hand: { decrement: new Prisma.Decimal(2) },
       },
     });
     expect(tx.inventoryTransaction.createMany).toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('invoice-inventory.helpers', () => {
       {
         catalog_item_id: 'catalog-1',
         location_id: 'loc-1',
-        quantity_on_hand: 1,
+        quantity_on_hand: new Prisma.Decimal(1),
       },
     ]);
 
