@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { PrismaService } from '../../prisma/prisma.service';
 
-type TenantScopedPrisma = Pick<
+export type TenantScopedPrisma = Pick<
   PrismaService,
   'customer' | 'vehicle' | 'catalogItem'
 >;

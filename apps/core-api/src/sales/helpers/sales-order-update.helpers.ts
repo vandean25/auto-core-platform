@@ -1,12 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../../common/utils/status-transition';
 import type { CreateSalesOrderItemDto } from '../sales-order/dto/create-sales-order.dto';
-import { assertCatalogItemsBelongToTenant } from './sales-tenant-validation.helpers';
+import {
+  assertCatalogItemsBelongToTenant,
+  type TenantScopedPrisma,
+} from './sales-tenant-validation.helpers';
 
 export const SALES_ORDER_NEXT_STATUS: Record<
   SalesOrderStatus,
@@ -69,7 +71,7 @@ export function sumSalesOrderItemTotals(
 }
 
 export async function prepareReplacementItems(
-  prisma: Pick<PrismaService, 'catalogItem'>,
+  prisma: TenantScopedPrisma,
   tenantId: string,
   replacementItems: CreateSalesOrderItemDto[],
 ): Promise<{ items: SalesOrderItemCreateData[]; totalAmount: Prisma.Decimal }> {
