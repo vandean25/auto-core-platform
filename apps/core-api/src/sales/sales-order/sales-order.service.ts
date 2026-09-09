@@ -10,10 +10,6 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service';
 import { TenantContextService } from '../../common/services/tenant-context.service';
-import {
-  bindStatusUpdateMany,
-  guardedStatusUpdate,
-} from '../../common/utils/status-transition';
 import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
 import {
   assertCatalogItemsBelongToTenant,
@@ -21,25 +17,20 @@ import {
   assertVehicleBelongsToTenant,
 } from '../helpers/sales-tenant-validation.helpers';
 import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers';
-
-const SALES_ORDER_NEXT_STATUS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
-  [SalesOrderStatus.DRAFT]: [SalesOrderStatus.CONFIRMED],
-  [SalesOrderStatus.CONFIRMED]: [SalesOrderStatus.IN_PROGRESS],
-  [SalesOrderStatus.IN_PROGRESS]: [SalesOrderStatus.COMPLETED],
-  [SalesOrderStatus.COMPLETED]: [SalesOrderStatus.INVOICED],
-  [SalesOrderStatus.INVOICED]: [],
-};
-
-type SalesOrderWithRelations = Prisma.SalesOrderGetPayload<{
-  include: { customer: true; vehicle: true; items: true };
-}>;
-
-type PublicSalesOrder = Omit<SalesOrderWithRelations, 'vehicle'> & {
-  vehicle: Omit<
-    NonNullable<SalesOrderWithRelations['vehicle']>,
-    'identity_resolution_generation' | 'identity_resolution_token'
-  > | null;
-};
+import {
+  findDefaultSalesOrders,
+  findPaginatedSalesOrders,
+  isSalesOrderFindManyArgs,
+  type PublicSalesOrder,
+} from '../helpers/sales-order-query.helpers';
+import {
+  assertSalesOrderStatusTransition,
+  formatSalesOrderItem,
+  persistSalesOrderUpdate,
+  prepareReplacementItems,
+  reconcileSalesOrderItems,
+  sumSalesOrderItemTotals,
+} from '../helpers/sales-order-update.helpers';
 
 @Injectable()
 export class SalesOrderService {
@@ -104,26 +95,10 @@ export class SalesOrderService {
     });
     const orderNumber = `${settings.sales_order_prefix}${settings.next_sales_order_number - 1}`;
 
-    // Calculate totals
-    const itemsData = createDto.items.map((item) => {
-      const quantity = new Prisma.Decimal(item.quantity);
-      const unitPrice = new Prisma.Decimal(item.unit_price);
-      const total = quantity.mul(unitPrice);
-      return {
-        tenant_id: tenantId,
-        catalog_item_id: item.catalog_item_id,
-        description: item.description,
-        quantity: quantity,
-        unit_price: unitPrice,
-        tax_rate: new Prisma.Decimal(item.tax_rate || 20),
-        total: total,
-      };
-    });
-
-    const totalAmount = itemsData.reduce(
-      (sum, item) => sum.add(item.total),
-      new Prisma.Decimal(0),
+    const itemsData = createDto.items.map((item) =>
+      formatSalesOrderItem(tenantId, item),
     );
+    const totalAmount = sumSalesOrderItemTotals(itemsData);
 
     const createdOrder = await this.prisma.salesOrder.create({
       data: {
@@ -160,56 +135,13 @@ export class SalesOrderService {
     total: number;
   }> {
     const tenantId = await this.tenantContext.getTenantId();
-    // If params is just a Prisma query object from QueryBuilder
-    if (
-      params &&
-      typeof params === 'object' &&
-      (params.where || params.orderBy || params.skip !== undefined)
-    ) {
-      const [data, total] = await Promise.all([
-        this.prisma.salesOrder.findMany({
-          ...params,
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-          include: {
-            customer: true,
-            vehicle: true,
-            items: true,
-          },
-        }),
-        this.prisma.salesOrder.count({
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-        }),
-      ]);
-      return {
-        data: data.map((order) => ({
-          ...order,
-          vehicle: order.vehicle
-            ? stripVehicleIdentityResolutionState(order.vehicle)
-            : order.vehicle,
-        })),
-        total,
-      };
+
+    if (isSalesOrderFindManyArgs(params)) {
+      return findPaginatedSalesOrders(this.prisma, tenantId, params);
     }
 
     const status = typeof params === 'string' ? params : undefined;
-    const data = await this.prisma.salesOrder.findMany({
-      where: status ? { tenant_id: tenantId, status } : { tenant_id: tenantId },
-      include: {
-        customer: true,
-        vehicle: true,
-        items: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    return {
-      data: data.map((order) => ({
-        ...order,
-        vehicle: order.vehicle
-          ? stripVehicleIdentityResolutionState(order.vehicle)
-          : order.vehicle,
-      })),
-      total: data.length,
-    };
+    return findDefaultSalesOrders(this.prisma, tenantId, status);
   }
 
   async findOne(id: string) {
@@ -256,109 +188,36 @@ export class SalesOrderService {
       );
     }
 
-    // If updating items, recalculate total
-    let totalAmount = order.total_amount;
-    let newItemsData:
-      | Array<{
-          tenant_id: string;
-          catalog_item_id: string;
-          description: string;
-          quantity: Prisma.Decimal;
-          unit_price: Prisma.Decimal;
-          tax_rate: Prisma.Decimal;
-          total: Prisma.Decimal;
-        }>
-      | undefined;
-
-    const replacementItems = updateDto.items;
-
-    if (replacementItems) {
-      // Tenant isolation checks for catalog items
-      const catalogItemIds = replacementItems
-        .map((item) => item.catalog_item_id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
-
-      if (catalogItemIds.length !== replacementItems.length) {
-        throw new BadRequestException(
-          'Each sales order item must include catalog_item_id',
-        );
-      }
-
-      await assertCatalogItemsBelongToTenant(
-        this.prisma,
-        catalogItemIds,
-        tenantId,
-      );
-
-      newItemsData = replacementItems.map((item) => {
-        const quantity = new Prisma.Decimal(item.quantity);
-        const unitPrice = new Prisma.Decimal(item.unit_price);
-        const total = quantity.mul(unitPrice);
-        return {
-          tenant_id: tenantId,
-          catalog_item_id: item.catalog_item_id as string,
-          description: item.description,
-          quantity,
-          unit_price: unitPrice,
-          tax_rate: new Prisma.Decimal(item.tax_rate || 20),
-          total,
-        };
-      });
-
-      totalAmount = newItemsData.reduce(
-        (sum, item) => sum.add(item.total),
-        new Prisma.Decimal(0),
-      );
-    }
+    const replacement = updateDto.items
+      ? await prepareReplacementItems(this.prisma, tenantId, updateDto.items)
+      : undefined;
 
     const nextStatus = updateDto.status;
     if (nextStatus !== undefined && nextStatus !== order.status) {
-      const allowed = SALES_ORDER_NEXT_STATUS[order.status] ?? [];
-      if (!allowed.includes(nextStatus)) {
-        throw new BadRequestException(
-          `Cannot transition sales order from ${order.status} to ${nextStatus}`,
-        );
-      }
+      assertSalesOrderStatusTransition(order.status, nextStatus);
     }
 
     const fieldData: Prisma.SalesOrderUncheckedUpdateManyInput = {
       customer_id: updateDto.customer_id,
       vehicle_id: updateDto.vehicle_id,
       notes: updateDto.notes,
-      total_amount: totalAmount,
+      total_amount: replacement?.totalAmount ?? order.total_amount,
     };
 
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
-      if (nextStatus !== undefined && nextStatus !== order.status) {
-        await guardedStatusUpdate(bindStatusUpdateMany(tx.salesOrder), {
-          id,
+    return this.prisma.$transaction(async (tx) => {
+      await persistSalesOrderUpdate(tx, {
+        id,
+        tenantId,
+        currentStatus: order.status,
+        nextStatus,
+        fieldData,
+      });
+
+      if (replacement) {
+        await reconcileSalesOrderItems(tx, {
+          salesOrderId: id,
           tenantId,
-          from: order.status,
-          to: nextStatus,
-          extraData: fieldData,
-          conflictMessage:
-            'Sales order status changed concurrently. Please refresh and try again.',
-        });
-      } else {
-        const updateResult = await tx.salesOrder.updateMany({
-          where: { id, tenant_id: tenantId },
-          data: fieldData,
-        });
-
-        if (updateResult.count === 0) {
-          throw new NotFoundException('Sales order not found');
-        }
-      }
-
-      if (newItemsData) {
-        await tx.salesOrderItem.deleteMany({
-          where: { sales_order_id: id, tenant_id: tenantId },
-        });
-        await tx.salesOrderItem.createMany({
-          data: newItemsData.map((item) => ({
-            ...item,
-            sales_order_id: id,
-          })),
+          items: replacement.items,
         });
       }
 
@@ -373,8 +232,6 @@ export class SalesOrderService {
 
       return refreshed;
     });
-
-    return updatedOrder;
   }
 
   async createInvoiceFromOrder(orderId: string) {
