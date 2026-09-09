@@ -6,20 +6,19 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import {
-  Prisma,
-  InvoiceStatus,
-  SalesOrderStatus,
-  TransactionType,
-} from '@prisma/client';
-import type { CatalogItem, RevenueGroup, InventoryStock } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { InvoiceStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import {
-  bindStatusUpdateMany,
-  guardedStatusUpdate,
-} from '../common/utils/status-transition';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
+import {
+  assertCustomerBelongsToTenant,
+  assertVehicleBelongsToTenant,
+} from './helpers/sales-tenant-validation.helpers';
+import {
+  buildFormattedInvoiceItems,
+  buildInvoiceDueDate,
+} from './helpers/invoice-line-items.helpers';
+import { reconcileDraftInvoiceItems } from './helpers/invoice-draft-reconciliation.helpers';
+import { InvoiceFinalizationService } from './invoice-finalization.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -29,107 +28,31 @@ export class SalesService {
     private prisma: PrismaService,
     private financeService: FinanceService,
     private readonly tenantContext: TenantContextService,
+    private readonly invoiceFinalization: InvoiceFinalizationService,
   ) {}
 
   async createDraft(createInvoiceDto: CreateInvoiceDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const { items = [], ...invoiceData } = createInvoiceDto;
 
-    if (!items || items.length === 0) {
-      throw new BadRequestException('Invoice must have at least one item');
-    }
-
-    // Tenant isolation checks
     if (invoiceData.customerId) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: invoiceData.customerId, tenant_id: tenantId },
-      });
-      if (!customer) {
-        throw new BadRequestException(
-          'Customer not found or belongs to another tenant',
-        );
-      }
+      await assertCustomerBelongsToTenant(
+        this.prisma,
+        invoiceData.customerId,
+        tenantId,
+      );
     }
 
     if (invoiceData.vehicleId) {
-      const vehicle = await this.prisma.vehicle.findFirst({
-        where: { id: invoiceData.vehicleId, tenant_id: tenantId },
-      });
-      if (!vehicle) {
-        throw new BadRequestException(
-          'Vehicle not found or belongs to another tenant',
-        );
-      }
+      await assertVehicleBelongsToTenant(
+        this.prisma,
+        invoiceData.vehicleId,
+        tenantId,
+      );
     }
 
-    // Calculate totals and snapshot revenue groups
-    let totalNet = 0;
-    let totalTax = 0;
-
-    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
-      [];
-
-    // 1. Extract unique IDs and pre-fetch catalog items
-    const uniqueCatalogItemIds = [
-      ...new Set(
-        items
-          .map((i) => i.catalogItemId)
-          .filter((id): id is string => typeof id === 'string'),
-      ),
-    ];
-
-    const catalogItemMap = new Map<
-      string,
-      CatalogItem & { revenue_group: RevenueGroup | null }
-    >();
-    if (uniqueCatalogItemIds.length > 0) {
-      const catalogItems = await this.prisma.catalogItem.findMany({
-        where: { tenant_id: tenantId, id: { in: uniqueCatalogItemIds } },
-        include: { revenue_group: true },
-        orderBy: { id: 'asc' },
-      });
-      catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
-    }
-
-    // 2. Iterate over original items to preserve order
-    for (const item of items) {
-      let taxRate = item.taxRate;
-      let revenueGroupName: string | null = null;
-
-      if (item.catalogItemId) {
-        const catalogItem = catalogItemMap.get(item.catalogItemId);
-
-        if (!catalogItem) {
-          throw new BadRequestException(
-            `Catalog item ${item.catalogItemId} not found or belongs to another tenant`,
-          );
-        }
-
-        if (catalogItem.revenue_group) {
-          revenueGroupName = catalogItem.revenue_group.name;
-          taxRate = Number(catalogItem.revenue_group.tax_rate);
-        }
-      }
-
-      const net = item.quantity * item.unitPrice;
-      const tax = net * (taxRate / 100);
-      totalNet += net;
-      totalTax += tax;
-
-      formattedItems.push({
-        tenant_id: tenantId,
-        catalog_item_id: item.catalogItemId,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        tax_rate: taxRate,
-        revenue_group_name: revenueGroupName,
-      });
-    }
-
-    const totalGross = totalNet + totalTax;
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 14); // Default 14 days due date
+    const { formattedItems, totalNet, totalTax, totalGross } =
+      await buildFormattedInvoiceItems(this.prisma, tenantId, items);
 
     return this.prisma.invoice.create({
       data: {
@@ -140,7 +63,7 @@ export class SalesService {
         internal_notes: invoiceData.internalNotes,
         status: InvoiceStatus.DRAFT,
         date: new Date(),
-        due_date: dueDate,
+        due_date: buildInvoiceDueDate(),
         total_net: totalNet,
         total_tax: totalTax,
         total_gross: totalGross,
@@ -167,130 +90,42 @@ export class SalesService {
     }
 
     const { items = [], ...invoiceData } = updateInvoiceDto;
-    if (!items || items.length === 0) {
-      throw new BadRequestException('Invoice must have at least one item');
-    }
 
     if (invoiceData.customerId) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: invoiceData.customerId, tenant_id: tenantId },
-      });
-      if (!customer) {
-        throw new BadRequestException(
-          'Customer not found or belongs to another tenant',
-        );
-      }
+      await assertCustomerBelongsToTenant(
+        this.prisma,
+        invoiceData.customerId,
+        tenantId,
+      );
     }
 
     if (invoiceData.vehicleId) {
-      const vehicle = await this.prisma.vehicle.findFirst({
-        where: { id: invoiceData.vehicleId, tenant_id: tenantId },
-      });
-      if (!vehicle) {
-        throw new BadRequestException(
-          'Vehicle not found or belongs to another tenant',
-        );
-      }
+      await assertVehicleBelongsToTenant(
+        this.prisma,
+        invoiceData.vehicleId,
+        tenantId,
+      );
     }
 
-    let totalNet = 0;
-    let totalTax = 0;
-    const formattedItems: Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput[] =
-      [];
+    const { formattedItems, totalNet, totalTax, totalGross } =
+      await buildFormattedInvoiceItems(this.prisma, tenantId, items);
 
-    const uniqueCatalogItemIds = [
-      ...new Set(
-        items
-          .map((item) => item.catalogItemId)
-          .filter(
-            (catalogItemId): catalogItemId is string =>
-              typeof catalogItemId === 'string',
-          ),
-      ),
-    ];
-
-    const catalogItemMap = new Map<
-      string,
-      CatalogItem & { revenue_group: RevenueGroup | null }
-    >();
-    if (uniqueCatalogItemIds.length > 0) {
-      const catalogItems = await this.prisma.catalogItem.findMany({
-        where: { tenant_id: tenantId, id: { in: uniqueCatalogItemIds } },
-        include: { revenue_group: true },
-        orderBy: { id: 'asc' },
-      });
-      catalogItems.forEach((item) => catalogItemMap.set(item.id, item));
-    }
-
-    for (const item of items) {
-      let taxRate = item.taxRate;
-      let revenueGroupName: string | null = null;
-
-      if (item.catalogItemId) {
-        const catalogItem = catalogItemMap.get(item.catalogItemId);
-        if (!catalogItem) {
-          throw new BadRequestException(
-            `Catalog item ${item.catalogItemId} not found or belongs to another tenant`,
-          );
-        }
-        if (catalogItem.revenue_group) {
-          revenueGroupName = catalogItem.revenue_group.name;
-          taxRate = Number(catalogItem.revenue_group.tax_rate);
-        }
-      }
-
-      const net = item.quantity * item.unitPrice;
-      const tax = net * (taxRate / 100);
-      totalNet += net;
-      totalTax += tax;
-
-      formattedItems.push({
-        tenant_id: tenantId,
-        catalog_item_id: item.catalogItemId,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        tax_rate: taxRate,
-        revenue_group_name: revenueGroupName,
-      });
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const updateResult = await tx.invoice.updateMany({
-        where: { id, tenant_id: tenantId, status: InvoiceStatus.DRAFT },
-        data: {
+    return this.prisma.$transaction(async (tx) =>
+      reconcileDraftInvoiceItems(tx, {
+        invoiceId: id,
+        tenantId,
+        headerData: {
           customer_id: invoiceData.customerId,
           vehicle_id: invoiceData.vehicleId,
           notes: invoiceData.notes,
           internal_notes: invoiceData.internalNotes,
           total_net: totalNet,
           total_tax: totalTax,
-          total_gross: totalNet + totalTax,
+          total_gross: totalGross,
         },
-      });
-      if (updateResult.count === 0) {
-        throw new BadRequestException('Only DRAFT invoices can be updated');
-      }
-
-      await tx.invoiceItem.deleteMany({
-        where: { invoice_id: id, tenant_id: tenantId },
-      });
-      await tx.invoiceItem.createMany({
-        data: formattedItems.map((item) => ({
-          ...item,
-          invoice_id: id,
-        })),
-      });
-
-      const updated = await tx.invoice.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: { items: true },
-      });
-      if (!updated) {
-        throw new NotFoundException('Invoice not found');
-      }
-      return updated;
-    });
+        formattedItems,
+      }),
+    );
   }
 
   async finalize(id: string) {
@@ -308,9 +143,9 @@ export class SalesService {
       throw new BadRequestException('Only DRAFT invoices can be finalized');
     }
 
-    // Validate fiscal period before any changes
     await this.financeService.validateTransactionDate(invoice.date);
 
+<<<<<<< HEAD
     // Execute everything in a single transaction
     return this.prisma.$transaction(async (tx) => {
       // 1. Generate Invoice Number (Atomic)
@@ -520,6 +355,11 @@ export class SalesService {
     });
 
     return `${prefix}${sequence.current.toString().padStart(4, '0')}`;
+=======
+    return this.prisma.$transaction(async (tx) =>
+      this.invoiceFinalization.finalizeInTransaction(tx, tenantId, invoice),
+    );
+>>>>>>> 18ee2c6 (refactor(sales): decompose SalesService brain methods and deduplicate logic)
   }
 
   async findAll() {
