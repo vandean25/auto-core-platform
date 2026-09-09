@@ -17,6 +17,8 @@ import {
   PoItemWithOrderVendor,
 } from './purchase-invoice.helpers';
 
+import Decimal = Prisma.Decimal;
+
 @Injectable()
 export class PurchaseInvoiceService {
   constructor(
@@ -55,12 +57,12 @@ export class PurchaseInvoiceService {
 
     return poItems
       .filter((item) => {
-        const received = item.quantity_received;
-        const invoiced = Number(item.quantity_invoiced);
+        const received = new Decimal(item.quantity_received);
+        const invoiced = new Decimal(item.quantity_invoiced);
         const onCurrentInvoice = invoiceId
           ? item.purchase_invoice_lines?.length > 0
           : false;
-        return received > invoiced || onCurrentInvoice;
+        return received.gt(invoiced) || onCurrentInvoice;
       })
       .map((item) => ({
         purchaseOrderItemId: item.id,
@@ -68,10 +70,10 @@ export class PurchaseInvoiceService {
         purchaseOrderNumber: item.purchase_order.order_number,
         catalogItemId: item.catalog_item_id,
         catalogItemName: item.catalog_item.name,
-        quantityReceived: item.quantity_received,
+        quantityReceived: Number(item.quantity_received),
         quantityInvoiced: Number(item.quantity_invoiced),
         quantityPending:
-          item.quantity_received - Number(item.quantity_invoiced),
+          Number(item.quantity_received) - Number(item.quantity_invoiced),
         lastUnitCost: Number(item.unit_cost),
       }));
   }

@@ -16,6 +16,7 @@ const transactionLabels: Record<TransactionType, string> = {
   TRANSFER_IN: 'Transfer In',
   TRANSFER_OUT: 'Transfer Out',
   INITIAL_BALANCE: 'Initial Balance',
+  WORKSHOP_CONSUMPTION: 'Workshop Consumption',
 }
 
 const formatLedgerDate = (dateString: string) =>

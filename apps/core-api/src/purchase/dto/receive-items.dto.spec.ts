@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
-import { PickWorkshopPartsDto } from './pick-workshop-parts.dto';
+import { ReceivePurchaseOrderDto } from './receive-items.dto';
 
 const collectConstraintMessages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [
@@ -8,14 +8,13 @@ const collectConstraintMessages = (errors: ValidationError[]): string[] =>
     ...collectConstraintMessages(error.children ?? []),
   ]);
 
-describe('PickWorkshopPartsDto', () => {
+describe('ReceivePurchaseOrderDto', () => {
   it('accepts valid decimal quantities up to 3 decimal places', async () => {
     for (const quantity of [0.001, 0.5, 1.5, 4]) {
-      const dto = plainToInstance(PickWorkshopPartsDto, {
-        destinationLocationId: '550e8400-e29b-41d4-a716-446655440000',
+      const dto = plainToInstance(ReceivePurchaseOrderDto, {
         items: [
           {
-            workshopTaskLineItemId: '550e8400-e29b-41d4-a716-446655440001',
+            itemId: '550e8400-e29b-41d4-a716-446655440000',
             quantity,
           },
         ],
@@ -27,12 +26,11 @@ describe('PickWorkshopPartsDto', () => {
   });
 
   it('rejects quantities with more than 3 decimal places', async () => {
-    const dto = plainToInstance(PickWorkshopPartsDto, {
-      destinationLocationId: '550e8400-e29b-41d4-a716-446655440000',
+    const dto = plainToInstance(ReceivePurchaseOrderDto, {
       items: [
         {
-          workshopTaskLineItemId: '550e8400-e29b-41d4-a716-446655440001',
-          quantity: 1.2345,
+          itemId: '550e8400-e29b-41d4-a716-446655440000',
+          quantity: 1.5001,
         },
       ],
     });
@@ -47,11 +45,10 @@ describe('PickWorkshopPartsDto', () => {
 
   it('rejects zero and negative quantities', async () => {
     for (const quantity of [0, -1, -0.001]) {
-      const dto = plainToInstance(PickWorkshopPartsDto, {
-        destinationLocationId: '550e8400-e29b-41d4-a716-446655440000',
+      const dto = plainToInstance(ReceivePurchaseOrderDto, {
         items: [
           {
-            workshopTaskLineItemId: '550e8400-e29b-41d4-a716-446655440001',
+            itemId: '550e8400-e29b-41d4-a716-446655440000',
             quantity,
           },
         ],

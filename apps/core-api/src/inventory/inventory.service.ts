@@ -80,9 +80,12 @@ export class InventoryService {
     }
 
     // Base case: No more supersessions, return current stock summed across all locations
-    const onHand = item.stocks.reduce((sum, s) => sum + s.quantity_on_hand, 0);
+    const onHand = item.stocks.reduce(
+      (sum, s) => sum + Number(s.quantity_on_hand),
+      0,
+    );
     const reserved = item.stocks.reduce(
-      (sum, s) => sum + s.quantity_reserved,
+      (sum, s) => sum + Number(s.quantity_reserved),
       0,
     );
     const available = onHand - reserved;
@@ -183,11 +186,11 @@ export class InventoryService {
     // Transform items to match frontend expected shape
     const transformedItems = items.map((item) => {
       const onHand = item.stocks.reduce(
-        (sum, s) => sum + s.quantity_on_hand,
+        (sum, s) => sum + Number(s.quantity_on_hand),
         0,
       );
       const reserved = item.stocks.reduce(
-        (sum, s) => sum + s.quantity_reserved,
+        (sum, s) => sum + Number(s.quantity_reserved),
         0,
       );
       const available = onHand - reserved;

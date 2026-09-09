@@ -16,6 +16,7 @@ const getTransactionIcon = (type: TransactionType) => {
             return <PlusCircle className="h-5 w-5 text-green-600" />
         case 'SALE_ISSUE':
         case 'TRANSFER_OUT':
+        case 'WORKSHOP_CONSUMPTION':
             return <MinusCircle className="h-5 w-5 text-red-600" />
         case 'ADJUSTMENT':
             return <RefreshCcw className="h-5 w-5 text-gray-600" />
@@ -30,6 +31,7 @@ const getTransactionTitle = (type: TransactionType, referenceId: string | null) 
         TRANSFER_IN: 'Transfer In',
         TRANSFER_OUT: 'Transfer Out',
         INITIAL_BALANCE: 'Initial Balance',
+        WORKSHOP_CONSUMPTION: 'Workshop Consumption',
     }
 
     const title = titles[type]

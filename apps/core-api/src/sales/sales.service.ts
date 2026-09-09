@@ -21,6 +21,8 @@ import {
 } from '../common/utils/status-transition';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 
+import Decimal = Prisma.Decimal;
+
 @Injectable()
 export class SalesService {
   constructor(
@@ -347,7 +349,7 @@ export class SalesService {
         {
           catalog_item_id: string;
           locationId: string;
-          quantityToDeduct: number;
+          quantityToDeduct: Decimal;
         }
       >();
       const transactionCreations: Prisma.InventoryTransactionCreateManyInput[] =
@@ -356,14 +358,10 @@ export class SalesService {
       for (const item of invoice.items) {
         if (!item.catalog_item_id) continue;
 
-        const quantityToDeduct = Number(item.quantity);
-        if (
-          !Number.isFinite(quantityToDeduct) ||
-          !Number.isInteger(quantityToDeduct) ||
-          quantityToDeduct <= 0
-        ) {
+        const quantityToDeduct = new Decimal(item.quantity);
+        if (!quantityToDeduct.isFinite() || quantityToDeduct.lte(0)) {
           throw new BadRequestException(
-            `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive whole-number quantity.`,
+            `Invalid inventory quantity for item ${item.description}. Stock-tracked items require a positive quantity.`,
           );
         }
 
@@ -371,8 +369,9 @@ export class SalesService {
 
         // Find first location with sufficient stock, or fallback to first one available
         const stock =
-          stocks.find((s) => s.quantity_on_hand >= quantityToDeduct) ||
-          stocks[0];
+          stocks.find((s) =>
+            new Decimal(s.quantity_on_hand).gte(quantityToDeduct),
+          ) || stocks[0];
 
         if (!stock) {
           throw new BadRequestException(
@@ -381,9 +380,9 @@ export class SalesService {
         }
 
         // Dry run validation
-        if (stock.quantity_on_hand < quantityToDeduct) {
+        if (new Decimal(stock.quantity_on_hand).lt(quantityToDeduct)) {
           throw new BadRequestException(
-            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct}, Available: ${stock.quantity_on_hand})`,
+            `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct.toString()}, Available: ${stock.quantity_on_hand.toString()})`,
           );
         }
 
@@ -393,14 +392,17 @@ export class SalesService {
         const existingUpdate = stockUpdatesMap.get(compositeKey) || {
           catalog_item_id: item.catalog_item_id,
           locationId,
-          quantityToDeduct: 0,
+          quantityToDeduct: new Decimal(0),
         };
 
-        existingUpdate.quantityToDeduct += quantityToDeduct;
+        existingUpdate.quantityToDeduct =
+          existingUpdate.quantityToDeduct.add(quantityToDeduct);
         stockUpdatesMap.set(compositeKey, existingUpdate);
 
         // Update local stock map for subsequent items of the same catalog ID sequentially
-        stock.quantity_on_hand -= quantityToDeduct;
+        stock.quantity_on_hand = new Decimal(stock.quantity_on_hand).sub(
+          quantityToDeduct,
+        );
 
         // Preserve 1:1 audit trail granularity for transactions
         transactionCreations.push({
@@ -437,7 +439,7 @@ export class SalesService {
             },
           });
           throw new BadRequestException(
-            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct}, Available: ${latestStock?.quantity_on_hand ?? 0})`,
+            `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct.toString()}, Available: ${latestStock?.quantity_on_hand.toString() ?? '0'})`,
           );
         }
       });

@@ -7015,7 +7015,8 @@
           "ADJUSTMENT",
           "TRANSFER_IN",
           "TRANSFER_OUT",
-          "INITIAL_BALANCE"
+          "INITIAL_BALANCE",
+          "WORKSHOP_CONSUMPTION"
         ]
       },
       "InventoryTransactionItemDto": {
@@ -7404,12 +7405,15 @@
           "quantity": {
             "type": "number",
             "description": "Quantity ordered",
-            "example": 5
+            "example": 5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
           },
           "unitCost": {
             "type": "number",
             "description": "Unit cost",
-            "example": 10.5
+            "example": 10.5,
+            "minimum": 0
           }
         },
         "required": [
@@ -7598,9 +7602,42 @@
           "createdAt"
         ]
       },
+      "ReceiveItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "itemId",
+          "quantity"
+        ]
+      },
       "ReceivePurchaseOrderDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiveItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "PurchaseOrderPaginatedResponseDto": {
         "type": "object",
@@ -7641,12 +7678,15 @@
           "quantity": {
             "type": "number",
             "description": "Updated quantity",
-            "example": 10
+            "example": 10,
+            "minimum": 0.001,
+            "multipleOf": 0.001
           },
           "unitCost": {
             "type": "number",
             "description": "Updated unit cost",
-            "example": 25.5
+            "example": 25.5,
+            "minimum": 0
           }
         }
       },
@@ -10356,9 +10396,10 @@
             "format": "uuid"
           },
           "quantity": {
-            "type": "integer",
+            "type": "number",
             "example": 4,
-            "minimum": 1
+            "minimum": 0.001,
+            "multipleOf": 0.001
           },
           "sourceLocationId": {
             "type": "string",

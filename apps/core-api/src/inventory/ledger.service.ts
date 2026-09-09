@@ -23,7 +23,7 @@ export interface RecordTransactionParams {
 interface AggregatedStockDelta {
   itemId: string;
   locationId: string;
-  quantity: number;
+  quantity: Decimal;
 }
 
 @Injectable()
@@ -137,15 +137,15 @@ export class LedgerService {
     for (const params of paramsArray) {
       const stockKey = `${params.itemId}-${params.locationId}`;
       const existing = aggregatedStocks.get(stockKey);
-      const deltaQuantity = Number(params.quantity);
+      const paramQty = new Decimal(params.quantity);
 
       if (existing) {
-        existing.quantity += deltaQuantity;
+        existing.quantity = existing.quantity.add(paramQty);
       } else {
         aggregatedStocks.set(stockKey, {
           itemId: params.itemId,
           locationId: params.locationId,
-          quantity: deltaQuantity,
+          quantity: paramQty,
         });
       }
     }
@@ -219,15 +219,15 @@ export class LedgerService {
             catalog_item_id: delta.itemId,
             location_id: delta.locationId,
             quantity_on_hand: delta.quantity,
-            quantity_reserved: 0,
+            quantity_reserved: new Decimal(0),
           },
         });
         existingStocksMap.set(stockKey, stock);
       }
 
-      if (stock.quantity_on_hand < 0) {
+      if (new Decimal(stock.quantity_on_hand).lt(0)) {
         throw new BadRequestException(
-          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand}) for item ${delta.itemId} at location ${delta.locationId}`,
+          `Insufficient Stock: Transaction would result in negative stock (${stock.quantity_on_hand.toString()}) for item ${delta.itemId} at location ${delta.locationId}`,
         );
       }
     });
@@ -297,10 +297,11 @@ export class LedgerService {
     ]);
 
     const sumFromTransactions = transactions.reduce(
-      (sum, tx) => sum + Number(tx.quantity),
-      0,
+      (sum, tx) => sum.add(new Decimal(tx.quantity)),
+      new Decimal(0),
     );
 
-    return sumFromTransactions === (stock?.quantity_on_hand || 0);
+    const onHand = stock ? new Decimal(stock.quantity_on_hand) : new Decimal(0);
+    return sumFromTransactions.equals(onHand);
   }
 }

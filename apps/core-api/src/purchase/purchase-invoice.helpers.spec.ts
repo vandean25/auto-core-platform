@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   aggregatePoItemTotals,
   calculateLineAmounts,
@@ -144,6 +145,34 @@ describe('purchase-invoice.helpers', () => {
 
       expect(() => {
         validatePoItemsAvailability(mockPoItemsById, requested, 'vendor-1');
+      }).toThrow(BadRequestException);
+    });
+
+    it('should compare decimal pending quantities without Number() precision loss', () => {
+      const decimalPoItems = new Map<string, PoItemWithOrderVendor>([
+        [
+          'poi-decimal',
+          {
+            id: 'poi-decimal',
+            quantity_received: new Prisma.Decimal('1.3'),
+            quantity_invoiced: new Prisma.Decimal('0.1'),
+            purchase_order: { vendor_id: 'vendor-1' },
+          },
+        ],
+      ]);
+      const withinPending = new Map<string, number>([['poi-decimal', 1.2]]);
+      const exceedsPending = new Map<string, number>([['poi-decimal', 1.2001]]);
+
+      expect(() => {
+        validatePoItemsAvailability(decimalPoItems, withinPending, 'vendor-1');
+      }).not.toThrow();
+
+      expect(() => {
+        validatePoItemsAvailability(
+          decimalPoItems,
+          exceedsPending,
+          'vendor-1',
+        );
       }).toThrow(BadRequestException);
     });
   });

@@ -3,8 +3,8 @@ import {
   IsNotEmpty,
   IsArray,
   ValidateNested,
-  IsInt,
   IsNumber,
+  Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -21,15 +21,23 @@ export class PurchaseOrderItemDto {
   @ApiProperty({
     description: 'Quantity ordered',
     example: 5,
+    minimum: 0.001,
+    multipleOf: 0.001,
+    type: 'number',
   })
-  @IsInt()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
   quantity!: number;
 
   @ApiProperty({
     description: 'Unit cost',
     example: 10.5,
+    minimum: 0,
+    type: 'number',
   })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
   unitCost!: number;
 }
 

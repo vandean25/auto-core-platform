@@ -83,6 +83,9 @@ export const AUDITED_MODELS = new Set([
   'EmployeeLeaveBalance',
   'EmployeeWorkSchedule',
   'LeaveRequest',
+  'PartsReservation',
+  'PartsRequisition',
+  'PartsRequisitionLine',
 ]);
 
 function extractEntityId(value: unknown): string | undefined {

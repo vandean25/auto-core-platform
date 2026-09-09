@@ -22,7 +22,7 @@ export class CreateInvoiceItemDto {
   description!: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   @IsNotEmpty()
   quantity!: number;
 

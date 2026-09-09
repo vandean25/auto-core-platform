@@ -1,9 +1,11 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import Decimal = Prisma.Decimal;
+
 export type PoItemWithOrderVendor = {
   id: string;
-  quantity_received: number;
+  quantity_received: Prisma.Decimal | number;
   quantity_invoiced: Prisma.Decimal | number;
   purchase_order: {
     vendor_id: string;
@@ -85,10 +87,12 @@ export function validatePoItemsAvailability(
       );
     }
 
-    const pending = poItem.quantity_received - Number(poItem.quantity_invoiced);
-    if (requestedQuantity > pending) {
+    const pending = new Decimal(poItem.quantity_received).sub(
+      poItem.quantity_invoiced,
+    );
+    if (new Decimal(requestedQuantity).gt(pending)) {
       throw new BadRequestException(
-        `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending} pending.`,
+        `Cannot invoice ${requestedQuantity} for PO Item ${poItemId}. Only ${pending.toString()} pending.`,
       );
     }
   }

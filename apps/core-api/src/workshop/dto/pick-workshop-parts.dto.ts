@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayNotEmpty,
   IsArray,
-  IsInt,
+  IsNumber,
   IsOptional,
   IsUUID,
   Min,
@@ -15,10 +15,15 @@ export class PickWorkshopPartsLineDto {
   @IsUUID()
   workshopTaskLineItemId!: string;
 
-  @ApiProperty({ example: 4, minimum: 1, type: 'integer' })
+  @ApiProperty({
+    example: 4,
+    minimum: 0.001,
+    multipleOf: 0.001,
+    type: 'number',
+  })
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
   quantity!: number;
 
   @ApiPropertyOptional({ format: 'uuid' })

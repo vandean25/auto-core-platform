@@ -193,8 +193,8 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           catalog_item_id: ITEM_ID,
           location_id: LOCATION_ID,
-          quantity_on_hand: 10,
-          quantity_reserved: 0,
+          quantity_on_hand: new Prisma.Decimal('10'),
+          quantity_reserved: new Prisma.Decimal(0),
         },
       });
     });
@@ -248,7 +248,7 @@ describe('LedgerService', () => {
         where: { id: 'stock-existing-1', tenant_id: TENANT_ID },
         data: {
           quantity_on_hand: {
-            increment: 15,
+            increment: new Prisma.Decimal('15'),
           },
         },
       });

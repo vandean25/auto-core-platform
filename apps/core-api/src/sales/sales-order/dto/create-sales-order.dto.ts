@@ -20,7 +20,7 @@ export class CreateSalesOrderItemDto {
   description!: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 3 })
   quantity!: number;
 
   @ApiProperty()
