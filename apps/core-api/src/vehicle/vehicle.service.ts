@@ -10,6 +10,12 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import {
+  invoicesHistorySlice,
+  salesOrdersHistorySlice,
+  workshopOrdersHistorySlice,
+} from '../common/queries/entity-history.query';
+import { DEFAULT_HISTORY_LIMIT } from '../common/utils/history-pagination.util';
+import {
   VEHICLE_IDENTITY_RESET,
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
@@ -165,36 +171,17 @@ export class VehicleService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const historySlice = { take: DEFAULT_HISTORY_LIMIT };
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
         customer: true,
-        sales_orders: {
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-        },
-        workshop_orders: {
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-          include: {
-            tasks: {
-              include: {
-                line_items: true,
-              },
-            },
-            invoice: {
-              select: {
-                id: true,
-                invoice_number: true,
-                status: true,
-              },
-            },
-          },
-        },
-        invoices: {
-          orderBy: { date: 'desc' },
-          take: 20,
-        },
+        sales_orders: salesOrdersHistorySlice(historySlice),
+        workshop_orders: workshopOrdersHistorySlice(
+          'vehicle-detail',
+          historySlice,
+        ),
+        invoices: invoicesHistorySlice(historySlice),
       },
     });
 

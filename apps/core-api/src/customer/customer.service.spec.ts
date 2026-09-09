@@ -68,6 +68,54 @@ describe('CustomerService', () => {
     );
   });
 
+  it('returns paginated history metadata for workshop orders and invoices', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'customer-1',
+      vehicles: [],
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(45);
+    mockPrisma.invoice.count.mockResolvedValue(12);
+
+    const result = await service.findOne('customer-1', {
+      historyPage: 2,
+      historyLimit: 10,
+    });
+
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
+      where: { id: 'customer-1', tenant_id: 'tenant-1' },
+      include: expect.objectContaining({
+        sales_orders: expect.objectContaining({ skip: 10, take: 10 }),
+        workshop_orders: expect.objectContaining({ skip: 10, take: 10 }),
+        invoices: expect.objectContaining({ skip: 10, take: 10 }),
+      }),
+    });
+    expect(result.workshop_orders_meta).toEqual({
+      page: 2,
+      pageSize: 10,
+      totalCount: 45,
+      pageCount: 5,
+      hasMore: true,
+    });
+    expect(result.invoices_meta).toEqual({
+      page: 2,
+      pageSize: 10,
+      totalCount: 12,
+      pageCount: 2,
+      hasMore: false,
+    });
+  });
+
+  it('throws not found when customer detail lookup misses', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+  });
+
   it('deletes customer when no linked business records exist', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
     mockPrisma.salesOrder.count.mockResolvedValue(0);
