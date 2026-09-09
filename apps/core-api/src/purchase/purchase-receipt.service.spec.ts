@@ -203,6 +203,70 @@ describe('PurchaseReceiptService', () => {
       expect(result.status).toBe(PurchaseOrderStatus.PARTIAL);
     });
 
+    it('receives full remaining quantity and transitions status to COMPLETED with guarded transition', async () => {
+      const po = {
+        id: 'order-1',
+        order_number: 'PO-2026-0001',
+        status: PurchaseOrderStatus.SENT,
+        items: [
+          {
+            id: 'poi-1',
+            catalog_item_id: 'cat-1',
+            quantity: new Decimal(10),
+            quantity_received: new Decimal(0),
+            unit_cost: new Decimal(50),
+          },
+        ],
+      };
+
+      const warehouse = { id: 'wh-1', code: 'WH-001', site_id: 'site-1' };
+      const generalBin = { id: 'bin-1', code: 'WH-001-GEN', parent_id: 'wh-1' };
+
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce(po) // initial lookup
+        .mockResolvedValueOnce({
+          ...po,
+          items: [{ ...po.items[0], quantity_received: new Decimal(10) }],
+        }) // post-update reload
+        .mockResolvedValueOnce({
+          ...po,
+          status: PurchaseOrderStatus.COMPLETED,
+          items: [{ ...po.items[0], quantity_received: new Decimal(10) }],
+        }); // refreshed after status change
+
+      mockPrismaService.storageLocation.findFirst
+        .mockResolvedValueOnce(warehouse)
+        .mockResolvedValueOnce(generalBin);
+
+      mockPrismaService.purchaseOrderItem.findMany.mockResolvedValueOnce(po.items);
+      mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.receiveItems('order-1', [
+        { itemId: 'cat-1', quantity: 10 },
+      ]);
+
+      expect(mockPrismaService.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'poi-1',
+          tenant_id: 'tenant-1',
+          quantity_received: new Decimal(0),
+        },
+        data: { quantity_received: { increment: new Decimal(10) } },
+      });
+
+      expect(mockPrismaService.purchaseOrder.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'order-1',
+          tenant_id: 'tenant-1',
+          status: PurchaseOrderStatus.SENT,
+        },
+        data: { status: PurchaseOrderStatus.COMPLETED },
+      });
+
+      expect(result.status).toBe(PurchaseOrderStatus.COMPLETED);
+    });
+
     it('throws ConflictException when concurrent update occurs during line-item receipt', async () => {
       const po = {
         id: 'order-1',

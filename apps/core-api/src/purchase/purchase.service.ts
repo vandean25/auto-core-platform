@@ -3,13 +3,10 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LedgerService } from '../inventory/ledger.service';
 import { PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteService } from '../site/site.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
@@ -39,24 +36,11 @@ function isPurchaseOrderFindManyArgs(
 
 @Injectable()
 export class PurchaseService {
-  private readonly receiptService: PurchaseReceiptService;
-
   constructor(
     private prisma: PrismaService,
-    private ledgerService: LedgerService,
     private readonly tenantContext: TenantContextService,
-    private readonly siteService: SiteService,
-    @Optional() receiptService?: PurchaseReceiptService,
-  ) {
-    this.receiptService =
-      receiptService ??
-      new PurchaseReceiptService(
-        prisma,
-        ledgerService,
-        tenantContext,
-        siteService,
-      );
-  }
+    private readonly receiptService: PurchaseReceiptService,
+  ) {}
 
   private generateOrderNumber(): string {
     const date = new Date();
