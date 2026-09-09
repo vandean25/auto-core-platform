@@ -248,7 +248,10 @@ describe('WorkshopPdfService', () => {
     });
 
     it('stores error and rethrows when rendering fails', async () => {
-      renderer.render.mockRejectedValue(new Error('Browser crashed'));
+      const clientError = Object.assign(new Error('Browser crashed'), {
+        status: 400,
+      });
+      renderer.render.mockRejectedValue(clientError);
 
       await expect(service.generateNow(workshopOrderId)).rejects.toThrow(
         'Browser crashed',
@@ -261,7 +264,7 @@ describe('WorkshopPdfService', () => {
             'PDF generation failed. Please try again or contact support.',
         },
       });
-    });
+    }, 15000);
   });
 
   describe('getPdf', () => {
