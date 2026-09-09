@@ -5,13 +5,15 @@ describe('cleanDb', () => {
     const executedDeletes: string[] = [];
 
     const mockPrisma: any = {
-      $queryRaw: jest.fn().mockResolvedValue([
-        { table_name: 'tenants' },
-        { table_name: 'brands' },
-        { table_name: 'storage_locations' },
-        { table_name: 'inventory_stocks' },
-        { table_name: 'inventory_transactions' },
-      ]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([
+          { table_name: 'tenants' },
+          { table_name: 'brands' },
+          { table_name: 'storage_locations' },
+          { table_name: 'inventory_stocks' },
+          { table_name: 'inventory_transactions' },
+        ]),
       tenant: {
         deleteMany: jest
           .fn()

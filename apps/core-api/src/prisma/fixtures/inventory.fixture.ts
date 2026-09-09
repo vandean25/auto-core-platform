@@ -123,6 +123,12 @@ export async function seedInventory(
 
   console.log('Seeding 47 more auto parts in batch...');
   const brandsForParts = allBrands.filter((b) => b.isPartManufacturer);
+  if (brandsForParts.length === 0) {
+    throw new Error(
+      'No part manufacturer brands available for inventory seeding',
+    );
+  }
+
   const partDefinitions: Array<{
     tenant_id: string;
     sku: string;
@@ -134,26 +140,24 @@ export async function seedInventory(
   }> = [];
 
   for (let i = 1; i <= 47; i++) {
-    const brand =
-      brandsForParts[Math.floor(Math.random() * brandsForParts.length)];
-    const category =
-      PART_CATEGORIES[Math.floor(Math.random() * PART_CATEGORIES.length)];
+    const brand = brandsForParts[(i - 1) % brandsForParts.length];
+    const category = PART_CATEGORIES[(i - 1) % PART_CATEGORIES.length];
     const sku = `${category.prefix}-${1000 + i}-${brand.name.substring(0, 3).toUpperCase()}`;
 
     partDefinitions.push({
       tenant_id: tenantId,
       sku,
       name: `${category.name} - ${brand.name} model ${i}`,
-      cost_price: Math.random() * 50 + 10,
-      retail_price: Math.random() * 100 + 60,
+      cost_price: 10 + (i % 50),
+      retail_price: 60 + (i % 100),
       revenue_group_id: defaultRevenueGroup.id,
       brand_id: brand.id,
     });
   }
 
-  const otherParts = await Promise.all(
-    partDefinitions.map((data) => prisma.catalogItem.create({ data })),
-  );
+  const otherParts = await prisma.catalogItem.createManyAndReturn({
+    data: partDefinitions,
+  });
 
   console.log('Seeding stock using batched ledger-based transactions...');
   const initialStockEntries: Array<{
@@ -173,12 +177,12 @@ export async function seedInventory(
     reserved: 2,
   });
 
-  // Random stock for other parts
-  for (const part of otherParts) {
-    if (Math.random() > 0.3) {
-      const quantity = Math.floor(Math.random() * 50) + 1;
-      const reserved = Math.floor(Math.random() * 5);
-      const location = locations[Math.floor(Math.random() * locations.length)];
+  // Deterministic stock for other parts (70% of parts receive stock)
+  otherParts.forEach((part, index) => {
+    if (index % 10 < 7) {
+      const quantity = (index % 50) + 1;
+      const reserved = index % 5;
+      const location = locations[index % locations.length];
 
       initialStockEntries.push({
         itemId: part.id,
@@ -188,7 +192,7 @@ export async function seedInventory(
         reserved,
       });
     }
-  }
+  });
 
   // Batch insert ledger transactions
   const transactionsData = initialStockEntries.map((entry) => ({
