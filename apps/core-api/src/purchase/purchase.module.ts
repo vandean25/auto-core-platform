@@ -9,6 +9,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module';
 
 import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service';
+import { PurchaseReceiptService } from './purchase-receipt.service';
 
 @Module({
   imports: [InventoryModule, PrismaModule, DashboardRealtimeModule],
@@ -19,6 +20,7 @@ import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.se
   ],
   providers: [
     PurchaseService,
+    PurchaseReceiptService,
     PurchaseInvoiceService,
     PurchaseInvoiceLifecycleService,
   ],

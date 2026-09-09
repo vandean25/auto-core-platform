@@ -10,6 +10,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PurchaseOrderStatus, TransactionType, Prisma } from '@prisma/client';
+import { PurchaseReceiptService } from './purchase-receipt.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -73,6 +74,7 @@ describe('PurchaseService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchaseService,
+        PurchaseReceiptService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContextService },
