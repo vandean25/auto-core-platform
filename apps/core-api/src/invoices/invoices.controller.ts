@@ -15,11 +15,49 @@ import {
   ApiProduces,
 } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
+import type { Readable } from 'node:stream';
 import { PdfWorker } from '../common';
 import { InvoicesService } from './invoices.service';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
+
+interface InvoicePdfPayload {
+  filename: string;
+  contentType?: string | null;
+  contentLength?: number | null;
+  stream: Readable;
+}
+
+function handlePdfWorkerError(
+  id: string,
+  error: unknown,
+  logger: Logger,
+): void {
+  const isNonRetryable =
+    error instanceof HttpException && error.getStatus() < 500;
+  if (!isNonRetryable) {
+    throw error;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  logger.warn(
+    `Dropping non-retryable invoice PDF worker error (invoiceId=${id}): ${message}`,
+  );
+  Sentry.captureException(error, {
+    level: 'warning',
+    tags: { invoiceId: id, operation: 'pdf.worker' },
+  });
+}
+
+function toPdfStreamableFile(pdf: InvoicePdfPayload): StreamableFile {
+  const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');
+  return new StreamableFile(pdf.stream, {
+    type: pdf.contentType || 'application/pdf',
+    disposition: `inline; filename="${safeFilename}"`,
+    length: pdf.contentLength ?? undefined,
+  });
+}
 
 @Controller('invoices')
 export class InvoicesController {
@@ -57,19 +95,7 @@ export class InvoicesController {
     try {
       await this.invoicePdfService.generateNow(id);
     } catch (error) {
-      if (error instanceof HttpException && error.getStatus() < 500) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `Dropping non-retryable invoice PDF worker error (invoiceId=${id}): ${message}`,
-        );
-        Sentry.captureException(error, {
-          level: 'warning',
-          tags: { invoiceId: id, operation: 'pdf.worker' },
-        });
-        return;
-      }
-
-      throw error;
+      handlePdfWorkerError(id, error, this.logger);
     }
   }
 
@@ -83,12 +109,6 @@ export class InvoicesController {
   })
   async getPdf(@Param('id') id: string) {
     const pdf = await this.invoicePdfService.getPdf(id);
-    const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');
-
-    return new StreamableFile(pdf.stream, {
-      type: pdf.contentType || 'application/pdf',
-      disposition: `inline; filename="${safeFilename}"`,
-      length: pdf.contentLength ?? undefined,
-    });
+    return toPdfStreamableFile(pdf);
   }
 }
