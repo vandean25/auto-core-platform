@@ -3050,6 +3050,7 @@ export interface components {
             type: "LABOR" | "PART";
             itemNo: string;
             description: string;
+            /** @example 1.5 */
             qty: number;
             unitPrice: number;
             /** Format: uuid */

@@ -12,6 +12,7 @@ import {
   mockTenantContext,
   resetWorkshopMocks,
   workshopPrismaProvider,
+  workshopSiteProvider,
   workshopTenantProvider,
 } from './workshop.spec.support';
 
@@ -46,6 +47,7 @@ describe('WorkshopScheduleService', () => {
       providers: [
         WorkshopScheduleService,
         workshopPrismaProvider,
+        workshopSiteProvider,
         workshopTenantProvider,
         { provide: WorkshopSettingsService, useValue: settingsService },
         { provide: WorkshopPlannerService, useValue: plannerService },
@@ -101,9 +103,19 @@ describe('WorkshopScheduleService', () => {
     });
 
     expect(mockPrisma.bay.updateMany).toHaveBeenCalledWith({
-      where: { id: 'bay-1', tenant_id: TENANT_ID, is_active: true },
+      where: {
+        id: 'bay-1',
+        tenant_id: TENANT_ID,
+        site_id: 'site-1',
+        is_active: true,
+      },
       data: { updatedAt: expect.any(Date) },
     });
+    expect(mockPrisma.workshopOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: 'site-1' }),
+      }),
+    );
     expect(
       mockPrisma.bay.updateMany.mock.invocationCallOrder[0],
     ).toBeLessThan(mockPrisma.workshopOrder.findMany.mock.invocationCallOrder[0]);

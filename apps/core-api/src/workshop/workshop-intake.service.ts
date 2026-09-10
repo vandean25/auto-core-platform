@@ -473,6 +473,7 @@ export class WorkshopIntakeService {
     sortDirection?: 'asc' | 'desc';
   }) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const page = params.page && params.page > 0 ? params.page : 1;
     const resolvedPageSize =
       params.pageSize && params.pageSize > 0
@@ -483,6 +484,7 @@ export class WorkshopIntakeService {
     const where: Prisma.WorkshopOrderWhereInput = params.search
       ? {
           tenant_id: tenantId,
+          site_id: siteId,
           OR: [
             {
               order_number: { contains: params.search, mode: 'insensitive' },
@@ -521,7 +523,7 @@ export class WorkshopIntakeService {
             },
           ],
         }
-      : { tenant_id: tenantId };
+      : { tenant_id: tenantId, site_id: siteId };
 
     const sortField = params.sortField ?? 'createdAt';
     const sortDirection = params.sortDirection ?? 'desc';
@@ -576,8 +578,9 @@ export class WorkshopIntakeService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: {
         customer: true,
         vehicle: true,
@@ -599,6 +602,8 @@ export class WorkshopIntakeService {
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const existing = await this.findOne(id);
     assertOrderEditable(existing);
 
@@ -624,8 +629,8 @@ export class WorkshopIntakeService {
           tx,
         );
 
-        return tx.workshopOrder.update({
-          where: { id },
+        const updateResult = await tx.workshopOrder.updateMany({
+          where: { id, tenant_id: tenantId, site_id: siteId },
           data: {
             reported_issue: dto.reportedIssue,
             notes: dto.notes,
@@ -634,6 +639,13 @@ export class WorkshopIntakeService {
             scheduled_start_at: scheduleData.start,
             scheduled_end_at: scheduleData.end,
           },
+        });
+        if (updateResult.count === 0) {
+          throw new NotFoundException(`Workshop order ${id} not found`);
+        }
+
+        return tx.workshopOrder.findFirstOrThrow({
+          where: { id, tenant_id: tenantId, site_id: siteId },
           include: {
             customer: true,
             vehicle: true,
@@ -651,26 +663,20 @@ export class WorkshopIntakeService {
       return normalizeWorkshopOrder(updated);
     }
 
-    const updated = await this.prisma.workshopOrder.update({
-      where: { id },
+    const updateResult = await this.prisma.workshopOrder.updateMany({
+      where: { id, tenant_id: tenantId, site_id: siteId },
       data: {
         reported_issue: dto.reportedIssue,
         notes: dto.notes,
       },
-      include: {
-        customer: true,
-        vehicle: true,
-        invoice: { select: { id: true, invoice_number: true } },
-        tasks: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            line_items: true,
-          },
-        },
-      },
     });
+    if (updateResult.count === 0) {
+      throw new NotFoundException(`Workshop order ${id} not found`);
+    }
 
-    return normalizeWorkshopOrder(updated);
+    const updated = await this.findOne(id);
+
+    return updated;
   }
 
   async search(query: string) {

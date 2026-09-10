@@ -74,6 +74,7 @@ describe('WorkshopTaskService', () => {
         id: 'wo-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
         status: WorkshopOrderStatus.IN_PROGRESS,
+        site_id: 'site-1',
       },
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
@@ -84,6 +85,61 @@ describe('WorkshopTaskService', () => {
     await expect(
       service.updateTask('wo-x', 'task-x', { status: WorkshopTaskStatus.DONE }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('does not create a task for an order outside the active site', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createTask('wo-other-site', { title: 'Blocked task' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'wo-other-site',
+          tenant_id: '00000000-0000-0000-0000-000000000001',
+          site_id: 'site-1',
+        },
+      }),
+    );
+  });
+
+  it('does not update a task whose order is outside the active site', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.updateTask('wo-other-site', 'task-1', {
+        status: WorkshopTaskStatus.DONE,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockPrisma.workshopTask.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workshop_order: { site_id: 'site-1' },
+        }),
+      }),
+    );
+  });
+
+  it('does not replace line items for a task whose order is outside the active site', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.replaceTaskLineItems('wo-other-site', 'task-1', {
+        expectedLineItemsVersion: 0,
+        items: [],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockPrisma.workshopTask.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workshop_order: { site_id: 'site-1' },
+        }),
+      }),
+    );
   });
 
   it('returns 409 when a task status transition loses the expected-from race', async () => {
@@ -104,6 +160,7 @@ describe('WorkshopTaskService', () => {
         workshop_order_id: 'wo-1',
         id: 't-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
+        workshop_order: { site_id: 'site-1' },
         status: WorkshopTaskStatus.IN_PROGRESS,
       },
       data: { status: WorkshopTaskStatus.DONE },
@@ -252,12 +309,17 @@ describe('WorkshopTaskService', () => {
     });
 
     expect(mockPrisma.workshopTask.deleteMany).toHaveBeenCalledWith({
-      where: { id: 't-1', tenant_id: '00000000-0000-0000-0000-000000000001' },
+      where: {
+        id: 't-1',
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        workshop_order: { site_id: 'site-1' },
+      },
     });
     expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'wo-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
+        site_id: 'site-1',
         status: WorkshopOrderStatus.IN_PROGRESS,
       },
       data: { status: WorkshopOrderStatus.INTAKE },
@@ -410,6 +472,7 @@ describe('WorkshopTaskService', () => {
       where: {
         id: 't-1',
         tenant_id: '00000000-0000-0000-0000-000000000001',
+        workshop_order: { site_id: 'site-1' },
         line_items_version: 3,
       },
       data: { line_items_version: { increment: 1 } },
@@ -419,6 +482,7 @@ describe('WorkshopTaskService', () => {
         tenant_id: '00000000-0000-0000-0000-000000000001',
         workshop_task_id: 't-1',
         id: { in: ['line-2'] },
+        workshop_task: { workshop_order: { site_id: 'site-1' } },
       },
     });
     expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalled();
