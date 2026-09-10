@@ -1,4 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
 import {
@@ -7,6 +10,7 @@ import {
   Prisma,
   mockLedgerService,
   mockPrisma,
+  mockSiteContext,
   resetWorkshopMocks,
   workshopLedgerProvider,
   workshopPrismaProvider,
@@ -44,6 +48,7 @@ describe('WorkshopPickPartsService', () => {
   it('rejects pick-parts when workshop order status is not eligible', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.COMPLETED,
       order_number: 'WO-2026-0001',
     });
@@ -61,9 +66,39 @@ describe('WorkshopPickPartsService', () => {
     ).rejects.toThrow(UnprocessableEntityException);
   });
 
+  it('rejects a tote pick when the order belongs to another site', async () => {
+    mockSiteContext.getSiteId.mockResolvedValueOnce('site-2');
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      site_id: 'site-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      order_number: 'WO-2026-0001',
+    });
+
+    await expect(
+      service.pickParts('wo-1', {
+        destinationLocationId: 'tote-1',
+        items: [
+          {
+            workshopTaskLineItemId: 'line-1',
+            quantity: 1,
+          },
+        ],
+      }),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: 'site-2' }),
+      }),
+    );
+    expect(mockPrisma.storageLocation.findFirst).not.toHaveBeenCalled();
+  });
+
   it('allocates from multiple source bins and records paired ledger transfers', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       order_number: 'WO-2026-0001',
     });
@@ -178,6 +213,7 @@ describe('WorkshopPickPartsService', () => {
   it('does not overcommit the same source bin across same-SKU lines in one request', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       order_number: 'WO-2026-0001',
     });
@@ -297,6 +333,7 @@ describe('WorkshopPickPartsService', () => {
   it('rejects pick execution without a persisted OPEN ON_HAND reservation', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       staging_location_id: null,
     });
@@ -330,6 +367,7 @@ describe('WorkshopPickPartsService', () => {
   it('rejects source reservations outside the active site before ledger writes', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       staging_location_id: null,
     });
@@ -378,6 +416,7 @@ describe('WorkshopPickPartsService', () => {
   it('does not clamp a pick request beyond persisted reservation ATP', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       staging_location_id: null,
     });
@@ -426,6 +465,7 @@ describe('WorkshopPickPartsService', () => {
   it('orders inbound cost by createdAt and seq and freezes a null first snapshot', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       staging_location_id: null,
     });
@@ -517,6 +557,7 @@ describe('WorkshopPickPartsService', () => {
   it('preserves the first tote cost basis when staging a later received slice', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.IN_PROGRESS,
       staging_location_id: null,
     });

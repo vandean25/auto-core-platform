@@ -74,7 +74,7 @@ type ShortageLine = {
     workshop_order: {
       id: string;
       order_number: string;
-      stagingLocation: { site_id: string };
+      site_id: string;
     };
   };
 };
@@ -218,14 +218,10 @@ export class PartsRequisitionService {
           tenant_id: tenantId,
           workshop_order: {
             tenant_id: tenantId,
+            site_id: siteId,
             status: { in: [...OPEN_WORKSHOP_ORDER_STATUSES] },
             ...(query.workshopOrderId ? { id: query.workshopOrderId } : {}),
-            stagingLocation: {
-              tenant_id: tenantId,
-              site_id: siteId,
-              deletedAt: null,
-              site: { is_active: true },
-            },
+            site: { is_active: true },
           },
         },
       },
@@ -252,7 +248,7 @@ export class PartsRequisitionService {
               select: {
                 id: true,
                 order_number: true,
-                stagingLocation: { select: { site_id: true } },
+                site_id: true,
               },
             },
           },
@@ -303,13 +299,9 @@ export class PartsRequisitionService {
           tenant_id: tenantId,
           workshop_order: {
             tenant_id: tenantId,
+            site_id: siteId,
             status: { in: [...OPEN_WORKSHOP_ORDER_STATUSES] },
-            stagingLocation: {
-              tenant_id: tenantId,
-              site_id: siteId,
-              deletedAt: null,
-              site: { is_active: true },
-            },
+            site: { is_active: true },
           },
         },
       },
@@ -496,7 +488,7 @@ export class PartsRequisitionService {
       consumedQuantity: consumedQuantity.toString(),
       activeCommitment: activeCommitment.toString(),
       shortageQuantity: shortageQuantity.toString(),
-      siteId: line.workshop_task.workshop_order.stagingLocation.site_id,
+      siteId: line.workshop_task.workshop_order.site_id,
     };
   }
 
