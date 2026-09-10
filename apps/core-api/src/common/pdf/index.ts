@@ -22,6 +22,7 @@ export { renderAndUploadPdf, type PdfUploadResult } from './pdf-render-upload';
 export {
   escapeHtml,
   buildBasePdfStyles,
+  buildPdfTableStyles,
   buildPdfFooterTemplate,
   type EscapeHtml,
 } from './pdf-layout';

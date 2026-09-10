@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common';
+import { escapeHtml } from '../common/pdf/pdf-layout';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 import {
   buildInvoiceFooterTemplate,
   buildInvoiceHtmlDocument,
-  type EscapeHtml,
   type FormatDate,
 } from './invoice-pdf.layout';
 
@@ -24,7 +24,6 @@ export class InvoicePdfRenderer {
         const page = await browser.newPage();
 
         try {
-          const escapeHtml: EscapeHtml = (value) => this.escapeHtmlValue(value);
           const formatDate: FormatDate = (value) => this.formatDateValue(value);
           const html = buildInvoiceHtmlDocument(
             snapshot,
@@ -73,19 +72,6 @@ export class InvoicePdfRenderer {
         }
       },
     );
-  }
-
-  private escapeHtmlValue(value: string | number | null | undefined): string {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    const str = String(value);
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   private formatDateValue(value: string | Date) {

@@ -27,6 +27,14 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+export const buildPdfTableStyles = (): string => `
+  table { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { text-align: left; border-bottom: 1px solid #d1d5db; }
+  td { border-bottom: 1px solid #f3f4f6; }
+`;
+
 export const buildBasePdfStyles = (): string => `
   * { box-sizing: border-box; }
   body {
@@ -49,6 +57,7 @@ export const buildBasePdfStyles = (): string => `
     padding-bottom: 6px;
     margin-bottom: 10px;
   }
+  ${buildPdfTableStyles()}
 `;
 
 export function buildPdfFooterTemplate(titleHtml: string): string {

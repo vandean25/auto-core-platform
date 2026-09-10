@@ -25,9 +25,9 @@ export const buildWorkshopDocumentStyles = (): string => `
   .task-title { font-size: 14px; font-weight: 600; }
   .task-notes { background: #fffbeb; color: #92400e; padding: 10px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid #f59e0b; }
 
-  table.line-items { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  table.line-items th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 6px 8px; font-size: 10px; color: #6b7280; text-transform: uppercase; }
-  table.line-items td { padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
+  table.line-items { margin-top: 8px; }
+  table.line-items th { padding: 6px 8px; font-size: 10px; color: #6b7280; text-transform: uppercase; }
+  table.line-items td { padding: 8px; font-size: 11px; }
   
   .badge { background: #e5e7eb; color: #374151; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; }
 

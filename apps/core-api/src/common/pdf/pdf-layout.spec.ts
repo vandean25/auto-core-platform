@@ -1,6 +1,7 @@
 import {
   escapeHtml,
   buildBasePdfStyles,
+  buildPdfTableStyles,
   buildPdfFooterTemplate,
 } from './pdf-layout';
 
@@ -35,12 +36,26 @@ describe('pdf-layout helpers', () => {
     });
   });
 
+  describe('buildPdfTableStyles', () => {
+    it('returns shared table CSS declarations', () => {
+      const styles = buildPdfTableStyles();
+      expect(styles).toContain('width: 100%');
+      expect(styles).toContain('border-collapse: collapse');
+      expect(styles).toContain('display: table-header-group');
+      expect(styles).toContain('break-inside: avoid');
+      expect(styles).toContain('border-bottom: 1px solid #d1d5db');
+      expect(styles).toContain('border-bottom: 1px solid #f3f4f6');
+    });
+  });
+
   describe('buildBasePdfStyles', () => {
-    it('returns base CSS style declarations', () => {
+    it('returns base CSS style declarations including table styles', () => {
       const styles = buildBasePdfStyles();
       expect(styles).toContain('box-sizing: border-box');
       expect(styles).toContain('.section');
       expect(styles).toContain('.section-title');
+      expect(styles).toContain('border-collapse: collapse');
+      expect(styles).toContain('display: table-header-group');
     });
   });
 

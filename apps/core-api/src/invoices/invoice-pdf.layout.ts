@@ -1,50 +1,30 @@
+import {
+  buildBasePdfStyles,
+  buildPdfFooterTemplate,
+  type EscapeHtml,
+} from '../common/pdf/pdf-layout';
 import type { InvoiceSnapshot } from './invoice-snapshot';
 
-export type EscapeHtml = (value: string | number | null | undefined) => string;
+export type { EscapeHtml };
 export type FormatDate = (value: string | Date) => string;
 
 export const buildInvoiceDocumentStyles = (): string => `
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-    font-size: 12px;
-    color: #111827;
-    line-height: 1.45;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  ${buildBasePdfStyles()}
 
   h1 { font-size: 22px; margin: 0; letter-spacing: 0.2px; }
 
   .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
   .header .muted { color: #6b7280; font-size: 12px; }
 
-  .section { margin-bottom: 18px; }
-  .section-title {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #374151;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 6px;
-    margin-bottom: 10px;
-  }
-
-  table { width: 100%; border-collapse: collapse; margin: 18px 0; table-layout: fixed; }
-  thead { display: table-header-group; }
-  tr { break-inside: avoid; }
+  table { margin: 18px 0; table-layout: fixed; }
   th {
-    text-align: left;
-    border-bottom: 1px solid #d1d5db;
     padding: 10px 8px;
     font-size: 11px;
     font-weight: 700;
     color: #374151;
     background: #f9fafb;
   }
-  td { padding: 10px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; word-break: break-word; }
+  td { padding: 10px 8px; vertical-align: top; word-break: break-word; }
 
   .totals { margin-left: auto; width: 260px; break-inside: avoid; }
   .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
@@ -240,19 +220,5 @@ export const buildInvoiceHtmlDocument = (
 
 export const buildInvoiceFooterTemplate = (
   invoiceNumber: string,
-  escapeHtml: EscapeHtml,
-): string => `
-  <div style="
-    width: 100%;
-    padding: 0 50px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-    font-size: 9px;
-    color: #6b7280;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  ">
-    <span>Invoice ${escapeHtml(invoiceNumber)}</span>
-    <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
-  </div>
-`;
+  escape: EscapeHtml,
+): string => buildPdfFooterTemplate(`Invoice ${escape(invoiceNumber)}`);

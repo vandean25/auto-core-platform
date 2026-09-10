@@ -74,8 +74,4 @@ export class WorkshopPdfRenderer {
   private buildFooterTemplate(orderNumber: string): string {
     return buildWorkshopFooterTemplate(orderNumber, escapeHtml);
   }
-
-  private escapeHtml(value: unknown): string {
-    return escapeHtml(value);
-  }
 }
