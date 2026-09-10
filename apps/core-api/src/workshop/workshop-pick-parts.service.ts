@@ -20,6 +20,7 @@ import {
 import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { AtpService } from '../inventory/atp.service';
 import { LedgerService } from '../inventory/ledger.service';
 import type { RecordTransactionParams } from '../inventory/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -81,6 +82,7 @@ export class WorkshopPickPartsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(LedgerService) private readonly ledgerService: LedgerService,
+    @Inject(AtpService) private readonly atpService: AtpService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
     @Inject(SiteContextService)
@@ -696,7 +698,7 @@ export class WorkshopPickPartsService {
 
   private async releaseReservedStock(
     tx: Prisma.TransactionClient,
-    tenantId: string,
+    _tenantId: string,
     plans: StagePlan[],
   ): Promise<void> {
     const quantitiesByStock = new Map<
@@ -718,19 +720,18 @@ export class WorkshopPickPartsService {
     await chunkedPromiseAll(
       [...quantitiesByStock.values()],
       async ({ stock, quantity }) => {
-        // eslint-disable-next-line no-restricted-syntax -- conditional ATP release is the guarded stock mutation.
-        const affectedRows = await tx.$executeRaw`
-          UPDATE inventory_stocks
-          SET quantity_reserved = quantity_reserved - ${quantity}
-          WHERE id = ${stock.id}
-            AND tenant_id = ${tenantId}
-            AND quantity_reserved >= ${quantity}
-            AND quantity_on_hand >= ${quantity}
-        `;
-        if (affectedRows === 0) {
-          throw new ConflictException(
-            `Inventory ATP changed before staging stock ${stock.id}. Refresh and retry.`,
+        try {
+          await this.atpService.releaseOnHand(
+            { stockId: stock.id, quantity },
+            tx,
           );
+        } catch (error) {
+          if (error instanceof ConflictException) {
+            throw new ConflictException(
+              `Inventory ATP changed before staging stock ${stock.id}. Refresh and retry.`,
+            );
+          }
+          throw error;
         }
       },
     );

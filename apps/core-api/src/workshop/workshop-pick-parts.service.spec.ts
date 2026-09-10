@@ -1,8 +1,10 @@
 import {
   NotFoundException,
   UnprocessableEntityException,
+  ConflictException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AtpService } from '../inventory/atp.service';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service';
 import {
   PartsReservationKind,
@@ -23,8 +25,12 @@ import {
 
 describe('WorkshopPickPartsService', () => {
   let service: WorkshopPickPartsService;
+  const mockAtpService = {
+    releaseOnHand: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
+    mockAtpService.releaseOnHand.mockReset().mockResolvedValue(undefined);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WorkshopPickPartsService,
@@ -32,6 +38,7 @@ describe('WorkshopPickPartsService', () => {
         workshopLedgerProvider,
         workshopTenantProvider,
         workshopSiteProvider,
+        { provide: AtpService, useValue: mockAtpService },
       ],
     }).compile();
 
@@ -702,5 +709,133 @@ describe('WorkshopPickPartsService', () => {
         }),
       }),
     );
+  });
+
+  it('delegates reserved release to AtpService instead of a local stock update', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      site_id: 'site-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      order_number: 'WO-2026-0001',
+    });
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
+      id: 'tote-1',
+      type: 'staging_tote',
+      deletedAt: null,
+      site_id: 'site-1',
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'line-1',
+        workshop_task_id: 'task-1',
+        item_no: 'SKU-1',
+        catalog_item_id: 'item-1',
+        quantity: new Prisma.Decimal(2),
+      },
+    ]);
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal(2),
+        quantity_received: new Prisma.Decimal(0),
+        quantity_staged: new Prisma.Decimal(0),
+        quantity_consumed: new Prisma.Decimal(0),
+        quantity_returned: new Prisma.Decimal(0),
+        kind: PartsReservationKind.ON_HAND,
+        status: PartsReservationStatus.OPEN,
+        location_id: 'bin-a',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    ]);
+    mockPrisma.storageLocation.findMany.mockResolvedValue([
+      { id: 'bin-a', type: 'bin', deletedAt: null, site_id: 'site-1' },
+    ]);
+    mockPrisma.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'item-1',
+        location_id: 'bin-a',
+        quantity_on_hand: new Prisma.Decimal(2),
+        quantity_reserved: new Prisma.Decimal(2),
+      },
+    ]);
+    mockPrisma.inventoryTransaction.findMany.mockResolvedValue([]);
+    mockPrisma.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.pickParts('wo-1', {
+      destinationLocationId: 'tote-1',
+      items: [{ workshopTaskLineItemId: 'line-1', quantity: 2 }],
+    });
+
+    expect(mockAtpService.releaseOnHand).toHaveBeenCalledWith(
+      { stockId: 'stock-1', quantity: new Prisma.Decimal(2) },
+      mockPrisma,
+    );
+    expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('maps a shared ATP conflict to a staging retry error', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      site_id: 'site-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      order_number: 'WO-2026-0001',
+    });
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
+      id: 'tote-1',
+      type: 'staging_tote',
+      deletedAt: null,
+      site_id: 'site-1',
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'line-1',
+        workshop_task_id: 'task-1',
+        item_no: 'SKU-1',
+        catalog_item_id: 'item-1',
+        quantity: new Prisma.Decimal(1),
+      },
+    ]);
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal(1),
+        quantity_received: new Prisma.Decimal(0),
+        quantity_staged: new Prisma.Decimal(0),
+        quantity_consumed: new Prisma.Decimal(0),
+        quantity_returned: new Prisma.Decimal(0),
+        kind: PartsReservationKind.ON_HAND,
+        status: PartsReservationStatus.OPEN,
+        location_id: 'bin-a',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    ]);
+    mockPrisma.storageLocation.findMany.mockResolvedValue([
+      { id: 'bin-a', type: 'bin', deletedAt: null, site_id: 'site-1' },
+    ]);
+    mockPrisma.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'item-1',
+        location_id: 'bin-a',
+        quantity_on_hand: new Prisma.Decimal(1),
+        quantity_reserved: new Prisma.Decimal(1),
+      },
+    ]);
+    mockAtpService.releaseOnHand.mockRejectedValueOnce(
+      new ConflictException('Cannot release more than reserved quantity'),
+    );
+
+    await expect(
+      service.pickParts('wo-1', {
+        destinationLocationId: 'tote-1',
+        items: [{ workshopTaskLineItemId: 'line-1', quantity: 1 }],
+      }),
+    ).rejects.toThrow(/Inventory ATP changed before staging stock/);
+
+    expect(mockLedgerService.recordTransactions).not.toHaveBeenCalled();
   });
 });
