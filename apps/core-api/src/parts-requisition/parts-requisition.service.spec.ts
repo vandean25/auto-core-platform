@@ -4,6 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  LocationType,
   PartsReservationKind,
   PartsReservationStatus,
   Prisma,
@@ -265,7 +266,7 @@ describe('PartsRequisitionService', () => {
     expect(tx.workshopTask.updateMany).not.toHaveBeenCalled();
   });
 
-  it('rejects foreign, inactive, and staging-tote source locations through the location predicate', async () => {
+  it('requires a bin source location through the authorization predicate', async () => {
     tx.storageLocation.findFirst.mockResolvedValue(null);
 
     await expect(
@@ -282,13 +283,12 @@ describe('PartsRequisitionService', () => {
         tenant_id: tenantId,
         site_id: siteId,
         deletedAt: null,
-        type: {
-          notIn: ['staging_tote', 'vehicle_lot', 'in_transit'],
-        },
+        type: LocationType.bin,
         site: { is_active: true },
       },
       select: { id: true },
     });
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
 
   it('rejects a line that is not authorized through the active site', async () => {

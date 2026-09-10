@@ -109,6 +109,18 @@ export class PartsRequisitionService {
         );
       }
 
+      const location = await this.findAuthorizedSourceLocation(
+        tx,
+        tenantId,
+        siteId,
+        dto.locationId,
+      );
+      if (!location) {
+        throw new UnprocessableEntityException(
+          'Source location is not available in the active site.',
+        );
+      }
+
       await this.lockTask(tx, tenantId, initialLine.workshop_task_id);
       const line = await this.findAuthorizedLine(
         tx,
@@ -138,18 +150,6 @@ export class PartsRequisitionService {
         tenantId,
         existingReservations.map((reservation) => reservation.id),
       );
-
-      const location = await this.findAuthorizedSourceLocation(
-        tx,
-        tenantId,
-        siteId,
-        dto.locationId,
-      );
-      if (!location) {
-        throw new UnprocessableEntityException(
-          'Source location is not available in the active site.',
-        );
-      }
 
       const stock = await tx.inventoryStock.findFirst({
         where: {
@@ -334,13 +334,7 @@ export class PartsRequisitionService {
         tenant_id: tenantId,
         site_id: siteId,
         deletedAt: null,
-        type: {
-          notIn: [
-            LocationType.staging_tote,
-            LocationType.vehicle_lot,
-            LocationType.in_transit,
-          ],
-        },
+        type: LocationType.bin,
         site: { is_active: true },
       },
       select: { id: true },
