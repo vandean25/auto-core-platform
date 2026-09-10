@@ -48,6 +48,208 @@ function findNextFocusable(current: HTMLElement, reverse: boolean) {
   return focusableElements[nextIndex] ?? null
 }
 
+interface KeyDownContext {
+  event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
+  mode: InlineEditMode
+  onCancel: () => void
+  onCommit: () => Promise<boolean | void>
+}
+
+function handleInlineEditKeyDown({
+  event,
+  mode,
+  onCancel,
+  onCommit,
+}: KeyDownContext) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    onCancel()
+    return
+  }
+
+  if (mode === 'text') {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void onCommit().catch(() => undefined)
+      return
+    }
+
+    if (event.key === 'Tab') {
+      const nextFocusable = findNextFocusable(
+        event.currentTarget as HTMLElement,
+        event.shiftKey,
+      )
+      event.preventDefault()
+      void onCommit()
+        .then((committed) => {
+          if (committed && nextFocusable) {
+            nextFocusable.focus()
+          }
+        })
+        .catch(() => undefined)
+    }
+    return
+  }
+
+  if (
+    mode === 'textarea' &&
+    event.key === 'Enter' &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.shiftKey
+  ) {
+    event.preventDefault()
+    void onCommit().catch(() => undefined)
+  }
+}
+
+interface InlineEditorInputProps {
+  mode: InlineEditMode
+  draftValue: string
+  onChange: (val: string) => void
+  onBlur: () => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  inputRef: React.RefObject<HTMLInputElement | null>
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  validationError: string | null
+  isSaving: boolean
+  placeholder?: string
+  ariaLabel?: string
+  inputClassName?: string
+  rows?: number
+}
+
+function InlineEditorInput({
+  mode,
+  draftValue,
+  onChange,
+  onBlur,
+  onKeyDown,
+  inputRef,
+  textareaRef,
+  validationError,
+  isSaving,
+  placeholder,
+  ariaLabel,
+  inputClassName,
+  rows,
+}: InlineEditorInputProps) {
+  const errorMarkup = validationError ? (
+    <p className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
+  ) : null
+
+  if (mode === 'textarea') {
+    return (
+      <div>
+        <textarea
+          ref={textareaRef}
+          rows={rows}
+          value={draftValue}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          className={cn(
+            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+            validationError && 'border-red-500 focus-visible:ring-red-500',
+            inputClassName,
+          )}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          aria-invalid={!!validationError}
+          disabled={isSaving}
+        />
+        {errorMarkup}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <Input
+        ref={inputRef}
+        value={draftValue}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        className={cn(
+          'h-9 text-sm',
+          validationError && 'border-red-500 focus-visible:ring-red-500',
+          inputClassName,
+        )}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={!!validationError}
+        disabled={isSaving}
+      />
+      {errorMarkup}
+    </div>
+  )
+}
+
+interface InlineEditDisplayProps {
+  normalizedValue: string
+  emptyText: string
+  mode: InlineEditMode
+  readOnly: boolean
+  isSaving: boolean
+  className?: string
+  displayClassName?: string
+  onBeginEdit: () => void
+}
+
+function InlineEditDisplay({
+  normalizedValue,
+  emptyText,
+  mode,
+  readOnly,
+  isSaving,
+  className,
+  displayClassName,
+  onBeginEdit,
+}: InlineEditDisplayProps) {
+  const hasValue = normalizedValue.trim().length > 0
+  const displayValue = hasValue ? normalizedValue : emptyText
+
+  const displayContent = (
+    <div
+      className={cn(
+        'group/inline-edit relative w-full rounded-md px-2 py-1 -mx-2 text-left transition-colors',
+        !readOnly && 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          'block pr-5 text-sm transition-opacity',
+          mode === 'textarea' && 'whitespace-pre-wrap',
+          !hasValue && 'text-muted-foreground italic',
+          isSaving && 'opacity-50',
+          displayClassName,
+        )}
+      >
+        {displayValue}
+      </span>
+      {!readOnly && (
+        isSaving ? (
+          <Loader2 className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground' />
+        ) : (
+          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
+        )
+      )}
+    </div>
+  )
+
+  if (readOnly) {
+    return displayContent
+  }
+
+  return (
+    <button type='button' onClick={onBeginEdit} className='w-full text-left'>
+      {displayContent}
+    </button>
+  )
+}
+
 export function InlineEdit({
   value,
   onSave,
@@ -143,44 +345,12 @@ export function InlineEdit({
   const handleKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      cancelEdit()
-      return
-    }
-
-    if (mode === 'text') {
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        void commitEdit().catch(() => undefined)
-        return
-      }
-
-      if (event.key === 'Tab') {
-        const nextFocusable = findNextFocusable(
-          event.currentTarget as HTMLElement,
-          event.shiftKey,
-        )
-        event.preventDefault()
-        void commitEdit().then((committed) => {
-          if (committed && nextFocusable) {
-            nextFocusable.focus()
-          }
-        }).catch(() => undefined)
-      }
-      return
-    }
-
-    if (
-      mode === 'textarea' &&
-      event.key === 'Enter' &&
-      !event.ctrlKey &&
-      !event.altKey &&
-      !event.shiftKey
-    ) {
-      event.preventDefault()
-      void commitEdit().catch(() => undefined)
-    }
+    handleInlineEditKeyDown({
+      event,
+      mode,
+      onCancel: cancelEdit,
+      onCommit: commitEdit,
+    })
   }
 
   const beginEdit = () => {
@@ -191,97 +361,35 @@ export function InlineEdit({
   }
 
   if (isEditing) {
-    const errorMarkup = validationError ? (
-      <p className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
-    ) : null
-
-    if (mode === 'textarea') {
-      return (
-        <div>
-          <textarea
-            ref={textareaRef}
-            rows={rows}
-            value={draftValue}
-            onChange={(event) => setDraftValue(event.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className={cn(
-              'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
-              validationError && 'border-red-500 focus-visible:ring-red-500',
-              inputClassName,
-            )}
-            placeholder={placeholder}
-            aria-label={ariaLabel}
-            aria-invalid={!!validationError}
-            disabled={isSaving}
-          />
-          {errorMarkup}
-        </div>
-      )
-    }
-
     return (
-      <div>
-        <Input
-          ref={inputRef}
-          value={draftValue}
-          onChange={(event) => setDraftValue(event.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          className={cn(
-            'h-9 text-sm',
-            validationError && 'border-red-500 focus-visible:ring-red-500',
-            inputClassName,
-          )}
-          placeholder={placeholder}
-          aria-label={ariaLabel}
-          aria-invalid={!!validationError}
-          disabled={isSaving}
-        />
-        {errorMarkup}
-      </div>
+      <InlineEditorInput
+        mode={mode}
+        draftValue={draftValue}
+        onChange={setDraftValue}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        inputRef={inputRef}
+        textareaRef={textareaRef}
+        validationError={validationError}
+        isSaving={isSaving}
+        placeholder={placeholder}
+        ariaLabel={ariaLabel}
+        inputClassName={inputClassName}
+        rows={rows}
+      />
     )
   }
 
-  const hasValue = normalizedValue.trim().length > 0
-  const displayValue = hasValue ? normalizedValue : emptyText
-
-  const displayContent = (
-    <div
-      className={cn(
-        'group/inline-edit relative w-full rounded-md px-2 py-1 -mx-2 text-left transition-colors',
-        !readOnly && 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          'block pr-5 text-sm transition-opacity',
-          mode === 'textarea' && 'whitespace-pre-wrap',
-          !hasValue && 'text-muted-foreground italic',
-          isSaving && 'opacity-50',
-          displayClassName,
-        )}
-      >
-        {displayValue}
-      </span>
-      {!readOnly && (
-        isSaving ? (
-          <Loader2 className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground' />
-        ) : (
-          <Pencil className='pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover/inline-edit:opacity-70' />
-        )
-      )}
-    </div>
-  )
-
-  if (readOnly) {
-    return displayContent
-  }
-
   return (
-    <button type='button' onClick={beginEdit} className='w-full text-left'>
-      {displayContent}
-    </button>
+    <InlineEditDisplay
+      normalizedValue={normalizedValue}
+      emptyText={emptyText}
+      mode={mode}
+      readOnly={readOnly}
+      isSaving={isSaving}
+      className={className}
+      displayClassName={displayClassName}
+      onBeginEdit={beginEdit}
+    />
   )
 }

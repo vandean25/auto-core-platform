@@ -91,9 +91,67 @@ export class MechanicVoiceNoteService {
   ): Promise<VoiceNoteDraftResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
 
-    // ── Rate limiting (per mechanic, sliding window) ────────────────────────
     await this.checkVoiceNoteRateLimit(mechanicId, tenantId);
+    await this.validateTaskForUpload(taskId, tenantId, mechanicId);
+    const normalizedMime = this.validateAudioFile(file);
 
+    // Log safe operational metadata only — never log audio content or transcript text.
+    // ADR-0014 §5.3 — Observability without content logging.
+    this.logger.log(
+      `voice_note_start tenantId=${tenantId} taskId=${taskId} bytes=${file.buffer.length} mimeType=${normalizedMime}`,
+    );
+
+    const { sourceLanguageCode, targetLanguageCode } =
+      await this.resolveVoiceNoteLanguages(tenantId, mechanicId);
+
+    const startedAt = Date.now();
+    const result = await this.executeVoiceNoteTranslation({
+      file,
+      normalizedMime,
+      sourceLanguageCode,
+      targetLanguageCode,
+      tenantId,
+      taskId,
+      startedAt,
+    });
+
+    const { originalText, translatedText } =
+      this.validateVoiceNoteResult(result);
+
+    const draftId = await this.saveVoiceNoteDraft({
+      tenantId,
+      taskId,
+      mechanicId,
+      result,
+      originalText,
+      translatedText,
+    });
+
+    const latencyMs = Date.now() - startedAt;
+    // Log only safe operational metadata — never log draft.text (transcript content).
+    // ADR-0014 §5.3 — Observability without content logging.
+    this.logger.log(
+      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${result.provider} model=${result.model} latencyMs=${latencyMs} durationSeconds=${result.durationSeconds ?? 'unknown'}`,
+    );
+
+    return {
+      draftId,
+      text: translatedText,
+      originalText,
+      sourceLanguageCode: result.sourceLanguageCode,
+      targetLanguageCode: result.targetLanguageCode,
+      detectedLanguage: result.detectedLanguageCode,
+      provider: result.provider,
+      model: result.model,
+      durationSeconds: result.durationSeconds,
+    } satisfies VoiceNoteDraftResponseDto;
+  }
+
+  private async validateTaskForUpload(
+    taskId: string,
+    tenantId: string,
+    mechanicId: string,
+  ): Promise<void> {
     const task = await this.prisma.workshopTask.findFirst({
       where: { id: taskId, tenant_id: tenantId },
       select: {
@@ -117,7 +175,9 @@ export class MechanicVoiceNoteService {
     }
 
     assertTaskAssignedToMechanic(task, mechanicId);
+  }
 
+  private validateAudioFile(file: Express.Multer.File): string {
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new UnprocessableEntityException(
         'Audio file must not be empty. Include an audio file in the "audio" field.',
@@ -147,13 +207,6 @@ export class MechanicVoiceNoteService {
       );
     }
 
-    // Log safe operational metadata only — never log audio content or transcript text.
-    // ADR-0014 §5.3 — Observability without content logging.
-    const sizeBytes = file.buffer.length;
-    this.logger.log(
-      `voice_note_start tenantId=${tenantId} taskId=${taskId} bytes=${sizeBytes} mimeType=${normalizedMime}`,
-    );
-
     const parsedDurationSeconds = readAudioDurationSeconds(
       file.buffer,
       normalizedMime,
@@ -168,6 +221,13 @@ export class MechanicVoiceNoteService {
       );
     }
 
+    return normalizedMime;
+  }
+
+  private async resolveVoiceNoteLanguages(
+    tenantId: string,
+    mechanicId: string,
+  ): Promise<{ sourceLanguageCode: string; targetLanguageCode: string }> {
     const employee = await this.prisma.employee.findFirst({
       where: {
         id: mechanicId,
@@ -180,26 +240,49 @@ export class MechanicVoiceNoteService {
       await this.voiceTranslationService.getTargetLanguageCode(tenantId);
     const sourceLanguageCode =
       employee?.mother_language_code || targetLanguageCode;
+    return { sourceLanguageCode, targetLanguageCode };
+  }
 
-    const startedAt = Date.now();
-    let result: {
-      originalText: string;
-      translatedText: string;
-      sourceLanguageCode: string;
-      targetLanguageCode: string;
-      detectedLanguageCode?: string;
-      provider: string;
-      model: string;
-      durationSeconds?: number;
-    };
+  private async executeVoiceNoteTranslation(params: {
+    file: Express.Multer.File;
+    normalizedMime: string;
+    sourceLanguageCode: string;
+    targetLanguageCode: string;
+    tenantId: string;
+    taskId: string;
+    startedAt: number;
+  }): Promise<{
+    originalText: string;
+    translatedText: string;
+    sourceLanguageCode: string;
+    targetLanguageCode: string;
+    detectedLanguageCode?: string;
+    provider: string;
+    model: string;
+    durationSeconds?: number;
+  }> {
+    const {
+      file,
+      normalizedMime,
+      sourceLanguageCode,
+      targetLanguageCode,
+      tenantId,
+      taskId,
+      startedAt,
+    } = params;
+
     try {
-      result = await this.voiceTranslationService.translateVoiceNote({
+      const result = await this.voiceTranslationService.translateVoiceNote({
         audioBuffer: file.buffer,
         filename: getVoiceNoteFilename(file, normalizedMime),
         mimeType: normalizedMime,
         sourceLanguageCode,
         targetLanguageCode,
       });
+      // Zero out the audio buffer immediately after successful transcription.
+      // ADR-0014 §5.3 — Audio retention minimisation.
+      file.buffer.fill(0);
+      return result;
     } catch (error) {
       // Zero out the audio buffer immediately to release sensitive data.
       // ADR-0014 §5.3 — Audio retention minimisation.
@@ -216,20 +299,23 @@ export class MechanicVoiceNoteService {
       if (error instanceof BadRequestException) {
         throw new UnprocessableEntityException(error.message);
       }
-      if (error instanceof ServiceUnavailableException) {
-        throw error;
-      }
-      if (error instanceof HttpException) {
+      if (
+        error instanceof ServiceUnavailableException ||
+        error instanceof HttpException
+      ) {
         throw error;
       }
       throw new BadGatewayException(
         'Voice-note transcription failed due to an upstream provider error. Please try again.',
       );
     }
+  }
 
-    // Zero out the audio buffer immediately after successful transcription.
-    // ADR-0014 §5.3 — Audio retention minimisation.
-    file.buffer.fill(0);
+  private validateVoiceNoteResult(result: {
+    originalText?: string;
+    translatedText?: string;
+    durationSeconds?: number;
+  }): { originalText: string; translatedText: string } {
     const originalText = result.originalText ?? result.translatedText ?? '';
     const translatedText = result.translatedText ?? result.originalText ?? '';
 
@@ -248,6 +334,32 @@ export class MechanicVoiceNoteService {
         'Voice note appears to be silent - no speech was detected in the recording.',
       );
     }
+
+    return { originalText, translatedText };
+  }
+
+  private async saveVoiceNoteDraft(params: {
+    tenantId: string;
+    taskId: string;
+    mechanicId: string;
+    result: {
+      sourceLanguageCode: string;
+      targetLanguageCode: string;
+      provider: string;
+      model: string;
+      durationSeconds?: number;
+    };
+    originalText: string;
+    translatedText: string;
+  }): Promise<string> {
+    const {
+      tenantId,
+      taskId,
+      mechanicId,
+      result,
+      originalText,
+      translatedText,
+    } = params;
 
     const savedDraft = await this.prisma.workshopVoiceNoteDraft.create({
       data: {
@@ -269,24 +381,7 @@ export class MechanicVoiceNoteService {
       select: { id: true },
     });
 
-    const latencyMs = Date.now() - startedAt;
-    // Log only safe operational metadata — never log draft.text (transcript content).
-    // ADR-0014 §5.3 — Observability without content logging.
-    this.logger.log(
-      `voice_note_success tenantId=${tenantId} taskId=${taskId} provider=${result.provider} model=${result.model} latencyMs=${latencyMs} durationSeconds=${result.durationSeconds ?? 'unknown'}`,
-    );
-
-    return {
-      draftId: savedDraft.id,
-      text: translatedText,
-      originalText: originalText,
-      sourceLanguageCode: result.sourceLanguageCode,
-      targetLanguageCode: result.targetLanguageCode,
-      detectedLanguage: result.detectedLanguageCode,
-      provider: result.provider,
-      model: result.model,
-      durationSeconds: result.durationSeconds,
-    } satisfies VoiceNoteDraftResponseDto;
+    return savedDraft.id;
   }
 
   /**

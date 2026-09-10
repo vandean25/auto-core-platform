@@ -131,6 +131,145 @@ function operationToFormState(operation: LaborOperation): FormState {
   }
 }
 
+function parseAndValidateYear(
+  rawYear: string,
+  label: string,
+): { num?: number; error?: string } {
+  const trimmed = rawYear.trim()
+  if (!trimmed) return {}
+  const parsed = Number(trimmed)
+  if (!Number.isInteger(parsed)) {
+    return { error: `${label} must be an integer` }
+  }
+  if (parsed < MIN_YEAR || parsed > MAX_YEAR) {
+    return { error: `${label} must be between ${MIN_YEAR} and ${MAX_YEAR}` }
+  }
+  return { num: parsed }
+}
+
+function validateSingleFitment(fitment: FitmentState): {
+  make?: string
+  model?: string
+  yearFrom?: string
+  yearTo?: string
+} | null {
+  const hasAnyValue =
+    fitment.make.trim() ||
+    fitment.model.trim() ||
+    fitment.yearFrom.trim() ||
+    fitment.yearTo.trim() ||
+    fitment.engineCode.trim()
+
+  if (!hasAnyValue) {
+    return null
+  }
+
+  const currentFitmentErrors: {
+    make?: string
+    model?: string
+    yearFrom?: string
+    yearTo?: string
+  } = {}
+
+  if (!fitment.make.trim()) {
+    currentFitmentErrors.make = 'Make is required'
+  }
+  if (!fitment.model.trim()) {
+    currentFitmentErrors.model = 'Model is required'
+  }
+
+  const from = parseAndValidateYear(fitment.yearFrom, 'Year From')
+  if (from.error) currentFitmentErrors.yearFrom = from.error
+
+  const to = parseAndValidateYear(fitment.yearTo, 'Year To')
+  if (to.error) currentFitmentErrors.yearTo = to.error
+
+  if (
+    from.num !== undefined &&
+    to.num !== undefined &&
+    from.num > to.num
+  ) {
+    currentFitmentErrors.yearTo = 'Year To must be greater than or equal to Year From'
+  }
+
+  return Object.keys(currentFitmentErrors).length > 0 ? currentFitmentErrors : null
+}
+
+function validateLaborOperationForm(currentForm: FormState): ValidationState {
+  const nextErrors: ValidationState = {}
+  const standardAwRaw = currentForm.standardAw.trim()
+  const hourlyRate = Number(currentForm.hourlyRate)
+  const internalCost =
+    currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
+
+  if (!currentForm.code.trim()) {
+    nextErrors.code = 'Code is required'
+  }
+  if (!currentForm.description.trim()) {
+    nextErrors.description = 'Description is required'
+  }
+  if (standardAwRaw === '') {
+    nextErrors.standardAw = 'Standard AW is required'
+  } else {
+    const standardAw = Number(standardAwRaw)
+    if (!Number.isFinite(standardAw) || standardAw < 0) {
+      nextErrors.standardAw = 'Standard AW must be a non-negative number'
+    }
+  }
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+    nextErrors.hourlyRate = 'Hourly Rate must be greater than 0'
+  }
+  if (internalCost !== undefined && (!Number.isFinite(internalCost) || internalCost < 0)) {
+    nextErrors.internalCost = 'Internal Cost must be zero or greater'
+  }
+
+  const fitmentErrors: NonNullable<ValidationState['fitments']> = []
+  currentForm.fitments.forEach((fitment, index) => {
+    const err = validateSingleFitment(fitment)
+    if (err) {
+      fitmentErrors[index] = err
+    }
+  })
+
+  if (fitmentErrors.length > 0) {
+    nextErrors.fitments = fitmentErrors
+  }
+
+  return nextErrors
+}
+
+function buildLaborOperationPayload(currentForm: FormState): CreateLaborOperationPayload {
+  const internalCostNumber =
+    currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
+  const fitments = currentForm.fitments
+    .map((fitment) => ({
+      make: fitment.make.trim(),
+      model: fitment.model.trim(),
+      yearFrom: fitment.yearFrom.trim() === '' ? undefined : Number(fitment.yearFrom),
+      yearTo: fitment.yearTo.trim() === '' ? undefined : Number(fitment.yearTo),
+      engineCode: fitment.engineCode.trim() || undefined,
+    }))
+    .filter(
+      (fitment) =>
+        fitment.make ||
+        fitment.model ||
+        fitment.yearFrom !== undefined ||
+        fitment.yearTo !== undefined ||
+        fitment.engineCode
+    )
+
+  return {
+    code: currentForm.code.trim(),
+    description: currentForm.description.trim(),
+    standardAw: Number(currentForm.standardAw),
+    hourlyRate: Number(currentForm.hourlyRate),
+    ...(internalCostNumber !== undefined ? { internalCost: internalCostNumber } : {}),
+    ...(currentForm.categoryId ? { categoryId: currentForm.categoryId } : {}),
+    isActive: currentForm.isActive,
+    ...(fitments.length > 0 ? { fitments } : {}),
+  }
+}
+
 export function LaborOperationFormDialog({ open, onOpenChange, operation }: Props) {
   const createMutation = useCreateLaborOperation()
   const updateMutation = useUpdateLaborOperation()
@@ -211,179 +350,69 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     }))
   }
 
-  const validateForm = React.useCallback((currentForm: FormState): ValidationState => {
-    const nextErrors: ValidationState = {}
-    const standardAwRaw = currentForm.standardAw.trim()
-    const hourlyRate = Number(currentForm.hourlyRate)
-    const internalCost = currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
-
-    if (!currentForm.code.trim()) {
-      nextErrors.code = 'Code is required'
-    }
-    if (!currentForm.description.trim()) {
-      nextErrors.description = 'Description is required'
-    }
-    if (standardAwRaw === '') {
-      nextErrors.standardAw = 'Standard AW is required'
-    } else {
-      const standardAw = Number(standardAwRaw)
-      if (!Number.isFinite(standardAw) || standardAw < 0) {
-        nextErrors.standardAw = 'Standard AW must be a non-negative number'
+  const performAutoSave = React.useCallback(
+    async (formToSave: FormState) => {
+      const saveSnapshot = serializeFormState(formToSave)
+      if (saveSnapshot === lastSavedSnapshotRef.current) {
+        setDirty(false)
+        setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
+        return
       }
-    }
-    if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
-      nextErrors.hourlyRate = 'Hourly Rate must be greater than 0'
-    }
-    if (internalCost !== undefined && (!Number.isFinite(internalCost) || internalCost < 0)) {
-      nextErrors.internalCost = 'Internal Cost must be zero or greater'
-    }
-
-    const fitmentErrors: NonNullable<ValidationState['fitments']> = []
-    currentForm.fitments.forEach((fitment, index) => {
-      const hasAnyValue =
-        fitment.make.trim() ||
-        fitment.model.trim() ||
-        fitment.yearFrom.trim() ||
-        fitment.yearTo.trim() ||
-        fitment.engineCode.trim()
-
-      if (!hasAnyValue) {
+      if (isSavingRef.current) {
+        hasQueuedSaveRef.current = true
         return
       }
 
-      const currentFitmentErrors: NonNullable<ValidationState['fitments']>[number] = {}
-      if (!fitment.make.trim()) {
-        currentFitmentErrors.make = 'Make is required'
-      }
-      if (!fitment.model.trim()) {
-        currentFitmentErrors.model = 'Model is required'
-      }
-
-      const yearFrom = fitment.yearFrom.trim() === '' ? undefined : Number(fitment.yearFrom)
-      const yearTo = fitment.yearTo.trim() === '' ? undefined : Number(fitment.yearTo)
-
-      if (yearFrom !== undefined && !Number.isInteger(yearFrom)) {
-        currentFitmentErrors.yearFrom = 'Year From must be an integer'
-      } else if (yearFrom !== undefined && (yearFrom < MIN_YEAR || yearFrom > MAX_YEAR)) {
-        currentFitmentErrors.yearFrom = `Year From must be between ${MIN_YEAR} and ${MAX_YEAR}`
-      }
-      if (yearTo !== undefined && !Number.isInteger(yearTo)) {
-        currentFitmentErrors.yearTo = 'Year To must be an integer'
-      } else if (yearTo !== undefined && (yearTo < MIN_YEAR || yearTo > MAX_YEAR)) {
-        currentFitmentErrors.yearTo = `Year To must be between ${MIN_YEAR} and ${MAX_YEAR}`
-      }
-      if (
-        yearFrom !== undefined &&
-        yearTo !== undefined &&
-        Number.isInteger(yearFrom) &&
-        Number.isInteger(yearTo) &&
-        yearFrom > yearTo
-      ) {
-        currentFitmentErrors.yearTo = 'Year To must be greater than or equal to Year From'
-      }
-
-      if (Object.keys(currentFitmentErrors).length > 0) {
-        fitmentErrors[index] = currentFitmentErrors
-      }
-    })
-
-    if (fitmentErrors.length > 0) {
-      nextErrors.fitments = fitmentErrors
-    }
-
-    return nextErrors
-  }, [])
-
-  const buildPayload = React.useCallback((currentForm: FormState): CreateLaborOperationPayload => {
-    const internalCostNumber = currentForm.internalCost.trim() === '' ? undefined : Number(currentForm.internalCost)
-    const fitments = currentForm.fitments
-      .map((fitment) => ({
-        make: fitment.make.trim(),
-        model: fitment.model.trim(),
-        yearFrom: fitment.yearFrom.trim() === '' ? undefined : Number(fitment.yearFrom),
-        yearTo: fitment.yearTo.trim() === '' ? undefined : Number(fitment.yearTo),
-        engineCode: fitment.engineCode.trim() || undefined,
-      }))
-      .filter(
-        (fitment) =>
-          fitment.make ||
-          fitment.model ||
-          fitment.yearFrom !== undefined ||
-          fitment.yearTo !== undefined ||
-          fitment.engineCode
-      )
-
-    return {
-      code: currentForm.code.trim(),
-      description: currentForm.description.trim(),
-      standardAw: Number(currentForm.standardAw),
-      hourlyRate: Number(currentForm.hourlyRate),
-      ...(internalCostNumber !== undefined ? { internalCost: internalCostNumber } : {}),
-      ...(currentForm.categoryId ? { categoryId: currentForm.categoryId } : {}),
-      isActive: currentForm.isActive,
-      ...(fitments.length > 0 ? { fitments } : {}),
-    }
-  }, [])
-
-  const performAutoSave = React.useCallback(async (formToSave: FormState) => {
-    const saveSnapshot = serializeFormState(formToSave)
-    if (saveSnapshot === lastSavedSnapshotRef.current) {
-      setDirty(false)
-      setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
-      return
-    }
-    if (isSavingRef.current) {
-      hasQueuedSaveRef.current = true
-      return
-    }
-
-    const currentErrors = validateForm(formToSave)
-    if (Object.keys(currentErrors).length > 0) {
-      setErrors(currentErrors)
-      setSaveStatus('error')
-      return
-    }
-
-    isSavingRef.current = true
-    const payload = buildPayload(formToSave)
-    setSaveStatus('saving')
-
-    try {
-      const targetId = operation?.id ?? createdOperationIdRef.current
-
-      if (targetId) {
-        await updateMutation.mutateAsync({
-          id: targetId,
-          data: payload as UpdateLaborOperationPayload,
-        })
-      } else {
-        const created = await createMutation.mutateAsync(payload)
-        createdOperationIdRef.current = created.id
-      }
-
-      const latestSnapshot = serializeFormState(formRef.current)
-      if (latestSnapshot === saveSnapshot) {
-        setErrors({})
-        lastSavedSnapshotRef.current = saveSnapshot
-        setDirty(false)
-        setSaveStatus('saved')
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to save labor operation'
-      if (serializeFormState(formRef.current) === saveSnapshot) {
+      const currentErrors = validateLaborOperationForm(formToSave)
+      if (Object.keys(currentErrors).length > 0) {
+        setErrors(currentErrors)
         setSaveStatus('error')
-        setErrors((prev) => ({ ...prev, code: message }))
+        return
       }
-    } finally {
-      isSavingRef.current = false
-      const shouldQueueSave =
-        hasQueuedSaveRef.current || serializeFormState(formRef.current) !== saveSnapshot
-      if (shouldQueueSave) {
-        hasQueuedSaveRef.current = false
-        void performAutoSave(formRef.current)
+
+      isSavingRef.current = true
+      const payload = buildLaborOperationPayload(formToSave)
+      setSaveStatus('saving')
+
+      try {
+        const targetId = operation?.id ?? createdOperationIdRef.current
+
+        if (targetId) {
+          await updateMutation.mutateAsync({
+            id: targetId,
+            data: payload as UpdateLaborOperationPayload,
+          })
+        } else {
+          const created = await createMutation.mutateAsync(payload)
+          createdOperationIdRef.current = created.id
+        }
+
+        const latestSnapshot = serializeFormState(formRef.current)
+        if (latestSnapshot === saveSnapshot) {
+          setErrors({})
+          lastSavedSnapshotRef.current = saveSnapshot
+          setDirty(false)
+          setSaveStatus('saved')
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to save labor operation'
+        if (serializeFormState(formRef.current) === saveSnapshot) {
+          setSaveStatus('error')
+          setErrors((prev) => ({ ...prev, code: message }))
+        }
+      } finally {
+        isSavingRef.current = false
+        const shouldQueueSave =
+          hasQueuedSaveRef.current || serializeFormState(formRef.current) !== saveSnapshot
+        if (shouldQueueSave) {
+          hasQueuedSaveRef.current = false
+          void performAutoSave(formRef.current)
+        }
       }
-    }
-  }, [buildPayload, createMutation, operation, updateMutation, validateForm])
+    },
+    [createMutation, operation, updateMutation]
+  )
 
   React.useEffect(() => {
     if (!open || isHydrating || !dirty || saveStatus === 'saving') {

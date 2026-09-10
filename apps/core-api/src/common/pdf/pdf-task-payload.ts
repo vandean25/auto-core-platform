@@ -49,6 +49,23 @@ export function signPdfTaskPayload(
   };
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function hasValidTaskClaims(
+  record: Record<string, unknown>,
+): record is PdfTaskClaims & { signature: string } {
+  if (typeof record.kind !== 'string' || !isPdfTaskKind(record.kind)) {
+    return false;
+  }
+  return (
+    isNonEmptyString(record.resourceId) &&
+    isNonEmptyString(record.tenantId) &&
+    isNonEmptyString(record.signature)
+  );
+}
+
 export function verifyPdfTaskPayload(
   payload: unknown,
   secret: string,
@@ -58,27 +75,17 @@ export function verifyPdfTaskPayload(
   }
 
   const record = payload as Record<string, unknown>;
-  const kind = record.kind;
-  const resourceId = record.resourceId;
-  const tenantId = record.tenantId;
-  const signature = record.signature;
-
-  if (
-    typeof kind !== 'string' ||
-    !isPdfTaskKind(kind) ||
-    typeof resourceId !== 'string' ||
-    resourceId.length === 0 ||
-    typeof tenantId !== 'string' ||
-    tenantId.length === 0 ||
-    typeof signature !== 'string' ||
-    signature.length === 0
-  ) {
+  if (!hasValidTaskClaims(record)) {
     throw new UnauthorizedException('Invalid PDF task payload');
   }
 
-  const claims: PdfTaskClaims = { kind, resourceId, tenantId };
+  const claims: PdfTaskClaims = {
+    kind: record.kind,
+    resourceId: record.resourceId,
+    tenantId: record.tenantId,
+  };
   const expected = hmacSignature(claims, secret);
-  if (!signaturesMatch(expected, signature)) {
+  if (!signaturesMatch(expected, record.signature)) {
     throw new UnauthorizedException('Invalid PDF task payload signature');
   }
 

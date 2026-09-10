@@ -333,6 +333,42 @@ export class WorkshopTaskService {
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    await this.validateTaskForLineItemReplacement(orderId, taskId, tenantId);
+    await this.validateLaborOperationIds(dto, tenantId);
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.incrementTaskLineItemsVersion(
+          tx,
+          tenantId,
+          taskId,
+          dto.expectedLineItemsVersion,
+        );
+        const { submittedIds, existingItems } =
+          await this.validateSubmittedLineItemIds(tx, tenantId, taskId, dto);
+
+        await this.handleDeletedLineItems(
+          tx,
+          tenantId,
+          taskId,
+          existingItems,
+          submittedIds,
+        );
+        await this.createNewTaskLineItems(tx, tenantId, taskId, dto.items);
+        await this.updateExistingTaskLineItems(tx, tenantId, taskId, dto.items);
+      });
+    } catch (error) {
+      this.handleTaskLineItemsError(error);
+    }
+
+    return this.orders.findOne(orderId);
+  }
+
+  private async validateTaskForLineItemReplacement(
+    orderId: string,
+    taskId: string,
+    tenantId: string,
+  ) {
     const task = await this.prisma.workshopTask.findFirst({
       where: {
         id: taskId,
@@ -354,8 +390,12 @@ export class WorkshopTaskService {
       throw new NotFoundException(`Task ${taskId} not found for this order`);
     }
     assertOrderEditable(task.workshop_order);
+  }
 
-    // Validate labor operations belong to the current tenant
+  private async validateLaborOperationIds(
+    dto: ReplaceWorkshopTaskLineItemsDto,
+    tenantId: string,
+  ) {
     const laborOperationIds = [
       ...new Set(
         dto.items
@@ -364,202 +404,243 @@ export class WorkshopTaskService {
       ),
     ];
 
-    if (laborOperationIds.length > 0) {
-      const foundCount = await this.prisma.laborOperation.count({
+    if (laborOperationIds.length === 0) {
+      return;
+    }
+
+    const foundCount = await this.prisma.laborOperation.count({
+      where: {
+        id: { in: laborOperationIds },
+        tenant_id: tenantId,
+      },
+    });
+
+    if (foundCount !== laborOperationIds.length) {
+      throw new BadRequestException(
+        'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
+      );
+    }
+  }
+
+  private async incrementTaskLineItemsVersion(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    taskId: string,
+    expectedLineItemsVersion: number,
+  ) {
+    const versionUpdate = await tx.workshopTask.updateMany({
+      where: {
+        id: taskId,
+        tenant_id: tenantId,
+        line_items_version: expectedLineItemsVersion,
+      },
+      data: { line_items_version: { increment: 1 } },
+    });
+    if (versionUpdate.count !== 1) {
+      throw new ConflictException(
+        'Workshop task line items changed; please reload and retry',
+      );
+    }
+  }
+
+  private async validateSubmittedLineItemIds(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    taskId: string,
+    dto: ReplaceWorkshopTaskLineItemsDto,
+  ) {
+    const existingItems =
+      (await tx.workshopTaskLineItem.findMany({
+        where: { tenant_id: tenantId, workshop_task_id: taskId },
+        select: { id: true, part_execution_status: true },
+      })) ?? [];
+
+    const submittedIds = dto.items
+      .map((item) => item.id)
+      .filter((id): id is string => id !== undefined);
+
+    if (new Set(submittedIds).size !== submittedIds.length) {
+      throw new UnprocessableEntityException(
+        'Duplicate line-item IDs are not allowed',
+      );
+    }
+
+    const existingIds = new Set(existingItems.map((item) => item.id));
+    if (submittedIds.some((id) => !existingIds.has(id))) {
+      throw new UnprocessableEntityException(
+        'One or more line-item IDs were not found for this task',
+      );
+    }
+
+    return { submittedIds, existingItems };
+  }
+
+  private async handleDeletedLineItems(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    taskId: string,
+    existingItems: Array<{
+      id: string;
+      part_execution_status: WorkshopPartLineExecutionStatus | null;
+    }>,
+    submittedIds: string[],
+  ) {
+    const deletedIds = existingItems
+      .map((item) => item.id)
+      .filter((id) => !submittedIds.includes(id));
+
+    if (deletedIds.length === 0) {
+      return;
+    }
+
+    const reservedLineIds = new Set<string>();
+    const ledgerLineIds = new Set<string>();
+    const consumedQuantities = new Map<string, Prisma.Decimal>();
+    const isConsumed = (id: string) =>
+      consumedQuantities.get(id)?.greaterThan(0) ?? false;
+    const hasOperationalHistory = (id: string) =>
+      reservedLineIds.has(id) || ledgerLineIds.has(id);
+    const hardDeleteIds = deletedIds.filter(
+      (id) => !hasOperationalHistory(id) && !isConsumed(id),
+    );
+    const cancelIds = deletedIds.filter(
+      (id) => hasOperationalHistory(id) && !isConsumed(id),
+    );
+    const consumedIds = deletedIds.filter(isConsumed);
+
+    if (consumedIds.length > 0) {
+      throw new ConflictException(
+        'Consumed line items must be released before removal',
+      );
+    }
+    if (hardDeleteIds.length > 0) {
+      await tx.workshopTaskLineItem.deleteMany({
         where: {
-          id: { in: laborOperationIds },
           tenant_id: tenantId,
+          workshop_task_id: taskId,
+          id: { in: hardDeleteIds },
         },
       });
-
-      if (foundCount !== laborOperationIds.length) {
-        throw new BadRequestException(
-          'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
-        );
-      }
     }
-
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        const versionUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: taskId,
-            tenant_id: tenantId,
-            line_items_version: dto.expectedLineItemsVersion,
-          },
-          data: { line_items_version: { increment: 1 } },
-        });
-        if (versionUpdate.count !== 1) {
-          throw new ConflictException(
-            'Workshop task line items changed; please reload and retry',
-          );
-        }
-
-        const existingItems =
-          (await tx.workshopTaskLineItem.findMany({
-            where: { tenant_id: tenantId, workshop_task_id: taskId },
-            select: { id: true, part_execution_status: true },
-          })) ?? [];
-        const submittedIds = dto.items
-          .map((item) => item.id)
-          .filter((id): id is string => id !== undefined);
-        if (new Set(submittedIds).size !== submittedIds.length) {
-          throw new UnprocessableEntityException(
-            'Duplicate line-item IDs are not allowed',
-          );
-        }
-        const existingIds = new Set(existingItems.map((item) => item.id));
-        if (submittedIds.some((id) => !existingIds.has(id))) {
-          throw new UnprocessableEntityException(
-            'One or more line-item IDs were not found for this task',
-          );
-        }
-        const deletedIds = existingItems
-          .map((item) => item.id)
-          .filter((id) => !submittedIds.includes(id));
-
-        if (deletedIds.length > 0) {
-          // M2 has no reservation/consumption/ledger relation yet. Keep these
-          // branches explicit so M3 can populate the sets without changing
-          // PATCH semantics.
-          const reservedLineIds = new Set<string>();
-          const ledgerLineIds = new Set<string>();
-          const consumedQuantities = new Map<string, Prisma.Decimal>();
-          const isConsumed = (id: string) =>
-            consumedQuantities.get(id)?.greaterThan(0) ?? false;
-          const hasOperationalHistory = (id: string) =>
-            reservedLineIds.has(id) || ledgerLineIds.has(id);
-          const hardDeleteIds = deletedIds.filter(
-            (id) => !hasOperationalHistory(id) && !isConsumed(id),
-          );
-          const cancelIds = deletedIds.filter(
-            (id) => hasOperationalHistory(id) && !isConsumed(id),
-          );
-          const consumedIds = deletedIds.filter(isConsumed);
-
-          if (consumedIds.length > 0) {
-            throw new ConflictException(
-              'Consumed line items must be released before removal',
-            );
-          }
-          if (hardDeleteIds.length > 0) {
-            await tx.workshopTaskLineItem.deleteMany({
-              where: {
-                tenant_id: tenantId,
-                workshop_task_id: taskId,
-                id: { in: hardDeleteIds },
-              },
-            });
-          }
-          if (cancelIds.length > 0) {
-            await tx.workshopTaskLineItem.updateMany({
-              where: {
-                tenant_id: tenantId,
-                workshop_task_id: taskId,
-                id: { in: cancelIds },
-              },
-              data: {
-                part_execution_status:
-                  WorkshopPartLineExecutionStatus.CANCELLED,
-              },
-            });
-          }
-        }
-
-        const newItems = dto.items.filter((item) => !item.id);
-        if (newItems.length > 0) {
-          await tx.workshopTaskLineItem.createMany({
-            data: newItems.map((item) => ({
-              tenant_id: tenantId,
-              workshop_task_id: taskId,
-              type:
-                item.type === WorkshopLineItemType.LABOR
-                  ? WorkshopLineItemType.LABOR
-                  : WorkshopLineItemType.PART,
-              part_execution_status:
-                item.type === WorkshopLineItemType.PART
-                  ? WorkshopPartLineExecutionStatus.PENDING_PICK
-                  : null,
-              item_no: item.itemNo,
-              description: item.description,
-              quantity: new Prisma.Decimal(item.qty),
-              unit_price: new Prisma.Decimal(item.unitPrice),
-              labor_operation_id: item.laborOperationId ?? null,
-              standard_aw:
-                item.standardAw != null
-                  ? new Prisma.Decimal(item.standardAw)
-                  : null,
-              actual_hours:
-                item.actualHours != null
-                  ? new Prisma.Decimal(item.actualHours)
-                  : null,
-              internal_cost_rate:
-                item.internalCostRate != null
-                  ? new Prisma.Decimal(item.internalCostRate)
-                  : null,
-            })),
-          });
-        }
-
-        await Promise.all(
-          dto.items
-            .filter((item): item is typeof item & { id: string } => !!item.id)
-            .map((item) =>
-              tx.workshopTaskLineItem.updateMany({
-                where: {
-                  id: item.id,
-                  tenant_id: tenantId,
-                  workshop_task_id: taskId,
-                },
-                data: {
-                  description: item.description,
-                  quantity: new Prisma.Decimal(item.qty),
-                  unit_price: new Prisma.Decimal(item.unitPrice),
-                  ...(item.actualHours != null && {
-                    actual_hours: new Prisma.Decimal(item.actualHours),
-                  }),
-                  ...(item.standardAw != null && {
-                    standard_aw: new Prisma.Decimal(item.standardAw),
-                  }),
-                  ...(item.internalCostRate != null && {
-                    internal_cost_rate: new Prisma.Decimal(
-                      item.internalCostRate,
-                    ),
-                  }),
-                  ...(item.laborOperationId !== undefined && {
-                    labor_operation_id: item.laborOperationId,
-                  }),
-                },
-              }),
-            ),
-        );
+    if (cancelIds.length > 0) {
+      await tx.workshopTaskLineItem.updateMany({
+        where: {
+          tenant_id: tenantId,
+          workshop_task_id: taskId,
+          id: { in: cancelIds },
+        },
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
       });
-    } catch (error) {
-      const fieldName =
-        error instanceof Prisma.PrismaClientKnownRequestError
-          ? error.meta?.field_name
-          : undefined;
-      const fieldNameText =
-        typeof fieldName === 'string'
-          ? fieldName
-          : Array.isArray(fieldName)
-            ? fieldName
-                .filter((part): part is string => typeof part === 'string')
-                .join(',')
-            : '';
+    }
+  }
 
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003' &&
-        fieldNameText.includes('labor_operation_id')
-      ) {
-        throw new BadRequestException(
-          'Invalid laborOperationId: referenced labor operation was not found',
-        );
-      }
-      throw error;
+  private async createNewTaskLineItems(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    taskId: string,
+    items: ReplaceWorkshopTaskLineItemsDto['items'],
+  ) {
+    const newItems = items.filter((item) => !item.id);
+    if (newItems.length === 0) {
+      return;
     }
 
-    return this.orders.findOne(orderId);
+    await tx.workshopTaskLineItem.createMany({
+      data: newItems.map((item) => ({
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        type:
+          item.type === WorkshopLineItemType.LABOR
+            ? WorkshopLineItemType.LABOR
+            : WorkshopLineItemType.PART,
+        part_execution_status:
+          item.type === WorkshopLineItemType.PART
+            ? WorkshopPartLineExecutionStatus.PENDING_PICK
+            : null,
+        item_no: item.itemNo,
+        description: item.description,
+        quantity: new Prisma.Decimal(item.qty),
+        unit_price: new Prisma.Decimal(item.unitPrice),
+        labor_operation_id: item.laborOperationId ?? null,
+        standard_aw:
+          item.standardAw != null ? new Prisma.Decimal(item.standardAw) : null,
+        actual_hours:
+          item.actualHours != null
+            ? new Prisma.Decimal(item.actualHours)
+            : null,
+        internal_cost_rate:
+          item.internalCostRate != null
+            ? new Prisma.Decimal(item.internalCostRate)
+            : null,
+      })),
+    });
+  }
+
+  private async updateExistingTaskLineItems(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    taskId: string,
+    items: ReplaceWorkshopTaskLineItemsDto['items'],
+  ) {
+    const existingItemsToUpdate = items.filter(
+      (item): item is typeof item & { id: string } => !!item.id,
+    );
+
+    await Promise.all(
+      existingItemsToUpdate.map((item) =>
+        tx.workshopTaskLineItem.updateMany({
+          where: {
+            id: item.id,
+            tenant_id: tenantId,
+            workshop_task_id: taskId,
+          },
+          data: {
+            description: item.description,
+            quantity: new Prisma.Decimal(item.qty),
+            unit_price: new Prisma.Decimal(item.unitPrice),
+            ...(item.actualHours != null && {
+              actual_hours: new Prisma.Decimal(item.actualHours),
+            }),
+            ...(item.standardAw != null && {
+              standard_aw: new Prisma.Decimal(item.standardAw),
+            }),
+            ...(item.internalCostRate != null && {
+              internal_cost_rate: new Prisma.Decimal(item.internalCostRate),
+            }),
+            ...(item.laborOperationId !== undefined && {
+              labor_operation_id: item.laborOperationId,
+            }),
+          },
+        }),
+      ),
+    );
+  }
+
+  private handleTaskLineItemsError(error: unknown): never {
+    const fieldName =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.meta?.field_name
+        : undefined;
+    const fieldNameText =
+      typeof fieldName === 'string'
+        ? fieldName
+        : Array.isArray(fieldName)
+          ? fieldName
+              .filter((part): part is string => typeof part === 'string')
+              .join(',')
+          : '';
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003' &&
+      fieldNameText.includes('labor_operation_id')
+    ) {
+      throw new BadRequestException(
+        'Invalid laborOperationId: referenced labor operation was not found',
+      );
+    }
+    throw error;
   }
 }
