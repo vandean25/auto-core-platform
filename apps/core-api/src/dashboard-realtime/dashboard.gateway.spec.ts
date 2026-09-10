@@ -193,7 +193,9 @@ describe('DashboardGateway', () => {
       expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
       expect(client.join).toHaveBeenCalledWith('user_user-1');
 
-      const logCalls = loggerDebugSpy.mock.calls.map((call) => JSON.parse(call[0]));
+      const logCalls = loggerDebugSpy.mock.calls.map((call) =>
+        JSON.parse(call[0]),
+      );
       expect(logCalls).toContainEqual(
         expect.objectContaining({
           type: 'ws_connect',
@@ -240,7 +242,9 @@ describe('DashboardGateway', () => {
 
       gateway.handleDisconnect(client as unknown as Socket);
 
-      const logCalls = loggerDebugSpy.mock.calls.map((call) => JSON.parse(call[0]));
+      const logCalls = loggerDebugSpy.mock.calls.map((call) =>
+        JSON.parse(call[0]),
+      );
       expect(logCalls).toContainEqual(
         expect.objectContaining({
           type: 'ws_disconnect',
@@ -300,10 +304,7 @@ describe('DashboardGateway', () => {
     gateway.emitSiteAccessScopeUpdated('user-1', payload);
 
     expect(to).toHaveBeenCalledWith('user_user-1');
-    expect(emit).toHaveBeenCalledWith(
-      SITE_ACCESS_SCOPE_UPDATED_EVENT,
-      payload,
-    );
+    expect(emit).toHaveBeenCalledWith(SITE_ACCESS_SCOPE_UPDATED_EVENT, payload);
   });
 
   it('moves every user-room socket to the new site room then emits site context updated', async () => {
@@ -315,6 +316,7 @@ describe('DashboardGateway', () => {
     const fetchSockets = jest.fn().mockResolvedValue([
       {
         data: socketData,
+        rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
         leave,
         join,
       },
@@ -349,6 +351,7 @@ describe('DashboardGateway', () => {
     const fetchSockets = jest.fn().mockResolvedValue([
       {
         data: socketData,
+        rooms: new Set(['socket-1', 'user_user-1', 'site_site-old']),
         leave,
         join,
       },
@@ -368,6 +371,40 @@ describe('DashboardGateway', () => {
     expect(leave).toHaveBeenCalledWith('site_site-old');
     expect(join).not.toHaveBeenCalled();
     expect(socketData.activeSiteId).toBeNull();
+  });
+
+  it('uses the remote socket room set when moving a socket repeatedly', async () => {
+    const leave = jest.fn();
+    const join = jest.fn();
+    const emit = jest.fn();
+    const remoteSocket = (activeSiteId: string, siteRoom: string) => ({
+      data: { activeSiteId },
+      rooms: new Set(['socket-1', 'user_user-1', siteRoom]),
+      leave,
+      join,
+    });
+    const fetchSockets = jest
+      .fn()
+      .mockResolvedValueOnce([remoteSocket('site-old', 'site_site-old')])
+      .mockResolvedValueOnce([remoteSocket('site-old', 'site_site-new')]);
+    gateway.server = {
+      to: jest.fn().mockReturnValue({ emit }),
+      in: jest.fn().mockReturnValue({ fetchSockets }),
+    } as unknown as DashboardGateway['server'];
+
+    await gateway.emitSiteContextUpdated('user-1', {
+      siteId: 'site-new',
+      timestamp: new Date().toISOString(),
+    });
+    await gateway.emitSiteContextUpdated('user-1', {
+      siteId: 'site-third',
+      timestamp: new Date().toISOString(),
+    });
+
+    expect(leave).toHaveBeenNthCalledWith(1, 'site_site-old');
+    expect(leave).toHaveBeenNthCalledWith(2, 'site_site-new');
+    expect(join).toHaveBeenNthCalledWith(1, 'site_site-new');
+    expect(join).toHaveBeenNthCalledWith(2, 'site_site-third');
   });
 
   describe('connectRedisClients', () => {
@@ -505,9 +542,7 @@ describe('DashboardGateway', () => {
           mockServer as unknown as Server,
           'redis://10.0.0.3:6379',
         );
-        await expect(
-          gatewayWithRedis.onApplicationBootstrap(),
-        ).rejects.toThrow(
+        await expect(gatewayWithRedis.onApplicationBootstrap()).rejects.toThrow(
           /CRITICAL: Failed to connect to Redis at redis:\/\/10.0.0.3:6379/,
         );
       } finally {
@@ -520,16 +555,16 @@ describe('DashboardGateway', () => {
 
     it('keeps default in-memory adapter when REDIS_URL is unset', () => {
       jest.clearAllMocks();
-      const gatewayWithoutRedis = new DashboardGateway(authService, siteContext);
+      const gatewayWithoutRedis = new DashboardGateway(
+        authService,
+        siteContext,
+      );
       const mockServer = {
         use: jest.fn(),
         adapter: jest.fn(),
       };
 
-      gatewayWithoutRedis.afterInit(
-        mockServer as unknown as Server,
-        undefined,
-      );
+      gatewayWithoutRedis.afterInit(mockServer as unknown as Server, undefined);
 
       expect(createAdapter).not.toHaveBeenCalled();
       expect(mockServer.adapter).not.toHaveBeenCalled();

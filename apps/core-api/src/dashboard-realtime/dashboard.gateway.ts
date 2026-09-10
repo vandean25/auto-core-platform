@@ -387,10 +387,16 @@ export class DashboardGateway
       const sockets = await this.server.in(room).fetchSockets();
       for (const socket of sockets) {
         const data = socket.data as Record<string, unknown>;
-        const previousSiteId =
-          typeof data.activeSiteId === 'string' ? data.activeSiteId : undefined;
-        if (previousSiteId && previousSiteId !== payload.siteId) {
-          socket.leave(`${DashboardGateway.SITE_ROOM_PREFIX}${previousSiteId}`);
+        for (const room of socket.rooms) {
+          if (
+            room.startsWith(DashboardGateway.SITE_ROOM_PREFIX) &&
+            room !==
+              (payload.siteId
+                ? `${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`
+                : undefined)
+          ) {
+            socket.leave(room);
+          }
         }
         if (payload.siteId) {
           socket.join(`${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`);

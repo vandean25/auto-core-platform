@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 import { authSessionKeys } from './auth-session'
+import { inventoryKeys } from './inventory'
+import { vehicleStockKeys } from './vehicle-stock'
+import { workshopKeys } from './workshop'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
@@ -12,10 +15,15 @@ export const siteKeys = {
   me: () => [...siteKeys.all, 'me'] as const,
 }
 
+const SITE_SCOPED_QUERY_KEYS = [
+  workshopKeys.all,
+  inventoryKeys.all,
+  vehicleStockKeys.all,
+] as const
+
 async function getErrorMessage(response: Response, fallbackMessage: string) {
   const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined
+    { message?: string } | undefined
   return payload?.message || fallbackMessage
 }
 
@@ -70,6 +78,12 @@ export function useSetActiveSite() {
         queryKey: siteKeys.me(),
         refetchType: 'active',
       })
+      for (const queryKey of SITE_SCOPED_QUERY_KEYS) {
+        await queryClient.invalidateQueries({
+          queryKey,
+          refetchType: 'active',
+        })
+      }
     },
   })
 }

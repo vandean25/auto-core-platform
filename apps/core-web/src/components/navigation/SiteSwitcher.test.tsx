@@ -59,6 +59,25 @@ describe('SiteSwitcher', () => {
     expect(onSwitch).toHaveBeenCalledWith('site-vienna')
   })
 
+  it('allows selecting a site during multi-site recovery', async () => {
+    const onSwitch = vi.fn()
+
+    render(
+      <SiteSwitcher
+        activeSiteId={null}
+        sites={[vienna, munich]}
+        isLoadingSites={false}
+        isSwitching={false}
+        onSwitch={onSwitch}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Switch site' }))
+    fireEvent.click(await screen.findByRole('option', { name: /Munich/ }))
+
+    expect(onSwitch).toHaveBeenCalledWith('site-munich')
+  })
+
   it('renders the current site with a dropdown of switchable sites', () => {
     const onSwitch = vi.fn()
 
