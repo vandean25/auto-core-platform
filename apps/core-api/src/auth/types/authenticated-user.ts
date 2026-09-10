@@ -3,6 +3,7 @@ export type TenantAuthenticatedUser = {
   email: string;
   tenantId: string;
   role: string;
+  activeSiteId?: string | null;
   platformRole?: string;
 };
 
