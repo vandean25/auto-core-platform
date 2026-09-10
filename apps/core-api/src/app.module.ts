@@ -40,6 +40,7 @@ import { VoiceTranslationModule } from './voice-translation/voice-translation.mo
 import { SettingsModule } from './settings/settings.module';
 import { AuditModule } from './audit/audit.module';
 import { HrModule } from './hr/hr.module';
+import { PartsRequisitionModule } from './parts-requisition/parts-requisition.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -73,6 +74,7 @@ import { HealthController } from './health.controller';
     SettingsModule,
     AuditModule,
     HrModule,
+    PartsRequisitionModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
