@@ -43,6 +43,7 @@ describe('WorkshopTaskService', () => {
     service = module.get(WorkshopTaskService);
     orders = module.get(WorkshopIntakeService);
     resetWorkshopMocks();
+    mockPrisma.partsReservation.findMany.mockResolvedValue([]);
   });
   it('derives workshop order status from task updates', async () => {
     mockPrisma.workshopTask.findFirst.mockResolvedValue({
@@ -420,6 +421,136 @@ describe('WorkshopTaskService', () => {
     });
     expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalled();
     expect(mockPrisma.workshopTaskLineItem.createMany).toHaveBeenCalled();
+  });
+
+  it('rejects a quantity reduction below active allocated demand before any mutation', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 3,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'line-1',
+        quantity: new Prisma.Decimal('5'),
+        part_execution_status: null,
+      },
+    ]);
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal('4'),
+        quantity_consumed: new Prisma.Decimal('0'),
+        quantity_returned: new Prisma.Decimal('0'),
+        quantity_staged: new Prisma.Decimal('0'),
+        status: 'OPEN',
+      },
+    ]);
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        expectedLineItemsVersion: 3,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Pad',
+            qty: 3,
+            unitPrice: 10,
+          },
+        ],
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.createMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects deleting a line below consumed demand before version or line writes', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 3,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'line-1',
+        quantity: new Prisma.Decimal('2'),
+        part_execution_status: null,
+      },
+    ]);
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal('2'),
+        quantity_consumed: new Prisma.Decimal('1'),
+        quantity_returned: new Prisma.Decimal('0'),
+        quantity_staged: new Prisma.Decimal('1'),
+        status: 'STAGED',
+      },
+    ]);
+
+    await expect(
+      service.replaceTaskLineItems('wo-1', 't-1', {
+        expectedLineItemsVersion: 3,
+        items: [],
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    expect(mockPrisma.workshopTask.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('detects reservation history and cancels rather than hard-deleting an unconsumed line', async () => {
+    mockPrisma.workshopTask.findFirst.mockResolvedValue({
+      id: 't-1',
+      workshop_order_id: 'wo-1',
+      line_items_version: 3,
+      workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
+    });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
+      {
+        id: 'line-1',
+        quantity: new Prisma.Decimal('2'),
+        part_execution_status: null,
+      },
+    ]);
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal('2'),
+        quantity_consumed: new Prisma.Decimal('0'),
+        quantity_returned: new Prisma.Decimal('2'),
+        quantity_staged: new Prisma.Decimal('0'),
+        status: 'CANCELLED',
+      },
+    ]);
+    mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 1 });
+    jest.spyOn(orders, 'findOne').mockResolvedValue({ id: 'wo-1' } as any);
+
+    await service.replaceTaskLineItems('wo-1', 't-1', {
+      expectedLineItemsVersion: 3,
+      items: [],
+    });
+
+    expect(mockPrisma.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      }),
+    );
   });
 
   it('rejects duplicate line-item ids with UnprocessableEntityException', async () => {

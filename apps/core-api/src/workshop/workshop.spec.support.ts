@@ -1,4 +1,6 @@
 import {
+  PartsReservationKind,
+  PartsReservationStatus,
   Prisma,
   TransactionType,
   WorkshopPartLineExecutionStatus,
@@ -9,6 +11,7 @@ import {
 import { LedgerService } from '../inventory/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 
@@ -81,6 +84,7 @@ export const mockPrisma = {
   storageLocation: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     createMany: jest.fn(),
   },
   workshopTask: {
@@ -103,6 +107,14 @@ export const mockPrisma = {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
   },
+  inventoryTransaction: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+  },
+  partsReservation: {
+    findMany: jest.fn(),
+    updateMany: jest.fn(),
+  },
   workshopTaskLineItem: {
     deleteMany: jest.fn(),
     createMany: jest.fn(),
@@ -112,6 +124,8 @@ export const mockPrisma = {
   laborOperation: {
     count: jest.fn(),
   },
+  $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
   $transaction: jest.fn(),
 };
 
@@ -143,6 +157,10 @@ export const mockTenantContext = {
   }),
 };
 
+export const mockSiteContext = {
+  getSiteId: jest.fn().mockResolvedValue('site-1'),
+};
+
 export function resetWorkshopMocks() {
   jest.clearAllMocks();
   mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
@@ -158,6 +176,10 @@ export const workshopTenantProvider = {
   provide: TenantContextService,
   useValue: mockTenantContext,
 };
+export const workshopSiteProvider = {
+  provide: SiteContextService,
+  useValue: mockSiteContext,
+};
 export const workshopInvoiceProvider = {
   provide: InvoicesService,
   useValue: mockInvoices,
@@ -172,6 +194,8 @@ export const workshopVehicleLedgerProvider = {
 };
 
 export {
+  PartsReservationKind,
+  PartsReservationStatus,
   Prisma,
   TransactionType,
   WorkshopPartLineExecutionStatus,
