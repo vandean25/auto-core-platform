@@ -523,11 +523,16 @@ export class WorkshopIntakeService {
     sortDirection?: 'asc' | 'desc';
   }) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const { page, pageSize, skip } = resolveFindAllPagination(
       params.page,
       params.pageSize,
     );
-    const where = buildWorkshopOrderFindAllWhere(tenantId, params.search);
+    const where = buildWorkshopOrderFindAllWhere(
+      tenantId,
+      siteId,
+      params.search,
+    );
     const orderBy = buildWorkshopOrderOrderBy(
       params.sortField,
       params.sortDirection,
@@ -559,8 +564,9 @@ export class WorkshopIntakeService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: ORDER_WITH_INVOICE_RELATIONS,
     });
 
@@ -572,6 +578,8 @@ export class WorkshopIntakeService {
   }
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const existing = await this.findOne(id);
     assertOrderEditable(existing);
 
@@ -597,8 +605,8 @@ export class WorkshopIntakeService {
           tx,
         );
 
-        return tx.workshopOrder.update({
-          where: { id },
+        const updateResult = await tx.workshopOrder.updateMany({
+          where: { id, tenant_id: tenantId, site_id: siteId },
           data: {
             reported_issue: dto.reportedIssue,
             notes: dto.notes,
@@ -607,6 +615,13 @@ export class WorkshopIntakeService {
             scheduled_start_at: scheduleData.start,
             scheduled_end_at: scheduleData.end,
           },
+        });
+        if (updateResult.count === 0) {
+          throw new NotFoundException(`Workshop order ${id} not found`);
+        }
+
+        return tx.workshopOrder.findFirstOrThrow({
+          where: { id, tenant_id: tenantId, site_id: siteId },
           include: ORDER_WITH_INVOICE_RELATIONS,
         });
       });
@@ -614,16 +629,18 @@ export class WorkshopIntakeService {
       return normalizeWorkshopOrder(updated);
     }
 
-    const updated = await this.prisma.workshopOrder.update({
-      where: { id },
+    const updateResult = await this.prisma.workshopOrder.updateMany({
+      where: { id, tenant_id: tenantId, site_id: siteId },
       data: {
         reported_issue: dto.reportedIssue,
         notes: dto.notes,
       },
-      include: ORDER_WITH_INVOICE_RELATIONS,
     });
+    if (updateResult.count === 0) {
+      throw new NotFoundException(`Workshop order ${id} not found`);
+    }
 
-    return normalizeWorkshopOrder(updated);
+    return this.findOne(id);
   }
 
   async search(query: string) {

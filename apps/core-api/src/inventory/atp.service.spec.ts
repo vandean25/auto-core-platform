@@ -221,8 +221,14 @@ describe('AtpService', () => {
       quantity_reserved: new Prisma.Decimal('3.5'),
     });
     prisma.partsReservation.findMany.mockResolvedValue([
-      { quantity: new Prisma.Decimal('1.5') },
-      { quantity: new Prisma.Decimal('2') },
+      {
+        quantity: new Prisma.Decimal('1.5'),
+        quantity_received: new Prisma.Decimal('0'),
+      },
+      {
+        quantity: new Prisma.Decimal('2'),
+        quantity_received: new Prisma.Decimal('0'),
+      },
     ]);
 
     await expect(service.reconcileStock(STOCK_ID)).resolves.toBeUndefined();
@@ -238,7 +244,7 @@ describe('AtpService', () => {
           catalog_item_id: 'item-1',
         },
       },
-      select: { quantity: true },
+      select: { quantity: true, quantity_received: true },
     });
   });
 
@@ -251,7 +257,68 @@ describe('AtpService', () => {
       quantity_reserved: new Prisma.Decimal('3.5'),
     });
     prisma.partsReservation.findMany.mockResolvedValue([
-      { quantity: new Prisma.Decimal('2') },
+      {
+        quantity: new Prisma.Decimal('2'),
+        quantity_received: new Prisma.Decimal('0'),
+      },
+    ]);
+
+    await expect(service.reconcileStock(STOCK_ID)).rejects.toBeInstanceOf(
+      InternalServerErrorException,
+    );
+  });
+
+  it('reconciles only the remaining open commitment after partial staging', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      catalog_item_id: 'item-1',
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('10'),
+      quantity_reserved: new Prisma.Decimal('3'),
+    });
+    prisma.partsReservation.findMany.mockResolvedValue([
+      {
+        quantity: new Prisma.Decimal('4'),
+        quantity_received: new Prisma.Decimal('1'),
+      },
+    ]);
+
+    await expect(service.reconcileStock(STOCK_ID)).resolves.toBeUndefined();
+  });
+
+  it('fails closed when an open reservation counter is negative', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      catalog_item_id: 'item-1',
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('10'),
+      quantity_reserved: new Prisma.Decimal('3'),
+    });
+    prisma.partsReservation.findMany.mockResolvedValue([
+      {
+        quantity: new Prisma.Decimal('4'),
+        quantity_received: new Prisma.Decimal('-1'),
+      },
+    ]);
+
+    await expect(service.reconcileStock(STOCK_ID)).rejects.toBeInstanceOf(
+      InternalServerErrorException,
+    );
+  });
+
+  it('fails closed when an open reservation has received more than reserved', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      catalog_item_id: 'item-1',
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('10'),
+      quantity_reserved: new Prisma.Decimal('0'),
+    });
+    prisma.partsReservation.findMany.mockResolvedValue([
+      {
+        quantity: new Prisma.Decimal('4'),
+        quantity_received: new Prisma.Decimal('5'),
+      },
     ]);
 
     await expect(service.reconcileStock(STOCK_ID)).rejects.toBeInstanceOf(

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EmployeeRole, WorkshopOrderStatus, type Prisma } from '@prisma/client';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
@@ -35,6 +36,7 @@ export class WorkshopScheduleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly settingsService: WorkshopSettingsService,
     private readonly plannerService: WorkshopPlannerService,
   ) {}
@@ -66,9 +68,15 @@ export class WorkshopScheduleService {
     }
 
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const db = tx ?? this.prisma;
     const locked = await db.bay.updateMany({
-      where: { id: dto.bayId, tenant_id: tenantId, is_active: true },
+      where: {
+        id: dto.bayId,
+        tenant_id: tenantId,
+        site_id: siteId,
+        is_active: true,
+      },
       data: { updatedAt: new Date() },
     });
     if (locked.count === 0) {
@@ -95,6 +103,7 @@ export class WorkshopScheduleService {
     await this.assertBayFree({
       db,
       tenantId,
+      siteId,
       bayId: dto.bayId,
       start,
       end,
@@ -107,6 +116,7 @@ export class WorkshopScheduleService {
   private async assertBayFree(input: {
     db: Prisma.TransactionClient | PrismaService;
     tenantId: string;
+    siteId: string;
     bayId: string;
     start: Date;
     end: Date;
@@ -115,6 +125,7 @@ export class WorkshopScheduleService {
     const occupying = await input.db.workshopOrder.findMany({
       where: {
         tenant_id: input.tenantId,
+        site_id: input.siteId,
         bay_id: input.bayId,
         status: { in: ACTIVE_STATUSES },
         ...(input.excludeOrderId ? { id: { not: input.excludeOrderId } } : {}),
@@ -132,7 +143,7 @@ export class WorkshopScheduleService {
       input.tenantId,
     );
     const holidays = await input.db.workshopHoliday.findMany({
-      where: { tenant_id: input.tenantId },
+      where: { tenant_id: input.tenantId, site_id: input.siteId },
     });
     const todayLocal = formatLocalDate(new Date(), settings.timezone);
     const todayHours = this.plannerService.effectiveHours(

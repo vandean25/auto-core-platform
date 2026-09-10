@@ -19,6 +19,7 @@ import {
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
@@ -37,6 +38,8 @@ export class WorkshopTaskService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
     @Inject(VehicleLedgerService)
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
@@ -45,6 +48,7 @@ export class WorkshopTaskService {
   private async resolveDefaultTaskScheduledDate(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     order: {
       tasks: { id: string }[];
       scheduled_start_at: Date | null;
@@ -55,7 +59,7 @@ export class WorkshopTaskService {
     }
 
     const settings = await tx.site.findFirst({
-      where: { tenant_id: tenantId, code: 'MAIN', is_active: true },
+      where: { tenant_id: tenantId, id: siteId, is_active: true },
       select: { timezone: true },
     });
     const timeZone = settings?.timezone ?? 'Europe/Vienna';
@@ -67,11 +71,12 @@ export class WorkshopTaskService {
   private async applyDerivedOrderStatus(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     orderId: string,
     nextOrderStatus: WorkshopOrderStatus,
   ) {
     const order = await tx.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       select: { status: true },
     });
     if (!order) {
@@ -88,6 +93,7 @@ export class WorkshopTaskService {
       await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
         id: orderId,
         tenantId,
+        extraWhere: { site_id: siteId },
         from: order.status,
         to: nextOrderStatus,
         conflictMessage:
@@ -98,7 +104,7 @@ export class WorkshopTaskService {
         throw error;
       }
       const latest = await tx.workshopOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
+        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
         select: { status: true },
       });
       if (!latest) {
@@ -121,9 +127,10 @@ export class WorkshopTaskService {
 
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const createdTask = await this.prisma.$transaction(async (tx) => {
       const order = await tx.workshopOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
+        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
         include: {
           tasks: true,
           invoice: { select: { id: true, invoice_number: true } },
@@ -138,6 +145,7 @@ export class WorkshopTaskService {
       const scheduledDate = await this.resolveDefaultTaskScheduledDate(
         tx,
         tenantId,
+        siteId,
         order,
       );
 
@@ -163,6 +171,7 @@ export class WorkshopTaskService {
         const applied = await this.applyDerivedOrderStatus(
           tx,
           tenantId,
+          siteId,
           orderId,
           nextOrderStatus,
         );
@@ -191,12 +200,14 @@ export class WorkshopTaskService {
     dto: UpdateWorkshopTaskDto,
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     await this.prisma.$transaction(async (tx) => {
       const task = await tx.workshopTask.findFirst({
         where: {
           id: taskId,
           tenant_id: tenantId,
           workshop_order_id: orderId,
+          workshop_order: { site_id: siteId },
         },
         include: {
           workshop_order: {
@@ -229,7 +240,10 @@ export class WorkshopTaskService {
           tenantId,
           from: task.status,
           to: nextStatus,
-          extraWhere: { workshop_order_id: orderId },
+          extraWhere: {
+            workshop_order_id: orderId,
+            workshop_order: { site_id: siteId },
+          },
           extraData: fieldData,
           conflictMessage: `Task ${taskId} status changed concurrently. Please refresh and try again.`,
         });
@@ -239,6 +253,7 @@ export class WorkshopTaskService {
             id: taskId,
             tenant_id: tenantId,
             workshop_order_id: orderId,
+            workshop_order: { site_id: siteId },
           },
           data: fieldData,
         });
@@ -251,7 +266,11 @@ export class WorkshopTaskService {
       }
 
       const tasks = await tx.workshopTask.findMany({
-        where: { workshop_order_id: orderId, tenant_id: tenantId },
+        where: {
+          workshop_order_id: orderId,
+          tenant_id: tenantId,
+          workshop_order: { site_id: siteId },
+        },
         select: { status: true },
       });
 
@@ -259,6 +278,7 @@ export class WorkshopTaskService {
       const updateResult = await this.applyDerivedOrderStatus(
         tx,
         tenantId,
+        siteId,
         orderId,
         nextOrderStatus,
       );
@@ -272,12 +292,14 @@ export class WorkshopTaskService {
 
   async deleteTask(orderId: string, taskId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     await this.prisma.$transaction(async (tx) => {
       const task = await tx.workshopTask.findFirst({
         where: {
           id: taskId,
           tenant_id: tenantId,
           workshop_order_id: orderId,
+          workshop_order: { site_id: siteId },
         },
         include: {
           workshop_order: {
@@ -302,7 +324,11 @@ export class WorkshopTaskService {
       }
 
       const deleteResult = await tx.workshopTask.deleteMany({
-        where: { id: taskId, tenant_id: tenantId },
+        where: {
+          id: taskId,
+          tenant_id: tenantId,
+          workshop_order: { site_id: siteId },
+        },
       });
 
       if (deleteResult.count === 0) {
@@ -310,7 +336,11 @@ export class WorkshopTaskService {
       }
 
       const tasks = await tx.workshopTask.findMany({
-        where: { workshop_order_id: orderId, tenant_id: tenantId },
+        where: {
+          workshop_order_id: orderId,
+          tenant_id: tenantId,
+          workshop_order: { site_id: siteId },
+        },
         select: { status: true },
       });
 
@@ -320,6 +350,7 @@ export class WorkshopTaskService {
       await this.applyDerivedOrderStatus(
         tx,
         tenantId,
+        siteId,
         orderId,
         nextOrderStatus,
       );
@@ -334,23 +365,37 @@ export class WorkshopTaskService {
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
     const tenantId = await this.tenantContext.getTenantId();
-    await this.validateTaskForLineItemReplacement(orderId, taskId, tenantId);
+    const siteId = await this.siteContext.getSiteId();
+    await this.validateTaskForLineItemReplacement(
+      orderId,
+      taskId,
+      tenantId,
+      siteId,
+    );
     await this.validateLaborOperationIds(dto, tenantId);
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await this.lockRows(tx, 'workshop_tasks', tenantId, [taskId]);
+        await this.lockRows(tx, 'workshop_tasks', tenantId, [taskId], siteId);
         const { submittedIds, existingItems } =
-          await this.validateSubmittedLineItemIds(tx, tenantId, taskId, dto);
+          await this.validateSubmittedLineItemIds(
+            tx,
+            tenantId,
+            siteId,
+            taskId,
+            dto,
+          );
         await this.lockRows(
           tx,
           'workshop_task_line_items',
           tenantId,
           existingItems.map((item) => item.id),
+          siteId,
         );
         const reservationHistory = await this.findLineReservationHistory(
           tx,
           tenantId,
+          siteId,
           existingItems,
         );
         await this.lockRows(
@@ -358,12 +403,14 @@ export class WorkshopTaskService {
           'parts_reservations',
           tenantId,
           reservationHistory.map((reservation) => reservation.id),
+          siteId,
         );
         this.assertLineQuantityDemand(existingItems, dto, reservationHistory);
 
         await this.incrementTaskLineItemsVersion(
           tx,
           tenantId,
+          siteId,
           taskId,
           dto.expectedLineItemsVersion,
         );
@@ -371,13 +418,20 @@ export class WorkshopTaskService {
         await this.handleDeletedLineItems(
           tx,
           tenantId,
+          siteId,
           taskId,
           existingItems,
           submittedIds,
           reservationHistory,
         );
         await this.createNewTaskLineItems(tx, tenantId, taskId, dto.items);
-        await this.updateExistingTaskLineItems(tx, tenantId, taskId, dto.items);
+        await this.updateExistingTaskLineItems(
+          tx,
+          tenantId,
+          siteId,
+          taskId,
+          dto.items,
+        );
       });
     } catch (error) {
       this.handleTaskLineItemsError(error);
@@ -390,12 +444,14 @@ export class WorkshopTaskService {
     orderId: string,
     taskId: string,
     tenantId: string,
+    siteId: string,
   ) {
     const task = await this.prisma.workshopTask.findFirst({
       where: {
         id: taskId,
         tenant_id: tenantId,
         workshop_order_id: orderId,
+        workshop_order: { site_id: siteId },
       },
       include: {
         workshop_order: {
@@ -447,6 +503,7 @@ export class WorkshopTaskService {
   private async incrementTaskLineItemsVersion(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     taskId: string,
     expectedLineItemsVersion: number,
   ) {
@@ -454,6 +511,7 @@ export class WorkshopTaskService {
       where: {
         id: taskId,
         tenant_id: tenantId,
+        workshop_order: { site_id: siteId },
         line_items_version: expectedLineItemsVersion,
       },
       data: { line_items_version: { increment: 1 } },
@@ -468,12 +526,17 @@ export class WorkshopTaskService {
   private async validateSubmittedLineItemIds(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     taskId: string,
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
     const existingItems =
       (await tx.workshopTaskLineItem.findMany({
-        where: { tenant_id: tenantId, workshop_task_id: taskId },
+        where: {
+          tenant_id: tenantId,
+          workshop_task_id: taskId,
+          workshop_task: { workshop_order: { site_id: siteId } },
+        },
         select: {
           id: true,
           quantity: true,
@@ -504,6 +567,7 @@ export class WorkshopTaskService {
   private async findLineReservationHistory(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     existingItems: Array<{ id: string }>,
   ) {
     const lineIds = existingItems.map((item) => item.id);
@@ -515,6 +579,9 @@ export class WorkshopTaskService {
       where: {
         tenant_id: tenantId,
         workshop_task_line_item_id: { in: lineIds },
+        workshop_task_line_item: {
+          workshop_task: { workshop_order: { site_id: siteId } },
+        },
       },
       select: {
         id: true,
@@ -588,6 +655,7 @@ export class WorkshopTaskService {
   private async handleDeletedLineItems(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     taskId: string,
     existingItems: Array<{
       id: string;
@@ -644,6 +712,7 @@ export class WorkshopTaskService {
           tenant_id: tenantId,
           workshop_task_id: taskId,
           id: { in: hardDeleteIds },
+          workshop_task: { workshop_order: { site_id: siteId } },
         },
       });
     }
@@ -653,6 +722,7 @@ export class WorkshopTaskService {
           tenant_id: tenantId,
           workshop_task_id: taskId,
           id: { in: cancelIds },
+          workshop_task: { workshop_order: { site_id: siteId } },
         },
         data: {
           part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
@@ -706,6 +776,7 @@ export class WorkshopTaskService {
   private async updateExistingTaskLineItems(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     taskId: string,
     items: ReplaceWorkshopTaskLineItemsDto['items'],
   ) {
@@ -720,6 +791,7 @@ export class WorkshopTaskService {
             id: item.id,
             tenant_id: tenantId,
             workshop_task_id: taskId,
+            workshop_task: { workshop_order: { site_id: siteId } },
           },
           data: {
             description: item.description,
@@ -775,9 +847,27 @@ export class WorkshopTaskService {
       'workshop_tasks' | 'workshop_task_line_items' | 'parts_reservations',
     tenantId: string,
     ids: readonly string[],
+    siteId?: string,
   ): Promise<void> {
     const sortedIds = [...new Set(ids)].sort();
     if (sortedIds.length === 0) {
+      return;
+    }
+
+    if (tableName === 'workshop_tasks' && siteId) {
+      // eslint-disable-next-line no-restricted-syntax -- line mutations share the global task/line/reservation lock order.
+      await tx.$queryRaw`
+        SELECT task.id
+        FROM workshop_tasks AS task
+        INNER JOIN workshop_orders AS order_row
+          ON order_row.tenant_id = task.tenant_id
+          AND order_row.id = task.workshop_order_id
+        WHERE task.tenant_id = ${tenantId}
+          AND order_row.site_id = ${siteId}
+          AND task.id IN (${Prisma.join(sortedIds)})
+        ORDER BY task.id
+        FOR UPDATE
+      `;
       return;
     }
 

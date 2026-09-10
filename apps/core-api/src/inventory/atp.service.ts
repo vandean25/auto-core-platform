@@ -63,6 +63,11 @@ interface MutationStock {
   quantity_reserved: Prisma.Decimal;
 }
 
+interface ActiveReservation {
+  quantity: Prisma.Decimal;
+  quantity_received: Prisma.Decimal;
+}
+
 const STOCK_SELECT = {
   id: true,
   location_id: true,
@@ -222,11 +227,12 @@ export class AtpService {
           catalog_item_id: stock.catalog_item_id,
         },
       },
-      select: { quantity: true },
+      select: { quantity: true, quantity_received: true },
     });
 
     const reservedBySlices = activeReservations.reduce(
-      (sum, reservation) => sum.add(new Prisma.Decimal(reservation.quantity)),
+      (sum, reservation) =>
+        sum.add(this.getRemainingReservationCommitment(reservation)),
       new Prisma.Decimal(0),
     );
     const cachedReserved = new Prisma.Decimal(stock.quantity_reserved);
@@ -341,6 +347,25 @@ export class AtpService {
       throw new BadRequestException('ATP quantity must be greater than zero');
     }
     return parsedQuantity;
+  }
+
+  private getRemainingReservationCommitment(
+    reservation: ActiveReservation,
+  ): Prisma.Decimal {
+    const quantity = new Prisma.Decimal(reservation.quantity);
+    const quantityReceived = new Prisma.Decimal(reservation.quantity_received);
+
+    if (
+      quantity.isNegative() ||
+      quantityReceived.isNegative() ||
+      quantityReceived.greaterThan(quantity)
+    ) {
+      throw new InternalServerErrorException(
+        'Parts reservation invariant failed: counters must be non-negative and received quantity cannot exceed reserved quantity',
+      );
+    }
+
+    return quantity.sub(quantityReceived);
   }
 
   private logInvariantFailure(context: AtpContext): void {

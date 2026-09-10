@@ -37,9 +37,14 @@ export class ReplaceWorkshopTaskLineItemDto {
   @IsNotEmpty()
   description!: string;
 
-  @ApiProperty({ minimum: 0.01 })
-  @IsNumber()
-  @Min(0.01)
+  @ApiProperty({
+    example: 1.5,
+    minimum: 0.001,
+    multipleOf: 0.001,
+    type: 'number',
+  })
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
   @Type(() => Number)
   qty!: number;
 

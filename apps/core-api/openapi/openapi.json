@@ -10606,7 +10606,9 @@
           },
           "qty": {
             "type": "number",
-            "minimum": 0.01
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
           },
           "unitPrice": {
             "type": "number",
