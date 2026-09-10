@@ -93,7 +93,12 @@ function buildTestTenantIdentity(tenantId: string) {
 export function runWithTenantContext<T>(
   tenantId: string,
   fn: () => T,
-  identity?: { userId?: string; email?: string; role?: string },
+  identity?: {
+    userId?: string;
+    email?: string;
+    role?: string;
+    activeSiteId?: string | null;
+  },
 ): T {
   return TenantContextStorage.run(() => {
     TenantContextStorage.setUser({

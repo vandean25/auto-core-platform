@@ -1,4 +1,9 @@
-import { INestApplication, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  INestApplication,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -48,8 +53,12 @@ describe('Multi-Location guards (e2e)', () => {
   });
 
   afterEach(async () => {
-    await cleanupTestTenantGraph(prisma, tenantA.tenantId).catch(() => undefined);
-    await cleanupTestTenantGraph(prisma, tenantB.tenantId).catch(() => undefined);
+    await cleanupTestTenantGraph(prisma, tenantA.tenantId).catch(
+      () => undefined,
+    );
+    await cleanupTestTenantGraph(prisma, tenantB.tenantId).catch(
+      () => undefined,
+    );
   });
 
   afterAll(async () => {
@@ -178,8 +187,10 @@ describe('Multi-Location guards (e2e)', () => {
       const transit = await transitLocation(tenantA.tenantId, siteA.id);
 
       await expect(
-        runWithTenantContext(tenantA.tenantId, () =>
-          locationService.remove(transit.id),
+        runWithTenantContext(
+          tenantA.tenantId,
+          () => locationService.remove(transit.id),
+          { userId: tenantA.firebaseUid, activeSiteId: siteA.id },
         ),
       ).rejects.toBeInstanceOf(ConflictException);
     });
@@ -202,7 +213,11 @@ describe('Multi-Location guards (e2e)', () => {
       });
 
       await expect(
-        runWithTenantContext(tenantA.tenantId, () => locationService.remove(lot.id)),
+        runWithTenantContext(
+          tenantA.tenantId,
+          () => locationService.remove(lot.id),
+          { userId: tenantA.firebaseUid, activeSiteId: siteA.id },
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -223,8 +238,10 @@ describe('Multi-Location guards (e2e)', () => {
         },
       });
 
-      const result = await runWithTenantContext(tenantA.tenantId, () =>
-        locationService.remove(lot.id),
+      const result = await runWithTenantContext(
+        tenantA.tenantId,
+        () => locationService.remove(lot.id),
+        { userId: tenantA.firebaseUid, activeSiteId: siteA.id },
       );
       expect(result.deletedAt).not.toBeNull();
     });
@@ -282,9 +299,9 @@ describe('Multi-Location guards (e2e)', () => {
         .set('Authorization', authHeader)
         .expect(200);
 
-      expect(res.body.some((le: { id: string }) => le.id === legalEntity.id)).toBe(
-        true,
-      );
+      expect(
+        res.body.some((le: { id: string }) => le.id === legalEntity.id),
+      ).toBe(true);
     });
 
     it('GET /api/legal-entities forbids non-admins', async () => {

@@ -8,6 +8,7 @@ import {
   mockTenantContext,
   resetWorkshopMocks,
   workshopPrismaProvider,
+  workshopSiteProvider,
   workshopTenantProvider,
 } from './workshop.spec.support';
 
@@ -34,7 +35,7 @@ const settings = {
 describe('WorkshopPlannerService', () => {
   let service: WorkshopPlannerService;
   const settingsService = {
-    getOrCreateSettings: jest.fn(),
+    getSettingsForSite: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -43,6 +44,7 @@ describe('WorkshopPlannerService', () => {
         WorkshopPlannerService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        workshopSiteProvider,
         { provide: WorkshopSettingsService, useValue: settingsService },
       ],
     }).compile();
@@ -50,7 +52,7 @@ describe('WorkshopPlannerService', () => {
     service = module.get(WorkshopPlannerService);
     resetWorkshopMocks();
     mockTenantContext.getTenantId.mockResolvedValue(TENANT_ID);
-    settingsService.getOrCreateSettings.mockResolvedValue(settings);
+    settingsService.getSettingsForSite.mockResolvedValue(settings);
     mockPrisma.bay.findMany.mockResolvedValue([
       { id: 'bay-1', name: 'Bay 1', sort_order: 0, is_active: true },
     ]);
@@ -131,7 +133,7 @@ describe('WorkshopPlannerService', () => {
   });
 
   it('preserves UTC-midnight leave dates in negative-offset timezones', async () => {
-    settingsService.getOrCreateSettings.mockResolvedValue({
+    settingsService.getSettingsForSite.mockResolvedValue({
       ...settings,
       timezone: 'America/Los_Angeles',
     });

@@ -1,13 +1,13 @@
 import {
-  Injectable,
   BadRequestException,
   ConflictException,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { LocationType, Prisma } from '@prisma/client';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteService } from '../site/site.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 const locationInclude = {
   parent: true,
@@ -20,6 +20,11 @@ type LocationWithRelations = Prisma.StorageLocationGetPayload<{
   include: typeof locationInclude;
 }>;
 
+type LocationScope = {
+  tenantId: string;
+  siteId: string;
+};
+
 type LocationTreeNode = LocationWithRelations & {
   children: LocationTreeNode[];
 };
@@ -27,29 +32,28 @@ type LocationTreeNode = LocationWithRelations & {
 @Injectable()
 export class LocationService {
   constructor(
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
-    private readonly siteService: SiteService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async findAll(): Promise<LocationWithRelations[]> {
-    const tenantId = await this.tenantContext.getTenantId();
+    const scope = await this.getLocationScope();
     return this.prisma.storageLocation.findMany({
-      where: { tenant_id: tenantId, deletedAt: null },
+      where: this.listWhere(scope),
       orderBy: { name: 'asc' },
       include: locationInclude,
     });
   }
 
-  async getTree() {
-    const locations = await this.findAll();
-    return this.buildTree(locations);
+  async getTree(): Promise<LocationTreeNode[]> {
+    return this.buildTree(await this.findAll());
   }
 
   async getChildren(parentId: string) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const scope = await this.getLocationScope();
     return this.prisma.storageLocation.findMany({
-      where: { tenant_id: tenantId, parent_id: parentId, deletedAt: null },
+      where: { ...this.listWhere(scope), parent_id: parentId },
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -60,24 +64,12 @@ export class LocationService {
   }
 
   async getBins() {
-    const tenantId = await this.tenantContext.getTenantId();
+    const scope = await this.getLocationScope();
     return this.prisma.storageLocation.findMany({
-      where: { tenant_id: tenantId, type: 'bin', deletedAt: null },
+      where: { ...this.listWhere(scope), type: LocationType.bin },
       orderBy: { name: 'asc' },
       include: { parent: true },
     });
-  }
-
-  private buildTree(
-    locations: LocationWithRelations[],
-    parentId: string | null = null,
-  ): LocationTreeNode[] {
-    return locations
-      .filter((loc) => loc.parent_id === parentId)
-      .map((loc) => ({
-        ...loc,
-        children: this.buildTree(locations, loc.id),
-      }));
   }
 
   async create(data: {
@@ -86,23 +78,24 @@ export class LocationService {
     type: LocationType;
     parentId?: string;
   }) {
-    const tenantId = await this.tenantContext.getTenantId();
-    // Validation
-    await this.validateHierarchy(data.type, data.parentId);
+    const scope = await this.getLocationScope();
+    await this.validateHierarchy(data.type, data.parentId, scope);
 
     const existingCode = await this.prisma.storageLocation.findFirst({
-      where: { tenant_id: tenantId, code: data.code },
+      where: {
+        tenant_id: scope.tenantId,
+        site_id: scope.siteId,
+        code: data.code,
+      },
     });
     if (existingCode) {
-      throw new BadRequestException('Location code must be unique');
+      throw new BadRequestException('Location code must be unique per site');
     }
-
-    const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
 
     return this.prisma.storageLocation.create({
       data: {
-        tenant_id: tenantId,
-        site_id: siteId,
+        tenant_id: scope.tenantId,
+        site_id: scope.siteId,
         name: data.name,
         code: data.code,
         type: data.type,
@@ -120,34 +113,38 @@ export class LocationService {
       parentId?: string;
     },
   ) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const scope = await this.getLocationScope();
     const location = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
     });
-    if (!location) throw new NotFoundException('Location not found');
+    if (!location) {
+      throw new NotFoundException('Location not found');
+    }
 
     if (data.code && data.code !== location.code) {
       const existing = await this.prisma.storageLocation.findFirst({
-        where: { tenant_id: tenantId, code: data.code },
+        where: {
+          tenant_id: scope.tenantId,
+          site_id: scope.siteId,
+          code: data.code,
+        },
       });
-      if (existing) throw new BadRequestException('Code already in use');
+      if (existing) {
+        throw new BadRequestException('Code already in use at this site');
+      }
     }
 
-    // If moving or changing type, validate hierarchy
     if (data.type || data.parentId !== undefined) {
-      const newType = data.type || location.type;
-      const newParentId =
-        data.parentId !== undefined ? data.parentId : location.parent_id;
-
-      // Prevent self-parenting
-      if (newParentId === id)
+      const type = data.type ?? location.type;
+      const parentId = data.parentId ?? location.parent_id;
+      if (parentId === id) {
         throw new BadRequestException('Cannot set location as its own parent');
-
-      await this.validateHierarchy(newType, newParentId);
+      }
+      await this.validateHierarchy(type, parentId, scope);
     }
 
     await this.prisma.storageLocation.updateMany({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       data: {
         name: data.name,
         code: data.code,
@@ -157,43 +154,38 @@ export class LocationService {
     });
 
     const updated = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
     });
-    if (!updated) throw new NotFoundException('Location not found');
+    if (!updated) {
+      throw new NotFoundException('Location not found');
+    }
     return updated;
   }
 
   async remove(id: string) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const scope = await this.getLocationScope();
     const location = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: { _count: { select: { children: true, stocks: true } } },
     });
-
-    if (!location) throw new NotFoundException('Location not found');
-
-    // System locations (in_transit) are never directly deletable (ruling 34).
-    if (location.is_system) {
-      throw new ConflictException(
-        'System locations (in_transit) cannot be deleted. They are removed only when a pristine site is hard-deleted.',
-      );
+    if (!location) {
+      throw new NotFoundException('Location not found');
     }
-
+    if (location.is_system) {
+      throw new ConflictException('System locations cannot be deleted');
+    }
     if (location._count.children > 0) {
       throw new BadRequestException(
         'Cannot delete location with children. Delete children first.',
       );
     }
-
     if (location._count.stocks > 0) {
       throw new BadRequestException('Cannot delete location containing stock.');
     }
 
-    // Ruling 45 / deletion policy StorageLocation: block disable, soft-delete
-    // and hard-delete while a non-SOLD dealer vehicle references this lot.
     const parkedVehicles = await this.prisma.vehicle.count({
       where: {
-        tenant_id: tenantId,
+        tenant_id: scope.tenantId,
         location_id: id,
         inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
         stock_status: { in: ['IN_STOCK', 'RESERVED', 'IN_PREP'] },
@@ -206,42 +198,50 @@ export class LocationService {
     }
 
     await this.prisma.storageLocation.updateMany({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       data: { deletedAt: new Date() },
     });
 
     const updated = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: locationInclude,
     });
-    if (!updated) throw new NotFoundException('Location not found');
+    if (!updated) {
+      throw new NotFoundException('Location not found');
+    }
     return updated;
   }
 
   private async validateHierarchy(
     type: LocationType,
-    parentId?: string | null,
-  ) {
-    const tenantId = await this.tenantContext.getTenantId();
+    parentId: string | null | undefined,
+    scope: LocationScope,
+  ): Promise<void> {
     if (type === LocationType.warehouse) {
-      if (parentId)
+      if (parentId) {
         throw new BadRequestException(
           'Warehouses cannot have a parent location',
         );
+      }
       return;
     }
-
-    if (!parentId)
+    if (!parentId) {
       throw new BadRequestException(`${type} must have a parent location`);
+    }
 
     const parent = await this.prisma.storageLocation.findFirst({
-      where: { id: parentId, tenant_id: tenantId },
+      where: {
+        id: parentId,
+        tenant_id: scope.tenantId,
+        site_id: scope.siteId,
+      },
     });
-    if (!parent) throw new NotFoundException('Parent location not found');
+    if (!parent) {
+      throw new NotFoundException('Parent location not found');
+    }
 
-    // Strict Hierarchy Rules
-
-    const allowedParents: Record<string, LocationType[]> = {
+    const allowedParents: Record<LocationType, readonly LocationType[]> = {
+      [LocationType.warehouse]: [],
       [LocationType.aisle]: [LocationType.warehouse],
       [LocationType.shelf]: [LocationType.aisle, LocationType.warehouse],
       [LocationType.bin]: [
@@ -251,19 +251,42 @@ export class LocationService {
       ],
       [LocationType.customer_storage]: [LocationType.warehouse],
       [LocationType.staging_tote]: [LocationType.warehouse],
+      [LocationType.vehicle_lot]: [LocationType.warehouse],
+      [LocationType.in_transit]: [],
     };
-
-    const allowedParentsForType = allowedParents[type as string];
-    if (!allowedParentsForType) {
+    if (!allowedParents[type].includes(parent.type)) {
       throw new BadRequestException(
-        `Unsupported location type hierarchy for ${type}`,
+        `Location of type ${type} cannot be child of ${parent.type}.`,
       );
     }
+  }
 
-    if (!allowedParentsForType.includes(parent.type)) {
-      throw new BadRequestException(
-        `Location of type ${type} cannot be child of ${parent.type}. Allowed parents: ${allowedParentsForType.join(', ')}`,
-      );
-    }
+  private async getLocationScope(): Promise<LocationScope> {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    return { tenantId, siteId };
+  }
+
+  private listWhere(scope: LocationScope): Prisma.StorageLocationWhereInput {
+    return {
+      tenant_id: scope.tenantId,
+      site_id: scope.siteId,
+      is_system: false,
+      deletedAt: null,
+    };
+  }
+
+  private buildTree(
+    locations: LocationWithRelations[],
+    parentId: string | null = null,
+  ): LocationTreeNode[] {
+    return locations
+      .filter((location) => location.parent_id === parentId)
+      .map((location) => ({
+        ...location,
+        children: this.buildTree(locations, location.id),
+      }));
   }
 }

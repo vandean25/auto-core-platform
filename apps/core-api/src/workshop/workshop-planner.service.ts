@@ -6,6 +6,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PlannerBookingDto,
@@ -44,6 +45,7 @@ export class WorkshopPlannerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly settingsService: WorkshopSettingsService,
   ) {}
 
@@ -57,23 +59,28 @@ export class WorkshopPlannerService {
       throw new BadRequestException('Planner range cannot exceed 8 days');
     }
 
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
     const [bays, settings, holidays, orders] = await Promise.all([
       this.prisma.bay.findMany({
         where: {
           tenant_id: tenantId,
+          site_id: siteId,
           is_active: true,
           ...(query.bayId ? { id: query.bayId } : {}),
         },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       }),
-      this.settingsService.getOrCreateSettings(tenantId),
+      this.settingsService.getSettingsForSite(tenantId, siteId),
       this.prisma.workshopHoliday.findMany({
-        where: { tenant_id: tenantId },
+        where: { tenant_id: tenantId, site_id: siteId },
       }),
       this.prisma.workshopOrder.findMany({
         where: {
           tenant_id: tenantId,
+          site_id: siteId,
           status: { in: ACTIVE_STATUSES },
           bay_id: query.bayId ? query.bayId : { not: null },
           OR: [

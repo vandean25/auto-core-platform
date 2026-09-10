@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EmployeeRole, WorkshopOrderStatus } from '@prisma/client';
 import { WorkshopScheduleService } from './workshop-schedule.service';
 import { WorkshopPlannerService } from './workshop-planner.service';
@@ -32,7 +29,7 @@ const settings = {
 describe('WorkshopScheduleService', () => {
   let service: WorkshopScheduleService;
   const settingsService = {
-    getOrCreateSettings: jest.fn(),
+    getSettingsForSite: jest.fn(),
   };
   const plannerService = {
     effectiveHours: jest.fn().mockReturnValue({
@@ -57,7 +54,7 @@ describe('WorkshopScheduleService', () => {
     service = module.get(WorkshopScheduleService);
     resetWorkshopMocks();
     mockTenantContext.getTenantId.mockResolvedValue(TENANT_ID);
-    settingsService.getOrCreateSettings.mockResolvedValue(settings);
+    settingsService.getSettingsForSite.mockResolvedValue(settings);
     mockPrisma.bay.findFirst.mockResolvedValue({
       id: 'bay-1',
       is_active: true,
@@ -116,9 +113,9 @@ describe('WorkshopScheduleService', () => {
         where: expect.objectContaining({ site_id: 'site-1' }),
       }),
     );
-    expect(
-      mockPrisma.bay.updateMany.mock.invocationCallOrder[0],
-    ).toBeLessThan(mockPrisma.workshopOrder.findMany.mock.invocationCallOrder[0]);
+    expect(mockPrisma.bay.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPrisma.workshopOrder.findMany.mock.invocationCallOrder[0],
+    );
   });
 
   it('throws 409 when the same bay already has an overlapping booking', async () => {
