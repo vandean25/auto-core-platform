@@ -5,16 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  EmployeeRole,
-  LeaveRequest,
-  LeaveRequestStatus,
-  Prisma,
-} from '@prisma/client';
+import { LeaveRequestStatus, type Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatLocalDate } from '../workshop/workshop-planner.time';
-import {
+import type {
   CreateEmployeeLeaveDto,
   CreateMyLeaveDto,
   LeaveBalanceResponseDto,
@@ -25,19 +20,23 @@ import {
   UpdateLeaveRequestDto,
 } from './dto/hr-leave.dto';
 import { HrIdentityService } from './hr-identity.service';
+import type {
+  CreateLeaveBookingInput,
+  LeaveBalanceAdjustmentInput,
+  ValidatedDateRange,
+} from './hr-leave.helpers';
+import {
+  calculateRemainingLeaveMinutes,
+  formatUtcDateOnly,
+  toLeaveRequestDto,
+  toUtcDateOnly,
+  validateDateRange,
+  validateLeaveTransition,
+} from './hr-leave.helpers';
 import { HrWorkdayService } from './hr-workday.service';
 
-export function toUtcDateOnly(isoDate: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!match) {
-    throw new BadRequestException('Date must be formatted as YYYY-MM-DD');
-  }
-  return new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`);
-}
-
-export function formatUtcDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
+export { formatUtcDateOnly, toUtcDateOnly };
+export type { CreateLeaveBookingInput, ValidatedDateRange };
 
 @Injectable()
 export class HrLeaveService {
@@ -84,15 +83,18 @@ export class HrLeaveService {
 
     const allowanceMinutes = balance.allowance_minutes;
     const carryoverMinutes = balance.carryover_minutes;
-    const remainingMinutes =
-      allowanceMinutes + carryoverMinutes - bookedMinutes;
+    const remainingMinutes = calculateRemainingLeaveMinutes(
+      allowanceMinutes,
+      carryoverMinutes,
+      bookedMinutes,
+    );
 
     return {
       year,
       allowanceMinutes,
       carryoverMinutes,
       remainingMinutes,
-      bookings: bookings.map((b) => this.toDto(b)),
+      bookings: bookings.map((b) => toLeaveRequestDto(b)),
     };
   }
 
@@ -101,15 +103,15 @@ export class HrLeaveService {
     const tenantId = await this.tenantContext.getTenantId();
     const createdByUserId = await this.resolvePostgresUserId();
 
-    return this.createLeaveBooking(
+    return this.createLeaveBooking({
       tenantId,
-      me.id,
-      me.annual_leave_minutes,
-      dto.startOn,
-      dto.endOn,
-      dto.note,
+      employeeId: me.id,
+      annualLeaveMinutes: me.annual_leave_minutes,
+      startOnStr: dto.startOn,
+      endOnStr: dto.endOn,
+      note: dto.note,
       createdByUserId,
-    );
+    });
   }
 
   async createEmployeeLeave(
@@ -127,15 +129,15 @@ export class HrLeaveService {
 
     const createdByUserId = await this.resolvePostgresUserId();
 
-    return this.createLeaveBooking(
+    return this.createLeaveBooking({
       tenantId,
-      employee.id,
-      employee.annual_leave_minutes,
-      dto.startOn,
-      dto.endOn,
-      dto.note,
+      employeeId: employee.id,
+      annualLeaveMinutes: employee.annual_leave_minutes,
+      startOnStr: dto.startOn,
+      endOnStr: dto.endOn,
+      note: dto.note,
       createdByUserId,
-    );
+    });
   }
 
   async cancelLeave(id: string): Promise<LeaveRequestResponseDto> {
@@ -149,7 +151,7 @@ export class HrLeaveService {
     }
 
     if (booking.status === LeaveRequestStatus.CANCELLED) {
-      return this.toDto(booking);
+      return toLeaveRequestDto(booking);
     }
 
     const user = this.tenantContext.getAuthenticatedUser();
@@ -173,12 +175,17 @@ export class HrLeaveService {
     }
 
     const updated = await this.prisma.leaveRequest.update({
-      where: { id: booking.id },
+      where: {
+        tenant_id_id: {
+          tenant_id: tenantId,
+          id: booking.id,
+        },
+      },
       data: { status: LeaveRequestStatus.CANCELLED },
       include: { employee: true },
     });
 
-    return this.toDto(updated);
+    return toLeaveRequestDto(updated);
   }
 
   async listTeamLeave(
@@ -217,7 +224,7 @@ export class HrLeaveService {
       },
     });
 
-    return rows.map((row) => this.toDto(row));
+    return rows.map((row) => toLeaveRequestDto(row));
   }
 
   async updateLeave(
@@ -235,107 +242,51 @@ export class HrLeaveService {
       throw new NotFoundException(`Leave request ${id} not found`);
     }
 
-    if (existing.status === LeaveRequestStatus.CANCELLED) {
-      throw new BadRequestException('Cannot edit a cancelled leave request');
-    }
+    validateLeaveTransition(existing.status, 'update');
 
     const startOnStr = dto.startOn ?? formatUtcDateOnly(existing.start_on);
     const endOnStr = dto.endOn ?? formatUtcDateOnly(existing.end_on);
 
-    if (endOnStr < startOnStr) {
-      throw new BadRequestException('endOn must be on or after startOn');
-    }
+    const range = validateDateRange(startOnStr, endOnStr);
 
-    const startYear = startOnStr.slice(0, 4);
-    const endYear = endOnStr.slice(0, 4);
-    if (startYear !== endYear) {
-      throw new BadRequestException(
-        'Leave booking cannot span two calendar years',
-      );
-    }
-    const year = Number(startYear);
-
-    const calendar = await this.workdayService.loadTenantCalendar(tenantId);
-    const minutesCharged = await this.workdayService.countChargeableMinutes(
+    const minutesCharged = await this.computeChargeableMinutes(
       tenantId,
       existing.employee_id,
-      startOnStr,
-      endOnStr,
-      calendar.timezone,
-      calendar.openingHours,
-      calendar.holidays,
+      range,
     );
 
-    if (minutesCharged === 0) {
-      throw new BadRequestException(
-        'Leave range contains zero chargeable minutes',
-      );
-    }
-
-    const startOnDate = toUtcDateOnly(startOnStr);
-    const endOnDate = toUtcDateOnly(endOnStr);
-
-    const overlapping = await this.prisma.leaveRequest.findFirst({
-      where: {
-        tenant_id: tenantId,
-        employee_id: existing.employee_id,
-        status: LeaveRequestStatus.BOOKED,
-        id: { not: existing.id },
-        start_on: { lte: endOnDate },
-        end_on: { gte: startOnDate },
-      },
-    });
-    if (overlapping) {
-      throw new ConflictException(
-        'Leave booking overlaps with an existing booking',
-      );
-    }
+    await this.assertNoOverlap(
+      tenantId,
+      existing.employee_id,
+      range,
+      existing.id,
+    );
 
     const balance = await this.getOrUpsertBalance(
       tenantId,
       existing.employee_id,
-      year,
+      range.year,
       existing.employee.annual_leave_minutes,
     );
 
-    const otherBookings = await this.prisma.leaveRequest.aggregate({
-      where: {
-        tenant_id: tenantId,
-        employee_id: existing.employee_id,
-        status: LeaveRequestStatus.BOOKED,
-        id: { not: existing.id },
-        start_on: {
-          gte: new Date(Date.UTC(year, 0, 1)),
-          lt: new Date(Date.UTC(year + 1, 0, 1)),
-        },
-      },
-      _sum: { minutes_charged: true },
-    });
+    await this.assertSufficientBalance(
+      tenantId,
+      existing.employee_id,
+      range.year,
+      balance,
+      minutesCharged,
+      existing.id,
+    );
 
-    const otherCharged = otherBookings._sum.minutes_charged ?? 0;
-    const remainingAvailable =
-      balance.allowance_minutes + balance.carryover_minutes - otherCharged;
+    const updated = await this.executeLeaveUpdate(
+      tenantId,
+      existing.id,
+      range,
+      minutesCharged,
+      dto.note,
+    );
 
-    if (minutesCharged > remainingAvailable) {
-      throw new ConflictException('Not enough remaining leave time');
-    }
-
-    const updated = await this.prisma.leaveRequest.update({
-      where: { id: existing.id },
-      data: {
-        start_on: startOnDate,
-        end_on: endOnDate,
-        minutes_charged: minutesCharged,
-        ...(dto.note !== undefined && { note: dto.note?.trim() || null }),
-      },
-      include: {
-        employee: {
-          select: { id: true, name: true, role: true },
-        },
-      },
-    });
-
-    return this.toDto(updated);
+    return toLeaveRequestDto(updated);
   }
 
   async patchLeaveBalance(
@@ -357,44 +308,14 @@ export class HrLeaveService {
       formatLocalDate(new Date(), calendar.timezone).slice(0, 4),
     );
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const balance = await tx.employeeLeaveBalance.upsert({
-        where: {
-          tenant_id_employee_id_year: {
-            tenant_id: tenantId,
-            employee_id: employeeId,
-            year: dto.year,
-          },
-        },
-        create: {
-          tenant_id: tenantId,
-          employee_id: employeeId,
-          year: dto.year,
-          allowance_minutes:
-            dto.allowanceMinutes ?? employee.annual_leave_minutes,
-          carryover_minutes: dto.carryoverMinutes ?? 0,
-        },
-        update: {
-          ...(dto.allowanceMinutes !== undefined && {
-            allowance_minutes: dto.allowanceMinutes,
-          }),
-          ...(dto.carryoverMinutes !== undefined && {
-            carryover_minutes: dto.carryoverMinutes,
-          }),
-        },
-      });
-
-      if (dto.year === currentYear && dto.allowanceMinutes !== undefined) {
-        const updatedEmployee = await tx.employee.updateMany({
-          where: { id: employeeId, tenant_id: tenantId },
-          data: { annual_leave_minutes: dto.allowanceMinutes },
-        });
-        if (updatedEmployee.count === 0) {
-          throw new NotFoundException(`Employee ${employeeId} not found`);
-        }
-      }
-
-      return balance;
+    const result = await this.applyLeaveBalanceAdjustment({
+      tenantId,
+      employeeId,
+      year: dto.year,
+      currentYear,
+      allowanceMinutes: dto.allowanceMinutes,
+      carryoverMinutes: dto.carryoverMinutes,
+      defaultAllowanceMinutes: employee.annual_leave_minutes,
     });
 
     return {
@@ -408,34 +329,105 @@ export class HrLeaveService {
     };
   }
 
-  private async createLeaveBooking(
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  private async applyLeaveBalanceAdjustment(
+    input: LeaveBalanceAdjustmentInput,
+  ) {
+    const {
+      tenantId,
+      employeeId,
+      year,
+      currentYear,
+      allowanceMinutes,
+      carryoverMinutes,
+      defaultAllowanceMinutes,
+    } = input;
+
+    return this.prisma.$transaction(async (tx) => {
+      const balance = await tx.employeeLeaveBalance.upsert({
+        where: {
+          tenant_id_employee_id_year: {
+            tenant_id: tenantId,
+            employee_id: employeeId,
+            year,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          employee_id: employeeId,
+          year,
+          allowance_minutes: allowanceMinutes ?? defaultAllowanceMinutes,
+          carryover_minutes: carryoverMinutes ?? 0,
+        },
+        update: {
+          ...(allowanceMinutes !== undefined && {
+            allowance_minutes: allowanceMinutes,
+          }),
+          ...(carryoverMinutes !== undefined && {
+            carryover_minutes: carryoverMinutes,
+          }),
+        },
+      });
+
+      if (year === currentYear && allowanceMinutes !== undefined) {
+        const updatedEmployee = await tx.employee.updateMany({
+          where: { id: employeeId, tenant_id: tenantId },
+          data: { annual_leave_minutes: allowanceMinutes },
+        });
+        if (updatedEmployee.count === 0) {
+          throw new NotFoundException(`Employee ${employeeId} not found`);
+        }
+      }
+
+      return balance;
+    });
+  }
+
+  private async executeLeaveUpdate(
+    tenantId: string,
+    leaveId: string,
+    range: ValidatedDateRange,
+    minutesCharged: number,
+    note?: string,
+  ) {
+    return this.prisma.leaveRequest.update({
+      where: {
+        tenant_id_id: {
+          tenant_id: tenantId,
+          id: leaveId,
+        },
+      },
+      data: {
+        start_on: range.startOnDate,
+        end_on: range.endOnDate,
+        minutes_charged: minutesCharged,
+        ...(note !== undefined && { note: note?.trim() || null }),
+      },
+      include: {
+        employee: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Loads the tenant calendar and counts chargeable working minutes for the
+   * given employee across the validated range. Throws 400 when the range
+   * contains zero chargeable minutes.
+   */
+  private async computeChargeableMinutes(
     tenantId: string,
     employeeId: string,
-    annualLeaveMinutes: number,
-    startOnStr: string,
-    endOnStr: string,
-    note?: string,
-    createdByUserId?: string | null,
-  ): Promise<LeaveRequestResponseDto> {
-    if (endOnStr < startOnStr) {
-      throw new BadRequestException('endOn must be on or after startOn');
-    }
-
-    const startYear = startOnStr.slice(0, 4);
-    const endYear = endOnStr.slice(0, 4);
-    if (startYear !== endYear) {
-      throw new BadRequestException(
-        'Leave booking cannot span two calendar years',
-      );
-    }
-    const year = Number(startYear);
-
+    range: ValidatedDateRange,
+  ): Promise<number> {
     const calendar = await this.workdayService.loadTenantCalendar(tenantId);
     const minutesCharged = await this.workdayService.countChargeableMinutes(
       tenantId,
       employeeId,
-      startOnStr,
-      endOnStr,
+      range.startOnStr,
+      range.endOnStr,
       calendar.timezone,
       calendar.openingHours,
       calendar.holidays,
@@ -447,16 +439,28 @@ export class HrLeaveService {
       );
     }
 
-    const startOnDate = toUtcDateOnly(startOnStr);
-    const endOnDate = toUtcDateOnly(endOnStr);
+    return minutesCharged;
+  }
 
+  /**
+   * Checks that no other BOOKED leave for the employee overlaps with the
+   * given range. When excludeId is provided that booking is excluded from
+   * the check (used during updates).
+   */
+  private async assertNoOverlap(
+    tenantId: string,
+    employeeId: string,
+    range: ValidatedDateRange,
+    excludeId?: string,
+  ): Promise<void> {
     const overlapping = await this.prisma.leaveRequest.findFirst({
       where: {
         tenant_id: tenantId,
         employee_id: employeeId,
         status: LeaveRequestStatus.BOOKED,
-        start_on: { lte: endOnDate },
-        end_on: { gte: startOnDate },
+        ...(excludeId && { id: { not: excludeId } }),
+        start_on: { lte: range.endOnDate },
+        end_on: { gte: range.startOnDate },
       },
     });
     if (overlapping) {
@@ -464,19 +468,27 @@ export class HrLeaveService {
         'Leave booking overlaps with an existing booking',
       );
     }
+  }
 
-    const balance = await this.getOrUpsertBalance(
-      tenantId,
-      employeeId,
-      year,
-      annualLeaveMinutes,
-    );
-
-    const existingBookings = await this.prisma.leaveRequest.aggregate({
+  /**
+   * Checks that minutesCharged does not exceed the employee's remaining
+   * leave for the year. When excludeId is provided that booking's minutes
+   * are excluded from the already-booked total (used during updates).
+   */
+  private async assertSufficientBalance(
+    tenantId: string,
+    employeeId: string,
+    year: number,
+    balance: { allowance_minutes: number; carryover_minutes: number },
+    minutesCharged: number,
+    excludeId?: string,
+  ): Promise<void> {
+    const aggregate = await this.prisma.leaveRequest.aggregate({
       where: {
         tenant_id: tenantId,
         employee_id: employeeId,
         status: LeaveRequestStatus.BOOKED,
+        ...(excludeId && { id: { not: excludeId } }),
         start_on: {
           gte: new Date(Date.UTC(year, 0, 1)),
           lt: new Date(Date.UTC(year + 1, 0, 1)),
@@ -485,20 +497,59 @@ export class HrLeaveService {
       _sum: { minutes_charged: true },
     });
 
-    const alreadyBooked = existingBookings._sum.minutes_charged ?? 0;
-    const remainingMinutes =
+    const alreadyBooked = aggregate._sum.minutes_charged ?? 0;
+    const remaining =
       balance.allowance_minutes + balance.carryover_minutes - alreadyBooked;
 
-    if (minutesCharged > remainingMinutes) {
+    if (minutesCharged > remaining) {
       throw new ConflictException('Not enough remaining leave time');
     }
+  }
+
+  private async createLeaveBooking(
+    input: CreateLeaveBookingInput,
+  ): Promise<LeaveRequestResponseDto> {
+    const {
+      tenantId,
+      employeeId,
+      annualLeaveMinutes,
+      startOnStr,
+      endOnStr,
+      note,
+      createdByUserId,
+    } = input;
+
+    const range = validateDateRange(startOnStr, endOnStr);
+
+    const minutesCharged = await this.computeChargeableMinutes(
+      tenantId,
+      employeeId,
+      range,
+    );
+
+    await this.assertNoOverlap(tenantId, employeeId, range);
+
+    const balance = await this.getOrUpsertBalance(
+      tenantId,
+      employeeId,
+      range.year,
+      annualLeaveMinutes,
+    );
+
+    await this.assertSufficientBalance(
+      tenantId,
+      employeeId,
+      range.year,
+      balance,
+      minutesCharged,
+    );
 
     const created = await this.prisma.leaveRequest.create({
       data: {
         tenant_id: tenantId,
         employee_id: employeeId,
-        start_on: startOnDate,
-        end_on: endOnDate,
+        start_on: range.startOnDate,
+        end_on: range.endOnDate,
         status: LeaveRequestStatus.BOOKED,
         minutes_charged: minutesCharged,
         note: note?.trim() || null,
@@ -511,7 +562,7 @@ export class HrLeaveService {
       },
     });
 
-    return this.toDto(created);
+    return toLeaveRequestDto(created);
   }
 
   private async getOrUpsertBalance(
@@ -558,29 +609,5 @@ export class HrLeaveService {
     return dbUser?.id ?? null;
   }
 
-  private toDto(
-    booking: LeaveRequest & {
-      employee?: { id: string; name: string; role: EmployeeRole };
-    },
-  ): LeaveRequestResponseDto {
-    return {
-      id: booking.id,
-      employeeId: booking.employee_id,
-      startOn: formatUtcDateOnly(booking.start_on),
-      endOn: formatUtcDateOnly(booking.end_on),
-      status: booking.status,
-      minutesCharged: booking.minutes_charged,
-      note: booking.note,
-      createdByUserId: booking.created_by_user_id,
-      ...(booking.employee && {
-        employee: {
-          id: booking.employee.id,
-          name: booking.employee.name,
-          role: booking.employee.role,
-        },
-      }),
-      createdAt: booking.createdAt,
-      updatedAt: booking.updatedAt,
-    };
-  }
+  private toDto = toLeaveRequestDto;
 }

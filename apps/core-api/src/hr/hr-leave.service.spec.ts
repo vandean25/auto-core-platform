@@ -61,6 +61,8 @@ describe('HrLeaveService', () => {
     );
   });
 
+  // ── createMyLeave / createLeaveBooking ────────────────────────────────────
+
   describe('createMyLeave / createLeaveBooking', () => {
     it('rejects date range spanning two calendar years with 400', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
@@ -182,6 +184,8 @@ describe('HrLeaveService', () => {
     });
   });
 
+  // ── getMyLeave ────────────────────────────────────────────────────────────
+
   describe('getMyLeave', () => {
     it('returns yearly balance, remaining minutes, and bookings list', async () => {
       mockIdentityService.resolveMe.mockResolvedValue({
@@ -218,6 +222,8 @@ describe('HrLeaveService', () => {
       expect(result.bookings).toHaveLength(1);
     });
   });
+
+  // ── cancelLeave ───────────────────────────────────────────────────────────
 
   describe('cancelLeave', () => {
     it('allows an employee to cancel own future leave', async () => {
@@ -266,6 +272,8 @@ describe('HrLeaveService', () => {
     });
   });
 
+  // ── patchLeaveBalance ─────────────────────────────────────────────────────
+
   describe('patchLeaveBalance', () => {
     it('updates balance and writes employee annual_leave_minutes if year is current year', async () => {
       mockIdentityService.assertOwnerAdmin.mockReturnValue(undefined);
@@ -298,6 +306,175 @@ describe('HrLeaveService', () => {
           data: { annual_leave_minutes: 15450 },
         }),
       );
+    });
+  });
+
+  // ── updateLeave ───────────────────────────────────────────────────────────
+
+  describe('updateLeave', () => {
+    const baseExisting = {
+      id: 'leave-1',
+      tenant_id: 'tenant-1',
+      employee_id: 'emp-1',
+      start_on: new Date('2026-09-01T00:00:00.000Z'),
+      end_on: new Date('2026-09-05T00:00:00.000Z'),
+      status: LeaveRequestStatus.BOOKED,
+      minutes_charged: 2850,
+      note: null,
+      created_by_user_id: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      employee: { id: 'emp-1', name: 'Alice', role: 'SALES', annual_leave_minutes: 12875 },
+    };
+
+    it('throws 404 when leave request not found', async () => {
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateLeave('unknown', { startOn: '2026-09-01', endOn: '2026-09-05' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws 400 when leave request is cancelled', async () => {
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue({
+        ...baseExisting,
+        status: LeaveRequestStatus.CANCELLED,
+      });
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-09-01', endOn: '2026-09-05' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws 400 when updated range spans two calendar years', async () => {
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue(baseExisting);
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-12-28', endOn: '2027-01-04' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws 400 when endOn is before startOn', async () => {
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue(baseExisting);
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-09-10', endOn: '2026-09-05' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws 400 when chargeable minutes are zero', async () => {
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue(baseExisting);
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(0);
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-09-06', endOn: '2026-09-07' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws 409 when updated range overlaps another BOOKED request', async () => {
+      mockPrisma.leaveRequest.findFirst
+        .mockResolvedValueOnce(baseExisting) // initial lookup
+        .mockResolvedValueOnce({ id: 'other-booking' }); // overlap check
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(2850);
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-09-08', endOn: '2026-09-12' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('throws 409 when updated minutes would exceed remaining balance', async () => {
+      mockPrisma.leaveRequest.findFirst
+        .mockResolvedValueOnce(baseExisting)
+        .mockResolvedValueOnce(null); // no overlap
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(10300);
+      mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
+        allowance_minutes: 12875,
+        carryover_minutes: 0,
+      });
+      mockPrisma.leaveRequest.aggregate.mockResolvedValue({
+        _sum: { minutes_charged: 5150 },
+      });
+
+      await expect(
+        service.updateLeave('leave-1', { startOn: '2026-09-01', endOn: '2026-09-30' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('successfully updates leave and returns updated DTO', async () => {
+      mockPrisma.leaveRequest.findFirst
+        .mockResolvedValueOnce(baseExisting)
+        .mockResolvedValueOnce(null); // no overlap
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(2850);
+      mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
+        allowance_minutes: 12875,
+        carryover_minutes: 0,
+      });
+      mockPrisma.leaveRequest.aggregate.mockResolvedValue({
+        _sum: { minutes_charged: 0 },
+      });
+      mockPrisma.leaveRequest.update.mockResolvedValue({
+        id: 'leave-1',
+        employee_id: 'emp-1',
+        start_on: new Date('2026-09-08T00:00:00.000Z'),
+        end_on: new Date('2026-09-12T00:00:00.000Z'),
+        status: LeaveRequestStatus.BOOKED,
+        minutes_charged: 2850,
+        note: 'Updated note',
+        created_by_user_id: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        employee: { id: 'emp-1', name: 'Alice', role: 'SALES' },
+      });
+
+      const result = await service.updateLeave('leave-1', {
+        startOn: '2026-09-08',
+        endOn: '2026-09-12',
+        note: 'Updated note',
+      });
+
+      expect(result.id).toBe('leave-1');
+      expect(result.startOn).toBe('2026-09-08');
+      expect(result.minutesCharged).toBe(2850);
+      expect(result.note).toBe('Updated note');
+    });
+  });
+
+  // ── validateDateRange (via public surface) ────────────────────────────────
+
+  describe('validateDateRange (via createMyLeave)', () => {
+    it('accepts same-day leave (startOn === endOn)', async () => {
+      mockIdentityService.resolveMe.mockResolvedValue({
+        id: 'emp-1',
+        annual_leave_minutes: 12875,
+      });
+      mockWorkdayService.countChargeableMinutes.mockResolvedValue(570);
+      mockPrisma.leaveRequest.findFirst.mockResolvedValue(null);
+      mockPrisma.employeeLeaveBalance.upsert.mockResolvedValue({
+        allowance_minutes: 12875,
+        carryover_minutes: 0,
+      });
+      mockPrisma.leaveRequest.aggregate.mockResolvedValue({
+        _sum: { minutes_charged: 0 },
+      });
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.leaveRequest.create.mockResolvedValue({
+        id: 'leave-same',
+        employee_id: 'emp-1',
+        start_on: new Date('2026-07-14T00:00:00.000Z'),
+        end_on: new Date('2026-07-14T00:00:00.000Z'),
+        status: LeaveRequestStatus.BOOKED,
+        minutes_charged: 570,
+        note: null,
+        created_by_user_id: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.createMyLeave({
+        startOn: '2026-07-14',
+        endOn: '2026-07-14',
+      });
+      expect(result.minutesCharged).toBe(570);
     });
   });
 });
