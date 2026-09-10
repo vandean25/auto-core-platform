@@ -1,4 +1,9 @@
-import { ForbiddenException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { WorkshopTaskStatus } from '@prisma/client';
 
 export type MechanicAssignedTask = {
   id: string;
@@ -35,4 +40,50 @@ export function assertTaskAssignedToMechanic(
   throw new ForbiddenException(
     `Task ${task.id} is not assigned to mechanic ${mechanicId}.`,
   );
+}
+
+/**
+ * Asserts that a loaded task exists and is assigned to the given mechanic.
+ * Throws NotFoundException if null or ForbiddenException if not assigned.
+ */
+export function assertTaskAccessible<T extends MechanicAssignedTask>(
+  task: T | null,
+  taskId: string,
+  mechanicId: string,
+): asserts task is T {
+  if (!task) {
+    throw new NotFoundException(`Task ${taskId} not found.`);
+  }
+  assertTaskAssignedToMechanic(task, mechanicId);
+}
+
+/**
+ * Asserts that a task is not in DONE status. Throws UnprocessableEntityException
+ * when already completed.
+ */
+export function assertTaskNotDone(
+  taskId: string,
+  status: WorkshopTaskStatus,
+  customMessage?: string,
+): void {
+  if (status === WorkshopTaskStatus.DONE) {
+    throw new UnprocessableEntityException(
+      customMessage ?? `Task ${taskId} is already completed.`,
+    );
+  }
+}
+
+/**
+ * Validates task existence, assignment to mechanic, and active (non-DONE) state.
+ */
+export function assertTaskAccessibleAndNotDone<
+  T extends MechanicAssignedTask & { status: WorkshopTaskStatus },
+>(
+  task: T | null,
+  taskId: string,
+  mechanicId: string,
+  customNotDoneMessage?: string,
+): asserts task is T {
+  assertTaskAccessible(task, taskId, mechanicId);
+  assertTaskNotDone(taskId, task.status, customNotDoneMessage);
 }

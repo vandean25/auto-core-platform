@@ -1,7 +1,6 @@
 import {
   ConflictException,
   Injectable,
-  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -9,7 +8,6 @@ import {
   LaborPauseReason,
   Prisma,
   WorkshopLineItemType,
-  WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
@@ -20,83 +18,42 @@ import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
-import type { SaveDiagnosticsDto } from './dto/save-diagnostics.dto';
-import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
-import type { RequestPartDto } from './dto/request-part.dto';
-import type { RequestPartResponseDto } from './dto/request-part.dto';
+import type {
+  SaveDiagnosticsDto,
+  SaveDiagnosticsResponseDto,
+} from './dto/save-diagnostics.dto';
+import type {
+  RequestPartDto,
+  RequestPartResponseDto,
+} from './dto/request-part.dto';
 import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
 } from './mechanic-events.constants';
-import { assertTaskAssignedToMechanic } from './mechanic-task-access';
-
-const QUEUE_ORDER_STATUSES: WorkshopOrderStatus[] = [
-  WorkshopOrderStatus.INTAKE,
-  WorkshopOrderStatus.IN_PROGRESS,
-];
-
-/** Task statuses that remain visible even when scheduled for a previous day. */
-const ACTIVE_OR_BLOCKED_STATUSES: WorkshopTaskStatus[] = [
-  WorkshopTaskStatus.IN_PROGRESS,
-  WorkshopTaskStatus.WAITING_PARTS,
-  WorkshopTaskStatus.WAITING_CUSTOMER,
-  WorkshopTaskStatus.PAUSED,
-];
-
-/** Part-line statuses that the mechanic view exposes (no financial context). */
-const VISIBLE_PART_LINE_STATUSES: WorkshopPartLineExecutionStatus[] = [
-  WorkshopPartLineExecutionStatus.PENDING_PICK,
-  WorkshopPartLineExecutionStatus.STAGED,
-  WorkshopPartLineExecutionStatus.CONSUMED,
-  WorkshopPartLineExecutionStatus.CANCELLED,
-];
-
-/**
- * Builds the scheduled-date OR filter for the mechanic queue (ADR-0014 §3.1):
- *  - Unscheduled tasks are always included.
- *  - Today's scheduled tasks are always included.
- *  - Tasks scheduled for a previous day are only included when still
- *    active or blocked (carry-forward).
- */
-function buildScheduledDateFilter(
-  today: Date,
-  activeStatuses: WorkshopTaskStatus[],
-): Prisma.WorkshopTaskWhereInput {
-  return {
-    OR: [
-      { scheduled_date: null },
-      { scheduled_date: today },
-      {
-        scheduled_date: { lt: today },
-        status: { in: activeStatuses },
-      },
-    ],
-  };
-}
-
-/**
- * Maps a `LaborPauseReason` to the resulting `WorkshopTaskStatus` for that
- * task after the labor entry is closed. Returns `null` when the status
- * should remain unchanged (i.e. `OTHER` keeps the task `IN_PROGRESS`).
- *
- * ADR-0014 §4.3 pause-reason mapping table.
- */
-function pauseReasonToTaskStatus(
-  reason: LaborPauseReason,
-): WorkshopTaskStatus | null {
-  switch (reason) {
-    case LaborPauseReason.WAITING_PARTS:
-      return WorkshopTaskStatus.WAITING_PARTS;
-    case LaborPauseReason.WAITING_CUSTOMER:
-      return WorkshopTaskStatus.WAITING_CUSTOMER;
-    case LaborPauseReason.SWITCHED_TO_HIGHER_PRIORITY:
-      return WorkshopTaskStatus.PAUSED;
-    case LaborPauseReason.OTHER:
-      return null; // task remains IN_PROGRESS
-    case LaborPauseReason.AUTO_SHIFT_CLOSE:
-      return null; // scheduler-only: no task status change
-  }
-}
+import {
+  assertTaskAccessible,
+  assertTaskAccessibleAndNotDone,
+} from './mechanic-task-access';
+import {
+  ACTIVE_OR_BLOCKED_STATUSES,
+  QUEUE_ORDER_STATUSES,
+  VISIBLE_PART_LINE_STATUSES,
+  buildScheduledDateFilter,
+  mapToMechanicQueueItem,
+  mapToMechanicTaskDetail,
+} from './mechanic-queue.mapper';
+import {
+  closeLaborEntryAndTransitionTask,
+  completeLaborAndTask,
+  ensureOrderInProgress,
+  pauseReasonToTaskStatus,
+  startLaborAndTransitionTask,
+} from './mechanic-task-transitions';
+import {
+  processVoiceNoteDraft,
+  updateInspectionItems,
+  updateTaskNotes,
+} from './mechanic-diagnostics.helpers';
 
 @Injectable()
 export class MechanicExecutionService {
@@ -168,41 +125,7 @@ export class MechanicExecutionService {
       ],
     });
 
-    return tasks.map((task) => {
-      const order = task.workshop_order;
-      const vehicle = order.vehicle;
-
-      // Resolve bay: task-level overrides order-level (ADR-0014 §2.2)
-      const bay = task.bay ?? null;
-
-      return {
-        taskId: task.id,
-        taskTitle: task.title,
-        taskStatus: task.status,
-        orderId: order.id,
-        orderNumber: order.order_number,
-        reportedComplaint: order.reported_issue ?? null,
-        vehicle: {
-          id: vehicle.id,
-          make: vehicle.make,
-          model: vehicle.model,
-          year: vehicle.year,
-          plate: vehicle.plate ?? null,
-        },
-        bay: bay ? { id: bay.id, name: bay.name } : null,
-        sequence: task.sequence,
-        scheduledDate: task.scheduled_date
-          ? task.scheduled_date.toISOString().split('T')[0]
-          : null,
-        partLines: task.line_items.map((li) => ({
-          id: li.id,
-          description: li.description,
-          qty: Number(li.quantity),
-          partExecutionStatus: li.part_execution_status ?? null,
-        })),
-        updatedAt: task.updatedAt,
-      } satisfies MechanicQueueItemDto;
-    });
+    return tasks.map(mapToMechanicQueueItem);
   }
 
   /**
@@ -241,48 +164,9 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
+    assertTaskAccessible(task, taskId, mechanicId);
 
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    const order = task.workshop_order;
-    const vehicle = order.vehicle;
-    const bay = task.bay ?? null;
-
-    return {
-      taskId: task.id,
-      taskTitle: task.title,
-      taskStatus: task.status,
-      mechanicNotes: task.mechanic_notes ?? null,
-      orderId: order.id,
-      orderNumber: order.order_number,
-      reportedComplaint: order.reported_issue ?? null,
-      odometer: order.odometer,
-      vehicle: {
-        id: vehicle.id,
-        make: vehicle.make,
-        model: vehicle.model,
-        year: vehicle.year,
-        vin: vehicle.vin ?? null,
-        plate: vehicle.plate ?? null,
-      },
-      bay: bay ? { id: bay.id, name: bay.name } : null,
-      sequence: task.sequence,
-      scheduledDate: task.scheduled_date
-        ? task.scheduled_date.toISOString().split('T')[0]
-        : null,
-      lineItems: task.line_items.map((li) => ({
-        id: li.id,
-        type: li.type,
-        description: li.description,
-        qty: Number(li.quantity),
-        partExecutionStatus: li.part_execution_status ?? null,
-      })),
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-    } satisfies MechanicTaskDetailDto;
+    return mapToMechanicTaskDetail(task);
   }
 
   // ─── Execution Engine ──────────────────────────────────────────────────────
@@ -310,17 +194,7 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Task ${taskId} is already completed.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(task, taskId, mechanicId);
 
     // Reject if this task already has an active labor entry (already being worked on).
     const openEntryForTask = await this.prisma.laborEntry.findFirst({
@@ -354,59 +228,18 @@ export class MechanicExecutionService {
       task.status === WorkshopTaskStatus.IN_PROGRESS;
 
     await this.prisma.$transaction(async (tx) => {
-      // Guard the task transition first so a concurrent change fails the transaction.
-      if (!taskWasAlreadyInProgress) {
-        const taskUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: taskId,
-            tenant_id: tenantId,
-            status: {
-              notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
-            },
-          },
-          data: { status: WorkshopTaskStatus.IN_PROGRESS },
-        });
-
-        if (taskUpdate.count === 0) {
-          throw new ConflictException(
-            `Task ${taskId} status changed concurrently. Please refresh and try again.`,
-          );
-        }
-      }
-
-      await tx.laborEntry.create({
-        data: {
-          tenant_id: tenantId,
-          workshop_task_id: taskId,
-          employee_id: mechanicId,
-          started_at: new Date(),
-        },
+      await startLaborAndTransitionTask(tx, {
+        tenantId,
+        taskId,
+        mechanicId,
+        taskWasAlreadyInProgress,
       });
 
       // Ensure the parent order is IN_PROGRESS when work begins.
-      await tx.workshopOrder.updateMany({
-        where: {
-          id: task.workshop_order_id,
-          tenant_id: tenantId,
-          NOT: {
-            status: {
-              in: [
-                WorkshopOrderStatus.IN_PROGRESS,
-                WorkshopOrderStatus.COMPLETED,
-                WorkshopOrderStatus.INVOICED,
-              ],
-            },
-          },
-        },
-        data: { status: WorkshopOrderStatus.IN_PROGRESS },
-      });
+      await ensureOrderInProgress(tx, tenantId, task.workshop_order_id);
     });
 
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: taskId,
-    });
+    this.emitTaskUpdated(tenantId, taskId);
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
@@ -436,17 +269,12 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!targetTask) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(targetTask, mechanicId);
-
-    if (targetTask.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Target task ${taskId} is already completed.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(
+      targetTask,
+      taskId,
+      mechanicId,
+      `Target task ${taskId} is already completed.`,
+    );
 
     // Reject if the target task already has an active labor entry
     // (someone else is working it or a duplicate switch was issued).
@@ -490,116 +318,41 @@ export class MechanicExecutionService {
       targetTask.status === WorkshopTaskStatus.IN_PROGRESS;
 
     await this.prisma.$transaction(async (tx) => {
-      // Close the existing labor entry.
-      const previousEntryUpdate = await tx.laborEntry.updateMany({
-        where: {
-          id: openEntry.id,
-          tenant_id: tenantId,
-          ended_at: null,
-        },
-        data: {
-          ended_at: new Date(),
-          pause_reason: dto.previousPauseReason,
-        },
+      // Close previous labor entry and transition previous task.
+      await closeLaborEntryAndTransitionTask(tx, {
+        tenantId,
+        openEntryId: openEntry.id,
+        taskId: previousTaskId,
+        pauseReason: dto.previousPauseReason,
+        nextTaskStatus: previousTaskNextStatus,
+        taskLabel: `Previous task ${previousTaskId}`,
       });
 
-      if (previousEntryUpdate.count === 0) {
-        throw new ConflictException(
-          `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-        );
-      }
-
-      // Transition the previous task using an atomic guard.
-      if (previousTaskNextStatus !== null) {
-        const prevUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: previousTaskId,
-            tenant_id: tenantId,
-            status: WorkshopTaskStatus.IN_PROGRESS,
-          },
-          data: { status: previousTaskNextStatus },
-        });
-
-        if (prevUpdate.count === 0) {
-          throw new ConflictException(
-            `Previous task ${previousTaskId} status changed concurrently. Please refresh and try again.`,
-          );
-        }
-      }
-
-      // Open a new labor entry for the target task.
-      await tx.laborEntry.create({
-        data: {
-          tenant_id: tenantId,
-          workshop_task_id: taskId,
-          employee_id: mechanicId,
-          started_at: new Date(),
-        },
+      // Open new labor entry and transition target task.
+      await startLaborAndTransitionTask(tx, {
+        tenantId,
+        taskId,
+        mechanicId,
+        taskWasAlreadyInProgress: targetWasAlreadyInProgress,
+        taskLabel: `Target task ${taskId}`,
       });
-
-      // Transition the target task to IN_PROGRESS (atomic guard).
-      // If target was already IN_PROGRESS (resumed task), count=0 is expected.
-      if (!targetWasAlreadyInProgress) {
-        const targetUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: taskId,
-            tenant_id: tenantId,
-            status: {
-              notIn: [WorkshopTaskStatus.IN_PROGRESS, WorkshopTaskStatus.DONE],
-            },
-          },
-          data: { status: WorkshopTaskStatus.IN_PROGRESS },
-        });
-
-        if (targetUpdate.count === 0) {
-          throw new ConflictException(
-            `Target task ${taskId} status changed concurrently. Please refresh and try again.`,
-          );
-        }
-      }
 
       // Ensure the parent order is IN_PROGRESS.
-      await tx.workshopOrder.updateMany({
-        where: {
-          id: targetTask.workshop_order_id,
-          tenant_id: tenantId,
-          NOT: {
-            status: {
-              in: [
-                WorkshopOrderStatus.IN_PROGRESS,
-                WorkshopOrderStatus.COMPLETED,
-                WorkshopOrderStatus.INVOICED,
-              ],
-            },
-          },
-        },
-        data: { status: WorkshopOrderStatus.IN_PROGRESS },
-      });
+      await ensureOrderInProgress(tx, tenantId, targetTask.workshop_order_id);
     });
 
     // Emit realtime for both the previous task and the target task.
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: previousTaskId,
-    });
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: taskId,
-    });
+    this.emitTaskUpdated(tenantId, previousTaskId);
+    this.emitTaskUpdated(tenantId, taskId);
 
-    // If the previous task moved to WAITING_CUSTOMER, emit the notification event.
-    // Use the previous task's own order ID (fetched via the open-entry join above),
-    // not the target task's order ID, since the tasks may belong to different orders.
-    if (dto.previousPauseReason === LaborPauseReason.WAITING_CUSTOMER) {
-      this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
-        tenantId,
-        taskId: previousTaskId,
-        orderId: previousOrderId,
-        mechanicId,
-      } satisfies TaskWaitingCustomerPayload);
-    }
+    // If previous task moved to WAITING_CUSTOMER, emit the notification event.
+    this.emitWaitingCustomerIfApplicable(
+      tenantId,
+      previousTaskId,
+      previousOrderId,
+      mechanicId,
+      dto.previousPauseReason,
+    );
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
@@ -629,11 +382,7 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAccessible(task, taskId, mechanicId);
 
     const openEntry = await this.prisma.laborEntry.findFirst({
       where: {
@@ -654,53 +403,24 @@ export class MechanicExecutionService {
     const nextTaskStatus = pauseReasonToTaskStatus(dto.pauseReason);
 
     await this.prisma.$transaction(async (tx) => {
-      const laborEntryUpdate = await tx.laborEntry.updateMany({
-        where: {
-          id: openEntry.id,
-          tenant_id: tenantId,
-          ended_at: null,
-        },
-        data: { ended_at: new Date(), pause_reason: dto.pauseReason },
-      });
-
-      if (laborEntryUpdate.count === 0) {
-        throw new ConflictException(
-          `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-        );
-      }
-
-      if (nextTaskStatus !== null) {
-        const taskUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: taskId,
-            tenant_id: tenantId,
-            status: WorkshopTaskStatus.IN_PROGRESS,
-          },
-          data: { status: nextTaskStatus },
-        });
-
-        if (taskUpdate.count === 0) {
-          throw new ConflictException(
-            `Task ${taskId} status changed concurrently. Please refresh and try again.`,
-          );
-        }
-      }
-    });
-
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: taskId,
-    });
-
-    if (dto.pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
-      this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
+      await closeLaborEntryAndTransitionTask(tx, {
         tenantId,
+        openEntryId: openEntry.id,
         taskId,
-        orderId: task.workshop_order_id,
-        mechanicId,
-      } satisfies TaskWaitingCustomerPayload);
-    }
+        pauseReason: dto.pauseReason,
+        nextTaskStatus,
+      });
+    });
+
+    this.emitTaskUpdated(tenantId, taskId);
+
+    this.emitWaitingCustomerIfApplicable(
+      tenantId,
+      taskId,
+      task.workshop_order_id,
+      mechanicId,
+      dto.pauseReason,
+    );
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
@@ -730,17 +450,7 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Task ${taskId} is already completed.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(task, taskId, mechanicId);
 
     const openEntry = await this.prisma.laborEntry.findFirst({
       where: {
@@ -759,58 +469,16 @@ export class MechanicExecutionService {
     const allOtherTasksDone = remainingTaskIds.length === 0;
 
     await this.prisma.$transaction(async (tx) => {
-      if (openEntry) {
-        const laborEntryUpdate = await tx.laborEntry.updateMany({
-          where: {
-            id: openEntry.id,
-            tenant_id: tenantId,
-            ended_at: null,
-          },
-          data: { ended_at: new Date() },
-        });
-
-        if (laborEntryUpdate.count === 0) {
-          throw new ConflictException(
-            `Open labor entry ${openEntry.id} changed concurrently. Please refresh and try again.`,
-          );
-        }
-      }
-
-      const taskUpdate = await tx.workshopTask.updateMany({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          status: { not: WorkshopTaskStatus.DONE },
-        },
-        data: { status: WorkshopTaskStatus.DONE },
+      await completeLaborAndTask(tx, this.vehicleLedger, {
+        tenantId,
+        taskId,
+        orderId,
+        openEntryId: openEntry?.id ?? null,
+        allOtherTasksDone,
       });
-
-      if (taskUpdate.count === 0) {
-        throw new ConflictException(
-          `Task ${taskId} status changed concurrently. Please refresh and try again.`,
-        );
-      }
-
-      if (allOtherTasksDone) {
-        const completed = await tx.workshopOrder.updateMany({
-          where: {
-            id: orderId,
-            tenant_id: tenantId,
-            status: WorkshopOrderStatus.IN_PROGRESS,
-          },
-          data: { status: WorkshopOrderStatus.COMPLETED },
-        });
-        if (completed.count > 0) {
-          await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
-        }
-      }
     });
 
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: taskId,
-    });
+    this.emitTaskUpdated(tenantId, taskId);
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
@@ -844,53 +512,18 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
+    assertTaskAccessible(task, taskId, mechanicId);
 
     await this.prisma.$transaction(async (tx) => {
       let acceptedDraftText: string | null = null;
       if (dto.voiceNoteDraftId) {
-        const pendingDraft = await tx.workshopVoiceNoteDraft.findFirst({
-          where: {
-            id: dto.voiceNoteDraftId,
-            tenant_id: tenantId,
-            workshop_task_id: taskId,
-            mechanic_employee_id: mechanicId,
-            status: 'PENDING',
-          },
-          select: { id: true, translated_text: true },
-        });
-
-        if (!pendingDraft) {
-          throw new NotFoundException(
-            `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
-          );
-        }
-
-        const acceptedDraft = await tx.workshopVoiceNoteDraft.updateMany({
-          where: {
-            id: pendingDraft.id,
-            tenant_id: tenantId,
-            workshop_task_id: taskId,
-            mechanic_employee_id: mechanicId,
-            status: 'PENDING',
-          },
-          data: {
-            status: 'ACCEPTED',
-            accepted_at: new Date(),
-            accepted_by_employee_id: mechanicId,
-          },
-        });
-
-        if (acceptedDraft.count === 0) {
-          throw new NotFoundException(
-            `Voice note draft ${dto.voiceNoteDraftId} not found or already accepted.`,
-          );
-        }
-        acceptedDraftText = pendingDraft.translated_text;
+        acceptedDraftText = await processVoiceNoteDraft(
+          tx,
+          tenantId,
+          taskId,
+          mechanicId,
+          dto.voiceNoteDraftId,
+        );
       }
 
       const effectiveMechanicNotes =
@@ -901,14 +534,7 @@ export class MechanicExecutionService {
             : undefined;
 
       if (effectiveMechanicNotes !== undefined) {
-        const taskUpdate = await tx.workshopTask.updateMany({
-          where: { id: taskId, tenant_id: tenantId },
-          data: { mechanic_notes: effectiveMechanicNotes },
-        });
-
-        if (taskUpdate.count === 0) {
-          throw new NotFoundException(`Task ${taskId} not found.`);
-        }
+        await updateTaskNotes(tx, tenantId, taskId, effectiveMechanicNotes);
       }
 
       // Upsert inspection item values when provided.
@@ -917,63 +543,17 @@ export class MechanicExecutionService {
         dto.inspectionItems &&
         dto.inspectionItems.length > 0
       ) {
-        // Validate that the inspection belongs to this task/tenant.
-        const inspection = await tx.workshopInspection.findFirst({
-          where: {
-            id: dto.inspectionId,
-            tenant_id: tenantId,
-            workshop_task_id: taskId,
-          },
-          select: { id: true },
-        });
-
-        if (!inspection) {
-          throw new NotFoundException(
-            `Inspection ${dto.inspectionId} not found for task ${taskId}.`,
-          );
-        }
-
-        // Batch update: map each item value to an update query and resolve concurrently.
-        // Each update is scoped to tenant + inspection + item; we verify the count so
-        // that stale or wrong item IDs fail loudly rather than silently (ADR-0014 §5.1).
-        const updateResults = await Promise.all(
-          dto.inspectionItems.map((item) =>
-            tx.workshopInspectionItem.updateMany({
-              where: {
-                id: item.itemId,
-                tenant_id: tenantId,
-                workshop_inspection_id: dto.inspectionId!,
-              },
-              data: {
-                ...(item.responseValue !== undefined
-                  ? { response_value: item.responseValue }
-                  : {}),
-                ...(item.passed !== undefined ? { passed: item.passed } : {}),
-                ...(item.severity !== undefined
-                  ? { severity: item.severity }
-                  : {}),
-                ...(item.notes !== undefined ? { notes: item.notes } : {}),
-              },
-            }),
-          ),
+        await updateInspectionItems(
+          tx,
+          tenantId,
+          taskId,
+          dto.inspectionId,
+          dto.inspectionItems,
         );
-
-        const notFound = dto.inspectionItems.filter(
-          (_, i) => updateResults[i].count === 0,
-        );
-        if (notFound.length > 0) {
-          throw new NotFoundException(
-            `Inspection item(s) not found: ${notFound.map((i) => i.itemId).join(', ')}.`,
-          );
-        }
       }
     });
 
-    this.realtimeService.emitEntityUpdated(tenantId, {
-      type: 'WORKSHOP_TASK',
-      action: 'UPDATED',
-      entityId: taskId,
-    });
+    this.emitTaskUpdated(tenantId, taskId);
 
     // Re-fetch the latest notes for the response.
     const updated = await this.prisma.workshopTask.findFirst({
@@ -1018,17 +598,12 @@ export class MechanicExecutionService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Cannot add parts to completed task ${taskId}.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(
+      task,
+      taskId,
+      mechanicId,
+      `Cannot add parts to completed task ${taskId}.`,
+    );
 
     const lineItem = await this.prisma.workshopTaskLineItem.create({
       data: {
@@ -1064,5 +639,32 @@ export class MechanicExecutionService {
         lineItem.part_execution_status ??
         WorkshopPartLineExecutionStatus.PENDING_PICK,
     } satisfies RequestPartResponseDto;
+  }
+
+  // ─── Shared Event Emitters ─────────────────────────────────────────────────
+
+  private emitTaskUpdated(tenantId: string, taskId: string): void {
+    this.realtimeService.emitEntityUpdated(tenantId, {
+      type: 'WORKSHOP_TASK',
+      action: 'UPDATED',
+      entityId: taskId,
+    });
+  }
+
+  private emitWaitingCustomerIfApplicable(
+    tenantId: string,
+    taskId: string,
+    orderId: string,
+    mechanicId: string,
+    pauseReason: LaborPauseReason,
+  ): void {
+    if (pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
+      this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
+        tenantId,
+        taskId,
+        orderId,
+        mechanicId,
+      } satisfies TaskWaitingCustomerPayload);
+    }
   }
 }
