@@ -1,15 +1,10 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer';
 import { CloudTasksService, PdfStorage } from '../common';
-import { resolvePdfGenerationDispatch } from '../common/pdf/pdf-generation-dispatch';
+import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch';
 import { renderAndUploadPdf } from '../common/pdf/pdf-render-upload';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import {
@@ -72,74 +67,44 @@ export class InvoicePdfService {
 
     assertInvoicePdfGenerationAllowed(invoice.status);
 
-    const dispatch = resolvePdfGenerationDispatch({
-      cloudTasksEnabled: this.cloudTasks.isEnabled(),
+    const outcome = await enqueueOrGeneratePdf({
+      kind: 'invoice',
+      resourceId: invoiceId,
+      resourceName: 'invoice',
+      tenantId,
       targetBaseUrl: params.targetBaseUrl,
+      cloudTasks: this.cloudTasks,
       nodeEnv: process.env.NODE_ENV,
+      logger: this.logger,
+      clearError: () =>
+        this.prisma.client.invoice
+          .updateMany({
+            where: { id: invoiceId, tenant_id: tenantId },
+            data: { pdf_generation_error: null },
+          })
+          .then(() => {}),
+      generateInline: () => this.generateNow(invoiceId),
+      storeEnqueueError: (msg) =>
+        this.safeStoreGenerationError(invoiceId, msg, tenantId),
+      onEnqueueError: (error) => {
+        Sentry.captureException(error, {
+          tags: { invoiceId, operation: 'cloudtasks.enqueuePdfGeneration' },
+        });
+      },
     });
 
-    if (dispatch === 'inline') {
-      const generated = await this.generateNow(invoiceId);
-      return { mode: 'generated', ...generated };
-    }
-
-    try {
-      await this.prisma.client.invoice.updateMany({
-        where: { id: invoiceId, tenant_id: tenantId },
-        data: { pdf_generation_error: null },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Failed to clear invoice PDF generation error before enqueue (invoiceId=${invoiceId}): ${message}`,
-      );
-    }
-
-    try {
-      const tenantId = await this.tenantContext.getTenantId();
-      const { taskId } = await this.cloudTasks.enqueuePdfGeneration({
-        kind: 'invoice',
-        resourceId: invoiceId,
-        targetBaseUrl: params.targetBaseUrl,
-        tenantId,
-      });
+    if (outcome.mode === 'enqueued') {
       return {
         mode: 'enqueued',
         invoiceId,
         bucket: null,
         key: null,
         generatedAt: null,
-        taskId,
+        taskId: outcome.taskId,
       };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to enqueue invoice PDF generation task (invoiceId=${invoiceId}): ${message}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      Sentry.captureException(error, {
-        tags: { invoiceId, operation: 'cloudtasks.enqueuePdfGeneration' },
-      });
-
-      // In production, we must fail closed. In dev, we can fall back to inline.
-      if (process.env.NODE_ENV !== 'production') {
-        this.logger.warn(
-          `Falling back to inline generation for invoice ${invoiceId} (non-production)`,
-        );
-        const generated = await this.generateNow(invoiceId);
-        return { mode: 'generated', ...generated };
-      }
-
-      await this.safeStoreGenerationError(
-        invoiceId,
-        'Failed to enqueue background PDF generation task. Please try again.',
-        tenantId,
-      );
-
-      throw new InternalServerErrorException(
-        'Failed to enqueue invoice PDF generation task',
-      );
     }
+
+    return { mode: 'generated', ...outcome.result };
   }
 
   async generateNow(invoiceId: string): Promise<{
