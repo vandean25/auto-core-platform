@@ -418,6 +418,45 @@ describe('LaborCategoryService', () => {
 
       expect(mockPrisma.laborCategory.findFirst).toHaveBeenCalledTimes(2);
     });
+
+    it('updates default_hourly_rate when provided in dto', async () => {
+      mockPrisma.laborCategory.findFirst
+        .mockResolvedValueOnce(existingCategory)
+        .mockResolvedValueOnce({
+          ...existingCategory,
+          default_hourly_rate: 150,
+        });
+      mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.update('cat-1', { default_hourly_rate: 150 });
+
+      expect(mockPrisma.laborCategory.updateMany).toHaveBeenCalledWith({
+        where: { id: 'cat-1', tenant_id: 'tenant-1' },
+        data: expect.objectContaining({ default_hourly_rate: 150 }),
+      });
+      expect(result.default_hourly_rate).toBe(150);
+    });
+
+    it('clears default_hourly_rate when explicitly set to null', async () => {
+      mockPrisma.laborCategory.findFirst
+        .mockResolvedValueOnce({
+          ...existingCategory,
+          default_hourly_rate: 120,
+        })
+        .mockResolvedValueOnce({
+          ...existingCategory,
+          default_hourly_rate: null,
+        });
+      mockPrisma.laborCategory.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.update('cat-1', { default_hourly_rate: null });
+
+      expect(mockPrisma.laborCategory.updateMany).toHaveBeenCalledWith({
+        where: { id: 'cat-1', tenant_id: 'tenant-1' },
+        data: expect.objectContaining({ default_hourly_rate: null }),
+      });
+      expect(result.default_hourly_rate).toBeNull();
+    });
   });
 
   // ── remove ────────────────────────────────────────────────────────────

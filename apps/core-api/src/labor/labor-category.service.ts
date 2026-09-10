@@ -4,17 +4,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
+import type {
   CreateLaborCategoryDto,
   UpdateLaborCategoryDto,
 } from './dto/labor-category.dto';
+import { toDecimalNumber, rethrowAsConflict } from './labor-shared.helpers';
 
-/** Convert a Prisma Decimal (or plain number) to a JS number, preserving 0. */
-function toNumber(value: Prisma.Decimal | null | undefined): number | null {
-  return value !== null && value !== undefined ? Number(value) : null;
+// ── Private guard / helper types ──────────────────────────────────────────────
+
+/** Minimal shape returned by the parent-lookup select. */
+interface ParentRecord {
+  id: string;
+  parent_id: string | null;
 }
 
 @Injectable()
@@ -23,6 +27,8 @@ export class LaborCategoryService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
   ) {}
+
+  // ── findAll ───────────────────────────────────────────────────────────────
 
   /**
    * Returns tree-structured categories: top-level parents with their
@@ -62,10 +68,10 @@ export class LaborCategoryService {
 
     const data = topLevel.map((cat) => ({
       ...cat,
-      default_hourly_rate: toNumber(cat.default_hourly_rate),
+      default_hourly_rate: toDecimalNumber(cat.default_hourly_rate),
       children: cat.children.map((child) => ({
         ...child,
-        default_hourly_rate: toNumber(child.default_hourly_rate),
+        default_hourly_rate: toDecimalNumber(child.default_hourly_rate),
       })),
     }));
 
@@ -84,38 +90,13 @@ export class LaborCategoryService {
     };
   }
 
+  // ── create ────────────────────────────────────────────────────────────────
+
   async create(dto: CreateLaborCategoryDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    // Validate unique name
-    const existing = await this.prisma.laborCategory.findFirst({
-      where: { tenant_id: tenantId, name: dto.name },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Labor category with name "${dto.name}" already exists`,
-      );
-    }
 
-    // Validate parent exists and depth constraint
-    if (dto.parent_id) {
-      const parent = await this.prisma.laborCategory.findFirst({
-        where: { id: dto.parent_id, tenant_id: tenantId },
-        select: { id: true, parent_id: true },
-      });
-
-      if (!parent) {
-        throw new NotFoundException(
-          `Parent category with ID "${dto.parent_id}" not found`,
-        );
-      }
-
-      // Max depth = 2: parent must be a top-level category (no parent itself)
-      if (parent.parent_id) {
-        throw new BadRequestException(
-          'Maximum category depth of 2 exceeded. A sub-category cannot have its own sub-categories.',
-        );
-      }
-    }
+    await this.assertNameAvailable(tenantId, dto.name);
+    await this.assertParentValid(tenantId, dto.parent_id);
 
     try {
       const created = await this.prisma.laborCategory.create({
@@ -132,98 +113,36 @@ export class LaborCategoryService {
 
       return {
         ...created,
-        default_hourly_rate: toNumber(created.default_hourly_rate),
+        default_hourly_rate: toDecimalNumber(created.default_hourly_rate),
       };
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor category with name "${dto.name}" already exists`,
-        );
-      }
-      throw error;
+      rethrowAsConflict(
+        error,
+        `Labor category with name "${dto.name}" already exists`,
+      );
     }
   }
 
+  // ── update ────────────────────────────────────────────────────────────────
+
   async update(id: string, dto: UpdateLaborCategoryDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const category = await this.prisma.laborCategory.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
 
-    if (!category) {
-      throw new NotFoundException(`Labor category with ID "${id}" not found`);
-    }
-
-    // Validate unique name if being changed
-    if (dto.name !== undefined && dto.name !== category.name) {
-      const existing = await this.prisma.laborCategory.findFirst({
-        where: { tenant_id: tenantId, name: dto.name },
-      });
-      if (existing) {
-        throw new ConflictException(
-          `Labor category with name "${dto.name}" already exists`,
-        );
-      }
-    }
-
-    // Validate parent if being changed
-    if (dto.parent_id !== undefined && dto.parent_id !== null) {
-      if (dto.parent_id === id) {
-        throw new BadRequestException('A category cannot be its own parent.');
-      }
-
-      const parent = await this.prisma.laborCategory.findFirst({
-        where: { id: dto.parent_id, tenant_id: tenantId },
-        select: { id: true, parent_id: true },
-      });
-
-      if (!parent) {
-        throw new NotFoundException(
-          `Parent category with ID "${dto.parent_id}" not found`,
-        );
-      }
-
-      if (parent.parent_id) {
-        throw new BadRequestException(
-          'Maximum category depth of 2 exceeded. A sub-category cannot have its own sub-categories.',
-        );
-      }
-
-      // Guard against depth-3: if this category already has children, making
-      // it a child of another category would create a 3-level hierarchy.
-      const existingChildCount = await this.prisma.laborCategory.count({
-        where: { tenant_id: tenantId, parent_id: id },
-      });
-      if (existingChildCount > 0) {
-        throw new BadRequestException(
-          'Cannot move a category that has sub-categories under another parent. This would exceed the maximum depth of 2.',
-        );
-      }
-    }
+    const category = await this.assertCategoryUpdatable(tenantId, id);
+    await this.assertNameAvailable(tenantId, dto.name, category.name);
+    await this.assertParentChangeValid(tenantId, id, dto.parent_id);
 
     try {
       const updateResult = await this.prisma.laborCategory.updateMany({
         where: { id, tenant_id: tenantId },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.description !== undefined && {
-            description: dto.description,
-          }),
-          ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
-          ...(dto.parent_id !== undefined && { parent_id: dto.parent_id }),
-          ...(dto.default_hourly_rate !== undefined && {
-            default_hourly_rate: dto.default_hourly_rate,
-          }),
-          ...(dto.is_active !== undefined && { is_active: dto.is_active }),
-        },
+        data: this.resolveUpdateData(dto),
       });
 
       if (updateResult.count === 0) {
         throw new NotFoundException(`Labor category with ID "${id}" not found`);
       }
+
+      this.cascadeRateUpdates(tenantId, id, dto.default_hourly_rate);
 
       const updated = await this.prisma.laborCategory.findFirst({
         where: { id, tenant_id: tenantId },
@@ -235,20 +154,17 @@ export class LaborCategoryService {
 
       return {
         ...updated,
-        default_hourly_rate: toNumber(updated.default_hourly_rate),
+        default_hourly_rate: toDecimalNumber(updated.default_hourly_rate),
       };
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor category with name "${dto.name}" already exists`,
-        );
-      }
-      throw error;
+      rethrowAsConflict(
+        error,
+        `Labor category with name "${dto.name}" already exists`,
+      );
     }
   }
+
+  // ── remove ────────────────────────────────────────────────────────────────
 
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
@@ -303,7 +219,181 @@ export class LaborCategoryService {
 
     return {
       ...category,
-      default_hourly_rate: toNumber(category.default_hourly_rate),
+      default_hourly_rate: toDecimalNumber(category.default_hourly_rate),
+    };
+  }
+
+  // ── Private guard helpers ─────────────────────────────────────────────────
+
+  /**
+   * Ensure a category with `id` exists in this tenant.
+   * Returns the found record so callers can use it without a second query.
+   * Throws NotFoundException when not found.
+   */
+  private async assertCategoryUpdatable(tenantId: string, id: string) {
+    const category = await this.prisma.laborCategory.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!category) {
+      throw new NotFoundException(`Labor category with ID "${id}" not found`);
+    }
+    return category;
+  }
+
+  /**
+   * Ensure `name` is not already taken by another category in this tenant.
+   * When `currentName` is provided, skip the check if the name is unchanged.
+   * Throws ConflictException when the name is taken.
+   */
+  private async assertNameAvailable(
+    tenantId: string,
+    name: string | undefined,
+    currentName?: string,
+  ) {
+    if (name === undefined || name === currentName) {
+      return;
+    }
+    const existing = await this.prisma.laborCategory.findFirst({
+      where: { tenant_id: tenantId, name },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Labor category with name "${name}" already exists`,
+      );
+    }
+  }
+
+  /**
+   * Validate `parent_id` for create operations.
+   * - Throws NotFoundException when the parent does not exist.
+   * - Throws BadRequestException when the parent is itself a child (depth > 2).
+   *
+   * Skipped when `parent_id` is null or undefined.
+   */
+  private async assertParentValid(
+    tenantId: string,
+    parentId: string | null | undefined,
+  ) {
+    if (!parentId) {
+      return;
+    }
+    const parent = await this.lookupParent(tenantId, parentId);
+    this.assertParentIsTopLevel(parent, parentId);
+  }
+
+  /**
+   * Validate a parent change during an update operation.
+   * In addition to the basic parent checks, guards against creating a
+   * 3-level hierarchy when the category being moved already has children.
+   *
+   * Skipped when `parent_id` is undefined or null.
+   */
+  private async assertParentChangeValid(
+    tenantId: string,
+    id: string,
+    parentId: string | null | undefined,
+  ) {
+    if (parentId === undefined || parentId === null) {
+      return;
+    }
+
+    if (parentId === id) {
+      throw new BadRequestException('A category cannot be its own parent.');
+    }
+
+    const parent = await this.lookupParent(tenantId, parentId);
+    this.assertParentIsTopLevel(parent, parentId);
+
+    // Guard against depth-3: if this category already has children, making it
+    // a child of another category would create a 3-level hierarchy.
+    const existingChildCount = await this.prisma.laborCategory.count({
+      where: { tenant_id: tenantId, parent_id: id },
+    });
+    if (existingChildCount > 0) {
+      throw new BadRequestException(
+        'Cannot move a category that has sub-categories under another parent. This would exceed the maximum depth of 2.',
+      );
+    }
+  }
+
+  /**
+   * Fetch a parent category record.
+   * Throws NotFoundException when the parent does not exist in this tenant.
+   */
+  private async lookupParent(
+    tenantId: string,
+    parentId: string,
+  ): Promise<ParentRecord> {
+    const parent = await this.prisma.laborCategory.findFirst({
+      where: { id: parentId, tenant_id: tenantId },
+      select: { id: true, parent_id: true },
+    });
+    if (!parent) {
+      throw new NotFoundException(
+        `Parent category with ID "${parentId}" not found`,
+      );
+    }
+    return parent;
+  }
+
+  /**
+   * Enforce the max-depth-2 rule: the parent must be a top-level category
+   * (i.e., it must have no parent of its own).
+   * Throws BadRequestException when the depth constraint is violated.
+   */
+  private assertParentIsTopLevel(parent: ParentRecord, parentId: string) {
+    if (parent.parent_id) {
+      throw new BadRequestException(
+        'Maximum category depth of 2 exceeded. A sub-category cannot have its own sub-categories.',
+      );
+    }
+    // suppress unused-variable warning (parentId used only for documentation)
+    void parentId;
+  }
+
+  /**
+   * Resolve rate override update payload from DTO.
+   */
+  private resolveRateUpdate(
+    dto: UpdateLaborCategoryDto,
+  ): Prisma.LaborCategoryUpdateManyMutationInput {
+    if (dto.default_hourly_rate !== undefined) {
+      return { default_hourly_rate: dto.default_hourly_rate };
+    }
+    return {};
+  }
+
+  /**
+   * Cascade rate updates to child categories if needed.
+   * Hook for future rate propagation policies across sub-category trees.
+   */
+  private cascadeRateUpdates(
+    tenantId: string,
+    categoryId: string,
+    rate: number | null | undefined,
+  ): void {
+    // Child categories inherit rate dynamically at runtime when null;
+    // this helper provides the extension point for persisted rate cascading.
+    void tenantId;
+    void categoryId;
+    void rate;
+  }
+
+  /**
+   * Build the sparse update payload from a DTO, including only fields that are
+   * explicitly set (not `undefined`). This avoids accidentally overwriting
+   * fields that the caller did not intend to touch.
+   */
+  private resolveUpdateData(
+    dto: UpdateLaborCategoryDto,
+  ): Prisma.LaborCategoryUpdateManyMutationInput {
+    return {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
+      ...(dto.parent_id !== undefined && { parent_id: dto.parent_id }),
+      ...this.resolveRateUpdate(dto),
+      ...(dto.is_active !== undefined && { is_active: dto.is_active }),
     };
   }
 }
