@@ -300,9 +300,7 @@ describe('WorkshopIntakeService', () => {
       fuelLevel: 50,
     });
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
@@ -685,6 +683,72 @@ describe('WorkshopIntakeService', () => {
         data: expect.objectContaining({
           scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
           scheduled_end_at: new Date('2026-08-21T11:00:00.000Z'),
+        }),
+      }),
+    );
+  });
+
+  it('matches existing customer by email when customerId is omitted in register', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-matched' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
+    mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      plate: 'PL-1',
+      customer: { id: 'c-matched' },
+    });
+
+    await service.register({
+      email: 'john@example.com',
+      plate: 'PL-1',
+    });
+
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        email: 'john@example.com',
+      },
+    });
+    expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customer_id: 'c-matched',
+        }),
+      }),
+    );
+  });
+
+  it('creates new private customer when customerId and existing email do not match in register', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue(null);
+    mockPrisma.customer.create.mockResolvedValue({ id: 'c-new' });
+    mockPrisma.vehicle.findFirst.mockResolvedValue(null);
+    mockPrisma.vehicle.create.mockResolvedValue({
+      id: 'v-1',
+      plate: 'PL-2',
+      customer: { id: 'c-new' },
+    });
+
+    await service.register({
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      phone: '+43123456',
+      plate: 'PL-2',
+    });
+
+    expect(mockPrisma.customer.create).toHaveBeenCalledWith({
+      data: {
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        first_name: 'Alice',
+        last_name: 'Smith',
+        email: 'alice@example.com',
+        phone: '+43123456',
+        type: 'PRIVATE',
+      },
+    });
+    expect(mockPrisma.vehicle.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customer_id: 'c-new',
         }),
       }),
     );
