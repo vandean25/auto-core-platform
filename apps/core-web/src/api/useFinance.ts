@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { FinanceSettings, RevenueGroup, RevenueAnalytics } from './types'
+import type { FinanceSettings, RevenueGroup } from './types'
 import { fetchWithAuth } from './client'
 
 export const financeKeys = {
     all: ['finance'] as const,
     settings: () => [...financeKeys.all, 'settings'] as const,
     revenueGroups: () => [...financeKeys.all, 'revenue-groups'] as const,
-    analytics: (type: string) => [...financeKeys.all, 'analytics', type] as const,
 }
 
 export function useFinanceSettings() {
@@ -67,13 +66,3 @@ export function useCreateRevenueGroup() {
     })
 }
 
-export function useRevenueAnalytics() {
-    return useQuery<RevenueAnalytics>({
-        queryKey: financeKeys.analytics('revenue-by-group'),
-        queryFn: async () => {
-            const response = await fetchWithAuth('/api/finance/analytics/revenue-by-group')
-            if (!response.ok) throw new Error('Failed to fetch revenue analytics')
-            return response.json()
-        },
-    })
-}
