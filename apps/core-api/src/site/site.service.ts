@@ -68,7 +68,11 @@ export class SiteService {
   ) {
     this.membershipService =
       membershipService ??
-      new SiteMembershipService(this.prisma, this.tenantContext);
+      new SiteMembershipService(
+        this.prisma,
+        this.tenantContext,
+        this.dashboardRealtime,
+      );
     this.legalEntityService =
       legalEntityService ??
       new LegalEntityService(this.prisma, this.tenantContext);
