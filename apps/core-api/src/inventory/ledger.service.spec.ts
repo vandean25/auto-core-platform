@@ -170,6 +170,7 @@ describe('LedgerService', () => {
           type: TransactionType.PURCHASE_RECEIPT,
           costBasis: 15.5,
           referenceId: 'po-ref-1',
+          partsReservationId: 'reservation-1',
         },
       ];
 
@@ -185,6 +186,7 @@ describe('LedgerService', () => {
             type: TransactionType.PURCHASE_RECEIPT,
             reference_id: 'po-ref-1',
             cost_basis: new Prisma.Decimal('15.5'),
+            parts_reservation_id: 'reservation-1',
           },
         ],
       });
@@ -196,6 +198,37 @@ describe('LedgerService', () => {
           quantity_on_hand: new Prisma.Decimal('10'),
           quantity_reserved: new Prisma.Decimal(0),
         },
+      });
+    });
+
+    it('persists nullable cost basis and reservation metadata', async () => {
+      mockPrisma.storageLocation.findMany.mockResolvedValue([
+        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+      ]);
+      mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
+      mockPrisma.inventoryStock.create.mockResolvedValue({
+        id: 'stock-null-cost',
+        quantity_on_hand: 1,
+      });
+
+      await service.recordTransactions([
+        {
+          itemId: ITEM_ID,
+          locationId: LOCATION_ID,
+          quantity: 1,
+          type: TransactionType.TRANSFER_IN,
+          costBasis: null,
+          partsReservationId: 'reservation-null-cost',
+        },
+      ]);
+
+      expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            parts_reservation_id: 'reservation-null-cost',
+            cost_basis: null,
+          }),
+        ],
       });
     });
 

@@ -3,21 +3,33 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LocationType, Prisma } from '@prisma/client';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AtpService, type AtpStockInput } from './atp.service';
 
-const catalogItemInclude = {
-  brand: true,
-  stocks: {
-    include: {
-      location: true,
+function buildCatalogItemInclude(tenantId: string, siteId: string) {
+  return {
+    brand: true,
+    stocks: {
+      where: {
+        tenant_id: tenantId,
+        location: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          type: { not: LocationType.staging_tote },
+        },
+      },
+      include: {
+        location: true,
+      },
     },
-  },
-  superseded_by: {
-    select: { id: true, sku: true },
-  },
-} as const;
+    superseded_by: {
+      select: { id: true, sku: true },
+    },
+  } satisfies Prisma.CatalogItemInclude;
+}
 
 export interface AvailabilityCheckResult {
   sku: string;
@@ -46,11 +58,21 @@ export interface InventoryQueryParams {
 }
 
 type CatalogItemWithStocksAndBrand = Prisma.CatalogItemGetPayload<{
-  include: typeof catalogItemInclude;
+  include: {
+    brand: true;
+    stocks: { include: { location: true } };
+    superseded_by: { select: { id: true; sku: true } };
+  };
 }>;
+
+interface InventoryContext {
+  tenantId: string;
+  siteId: string;
+}
 
 function buildLegacyInventoryWhere(
   tenantId: string,
+  siteId: string,
   params: InventoryQueryParams,
 ): Prisma.CatalogItemWhereInput {
   const where: Prisma.CatalogItemWhereInput = { tenant_id: tenantId };
@@ -70,7 +92,11 @@ function buildLegacyInventoryWhere(
   if (params.location) {
     where.stocks = {
       some: {
+        tenant_id: tenantId,
         location: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          type: { not: LocationType.staging_tote },
           name: { contains: params.location, mode: 'insensitive' },
         },
       },
@@ -91,21 +117,44 @@ function resolveInventoryPagination(params: InventoryQueryParams): {
   return { skip, pageSize: effectivePageSize };
 }
 
-function transformInventoryItem(item: CatalogItemWithStocksAndBrand) {
-  const onHand = item.stocks.reduce(
-    (sum, s) => sum + Number(s.quantity_on_hand),
-    0,
+function toAtpStockInput(
+  stock: CatalogItemWithStocksAndBrand['stocks'][number],
+): AtpStockInput {
+  return {
+    id: stock.id,
+    locationId: stock.location_id,
+    quantity_on_hand: stock.quantity_on_hand,
+    quantity_reserved: stock.quantity_reserved,
+  };
+}
+
+function filterAtpStocks(
+  stocks: CatalogItemWithStocksAndBrand['stocks'],
+  siteId: string,
+) {
+  return stocks.filter(
+    (stock) =>
+      stock.location.site_id === siteId &&
+      stock.location.type !== LocationType.staging_tote,
   );
-  const reserved = item.stocks.reduce(
-    (sum, s) => sum + Number(s.quantity_reserved),
-    0,
-  );
-  const available = onHand - reserved;
+}
+
+function transformInventoryItem(
+  item: CatalogItemWithStocksAndBrand,
+  atpService: AtpService,
+  siteId: string,
+) {
+  const eligibleStocks = filterAtpStocks(item.stocks, siteId);
+  const totals = atpService.sumAtp(eligibleStocks.map(toAtpStockInput), {
+    operation: 'inventory_list',
+    tenantId: item.tenant_id,
+  });
+  const available = totals.quantityAvailable.toNumber();
 
   let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
   if (item.superseded_by) {
     status = 'SUPERSEDED';
-  } else if (available > 0) {
+  } else if (totals.quantityAvailable.gt(0)) {
     status = 'IN_STOCK';
   } else {
     status = 'OUT_OF_STOCK';
@@ -120,7 +169,7 @@ function transformInventoryItem(item: CatalogItemWithStocksAndBrand) {
     price: Number(item.retail_price),
     status,
     quantity_available: available,
-    warehouse_location: item.stocks[0]?.location?.name || 'N/A',
+    warehouse_location: eligibleStocks[0]?.location?.name || 'N/A',
   };
 }
 
@@ -129,6 +178,8 @@ export class InventoryService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
+    private readonly atpService: AtpService,
   ) {}
 
   /**
@@ -137,10 +188,17 @@ export class InventoryService {
    * @param sku The Manufacturer Part Number (MPN).
    */
   async checkAvailability(sku: string): Promise<AvailabilityCheckResult> {
-    const tenantId = await this.tenantContext.getTenantId();
+    const context = await this.getInventoryContext();
+    return await this.checkAvailabilityForSku(sku, context);
+  }
+
+  private async checkAvailabilityForSku(
+    sku: string,
+    context: InventoryContext,
+  ): Promise<AvailabilityCheckResult> {
     const item = await this.prisma.catalogItem.findFirst({
-      where: { tenant_id: tenantId, sku },
-      include: catalogItemInclude,
+      where: { tenant_id: context.tenantId, sku },
+      include: buildCatalogItemInclude(context.tenantId, context.siteId),
     });
 
     if (!item) {
@@ -149,7 +207,10 @@ export class InventoryService {
 
     // If there is a superseding part, recursively check its availability
     if (item.superseded_by) {
-      const suggestion = await this.checkAvailability(item.superseded_by.sku);
+      const suggestion = await this.checkAvailabilityForSku(
+        item.superseded_by.sku,
+        context,
+      );
       return {
         ...suggestion,
         original_sku: sku,
@@ -158,24 +219,22 @@ export class InventoryService {
       };
     }
 
-    // Base case: No more supersessions, return current stock summed across all locations
-    const onHand = item.stocks.reduce(
-      (sum, s) => sum + Number(s.quantity_on_hand),
-      0,
+    const totals = this.atpService.sumAtp(
+      filterAtpStocks(item.stocks, context.siteId).map(toAtpStockInput),
+      {
+        operation: 'inventory_availability',
+        tenantId: context.tenantId,
+        siteId: context.siteId,
+      },
     );
-    const reserved = item.stocks.reduce(
-      (sum, s) => sum + Number(s.quantity_reserved),
-      0,
-    );
-    const available = onHand - reserved;
 
     return {
       sku: item.sku,
       name: item.name,
       brand: item.brand?.name || '',
-      quantity_on_hand: onHand,
-      quantity_reserved: reserved,
-      quantity_available: available,
+      quantity_on_hand: totals.quantityOnHand.toNumber(),
+      quantity_reserved: totals.quantityReserved.toNumber(),
+      quantity_available: totals.quantityAvailable.toNumber(),
       is_superseded: false,
     };
   }
@@ -185,9 +244,10 @@ export class InventoryService {
    * @param params Pagination, search, and filter options.
    */
   async findAll(params: InventoryQueryParams) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const context = await this.getInventoryContext();
     const [items, total] = await this.fetchInventoryWithParams(
-      tenantId,
+      context.tenantId,
+      context.siteId,
       params,
     );
 
@@ -195,7 +255,9 @@ export class InventoryService {
       params.take || params.pageSize || params.limit || 10,
     );
     const pageCount = Math.ceil(total / resolvedPageSize);
-    const transformedItems = items.map(transformInventoryItem);
+    const transformedItems = items.map((item) =>
+      transformInventoryItem(item, this.atpService, context.siteId),
+    );
 
     return {
       data: transformedItems,
@@ -213,6 +275,7 @@ export class InventoryService {
 
   private async fetchInventoryWithParams(
     tenantId: string,
+    siteId: string,
     params: InventoryQueryParams,
   ): Promise<[CatalogItemWithStocksAndBrand[], number]> {
     const isQueryBuilder =
@@ -229,7 +292,7 @@ export class InventoryService {
           orderBy: params.orderBy,
           skip: params.skip,
           take: params.take,
-          include: catalogItemInclude,
+          include: buildCatalogItemInclude(tenantId, siteId),
         }),
         this.prisma.catalogItem.count({
           where: {
@@ -241,17 +304,23 @@ export class InventoryService {
     }
 
     const { skip, pageSize } = resolveInventoryPagination(params);
-    const where = buildLegacyInventoryWhere(tenantId, params);
+    const where = buildLegacyInventoryWhere(tenantId, siteId, params);
 
     return Promise.all([
       this.prisma.catalogItem.findMany({
         where,
-        include: catalogItemInclude,
+        include: buildCatalogItemInclude(tenantId, siteId),
         skip,
         take: pageSize,
       }),
       this.prisma.catalogItem.count({ where }),
     ]);
+  }
+
+  private async getInventoryContext(): Promise<InventoryContext> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    return { tenantId, siteId };
   }
 
   async createItem(data: {
