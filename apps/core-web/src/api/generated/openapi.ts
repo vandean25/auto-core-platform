@@ -2055,6 +2055,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/parts-reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/shortages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PartsRequisitionController_getShortages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3057,6 +3089,7 @@ export interface components {
             type: "LABOR" | "PART";
             itemNo: string;
             description: string;
+            /** @example 1.5 */
             qty: number;
             unitPrice: number;
             /** Format: uuid */
@@ -4542,6 +4575,63 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
+        CreatePartsReservationDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+            /** Format: uuid */
+            locationId: string;
+        };
+        PartsReservationResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @example 0.000 */
+            quantityReceived: string;
+            /** @example 0.000 */
+            quantityConsumed: string;
+            /** @example 0.000 */
+            quantityStaged: string;
+            /** @example 0.000 */
+            quantityReturned: string;
+            /** @enum {string} */
+            kind: "ON_HAND" | "REQUISITION";
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            locationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PartsShortageResponseDto: {
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            /** Format: uuid */
+            workshopTaskId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            itemNo: string;
+            description: string;
+            /** @example 4.000 */
+            lineQuantity: string;
+            /** @example 1.500 */
+            consumedQuantity: string;
+            /** @example 1.000 */
+            activeCommitment: string;
+            /** @example 1.500 */
+            shortageQuantity: string;
+            /** Format: uuid */
+            siteId: string;
         };
     };
     responses: never;
@@ -9036,6 +9126,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsReservationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_getShortages: {
+        parameters: {
+            query?: {
+                /** @description Limit the queue to one workshop order. */
+                workshopOrderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PartsShortageResponseDto"][];
+                    };
                 };
             };
         };

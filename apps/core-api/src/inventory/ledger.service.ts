@@ -18,6 +18,7 @@ export interface RecordTransactionParams {
   type: TransactionType;
   referenceId?: string;
   costBasis?: number | Decimal | null;
+  partsReservationId?: string | null;
 }
 
 interface AggregatedStockDelta {
@@ -114,6 +115,9 @@ export class LedgerService {
       quantity: new Decimal(params.quantity.toString()),
       type: params.type,
       reference_id: params.referenceId,
+      ...(params.partsReservationId !== undefined && {
+        parts_reservation_id: params.partsReservationId,
+      }),
       cost_basis:
         params.costBasis !== undefined && params.costBasis !== null
           ? new Decimal(params.costBasis.toString())

@@ -196,6 +196,7 @@ model Site {
   holidays                 WorkshopHoliday[]
   bays                     Bay[]
   storageLocations         StorageLocation[]
+  workshopOrders           WorkshopOrder[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1322,6 +1323,8 @@ model WorkshopOrder {
   id           String               @id @default(uuid())
   tenant_id    String
   tenant       Tenant               @relation(fields: [tenant_id], references: [id])
+  site_id      String?
+  site         Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   order_number String
   status       WorkshopOrderStatus  @default(INTAKE)
   purpose      WorkshopOrderPurpose @default(CUSTOMER_REPAIR)
@@ -1360,6 +1363,7 @@ model WorkshopOrder {
   @@unique([tenant_id, id])
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")

@@ -1,39 +1,40 @@
 import {
-  BadRequestException,
-  ConflictException,
   ForbiddenException,
+  ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_OPENING_HOURS } from '../workshop/workshop-hours.defaults';
 import {
   CreateLegalEntityDto,
   CreateSiteDto,
   CreateSiteMembershipDto,
-  SUPPORTED_LEGAL_ENTITY_COUNTRIES,
   SetActiveSiteDto,
   UpdateLegalEntityDto,
   UpdateSiteDto,
 } from './dto/site.dto';
-
-const SYSTEM_LOCATION_TYPE = 'in_transit';
-const SYSTEM_LOCATION_CODE = 'TRANSIT';
-const DEALER_STOCK_STATUSES = ['IN_STOCK', 'RESERVED', 'IN_PREP'] as const;
-const DEALER_INVENTORY_ROLES = ['USED', 'NEW', 'DEMO'] as const;
-
-const TIMEZONE_BY_COUNTRY: Record<string, string> = {
-  AT: 'Europe/Vienna',
-  DE: 'Europe/Berlin',
-};
-
-type TenantAdminUser = {
-  role?: string;
-};
+import { LegalEntityService } from './legal-entity.service';
+import {
+  assertActiveMemberWithSiteAccess,
+  assertSiteReadAccess,
+  assertTenantAdmin,
+} from './site.authorization';
+import {
+  countParkedVehicles,
+  createSitePrerequisites,
+  deleteSitePrerequisites,
+} from './site.helpers';
+import { SiteMembershipService } from './site-membership.service';
+import {
+  assertSiteDeletable,
+  assertSiteUpdatePayloadValid,
+  validateSiteCreateInput,
+  validateSiteUpdateInput,
+} from './site.validator';
 
 type SiteContextUser = {
   id: string;
@@ -55,14 +56,26 @@ type SiteContextUser = {
  */
 @Injectable()
 export class SiteService {
+  private readonly membershipService: SiteMembershipService;
+  private readonly legalEntityService: LegalEntityService;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly dashboardRealtime: DashboardRealtimeService,
-  ) {}
+    @Optional() membershipService?: SiteMembershipService,
+    @Optional() legalEntityService?: LegalEntityService,
+  ) {
+    this.membershipService =
+      membershipService ??
+      new SiteMembershipService(this.prisma, this.tenantContext);
+    this.legalEntityService =
+      legalEntityService ??
+      new LegalEntityService(this.prisma, this.tenantContext);
+  }
 
   // ---------------------------------------------------------------------------
-  // LegalEntity
+  // LegalEntity (delegated to LegalEntityService)
   // ---------------------------------------------------------------------------
 
   /**
@@ -71,124 +84,19 @@ export class SiteService {
    * caller explicitly passes `includeInactive=false`.
    */
   async listLegalEntities(includeInactive = true) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    return this.prisma.legalEntity.findMany({
-      where: {
-        tenant_id: tenantId,
-        ...(includeInactive ? {} : { is_active: true }),
-      },
-      orderBy: { name: 'asc' },
-    });
+    return this.legalEntityService.listLegalEntities(includeInactive);
   }
 
   async createLegalEntity(dto: CreateLegalEntityDto) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-
-    const countryIso = dto.countryIso;
-    if (!SUPPORTED_LEGAL_ENTITY_COUNTRIES.includes(countryIso)) {
-      throw new BadRequestException(
-        `countryIso must be one of ${SUPPORTED_LEGAL_ENTITY_COUNTRIES.join(', ')}`,
-      );
-    }
-
-    const existing = await this.prisma.legalEntity.findFirst({
-      where: { tenant_id: tenantId, name: dto.name.trim() },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'A legal entity with that name already exists in this tenant.',
-      );
-    }
-
-    return this.prisma.legalEntity.create({
-      data: {
-        tenant_id: tenantId,
-        name: dto.name.trim(),
-        country_iso: countryIso,
-        is_active: true,
-      },
-    });
+    return this.legalEntityService.createLegalEntity(dto);
   }
 
   async updateLegalEntity(id: string, dto: UpdateLegalEntityDto) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    const existing = await this.prisma.legalEntity.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
-    if (!existing) {
-      throw new NotFoundException('Legal entity not found');
-    }
-
-    // country_iso is immutable after create (ruling 326)
-    if (dto.isActive === false) {
-      return this.prisma.$transaction(async (tx) => {
-        // A no-op update takes a row lock, serializing this check with
-        // createSite's matching lock before either operation commits.
-        const lock = await tx.legalEntity.updateMany({
-          where: { id: existing.id, tenant_id: tenantId, is_active: true },
-          data: { is_active: true },
-        });
-        if (lock.count !== 1) {
-          throw new ConflictException(
-            'Cannot deactivate an inactive or concurrently changed legal entity.',
-          );
-        }
-        const activeSite = await tx.site.findFirst({
-          where: { tenant_id: tenantId, legal_entity_id: id, is_active: true },
-          select: { id: true },
-        });
-        if (activeSite) {
-          throw new ConflictException(
-            'Cannot deactivate a legal entity that still has an active site.',
-          );
-        }
-        return tx.legalEntity.update({
-          where: { id: existing.id },
-          data: { name: dto.name?.trim() ?? existing.name, is_active: false },
-        });
-      });
-    }
-
-    return this.prisma.legalEntity.update({
-      where: { id: existing.id },
-      data: {
-        name: dto.name?.trim() ?? existing.name,
-        is_active: dto.isActive ?? existing.is_active,
-      },
-    });
+    return this.legalEntityService.updateLegalEntity(id, dto);
   }
 
   async deleteLegalEntity(id: string) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    const existing = await this.prisma.legalEntity.findFirst({
-      where: { id, tenant_id: tenantId },
-      include: { _count: { select: { sites: true } } },
-    });
-    if (!existing) {
-      throw new NotFoundException('Legal entity not found');
-    }
-
-    if (existing._count.sites > 0) {
-      throw new ConflictException(
-        'Cannot hard-delete a legal entity that has sites. Deactivate the entity instead.',
-      );
-    }
-
-    try {
-      await this.prisma.legalEntity.delete({ where: { id: existing.id } });
-    } catch (error) {
-      if (this.isForeignKeyViolation(error)) {
-        throw new ConflictException(
-          'Legal entity is referenced by other records and cannot be deleted.',
-        );
-      }
-      throw error;
-    }
+    return this.legalEntityService.deleteLegalEntity(id);
   }
 
   // ---------------------------------------------------------------------------
@@ -205,7 +113,7 @@ export class SiteService {
     const tenantId = await this.tenantContext.getTenantId();
 
     if (includeInactive) {
-      this.assertTenantAdmin();
+      assertTenantAdmin(this.tenantContext);
       return this.prisma.site.findMany({
         where: { tenant_id: tenantId },
         orderBy: [{ code: 'asc' }],
@@ -221,7 +129,11 @@ export class SiteService {
       });
     }
 
-    await this.assertActiveMemberWithSiteAccess(tenantId);
+    await assertActiveMemberWithSiteAccess(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+    );
     const rows = await this.prisma.site.findMany({
       where: { tenant_id: tenantId, is_active: true },
       orderBy: [{ code: 'asc' }],
@@ -245,7 +157,7 @@ export class SiteService {
    */
   async getSite(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    await this.assertSiteReadAccess(tenantId, id);
+    await assertSiteReadAccess(this.prisma, this.tenantContext, tenantId, id);
     const site = await this.prisma.site.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
@@ -285,7 +197,7 @@ export class SiteService {
    * created site remains hard-deletable.
    */
   async createSite(dto: CreateSiteDto) {
-    this.assertTenantAdmin();
+    assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
 
     // POST /api/sites → 422 unless the legal entity is active (ruling 4)
@@ -312,36 +224,8 @@ export class SiteService {
       );
     }
 
-    const country = legalEntity.country_iso;
-    const timezone =
-      dto.timezone ?? TIMEZONE_BY_COUNTRY[country] ?? 'Europe/Vienna';
-    const holidayCountry = dto.holidayCountryIso ?? country;
-    const slotMinutes = dto.slotMinutes ?? 30;
-    const openingHours: readonly {
-      weekday: number;
-      isClosed: boolean;
-      openTime: string;
-      closeTime: string;
-    }[] = dto.openingHours ?? DEFAULT_OPENING_HOURS;
-
-    const weekdays = openingHours
-      .map((hour) => hour.weekday)
-      .sort((a, b) => a - b);
-    if (
-      weekdays.length !== 7 ||
-      weekdays.some((weekday, index) => weekday !== index + 1)
-    ) {
-      throw new BadRequestException(
-        'openingHours must contain exactly one entry for each weekday 1 through 7',
-      );
-    }
-    for (const hour of openingHours) {
-      if (!hour.isClosed && hour.closeTime <= hour.openTime) {
-        throw new BadRequestException(
-          `closeTime must be after openTime for weekday ${hour.weekday}`,
-        );
-      }
-    }
+    const { timezone, holidayCountry, slotMinutes, openingHours } =
+      validateSiteCreateInput(dto, legalEntity.country_iso);
 
     return this.prisma.$transaction(async (tx) => {
       // Serialize site creation with legal-entity deactivation. The guarded
@@ -373,46 +257,16 @@ export class SiteService {
         },
       });
 
-      await tx.workshopOpeningHour.createMany({
-        data: openingHours.map((hour) => ({
-          tenant_id: tenantId,
-          site_id: site.id,
-          weekday: hour.weekday,
-          is_closed: hour.isClosed,
-          open_time: hour.openTime,
-          close_time: hour.closeTime,
-        })),
-        skipDuplicates: true,
-      });
-      await tx.storageLocation.create({
-        data: {
-          tenant_id: tenantId,
-          site_id: site.id,
-          code: SYSTEM_LOCATION_CODE,
-          name: 'In Transit',
-          type: SYSTEM_LOCATION_TYPE,
-          is_system: true,
-        },
-      });
+      await createSitePrerequisites(tx, tenantId, site.id, openingHours);
 
       return site;
     });
   }
 
   async updateSite(id: string, dto: UpdateSiteDto) {
-    this.assertTenantAdmin();
+    assertTenantAdmin(this.tenantContext);
+    assertSiteUpdatePayloadValid(dto);
     const tenantId = await this.tenantContext.getTenantId();
-
-    // Reject any attempt to change legal_entity_id — the field is immutable
-    // after insert (ruling 4). The DTO has no legalEntityId field; a raw
-    // attempt to sneak one in is a client error, not a silent mutation.
-    const attemptedLegalEntityChange = (dto as { legalEntityId?: unknown })
-      .legalEntityId;
-    if (attemptedLegalEntityChange !== undefined) {
-      throw new BadRequestException(
-        'Site.legal_entity_id is immutable and cannot be changed.',
-      );
-    }
 
     const existing = await this.prisma.site.findFirst({
       where: { id, tenant_id: tenantId },
@@ -421,28 +275,16 @@ export class SiteService {
       throw new NotFoundException('Site not found');
     }
 
+    let parentLegalEntityActive: boolean | undefined;
     if (dto.isActive === true && !existing.is_active) {
       const legalEntity = await this.prisma.legalEntity.findFirst({
         where: { tenant_id: tenantId, id: existing.legal_entity_id },
         select: { is_active: true },
       });
-      if (!legalEntity?.is_active) {
-        throw new UnprocessableEntityException(
-          'Cannot reactivate a site whose legal entity is inactive. Reactivate the entity first.',
-        );
-      }
+      parentLegalEntityActive = legalEntity?.is_active;
     }
 
-    if (dto.isActive === false) {
-      // Ruling 41 requires a serialized, lock-guarded deactivation (site-row
-      // lock, recheck of documents/transfers/qty/parked vehicles, coordinated
-      // locks in every targeting write, and clearing active_site_id). That
-      // contract ships with the SiteContext issue; until then, deactivation is
-      // rejected rather than exposed with a check-then-toggle race.
-      throw new ConflictException(
-        'Site deactivation is not yet available: it requires the serialized deactivation guard (ruling 41) which ships with the SiteContext follow-up.',
-      );
-    }
+    validateSiteUpdateInput(dto, existing, parentLegalEntityActive);
 
     return this.prisma.site.update({
       where: { id: existing.id },
@@ -468,7 +310,7 @@ export class SiteService {
   }
 
   async deleteSite(id: string) {
-    this.assertTenantAdmin();
+    assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
 
     const site = await this.prisma.site.findFirst({
@@ -490,62 +332,16 @@ export class SiteService {
       throw new NotFoundException('Site not found');
     }
 
-    // Hard delete only for a pristine unused site (deletion policy Site row).
-    // Opening hours / holidays / the empty system in_transit location may be
-    // removed internally with the site (deletion policy: "Pristine site
-    // hard-delete may internally remove its empty system transit location and
-    // hours/holiday config").
-    if (site._count.memberships > 0) {
-      throw new ConflictException(
-        'Cannot hard-delete a site that has memberships.',
-      );
-    }
-    if (site._count.bays > 0) {
-      throw new ConflictException('Cannot hard-delete a site that has bays.');
-    }
-    const hasOnlySystemTransit =
-      site.storageLocations.length === 1 &&
-      site.storageLocations[0].is_system &&
-      site.storageLocations[0].type === SYSTEM_LOCATION_TYPE;
-    if (!hasOnlySystemTransit) {
-      throw new ConflictException(
-        'Cannot hard-delete a site that has storage locations other than its empty system in_transit location.',
-      );
-    }
-
-    const parkedVehicles = await this.prisma.vehicle.count({
-      where: {
-        tenant_id: tenantId,
-        inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
-        stock_status: { in: [...DEALER_STOCK_STATUSES] },
-        location: { site_id: id },
-      },
-    });
-    if (parkedVehicles > 0) {
-      throw new ConflictException(
-        'Cannot hard-delete a site that has parked dealer vehicles on a lot at this site.',
-      );
-    }
+    const parkedVehicles = await countParkedVehicles(this.prisma, tenantId, id);
+    const hasOnlySystemTransit = assertSiteDeletable(site, parkedVehicles);
 
     await this.prisma.$transaction(async (tx) => {
-      if (hasOnlySystemTransit) {
-        await tx.storageLocation.deleteMany({
-          where: {
-            tenant_id: tenantId,
-            site_id: id,
-            is_system: true,
-            type: SYSTEM_LOCATION_TYPE,
-          },
-        });
-      }
-      // Pristine-site hard delete removes its hours/holiday config internally.
-      await tx.workshopOpeningHour.deleteMany({
-        where: { tenant_id: tenantId, site_id: id },
-      });
-      await tx.workshopHoliday.deleteMany({
-        where: { tenant_id: tenantId, site_id: id },
-      });
-      await tx.site.delete({ where: { id: site.id } });
+      await deleteSitePrerequisites(
+        tx,
+        tenantId,
+        site.id,
+        hasOnlySystemTransit,
+      );
     });
 
     return { deleted: true };
@@ -701,122 +497,19 @@ export class SiteService {
   }
 
   // ---------------------------------------------------------------------------
-  // SiteMembership
+  // SiteMembership (delegated to SiteMembershipService)
   // ---------------------------------------------------------------------------
 
   async listSiteMemberships(siteId: string) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    await this.assertSiteInTenant(tenantId, siteId);
-    return this.prisma.siteMembership.findMany({
-      where: { tenant_id: tenantId, site_id: siteId },
-      include: {
-        user: {
-          select: { id: true, email: true, firstName: true, lastName: true },
-        },
-        tenantMember: { select: { role: true, is_active: true } },
-      },
-    });
+    return this.membershipService.listSiteMemberships(siteId);
   }
 
   async addSiteMembership(siteId: string, dto: CreateSiteMembershipDto) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    await this.assertSiteInTenant(tenantId, siteId);
-
-    // POST /api/sites/:id/memberships → 422 unless an active TenantMember
-    // exists for that (tenant_id, user_id). The composite FK backs this up.
-    const member = await this.prisma.tenantMember.findFirst({
-      where: { tenant_id: tenantId, user_id: dto.userId },
-      select: { id: true, is_active: true },
-    });
-    if (!member) {
-      throw new BadRequestException(
-        'No TenantMember exists for that user in this tenant.',
-      );
-    }
-    if (!member.is_active) {
-      throw new UnprocessableEntityException(
-        'Cannot grant a site membership to an inactive TenantMember.',
-      );
-    }
-
-    const existing = await this.prisma.siteMembership.findFirst({
-      where: { tenant_id: tenantId, user_id: dto.userId, site_id: siteId },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'That user already has a membership in this site.',
-      );
-    }
-
-    const membership = await this.prisma.siteMembership.create({
-      data: {
-        tenant_id: tenantId,
-        user_id: dto.userId,
-        site_id: siteId,
-        is_active: true,
-      },
-    });
-
-    // Ruling 10: any membership grant emits `site:access_scope_updated` on the
-    // user's private room so cached transfer/site-directory/`/me/sites` results
-    // are dropped, even when this site is not the active site.
-    const grantedUser = await this.prisma.user.findUnique({
-      where: { id: dto.userId },
-      select: { firebaseUid: true },
-    });
-    if (grantedUser?.firebaseUid) {
-      this.dashboardRealtime.emitSiteAccessScopeUpdated(
-        grantedUser.firebaseUid,
-      );
-    }
-
-    return membership;
+    return this.membershipService.addSiteMembership(siteId, dto);
   }
 
   async removeSiteMembership(siteId: string, userId: string) {
-    this.assertTenantAdmin();
-    const tenantId = await this.tenantContext.getTenantId();
-    await this.assertSiteInTenant(tenantId, siteId);
-
-    const membership = await this.prisma.siteMembership.findFirst({
-      where: { tenant_id: tenantId, site_id: siteId, user_id: userId },
-    });
-    if (!membership) {
-      throw new NotFoundException('Site membership not found');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firebaseUid: true, active_site_id: true },
-    });
-    const clearsActiveSite = user?.active_site_id === siteId;
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.siteMembership.delete({ where: { id: membership.id } });
-      // Ruling 10: removing a membership that matches User.active_site_id
-      // clears active_site_id atomically (null).
-      await tx.user.updateMany({
-        where: { active_site_id: siteId, id: userId },
-        data: { active_site_id: null },
-      });
-    });
-
-    if (user?.firebaseUid) {
-      // Ruling 10: revoking the active-site membership clears the session site
-      // and emits site_context_updated ({ siteId: null }) so every socket moves
-      // out of the site room.
-      if (clearsActiveSite) {
-        this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
-      }
-      // Any revoke — including a site that is not active_site_id — drops
-      // cached transfer/site-directory//me/sites results.
-      this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
-    }
-
-    return { deleted: true };
+    return this.membershipService.removeSiteMembership(siteId, userId);
   }
 
   // ---------------------------------------------------------------------------
@@ -827,23 +520,11 @@ export class SiteService {
    * Guard: legal entity deactivation is 422 while any site of the entity is
    * still active (ruling 38).
    */
-  private async guardLegalEntityDeactivation(
-    tenantId: string,
-    legalEntityId: string,
-  ) {
-    const activeSite = await this.prisma.site.findFirst({
-      where: {
-        tenant_id: tenantId,
-        legal_entity_id: legalEntityId,
-        is_active: true,
-      },
-      select: { id: true },
-    });
-    if (activeSite) {
-      throw new ConflictException(
-        'Cannot deactivate a legal entity that still has an active site.',
-      );
-    }
+  async guardLegalEntityDeactivation(tenantId: string, legalEntityId: string) {
+    return this.legalEntityService.guardLegalEntityDeactivation(
+      tenantId,
+      legalEntityId,
+    );
   }
 
   /**
@@ -864,14 +545,7 @@ export class SiteService {
           ],
         },
       }),
-      this.prisma.vehicle.count({
-        where: {
-          tenant_id: tenantId,
-          inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
-          stock_status: { in: [...DEALER_STOCK_STATUSES] },
-          location: { site_id: siteId },
-        },
-      }),
+      countParkedVehicles(this.prisma, tenantId, siteId),
     ]);
 
     if (stockQty > 0) {
@@ -885,80 +559,11 @@ export class SiteService {
       );
     }
   }
-
-  private async assertActiveMemberWithSiteAccess(tenantId: string) {
-    const currentUser = await this.resolveCurrentUser(tenantId);
-    if (!currentUser) {
-      throw new ForbiddenException('Active tenant membership is required.');
-    }
-    const siteGrant = await this.prisma.siteMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: currentUser.id,
-        is_active: true,
-      },
-      select: { id: true },
-    });
-    if (!siteGrant) {
-      throw new ForbiddenException(
-        'At least one active site membership is required.',
-      );
-    }
-  }
-
-  private async assertSiteReadAccess(tenantId: string, siteId: string) {
-    const user = this.tenantContext.getAuthenticatedUser() as
-      TenantAdminUser | undefined;
-    if (user && (user.role === 'OWNER' || user.role === 'ADMIN')) {
-      return;
-    }
-    const currentUser = await this.resolveCurrentUser(tenantId);
-    if (!currentUser) {
-      throw new ForbiddenException('Active tenant membership is required.');
-    }
-    const siteGrant = await this.prisma.siteMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        site_id: siteId,
-        user_id: currentUser.id,
-        is_active: true,
-      },
-      select: { id: true },
-    });
-    if (!siteGrant) {
-      throw new ForbiddenException(
-        'An active site membership on this site is required.',
-      );
-    }
-  }
-
-  /** Resolves the authenticated user's relational User row in this tenant. */
-  private async resolveCurrentUser(tenantId: string) {
-    const authUser = this.tenantContext.getAuthenticatedUser() as
-      (TenantAdminUser & { userId?: string }) | undefined;
-    if (!authUser?.userId) {
-      return null;
-    }
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseUid: authUser.userId },
-      select: { id: true },
-    });
-    if (!user) {
-      return null;
-    }
-    const member = await this.prisma.tenantMember.findFirst({
-      where: { tenant_id: tenantId, user_id: user.id, is_active: true },
-      select: { id: true },
-    });
-    return member ? user : null;
-  }
-
   /** Resolves the current user row including the fields session-site writes need. */
   private async resolveCurrentUserRow(
     tenantId: string,
   ): Promise<SiteContextUser | null> {
-    const authUser = this.tenantContext.getAuthenticatedUser() as
-      (TenantAdminUser & { userId?: string }) | undefined;
+    const authUser = this.tenantContext.getAuthenticatedUser();
     if (!authUser?.userId) {
       return null;
     }
@@ -974,30 +579,5 @@ export class SiteService {
       select: { id: true },
     });
     return member ? user : null;
-  }
-
-  private async assertSiteInTenant(tenantId: string, siteId: string) {
-    const site = await this.prisma.site.findFirst({
-      where: { tenant_id: tenantId, id: siteId },
-      select: { id: true },
-    });
-    if (!site) {
-      throw new NotFoundException('Site not found in this tenant');
-    }
-  }
-
-  private assertTenantAdmin() {
-    const user = this.tenantContext.getAuthenticatedUser() as
-      TenantAdminUser | undefined;
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) {
-      throw new ForbiddenException('Tenant admin access is required.');
-    }
-  }
-
-  private isForeignKeyViolation(error: unknown): boolean {
-    return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2003'
-    );
   }
 }

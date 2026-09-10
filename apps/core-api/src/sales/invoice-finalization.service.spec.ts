@@ -1,11 +1,29 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { InvoiceStatus, SalesOrderStatus } from '@prisma/client';
+import { InvoiceStatus, Prisma, SalesOrderStatus } from '@prisma/client';
+import type { AtpService } from '../inventory/atp.service';
+import type { SiteContextService } from '../common/services/site-context.service';
 import { InvoiceFinalizationService } from './invoice-finalization.service';
 
 describe('InvoiceFinalizationService', () => {
   let service: InvoiceFinalizationService;
 
+  const atpService = {
+    calculateAtp: jest.fn((stock: {
+      quantity_on_hand: Prisma.Decimal | number;
+      quantity_reserved: Prisma.Decimal | number;
+    }) => ({
+      quantityAvailable: new Prisma.Decimal(stock.quantity_on_hand).sub(
+        stock.quantity_reserved,
+      ),
+    })),
+    deductOnHandForSale: jest.fn(),
+  } as unknown as AtpService;
+  const siteContext = {
+    getSiteId: jest.fn().mockResolvedValue('site-1'),
+  } as unknown as SiteContextService;
+
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     invoiceSequence: {
       upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
@@ -28,9 +46,12 @@ describe('InvoiceFinalizationService', () => {
   };
 
   beforeEach(() => {
-    service = new InvoiceFinalizationService();
+    service = new InvoiceFinalizationService(atpService, siteContext);
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
+    tx.$queryRaw.mockResolvedValue([]);
+    siteContext.getSiteId.mockResolvedValue('site-1');
+    atpService.deductOnHandForSale.mockResolvedValue(undefined);
   });
 
   it('finalizes invoice and transitions linked sales order', async () => {
@@ -112,5 +133,38 @@ describe('InvoiceFinalizationService', () => {
         items: [],
       } as never),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('does not transition the invoice when ATP rejects a sale deduction', async () => {
+    tx.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-1',
+        quantity_on_hand: 2,
+        quantity_reserved: 0,
+      },
+    ]);
+    atpService.deductOnHandForSale.mockRejectedValue(
+      new ConflictException('Insufficient ATP'),
+    );
+
+    await expect(
+      service.finalizeInTransaction(tx as never, 'tenant-1', {
+        id: 'inv-1',
+        sales_order_id: null,
+        status: InvoiceStatus.DRAFT,
+        items: [
+          {
+            catalog_item_id: 'catalog-1',
+            description: 'Filter',
+            quantity: 1,
+          },
+        ],
+      } as never),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.inventoryTransaction.createMany).not.toHaveBeenCalled();
   });
 });

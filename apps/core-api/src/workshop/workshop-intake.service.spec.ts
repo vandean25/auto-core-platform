@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service';
 import { WorkshopScheduleService } from './workshop-schedule.service';
@@ -13,6 +13,7 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
+  workshopSiteProvider,
 } from './workshop.spec.support';
 
 describe('WorkshopIntakeService', () => {
@@ -25,6 +26,7 @@ describe('WorkshopIntakeService', () => {
         WorkshopIntakeService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        workshopSiteProvider,
         {
           provide: WorkshopScheduleService,
           useValue: { assertCanBook: jest.fn(), rescheduleOrder },
@@ -67,6 +69,7 @@ describe('WorkshopIntakeService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           order_number: 'WO-2026-0001',
+          site_id: 'site-1',
         }),
       }),
     );
@@ -460,6 +463,7 @@ describe('WorkshopIntakeService', () => {
       where: {
         id: 'wo-scheduled',
         tenant_id: '00000000-0000-0000-0000-000000000001',
+        site_id: 'site-1',
         status: WorkshopOrderStatus.SCHEDULED,
       },
       data: {
@@ -470,6 +474,11 @@ describe('WorkshopIntakeService', () => {
         notes: undefined,
       },
     });
+    expect(mockPrisma.workshopOrder.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: 'site-1' }),
+      }),
+    );
     expect(mockPrisma.financeSettings.update).not.toHaveBeenCalled();
     expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
     expect(result.order_number).toBe('WO-2026-0042');
@@ -627,6 +636,40 @@ describe('WorkshopIntakeService', () => {
     );
   });
 
+  it('scopes workshop order lists to the active site', async () => {
+    mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+
+    await service.findAll({});
+
+    expect(mockPrisma.workshopOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: 'site-1' }),
+      }),
+    );
+    expect(mockPrisma.workshopOrder.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ site_id: 'site-1' }),
+    });
+  });
+
+  it('does not expose a workshop order outside the active site', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
+
+    await expect(service.findOne('wo-other-site')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'wo-other-site',
+          tenant_id: '00000000-0000-0000-0000-000000000001',
+          site_id: 'site-1',
+        },
+      }),
+    );
+  });
+
   it('reschedules within a transaction when schedule fields are patched', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
@@ -662,6 +705,20 @@ describe('WorkshopIntakeService', () => {
       invoice: null,
       tasks: [],
     });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopOrder.findFirstOrThrow.mockResolvedValue({
+      id: 'wo-1',
+      order_number: 'WO-2026-0001',
+      status: WorkshopOrderStatus.SCHEDULED,
+      bay_id: 'bay-1',
+      mechanic_id: null,
+      scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
+      scheduled_end_at: new Date('2026-08-21T11:00:00.000Z'),
+      customer: { id: 'c-1' },
+      vehicle: { id: 'v-1' },
+      invoice: null,
+      tasks: [],
+    });
 
     await service.updateOrder('wo-1', {
       scheduledStartAt: '2026-08-21T10:00:00.000Z',
@@ -678,8 +735,13 @@ describe('WorkshopIntakeService', () => {
       }),
       expect.anything(),
     );
-    expect(mockPrisma.workshopOrder.update).toHaveBeenCalledWith(
+    expect(mockPrisma.workshopOrder.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: {
+          id: 'wo-1',
+          tenant_id: '00000000-0000-0000-0000-000000000001',
+          site_id: 'site-1',
+        },
         data: expect.objectContaining({
           scheduled_start_at: new Date('2026-08-21T10:00:00.000Z'),
           scheduled_end_at: new Date('2026-08-21T11:00:00.000Z'),

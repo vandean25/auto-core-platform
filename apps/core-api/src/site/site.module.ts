@@ -1,11 +1,13 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { LegalEntityService } from './legal-entity.service';
 import {
   LegalEntityController,
   MeSiteController,
   SiteController,
 } from './site.controller';
 import { SiteContextService } from './site-context.service';
+import { SiteMembershipService } from './site-membership.service';
 import { SiteService } from './site.service';
 
 /**
@@ -17,7 +19,17 @@ import { SiteService } from './site.service';
 @Module({
   imports: [PrismaModule],
   controllers: [LegalEntityController, SiteController, MeSiteController],
-  providers: [SiteService, SiteContextService],
-  exports: [SiteService, SiteContextService],
+  providers: [
+    SiteService,
+    SiteContextService,
+    LegalEntityService,
+    SiteMembershipService,
+  ],
+  exports: [
+    SiteService,
+    SiteContextService,
+    LegalEntityService,
+    SiteMembershipService,
+  ],
 })
 export class SiteModule {}

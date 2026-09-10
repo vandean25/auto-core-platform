@@ -80,17 +80,19 @@ export class AuthSessionService {
   async resolveTenantUser(
     claims: AuthSessionClaims,
   ): Promise<TenantAuthenticatedUser | null> {
-    const session = await this.getSessionForClaims(claims);
+    const resolvedSession = await this.resolveSessionForClaims(claims);
 
-    if (!session) {
+    if (!resolvedSession) {
       return null;
     }
 
+    const { session, user } = resolvedSession;
     const nextUser: TenantAuthenticatedUser = {
       userId: session.userId,
       email: session.email,
       tenantId: session.activeTenant.id,
       role: session.activeRole,
+      activeSiteId: user.active_site_id,
     };
 
     if (session.platformRole) {
@@ -136,6 +138,13 @@ export class AuthSessionService {
   async getSessionForClaims(
     claims: AuthSessionClaims,
   ): Promise<AuthSession | null> {
+    const resolvedSession = await this.resolveSessionForClaims(claims);
+    return resolvedSession?.session ?? null;
+  }
+
+  private async resolveSessionForClaims(
+    claims: AuthSessionClaims,
+  ): Promise<{ session: AuthSession; user: UserAccessRecord } | null> {
     const user = await this.findUserAccessRecordByIdentity(claims);
 
     if (!user) {
@@ -148,7 +157,10 @@ export class AuthSessionService {
       return null;
     }
 
-    return this.buildSession(user, activeMembership);
+    return {
+      session: this.buildSession(user, activeMembership),
+      user,
+    };
   }
 
   async switchTenant(
