@@ -23,6 +23,7 @@ describe('InvoiceFinalizationService', () => {
   } as unknown as SiteContextService;
 
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     invoiceSequence: {
       upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
@@ -48,6 +49,7 @@ describe('InvoiceFinalizationService', () => {
     service = new InvoiceFinalizationService(atpService, siteContext);
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
+    tx.$queryRaw.mockResolvedValue([]);
     siteContext.getSiteId.mockResolvedValue('site-1');
     atpService.deductOnHandForSale.mockResolvedValue(undefined);
   });

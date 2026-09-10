@@ -5,6 +5,7 @@ import { processSaleInventoryDeduction } from './invoice-inventory.helpers';
 
 describe('invoice-inventory.helpers', () => {
   const tx = {
+    $queryRaw: jest.fn(),
     inventoryStock: {
       findMany: jest.fn(),
     },
@@ -35,6 +36,7 @@ describe('invoice-inventory.helpers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    tx.$queryRaw.mockResolvedValue([]);
     tx.inventoryStock.findMany.mockResolvedValue([]);
     atpService.deductOnHandForSale.mockResolvedValue(undefined);
   });
@@ -228,6 +230,49 @@ describe('invoice-inventory.helpers', () => {
       },
       tx,
     );
+  });
+
+  it('locks all sale stock rows canonically before applying deductions', async () => {
+    const events: string[] = [];
+    tx.$queryRaw.mockImplementation(async () => {
+      events.push('lock');
+      return [];
+    });
+    atpService.deductOnHandForSale.mockImplementation(async () => {
+      events.push('deduct');
+    });
+    tx.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-z',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-z',
+        quantity_on_hand: new Prisma.Decimal('1'),
+        quantity_reserved: new Prisma.Decimal('0'),
+      },
+      {
+        id: 'stock-a',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-a',
+        quantity_on_hand: new Prisma.Decimal('1'),
+        quantity_reserved: new Prisma.Decimal('0'),
+      },
+    ]);
+
+    await processSaleInventoryDeduction({
+      ...baseParams,
+      invoiceItems: [
+        {
+          catalog_item_id: 'catalog-1',
+          description: 'Filter',
+          quantity: new Prisma.Decimal('2'),
+        } as never,
+      ],
+    });
+
+    expect(events).toEqual(['lock', 'deduct', 'deduct']);
+    const lockSql = tx.$queryRaw.mock.calls[0]?.[0] as readonly string[];
+    expect(lockSql.join(' ')).toContain('FROM inventory_stocks');
+    expect(lockSql.join(' ')).toContain('ORDER BY id');
   });
 
   it('skips non-catalog invoice lines', async () => {

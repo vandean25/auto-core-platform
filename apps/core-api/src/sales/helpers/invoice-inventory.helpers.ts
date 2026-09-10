@@ -5,7 +5,6 @@ import {
   LocationType,
   type InvoiceItem,
 } from '@prisma/client';
-import { chunkedPromiseAll } from '../../common/utils/promise.util';
 import type { AtpService } from '../../inventory/atp.service';
 
 import Decimal = Prisma.Decimal;
@@ -142,8 +141,10 @@ export async function processSaleInventoryDeduction({
       left.catalog_item_id.localeCompare(right.catalog_item_id) ||
       left.locationId.localeCompare(right.locationId),
   );
-  await chunkedPromiseAll(stockUpdates, (update) =>
-    atpService.deductOnHandForSale(
+  await lockSaleStockRows(tx, tenantId, stockUpdates);
+
+  for (const update of stockUpdates) {
+    await atpService.deductOnHandForSale(
       {
         stockId: update.stockId,
         quantity: update.quantityToDeduct,
@@ -151,12 +152,35 @@ export async function processSaleInventoryDeduction({
         siteId,
       },
       tx,
-    ),
-  );
+    );
+  }
 
   if (transactionCreations.length > 0) {
     await tx.inventoryTransaction.createMany({
       data: transactionCreations,
     });
   }
+}
+
+async function lockSaleStockRows(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  stockUpdates: readonly StockUpdate[],
+): Promise<void> {
+  const stockIds = [
+    ...new Set(stockUpdates.map((update) => update.stockId)),
+  ].sort((left, right) => left.localeCompare(right));
+  if (stockIds.length === 0) {
+    return;
+  }
+
+  // eslint-disable-next-line no-restricted-syntax -- ADR-locked canonical stock lock order prevents cross-invoice deadlocks.
+  await tx.$queryRaw`
+    SELECT id
+    FROM inventory_stocks
+    WHERE tenant_id = ${tenantId}
+      AND id IN (${Prisma.join(stockIds)})
+    ORDER BY id
+    FOR UPDATE
+  `;
 }
