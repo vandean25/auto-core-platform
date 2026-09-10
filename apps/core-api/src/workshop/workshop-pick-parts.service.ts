@@ -246,6 +246,9 @@ export class WorkshopPickPartsService {
       tenant_id: tenantId,
       id: { in: requestedLineIds },
       type: WorkshopLineItemType.PART,
+      part_execution_status: {
+        not: WorkshopPartLineExecutionStatus.CANCELLED,
+      },
       workshop_task: {
         tenant_id: tenantId,
         workshop_order_id: orderId,

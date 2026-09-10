@@ -294,6 +294,9 @@ export class PartsRequisitionService {
         id: lineId,
         tenant_id: tenantId,
         type: WorkshopLineItemType.PART,
+        part_execution_status: {
+          not: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
         catalog_item_id: { not: null },
         workshop_task: {
           tenant_id: tenantId,
