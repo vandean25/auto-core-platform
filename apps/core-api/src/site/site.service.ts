@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_OPENING_HOURS } from '../workshop/workshop-hours.defaults';
 import {
@@ -15,6 +16,7 @@ import {
   CreateSiteDto,
   CreateSiteMembershipDto,
   SUPPORTED_LEGAL_ENTITY_COUNTRIES,
+  SetActiveSiteDto,
   UpdateLegalEntityDto,
   UpdateSiteDto,
 } from './dto/site.dto';
@@ -31,6 +33,12 @@ const TIMEZONE_BY_COUNTRY: Record<string, string> = {
 
 type TenantAdminUser = {
   role?: string;
+};
+
+type SiteContextUser = {
+  id: string;
+  firebaseUid: string;
+  active_site_id: string | null;
 };
 
 /**
@@ -50,6 +58,7 @@ export class SiteService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly dashboardRealtime: DashboardRealtimeService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -571,6 +580,127 @@ export class SiteService {
   }
 
   // ---------------------------------------------------------------------------
+  // Session site (rulings 7–9, 47)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * `GET /api/me/sites` (ruling 47): only **activatable** sites — `Site.is_active`
+   * AND an active `SiteMembership` AND an active `TenantMember` in the current
+   * tenant. Deactivated sites are omitted even when the membership row remains.
+   */
+  async listMySites() {
+    const tenantId = await this.tenantContext.getTenantId();
+    const user = await this.resolveCurrentUserRow(tenantId);
+    if (!user) {
+      throw new ForbiddenException('Active tenant membership is required.');
+    }
+
+    const memberships = await this.prisma.siteMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        user_id: user.id,
+        is_active: true,
+        site: { is_active: true },
+        tenantMember: { is_active: true },
+      },
+      include: {
+        site: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            legal_entity_id: true,
+            legal_entity: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [{ site: { code: 'asc' } }],
+    });
+
+    return memberships.map((membership) => ({
+      id: membership.site.id,
+      code: membership.site.code,
+      name: membership.site.name,
+      legalEntityId: membership.site.legal_entity_id,
+      legalEntityName: membership.site.legal_entity?.name,
+    }));
+  }
+
+  /**
+   * `PATCH /api/me/active-site` (ruling 9): transactionally validates the
+   * tenant, the site's activity, the active `TenantMember`, and the active
+   * `SiteMembership`, then updates `User.active_site_id`. Success emits
+   * `site:context_updated` (`{ siteId }` or `null` when cleared) on the user's
+   * private socket room. Switching never auto-selects another site.
+   */
+  async setActiveSite(dto: SetActiveSiteDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const user = await this.resolveCurrentUserRow(tenantId);
+    if (!user) {
+      throw new ForbiddenException('Active tenant membership is required.');
+    }
+
+    if (dto.siteId === null) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: null },
+      });
+      this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
+      return { activeSiteId: null };
+    }
+
+    const targetSiteId = dto.siteId;
+
+    await this.prisma.$transaction(async (tx) => {
+      const site = await tx.site.findFirst({
+        where: { id: targetSiteId, tenant_id: tenantId, is_active: true },
+        select: { id: true },
+      });
+      if (!site) {
+        throw new UnprocessableEntityException(
+          'The requested site is not active in this tenant.',
+        );
+      }
+
+      const tenantMember = await tx.tenantMember.findFirst({
+        where: { tenant_id: tenantId, user_id: user.id, is_active: true },
+        select: { id: true },
+      });
+      if (!tenantMember) {
+        throw new UnprocessableEntityException(
+          'An active tenant membership is required.',
+        );
+      }
+
+      const siteMembership = await tx.siteMembership.findFirst({
+        where: {
+          tenant_id: tenantId,
+          user_id: user.id,
+          site_id: targetSiteId,
+          is_active: true,
+        },
+        select: { id: true },
+      });
+      if (!siteMembership) {
+        throw new UnprocessableEntityException(
+          'An active site membership on the requested site is required.',
+        );
+      }
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: { active_site_id: targetSiteId },
+      });
+    });
+
+    this.dashboardRealtime.emitSiteContextUpdated(
+      user.firebaseUid,
+      targetSiteId,
+    );
+    return { activeSiteId: targetSiteId };
+  }
+
+  // ---------------------------------------------------------------------------
   // SiteMembership
   // ---------------------------------------------------------------------------
 
@@ -621,7 +751,7 @@ export class SiteService {
       );
     }
 
-    return this.prisma.siteMembership.create({
+    const membership = await this.prisma.siteMembership.create({
       data: {
         tenant_id: tenantId,
         user_id: dto.userId,
@@ -629,6 +759,21 @@ export class SiteService {
         is_active: true,
       },
     });
+
+    // Ruling 10: any membership grant emits `site:access_scope_updated` on the
+    // user's private room so cached transfer/site-directory/`/me/sites` results
+    // are dropped, even when this site is not the active site.
+    const grantedUser = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+      select: { firebaseUid: true },
+    });
+    if (grantedUser?.firebaseUid) {
+      this.dashboardRealtime.emitSiteAccessScopeUpdated(
+        grantedUser.firebaseUid,
+      );
+    }
+
+    return membership;
   }
 
   async removeSiteMembership(siteId: string, userId: string) {
@@ -643,6 +788,12 @@ export class SiteService {
       throw new NotFoundException('Site membership not found');
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firebaseUid: true, active_site_id: true },
+    });
+    const clearsActiveSite = user?.active_site_id === siteId;
+
     await this.prisma.$transaction(async (tx) => {
       await tx.siteMembership.delete({ where: { id: membership.id } });
       // Ruling 10: removing a membership that matches User.active_site_id
@@ -652,6 +803,18 @@ export class SiteService {
         data: { active_site_id: null },
       });
     });
+
+    if (user?.firebaseUid) {
+      // Ruling 10: revoking the active-site membership clears the session site
+      // and emits site_context_updated ({ siteId: null }) so every socket moves
+      // out of the site room.
+      if (clearsActiveSite) {
+        this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
+      }
+      // Any revoke — including a site that is not active_site_id — drops
+      // cached transfer/site-directory//me/sites results.
+      this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
+    }
 
     return { deleted: true };
   }
@@ -779,6 +942,29 @@ export class SiteService {
     const user = await this.prisma.user.findUnique({
       where: { firebaseUid: authUser.userId },
       select: { id: true },
+    });
+    if (!user) {
+      return null;
+    }
+    const member = await this.prisma.tenantMember.findFirst({
+      where: { tenant_id: tenantId, user_id: user.id, is_active: true },
+      select: { id: true },
+    });
+    return member ? user : null;
+  }
+
+  /** Resolves the current user row including the fields session-site writes need. */
+  private async resolveCurrentUserRow(
+    tenantId: string,
+  ): Promise<SiteContextUser | null> {
+    const authUser = this.tenantContext.getAuthenticatedUser() as
+      (TenantAdminUser & { userId?: string }) | undefined;
+    if (!authUser?.userId) {
+      return null;
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid: authUser.userId },
+      select: { id: true, firebaseUid: true, active_site_id: true },
     });
     if (!user) {
       return null;

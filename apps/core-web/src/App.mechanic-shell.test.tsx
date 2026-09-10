@@ -188,8 +188,13 @@ function renderShellRouter(
           activeTenant={{ id: 'tenant-1', name: 'Workshop A', slug: 'workshop-a' }}
           activeRole={opts.activeRole ?? 'ADMIN'}
           memberships={[]}
+          activeSiteId={null}
+          sites={[]}
+          isLoadingSites={false}
           isSwitchingTenant={false}
+          isSwitchingSite={false}
           onSwitchTenant={vi.fn()}
+          onSwitchSite={vi.fn()}
           onSignOut={vi.fn()}
         />
       </MemoryRouter>

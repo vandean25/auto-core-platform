@@ -11,6 +11,7 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import type { components } from '@/api/generated/openapi'
 import { useAuthSession, useSwitchTenant, type AuthSessionMembership, type AuthSessionTenant } from '@/api/auth-session'
+import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthProvider'
@@ -167,8 +168,13 @@ type AppShellProps = {
   activeTenant: AuthSessionTenant | null
   activeRole: components['schemas']['TenantMemberRole'] | null
   memberships: AuthSessionMembership[]
+  activeSiteId: string | null
+  sites: MeSite[]
+  isLoadingSites: boolean
   isSwitchingTenant: boolean
+  isSwitchingSite: boolean
   onSwitchTenant: (tenantId: string) => void
+  onSwitchSite: (siteId: string) => void
   onSignOut: () => void
 }
 
@@ -179,8 +185,13 @@ function AppShell({
   activeTenant,
   activeRole,
   memberships,
+  activeSiteId,
+  sites,
+  isLoadingSites,
   isSwitchingTenant,
+  isSwitchingSite,
   onSwitchTenant,
+  onSwitchSite,
   onSignOut,
 }: AppShellProps) {
   const [deviceId] = React.useState(() => {
@@ -233,11 +244,16 @@ function AppShell({
               activeTenant={activeTenant}
               activeRole={activeRole}
               memberships={memberships}
+              activeSiteId={activeSiteId}
+              sites={sites}
+              isLoadingSites={isLoadingSites}
               collapsed={sidebarCollapsed}
               isSwitchingTenant={isSwitchingTenant}
+              isSwitchingSite={isSwitchingSite}
               onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
               onOpenSearch={() => setSearchOpen(true)}
               onSwitchTenant={onSwitchTenant}
+              onSwitchSite={onSwitchSite}
               onSignOut={onSignOut}
             />
 
@@ -431,6 +447,8 @@ function AuthenticatedApp() {
   const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const switchTenantMutation = useSwitchTenant()
+  const mySitesQuery = useMySites(Boolean(sessionQuery.data))
+  const switchSiteMutation = useSetActiveSite()
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
@@ -462,10 +480,19 @@ function AuthenticatedApp() {
       activeTenant={sessionQuery.data.activeTenant}
       activeRole={sessionQuery.data.activeRole}
       memberships={sessionQuery.data.memberships}
+      activeSiteId={sessionQuery.data.activeSiteId}
+      sites={mySitesQuery.data ?? []}
+      isLoadingSites={mySitesQuery.isLoading}
       isSwitchingTenant={switchTenantMutation.isPending}
+      isSwitchingSite={switchSiteMutation.isPending}
       onSwitchTenant={(tenantId) => {
         switchTenantMutation.mutateAsync(tenantId).catch((error: unknown) => {
           toast.error(error instanceof Error ? error.message : 'Failed to switch tenant')
+        })
+      }}
+      onSwitchSite={(siteId) => {
+        switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to switch site')
         })
       }}
       onSignOut={() => void signOutUser()}

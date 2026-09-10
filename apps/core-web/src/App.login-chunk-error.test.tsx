@@ -21,6 +21,11 @@ vi.mock('@/api/auth-session', () => ({
   }),
 }))
 
+vi.mock('@/api/sites', () => ({
+  useMySites: () => ({ data: [], isLoading: false }),
+  useSetActiveSite: () => ({ isPending: false, mutateAsync: vi.fn() }),
+}))
+
 vi.mock('@/pages/LoginPage', () => {
   return {
     default: () => {

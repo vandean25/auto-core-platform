@@ -177,6 +177,27 @@ export class TenantMemberService {
       this.dashboardRealtime.emitClaimsUpdated(updatedUser.firebaseUid);
     }
 
+    // Ruling 10: `TenantMember.is_active = false` is the same class of event as
+    // a site-membership revoke — emit `site:access_scope_updated`. When the
+    // deactivated membership was the user's active tenant, syncUserClaims
+    // already ran the shared tenant-change helper (nulling `active_site_id` in
+    // the same write); emit `site:context_updated` ({ siteId: null }) so every
+    // socket leaves the tenant's site room.
+    if (dto.isActive === false && updatedUser?.firebaseUid) {
+      this.dashboardRealtime.emitSiteAccessScopeUpdated(
+        updatedUser.firebaseUid,
+      );
+      if (
+        existingMembership.tenant_id ===
+        existingMembership.user.active_tenant_id
+      ) {
+        this.dashboardRealtime.emitSiteContextUpdated(
+          updatedUser.firebaseUid,
+          null,
+        );
+      }
+    }
+
     return this.mapTenantMember(updatedMembership);
   }
 

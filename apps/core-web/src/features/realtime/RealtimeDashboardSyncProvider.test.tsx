@@ -6,13 +6,19 @@ import { authSessionKeys } from "@/api/auth-session";
 import { hrKeys } from "@/api/hr";
 import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
+import { siteKeys } from "@/api/sites";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { workshopKeys } from "@/api/workshop";
 import {
   RealtimeDashboardSyncProvider,
   resolveRealtimeConnection,
 } from "./RealtimeDashboardSyncProvider";
-import { AUTH_CLAIMS_UPDATED_EVENT, ENTITY_UPDATED_EVENT } from "./types";
+import {
+  AUTH_CLAIMS_UPDATED_EVENT,
+  ENTITY_UPDATED_EVENT,
+  SITE_ACCESS_SCOPE_UPDATED_EVENT,
+  SITE_CONTEXT_UPDATED_EVENT,
+} from "./types";
 
 const mocks = vi.hoisted(() => {
   const socket = {
@@ -571,5 +577,117 @@ describe("RealtimeDashboardSyncProvider", () => {
         refetchType: "active",
       });
     });
+  });
+
+  // ─── site:context_updated / site:access_scope_updated ──────────────────────
+
+  it("refetches the session and drops site-scoped queries on site context update", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        SITE_CONTEXT_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+
+    const siteContextHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === SITE_CONTEXT_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined;
+
+    expect(siteContextHandler).toBeDefined();
+
+    await act(async () => {
+      siteContextHandler?.({
+        siteId: "site-1",
+        timestamp: "2026-09-01T10:00:00.000Z",
+      });
+    });
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: authSessionKeys.all,
+        refetchType: "active",
+      });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: siteKeys.me(),
+        refetchType: "active",
+      });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: workshopKeys.all,
+        refetchType: "active",
+      });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: vehicleStockKeys.all,
+        refetchType: "active",
+      });
+    });
+  });
+
+  it("drops site-directory and /me/sites caches on site access scope update", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        SITE_ACCESS_SCOPE_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+
+    const accessScopeHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === SITE_ACCESS_SCOPE_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined;
+
+    expect(accessScopeHandler).toBeDefined();
+
+    await act(async () => {
+      accessScopeHandler?.({
+        timestamp: "2026-09-01T10:00:00.000Z",
+      });
+    });
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: siteKeys.all,
+        refetchType: "active",
+      });
+    });
+  });
+
+  it("ignores malformed site context payloads", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.socket.on).toHaveBeenCalledWith(
+        SITE_CONTEXT_UPDATED_EVENT,
+        expect.any(Function),
+      );
+    });
+
+    const siteContextHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === SITE_CONTEXT_UPDATED_EVENT,
+    )?.[1] as ((payload: unknown) => void) | undefined;
+
+    await act(async () => {
+      siteContextHandler?.({ siteId: 42, timestamp: "2026-09-01T10:00:00.000Z" });
+      siteContextHandler?.({});
+    });
+
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 });

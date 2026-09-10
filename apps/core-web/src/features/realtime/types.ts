@@ -1,5 +1,7 @@
 export const ENTITY_UPDATED_EVENT = "entity_updated";
 export const AUTH_CLAIMS_UPDATED_EVENT = "auth:claims_updated";
+export const SITE_CONTEXT_UPDATED_EVENT = "site:context_updated";
+export const SITE_ACCESS_SCOPE_UPDATED_EVENT = "site:access_scope_updated";
 
 export type RealtimeEntityType =
   | "PURCHASE_ORDER"
@@ -34,6 +36,15 @@ export interface ClaimsUpdatedPayload {
   timestamp: string;
 }
 
+export interface SiteContextUpdatedPayload {
+  siteId: string | null;
+  timestamp: string;
+}
+
+export interface SiteAccessScopeUpdatedPayload {
+  timestamp: string;
+}
+
 export function isClaimsUpdatedPayload(
   payload: unknown,
 ): payload is ClaimsUpdatedPayload {
@@ -44,4 +55,27 @@ export function isClaimsUpdatedPayload(
   return (
     value.reason === "membership-updated" && typeof value.timestamp === "string"
   );
+}
+
+export function isSiteContextUpdatedPayload(
+  payload: unknown,
+): payload is SiteContextUpdatedPayload {
+  if (!payload || typeof payload !== "object") return false;
+
+  const value = payload as Partial<SiteContextUpdatedPayload>;
+
+  return (
+    (value.siteId === null || typeof value.siteId === "string") &&
+    typeof value.timestamp === "string"
+  );
+}
+
+export function isSiteAccessScopeUpdatedPayload(
+  payload: unknown,
+): payload is SiteAccessScopeUpdatedPayload {
+  if (!payload || typeof payload !== "object") return false;
+
+  const value = payload as Partial<SiteAccessScopeUpdatedPayload>;
+
+  return typeof value.timestamp === "string";
 }

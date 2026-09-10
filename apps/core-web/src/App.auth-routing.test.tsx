@@ -20,6 +20,11 @@ vi.mock('@/api/auth-session', () => ({
   useSwitchTenant: () => mockUseSwitchTenant(),
 }))
 
+vi.mock('@/api/sites', () => ({
+  useMySites: () => ({ data: [], isLoading: false }),
+  useSetActiveSite: () => ({ isPending: false, mutateAsync: vi.fn() }),
+}))
+
 vi.mock('@/pages/LoginPage', () => ({
   default: () => <div>Sign in card</div>,
 }))

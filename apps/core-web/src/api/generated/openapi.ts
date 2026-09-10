@@ -1884,6 +1884,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List activatable sites for the current session (ruling 47) */
+        get: operations["MeSiteController_listMySites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/active-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set the session active site (ruling 9)
+         * @description Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.
+         */
+        patch: operations["MeSiteController_setActiveSite"];
+        trace?: never;
+    };
     "/api/platform/tenants": {
         parameters: {
             query?: never;
@@ -2043,6 +2080,8 @@ export interface components {
             email: string;
             activeTenant: components["schemas"]["AuthSessionTenantDto"];
             activeRole: components["schemas"]["TenantMemberRole"];
+            /** Format: uuid */
+            activeSiteId: string | null;
             memberships: components["schemas"]["AuthSessionMembershipDto"][];
             platformRole?: components["schemas"]["PlatformAdminRole"];
         };
@@ -4192,6 +4231,24 @@ export interface components {
         };
         CreateSiteMembershipDto: {
             userId: string;
+        };
+        MeSiteDto: {
+            id: string;
+            code: string;
+            name: string;
+            legalEntityId: string;
+            legalEntityName?: string;
+        };
+        SetActiveSiteDto: {
+            /**
+             * Format: uuid
+             * @description Site id to activate from GET /api/me/sites, or null to clear.
+             */
+            siteId: string | null;
+        };
+        ActiveSiteResponseDto: {
+            /** Format: uuid */
+            activeSiteId: string | null;
         };
         /** @enum {string} */
         TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
@@ -8638,6 +8695,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    MeSiteController_listMySites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeSiteDto"][];
+                };
+            };
+        };
+    };
+    MeSiteController_setActiveSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveSiteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveSiteResponseDto"];
+                };
             };
         };
     };
