@@ -16,6 +16,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import {
   normalizeWorkshopOrder,
   assertOrderEditable,
@@ -49,6 +50,8 @@ export class WorkshopIntakeService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
     private readonly scheduleService: WorkshopScheduleService,
   ) {}
 
@@ -96,11 +99,13 @@ export class WorkshopIntakeService {
   private async findLiveOrderForVehicle(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     vehicleId: string,
   ) {
     return tx.workshopOrder.findFirst({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         vehicle_id: vehicleId,
         status: { in: LIVE_ORDER_STATUSES },
       },
@@ -111,9 +116,15 @@ export class WorkshopIntakeService {
   private async assertNoLiveOrderForVehicle(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     vehicleId: string,
   ): Promise<void> {
-    const live = await this.findLiveOrderForVehicle(tx, tenantId, vehicleId);
+    const live = await this.findLiveOrderForVehicle(
+      tx,
+      tenantId,
+      siteId,
+      vehicleId,
+    );
     if (live) {
       throw new ConflictException(
         `Vehicle already has active order ${live.order_number}`,
@@ -124,11 +135,13 @@ export class WorkshopIntakeService {
   private async tryPromoteScheduledOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     dto: CreateWorkshopOrderDto,
   ): Promise<WorkshopOrderWithRelations | null> {
     const scheduledOrders = await tx.workshopOrder.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         vehicle_id: dto.vehicleId,
         status: WorkshopOrderStatus.SCHEDULED,
       },
@@ -146,6 +159,7 @@ export class WorkshopIntakeService {
       where: {
         id: target.id,
         tenant_id: tenantId,
+        site_id: siteId,
         status: WorkshopOrderStatus.SCHEDULED,
       },
       data: {
@@ -161,6 +175,7 @@ export class WorkshopIntakeService {
       const live = await this.findLiveOrderForVehicle(
         tx,
         tenantId,
+        siteId,
         dto.vehicleId,
       );
       if (live) {
@@ -172,7 +187,7 @@ export class WorkshopIntakeService {
     }
 
     const order = await tx.workshopOrder.findFirst({
-      where: { id: target.id, tenant_id: tenantId },
+      where: { id: target.id, tenant_id: tenantId, site_id: siteId },
       include: ORDER_WITH_RELATIONS,
     });
     if (!order) {
@@ -404,6 +419,7 @@ export class WorkshopIntakeService {
   private async insertWorkshopOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     dto: CreateWorkshopOrderDto,
     purpose: WorkshopOrderPurpose,
     booked: Awaited<
@@ -414,6 +430,7 @@ export class WorkshopIntakeService {
     return tx.workshopOrder.create({
       data: {
         tenant_id: tenantId,
+        site_id: siteId,
         order_number: orderNumber,
         purpose,
         customer_id:
@@ -440,18 +457,24 @@ export class WorkshopIntakeService {
   private async executeCreateOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     dto: CreateWorkshopOrderDto,
     purpose: WorkshopOrderPurpose,
     vehicleId: string,
     isScheduled: boolean,
   ): Promise<WorkshopOrderWithRelations> {
     if (!isScheduled) {
-      const promoted = await this.tryPromoteScheduledOrder(tx, tenantId, dto);
+      const promoted = await this.tryPromoteScheduledOrder(
+        tx,
+        tenantId,
+        siteId,
+        dto,
+      );
       if (promoted) {
         return promoted;
       }
     }
-    await this.assertNoLiveOrderForVehicle(tx, tenantId, dto.vehicleId);
+    await this.assertNoLiveOrderForVehicle(tx, tenantId, siteId, dto.vehicleId);
 
     if (purpose === WorkshopOrderPurpose.STOCK_PREP) {
       await this.reserveStockPrepVehicle(tx, tenantId, vehicleId);
@@ -461,11 +484,12 @@ export class WorkshopIntakeService {
       ? await this.scheduleService.assertCanBook(dto, undefined, tx)
       : null;
 
-    return this.insertWorkshopOrder(tx, tenantId, dto, purpose, booked);
+    return this.insertWorkshopOrder(tx, tenantId, siteId, dto, purpose, booked);
   }
 
   async create(dto: CreateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const purpose = dto.purpose ?? WorkshopOrderPurpose.CUSTOMER_REPAIR;
     const isScheduled = dto.status === WorkshopOrderStatus.SCHEDULED;
 
@@ -480,6 +504,7 @@ export class WorkshopIntakeService {
       this.executeCreateOrder(
         tx,
         tenantId,
+        siteId,
         dto,
         purpose,
         vehicle.id,

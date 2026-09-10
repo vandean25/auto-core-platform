@@ -422,9 +422,7 @@ describe('PartsRequisitionService', () => {
           tenant_id: tenantId,
           workshop_task: expect.objectContaining({
             workshop_order: expect.objectContaining({
-              stagingLocation: expect.objectContaining({
-                site_id: siteId,
-              }),
+              site_id: siteId,
             }),
           }),
         }),

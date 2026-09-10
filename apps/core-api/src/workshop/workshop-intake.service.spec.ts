@@ -13,6 +13,7 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
+  workshopSiteProvider,
 } from './workshop.spec.support';
 
 describe('WorkshopIntakeService', () => {
@@ -25,6 +26,7 @@ describe('WorkshopIntakeService', () => {
         WorkshopIntakeService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        workshopSiteProvider,
         {
           provide: WorkshopScheduleService,
           useValue: { assertCanBook: jest.fn(), rescheduleOrder },
@@ -67,6 +69,7 @@ describe('WorkshopIntakeService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           order_number: 'WO-2026-0001',
+          site_id: 'site-1',
         }),
       }),
     );
@@ -460,6 +463,7 @@ describe('WorkshopIntakeService', () => {
       where: {
         id: 'wo-scheduled',
         tenant_id: '00000000-0000-0000-0000-000000000001',
+        site_id: 'site-1',
         status: WorkshopOrderStatus.SCHEDULED,
       },
       data: {
@@ -470,6 +474,11 @@ describe('WorkshopIntakeService', () => {
         notes: undefined,
       },
     });
+    expect(mockPrisma.workshopOrder.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ site_id: 'site-1' }),
+      }),
+    );
     expect(mockPrisma.financeSettings.update).not.toHaveBeenCalled();
     expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
     expect(result.order_number).toBe('WO-2026-0042');

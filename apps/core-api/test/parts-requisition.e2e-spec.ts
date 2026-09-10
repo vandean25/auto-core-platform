@@ -161,7 +161,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
   });
 
-  it('fails closed for an unstaged order instead of inventing site ownership', async () => {
+  it('reserves an unstaged site-owned order when the source bin matches its site', async () => {
     const unstagedFixture = await createReservationFixture(
       'parts-reservation-unstaged',
       'bin',
@@ -174,15 +174,61 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       unstagedFixture.lineId,
       unstagedFixture.sourceLocationId,
     );
-    expect(reservationResponse.status).toBe(422);
+    expect(reservationResponse.status).toBe(201);
+
+    await expectReservationState(unstagedFixture, {
+      quantityReserved: '1',
+      reservationCount: 1,
+      lineItemsVersion: 1,
+    });
+  });
+
+  it('discovers shortages for an unstaged site-owned order', async () => {
+    const unstagedFixture = await createReservationFixture(
+      'parts-shortage-unstaged',
+      'bin',
+      false,
+    );
+    createdTenants.push(unstagedFixture.tenant);
 
     const shortagesResponse = await request(app.getHttpServer())
       .get('/api/parts-requisitions/shortages')
       .set('Authorization', `Bearer ${unstagedFixture.authToken}`)
       .expect(200);
 
+    expect(shortagesResponse.body.data).toEqual([
+      expect.objectContaining({
+        workshopOrderId: unstagedFixture.orderId,
+        workshopTaskLineItemId: unstagedFixture.lineId,
+        siteId: unstagedFixture.siteId,
+        shortageQuantity: '1',
+      }),
+    ]);
+  });
+
+  it('fails closed for a legacy order without persisted site ownership', async () => {
+    const legacyFixture = await createReservationFixture(
+      'parts-reservation-legacy-null-site',
+      'bin',
+      false,
+      false,
+    );
+    createdTenants.push(legacyFixture.tenant);
+
+    const reservationResponse = await postReservation(
+      legacyFixture.authToken,
+      legacyFixture.lineId,
+      legacyFixture.sourceLocationId,
+    );
+    expect(reservationResponse.status).toBe(422);
+
+    const shortagesResponse = await request(app.getHttpServer())
+      .get('/api/parts-requisitions/shortages')
+      .set('Authorization', `Bearer ${legacyFixture.authToken}`)
+      .expect(200);
+
     expect(shortagesResponse.body.data).toEqual([]);
-    await expectReservationState(unstagedFixture, {
+    await expectReservationState(legacyFixture, {
       quantityReserved: '0',
       reservationCount: 0,
       lineItemsVersion: 0,
@@ -193,6 +239,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     prefix: string,
     sourceType: 'bin' | 'warehouse' = 'bin',
     staged = true,
+    siteOwned = true,
   ): Promise<ReservationFixture> {
     const tenant = await createTestTenant(basePrisma, prefix);
     const prisma = createTenantAwarePrisma(basePrisma, tenant.tenantId);
@@ -233,6 +280,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     const order = await prisma.workshopOrder.create({
       data: {
         order_number: `${prefix}-ORDER-${Date.now()}`,
+        site_id: siteOwned ? site.id : null,
         vehicle_id: vehicle.id,
         staging_location_id: staged ? stagingLocation.id : null,
         status: 'IN_PROGRESS',

@@ -128,6 +128,7 @@ export class WorkshopPickPartsService {
       const { movedLines } = await this.persistStageState(
         tx,
         tenantId,
+        siteId,
         orderId,
         destinationLocation.id,
         plans,
@@ -179,15 +180,19 @@ export class WorkshopPickPartsService {
     destinationLocationId: string,
   ) {
     const order = await tx.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       select: {
         id: true,
+        site_id: true,
         status: true,
         staging_location_id: true,
       },
     });
 
     if (!order) {
+      throw new NotFoundException(`Workshop order ${orderId} not found`);
+    }
+    if (order.site_id !== siteId) {
       throw new NotFoundException(`Workshop order ${orderId} not found`);
     }
     if (!PICK_ELIGIBLE_ORDER_STATUSES.includes(order.status)) {
@@ -731,6 +736,7 @@ export class WorkshopPickPartsService {
   private async persistStageState(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     orderId: string,
     destinationLocationId: string,
     plans: StagePlan[],
@@ -823,6 +829,7 @@ export class WorkshopPickPartsService {
       where: {
         tenant_id: tenantId,
         id: orderId,
+        site_id: siteId,
         status: { in: PICK_ELIGIBLE_ORDER_STATUSES },
         OR: [
           { staging_location_id: null },
