@@ -1,26 +1,46 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   Prisma,
   TransactionType,
-  type InventoryStock,
+  LocationType,
   type InvoiceItem,
 } from '@prisma/client';
 import { chunkedPromiseAll } from '../../common/utils/promise.util';
+import type { AtpService } from '../../inventory/atp.service';
 
 import Decimal = Prisma.Decimal;
 
 type StockUpdate = {
   catalog_item_id: string;
+  stockId: string;
   locationId: string;
   quantityToDeduct: Decimal;
 };
 
-export async function processSaleInventoryDeduction(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  invoiceItems: InvoiceItem[],
-  invoiceNumber: string,
-): Promise<void> {
+type SaleStockCandidate = {
+  id: string;
+  catalog_item_id: string;
+  location_id: string;
+  quantityAvailable: Decimal;
+};
+
+export interface SaleInventoryDeductionParams {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  siteId: string;
+  invoiceItems: InvoiceItem[];
+  invoiceNumber: string;
+  atpService: AtpService;
+}
+
+export async function processSaleInventoryDeduction({
+  tx,
+  tenantId,
+  siteId,
+  invoiceItems,
+  invoiceNumber,
+  atpService,
+}: SaleInventoryDeductionParams): Promise<void> {
   const uniqueCatalogItemIds = [
     ...new Set(
       invoiceItems
@@ -29,18 +49,35 @@ export async function processSaleInventoryDeduction(
     ),
   ];
 
-  const stockMap = new Map<string, InventoryStock[]>();
+  const stockMap = new Map<string, SaleStockCandidate[]>();
   if (uniqueCatalogItemIds.length > 0) {
     const stocks = await tx.inventoryStock.findMany({
       where: {
         tenant_id: tenantId,
         catalog_item_id: { in: uniqueCatalogItemIds },
+        location: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          type: { not: LocationType.staging_tote },
+        },
       },
       orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
     });
     stocks.forEach((stock) => {
       const list = stockMap.get(stock.catalog_item_id) || [];
-      list.push(stock);
+      const totals = atpService.calculateAtp(stock, {
+        operation: 'sales_allocation',
+        stockId: stock.id,
+        locationId: stock.location_id,
+        tenantId,
+        siteId,
+      });
+      list.push({
+        id: stock.id,
+        catalog_item_id: stock.catalog_item_id,
+        location_id: stock.location_id,
+        quantityAvailable: totals.quantityAvailable,
+      });
       stockMap.set(stock.catalog_item_id, list);
     });
   }
@@ -59,74 +96,63 @@ export async function processSaleInventoryDeduction(
     }
 
     const stocks = stockMap.get(item.catalog_item_id) || [];
-    const stock =
-      stocks.find((entry) =>
-        new Decimal(entry.quantity_on_hand).gte(quantityToDeduct),
-      ) || stocks[0];
+    let remainingQuantity = quantityToDeduct;
 
-    if (!stock) {
-      throw new BadRequestException(
-        `No stock record found for item ${item.description}`,
-      );
+    for (const stock of stocks) {
+      if (remainingQuantity.isZero()) break;
+      if (!stock.quantityAvailable.gt(0)) continue;
+
+      const quantityFromStock = remainingQuantity.lt(stock.quantityAvailable)
+        ? remainingQuantity
+        : stock.quantityAvailable;
+      const compositeKey = `${item.catalog_item_id}_${stock.location_id}`;
+      const existingUpdate = stockUpdatesMap.get(compositeKey) || {
+        catalog_item_id: item.catalog_item_id,
+        stockId: stock.id,
+        locationId: stock.location_id,
+        quantityToDeduct: new Decimal(0),
+      };
+
+      existingUpdate.quantityToDeduct =
+        existingUpdate.quantityToDeduct.add(quantityFromStock);
+      stockUpdatesMap.set(compositeKey, existingUpdate);
+      stock.quantityAvailable = stock.quantityAvailable.sub(quantityFromStock);
+      remainingQuantity = remainingQuantity.sub(quantityFromStock);
+
+      transactionCreations.push({
+        tenant_id: tenantId,
+        item_id: item.catalog_item_id,
+        location_id: stock.location_id,
+        quantity: quantityFromStock.negated(),
+        type: TransactionType.SALE_ISSUE,
+        reference_id: invoiceNumber,
+      });
     }
 
-    if (new Decimal(stock.quantity_on_hand).lt(quantityToDeduct)) {
-      throw new BadRequestException(
-        `Insufficient stock for item ${item.description} at location ${stock.location_id} (Req: ${quantityToDeduct.toString()}, Available: ${stock.quantity_on_hand.toString()})`,
+    if (remainingQuantity.gt(0)) {
+      const availableQuantity = quantityToDeduct.sub(remainingQuantity);
+      throw new ConflictException(
+        `Insufficient ATP for item ${item.description} (Req: ${quantityToDeduct.toString()}, Available: ${availableQuantity.toString()})`,
       );
     }
-
-    const locationId = stock.location_id;
-    const compositeKey = `${item.catalog_item_id}_${locationId}`;
-    const existingUpdate = stockUpdatesMap.get(compositeKey) || {
-      catalog_item_id: item.catalog_item_id,
-      locationId,
-      quantityToDeduct: new Decimal(0),
-    };
-
-    existingUpdate.quantityToDeduct =
-      existingUpdate.quantityToDeduct.add(quantityToDeduct);
-    stockUpdatesMap.set(compositeKey, existingUpdate);
-    stock.quantity_on_hand = new Decimal(stock.quantity_on_hand).sub(
-      quantityToDeduct,
-    );
-
-    transactionCreations.push({
-      tenant_id: tenantId,
-      item_id: item.catalog_item_id,
-      location_id: locationId,
-      quantity: new Prisma.Decimal(item.quantity).negated(),
-      type: TransactionType.SALE_ISSUE,
-      reference_id: invoiceNumber,
-    });
   }
 
-  const stockUpdates = Array.from(stockUpdatesMap.values());
-  await chunkedPromiseAll(stockUpdates, async (update) => {
-    const updateResult = await tx.inventoryStock.updateMany({
-      where: {
-        catalog_item_id: update.catalog_item_id,
-        location_id: update.locationId,
-        quantity_on_hand: { gte: update.quantityToDeduct },
+  const stockUpdates = Array.from(stockUpdatesMap.values()).sort(
+    (left, right) =>
+      left.catalog_item_id.localeCompare(right.catalog_item_id) ||
+      left.locationId.localeCompare(right.locationId),
+  );
+  await chunkedPromiseAll(stockUpdates, (update) =>
+    atpService.deductOnHandForSale(
+      {
+        stockId: update.stockId,
+        quantity: update.quantityToDeduct,
+        tenantId,
+        siteId,
       },
-      data: {
-        quantity_on_hand: { decrement: update.quantityToDeduct },
-      },
-    });
-
-    if (updateResult.count === 0) {
-      const latestStock = await tx.inventoryStock.findFirst({
-        where: {
-          tenant_id: tenantId,
-          catalog_item_id: update.catalog_item_id,
-          location_id: update.locationId,
-        },
-      });
-      throw new BadRequestException(
-        `Insufficient stock for item at location ${update.locationId} (Req: ${update.quantityToDeduct.toString()}, Available: ${latestStock?.quantity_on_hand.toString() ?? '0'})`,
-      );
-    }
-  });
+      tx,
+    ),
+  );
 
   if (transactionCreations.length > 0) {
     await tx.inventoryTransaction.createMany({

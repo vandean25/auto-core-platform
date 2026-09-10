@@ -2,7 +2,9 @@ import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { InvoiceStatus, SalesOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { FinanceService } from '../finance/finance.service';
+import { AtpService } from '../inventory/atp.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalesService } from './sales.service';
 import { InvoiceFinalizationService } from './invoice-finalization.service';
@@ -53,6 +55,17 @@ describe('SalesService', () => {
         {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: AtpService,
+          useValue: {
+            calculateAtp: jest.fn(),
+            deductOnHandForSale: jest.fn(),
+          },
+        },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
         InvoiceFinalizationService,
       ],

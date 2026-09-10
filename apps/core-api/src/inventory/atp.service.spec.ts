@@ -133,6 +133,61 @@ describe('AtpService', () => {
     expect(values.some((value) => String(value) === '1.5')).toBe(true);
   });
 
+  it('deducts only free on-hand quantity with a tenant/site/non-tote predicate', async () => {
+    prisma.$executeRaw.mockResolvedValue(1);
+
+    await service.deductOnHandForSale({
+      stockId: STOCK_ID,
+      quantity: new Prisma.Decimal('1.5'),
+      tenantId: TENANT_ID,
+      siteId: SITE_ID,
+    });
+
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const [template, ...values] = prisma.$executeRaw.mock.calls[0];
+    const sql = Array.from(template).join(' ');
+    expect(sql).toContain('SET quantity_on_hand = quantity_on_hand -');
+    expect(sql).toContain(
+      'stock.quantity_on_hand - stock.quantity_reserved >=',
+    );
+    expect(sql).toContain('location.site_id =');
+    expect(sql).toContain('location.type <>');
+    expect(values).toContain(TENANT_ID);
+    expect(values).toContain(SITE_ID);
+    expect(values).toContain(STOCK_ID);
+    expect(values.some((value) => String(value) === '1.5')).toBe(true);
+  });
+
+  it('returns a conflict when a sale deduction loses the free ATP race', async () => {
+    prisma.$executeRaw.mockResolvedValue(0);
+
+    await expect(
+      service.deductOnHandForSale({
+        stockId: STOCK_ID,
+        quantity: '1',
+        tenantId: TENANT_ID,
+        siteId: SITE_ID,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('uses the supplied transaction client for sale deductions', async () => {
+    transactionClient.$executeRaw.mockResolvedValue(1);
+
+    await service.deductOnHandForSale(
+      {
+        stockId: STOCK_ID,
+        quantity: '1.5',
+        tenantId: TENANT_ID,
+        siteId: SITE_ID,
+      },
+      transactionClient as never,
+    );
+
+    expect(transactionClient.$executeRaw).toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
   it('fails closed when ATP is negative and logs structured invariant context', async () => {
     prisma.inventoryStock.findFirst.mockResolvedValue({
       id: STOCK_ID,

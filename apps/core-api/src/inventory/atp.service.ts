@@ -23,6 +23,11 @@ export interface AtpMutationParams {
   quantity: DecimalQuantity;
 }
 
+export interface SaleAtpMutationParams extends AtpMutationParams {
+  tenantId: string;
+  siteId: string;
+}
+
 export interface AtpStockInput {
   id?: string;
   locationId?: string;
@@ -150,6 +155,34 @@ export class AtpService {
     if (affectedRows === 0) {
       throw new ConflictException(
         `Cannot release more than reserved quantity for inventory stock ${params.stockId}`,
+      );
+    }
+  }
+
+  async deductOnHandForSale(
+    params: SaleAtpMutationParams,
+    prismaVal?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const quantity = this.parsePositiveQuantity(params.quantity);
+    const tx = prismaVal ?? this.prisma;
+
+    // eslint-disable-next-line no-restricted-syntax -- ADR-locked parameterized ATP mutation; every predicate is tenant and site qualified.
+    const affectedRows = await tx.$executeRaw`
+      UPDATE inventory_stocks AS stock
+      SET quantity_on_hand = quantity_on_hand - ${quantity}
+      FROM storage_locations AS location
+      WHERE stock.id = ${params.stockId}
+        AND stock.tenant_id = ${params.tenantId}
+        AND stock.location_id = location.id
+        AND location.tenant_id = ${params.tenantId}
+        AND location.site_id = ${params.siteId}
+        AND location.type <> ${LocationType.staging_tote}::"LocationType"
+        AND stock.quantity_on_hand - stock.quantity_reserved >= ${quantity}
+    `;
+
+    if (affectedRows === 0) {
+      throw new ConflictException(
+        `Insufficient ATP for inventory stock ${params.stockId}`,
       );
     }
   }
