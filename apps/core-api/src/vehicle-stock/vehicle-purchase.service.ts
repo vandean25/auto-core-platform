@@ -11,26 +11,24 @@ import {
   VehicleLedgerEntryType,
   VehiclePurchaseSellerType,
   VehiclePurchaseStatus,
-  VehicleStockStatus,
-  VehicleTaxScheme,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import {
-  VEHICLE_IDENTITY_RESET,
-  normalizeVehicleIdentityValue,
-  normalizeVehicleIdentityValueOrNull,
-} from '../vehicle/vehicle-identity.util';
+import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util';
 import { VehicleLedgerService } from './vehicle-ledger.service';
+import {
+  ACTIVE_STOCK_STATUSES,
+  buildLotStockPayload,
+  prepareDraftUpdateData,
+  resolveSellerValidationTarget,
+} from './vehicle-purchase.helpers';
+import {
+  assertTenantCustomerExists,
+  assertTenantStorageLocationExists,
+  assertTenantVendorExists,
+} from './vehicle-stock-ref.validator';
 import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
 import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto';
-
-const ACTIVE_STOCK_STATUSES: VehicleStockStatus[] = [
-  VehicleStockStatus.ON_ORDER,
-  VehicleStockStatus.IN_STOCK,
-  VehicleStockStatus.RESERVED,
-  VehicleStockStatus.IN_PREP,
-];
 
 @Injectable()
 export class VehiclePurchaseService {
@@ -132,24 +130,15 @@ export class VehiclePurchaseService {
     if (purchase.status !== VehiclePurchaseStatus.DRAFT) {
       throw new ConflictException('Only DRAFT purchases can be updated');
     }
-    const nextSeller = dto.seller_type ?? purchase.seller_type;
-    this.assertSeller({
-      seller_type: nextSeller,
-      vendor_id:
-        dto.vendor_id !== undefined
-          ? (dto.vendor_id ?? undefined)
-          : (purchase.vendor_id ?? undefined),
-      customer_id:
-        dto.customer_id !== undefined
-          ? (dto.customer_id ?? undefined)
-          : (purchase.customer_id ?? undefined),
-    } as CreateVehiclePurchaseDto);
+
+    this.assertSeller(resolveSellerValidationTarget(dto, purchase));
     await this.assertTenantRefs(tenantId, {
       vendor_id: dto.vendor_id,
       customer_id: dto.customer_id,
       location_id: dto.location_id,
     });
 
+    const data = prepareDraftUpdateData(dto);
     const updated = await this.prisma.vehiclePurchase.updateMany({
       where: {
         id,
@@ -157,39 +146,7 @@ export class VehiclePurchaseService {
         status: VehiclePurchaseStatus.DRAFT,
         updatedAt: purchase.updatedAt,
       },
-      data: {
-        seller_type: dto.seller_type,
-        vendor_id:
-          dto.vendor_id !== undefined
-            ? dto.vendor_id
-            : dto.seller_type === VehiclePurchaseSellerType.CUSTOMER
-              ? null
-              : undefined,
-        customer_id:
-          dto.customer_id !== undefined
-            ? dto.customer_id
-            : dto.seller_type === VehiclePurchaseSellerType.VENDOR
-              ? null
-              : undefined,
-        vin:
-          dto.vin !== undefined
-            ? normalizeVehicleIdentityValueOrNull(dto.vin)
-            : undefined,
-        make: dto.make,
-        model: dto.model,
-        year: dto.year,
-        engine_code: dto.engine_code,
-        plate: dto.plate,
-        color: dto.color,
-        mileage: dto.mileage,
-        key_number: dto.key_number,
-        registration_certificate_no: dto.registration_certificate_no,
-        purchase_price:
-          dto.purchase_price !== undefined
-            ? new Prisma.Decimal(dto.purchase_price)
-            : undefined,
-        location_id: dto.location_id,
-      },
+      data,
     });
     if (updated.count === 0) {
       throw new ConflictException('Only DRAFT purchases can be updated');
@@ -200,128 +157,10 @@ export class VehiclePurchaseService {
   async receive(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
-      const guarded = await tx.vehiclePurchase.updateMany({
-        where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
-        data: {
-          status: VehiclePurchaseStatus.RECEIVED,
-          received_at: new Date(),
-        },
-      });
-      if (guarded.count === 0) {
-        throw new ConflictException('Purchase is not in DRAFT status');
-      }
-
-      const purchase = await tx.vehiclePurchase.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-      if (!purchase) {
-        throw new NotFoundException(`Vehicle purchase ${id} not found`);
-      }
-
-      const vin = normalizeVehicleIdentityValueOrNull(purchase.vin);
-      const existing =
-        vin === null
-          ? null
-          : await tx.vehicle.findFirst({
-              where: { tenant_id: tenantId, vin },
-            });
-
-      const stockData = {
-        make: purchase.make,
-        model: purchase.model,
-        year: purchase.year,
-        engine_code: purchase.engine_code,
-        plate: purchase.plate,
-        color: purchase.color,
-        mileage: purchase.mileage,
-        key_number: purchase.key_number,
-        registration_certificate_no: purchase.registration_certificate_no,
-        location_id: purchase.location_id,
-        customer_id: null,
-        inventory_role: VehicleInventoryRole.USED,
-        stock_status: VehicleStockStatus.IN_STOCK,
-        tax_scheme: VehicleTaxScheme.MARGIN,
-        ...(existing &&
-        normalizeVehicleIdentityValue(existing.plate) !==
-          normalizeVehicleIdentityValue(purchase.plate)
-          ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
-          : {}),
-      };
-
-      let vehicleId: string;
-      if (existing) {
-        const flipped = await tx.vehicle.updateMany({
-          where: {
-            id: existing.id,
-            tenant_id: tenantId,
-            vin,
-            plate: existing.plate,
-            identity_resolution_generation:
-              existing.identity_resolution_generation ?? null,
-            identity_resolution_token:
-              existing.identity_resolution_token ?? null,
-            OR: [
-              { inventory_role: { not: VehicleInventoryRole.USED } },
-              { stock_status: null },
-              { stock_status: { notIn: ACTIVE_STOCK_STATUSES } },
-            ],
-          },
-          data: stockData,
-        });
-        if (flipped.count === 0) {
-          throw new ConflictException('VIN is already in dealer stock');
-        }
-        vehicleId = existing.id;
-      } else {
-        try {
-          const created = await tx.vehicle.create({
-            data: {
-              tenant_id: tenantId,
-              vin,
-              ...stockData,
-            },
-          });
-          vehicleId = created.id;
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            throw new ConflictException('VIN is already in dealer stock');
-          }
-          throw error;
-        }
-      }
-
-      await this.ledger.append(
-        {
-          vehicleId,
-          entryType: VehicleLedgerEntryType.PURCHASE,
-          amount: purchase.purchase_price,
-          vehiclePurchaseId: purchase.id,
-        },
-        tx,
-      );
-
-      const linkedPurchase = await tx.vehiclePurchase.updateMany({
-        where: { id: purchase.id, tenant_id: tenantId },
-        data: { vehicle_id: vehicleId },
-      });
-      if (linkedPurchase.count === 0) {
-        throw new ConflictException(
-          'Vehicle purchase changed while receiving; please retry',
-        );
-      }
-
-      const receivedPurchase = await tx.vehiclePurchase.findFirst({
-        where: { id: purchase.id, tenant_id: tenantId },
-      });
-      if (!receivedPurchase) {
-        throw new NotFoundException(
-          `Vehicle purchase ${purchase.id} not found`,
-        );
-      }
-      return receivedPurchase;
+      const purchase = await this.validatePurchaseForReceipt(tx, tenantId, id);
+      const vehicleId = await this.upsertLotVehicle(tx, tenantId, purchase);
+      await this.recordPurchaseLedgerEntry(tx, vehicleId, purchase);
+      return this.linkPurchaseToVehicle(tx, tenantId, purchase.id, vehicleId);
     });
   }
 
@@ -368,6 +207,161 @@ export class VehiclePurchaseService {
     return { id };
   }
 
+  private async validatePurchaseForReceipt(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    id: string,
+  ) {
+    const guarded = await tx.vehiclePurchase.updateMany({
+      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
+      data: {
+        status: VehiclePurchaseStatus.RECEIVED,
+        received_at: new Date(),
+      },
+    });
+    if (guarded.count === 0) {
+      throw new ConflictException('Purchase is not in DRAFT status');
+    }
+
+    const purchase = await tx.vehiclePurchase.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Vehicle purchase ${id} not found`);
+    }
+    return purchase;
+  }
+
+  private async upsertLotVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    purchase: Prisma.VehiclePurchaseGetPayload<object>,
+  ): Promise<string> {
+    const vin = normalizeVehicleIdentityValueOrNull(purchase.vin);
+    if (!vin) {
+      return this.createNewStockVehicle(tx, tenantId, purchase, null);
+    }
+
+    const existing = await tx.vehicle.findFirst({
+      where: { tenant_id: tenantId, vin },
+    });
+    if (!existing) {
+      return this.createNewStockVehicle(tx, tenantId, purchase, vin);
+    }
+
+    await this.updateExistingStockVehicle(
+      tx,
+      tenantId,
+      existing,
+      purchase,
+      vin,
+    );
+    return existing.id;
+  }
+
+  private async updateExistingStockVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    existing: {
+      id: string;
+      plate: string | null;
+      identity_resolution_generation: string | null;
+      identity_resolution_token: string | null;
+    },
+    purchase: Prisma.VehiclePurchaseGetPayload<object>,
+    vin: string,
+  ): Promise<void> {
+    const stockData = buildLotStockPayload(purchase, existing);
+    const flipped = await tx.vehicle.updateMany({
+      where: {
+        id: existing.id,
+        tenant_id: tenantId,
+        vin,
+        plate: existing.plate,
+        identity_resolution_generation:
+          existing.identity_resolution_generation ?? null,
+        identity_resolution_token: existing.identity_resolution_token ?? null,
+        OR: [
+          { inventory_role: { not: VehicleInventoryRole.USED } },
+          { stock_status: null },
+          { stock_status: { notIn: ACTIVE_STOCK_STATUSES } },
+        ],
+      },
+      data: stockData,
+    });
+    if (flipped.count === 0) {
+      throw new ConflictException('VIN is already in dealer stock');
+    }
+  }
+
+  private async createNewStockVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    purchase: Prisma.VehiclePurchaseGetPayload<object>,
+    vin: string | null,
+  ): Promise<string> {
+    const stockData = buildLotStockPayload(purchase, null);
+    try {
+      const created = await tx.vehicle.create({
+        data: {
+          tenant_id: tenantId,
+          vin,
+          ...stockData,
+        },
+      });
+      return created.id;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('VIN is already in dealer stock');
+      }
+      throw error;
+    }
+  }
+
+  private async recordPurchaseLedgerEntry(
+    tx: Prisma.TransactionClient,
+    vehicleId: string,
+    purchase: { id: string; purchase_price: Prisma.Decimal },
+  ): Promise<void> {
+    await this.ledger.append(
+      {
+        vehicleId,
+        entryType: VehicleLedgerEntryType.PURCHASE,
+        amount: purchase.purchase_price,
+        vehiclePurchaseId: purchase.id,
+      },
+      tx,
+    );
+  }
+
+  private async linkPurchaseToVehicle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    purchaseId: string,
+    vehicleId: string,
+  ) {
+    const linkedPurchase = await tx.vehiclePurchase.updateMany({
+      where: { id: purchaseId, tenant_id: tenantId },
+      data: { vehicle_id: vehicleId },
+    });
+    if (linkedPurchase.count === 0) {
+      throw new ConflictException(
+        'Vehicle purchase changed while receiving; please retry',
+      );
+    }
+
+    const receivedPurchase = await tx.vehiclePurchase.findFirst({
+      where: { id: purchaseId, tenant_id: tenantId },
+    });
+    if (!receivedPurchase) {
+      throw new NotFoundException(`Vehicle purchase ${purchaseId} not found`);
+    }
+    return receivedPurchase;
+  }
+
   private assertSeller(dto: CreateVehiclePurchaseDto) {
     if (
       dto.seller_type === VehiclePurchaseSellerType.VENDOR &&
@@ -396,31 +390,17 @@ export class VehiclePurchaseService {
     },
   ) {
     if (refs.vendor_id) {
-      const vendor = await this.prisma.vendor.findFirst({
-        where: { id: refs.vendor_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!vendor) {
-        throw new NotFoundException(`Vendor ${refs.vendor_id} not found`);
-      }
+      await assertTenantVendorExists(this.prisma, tenantId, refs.vendor_id);
     }
     if (refs.customer_id) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: refs.customer_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!customer) {
-        throw new NotFoundException(`Customer ${refs.customer_id} not found`);
-      }
+      await assertTenantCustomerExists(this.prisma, tenantId, refs.customer_id);
     }
     if (refs.location_id) {
-      const location = await this.prisma.storageLocation.findFirst({
-        where: { id: refs.location_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!location) {
-        throw new NotFoundException(`Location ${refs.location_id} not found`);
-      }
+      await assertTenantStorageLocationExists(
+        this.prisma,
+        tenantId,
+        refs.location_id,
+      );
     }
   }
 

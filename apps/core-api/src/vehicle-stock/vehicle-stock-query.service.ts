@@ -15,6 +15,10 @@ import { TenantContextService } from '../common/services/tenant-context.service'
 import { QueryBuilder } from '../common/utils/query-builder';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
 import { costBasis } from './vehicle-cost';
+import {
+  assertTenantCustomerExists,
+  assertTenantStorageLocationExists,
+} from './vehicle-stock-ref.validator';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto';
 
 const STOCK_SORT_WHITELIST = [
@@ -266,24 +270,18 @@ export class VehicleStockQueryService {
     }
 
     if (dto.location_id) {
-      const location = await this.prisma.storageLocation.findFirst({
-        where: { id: dto.location_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!location) {
-        throw new NotFoundException(`Location ${dto.location_id} not found`);
-      }
+      await assertTenantStorageLocationExists(
+        this.prisma,
+        tenantId,
+        dto.location_id,
+      );
     }
     if (dto.reserved_for_customer_id) {
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: dto.reserved_for_customer_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!customer) {
-        throw new NotFoundException(
-          `Customer ${dto.reserved_for_customer_id} not found`,
-        );
-      }
+      await assertTenantCustomerExists(
+        this.prisma,
+        tenantId,
+        dto.reserved_for_customer_id,
+      );
     }
 
     const data: Prisma.VehicleUncheckedUpdateManyInput = {
