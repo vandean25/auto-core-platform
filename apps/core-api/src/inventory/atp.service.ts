@@ -170,6 +170,18 @@ export class AtpService {
   ): Promise<void> {
     const quantity = this.parsePositiveQuantity(params.quantity);
     const tx = prismaVal ?? this.prisma;
+    const stock = await this.findMutationStock(tx, params.stockId, {
+      tenantId: params.tenantId,
+      siteId: params.siteId,
+    });
+
+    this.calculateAtp(stock, {
+      operation: 'deduct_on_hand_for_sale',
+      stockId: stock.id,
+      locationId: stock.location_id,
+      tenantId: params.tenantId,
+      siteId: params.siteId,
+    });
 
     // eslint-disable-next-line no-restricted-syntax -- ADR-locked parameterized ATP mutation; every predicate is tenant and site qualified.
     const affectedRows = await tx.$executeRaw`
@@ -222,9 +234,20 @@ export class AtpService {
         kind: PartsReservationKind.ON_HAND,
         status: PartsReservationStatus.OPEN,
         location_id: stock.location_id,
+        location: {
+          tenant_id: context.tenantId,
+          site_id: context.siteId,
+        },
         workshop_task_line_item: {
           tenant_id: context.tenantId,
           catalog_item_id: stock.catalog_item_id,
+          workshop_task: {
+            tenant_id: context.tenantId,
+            workshop_order: {
+              tenant_id: context.tenantId,
+              site_id: context.siteId,
+            },
+          },
         },
       },
       select: { quantity: true, quantity_received: true },

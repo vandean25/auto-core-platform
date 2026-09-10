@@ -303,6 +303,29 @@ describe('PartsRequisitionService', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
+  it('rejects cancelled workshop lines before reserving ATP or creating a reservation', async () => {
+    tx.workshopTaskLineItem.findFirst.mockImplementation(
+      async ({ where }) =>
+        where.part_execution_status
+          ? null
+          : buildLine({
+              part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+            }),
+    );
+
+    await expect(
+      service.createOnHandReservation({
+        workshopTaskLineItemId: lineId,
+        quantity: 1,
+        locationId,
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+    expect(atpService.reserveOnHand).not.toHaveBeenCalled();
+    expect(tx.partsReservation.create).not.toHaveBeenCalled();
+    expect(tx.workshopTask.updateMany).not.toHaveBeenCalled();
+  });
+
   it('rejects a TECH service context before mutation', async () => {
     tenantContext.getAuthenticatedUser.mockReturnValue({
       tenantId,

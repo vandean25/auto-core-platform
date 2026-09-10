@@ -18,6 +18,7 @@ import {
   workshopTenantProvider,
   TransactionType,
   WorkshopOrderStatus,
+  WorkshopPartLineExecutionStatus,
 } from './workshop.spec.support';
 
 describe('WorkshopPickPartsService', () => {
@@ -64,6 +65,79 @@ describe('WorkshopPickPartsService', () => {
         ],
       }),
     ).rejects.toThrow(UnprocessableEntityException);
+  });
+
+  it('rejects cancelled workshop lines before reservation or ledger side effects', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      site_id: 'site-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      staging_location_id: null,
+    });
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
+      id: 'tote-1',
+      type: 'staging_tote',
+      deletedAt: null,
+      site_id: 'site-1',
+    });
+    const cancelledLine = {
+      id: 'line-1',
+      workshop_task_id: 'task-1',
+      catalog_item_id: 'item-1',
+      quantity: new Prisma.Decimal(2),
+      part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+    };
+    mockPrisma.workshopTaskLineItem.findMany.mockImplementation(
+      async ({ where }) => (where.part_execution_status ? [] : [cancelledLine]),
+    );
+    mockPrisma.partsReservation.findMany.mockResolvedValue([
+      {
+        id: 'reservation-1',
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal(2),
+        quantity_received: new Prisma.Decimal(0),
+        quantity_staged: new Prisma.Decimal(0),
+        quantity_consumed: new Prisma.Decimal(0),
+        quantity_returned: new Prisma.Decimal(0),
+        kind: PartsReservationKind.ON_HAND,
+        status: PartsReservationStatus.OPEN,
+        location_id: 'bin-a',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    ]);
+    mockPrisma.storageLocation.findMany.mockResolvedValue([
+      { id: 'bin-a', type: 'bin', deletedAt: null, site_id: 'site-1' },
+    ]);
+    mockPrisma.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'item-1',
+        location_id: 'bin-a',
+        quantity_on_hand: new Prisma.Decimal(2),
+        quantity_reserved: new Prisma.Decimal(2),
+      },
+    ]);
+    mockPrisma.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.pickParts('wo-1', {
+        destinationLocationId: 'tote-1',
+        items: [{ workshopTaskLineItemId: 'line-1', quantity: 1 }],
+      }),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(mockPrisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          part_execution_status: {
+            not: WorkshopPartLineExecutionStatus.CANCELLED,
+          },
+        }),
+      }),
+    );
+    expect(mockPrisma.partsReservation.findMany).not.toHaveBeenCalled();
+    expect(mockLedgerService.recordTransactions).not.toHaveBeenCalled();
   });
 
   it('rejects a tote pick when the order belongs to another site', async () => {

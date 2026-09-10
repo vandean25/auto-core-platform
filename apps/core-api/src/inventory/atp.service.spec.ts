@@ -134,6 +134,12 @@ describe('AtpService', () => {
   });
 
   it('deducts only free on-hand quantity with a tenant/site/non-tote predicate', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('4'),
+      quantity_reserved: new Prisma.Decimal('1'),
+    });
     prisma.$executeRaw.mockResolvedValue(1);
 
     await service.deductOnHandForSale({
@@ -159,6 +165,12 @@ describe('AtpService', () => {
   });
 
   it('returns a conflict when a sale deduction loses the free ATP race', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('1'),
+      quantity_reserved: new Prisma.Decimal('0'),
+    });
     prisma.$executeRaw.mockResolvedValue(0);
 
     await expect(
@@ -172,6 +184,12 @@ describe('AtpService', () => {
   });
 
   it('uses the supplied transaction client for sale deductions', async () => {
+    transactionClient.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('4'),
+      quantity_reserved: new Prisma.Decimal('0'),
+    });
     transactionClient.$executeRaw.mockResolvedValue(1);
 
     await service.deductOnHandForSale(
@@ -186,6 +204,35 @@ describe('AtpService', () => {
 
     expect(transactionClient.$executeRaw).toHaveBeenCalled();
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('fails sale deduction as an invariant error when canonical ATP is already negative', async () => {
+    prisma.inventoryStock.findFirst.mockResolvedValue({
+      id: STOCK_ID,
+      location_id: LOCATION_ID,
+      quantity_on_hand: new Prisma.Decimal('1'),
+      quantity_reserved: new Prisma.Decimal('1.1'),
+    });
+    const loggerError = jest
+      .spyOn(
+        (service as unknown as { logger: { error: jest.Mock } }).logger,
+        'error',
+      )
+      .mockImplementation();
+
+    await expect(
+      service.deductOnHandForSale({
+        stockId: STOCK_ID,
+        quantity: '0.1',
+        tenantId: TENANT_ID,
+        siteId: SITE_ID,
+      }),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('atp_negative'),
+    );
   });
 
   it('fails closed when ATP is negative and logs structured invariant context', async () => {
@@ -239,9 +286,20 @@ describe('AtpService', () => {
         kind: 'ON_HAND',
         status: 'OPEN',
         location_id: LOCATION_ID,
+        location: {
+          tenant_id: TENANT_ID,
+          site_id: SITE_ID,
+        },
         workshop_task_line_item: {
           tenant_id: TENANT_ID,
           catalog_item_id: 'item-1',
+          workshop_task: {
+            tenant_id: TENANT_ID,
+            workshop_order: {
+              tenant_id: TENANT_ID,
+              site_id: SITE_ID,
+            },
+          },
         },
       },
       select: { quantity: true, quantity_received: true },
