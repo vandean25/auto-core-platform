@@ -253,6 +253,7 @@ VALUES
   ('workshop_orders', 'bays', 'bay_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'employees', 'mechanic_id', 'id', 'SET NULL', 'CASCADE'),
+  ('workshop_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'storage_locations', 'staging_location_id', 'id', 'SET NULL', 'CASCADE'),
   ('workshop_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_orders', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
