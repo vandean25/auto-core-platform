@@ -30,7 +30,14 @@ import {
   deriveOrderStatus,
 } from './workshop-order.helpers';
 import { WorkshopIntakeService } from './workshop-intake.service';
-import { formatLocalDate, parseLocalDate } from './workshop-planner.time';
+import {
+  executeTaskUpdate,
+  findTaskAndAssertEditable,
+  recalculateAndApplyOrderStatus,
+  resolveDefaultTaskScheduledDate,
+  resolveOrderStatusConflict,
+  validateLaborOperationIds,
+} from './workshop-task.helpers';
 
 @Injectable()
 export class WorkshopTaskService {
@@ -44,29 +51,6 @@ export class WorkshopTaskService {
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
   ) {}
-
-  private async resolveDefaultTaskScheduledDate(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    siteId: string,
-    order: {
-      tasks: { id: string }[];
-      scheduled_start_at: Date | null;
-    },
-  ): Promise<Date | undefined> {
-    if (order.tasks.length > 0 || !order.scheduled_start_at) {
-      return undefined;
-    }
-
-    const settings = await tx.site.findFirst({
-      where: { tenant_id: tenantId, id: siteId, is_active: true },
-      select: { timezone: true },
-    });
-    const timeZone = settings?.timezone ?? 'Europe/Vienna';
-    const localDate = formatLocalDate(order.scheduled_start_at, timeZone);
-    const { year, month, day } = parseLocalDate(localDate);
-    return new Date(Date.UTC(year, month - 1, day));
-  }
 
   private async applyDerivedOrderStatus(
     tx: Prisma.TransactionClient,
@@ -100,23 +84,14 @@ export class WorkshopTaskService {
           'Workshop order status changed concurrently. Please refresh and try again.',
       });
     } catch (error) {
-      if (!(error instanceof ConflictException)) {
-        throw error;
-      }
-      const latest = await tx.workshopOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
-        select: { status: true },
-      });
-      if (!latest) {
-        throw new NotFoundException(`Workshop order ${orderId} not found`);
-      }
-      if (latest.status === WorkshopOrderStatus.INVOICED) {
-        return false;
-      }
-      if (latest.status === nextOrderStatus) {
-        return true;
-      }
-      throw error;
+      return resolveOrderStatusConflict(
+        tx,
+        tenantId,
+        orderId,
+        nextOrderStatus,
+        error,
+        siteId,
+      );
     }
 
     if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
@@ -142,11 +117,11 @@ export class WorkshopTaskService {
       }
       assertOrderEditable(order);
 
-      const scheduledDate = await this.resolveDefaultTaskScheduledDate(
+      const scheduledDate = await resolveDefaultTaskScheduledDate(
         tx,
         tenantId,
-        siteId,
         order,
+        siteId,
       );
 
       const task = await tx.workshopTask.create({
@@ -202,85 +177,31 @@ export class WorkshopTaskService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await this.prisma.$transaction(async (tx) => {
-      const task = await tx.workshopTask.findFirst({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          workshop_order_id: orderId,
-          workshop_order: { site_id: siteId },
-        },
-        include: {
-          workshop_order: {
-            select: {
-              status: true,
-              purpose: true,
-              invoice: { select: { id: true, invoice_number: true } },
-            },
-          },
-        },
-      });
-
-      if (!task) {
-        throw new NotFoundException(`Task ${taskId} not found for this order`);
-      }
-      assertOrderEditable(task.workshop_order);
-
-      const fieldData: Prisma.WorkshopTaskUpdateManyMutationInput = {};
-      if (dto.title !== undefined) {
-        fieldData.title = dto.title;
-      }
-      if (dto.mechanicNotes !== undefined) {
-        fieldData.mechanic_notes = dto.mechanicNotes;
-      }
-
-      const nextStatus = dto.status;
-      if (nextStatus !== undefined && nextStatus !== task.status) {
-        await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopTask), {
-          id: taskId,
-          tenantId,
-          from: task.status,
-          to: nextStatus,
-          extraWhere: {
-            workshop_order_id: orderId,
-            workshop_order: { site_id: siteId },
-          },
-          extraData: fieldData,
-          conflictMessage: `Task ${taskId} status changed concurrently. Please refresh and try again.`,
-        });
-      } else if (Object.keys(fieldData).length > 0) {
-        const taskUpdate = await tx.workshopTask.updateMany({
-          where: {
-            id: taskId,
-            tenant_id: tenantId,
-            workshop_order_id: orderId,
-            workshop_order: { site_id: siteId },
-          },
-          data: fieldData,
-        });
-
-        if (taskUpdate.count === 0) {
-          throw new NotFoundException(
-            `Task ${taskId} not found for this order`,
-          );
-        }
-      }
-
-      const tasks = await tx.workshopTask.findMany({
-        where: {
-          workshop_order_id: orderId,
-          tenant_id: tenantId,
-          workshop_order: { site_id: siteId },
-        },
-        select: { status: true },
-      });
-
-      const nextOrderStatus = deriveOrderStatus(tasks.map((t) => t.status));
-      const updateResult = await this.applyDerivedOrderStatus(
+      const task = await findTaskAndAssertEditable(
         tx,
         tenantId,
-        siteId,
         orderId,
-        nextOrderStatus,
+        taskId,
+        siteId,
+      );
+
+      await executeTaskUpdate(
+        tx,
+        tenantId,
+        orderId,
+        taskId,
+        task.status,
+        dto,
+        siteId,
+      );
+
+      const updateResult = await recalculateAndApplyOrderStatus(
+        tx,
+        tenantId,
+        orderId,
+        (t, ten, ord, next) =>
+          this.applyDerivedOrderStatus(t, ten, siteId, ord, next),
+        siteId,
       );
       if (!updateResult) {
         return;
@@ -294,28 +215,13 @@ export class WorkshopTaskService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await this.prisma.$transaction(async (tx) => {
-      const task = await tx.workshopTask.findFirst({
-        where: {
-          id: taskId,
-          tenant_id: tenantId,
-          workshop_order_id: orderId,
-          workshop_order: { site_id: siteId },
-        },
-        include: {
-          workshop_order: {
-            select: {
-              status: true,
-              purpose: true,
-              invoice: { select: { id: true, invoice_number: true } },
-            },
-          },
-        },
-      });
-
-      if (!task) {
-        throw new NotFoundException(`Task ${taskId} not found for this order`);
-      }
-      assertOrderEditable(task.workshop_order);
+      const task = await findTaskAndAssertEditable(
+        tx,
+        tenantId,
+        orderId,
+        taskId,
+        siteId,
+      );
 
       if (task.workshop_order.invoice) {
         throw new BadRequestException(
@@ -335,24 +241,13 @@ export class WorkshopTaskService {
         throw new NotFoundException(`Task ${taskId} not found for this order`);
       }
 
-      const tasks = await tx.workshopTask.findMany({
-        where: {
-          workshop_order_id: orderId,
-          tenant_id: tenantId,
-          workshop_order: { site_id: siteId },
-        },
-        select: { status: true },
-      });
-
-      const nextOrderStatus = deriveOrderStatus(
-        tasks.map((existingTask) => existingTask.status),
-      );
-      await this.applyDerivedOrderStatus(
+      await recalculateAndApplyOrderStatus(
         tx,
         tenantId,
-        siteId,
         orderId,
-        nextOrderStatus,
+        (t, ten, ord, next) =>
+          this.applyDerivedOrderStatus(t, ten, siteId, ord, next),
+        siteId,
       );
     });
 
@@ -372,7 +267,7 @@ export class WorkshopTaskService {
       tenantId,
       siteId,
     );
-    await this.validateLaborOperationIds(dto, tenantId);
+    await validateLaborOperationIds(this.prisma, tenantId, dto.items);
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -468,36 +363,6 @@ export class WorkshopTaskService {
       throw new NotFoundException(`Task ${taskId} not found for this order`);
     }
     assertOrderEditable(task.workshop_order);
-  }
-
-  private async validateLaborOperationIds(
-    dto: ReplaceWorkshopTaskLineItemsDto,
-    tenantId: string,
-  ) {
-    const laborOperationIds = [
-      ...new Set(
-        dto.items
-          .map((i) => i.laborOperationId)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-
-    if (laborOperationIds.length === 0) {
-      return;
-    }
-
-    const foundCount = await this.prisma.laborOperation.count({
-      where: {
-        id: { in: laborOperationIds },
-        tenant_id: tenantId,
-      },
-    });
-
-    if (foundCount !== laborOperationIds.length) {
-      throw new BadRequestException(
-        'Invalid laborOperationId: one or more labor operations were not found within this tenant scope',
-      );
-    }
   }
 
   private async incrementTaskLineItemsVersion(
