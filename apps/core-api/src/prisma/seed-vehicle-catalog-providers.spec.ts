@@ -31,6 +31,292 @@ type ConcernMakeRecord = {
   concern_id: string;
 };
 
+function buildBrandMock(
+  brands: Map<string, BrandRecord>,
+  getNextId: () => number,
+) {
+  return {
+    findMany: jest.fn(
+      async ({
+        where,
+      }: {
+        where: { tenant_id: string; name?: { in: string[] } };
+      }) =>
+        [...brands.values()].filter(
+          (brand) =>
+            brand.tenant_id === where.tenant_id &&
+            (where.name === undefined || where.name.in.includes(brand.name)),
+        ),
+    ),
+    create: jest.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          tenant_id: string;
+          name: string;
+          normalized_name: string;
+          isVehicleMake: boolean;
+          isPartManufacturer?: boolean;
+        };
+      }) => {
+        const brand = {
+          id: getNextId(),
+          tenant_id: data.tenant_id,
+          name: data.name,
+          normalized_name: data.normalized_name,
+          isVehicleMake: data.isVehicleMake,
+          isPartManufacturer: Boolean(data.isPartManufacturer),
+        };
+        brands.set(data.name, brand);
+        return brand;
+      },
+    ),
+    upsert: jest.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: {
+          tenant_id_normalized_name: {
+            tenant_id: string;
+            normalized_name: string;
+          };
+        };
+        create: {
+          tenant_id: string;
+          name: string;
+          normalized_name: string;
+          isVehicleMake: boolean;
+          isPartManufacturer: boolean;
+        };
+        update: { isVehicleMake: boolean };
+      }) => {
+        const { tenant_id, normalized_name } =
+          where.tenant_id_normalized_name;
+        const existing = [...brands.values()].find(
+          (brand) =>
+            brand.tenant_id === tenant_id &&
+            brand.normalized_name === normalized_name,
+        );
+        if (existing) {
+          existing.isVehicleMake = update.isVehicleMake;
+          return existing;
+        }
+
+        const brand = {
+          id: getNextId(),
+          tenant_id: create.tenant_id,
+          name: create.name,
+          normalized_name: create.normalized_name,
+          isVehicleMake: create.isVehicleMake,
+          isPartManufacturer: create.isPartManufacturer,
+        };
+        brands.set(create.name, brand);
+        return brand;
+      },
+    ),
+    updateMany: jest.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { tenant_id: string; id: number };
+        data: { isVehicleMake: boolean };
+      }) => {
+        const existing = [...brands.values()].find(
+          (brand) =>
+            brand.tenant_id === where.tenant_id && brand.id === where.id,
+        );
+        if (!existing) {
+          return { count: 0 };
+        }
+        existing.isVehicleMake = data.isVehicleMake;
+        return { count: 1 };
+      },
+    ),
+  };
+}
+
+function buildVehicleMakeAliasMock(
+  aliases: Map<string, AliasRecord>,
+  brands: Map<string, BrandRecord>,
+) {
+  return {
+    upsert: jest.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { tenant_id_alias_normalized: { alias_normalized: string } };
+        create: AliasRecord;
+        update: { brand_id: number };
+      }) => {
+        const key = where.tenant_id_alias_normalized.alias_normalized;
+        const existing = aliases.get(key);
+        const next = existing
+          ? { ...existing, brand_id: update.brand_id }
+          : create;
+        aliases.set(key, next);
+        return next;
+      },
+    ),
+    findFirst: jest.fn(
+      async ({
+        where,
+        include,
+      }: {
+        where: { tenant_id: string; alias_normalized: string };
+        include?: { brand: boolean };
+      }) => {
+        const alias = aliases.get(where.alias_normalized);
+        if (!alias) {
+          return null;
+        }
+
+        const brand = [...brands.values()].find(
+          (entry) => entry.id === alias.brand_id,
+        );
+        if (!brand) {
+          return null;
+        }
+
+        return include?.brand ? { ...alias, brand } : alias;
+      },
+    ),
+  };
+}
+
+function buildCatalogOemConcernMock(
+  concerns: Map<CatalogOemConcernCode, ConcernRecord>,
+  getNextId: () => number,
+) {
+  return {
+    findMany: jest.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          tenant_id: string;
+          code: { in: CatalogOemConcernCode[] };
+        };
+      }) =>
+        [...concerns.values()].filter(
+          (concern) =>
+            concern.tenant_id === where.tenant_id &&
+            where.code.in.includes(concern.code),
+        ),
+    ),
+    upsert: jest.fn(
+      async ({
+        where,
+        create,
+      }: {
+        where: { tenant_id_code: { code: CatalogOemConcernCode } };
+        create: {
+          tenant_id: string;
+          code: CatalogOemConcernCode;
+          parts_adapter_id: string;
+          labor_adapter_id: string;
+        };
+        update: Record<string, never>;
+      }) => {
+        const code = where.tenant_id_code.code;
+        const existing = concerns.get(code);
+        if (existing) {
+          return existing;
+        }
+
+        const concern = {
+          id: `concern-${getNextId()}`,
+          tenant_id: create.tenant_id,
+          code,
+        };
+        concerns.set(code, concern);
+        return concern;
+      },
+    ),
+  };
+}
+
+function buildCatalogOemConcernMakeMock(
+  concernMakes: Map<number, ConcernMakeRecord>,
+  concerns: Map<CatalogOemConcernCode, ConcernRecord>,
+) {
+  return {
+    upsert: jest.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { tenant_id_brand_id: { brand_id: number } };
+        create: ConcernMakeRecord;
+        update: { concern_id: string };
+      }) => {
+        const brandId = where.tenant_id_brand_id.brand_id;
+        const existing = concernMakes.get(brandId);
+        const next = existing
+          ? { ...existing, concern_id: update.concern_id }
+          : create;
+        concernMakes.set(brandId, next);
+        return next;
+      },
+    ),
+    findFirst: jest.fn(
+      async ({
+        where,
+        include,
+      }: {
+        where: { tenant_id: string; brand_id: number };
+        include?: { concern: boolean };
+      }) => {
+        const link = concernMakes.get(where.brand_id);
+        if (!link) {
+          return null;
+        }
+
+        const concern = [...concerns.values()].find(
+          (entry) => entry.id === link.concern_id,
+        );
+        if (!concern) {
+          return null;
+        }
+
+        return include?.concern ? { ...link, concern } : link;
+      },
+    ),
+  };
+}
+
+function buildCatalogProviderSettingsMock(state: { count: number }) {
+  return {
+    findFirst: jest.fn(async () =>
+      state.count > 0 ? { id: 'settings-1' } : null,
+    ),
+    create: jest.fn(async () => {
+      state.count += 1;
+      return { id: 'settings-1' };
+    }),
+    upsert: jest.fn(
+      async ({
+        create,
+      }: {
+        where: { tenant_id: string };
+        update: Record<string, never>;
+        create: { tenant_id: string };
+      }) => {
+        if (state.count === 0) {
+          state.count += 1;
+        }
+        return { id: 'settings-1', tenant_id: create.tenant_id };
+      },
+    ),
+  };
+}
+
 function createPrismaMock() {
   const brands = new Map<string, BrandRecord>();
   const aliases = new Map<string, AliasRecord>();
@@ -38,268 +324,17 @@ function createPrismaMock() {
   const concernMakes = new Map<number, ConcernMakeRecord>();
   let brandIdCounter = 1;
   let concernIdCounter = 1;
-  let providerSettingsCount = 0;
+  const settingsState = { count: 0 };
 
   const prisma = {
-    brand: {
-      findMany: jest.fn(
-        async ({
-          where,
-        }: {
-          where: { tenant_id: string; name?: { in: string[] } };
-        }) =>
-          [...brands.values()].filter(
-            (brand) =>
-              brand.tenant_id === where.tenant_id &&
-              (where.name === undefined || where.name.in.includes(brand.name)),
-          ),
-      ),
-      create: jest.fn(
-        async ({
-          data,
-        }: {
-          data: {
-            tenant_id: string;
-            name: string;
-            normalized_name: string;
-            isVehicleMake: boolean;
-          };
-        }) => {
-          const brand = {
-            id: brandIdCounter++,
-            tenant_id: data.tenant_id,
-            name: data.name,
-            normalized_name: data.normalized_name,
-            isVehicleMake: data.isVehicleMake,
-            isPartManufacturer: data.isPartManufacturer,
-          };
-          brands.set(data.name, brand);
-          return brand;
-        },
-      ),
-      upsert: jest.fn(
-        async ({
-          where,
-          create,
-          update,
-        }: {
-          where: {
-            tenant_id_normalized_name: {
-              tenant_id: string;
-              normalized_name: string;
-            };
-          };
-          create: {
-            tenant_id: string;
-            name: string;
-            normalized_name: string;
-            isVehicleMake: boolean;
-            isPartManufacturer: boolean;
-          };
-          update: { isVehicleMake: boolean };
-        }) => {
-          const { tenant_id, normalized_name } =
-            where.tenant_id_normalized_name;
-          const existing = [...brands.values()].find(
-            (brand) =>
-              brand.tenant_id === tenant_id &&
-              brand.normalized_name === normalized_name,
-          );
-          if (existing) {
-            existing.isVehicleMake = update.isVehicleMake;
-            return existing;
-          }
-
-          const brand = {
-            id: brandIdCounter++,
-            tenant_id: create.tenant_id,
-            name: create.name,
-            normalized_name: create.normalized_name,
-            isVehicleMake: create.isVehicleMake,
-            isPartManufacturer: create.isPartManufacturer,
-          };
-          brands.set(create.name, brand);
-          return brand;
-        },
-      ),
-      updateMany: jest.fn(
-        async ({
-          where,
-          data,
-        }: {
-          where: { tenant_id: string; id: number };
-          data: { isVehicleMake: boolean };
-        }) => {
-          const existing = [...brands.values()].find(
-            (brand) =>
-              brand.tenant_id === where.tenant_id && brand.id === where.id,
-          );
-          if (!existing) {
-            return { count: 0 };
-          }
-          existing.isVehicleMake = data.isVehicleMake;
-          return { count: 1 };
-        },
-      ),
-    },
-    vehicleMakeAlias: {
-      upsert: jest.fn(
-        async ({
-          where,
-          create,
-          update,
-        }: {
-          where: { tenant_id_alias_normalized: { alias_normalized: string } };
-          create: AliasRecord;
-          update: { brand_id: number };
-        }) => {
-          const key = where.tenant_id_alias_normalized.alias_normalized;
-          const existing = aliases.get(key);
-          const next = existing
-            ? { ...existing, brand_id: update.brand_id }
-            : create;
-          aliases.set(key, next);
-          return next;
-        },
-      ),
-      findFirst: jest.fn(
-        async ({
-          where,
-          include,
-        }: {
-          where: { tenant_id: string; alias_normalized: string };
-          include?: { brand: boolean };
-        }) => {
-          const alias = aliases.get(where.alias_normalized);
-          if (!alias) {
-            return null;
-          }
-
-          const brand = [...brands.values()].find(
-            (entry) => entry.id === alias.brand_id,
-          );
-          if (!brand) {
-            return null;
-          }
-
-          return include?.brand ? { ...alias, brand } : alias;
-        },
-      ),
-    },
-      catalogOemConcern: {
-      findMany: jest.fn(
-        async ({
-          where,
-        }: {
-          where: {
-            tenant_id: string;
-            code: { in: CatalogOemConcernCode[] };
-          };
-        }) =>
-          [...concerns.values()].filter(
-            (concern) =>
-              concern.tenant_id === where.tenant_id &&
-              where.code.in.includes(concern.code),
-          ),
-      ),
-      upsert: jest.fn(
-        async ({
-          where,
-          create,
-          update,
-        }: {
-          where: { tenant_id_code: { code: CatalogOemConcernCode } };
-          create: {
-            tenant_id: string;
-            code: CatalogOemConcernCode;
-            parts_adapter_id: string;
-            labor_adapter_id: string;
-          };
-          update: Record<string, never>;
-        }) => {
-          const code = where.tenant_id_code.code;
-          const existing = concerns.get(code);
-          if (existing) {
-            return existing;
-          }
-
-          const concern = {
-            id: `concern-${concernIdCounter++}`,
-            tenant_id: create.tenant_id,
-            code,
-          };
-          concerns.set(code, concern);
-          return concern;
-        },
-      ),
-    },
-    catalogOemConcernMake: {
-      upsert: jest.fn(
-        async ({
-          where,
-          create,
-          update,
-        }: {
-          where: { tenant_id_brand_id: { brand_id: number } };
-          create: ConcernMakeRecord;
-          update: { concern_id: string };
-        }) => {
-          const brandId = where.tenant_id_brand_id.brand_id;
-          const existing = concernMakes.get(brandId);
-          const next = existing
-            ? { ...existing, concern_id: update.concern_id }
-            : create;
-          concernMakes.set(brandId, next);
-          return next;
-        },
-      ),
-      findFirst: jest.fn(
-        async ({
-          where,
-          include,
-        }: {
-          where: { tenant_id: string; brand_id: number };
-          include?: { concern: boolean };
-        }) => {
-          const link = concernMakes.get(where.brand_id);
-          if (!link) {
-            return null;
-          }
-
-          const concern = [...concerns.values()].find(
-            (entry) => entry.id === link.concern_id,
-          );
-          if (!concern) {
-            return null;
-          }
-
-          return include?.concern ? { ...link, concern } : link;
-        },
-      ),
-    },
-    catalogProviderSettings: {
-      findFirst: jest.fn(async () =>
-        providerSettingsCount > 0 ? { id: 'settings-1' } : null,
-      ),
-      create: jest.fn(async () => {
-        providerSettingsCount += 1;
-        return { id: 'settings-1' };
-      }),
-      upsert: jest.fn(
-        async ({
-          create,
-        }: {
-          where: { tenant_id: string };
-          update: Record<string, never>;
-          create: { tenant_id: string };
-        }) => {
-          if (providerSettingsCount === 0) {
-            providerSettingsCount += 1;
-          }
-          return { id: 'settings-1', tenant_id: create.tenant_id };
-        },
-      ),
-    },
+    brand: buildBrandMock(brands, () => brandIdCounter++),
+    vehicleMakeAlias: buildVehicleMakeAliasMock(aliases, brands),
+    catalogOemConcern: buildCatalogOemConcernMock(
+      concerns,
+      () => concernIdCounter++,
+    ),
+    catalogOemConcernMake: buildCatalogOemConcernMakeMock(concernMakes, concerns),
+    catalogProviderSettings: buildCatalogProviderSettingsMock(settingsState),
   };
 
   return {
@@ -308,7 +343,7 @@ function createPrismaMock() {
     aliases,
     concerns,
     concernMakes,
-    getProviderSettingsCount: () => providerSettingsCount,
+    getProviderSettingsCount: () => settingsState.count,
   };
 }
 

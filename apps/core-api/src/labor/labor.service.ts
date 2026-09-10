@@ -345,69 +345,16 @@ export class LaborService {
       throw new NotFoundException(`Labor operation with ID "${id}" not found`);
     }
 
-    const nullableFields = [
-      'code',
-      'description',
-      'standardAw',
-      'hourlyRate',
-    ] as const;
-    for (const field of nullableFields) {
-      if (dto[field] === null) {
-        throw new BadRequestException(`Field "${field}" cannot be null`);
-      }
-    }
-
-    if (dto.code !== undefined && dto.code !== operation.code) {
-      const existing = await this.prisma.laborOperation.findFirst({
-        where: { tenant_id: tenantId, code: dto.code },
-      });
-      if (existing) {
-        throw new ConflictException(
-          `Labor operation with code "${dto.code}" already exists`,
-        );
-      }
-    }
-
-    if (dto.categoryId !== undefined && dto.categoryId !== null) {
-      const category = await this.prisma.laborCategory.findFirst({
-        where: { id: dto.categoryId, tenant_id: tenantId },
-        select: { id: true, is_active: true },
-      });
-      if (!category) {
-        throw new NotFoundException(
-          `Labor category with ID "${dto.categoryId}" not found`,
-        );
-      }
-      if (!category.is_active) {
-        throw new BadRequestException(
-          `Labor category with ID "${dto.categoryId}" is not active`,
-        );
-      }
-    }
+    this.assertNoNullsOnRequiredFields(dto);
+    await this.assertCodeAvailable(tenantId, operation.code, dto.code);
+    await this.assertCategoryValid(tenantId, dto.categoryId);
 
     try {
       const updated = await this.prisma.$transaction(async (tx) => {
+        const updateData = this.buildLaborUpdateData(dto);
         const updateResult = await tx.laborOperation.updateMany({
           where: { id, tenant_id: tenantId },
-          data: {
-            ...(dto.code !== undefined && { code: dto.code }),
-            ...(dto.description !== undefined && {
-              description: dto.description,
-            }),
-            ...(dto.standardAw !== undefined && {
-              standard_aw: dto.standardAw,
-            }),
-            ...(dto.hourlyRate !== undefined && {
-              hourly_rate: dto.hourlyRate,
-            }),
-            ...(dto.internalCost !== undefined && {
-              internal_cost: dto.internalCost,
-            }),
-            ...(dto.categoryId !== undefined && {
-              category_id: dto.categoryId,
-            }),
-            ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-          },
+          data: updateData,
         });
 
         if (updateResult.count === 0) {
@@ -417,22 +364,7 @@ export class LaborService {
         }
 
         if (dto.fitments !== undefined) {
-          await tx.laborFitment.deleteMany({
-            where: { labor_operation_id: id },
-          });
-
-          if (dto.fitments.length > 0) {
-            await tx.laborFitment.createMany({
-              data: dto.fitments.map((fitment) => ({
-                labor_operation_id: id,
-                make: fitment.make,
-                model: fitment.model,
-                year_from: fitment.yearFrom ?? null,
-                year_to: fitment.yearTo ?? null,
-                engine_code: fitment.engineCode ?? null,
-              })),
-            });
-          }
+          await this.syncLaborFitments(tx, id, dto.fitments);
         }
 
         const refreshed = await tx.laborOperation.findFirst({
@@ -454,16 +386,114 @@ export class LaborService {
 
       return this.mapLaborOperation(updated);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor operation with code "${dto.code}" already exists`,
-        );
-      }
-      throw error;
+      this.handleLaborPrismaError(error, dto.code);
     }
+  }
+
+  private assertNoNullsOnRequiredFields(dto: UpdateLaborOperationDto) {
+    const nullableFields = [
+      'code',
+      'description',
+      'standardAw',
+      'hourlyRate',
+    ] as const;
+    for (const field of nullableFields) {
+      if (dto[field] === null) {
+        throw new BadRequestException(`Field "${field}" cannot be null`);
+      }
+    }
+  }
+
+  private async assertCodeAvailable(
+    tenantId: string,
+    currentCode: string,
+    nextCode?: string,
+  ) {
+    if (nextCode === undefined || nextCode === currentCode) {
+      return;
+    }
+    const existing = await this.prisma.laborOperation.findFirst({
+      where: { tenant_id: tenantId, code: nextCode },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Labor operation with code "${nextCode}" already exists`,
+      );
+    }
+  }
+
+  private async assertCategoryValid(
+    tenantId: string,
+    categoryId?: string | null,
+  ) {
+    if (categoryId === undefined || categoryId === null) {
+      return;
+    }
+    const category = await this.prisma.laborCategory.findFirst({
+      where: { id: categoryId, tenant_id: tenantId },
+      select: { id: true, is_active: true },
+    });
+    if (!category) {
+      throw new NotFoundException(
+        `Labor category with ID "${categoryId}" not found`,
+      );
+    }
+    if (!category.is_active) {
+      throw new BadRequestException(
+        `Labor category with ID "${categoryId}" is not active`,
+      );
+    }
+  }
+
+  private buildLaborUpdateData(
+    dto: UpdateLaborOperationDto,
+  ): Prisma.LaborOperationUpdateManyMutationInput {
+    return {
+      ...(dto.code !== undefined && { code: dto.code }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.standardAw !== undefined && { standard_aw: dto.standardAw }),
+      ...(dto.hourlyRate !== undefined && { hourly_rate: dto.hourlyRate }),
+      ...(dto.internalCost !== undefined && {
+        internal_cost: dto.internalCost,
+      }),
+      ...(dto.categoryId !== undefined && { category_id: dto.categoryId }),
+      ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+    };
+  }
+
+  private async syncLaborFitments(
+    tx: Prisma.TransactionClient,
+    laborOperationId: string,
+    fitments: NonNullable<UpdateLaborOperationDto['fitments']>,
+  ) {
+    await tx.laborFitment.deleteMany({
+      where: { labor_operation_id: laborOperationId },
+    });
+
+    if (fitments.length > 0) {
+      await tx.laborFitment.createMany({
+        data: fitments.map((fitment) => ({
+          labor_operation_id: laborOperationId,
+          make: fitment.make,
+          model: fitment.model,
+          year_from: fitment.yearFrom ?? null,
+          year_to: fitment.yearTo ?? null,
+          engine_code: fitment.engineCode ?? null,
+        })),
+      });
+    }
+  }
+
+  private handleLaborPrismaError(error: unknown, code?: string): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        `Labor operation with code "${code}" already exists`,
+      );
+    }
+    throw error;
   }
 
   async softDelete(id: string) {

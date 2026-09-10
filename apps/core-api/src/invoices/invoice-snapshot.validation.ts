@@ -81,20 +81,36 @@ const isInvoiceSnapshotItems = (
 ): value is InvoiceSnapshot['items'] =>
   Array.isArray(value) && value.every(isInvoiceSnapshotItem);
 
+const hasValidInvoiceIdentifiers = (record: Record<string, unknown>): boolean =>
+  isString(record.id) && isNullableString(record.invoice_number);
+
+const hasValidInvoiceDatesAndNotes = (
+  record: Record<string, unknown>,
+): boolean =>
+  isString(record.date) &&
+  isString(record.due_date) &&
+  isNullableString(record.notes);
+
+const hasValidInvoiceTotals = (record: Record<string, unknown>): boolean =>
+  isString(record.total_net) &&
+  isString(record.total_tax) &&
+  isString(record.total_gross);
+
+const hasValidInvoiceRelations = (record: Record<string, unknown>): boolean =>
+  isInvoiceSnapshotCustomer(record.customer) &&
+  isInvoiceSnapshotVehicle(record.vehicle) &&
+  isInvoiceSnapshotItems(record.items) &&
+  isString(record.snapshot_created_at);
+
 export const isInvoiceSnapshot = (value: unknown): value is InvoiceSnapshot => {
   if (!isRecord(value)) {
     return false;
   }
 
   if (
-    !isString(value.id) ||
-    !isNullableString(value.invoice_number) ||
-    !isString(value.date) ||
-    !isString(value.due_date) ||
-    !isString(value.total_net) ||
-    !isString(value.total_tax) ||
-    !isString(value.total_gross) ||
-    !isNullableString(value.notes)
+    !hasValidInvoiceIdentifiers(value) ||
+    !hasValidInvoiceDatesAndNotes(value) ||
+    !hasValidInvoiceTotals(value)
   ) {
     return false;
   }
@@ -103,16 +119,7 @@ export const isInvoiceSnapshot = (value: unknown): value is InvoiceSnapshot => {
     return false;
   }
 
-  if (
-    !isInvoiceSnapshotCustomer(value.customer) ||
-    !isInvoiceSnapshotVehicle(value.vehicle) ||
-    !isInvoiceSnapshotItems(value.items) ||
-    !isString(value.snapshot_created_at)
-  ) {
-    return false;
-  }
-
-  return true;
+  return hasValidInvoiceRelations(value);
 };
 
 export const parseInvoiceSnapshot = (value: unknown): InvoiceSnapshot | null =>

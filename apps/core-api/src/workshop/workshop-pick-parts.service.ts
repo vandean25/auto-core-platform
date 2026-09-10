@@ -204,405 +204,47 @@ export class WorkshopPickPartsService {
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
-        select: {
-          id: true,
-          order_number: true,
-          status: true,
-          staging_location_id: true,
-        },
-      });
-
-      if (!order) {
-        throw new NotFoundException(`Workshop order ${orderId} not found`);
-      }
-
-      this.assertPickEligible(order.status);
-
-      if (
-        order.staging_location_id &&
-        order.staging_location_id !== dto.destinationLocationId
-      ) {
-        throw new ConflictException(
-          'Workshop order is already linked to a different staging location',
+      const { order, destinationLocation } =
+        await this.validateOrderAndStagingLocation(
+          tx,
+          orderId,
+          dto.destinationLocationId,
+          tenantId,
         );
-      }
 
-      const destinationLocation = await tx.storageLocation.findFirst({
-        where: { id: dto.destinationLocationId, tenant_id: tenantId },
-        select: {
-          id: true,
-          type: true,
-          deletedAt: true,
-        },
-      });
-
-      if (!destinationLocation || destinationLocation.deletedAt) {
-        throw new NotFoundException(
-          `Destination location ${dto.destinationLocationId} not found`,
-        );
-      }
-
-      if (destinationLocation.type !== 'staging_tote') {
-        throw new UnprocessableEntityException(
-          'Destination location must be of type staging_tote',
-        );
-      }
-
-      const aggregatedItems = new Map<
-        string,
-        {
-          workshopTaskLineItemId: string;
-          quantity: number;
-          sourceLocationId?: string;
-        }
-      >();
-
-      for (const requestItem of dto.items) {
-        const existing = aggregatedItems.get(
-          requestItem.workshopTaskLineItemId,
-        );
-        if (!existing) {
-          aggregatedItems.set(requestItem.workshopTaskLineItemId, {
-            workshopTaskLineItemId: requestItem.workshopTaskLineItemId,
-            quantity: requestItem.quantity,
-            sourceLocationId: requestItem.sourceLocationId,
-          });
-          continue;
-        }
-
-        const previousSource = existing.sourceLocationId ?? null;
-        const incomingSource = requestItem.sourceLocationId ?? null;
-
-        if (previousSource !== incomingSource) {
-          throw new BadRequestException(
-            `Duplicate line ${requestItem.workshopTaskLineItemId} must use a single sourceLocationId`,
-          );
-        }
-
-        existing.quantity += requestItem.quantity;
-      }
-
-      const requestedLineItemIds = Array.from(aggregatedItems.keys());
-      const lineItems = await tx.workshopTaskLineItem.findMany({
-        where: {
-          tenant_id: tenantId,
-          id: { in: requestedLineItemIds },
-          type: WorkshopLineItemType.PART,
-          workshop_task: {
-            workshop_order_id: orderId,
-          },
-        },
-        select: {
-          id: true,
-          item_no: true,
-          quantity: true,
-        },
-      });
-
-      if (lineItems.length !== requestedLineItemIds.length) {
-        throw new NotFoundException(
-          'One or more workshop part line items were not found for this order',
-        );
-      }
-
-      const skus = Array.from(
-        new Set(lineItems.map((lineItem) => lineItem.item_no)),
+      const aggregatedItems = this.aggregateRequestedItems(dto.items);
+      const catalogCtx = await this.loadAndVerifyPickLines(
+        tx,
+        tenantId,
+        orderId,
+        aggregatedItems,
       );
-      const catalogItems = await tx.catalogItem.findMany({
-        where: {
-          tenant_id: tenantId,
-          sku: { in: skus },
-        },
-        select: {
-          id: true,
-          sku: true,
-        },
-      });
 
-      if (catalogItems.length !== skus.length) {
-        const catalogItemBySku = new Set(catalogItems.map((item) => item.sku));
-        const missingSku = skus.find((sku) => !catalogItemBySku.has(sku));
-        throw new NotFoundException(
-          `Catalog item not found for workshop line SKU ${missingSku}`,
-        );
-      }
+      const stockCtx = await this.loadSourceStocksAndLocations(
+        tx,
+        tenantId,
+        aggregatedItems,
+        catalogCtx.resolveLineCatalog,
+      );
 
-      const lineItemById = new Map(
-        lineItems.map((lineItem) => [lineItem.id, lineItem]),
-      );
-      const catalogItemBySku = new Map(
-        catalogItems.map((item) => [item.sku, item]),
-      );
       const transferGroupId = `WO-PICK-${order.id}-${Date.now()}`;
-      const ledgerTransactions: RecordTransactionParams[] = [];
-      const reservations: AllocationReservationMap = new Map();
-      const fullyStagedLineIds = new Set<string>();
-      const movedLines: Array<{
-        workshopTaskLineItemId: string;
-        movedQuantity: number;
-        allocations: Array<{
-          sourceLocationId: string;
-          quantity: number;
-          referenceId: string;
-        }>;
-      }> = [];
-
-      const resolveLineCatalog = (workshopTaskLineItemId: string) => {
-        const lineItem = lineItemById.get(workshopTaskLineItemId);
-        if (!lineItem) {
-          throw new NotFoundException(
-            `Line item ${workshopTaskLineItemId} not found`,
-          );
-        }
-        const catalogItem = catalogItemBySku.get(lineItem.item_no);
-        if (!catalogItem) {
-          throw new NotFoundException(
-            `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
-          );
-        }
-        return { lineItem, catalogItem };
-      };
-
-      for (const requestedItem of aggregatedItems.values()) {
-        const { lineItem } = resolveLineCatalog(
-          requestedItem.workshopTaskLineItemId,
-        );
-
-        const lineItemQuantity = Number(lineItem.quantity);
-        if (requestedItem.quantity > lineItemQuantity) {
-          throw new BadRequestException(
-            `Requested quantity ${requestedItem.quantity} exceeds required quantity ${lineItemQuantity} for line item ${lineItem.id}`,
-          );
-        }
-
-        if (requestedItem.quantity >= lineItemQuantity) {
-          fullyStagedLineIds.add(lineItem.id);
-        }
-      }
-
-      const requestedSourceLocationIds = [
-        ...new Set(
-          [...aggregatedItems.values()]
-            .map((item) => item.sourceLocationId)
-            .filter((id): id is string => id != null),
-        ),
-      ];
-
-      const preFetchedLocations = new Map<string, PrefetchedLocation>();
-      if (requestedSourceLocationIds.length > 0) {
-        const locations = await tx.storageLocation.findMany({
-          where: {
-            tenant_id: tenantId,
-            id: { in: requestedSourceLocationIds },
-          },
-          select: {
-            id: true,
-            type: true,
-            deletedAt: true,
-          },
-        });
-        for (const location of locations) {
-          preFetchedLocations.set(location.id, location);
-        }
-      }
-
-      const explicitItemSourcePairs = [...aggregatedItems.values()].flatMap(
-        (item) => {
-          if (!item.sourceLocationId) {
-            return [];
-          }
-          const { catalogItem } = resolveLineCatalog(
-            item.workshopTaskLineItemId,
-          );
-          return [
-            {
-              catalog_item_id: catalogItem.id,
-              location_id: item.sourceLocationId,
-            },
-          ];
-        },
-      );
-
-      const explicitSourceStocks = new Map<string, PrefetchedStock>();
-      if (explicitItemSourcePairs.length > 0) {
-        const stocks = await tx.inventoryStock.findMany({
-          where: {
-            tenant_id: tenantId,
-            OR: explicitItemSourcePairs,
-          },
-          select: {
-            catalog_item_id: true,
-            location_id: true,
-            quantity_on_hand: true,
-          },
-        });
-        for (const stock of stocks) {
-          explicitSourceStocks.set(
-            this.getAllocationReservationKey(
-              stock.catalog_item_id,
-              stock.location_id,
-            ),
-            {
-              catalog_item_id: stock.catalog_item_id,
-              location_id: stock.location_id,
-              quantity_on_hand: new Decimal(stock.quantity_on_hand),
-            },
-          );
-        }
-      }
-
-      const autoAllocationCatalogIds = [
-        ...new Set(
-          [...aggregatedItems.values()]
-            .filter((item) => !item.sourceLocationId)
-            .map(
-              (item) =>
-                resolveLineCatalog(item.workshopTaskLineItemId).catalogItem.id,
-            ),
-        ),
-      ];
-
-      const autoAllocationStocks = new Map<string, PrefetchedAutoStock[]>();
-      if (autoAllocationCatalogIds.length > 0) {
-        const stocks = await tx.inventoryStock.findMany({
-          where: {
-            tenant_id: tenantId,
-            catalog_item_id: { in: autoAllocationCatalogIds },
-            quantity_on_hand: { gt: 0 },
-            location: {
-              type: 'bin',
-              deletedAt: null,
-            },
-          },
-          select: {
-            catalog_item_id: true,
-            location_id: true,
-            quantity_on_hand: true,
-            createdAt: true,
-          },
-          orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
-        });
-        for (const stock of stocks) {
-          const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
-          list.push({
-            catalog_item_id: stock.catalog_item_id,
-            location_id: stock.location_id,
-            quantity_on_hand: new Decimal(stock.quantity_on_hand),
-            createdAt: stock.createdAt,
-          });
-          autoAllocationStocks.set(stock.catalog_item_id, list);
-        }
-      }
-
-      for (const requestedItem of aggregatedItems.values()) {
-        const { lineItem, catalogItem } = resolveLineCatalog(
-          requestedItem.workshopTaskLineItemId,
-        );
-
-        const allocations = requestedItem.sourceLocationId
-          ? this.allocateFromExplicitSource({
-              catalogItemId: catalogItem.id,
-              sourceLocationId: requestedItem.sourceLocationId,
-              quantity: requestedItem.quantity,
-              sourceLocation: preFetchedLocations.get(
-                requestedItem.sourceLocationId,
-              ),
-              sourceStock: explicitSourceStocks.get(
-                this.getAllocationReservationKey(
-                  catalogItem.id,
-                  requestedItem.sourceLocationId,
-                ),
-              ),
-              reservations,
-            })
-          : this.allocateAcrossSources({
-              catalogItemId: catalogItem.id,
-              quantity: requestedItem.quantity,
-              sourceStocks: autoAllocationStocks.get(catalogItem.id) ?? [],
-              reservations,
-            });
-
-        this.recordAllocations(catalogItem.id, allocations, reservations);
-
-        const allocationSummaries: Array<{
-          sourceLocationId: string;
-          quantity: number;
-          referenceId: string;
-        }> = [];
-
-        allocations.forEach((allocation, index) => {
-          const referenceId = `${transferGroupId}:${lineItem.id}:${index + 1}`;
-          ledgerTransactions.push(
-            {
-              itemId: catalogItem.id,
-              locationId: allocation.sourceLocationId,
-              quantity: -allocation.quantity,
-              type: TransactionType.TRANSFER_OUT,
-              referenceId,
-            },
-            {
-              itemId: catalogItem.id,
-              locationId: destinationLocation.id,
-              quantity: allocation.quantity,
-              type: TransactionType.TRANSFER_IN,
-              referenceId,
-            },
-          );
-
-          allocationSummaries.push({
-            sourceLocationId: allocation.sourceLocationId,
-            quantity: allocation.quantity,
-            referenceId,
-          });
+      const { ledgerTransactions, movedLines, fullyStagedLineIds } =
+        this.calculatePickAllocations({
+          aggregatedItems,
+          catalogCtx,
+          stockCtx,
+          destinationLocationId: destinationLocation.id,
+          transferGroupId,
         });
 
-        movedLines.push({
-          workshopTaskLineItemId: lineItem.id,
-          movedQuantity: requestedItem.quantity,
-          allocations: allocationSummaries,
-        });
-      }
-
-      await this.ledgerService.recordTransactions(ledgerTransactions, tx);
-
-      if (fullyStagedLineIds.size > 0) {
-        await tx.workshopTaskLineItem.updateMany({
-          where: {
-            tenant_id: tenantId,
-            id: { in: Array.from(fullyStagedLineIds) },
-            type: WorkshopLineItemType.PART,
-            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
-          },
-          data: {
-            part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
-          },
-        });
-      }
-
-      const orderUpdateResult = await tx.workshopOrder.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: orderId,
-          status: {
-            in: PICK_ELIGIBLE_ORDER_STATUSES,
-          },
-          OR: [
-            { staging_location_id: null },
-            { staging_location_id: dto.destinationLocationId },
-          ],
-        },
-        data: {
-          staging_location_id: dto.destinationLocationId,
-        },
+      await this.persistPickState({
+        tx,
+        tenantId,
+        orderId,
+        destinationLocationId: dto.destinationLocationId,
+        ledgerTransactions,
+        fullyStagedLineIds,
       });
-
-      if (orderUpdateResult.count === 0) {
-        throw new ConflictException(
-          'Workshop order changed during pick execution. Refresh and retry.',
-        );
-      }
 
       return {
         id: order.id,
@@ -611,5 +253,509 @@ export class WorkshopPickPartsService {
         movedLines,
       };
     });
+  }
+
+  private async validateOrderAndStagingLocation(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    destinationLocationId: string,
+    tenantId: string,
+  ) {
+    const order = await tx.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId },
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        staging_location_id: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Workshop order ${orderId} not found`);
+    }
+
+    this.assertPickEligible(order.status);
+
+    if (
+      order.staging_location_id &&
+      order.staging_location_id !== destinationLocationId
+    ) {
+      throw new ConflictException(
+        'Workshop order is already linked to a different staging location',
+      );
+    }
+
+    const destinationLocation = await tx.storageLocation.findFirst({
+      where: { id: destinationLocationId, tenant_id: tenantId },
+      select: {
+        id: true,
+        type: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!destinationLocation || destinationLocation.deletedAt) {
+      throw new NotFoundException(
+        `Destination location ${destinationLocationId} not found`,
+      );
+    }
+
+    if (destinationLocation.type !== 'staging_tote') {
+      throw new UnprocessableEntityException(
+        'Destination location must be of type staging_tote',
+      );
+    }
+
+    return { order, destinationLocation };
+  }
+
+  private aggregateRequestedItems(items: PickWorkshopPartsDto['items']): Map<
+    string,
+    {
+      workshopTaskLineItemId: string;
+      quantity: number;
+      sourceLocationId?: string;
+    }
+  > {
+    const aggregated = new Map<
+      string,
+      {
+        workshopTaskLineItemId: string;
+        quantity: number;
+        sourceLocationId?: string;
+      }
+    >();
+
+    for (const requestItem of items) {
+      const existing = aggregated.get(requestItem.workshopTaskLineItemId);
+      if (!existing) {
+        aggregated.set(requestItem.workshopTaskLineItemId, {
+          workshopTaskLineItemId: requestItem.workshopTaskLineItemId,
+          quantity: requestItem.quantity,
+          sourceLocationId: requestItem.sourceLocationId,
+        });
+        continue;
+      }
+
+      const previousSource = existing.sourceLocationId ?? null;
+      const incomingSource = requestItem.sourceLocationId ?? null;
+
+      if (previousSource !== incomingSource) {
+        throw new BadRequestException(
+          `Duplicate line ${requestItem.workshopTaskLineItemId} must use a single sourceLocationId`,
+        );
+      }
+
+      existing.quantity += requestItem.quantity;
+    }
+
+    return aggregated;
+  }
+
+  private async loadAndVerifyPickLines(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+    aggregatedItems: Map<
+      string,
+      {
+        workshopTaskLineItemId: string;
+        quantity: number;
+        sourceLocationId?: string;
+      }
+    >,
+  ) {
+    const requestedLineItemIds = Array.from(aggregatedItems.keys());
+    const lineItems = await tx.workshopTaskLineItem.findMany({
+      where: {
+        tenant_id: tenantId,
+        id: { in: requestedLineItemIds },
+        type: WorkshopLineItemType.PART,
+        workshop_task: {
+          workshop_order_id: orderId,
+        },
+      },
+      select: {
+        id: true,
+        item_no: true,
+        quantity: true,
+      },
+    });
+
+    if (lineItems.length !== requestedLineItemIds.length) {
+      throw new NotFoundException(
+        'One or more workshop part line items were not found for this order',
+      );
+    }
+
+    const skus = Array.from(
+      new Set(lineItems.map((lineItem) => lineItem.item_no)),
+    );
+    const catalogItems = await tx.catalogItem.findMany({
+      where: {
+        tenant_id: tenantId,
+        sku: { in: skus },
+      },
+      select: {
+        id: true,
+        sku: true,
+      },
+    });
+
+    if (catalogItems.length !== skus.length) {
+      const catalogItemBySku = new Set(catalogItems.map((item) => item.sku));
+      const missingSku = skus.find((sku) => !catalogItemBySku.has(sku));
+      throw new NotFoundException(
+        `Catalog item not found for workshop line SKU ${missingSku}`,
+      );
+    }
+
+    const lineItemById = new Map(
+      lineItems.map((lineItem) => [lineItem.id, lineItem]),
+    );
+    const catalogItemBySku = new Map(
+      catalogItems.map((item) => [item.sku, item]),
+    );
+
+    const resolveLineCatalog = (workshopTaskLineItemId: string) => {
+      const lineItem = lineItemById.get(workshopTaskLineItemId);
+      if (!lineItem) {
+        throw new NotFoundException(
+          `Line item ${workshopTaskLineItemId} not found`,
+        );
+      }
+      const catalogItem = catalogItemBySku.get(lineItem.item_no);
+      if (!catalogItem) {
+        throw new NotFoundException(
+          `Catalog item not found for workshop line SKU ${lineItem.item_no}`,
+        );
+      }
+      return { lineItem, catalogItem };
+    };
+
+    return { lineItemById, catalogItemBySku, resolveLineCatalog };
+  }
+
+  private async loadSourceStocksAndLocations(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    aggregatedItems: Map<
+      string,
+      {
+        workshopTaskLineItemId: string;
+        quantity: number;
+        sourceLocationId?: string;
+      }
+    >,
+    resolveLineCatalog: (id: string) => {
+      lineItem: { id: string; item_no: string; quantity: Prisma.Decimal };
+      catalogItem: { id: string; sku: string };
+    },
+  ) {
+    const requestedSourceLocationIds = [
+      ...new Set(
+        [...aggregatedItems.values()]
+          .map((item) => item.sourceLocationId)
+          .filter((id): id is string => id != null),
+      ),
+    ];
+
+    const preFetchedLocations = new Map<string, PrefetchedLocation>();
+    if (requestedSourceLocationIds.length > 0) {
+      const locations = await tx.storageLocation.findMany({
+        where: {
+          tenant_id: tenantId,
+          id: { in: requestedSourceLocationIds },
+        },
+        select: {
+          id: true,
+          type: true,
+          deletedAt: true,
+        },
+      });
+      for (const location of locations) {
+        preFetchedLocations.set(location.id, location);
+      }
+    }
+
+    const explicitItemSourcePairs = [...aggregatedItems.values()].flatMap(
+      (item) => {
+        if (!item.sourceLocationId) {
+          return [];
+        }
+        const { catalogItem } = resolveLineCatalog(item.workshopTaskLineItemId);
+        return [
+          {
+            catalog_item_id: catalogItem.id,
+            location_id: item.sourceLocationId,
+          },
+        ];
+      },
+    );
+
+    const explicitSourceStocks = new Map<string, PrefetchedStock>();
+    if (explicitItemSourcePairs.length > 0) {
+      const stocks = await tx.inventoryStock.findMany({
+        where: {
+          tenant_id: tenantId,
+          OR: explicitItemSourcePairs,
+        },
+        select: {
+          catalog_item_id: true,
+          location_id: true,
+          quantity_on_hand: true,
+        },
+      });
+      for (const stock of stocks) {
+        explicitSourceStocks.set(
+          this.getAllocationReservationKey(
+            stock.catalog_item_id,
+            stock.location_id,
+          ),
+          {
+            catalog_item_id: stock.catalog_item_id,
+            location_id: stock.location_id,
+            quantity_on_hand: new Decimal(stock.quantity_on_hand),
+          },
+        );
+      }
+    }
+
+    const autoAllocationCatalogIds = [
+      ...new Set(
+        [...aggregatedItems.values()]
+          .filter((item) => !item.sourceLocationId)
+          .map(
+            (item) =>
+              resolveLineCatalog(item.workshopTaskLineItemId).catalogItem.id,
+          ),
+      ),
+    ];
+
+    const autoAllocationStocks = new Map<string, PrefetchedAutoStock[]>();
+    if (autoAllocationCatalogIds.length > 0) {
+      const stocks = await tx.inventoryStock.findMany({
+        where: {
+          tenant_id: tenantId,
+          catalog_item_id: { in: autoAllocationCatalogIds },
+          quantity_on_hand: { gt: 0 },
+          location: {
+            type: 'bin',
+            deletedAt: null,
+          },
+        },
+        select: {
+          catalog_item_id: true,
+          location_id: true,
+          quantity_on_hand: true,
+          createdAt: true,
+        },
+        orderBy: [{ createdAt: 'asc' }, { location_id: 'asc' }],
+      });
+      for (const stock of stocks) {
+        const list = autoAllocationStocks.get(stock.catalog_item_id) ?? [];
+        list.push({
+          catalog_item_id: stock.catalog_item_id,
+          location_id: stock.location_id,
+          quantity_on_hand: new Decimal(stock.quantity_on_hand),
+          createdAt: stock.createdAt,
+        });
+        autoAllocationStocks.set(stock.catalog_item_id, list);
+      }
+    }
+
+    return {
+      preFetchedLocations,
+      explicitSourceStocks,
+      autoAllocationStocks,
+    };
+  }
+
+  private calculatePickAllocations({
+    aggregatedItems,
+    catalogCtx,
+    stockCtx,
+    destinationLocationId,
+    transferGroupId,
+  }: {
+    aggregatedItems: Map<
+      string,
+      {
+        workshopTaskLineItemId: string;
+        quantity: number;
+        sourceLocationId?: string;
+      }
+    >;
+    catalogCtx: {
+      resolveLineCatalog: (id: string) => {
+        lineItem: { id: string; item_no: string; quantity: Prisma.Decimal };
+        catalogItem: { id: string; sku: string };
+      };
+    };
+    stockCtx: {
+      preFetchedLocations: Map<string, PrefetchedLocation>;
+      explicitSourceStocks: Map<string, PrefetchedStock>;
+      autoAllocationStocks: Map<string, PrefetchedAutoStock[]>;
+    };
+    destinationLocationId: string;
+    transferGroupId: string;
+  }) {
+    const fullyStagedLineIds = new Set<string>();
+    for (const requestedItem of aggregatedItems.values()) {
+      const { lineItem } = catalogCtx.resolveLineCatalog(
+        requestedItem.workshopTaskLineItemId,
+      );
+
+      const lineItemQuantity = Number(lineItem.quantity);
+      if (requestedItem.quantity > lineItemQuantity) {
+        throw new BadRequestException(
+          `Requested quantity ${requestedItem.quantity} exceeds required quantity ${lineItemQuantity} for line item ${lineItem.id}`,
+        );
+      }
+
+      if (requestedItem.quantity >= lineItemQuantity) {
+        fullyStagedLineIds.add(lineItem.id);
+      }
+    }
+
+    const ledgerTransactions: RecordTransactionParams[] = [];
+    const reservations: AllocationReservationMap = new Map();
+    const movedLines: Array<{
+      workshopTaskLineItemId: string;
+      movedQuantity: number;
+      allocations: Array<{
+        sourceLocationId: string;
+        quantity: number;
+        referenceId: string;
+      }>;
+    }> = [];
+
+    for (const requestedItem of aggregatedItems.values()) {
+      const { lineItem, catalogItem } = catalogCtx.resolveLineCatalog(
+        requestedItem.workshopTaskLineItemId,
+      );
+
+      const allocations = requestedItem.sourceLocationId
+        ? this.allocateFromExplicitSource({
+            catalogItemId: catalogItem.id,
+            sourceLocationId: requestedItem.sourceLocationId,
+            quantity: requestedItem.quantity,
+            sourceLocation: stockCtx.preFetchedLocations.get(
+              requestedItem.sourceLocationId,
+            ),
+            sourceStock: stockCtx.explicitSourceStocks.get(
+              this.getAllocationReservationKey(
+                catalogItem.id,
+                requestedItem.sourceLocationId,
+              ),
+            ),
+            reservations,
+          })
+        : this.allocateAcrossSources({
+            catalogItemId: catalogItem.id,
+            quantity: requestedItem.quantity,
+            sourceStocks:
+              stockCtx.autoAllocationStocks.get(catalogItem.id) ?? [],
+            reservations,
+          });
+
+      this.recordAllocations(catalogItem.id, allocations, reservations);
+
+      const allocationSummaries: Array<{
+        sourceLocationId: string;
+        quantity: number;
+        referenceId: string;
+      }> = [];
+
+      allocations.forEach((allocation, index) => {
+        const referenceId = `${transferGroupId}:${lineItem.id}:${index + 1}`;
+        ledgerTransactions.push(
+          {
+            itemId: catalogItem.id,
+            locationId: allocation.sourceLocationId,
+            quantity: -allocation.quantity,
+            type: TransactionType.TRANSFER_OUT,
+            referenceId,
+          },
+          {
+            itemId: catalogItem.id,
+            locationId: destinationLocationId,
+            quantity: allocation.quantity,
+            type: TransactionType.TRANSFER_IN,
+            referenceId,
+          },
+        );
+
+        allocationSummaries.push({
+          sourceLocationId: allocation.sourceLocationId,
+          quantity: allocation.quantity,
+          referenceId,
+        });
+      });
+
+      movedLines.push({
+        workshopTaskLineItemId: lineItem.id,
+        movedQuantity: requestedItem.quantity,
+        allocations: allocationSummaries,
+      });
+    }
+
+    return { ledgerTransactions, movedLines, fullyStagedLineIds };
+  }
+
+  private async persistPickState({
+    tx,
+    tenantId,
+    orderId,
+    destinationLocationId,
+    ledgerTransactions,
+    fullyStagedLineIds,
+  }: {
+    tx: Prisma.TransactionClient;
+    tenantId: string;
+    orderId: string;
+    destinationLocationId: string;
+    ledgerTransactions: RecordTransactionParams[];
+    fullyStagedLineIds: Set<string>;
+  }) {
+    await this.ledgerService.recordTransactions(ledgerTransactions, tx);
+
+    if (fullyStagedLineIds.size > 0) {
+      await tx.workshopTaskLineItem.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: { in: Array.from(fullyStagedLineIds) },
+          type: WorkshopLineItemType.PART,
+          part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        },
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+        },
+      });
+    }
+
+    const orderUpdateResult = await tx.workshopOrder.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: orderId,
+        status: {
+          in: PICK_ELIGIBLE_ORDER_STATUSES,
+        },
+        OR: [
+          { staging_location_id: null },
+          { staging_location_id: destinationLocationId },
+        ],
+      },
+      data: {
+        staging_location_id: destinationLocationId,
+      },
+    });
+
+    if (orderUpdateResult.count === 0) {
+      throw new ConflictException(
+        'Workshop order changed during pick execution. Refresh and retry.',
+      );
+    }
   }
 }

@@ -80,17 +80,57 @@ export class CatalogService {
 
   async search(query: string, workshopOrderId: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const trimmedQuery = query.trim();
-    const trimmedWorkshopOrderId = workshopOrderId.trim();
+    const { trimmedQuery, trimmedWorkshopOrderId } = this.validateSearchInput(
+      query,
+      workshopOrderId,
+    );
+
+    const vehicle = await this.fetchVehicleForOrder(
+      tenantId,
+      trimmedWorkshopOrderId,
+    );
+    const { laborOperations, masterParts, catalogItems } =
+      await this.querySearchEntities(tenantId, trimmedQuery, vehicle);
+
+    const partResults = this.transformPartResults(catalogItems, masterParts);
+    const labor = laborOperations.map((operation) => ({
+      id: operation.id,
+      code: operation.code,
+      description: operation.description,
+      standardAw: Number(operation.standard_aw),
+      hourlyRate: Number(operation.hourly_rate),
+      categoryName: operation.category?.name ?? null,
+    }));
+
+    return {
+      labor,
+      parts: partResults,
+      meta: {
+        laborCount: labor.length,
+        partCount: partResults.length,
+        limit: SEARCH_LIMIT,
+      },
+    };
+  }
+
+  private validateSearchInput(query: string, workshopOrderId: string) {
+    const trimmedQuery = query?.trim() ?? '';
+    const trimmedWorkshopOrderId = workshopOrderId?.trim() ?? '';
     if (!trimmedQuery) {
       throw new BadRequestException('q is required');
     }
     if (!trimmedWorkshopOrderId) {
       throw new BadRequestException('workshopOrderId is required');
     }
+    return { trimmedQuery, trimmedWorkshopOrderId };
+  }
 
+  private async fetchVehicleForOrder(
+    tenantId: string,
+    workshopOrderId: string,
+  ) {
     const workshopOrder = await this.prisma.workshopOrder.findFirst({
-      where: { id: trimmedWorkshopOrderId, tenant_id: tenantId },
+      where: { id: workshopOrderId, tenant_id: tenantId },
       select: {
         vehicle: {
           select: {
@@ -105,19 +145,35 @@ export class CatalogService {
 
     if (!workshopOrder?.vehicle) {
       throw new NotFoundException(
-        `Workshop order ${trimmedWorkshopOrderId} was not found`,
+        `Workshop order ${workshopOrderId} was not found`,
       );
     }
 
-    const { make, model, year, engine_code } = workshopOrder.vehicle;
+    return workshopOrder.vehicle;
+  }
 
+  private async querySearchEntities(
+    tenantId: string,
+    query: string,
+    vehicle: {
+      make: string;
+      model: string;
+      year: number;
+      engine_code: string | null;
+    },
+  ) {
     const laborFitmentFilter: Prisma.LaborFitmentWhereInput =
-      buildFitmentFilter(make, model, year, engine_code);
+      buildFitmentFilter(
+        vehicle.make,
+        vehicle.model,
+        vehicle.year,
+        vehicle.engine_code,
+      );
     const partFitmentFilter: Prisma.PartFitmentWhereInput = buildFitmentFilter(
-      make,
-      model,
-      year,
-      engine_code,
+      vehicle.make,
+      vehicle.model,
+      vehicle.year,
+      vehicle.engine_code,
     ) as Prisma.PartFitmentWhereInput;
 
     const [laborOperations, masterParts, catalogItems] = await Promise.all([
@@ -126,7 +182,7 @@ export class CatalogService {
           tenant_id: tenantId,
           is_active: true,
           AND: [
-            buildLaborTextSearchFilter(trimmedQuery),
+            buildLaborTextSearchFilter(query),
             {
               OR: [
                 { fitments: { some: laborFitmentFilter } },
@@ -153,25 +209,25 @@ export class CatalogService {
               OR: [
                 {
                   supplier_part_number: {
-                    contains: trimmedQuery,
+                    contains: query,
                     mode: 'insensitive',
                   },
                 },
                 {
                   oem_number: {
-                    contains: trimmedQuery,
+                    contains: query,
                     mode: 'insensitive',
                   },
                 },
                 {
                   description: {
-                    contains: trimmedQuery,
+                    contains: query,
                     mode: 'insensitive',
                   },
                 },
                 {
                   brand: {
-                    contains: trimmedQuery,
+                    contains: query,
                     mode: 'insensitive',
                   },
                 },
@@ -194,7 +250,7 @@ export class CatalogService {
       this.prisma.catalogItem.findMany({
         where: {
           tenant_id: tenantId,
-          ...buildCatalogItemTextSearchFilter(trimmedQuery),
+          ...buildCatalogItemTextSearchFilter(query),
         },
         select: {
           id: true,
@@ -223,6 +279,36 @@ export class CatalogService {
       }),
     ]);
 
+    return { laborOperations, masterParts, catalogItems };
+  }
+
+  private transformPartResults(
+    catalogItems: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      cost_price: Prisma.Decimal | null;
+      retail_price: Prisma.Decimal;
+      brand: { name: string } | null;
+      stocks: Array<{
+        quantity_on_hand: Prisma.Decimal;
+        location: { code: string };
+      }>;
+    }>,
+    masterParts: Array<{
+      id: string;
+      supplier_part_number: string;
+      oem_number: string | null;
+      description: string;
+      brand: string;
+      local_inventory: {
+        quantity_on_hand: Prisma.Decimal | number;
+        bin_location: string | null;
+        cost_price: Prisma.Decimal | number;
+        retail_price: Prisma.Decimal | number;
+      } | null;
+    }>,
+  ) {
     const partResults: Array<{
       id: string;
       supplierPartNumber: string;
@@ -261,53 +347,36 @@ export class CatalogService {
         retailPrice: Number(item.retail_price),
       });
       if (partResults.length >= SEARCH_LIMIT) {
+        return partResults;
+      }
+    }
+
+    for (const part of masterParts) {
+      const normalizedPartNumber = part.supplier_part_number.toLowerCase();
+      if (seenPartNumbers.has(normalizedPartNumber)) {
+        continue;
+      }
+      seenPartNumbers.add(normalizedPartNumber);
+      partResults.push({
+        id: part.id,
+        supplierPartNumber: part.supplier_part_number,
+        oemNumber: part.oem_number,
+        description: part.description,
+        brand: part.brand,
+        quantityOnHand: Number(part.local_inventory?.quantity_on_hand ?? 0),
+        binLocation: part.local_inventory?.bin_location ?? null,
+        costPrice: part.local_inventory
+          ? Number(part.local_inventory.cost_price)
+          : null,
+        retailPrice: part.local_inventory
+          ? Number(part.local_inventory.retail_price)
+          : null,
+      });
+      if (partResults.length >= SEARCH_LIMIT) {
         break;
       }
     }
 
-    if (partResults.length < SEARCH_LIMIT) {
-      for (const part of masterParts) {
-        const normalizedPartNumber = part.supplier_part_number.toLowerCase();
-        if (seenPartNumbers.has(normalizedPartNumber)) {
-          continue;
-        }
-        seenPartNumbers.add(normalizedPartNumber);
-        partResults.push({
-          id: part.id,
-          supplierPartNumber: part.supplier_part_number,
-          oemNumber: part.oem_number,
-          description: part.description,
-          brand: part.brand,
-          quantityOnHand: part.local_inventory?.quantity_on_hand ?? 0,
-          binLocation: part.local_inventory?.bin_location ?? null,
-          costPrice: part.local_inventory
-            ? Number(part.local_inventory.cost_price)
-            : null,
-          retailPrice: part.local_inventory
-            ? Number(part.local_inventory.retail_price)
-            : null,
-        });
-        if (partResults.length >= SEARCH_LIMIT) {
-          break;
-        }
-      }
-    }
-
-    return {
-      labor: laborOperations.map((operation) => ({
-        id: operation.id,
-        code: operation.code,
-        description: operation.description,
-        standardAw: Number(operation.standard_aw),
-        hourlyRate: Number(operation.hourly_rate),
-        categoryName: operation.category?.name ?? null,
-      })),
-      parts: partResults.slice(0, SEARCH_LIMIT),
-      meta: {
-        laborCount: laborOperations.length,
-        partCount: partResults.length,
-        limit: SEARCH_LIMIT,
-      },
-    };
+    return partResults;
   }
 }

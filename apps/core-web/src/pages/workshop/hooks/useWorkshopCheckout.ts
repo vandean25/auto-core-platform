@@ -66,6 +66,158 @@ export function buildInvoiceLineDiscountUpdates(
   return Object.values(lineItemUpdatesById)
 }
 
+export function buildCheckoutFooterProps(
+  props: CheckoutFooterProps,
+): CheckoutFooterProps {
+  return props
+}
+
+export function getCheckoutCapabilities(params: {
+  orderStatus?: string
+  activeInvoiceId: string | null
+  invoiceStatus: string | null
+  isLocked: boolean
+  isCreateDraftPending: boolean
+  isIssuePending: boolean
+  isUpdateDiscountPending: boolean
+}) {
+  const canCreateDraftInCheckout =
+    !params.activeInvoiceId &&
+    params.orderStatus === 'COMPLETED' &&
+    !params.isCreateDraftPending
+  const canIssueInvoiceInCheckout =
+    !!params.activeInvoiceId &&
+    params.invoiceStatus === 'DRAFT' &&
+    !params.isLocked &&
+    !params.isIssuePending &&
+    !params.isUpdateDiscountPending
+  const isInvoicedWithLinkedInvoice =
+    params.orderStatus === 'INVOICED' && !!params.activeInvoiceId
+  const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice
+    ? 'Open Invoice'
+    : 'Checkout'
+
+  return {
+    canCreateDraftInCheckout,
+    canIssueInvoiceInCheckout,
+    isInvoicedWithLinkedInvoice,
+    primaryCheckoutActionLabel,
+  }
+}
+
+export function computeTaskLineDiscountOverrides(
+  taskId: string,
+  value: string,
+  checkoutLineRows: Array<{ taskId: string; rowKey: string }>,
+  currentOverrides: Record<string, DiscountState>,
+): Record<string, DiscountState> {
+  const taskLineKeys = checkoutLineRows
+    .filter((lineRow) => lineRow.taskId === taskId)
+    .map((lineRow) => lineRow.rowKey)
+
+  const next = { ...currentOverrides }
+  taskLineKeys.forEach((rowKey) => {
+    next[rowKey] = value.trim()
+      ? { type: 'PERCENTAGE', value }
+      : { type: null, value: '' }
+  })
+  return next
+}
+
+export function computeUpdatedLineDiscountType(
+  rowKey: string,
+  value: string,
+  currentOverrides: Record<string, DiscountState>,
+  seed: Record<string, DiscountState>,
+): Record<string, DiscountState> {
+  const nextType = value === 'NONE' ? null : (value as DiscountType)
+  const current =
+    currentOverrides[rowKey] ?? seed[rowKey] ?? EMPTY_DISCOUNT_STATE
+  return {
+    ...currentOverrides,
+    [rowKey]: {
+      ...current,
+      type: nextType,
+      value: nextType ? current.value : '',
+    },
+  }
+}
+
+export function computeUpdatedLineDiscountValue(
+  rowKey: string,
+  value: string,
+  currentOverrides: Record<string, DiscountState>,
+  seed: Record<string, DiscountState>,
+): Record<string, DiscountState> {
+  const current =
+    currentOverrides[rowKey] ?? seed[rowKey] ?? EMPTY_DISCOUNT_STATE
+  return {
+    ...currentOverrides,
+    [rowKey]: {
+      ...current,
+      value,
+    },
+  }
+}
+
+export async function executeCreateDraftInvoice(
+  orderId: string,
+  createDraftInvoice: { mutateAsync: (id: string) => Promise<Invoice> },
+): Promise<string | null> {
+  try {
+    const invoice = await createDraftInvoice.mutateAsync(orderId)
+    toast.success(`Draft invoice created (${invoice.invoice_number || invoice.id})`)
+    return invoice.id
+  } catch (error: unknown) {
+    toast.error(getErrorMessage(error, 'Failed to create draft invoice'))
+    return null
+  }
+}
+
+export async function executeIssueInvoiceWithDiscounts(params: {
+  activeInvoiceId: string
+  fetchedInvoice: Invoice | null | undefined
+  lineDiscountOverrides: Record<string, DiscountState>
+  checkoutLineRowByRowKey: Map<string, { lineItem: { id: string } }>
+  updateInvoiceDiscount: {
+    mutateAsync: (args: {
+      invoiceId: string
+      payload: { lineItems: InvoiceLineDiscountUpdate[] }
+    }) => Promise<unknown>
+  }
+  issueInvoice: { mutateAsync: (id: string) => Promise<Invoice> }
+}): Promise<void> {
+  const {
+    activeInvoiceId,
+    fetchedInvoice,
+    lineDiscountOverrides,
+    checkoutLineRowByRowKey,
+    updateInvoiceDiscount,
+    issueInvoice,
+  } = params
+
+  try {
+    if (fetchedInvoice && Object.keys(lineDiscountOverrides).length > 0) {
+      const lineItems = buildInvoiceLineDiscountUpdates(
+        lineDiscountOverrides,
+        checkoutLineRowByRowKey,
+        fetchedInvoice.items,
+      )
+      if (lineItems.length > 0) {
+        await updateInvoiceDiscount.mutateAsync({
+          invoiceId: activeInvoiceId,
+          payload: { lineItems },
+        })
+      }
+    }
+
+    const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
+    toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
+  } catch (error: unknown) {
+    toast.error(getErrorMessage(error, 'Failed to issue invoice'))
+  }
+}
+
 export interface UseWorkshopCheckoutOptions {
   order: WorkshopOrder | undefined
   taskLineItemOverrides?: Record<string, WorkshopTask['lineItems']>
@@ -127,18 +279,21 @@ export function useWorkshopCheckout({
   const isLocked = order?.status === 'INVOICED'
   const hasLinkedInvoice = !!activeInvoiceId
   const invoiceStatus = fetchedInvoice?.status ?? null
-  const canCreateDraftInCheckout =
-    !activeInvoiceId &&
-    order?.status === 'COMPLETED' &&
-    !createDraftInvoice.isPending
-  const canIssueInvoiceInCheckout =
-    !!activeInvoiceId &&
-    invoiceStatus === 'DRAFT' &&
-    !isLocked &&
-    !issueInvoice.isPending &&
-    !updateInvoiceDiscount.isPending
-  const isInvoicedWithLinkedInvoice =
-    order?.status === 'INVOICED' && !!activeInvoiceId
+
+  const {
+    canCreateDraftInCheckout,
+    canIssueInvoiceInCheckout,
+    isInvoicedWithLinkedInvoice,
+    primaryCheckoutActionLabel,
+  } = getCheckoutCapabilities({
+    orderStatus: order?.status,
+    activeInvoiceId,
+    invoiceStatus,
+    isLocked,
+    isCreateDraftPending: createDraftInvoice.isPending,
+    isIssuePending: issueInvoice.isPending,
+    isUpdateDiscountPending: updateInvoiceDiscount.isPending,
+  })
 
   const handleCheckoutAction = () => {
     if (isInvoicedWithLinkedInvoice) {
@@ -150,39 +305,20 @@ export function useWorkshopCheckout({
 
   const handleCreateDraftInCheckout = async () => {
     if (!canCreateDraftInCheckout || !order) return
-    try {
-      const invoice = await createDraftInvoice.mutateAsync(order.id)
-      setCheckoutInvoiceIdOverride(invoice.id)
-      toast.success(
-        `Draft invoice created (${invoice.invoice_number || invoice.id})`,
-      )
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to create draft invoice'))
-    }
+    const id = await executeCreateDraftInvoice(order.id, createDraftInvoice)
+    if (id) setCheckoutInvoiceIdOverride(id)
   }
 
   const handleIssueInvoiceInCheckout = async () => {
     if (!activeInvoiceId || !canIssueInvoiceInCheckout) return
-    try {
-      if (fetchedInvoice && Object.keys(lineDiscountOverrides).length > 0) {
-        const lineItems = buildInvoiceLineDiscountUpdates(
-          lineDiscountOverrides,
-          checkoutLineRowByRowKey,
-          fetchedInvoice.items,
-        )
-        if (lineItems.length > 0) {
-          await updateInvoiceDiscount.mutateAsync({
-            invoiceId: activeInvoiceId,
-            payload: { lineItems },
-          })
-        }
-      }
-
-      const invoice = await issueInvoice.mutateAsync(activeInvoiceId)
-      toast.success(`Invoice issued (${invoice.invoice_number || invoice.id})`)
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to issue invoice'))
-    }
+    await executeIssueInvoiceWithDiscounts({
+      activeInvoiceId,
+      fetchedInvoice,
+      lineDiscountOverrides,
+      checkoutLineRowByRowKey,
+      updateInvoiceDiscount,
+      issueInvoice,
+    })
   }
 
   const handleToggleGroup = (taskId: string) => {
@@ -198,53 +334,36 @@ export function useWorkshopCheckout({
       [taskId]: value,
     }))
 
-    const taskLineKeys = checkoutLineRows
-      .filter((lineRow) => lineRow.taskId === taskId)
-      .map((lineRow) => lineRow.rowKey)
-
-    setLineDiscountOverrides((previous) => {
-      const next = { ...previous }
-      taskLineKeys.forEach((rowKey) => {
-        next[rowKey] = value.trim()
-          ? { type: 'PERCENTAGE', value }
-          : { type: null, value: '' }
-      })
-      return next
-    })
+    setLineDiscountOverrides((previous) =>
+      computeTaskLineDiscountOverrides(
+        taskId,
+        value,
+        checkoutLineRows,
+        previous,
+      ),
+    )
   }
 
   const handleLineDiscountTypeChange = (rowKey: string, value: string) => {
-    const nextType = value === 'NONE' ? null : (value as DiscountType)
-    setLineDiscountOverrides((previous) => {
-      const current =
-        previous[rowKey] ??
-        discountSeedFromInvoice[rowKey] ??
-        EMPTY_DISCOUNT_STATE
-      return {
-        ...previous,
-        [rowKey]: {
-          ...current,
-          type: nextType,
-          value: nextType ? current.value : '',
-        },
-      }
-    })
+    setLineDiscountOverrides((previous) =>
+      computeUpdatedLineDiscountType(
+        rowKey,
+        value,
+        previous,
+        discountSeedFromInvoice,
+      ),
+    )
   }
 
   const handleLineDiscountValueChange = (rowKey: string, value: string) => {
-    setLineDiscountOverrides((previous) => {
-      const current =
-        previous[rowKey] ??
-        discountSeedFromInvoice[rowKey] ??
-        EMPTY_DISCOUNT_STATE
-      return {
-        ...previous,
-        [rowKey]: {
-          ...current,
-          value,
-        },
-      }
-    })
+    setLineDiscountOverrides((previous) =>
+      computeUpdatedLineDiscountValue(
+        rowKey,
+        value,
+        previous,
+        discountSeedFromInvoice,
+      ),
+    )
   }
 
   const handleReopenTask = (taskId: string) => {
@@ -256,11 +375,8 @@ export function useWorkshopCheckout({
 
   const checkoutFooterTotal =
     activeInvoiceId && fetchedInvoice ? checkoutGrossTotal : orderGrandTotal
-  const primaryCheckoutActionLabel = isInvoicedWithLinkedInvoice
-    ? 'Open Invoice'
-    : 'Checkout'
 
-  const footerProps: CheckoutFooterProps = {
+  const footerProps = buildCheckoutFooterProps({
     checkoutFooterTotal,
     isCheckoutOpen,
     primaryActionLabel: primaryCheckoutActionLabel,
@@ -289,7 +405,7 @@ export function useWorkshopCheckout({
     onCreateDraftInvoice: () => void handleCreateDraftInCheckout(),
     onIssueInvoice: () => void handleIssueInvoiceInCheckout(),
     onReopenTask: handleReopenTask,
-  }
+  })
 
   return {
     // Tasks and calculation outputs

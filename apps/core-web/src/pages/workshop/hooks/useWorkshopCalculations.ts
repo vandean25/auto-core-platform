@@ -80,6 +80,123 @@ export function findInvoiceItemByLineItemId(
   return invoiceItems.find((item) => item.id === lineItemId)
 }
 
+export function calculateTaskRawTotals(task: WorkshopTask): TaskTotals {
+  const lineItems = task.lineItems ?? []
+  const partsLines = lineItems.filter((li) => li.type === 'PART')
+  const laborLines = lineItems.filter((li) => li.type === 'LABOR')
+
+  const parts = partsLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+  const labor = laborLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+
+  const laborStandardHours = laborLines.reduce(
+    (sum, li) => sum + (li.standardAw ?? 0),
+    0,
+  )
+  const laborActualHours = laborLines.reduce(
+    (sum, li) => sum + (li.actualHours ?? 0),
+    0,
+  )
+  const laborInternalCost = laborLines.reduce((sum, li) => {
+    if (li.internalCostRate == null) return sum
+    const costHours = li.actualHours ?? li.qty
+    return sum + costHours * li.internalCostRate
+  }, 0)
+  const hasLaborCostData = laborLines.some(
+    (li) => li.internalCostRate != null,
+  )
+
+  return {
+    parts,
+    labor,
+    total: parts + labor,
+    laborStandardHours,
+    laborActualHours,
+    laborInternalCost,
+    hasLaborCostData,
+  }
+}
+
+export function createCheckoutLineSummary(
+  row: { rowKey: string; taskId: string; lineItem: WorkshopTaskLineItem },
+  lineDiscountOverrides: Record<string, DiscountState>,
+  discountSeedFromInvoice: Record<string, DiscountState>,
+  fetchedInvoice?: Invoice | null,
+): CheckoutLineSummary {
+  const { rowKey, taskId, lineItem } = row
+  const baseAmount = lineItem.qty * lineItem.unitPrice
+  const discount =
+    lineDiscountOverrides[rowKey] ??
+    discountSeedFromInvoice[rowKey] ??
+    EMPTY_DISCOUNT_STATE
+  const discountAmount = calculateDiscountAmount(
+    baseAmount,
+    discount.type,
+    parseDiscountValue(discount.value),
+  )
+  const lineNet = Math.max(0, baseAmount - discountAmount)
+  const invoiceItem = fetchedInvoice
+    ? findInvoiceItemByLineItemId(fetchedInvoice.items, lineItem.id)
+    : undefined
+  const lineTaxRate = Number(invoiceItem?.tax_rate ?? 0)
+  const taxAmount = lineNet * (lineTaxRate / 100)
+  return {
+    rowKey,
+    taskId,
+    lineItem,
+    discount,
+    baseAmount,
+    discountAmount,
+    lineNet,
+    taxAmount,
+  }
+}
+
+export function groupCheckoutTasksByTask(
+  tasks: WorkshopTask[],
+  checkoutLineSummaryByRowKey: Map<string, CheckoutLineSummary>,
+): GroupedCheckoutTask[] {
+  return tasks.map((task) => {
+    const lines = (task.lineItems ?? [])
+      .map((lineItem, index) => {
+        const rowKey = buildTaskLineRowKey(task.id, lineItem.id, index)
+        return checkoutLineSummaryByRowKey.get(rowKey) ?? null
+      })
+      .filter((line): line is CheckoutLineSummary => line !== null)
+
+    const subtotal = lines.reduce((sum, l) => sum + l.baseAmount, 0)
+    const discountTotal = lines.reduce((sum, l) => sum + l.discountAmount, 0)
+    const netTotal = lines.reduce((sum, l) => sum + l.lineNet, 0)
+
+    return { task, lines, subtotal, discountTotal, netTotal }
+  })
+}
+
+export function aggregateCheckoutSummaries(checkoutLineSummaries: CheckoutLineSummary[]) {
+  const checkoutPartsTotal = checkoutLineSummaries
+    .filter((l) => l.lineItem.type === 'PART')
+    .reduce((sum, l) => sum + l.lineNet, 0)
+
+  const checkoutLaborTotal = checkoutLineSummaries
+    .filter((l) => l.lineItem.type === 'LABOR')
+    .reduce((sum, l) => sum + l.lineNet, 0)
+
+  const checkoutSubtotal = checkoutLineSummaries.reduce((sum, l) => sum + l.baseAmount, 0)
+  const checkoutDiscountTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.discountAmount, 0)
+  const checkoutNetTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.lineNet, 0)
+  const checkoutTaxTotal = checkoutLineSummaries.reduce((sum, l) => sum + l.taxAmount, 0)
+  const checkoutGrossTotal = checkoutNetTotal + checkoutTaxTotal
+
+  return {
+    checkoutPartsTotal,
+    checkoutLaborTotal,
+    checkoutSubtotal,
+    checkoutDiscountTotal,
+    checkoutNetTotal,
+    checkoutTaxTotal,
+    checkoutGrossTotal,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -106,44 +223,7 @@ export function useWorkshopCalculations({
   const rawTaskTotals = useMemo(
     () =>
       new Map<string, TaskTotals>(
-        tasks.map((task) => {
-          const lineItems = task.lineItems ?? []
-          const partsLines = lineItems.filter((li) => li.type === 'PART')
-          const laborLines = lineItems.filter((li) => li.type === 'LABOR')
-
-          const parts = partsLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
-          const labor = laborLines.reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
-
-          const laborStandardHours = laborLines.reduce(
-            (sum, li) => sum + (li.standardAw ?? 0),
-            0,
-          )
-          const laborActualHours = laborLines.reduce(
-            (sum, li) => sum + (li.actualHours ?? 0),
-            0,
-          )
-          const laborInternalCost = laborLines.reduce((sum, li) => {
-            if (li.internalCostRate == null) return sum
-            const costHours = li.actualHours ?? li.qty
-            return sum + costHours * li.internalCostRate
-          }, 0)
-          const hasLaborCostData = laborLines.some(
-            (li) => li.internalCostRate != null,
-          )
-
-          return [
-            task.id,
-            {
-              parts,
-              labor,
-              total: parts + labor,
-              laborStandardHours,
-              laborActualHours,
-              laborInternalCost,
-              hasLaborCostData,
-            },
-          ]
-        }),
+        tasks.map((task) => [task.id, calculateTaskRawTotals(task)]),
       ),
     [tasks],
   )
@@ -207,34 +287,14 @@ export function useWorkshopCalculations({
   // ── Per-line summaries (base, discount, net, tax) ─────────────────────
   const checkoutLineSummaries = useMemo<CheckoutLineSummary[]>(
     () =>
-      checkoutLineRows.map(({ rowKey, taskId, lineItem }) => {
-        const baseAmount = lineItem.qty * lineItem.unitPrice
-        const discount =
-          lineDiscountOverrides[rowKey] ??
-          discountSeedFromInvoice[rowKey] ??
-          EMPTY_DISCOUNT_STATE
-        const discountAmount = calculateDiscountAmount(
-          baseAmount,
-          discount.type,
-          parseDiscountValue(discount.value),
-        )
-        const lineNet = Math.max(0, baseAmount - discountAmount)
-        const invoiceItem = fetchedInvoice
-          ? findInvoiceItemByLineItemId(fetchedInvoice.items, lineItem.id)
-          : undefined
-        const lineTaxRate = Number(invoiceItem?.tax_rate ?? 0)
-        const taxAmount = lineNet * (lineTaxRate / 100)
-        return {
-          rowKey,
-          taskId,
-          lineItem,
-          discount,
-          baseAmount,
-          discountAmount,
-          lineNet,
-          taxAmount,
-        }
-      }),
+      checkoutLineRows.map((row) =>
+        createCheckoutLineSummary(
+          row,
+          lineDiscountOverrides,
+          discountSeedFromInvoice,
+          fetchedInvoice,
+        ),
+      ),
     [checkoutLineRows, discountSeedFromInvoice, fetchedInvoice, lineDiscountOverrides],
   )
 
@@ -250,58 +310,23 @@ export function useWorkshopCalculations({
 
   // ── Grouped checkout tasks ────────────────────────────────────────────
   const groupedCheckoutTasks = useMemo<GroupedCheckoutTask[]>(
-    () =>
-      tasks.map((task) => {
-        const lines = (task.lineItems ?? [])
-          .map((lineItem, index) => {
-            const rowKey = buildTaskLineRowKey(task.id, lineItem.id, index)
-            return checkoutLineSummaryByRowKey.get(rowKey) ?? null
-          })
-          .filter((line): line is CheckoutLineSummary => line !== null)
-
-        const subtotal = lines.reduce((sum, l) => sum + l.baseAmount, 0)
-        const discountTotal = lines.reduce((sum, l) => sum + l.discountAmount, 0)
-        const netTotal = lines.reduce((sum, l) => sum + l.lineNet, 0)
-
-        return { task, lines, subtotal, discountTotal, netTotal }
-      }),
+    () => groupCheckoutTasksByTask(tasks, checkoutLineSummaryByRowKey),
     [checkoutLineSummaryByRowKey, tasks],
   )
 
-  // ── Checkout totals (post-discount, by type) ──────────────────────────
-  const checkoutPartsTotal = useMemo(
-    () =>
-      checkoutLineSummaries
-        .filter((l) => l.lineItem.type === 'PART')
-        .reduce((sum, l) => sum + l.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutLaborTotal = useMemo(
-    () =>
-      checkoutLineSummaries
-        .filter((l) => l.lineItem.type === 'LABOR')
-        .reduce((sum, l) => sum + l.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-
   // ── Checkout aggregate totals ─────────────────────────────────────────
-  const checkoutSubtotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, l) => sum + l.baseAmount, 0),
+  const {
+    checkoutPartsTotal,
+    checkoutLaborTotal,
+    checkoutSubtotal,
+    checkoutDiscountTotal,
+    checkoutNetTotal,
+    checkoutTaxTotal,
+    checkoutGrossTotal,
+  } = useMemo(
+    () => aggregateCheckoutSummaries(checkoutLineSummaries),
     [checkoutLineSummaries],
   )
-  const checkoutDiscountTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, l) => sum + l.discountAmount, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutNetTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, l) => sum + l.lineNet, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutTaxTotal = useMemo(
-    () => checkoutLineSummaries.reduce((sum, l) => sum + l.taxAmount, 0),
-    [checkoutLineSummaries],
-  )
-  const checkoutGrossTotal = checkoutNetTotal + checkoutTaxTotal
 
   // ── View-aware order totals ───────────────────────────────────────────
   const orderPartsTotal = isCheckoutView ? checkoutPartsTotal : baseOrderPartsTotal

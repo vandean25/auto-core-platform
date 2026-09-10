@@ -45,6 +45,85 @@ export interface InventoryQueryParams {
   brandId?: number;
 }
 
+type CatalogItemWithStocksAndBrand = Prisma.CatalogItemGetPayload<{
+  include: typeof catalogItemInclude;
+}>;
+
+function buildLegacyInventoryWhere(
+  tenantId: string,
+  params: InventoryQueryParams,
+): Prisma.CatalogItemWhereInput {
+  const where: Prisma.CatalogItemWhereInput = { tenant_id: tenantId };
+  if (params.search) {
+    where.OR = [
+      { name: { contains: params.search, mode: 'insensitive' } },
+      { sku: { contains: params.search, mode: 'insensitive' } },
+      { brand: { name: { contains: params.search, mode: 'insensitive' } } },
+    ];
+  }
+  if (params.brand) {
+    where.brand = { name: { equals: params.brand, mode: 'insensitive' } };
+  }
+  if (params.brandId) {
+    where.brand_id = params.brandId;
+  }
+  if (params.location) {
+    where.stocks = {
+      some: {
+        location: {
+          name: { contains: params.location, mode: 'insensitive' },
+        },
+      },
+    };
+  }
+  return where;
+}
+
+function resolveInventoryPagination(params: InventoryQueryParams): {
+  skip: number;
+  pageSize: number;
+} {
+  const page = params.page ? Number(params.page) : 1;
+  const pageSize = params.pageSize ? Number(params.pageSize) : undefined;
+  const limit = params.limit ? Number(params.limit) : 10;
+  const effectivePageSize = pageSize ?? limit;
+  const skip = (page - 1) * effectivePageSize;
+  return { skip, pageSize: effectivePageSize };
+}
+
+function transformInventoryItem(item: CatalogItemWithStocksAndBrand) {
+  const onHand = item.stocks.reduce(
+    (sum, s) => sum + Number(s.quantity_on_hand),
+    0,
+  );
+  const reserved = item.stocks.reduce(
+    (sum, s) => sum + Number(s.quantity_reserved),
+    0,
+  );
+  const available = onHand - reserved;
+
+  let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
+  if (item.superseded_by) {
+    status = 'SUPERSEDED';
+  } else if (available > 0) {
+    status = 'IN_STOCK';
+  } else {
+    status = 'OUT_OF_STOCK';
+  }
+
+  return {
+    id: item.id,
+    sku: item.sku,
+    name: item.name,
+    brand: item.brand?.name || '',
+    brand_id: item.brand_id,
+    price: Number(item.retail_price),
+    status,
+    quantity_available: available,
+    warehouse_location: item.stocks[0]?.location?.name || 'N/A',
+  };
+}
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -107,115 +186,16 @@ export class InventoryService {
    */
   async findAll(params: InventoryQueryParams) {
     const tenantId = await this.tenantContext.getTenantId();
-    const [items, total] =
-      // Check if using QueryBuilder params (has where/skip/take)
-      params && (params.where || params.orderBy || params.skip !== undefined)
-        ? await Promise.all([
-            this.prisma.catalogItem.findMany({
-              where: {
-                ...(params.where ?? {}),
-                tenant_id: tenantId,
-              },
-              orderBy: params.orderBy,
-              skip: params.skip,
-              take: params.take,
-              include: catalogItemInclude,
-            }),
-            this.prisma.catalogItem.count({
-              where: {
-                ...(params.where ?? {}),
-                tenant_id: tenantId,
-              },
-            }),
-          ])
-        : await (async () => {
-            // Legacy path
-            const search = params.search;
-            const location = params.location;
-            const brand = params.brand;
-            const brandId = params.brandId;
+    const [items, total] = await this.fetchInventoryWithParams(
+      tenantId,
+      params,
+    );
 
-            const page = params.page ? Number(params.page) : 1;
-            const pageSize = params.pageSize
-              ? Number(params.pageSize)
-              : undefined;
-            const limit = params.limit ? Number(params.limit) : 10;
-
-            const effectivePageSize = pageSize ?? limit;
-            const skip = (page - 1) * effectivePageSize;
-            const where: Prisma.CatalogItemWhereInput = { tenant_id: tenantId };
-
-            if (search) {
-              where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { sku: { contains: search, mode: 'insensitive' } },
-                { brand: { name: { contains: search, mode: 'insensitive' } } },
-              ];
-            }
-
-            if (brand)
-              where.brand = { name: { equals: brand, mode: 'insensitive' } };
-            if (brandId) where.brand_id = brandId;
-            if (location) {
-              where.stocks = {
-                some: {
-                  location: {
-                    name: { contains: location, mode: 'insensitive' },
-                  },
-                },
-              };
-            }
-
-            return Promise.all([
-              this.prisma.catalogItem.findMany({
-                where,
-                include: catalogItemInclude,
-                skip,
-                take: effectivePageSize,
-              }),
-              this.prisma.catalogItem.count({ where }),
-            ]);
-          })();
-
-    // Pagination precedence: take > pageSize > limit > default(10)
     const resolvedPageSize = Number(
       params.take || params.pageSize || params.limit || 10,
     );
     const pageCount = Math.ceil(total / resolvedPageSize);
-
-    // Transform items to match frontend expected shape
-    const transformedItems = items.map((item) => {
-      const onHand = item.stocks.reduce(
-        (sum, s) => sum + Number(s.quantity_on_hand),
-        0,
-      );
-      const reserved = item.stocks.reduce(
-        (sum, s) => sum + Number(s.quantity_reserved),
-        0,
-      );
-      const available = onHand - reserved;
-
-      let status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'SUPERSEDED';
-      if (item.superseded_by) {
-        status = 'SUPERSEDED';
-      } else if (available > 0) {
-        status = 'IN_STOCK';
-      } else {
-        status = 'OUT_OF_STOCK';
-      }
-
-      return {
-        id: item.id,
-        sku: item.sku,
-        name: item.name,
-        brand: item.brand?.name || '',
-        brand_id: item.brand_id,
-        price: Number(item.retail_price),
-        status,
-        quantity_available: available,
-        warehouse_location: item.stocks[0]?.location?.name || 'N/A',
-      };
-    });
+    const transformedItems = items.map(transformInventoryItem);
 
     return {
       data: transformedItems,
@@ -224,11 +204,54 @@ export class InventoryService {
         page:
           Number(params.page) ||
           Number(params.skip ?? 0) / (Number(params.take) || resolvedPageSize) +
-            1, // Estimate page for legacy or QB
+            1,
         pageSize: resolvedPageSize,
         pageCount,
       },
     };
+  }
+
+  private async fetchInventoryWithParams(
+    tenantId: string,
+    params: InventoryQueryParams,
+  ): Promise<[CatalogItemWithStocksAndBrand[], number]> {
+    const isQueryBuilder =
+      Boolean(params) &&
+      Boolean(params.where || params.orderBy || params.skip !== undefined);
+
+    if (isQueryBuilder) {
+      return Promise.all([
+        this.prisma.catalogItem.findMany({
+          where: {
+            ...(params.where ?? {}),
+            tenant_id: tenantId,
+          },
+          orderBy: params.orderBy,
+          skip: params.skip,
+          take: params.take,
+          include: catalogItemInclude,
+        }),
+        this.prisma.catalogItem.count({
+          where: {
+            ...(params.where ?? {}),
+            tenant_id: tenantId,
+          },
+        }),
+      ]);
+    }
+
+    const { skip, pageSize } = resolveInventoryPagination(params);
+    const where = buildLegacyInventoryWhere(tenantId, params);
+
+    return Promise.all([
+      this.prisma.catalogItem.findMany({
+        where,
+        include: catalogItemInclude,
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.catalogItem.count({ where }),
+    ]);
   }
 
   async createItem(data: {
