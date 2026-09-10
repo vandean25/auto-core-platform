@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import { InventoryService } from './inventory.service';
+import { AtpService } from './atp.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { NotFoundException } from '@nestjs/common';
 
@@ -21,10 +24,15 @@ describe('InventoryService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InventoryService,
+        AtpService,
         { provide: PrismaService, useValue: mockPrismaService },
         {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
       ],
     }).compile();
@@ -47,6 +55,7 @@ describe('InventoryService', () => {
           {
             quantity_on_hand: 10,
             quantity_reserved: 2,
+            location: { site_id: 'site-1', type: 'bin' },
           },
         ],
         superseded_by: null,
@@ -78,6 +87,7 @@ describe('InventoryService', () => {
           {
             quantity_on_hand: 5,
             quantity_reserved: 1,
+            location: { site_id: 'site-1', type: 'bin' },
           },
         ],
         superseded_by: null,
@@ -109,6 +119,33 @@ describe('InventoryService', () => {
         NotFoundException,
       );
     });
+
+    it('should exclude staging totes from availability totals', async () => {
+      mockPrismaService.catalogItem.findFirst.mockResolvedValue({
+        sku: 'PART-TOTE',
+        name: 'Brake Pad',
+        brand: { name: 'Bosch' },
+        stocks: [
+          {
+            quantity_on_hand: new Prisma.Decimal('2.5'),
+            quantity_reserved: new Prisma.Decimal('1.5'),
+            location: { site_id: 'site-1', type: 'bin' },
+          },
+          {
+            quantity_on_hand: new Prisma.Decimal('100'),
+            quantity_reserved: new Prisma.Decimal('0'),
+            location: { site_id: 'site-1', type: 'staging_tote' },
+          },
+        ],
+        superseded_by: null,
+      });
+
+      await expect(service.checkAvailability('PART-TOTE')).resolves.toMatchObject({
+        quantity_on_hand: 2.5,
+        quantity_reserved: 1.5,
+        quantity_available: 1,
+      });
+    });
   });
 
   describe('findAll', () => {
@@ -125,7 +162,7 @@ describe('InventoryService', () => {
             {
               quantity_on_hand: 10,
               quantity_reserved: 2,
-              location: { name: 'Loc 1' },
+              location: { name: 'Loc 1', site_id: 'site-1', type: 'bin' },
             },
           ],
           superseded_by: null,
@@ -211,7 +248,11 @@ describe('InventoryService', () => {
             tenant_id: 'tenant-1',
             stocks: {
               some: {
+                tenant_id: 'tenant-1',
                 location: {
+                  tenant_id: 'tenant-1',
+                  site_id: 'site-1',
+                  type: { not: 'staging_tote' },
                   name: { contains: location, mode: 'insensitive' },
                 },
               },

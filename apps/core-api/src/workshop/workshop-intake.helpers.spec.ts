@@ -54,16 +54,17 @@ describe('workshop-intake.helpers', () => {
   });
 
   describe('buildWorkshopOrderFindAllWhere', () => {
-    it('returns tenant_id only when search is omitted', () => {
-      const where = buildWorkshopOrderFindAllWhere('tenant-1');
-      expect(where).toEqual({ tenant_id: 'tenant-1' });
+    it('returns tenant and site scope when search is omitted', () => {
+      const where = buildWorkshopOrderFindAllWhere('tenant-1', 'site-1');
+      expect(where).toEqual({ tenant_id: 'tenant-1', site_id: 'site-1' });
     });
 
-    it('returns tenant_id with search filters across order, customer, and vehicle', () => {
-      const where = buildWorkshopOrderFindAllWhere('tenant-1', 'BMW');
+    it('returns tenant and site scope with search filters across order, customer, and vehicle', () => {
+      const where = buildWorkshopOrderFindAllWhere('tenant-1', 'site-1', 'BMW');
       expect(where).toEqual(
         expect.objectContaining({
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           OR: expect.arrayContaining([
             expect.objectContaining({
               order_number: { contains: 'BMW', mode: 'insensitive' },

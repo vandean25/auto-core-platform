@@ -6841,6 +6841,83 @@
           "Audit Logs"
         ]
       }
+    },
+    "/api/parts-reservations": {
+      "post": {
+        "operationId": "PartsRequisitionController_createReservation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/shortages": {
+      "get": {
+        "operationId": "PartsRequisitionController_getShortages",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Limit the queue to one workshop order.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PartsShortageResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
     }
   },
   "info": {
@@ -10529,7 +10606,9 @@
           },
           "qty": {
             "type": "number",
-            "minimum": 0.01
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
           },
           "unitPrice": {
             "type": "number",
@@ -15029,6 +15108,170 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "CreatePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity",
+          "locationId"
+        ]
+      },
+      "PartsReservationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "quantityReceived": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityConsumed": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityStaged": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityReturned": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ON_HAND",
+              "REQUISITION"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "workshopTaskLineItemId",
+          "quantity",
+          "quantityReceived",
+          "quantityConsumed",
+          "quantityStaged",
+          "quantityReturned",
+          "kind",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PartsShortageResponseDto": {
+        "type": "object",
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "workshopTaskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lineQuantity": {
+            "type": "string",
+            "example": "4.000"
+          },
+          "consumedQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "activeCommitment": {
+            "type": "string",
+            "example": "1.000"
+          },
+          "shortageQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "workshopTaskId",
+          "workshopTaskLineItemId",
+          "itemNo",
+          "description",
+          "lineQuantity",
+          "consumedQuantity",
+          "activeCommitment",
+          "shortageQuantity",
+          "siteId"
         ]
       }
     }

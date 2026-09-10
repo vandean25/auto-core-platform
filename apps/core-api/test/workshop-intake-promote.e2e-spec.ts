@@ -24,6 +24,7 @@ describe('Workshop intake promote (e2e)', () => {
   let bayId: string;
   let tenantId: string;
   let siteId: string;
+  let firebaseUid: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -41,6 +42,7 @@ describe('Workshop intake promote (e2e)', () => {
       'workshop-intake-promote',
     );
     tenantId = testTenant.tenantId;
+    firebaseUid = testTenant.firebaseUid;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     siteId = await resolveTestMainSiteId(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
@@ -241,5 +243,124 @@ describe('Workshop intake promote (e2e)', () => {
     const conflict = first.status === 409 ? first : second;
     expect(success.body.status).toBe('INTAKE');
     expect(conflict.body.message).toMatch(/already has active order/);
+  });
+
+  it('denies workshop order and task reads and mutations from another active site', async () => {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'VW',
+        model: 'Touran',
+        year: 2023,
+        vin: `VIN-SITE-SCOPE-${Date.now()}`,
+      },
+    });
+
+    const order = await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId: vehicle.id,
+        odometer: 15000,
+        fuelLevel: 60,
+      })
+      .expect(201);
+
+    const task = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${order.body.id}/tasks`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ title: 'Site scoped task' })
+      .expect(201);
+
+    const siteB = await prisma.site.create({
+      data: {
+        tenant_id: tenantId,
+        legal_entity_id: (
+          await prisma.site.findFirstOrThrow({
+            where: { id: siteId },
+            select: { legal_entity_id: true },
+          })
+        ).legal_entity_id,
+        code: `SECOND-${Date.now()}`,
+        name: `Second site ${Date.now()}`,
+        timezone: 'Europe/Vienna',
+        slot_minutes: 30,
+        holiday_country_iso: 'AT',
+        is_active: true,
+      },
+    });
+    const user = await basePrisma.user.findUniqueOrThrow({
+      where: { firebaseUid },
+      select: { id: true },
+    });
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: user.id,
+        site_id: siteB.id,
+        is_active: true,
+      },
+    });
+
+    await basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: siteB.id },
+    });
+
+    try {
+      const list = await request(app.getHttpServer())
+        .get('/api/workshop/orders')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+      expect(list.body.data).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: order.body.id })]),
+      );
+
+      await request(app.getHttpServer())
+        .get(`/api/workshop/orders/${order.body.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(`/api/workshop/orders/${order.body.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ notes: 'must be denied' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .post(`/api/workshop/orders/${order.body.id}/tasks`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'must be denied' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(`/api/workshop/orders/${order.body.id}/tasks/${task.body.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'must be denied' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .delete(`/api/workshop/orders/${order.body.id}/tasks/${task.body.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(
+          `/api/workshop/orders/${order.body.id}/tasks/${task.body.id}/line-items`,
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ expectedLineItemsVersion: 0, items: [] })
+        .expect(404);
+    } finally {
+      await basePrisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: siteId },
+      });
+    }
+
+    await prisma.workshopOrder.update({
+      where: { id: order.body.id },
+      data: { site_id: null },
+    });
+    await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${order.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
   });
 });

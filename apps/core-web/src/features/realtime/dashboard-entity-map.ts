@@ -99,6 +99,14 @@ const entityInvalidationMap: Record<
     dashboardSourceKeys: [],
     domainQueryKeys: [hrKeys.all],
   },
+  PARTS_RESERVATION: {
+    dashboardSourceKeys: ["workshop-task-line-items"],
+    domainQueryKeys: workshopAndMechanicQueueKeys,
+  },
+  PARTS_REQUISITION: {
+    dashboardSourceKeys: ["workshop-orders"],
+    domainQueryKeys: workshopAndMechanicQueueKeys,
+  },
 };
 
 const emptyInvalidationTarget: EntityInvalidationTarget = {

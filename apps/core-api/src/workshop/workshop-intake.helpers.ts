@@ -57,14 +57,16 @@ export function resolveFindAllPagination(
 
 export function buildWorkshopOrderFindAllWhere(
   tenantId: string,
+  siteId: string,
   search?: string,
 ): Prisma.WorkshopOrderWhereInput {
   if (!search) {
-    return { tenant_id: tenantId };
+    return { tenant_id: tenantId, site_id: siteId };
   }
 
   return {
     tenant_id: tenantId,
+    site_id: siteId,
     OR: [
       {
         order_number: { contains: search, mode: 'insensitive' },
