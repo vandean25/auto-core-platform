@@ -12,6 +12,7 @@ import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
 import {
   Prisma,
+  PartsReservationStatus,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
@@ -338,14 +339,34 @@ export class WorkshopTaskService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        await this.lockRows(tx, 'workshop_tasks', tenantId, [taskId]);
+        const { submittedIds, existingItems } =
+          await this.validateSubmittedLineItemIds(tx, tenantId, taskId, dto);
+        await this.lockRows(
+          tx,
+          'workshop_task_line_items',
+          tenantId,
+          existingItems.map((item) => item.id),
+        );
+        const reservationHistory = await this.findLineReservationHistory(
+          tx,
+          tenantId,
+          existingItems,
+        );
+        await this.lockRows(
+          tx,
+          'parts_reservations',
+          tenantId,
+          reservationHistory.map((reservation) => reservation.id),
+        );
+        this.assertLineQuantityDemand(existingItems, dto, reservationHistory);
+
         await this.incrementTaskLineItemsVersion(
           tx,
           tenantId,
           taskId,
           dto.expectedLineItemsVersion,
         );
-        const { submittedIds, existingItems } =
-          await this.validateSubmittedLineItemIds(tx, tenantId, taskId, dto);
 
         await this.handleDeletedLineItems(
           tx,
@@ -353,6 +374,7 @@ export class WorkshopTaskService {
           taskId,
           existingItems,
           submittedIds,
+          reservationHistory,
         );
         await this.createNewTaskLineItems(tx, tenantId, taskId, dto.items);
         await this.updateExistingTaskLineItems(tx, tenantId, taskId, dto.items);
@@ -452,7 +474,11 @@ export class WorkshopTaskService {
     const existingItems =
       (await tx.workshopTaskLineItem.findMany({
         where: { tenant_id: tenantId, workshop_task_id: taskId },
-        select: { id: true, part_execution_status: true },
+        select: {
+          id: true,
+          quantity: true,
+          part_execution_status: true,
+        },
       })) ?? [];
 
     const submittedIds = dto.items
@@ -475,6 +501,90 @@ export class WorkshopTaskService {
     return { submittedIds, existingItems };
   }
 
+  private async findLineReservationHistory(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    existingItems: Array<{ id: string }>,
+  ) {
+    const lineIds = existingItems.map((item) => item.id);
+    if (lineIds.length === 0) {
+      return [];
+    }
+
+    return tx.partsReservation.findMany({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_line_item_id: { in: lineIds },
+      },
+      select: {
+        id: true,
+        workshop_task_line_item_id: true,
+        quantity: true,
+        quantity_consumed: true,
+        quantity_returned: true,
+        status: true,
+      },
+    });
+  }
+
+  private assertLineQuantityDemand(
+    existingItems: Array<{ id: string }>,
+    dto: ReplaceWorkshopTaskLineItemsDto,
+    reservationHistory: Array<{
+      workshop_task_line_item_id: string;
+      quantity: Prisma.Decimal;
+      quantity_consumed: Prisma.Decimal;
+      quantity_returned: Prisma.Decimal;
+      status: PartsReservationStatus;
+    }>,
+  ): void {
+    const submittedQuantities = new Map(
+      dto.items
+        .filter((item): item is typeof item & { id: string } => !!item.id)
+        .map((item) => [item.id, new Prisma.Decimal(item.qty)]),
+    );
+    const activeStatuses = new Set<PartsReservationStatus>([
+      PartsReservationStatus.OPEN,
+      PartsReservationStatus.ORDERED,
+      PartsReservationStatus.STAGED,
+    ]);
+
+    for (const line of existingItems) {
+      const requestedQuantity =
+        submittedQuantities.get(line.id) ?? new Prisma.Decimal(0);
+      const lineReservations = reservationHistory.filter(
+        (reservation) => reservation.workshop_task_line_item_id === line.id,
+      );
+      const consumedQuantity = lineReservations.reduce(
+        (sum, reservation) =>
+          sum.add(new Prisma.Decimal(reservation.quantity_consumed)),
+        new Prisma.Decimal(0),
+      );
+      const activeCommitment = lineReservations.reduce((sum, reservation) => {
+        if (!activeStatuses.has(reservation.status)) {
+          return sum;
+        }
+
+        const remaining = new Prisma.Decimal(reservation.quantity)
+          .sub(new Prisma.Decimal(reservation.quantity_consumed))
+          .sub(new Prisma.Decimal(reservation.quantity_returned));
+        if (remaining.isNegative()) {
+          throw new ConflictException(
+            `Parts reservation ${reservation.workshop_task_line_item_id} has invalid negative remaining demand`,
+          );
+        }
+        return sum.add(remaining);
+      }, new Prisma.Decimal(0));
+      const minimumQuantity = consumedQuantity.add(activeCommitment);
+
+      if (requestedQuantity.lessThan(minimumQuantity)) {
+        throw new ConflictException(
+          'Workshop line quantity cannot be reduced below allocated or consumed demand',
+        );
+      }
+    }
+  }
+
   private async handleDeletedLineItems(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -484,6 +594,10 @@ export class WorkshopTaskService {
       part_execution_status: WorkshopPartLineExecutionStatus | null;
     }>,
     submittedIds: string[],
+    reservationHistory: Array<{
+      workshop_task_line_item_id: string;
+      quantity_consumed: Prisma.Decimal;
+    }>,
   ) {
     const deletedIds = existingItems
       .map((item) => item.id)
@@ -493,13 +607,24 @@ export class WorkshopTaskService {
       return;
     }
 
-    const reservedLineIds = new Set<string>();
-    const ledgerLineIds = new Set<string>();
+    const reservedLineIds = new Set(
+      reservationHistory.map(
+        (reservation) => reservation.workshop_task_line_item_id,
+      ),
+    );
     const consumedQuantities = new Map<string, Prisma.Decimal>();
+    for (const reservation of reservationHistory) {
+      consumedQuantities.set(
+        reservation.workshop_task_line_item_id,
+        (
+          consumedQuantities.get(reservation.workshop_task_line_item_id) ??
+          new Prisma.Decimal(0)
+        ).add(new Prisma.Decimal(reservation.quantity_consumed)),
+      );
+    }
     const isConsumed = (id: string) =>
       consumedQuantities.get(id)?.greaterThan(0) ?? false;
-    const hasOperationalHistory = (id: string) =>
-      reservedLineIds.has(id) || ledgerLineIds.has(id);
+    const hasOperationalHistory = (id: string) => reservedLineIds.has(id);
     const hardDeleteIds = deletedIds.filter(
       (id) => !hasOperationalHistory(id) && !isConsumed(id),
     );
@@ -642,5 +767,28 @@ export class WorkshopTaskService {
       );
     }
     throw error;
+  }
+
+  private async lockRows(
+    tx: Prisma.TransactionClient,
+    tableName:
+      'workshop_tasks' | 'workshop_task_line_items' | 'parts_reservations',
+    tenantId: string,
+    ids: readonly string[],
+  ): Promise<void> {
+    const sortedIds = [...new Set(ids)].sort();
+    if (sortedIds.length === 0) {
+      return;
+    }
+
+    // eslint-disable-next-line no-restricted-syntax -- line mutations share the global task/line/reservation lock order.
+    await tx.$queryRaw`
+      SELECT id
+      FROM ${Prisma.raw(tableName)}
+      WHERE tenant_id = ${tenantId}
+        AND id IN (${Prisma.join(sortedIds)})
+      ORDER BY id
+      FOR UPDATE
+    `;
   }
 }
