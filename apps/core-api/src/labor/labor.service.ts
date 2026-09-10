@@ -12,6 +12,7 @@ import {
   ListLaborOperationsQueryDto,
   UpdateLaborOperationDto,
 } from './dto/labor-operation.dto';
+import { rethrowAsConflict } from './labor-shared.helpers';
 
 const SEARCH_LIMIT = 20;
 
@@ -323,15 +324,10 @@ export class LaborService {
 
       return this.mapLaborOperation(created);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `Labor operation with code "${dto.code}" already exists`,
-        );
-      }
-      throw error;
+      rethrowAsConflict(
+        error,
+        `Labor operation with code "${dto.code}" already exists`,
+      );
     }
   }
 
@@ -386,7 +382,10 @@ export class LaborService {
 
       return this.mapLaborOperation(updated);
     } catch (error) {
-      this.handleLaborPrismaError(error, dto.code);
+      rethrowAsConflict(
+        error,
+        `Labor operation with code "${dto.code}" already exists`,
+      );
     }
   }
 
@@ -482,18 +481,6 @@ export class LaborService {
         })),
       });
     }
-  }
-
-  private handleLaborPrismaError(error: unknown, code?: string): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      throw new ConflictException(
-        `Labor operation with code "${code}" already exists`,
-      );
-    }
-    throw error;
   }
 
   async softDelete(id: string) {
