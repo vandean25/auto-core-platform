@@ -2,14 +2,8 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  Prisma,
-  WorkshopMediaUrlStrategy,
-  WorkshopTaskStatus,
-} from '@prisma/client';
+import { Prisma, WorkshopMediaUrlStrategy } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
@@ -19,7 +13,7 @@ import {
   IMAGE_MIME_TYPES,
   MechanicMediaStorage,
 } from './mechanic-media.storage';
-import { assertTaskAssignedToMechanic } from './mechanic-task-access';
+import { assertTaskAccessibleAndNotDone } from './mechanic-task-access';
 
 @Injectable()
 export class MechanicMediaService {
@@ -76,17 +70,12 @@ export class MechanicMediaService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Cannot upload media for completed task ${taskId}.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(
+      task,
+      taskId,
+      mechanicId,
+      `Cannot upload media for completed task ${taskId}.`,
+    );
 
     const policy = await this.mediaStorage.generateUploadPolicy({
       tenantId,
@@ -134,17 +123,12 @@ export class MechanicMediaService {
       },
     });
 
-    if (!task) {
-      throw new NotFoundException(`Task ${taskId} not found.`);
-    }
-
-    assertTaskAssignedToMechanic(task, mechanicId);
-
-    if (task.status === WorkshopTaskStatus.DONE) {
-      throw new UnprocessableEntityException(
-        `Cannot persist media for completed task ${taskId}.`,
-      );
-    }
+    assertTaskAccessibleAndNotDone(
+      task,
+      taskId,
+      mechanicId,
+      `Cannot persist media for completed task ${taskId}.`,
+    );
 
     // Validate that the client-supplied bucket and key refer to the expected
     // tenant/order/task-scoped location.  This prevents callers from pointing
