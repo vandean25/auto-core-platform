@@ -1,6 +1,7 @@
 import {
   Inject,
   Logger,
+  Optional,
   forwardRef,
   type OnApplicationBootstrap,
   type OnModuleDestroy,
@@ -17,12 +18,18 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { Public } from '../common/decorators/public.decorator';
 import { resolveCorsOrigins } from '../common/http/cors-origins';
+import { TenantContextStorage } from '../common/services/tenant-context.storage';
 import { AuthService } from '../auth/auth.service';
+import { SiteContextService } from '../site/site-context.service';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   AuthClaimsUpdatedPayload,
   DASHBOARD_ENTITY_UPDATED_EVENT,
   DashboardEntityUpdatedPayload,
+  SITE_ACCESS_SCOPE_UPDATED_EVENT,
+  SITE_CONTEXT_UPDATED_EVENT,
+  SiteAccessScopeUpdatedPayload,
+  SiteContextUpdatedPayload,
 } from './dashboard-events.types';
 
 export { resolveCorsOrigins } from '../common/http/cors-origins';
@@ -97,6 +104,7 @@ export class DashboardGateway
   private readonly logger = new Logger(DashboardGateway.name);
   private static readonly TENANT_ROOM_PREFIX = 'tenant_';
   private static readonly USER_ROOM_PREFIX = 'user_';
+  private static readonly SITE_ROOM_PREFIX = 'site_';
 
   private pubClient?: Redis;
   private subClient?: Redis;
@@ -105,6 +113,9 @@ export class DashboardGateway
   constructor(
     @Inject(forwardRef(() => AuthService))
     private readonly authService: AuthService,
+    @Optional()
+    @Inject(forwardRef(() => SiteContextService))
+    private readonly siteContext?: SiteContextService,
   ) {}
 
   @WebSocketServer()
@@ -233,14 +244,51 @@ export class DashboardGateway
     const userRoom = `${DashboardGateway.USER_ROOM_PREFIX}${data.userId}`;
     await client.join(tenantRoom);
     await client.join(userRoom);
+
+    // Ruling 37: join `site:{siteId}` for the validated active site (if any).
+    // The tenant and private user rooms are unchanged.
+    const activeSiteId = await this.resolveSocketActiveSiteId(client);
+    if (activeSiteId) {
+      await client.join(`${DashboardGateway.SITE_ROOM_PREFIX}${activeSiteId}`);
+      data.activeSiteId = activeSiteId;
+    }
+
     this.logger.debug(
       JSON.stringify({
         type: 'ws_connect',
         socketId: client.id,
         tenantId: data.tenantId,
         userId: data.userId,
+        ...(activeSiteId ? { activeSiteId } : {}),
       }),
     );
+  }
+
+  /**
+   * Resolves the socket's validated active site id inside a tenant context so
+   * SiteContextService can query tenant-scoped rows. Returns `null` when the
+   * user has no valid active site (recovery flow); the connection stays in the
+   * tenant + user rooms only.
+   */
+  private async resolveSocketActiveSiteId(
+    client: Socket,
+  ): Promise<string | null> {
+    const data = client.data as Record<string, string | undefined>;
+    const tenantId = data.tenantId;
+    const userId = data.userId;
+    if (!tenantId || !userId || !this.siteContext) {
+      return null;
+    }
+
+    return TenantContextStorage.run(() => {
+      TenantContextStorage.setUser({
+        userId,
+        email: '',
+        tenantId,
+        role: 'member',
+      });
+      return this.siteContext!.resolveSiteId();
+    });
   }
 
   handleDisconnect(client: Socket) {
@@ -309,6 +357,98 @@ export class DashboardGateway
         event: AUTH_CLAIMS_UPDATED_EVENT,
         room,
         claimReason: payload.reason,
+      }),
+    );
+  }
+
+  /**
+   * Ruling 9/11/37: every socket of `user_{firebaseUid}` leaves the previous
+   * site room and joins the new one (or no site room), then the event is
+   * delivered on the private user room. The initiating tab is not special —
+   * all tabs move so the site room stays an isolation boundary.
+   */
+  async emitSiteContextUpdated(
+    firebaseUid: string,
+    payload: SiteContextUpdatedPayload,
+  ): Promise<void> {
+    if (!this.server) {
+      this.logger.debug(
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event: SITE_CONTEXT_UPDATED_EVENT,
+          reason: 'No server connected',
+        }),
+      );
+      return;
+    }
+
+    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
+    try {
+      const sockets = await this.server.in(room).fetchSockets();
+      for (const socket of sockets) {
+        const data = socket.data as Record<string, unknown>;
+        for (const room of socket.rooms) {
+          if (
+            room.startsWith(DashboardGateway.SITE_ROOM_PREFIX) &&
+            room !==
+              (payload.siteId
+                ? `${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`
+                : undefined)
+          ) {
+            socket.leave(room);
+          }
+        }
+        if (payload.siteId) {
+          socket.join(`${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`);
+        }
+        data.activeSiteId = payload.siteId ?? null;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to move sockets of ${firebaseUid} between site rooms: ${message}`,
+      );
+    }
+
+    this.server.to(room).emit(SITE_CONTEXT_UPDATED_EVENT, payload);
+    this.logger.debug(
+      JSON.stringify({
+        type: 'ws_emit',
+        event: SITE_CONTEXT_UPDATED_EVENT,
+        room,
+        siteId: payload.siteId,
+      }),
+    );
+  }
+
+  /**
+   * Ruling 10/37: delivered on `user_{firebaseUid}` so cached transfer lists,
+   * the site directory, and `GET /me/sites` results are dropped after any
+   * membership grant/revoke/deactivate, including a site that was not the
+   * active site.
+   */
+  emitSiteAccessScopeUpdated(
+    firebaseUid: string,
+    payload: SiteAccessScopeUpdatedPayload,
+  ): void {
+    if (!this.server) {
+      this.logger.debug(
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event: SITE_ACCESS_SCOPE_UPDATED_EVENT,
+          reason: 'No server connected',
+        }),
+      );
+      return;
+    }
+
+    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
+    this.server.to(room).emit(SITE_ACCESS_SCOPE_UPDATED_EVENT, payload);
+    this.logger.debug(
+      JSON.stringify({
+        type: 'ws_emit',
+        event: SITE_ACCESS_SCOPE_UPDATED_EVENT,
+        room,
       }),
     );
   }

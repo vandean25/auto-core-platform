@@ -24,6 +24,7 @@ const e2eAuthSession: AuthSession = {
     slug: 'e2e-tenant',
   },
   activeRole: 'ADMIN',
+  activeSiteId: null,
   memberships: [],
 }
 

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSiteMembershipDto } from './dto/site.dto';
 import { assertSiteInTenant, assertTenantAdmin } from './site.authorization';
@@ -10,6 +11,7 @@ export class SiteMembershipService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly dashboardRealtime: DashboardRealtimeService,
   ) {}
 
   async listSiteMemberships(siteId: string) {
@@ -47,7 +49,7 @@ export class SiteMembershipService {
 
     validateSiteMembershipCreateInput(member, existing);
 
-    return this.prisma.siteMembership.create({
+    const membership = await this.prisma.siteMembership.create({
       data: {
         tenant_id: tenantId,
         user_id: dto.userId,
@@ -55,6 +57,14 @@ export class SiteMembershipService {
         is_active: true,
       },
     });
+    const user = await this.prisma.user.findFirst({
+      where: { id: dto.userId },
+      select: { firebaseUid: true },
+    });
+    if (user) {
+      this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
+    }
+    return membership;
   }
 
   async removeSiteMembership(siteId: string, userId: string) {
@@ -69,7 +79,7 @@ export class SiteMembershipService {
       throw new NotFoundException('Site membership not found');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const user = await this.prisma.$transaction(async (tx) => {
       await tx.siteMembership.delete({ where: { id: membership.id } });
       // Ruling 10: removing a membership that matches User.active_site_id
       // clears active_site_id atomically (null).
@@ -77,7 +87,18 @@ export class SiteMembershipService {
         where: { active_site_id: siteId, id: userId },
         data: { active_site_id: null },
       });
+      return tx.user.findFirst({
+        where: { id: userId },
+        select: { firebaseUid: true, active_site_id: true },
+      });
     });
+
+    if (user) {
+      this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
+      if (user.active_site_id === null) {
+        this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
+      }
+    }
 
     return { deleted: true };
   }

@@ -8,6 +8,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { SiteMembershipService } from './site-membership.service';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -41,6 +42,7 @@ function createPrismaMock() {
       findFirst: jest.fn(),
     },
     user: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -59,6 +61,10 @@ describe('SiteMembershipService', () => {
     getTenantId: jest.Mock;
     getAuthenticatedUser: jest.Mock;
   };
+  const dashboardRealtime = {
+    emitSiteAccessScopeUpdated: jest.fn(),
+    emitSiteContextUpdated: jest.fn(),
+  };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -72,29 +78,37 @@ describe('SiteMembershipService', () => {
         SiteMembershipService,
         { provide: PrismaService, useValue: prisma },
         { provide: TenantContextService, useValue: tenantContext },
+        { provide: DashboardRealtimeService, useValue: dashboardRealtime },
       ],
     }).compile();
 
     service = module.get(SiteMembershipService);
+    prisma.user.findFirst.mockResolvedValue({
+      firebaseUid: 'member-firebase-id',
+      active_site_id: null,
+    });
   });
 
   describe('listSiteMemberships', () => {
     it('requires tenant admin', async () => {
       tenantContext.getAuthenticatedUser.mockReturnValue(nonAdminUser);
-      await expect(service.listSiteMemberships('site-1')).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.listSiteMemberships('site-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('requires site to exist in tenant', async () => {
       prisma.site.findFirst.mockResolvedValue(null);
-      await expect(service.listSiteMemberships('site-1')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.listSiteMemberships('site-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('returns memberships when valid', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
       prisma.siteMembership.findMany.mockResolvedValue([{ id: 'sm-1' }]);
 
       const result = await service.listSiteMemberships('site-1');
@@ -109,7 +123,10 @@ describe('SiteMembershipService', () => {
 
   describe('addSiteMembership', () => {
     it('rejects a user with no TenantMember in tenant', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
       prisma.tenantMember.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -118,8 +135,14 @@ describe('SiteMembershipService', () => {
     });
 
     it('rejects an inactive TenantMember', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
-      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1', is_active: false });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
+      prisma.tenantMember.findFirst.mockResolvedValue({
+        id: 'tm-1',
+        is_active: false,
+      });
 
       await expect(
         service.addSiteMembership('site-1', { userId: 'user-1' }),
@@ -127,8 +150,14 @@ describe('SiteMembershipService', () => {
     });
 
     it('rejects duplicate site membership', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
-      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1', is_active: true });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
+      prisma.tenantMember.findFirst.mockResolvedValue({
+        id: 'tm-1',
+        is_active: true,
+      });
       prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
 
       await expect(
@@ -137,12 +166,20 @@ describe('SiteMembershipService', () => {
     });
 
     it('creates membership when eligible', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
-      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1', is_active: true });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
+      prisma.tenantMember.findFirst.mockResolvedValue({
+        id: 'tm-1',
+        is_active: true,
+      });
       prisma.siteMembership.findFirst.mockResolvedValue(null);
       prisma.siteMembership.create.mockResolvedValue({ id: 'sm-new' });
 
-      const result = await service.addSiteMembership('site-1', { userId: 'user-1' });
+      const result = await service.addSiteMembership('site-1', {
+        userId: 'user-1',
+      });
       expect(result).toEqual({ id: 'sm-new' });
       expect(prisma.siteMembership.create).toHaveBeenCalledWith({
         data: {
@@ -157,7 +194,10 @@ describe('SiteMembershipService', () => {
 
   describe('removeSiteMembership', () => {
     it('throws NotFoundException if membership does not exist', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
       prisma.siteMembership.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -166,7 +206,10 @@ describe('SiteMembershipService', () => {
     });
 
     it('deletes membership and clears active_site_id', async () => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', tenant_id: TENANT_ID });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        tenant_id: TENANT_ID,
+      });
       prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
 
       const result = await service.removeSiteMembership('site-1', 'user-1');

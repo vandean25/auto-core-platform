@@ -2,7 +2,9 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
+import type { MeSite } from '@/api/sites'
 import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
+import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
 import {
   Building2,
   Car,
@@ -172,11 +174,16 @@ type AppSidebarProps = {
   activeTenant: AuthSessionTenant | null
   activeRole: components['schemas']['TenantMemberRole'] | null
   memberships: AuthSessionMembership[]
+  activeSiteId: string | null
+  sites: MeSite[]
+  isLoadingSites: boolean
   collapsed: boolean
   isSwitchingTenant: boolean
+  isSwitchingSite: boolean
   onToggleCollapsed: () => void
   onOpenSearch: () => void
   onSwitchTenant: (tenantId: string) => void
+  onSwitchSite: (siteId: string) => void
   onSignOut: () => void
 }
 
@@ -196,11 +203,16 @@ export function AppSidebar({
   activeTenant,
   activeRole,
   memberships,
+  activeSiteId,
+  sites,
+  isLoadingSites,
   collapsed,
   isSwitchingTenant,
+  isSwitchingSite,
   onToggleCollapsed,
   onOpenSearch,
   onSwitchTenant,
+  onSwitchSite,
   onSignOut,
 }: AppSidebarProps) {
   const location = useLocation()
@@ -236,6 +248,15 @@ export function AppSidebar({
             memberships={memberships}
             onSwitch={onSwitchTenant}
             isSwitching={isSwitchingTenant}
+            collapsed={collapsed}
+          />
+
+          <SiteSwitcher
+            activeSiteId={activeSiteId}
+            sites={sites}
+            isLoadingSites={isLoadingSites}
+            isSwitching={isSwitchingSite}
+            onSwitch={onSwitchSite}
             collapsed={collapsed}
           />
 

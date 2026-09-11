@@ -35,6 +35,8 @@ describe('TenantMemberService', () => {
   let service: TenantMemberService;
   let mockDashboardRealtime: {
     emitClaimsUpdated: jest.Mock;
+    emitSiteContextUpdated: jest.Mock;
+    emitSiteAccessScopeUpdated: jest.Mock;
   };
   let mockFirebaseAuth: {
     getUserByEmail: jest.Mock;
@@ -49,6 +51,8 @@ describe('TenantMemberService', () => {
 
     mockDashboardRealtime = {
       emitClaimsUpdated: jest.fn(),
+      emitSiteContextUpdated: jest.fn(),
+      emitSiteAccessScopeUpdated: jest.fn(),
     };
 
     service = new TenantMemberService(

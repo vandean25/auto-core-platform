@@ -1,18 +1,38 @@
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import type { QueryKey } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
 import { authSessionKeys } from '@/api/auth-session'
+import { siteKeys } from '@/api/sites'
+import { inventoryKeys } from '@/api/inventory'
+import { vehicleStockKeys } from '@/api/vehicle-stock'
+import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   ENTITY_UPDATED_EVENT,
+  SITE_ACCESS_SCOPE_UPDATED_EVENT,
+  SITE_CONTEXT_UPDATED_EVENT,
   isClaimsUpdatedPayload,
+  isSiteAccessScopeUpdatedPayload,
+  isSiteContextUpdatedPayload,
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
+
+/**
+ * Site-owned operational data. Invalidated on `site:context_updated` so all
+ * tabs refetch after a switch (ruling 37 / UX Compliance). Tenant-wide queries
+ * (catalog/customers/vendors/employees/hr/auth-session) are left alone.
+ */
+const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
+  workshopKeys.all,
+  vehicleStockKeys.all,
+  inventoryKeys.all,
+]
 
 type RealtimeConnection = {
   url: string
@@ -142,12 +162,53 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       })()
     }
 
+    const onSiteContextUpdated = (payload: unknown) => {
+      if (!isSiteContextUpdatedPayload(payload)) return
+
+      void (async () => {
+        // The initiating tab is not special: refetch the session so the
+        // active site (and the switcher) reflect the new site on every tab.
+        await queryClient.invalidateQueries({
+          queryKey: authSessionKeys.all,
+          refetchType: 'active',
+        })
+        await queryClient.invalidateQueries({
+          queryKey: siteKeys.me(),
+          refetchType: 'active',
+        })
+        // Drop cached site-owned operational data so the new site's planner,
+        // stock, and workshop data is refetched. Tenant-wide queries stay.
+        for (const queryKey of SITE_SCOPED_QUERY_KEYS) {
+          await queryClient.invalidateQueries({
+            queryKey,
+            refetchType: 'active',
+          })
+        }
+      })()
+    }
+
+    const onSiteAccessScopeUpdated = (payload: unknown) => {
+      if (!isSiteAccessScopeUpdatedPayload(payload)) return
+
+      // A membership grant/revoke/deactivate (including a site that is not the
+      // active site) drops cached site-directory and /me/sites results
+      // (ruling 10).
+      void queryClient.invalidateQueries({
+        queryKey: siteKeys.all,
+        refetchType: 'active',
+      })
+    }
+
     socket.on(ENTITY_UPDATED_EVENT, onEntityUpdated)
     socket.on(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
+    socket.on(SITE_CONTEXT_UPDATED_EVENT, onSiteContextUpdated)
+    socket.on(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
 
     return () => {
       socket.off(ENTITY_UPDATED_EVENT, onEntityUpdated)
       socket.off(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
+      socket.off(SITE_CONTEXT_UPDATED_EVENT, onSiteContextUpdated)
+      socket.off(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
       socket.disconnect()
     }
   }, [queryClient, shouldSkipRealtime, signOutUser, token])

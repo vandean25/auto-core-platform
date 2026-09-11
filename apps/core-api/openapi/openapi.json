@@ -6344,6 +6344,64 @@
         ]
       }
     },
+    "/api/me/sites": {
+      "get": {
+        "operationId": "MeSiteController_listMySites",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeSiteDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List activatable sites for the current session (ruling 47)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/active-site": {
+      "patch": {
+        "description": "Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.",
+        "operationId": "MeSiteController_setActiveSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveSiteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set the session active site (ruling 9)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/platform/tenants": {
       "get": {
         "operationId": "PlatformAdminController_findAll",
@@ -7021,6 +7079,11 @@
               }
             ]
           },
+          "activeSiteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "memberships": {
             "type": "array",
             "items": {
@@ -7040,6 +7103,7 @@
           "email",
           "activeTenant",
           "activeRole",
+          "activeSiteId",
           "memberships"
         ]
       },
@@ -14338,6 +14402,59 @@
         },
         "required": [
           "userId"
+        ]
+      },
+      "MeSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "legalEntityId": {
+            "type": "string"
+          },
+          "legalEntityName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "legalEntityId"
+        ]
+      },
+      "SetActiveSiteDto": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Site id to activate from GET /api/me/sites, or null to clear."
+          }
+        },
+        "required": [
+          "siteId"
+        ]
+      },
+      "ActiveSiteResponseDto": {
+        "type": "object",
+        "properties": {
+          "activeSiteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "activeSiteId"
         ]
       },
       "TenantPlan": {

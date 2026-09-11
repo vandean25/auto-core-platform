@@ -8,6 +8,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { validate } from 'class-validator';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SiteService } from './site.service';
 import { UpdateLegalEntityDto } from './dto/site.dto';
@@ -66,7 +67,9 @@ function createPrismaMock() {
       count: jest.fn(),
     },
     user: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -94,6 +97,10 @@ describe('SiteService', () => {
     getTenantId: jest.Mock;
     getAuthenticatedUser: jest.Mock;
   };
+  let dashboardRealtime: {
+    emitSiteContextUpdated: jest.Mock;
+    emitSiteAccessScopeUpdated: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
@@ -101,12 +108,17 @@ describe('SiteService', () => {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
       getAuthenticatedUser: jest.fn().mockReturnValue(adminUser),
     };
+    dashboardRealtime = {
+      emitSiteContextUpdated: jest.fn(),
+      emitSiteAccessScopeUpdated: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SiteService,
         { provide: PrismaService, useValue: prisma },
         { provide: TenantContextService, useValue: tenantContext },
+        { provide: DashboardRealtimeService, useValue: dashboardRealtime },
       ],
     }).compile();
 

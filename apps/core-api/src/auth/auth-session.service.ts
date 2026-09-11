@@ -64,6 +64,7 @@ export type AuthSession = {
   email: string;
   activeTenant: AuthSessionTenant;
   activeRole: TenantMemberRole;
+  activeSiteId: string | null;
   memberships: AuthSessionMembership[];
   platformRole?: PlatformAdminRole;
 };
@@ -201,6 +202,13 @@ export class AuthSessionService {
         requestedMembership.tenant_id,
       );
       userRecord.active_tenant_id = requestedMembership.tenant_id;
+      userRecord.active_site_id = null;
+      // Ruling 9/11: every socket for this user leaves the previous tenant's
+      // site room (siteId: null). auth:claims_updated is emitted below.
+      this.dashboardRealtime?.emitSiteContextUpdated(
+        userRecord.firebaseUid,
+        null,
+      );
     }
 
     await this.syncUserClaimsFromRecord(userRecord, requestedMembership);
@@ -277,6 +285,9 @@ export class AuthSessionService {
         activeMembership.tenant_id,
       );
       user.active_tenant_id = activeMembership.tenant_id;
+      user.active_site_id = null;
+      // Ruling 9/11: second tabs learn the session site was cleared.
+      this.dashboardRealtime?.emitSiteContextUpdated(user.firebaseUid, null);
     }
 
     return activeMembership;
@@ -295,6 +306,7 @@ export class AuthSessionService {
         slug: activeMembership.tenant.slug,
       },
       activeRole: activeMembership.role,
+      activeSiteId: user.active_site_id,
       memberships: user.memberships.map((membership) => ({
         tenantId: membership.tenant_id,
         tenantName: membership.tenant.name,

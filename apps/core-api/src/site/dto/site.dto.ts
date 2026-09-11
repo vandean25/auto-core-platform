@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   Max,
@@ -166,4 +167,43 @@ export class CreateSiteMembershipDto {
   @ApiProperty()
   @IsString()
   userId!: string;
+}
+
+/**
+ * PATCH /api/me/active-site body (ruling 9). `siteId: null` clears the active
+ * site (membership revoke / site deactivation recovery).
+ */
+export class SetActiveSiteDto {
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description:
+      'Site id to activate from GET /api/me/sites, or null to clear.',
+  })
+  @IsOptional()
+  @IsUUID()
+  siteId!: string | null;
+}
+
+export class MeSiteDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  code!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  legalEntityId!: string;
+
+  @ApiPropertyOptional()
+  legalEntityName?: string;
+}
+
+export class ActiveSiteResponseDto {
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  activeSiteId!: string | null;
 }

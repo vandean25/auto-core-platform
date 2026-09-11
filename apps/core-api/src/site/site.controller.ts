@@ -8,12 +8,20 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  ActiveSiteResponseDto,
   CreateLegalEntityDto,
   UpdateLegalEntityDto,
   CreateSiteDto,
   CreateSiteMembershipDto,
+  MeSiteDto,
+  SetActiveSiteDto,
   UpdateSiteDto,
 } from './dto/site.dto';
 import { SiteService } from './site.service';
@@ -114,5 +122,36 @@ export class SiteController {
     @Param('userId') userId: string,
   ) {
     return this.siteService.removeSiteMembership(id, userId);
+  }
+}
+
+/**
+ * Session-site recovery APIs (rulings 7–9, 47). These always work — even when
+ * the caller's active site is missing/invalid — so the user can recover from
+ * `ACTIVE_SITE_REQUIRED` without leaving the tenant.
+ */
+@ApiTags('me')
+@Controller('me')
+export class MeSiteController {
+  constructor(private readonly siteService: SiteService) {}
+
+  @Get('sites')
+  @ApiOperation({
+    summary: 'List activatable sites for the current session (ruling 47)',
+  })
+  @ApiOkResponse({ type: [MeSiteDto] })
+  listMySites() {
+    return this.siteService.listMySites();
+  }
+
+  @Patch('active-site')
+  @ApiOperation({
+    summary: 'Set the session active site (ruling 9)',
+    description:
+      'Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.',
+  })
+  @ApiOkResponse({ type: ActiveSiteResponseDto })
+  setActiveSite(@Body() dto: SetActiveSiteDto) {
+    return this.siteService.setActiveSite(dto);
   }
 }

@@ -56,11 +56,16 @@ describe('HR navigation visibility', () => {
     platformRole: null,
     activeTenant: null,
     memberships: [],
+    activeSiteId: null,
+    sites: [],
+    isLoadingSites: false,
     collapsed: false,
     isSwitchingTenant: false,
+    isSwitchingSite: false,
     onToggleCollapsed: () => undefined,
     onOpenSearch: () => undefined,
     onSwitchTenant: () => undefined,
+    onSwitchSite: () => undefined,
     onSignOut: () => undefined,
   }
 

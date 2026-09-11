@@ -50,6 +50,9 @@ export class AuthSessionResponseDto {
   @ApiProperty({ enum: TenantMemberRole, enumName: 'TenantMemberRole' })
   activeRole!: TenantMemberRole;
 
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  activeSiteId!: string | null;
+
   @ApiProperty({ type: [AuthSessionMembershipDto] })
   memberships!: AuthSessionMembershipDto[];
 
