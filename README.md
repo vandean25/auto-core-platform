@@ -242,9 +242,12 @@ All app routes are protected behind login in production.
 
 API routes are behind a global `JwtAuthGuard`. The bearer token is a Firebase ID token (or a locally signed test JWT when `NODE_ENV=test`). Authorization is resolved from Postgres `User` + `TenantMember` rows, not from token `tenantId` / `role` claims.
 
-- `GET /api/auth/me` — current session (active tenant, memberships, platform role)
+- `GET /api/auth/me` — current session (active tenant, nullable `activeSiteId`, memberships, platform role)
 - `POST /api/auth/switch-tenant` — switch the user's active tenant
+- `GET /api/me/sites` — list sites the current session can activate
+- `PATCH /api/me/active-site` — set or clear the session's active site
 - `TenantContextMiddleware` sets the request tenant; tenant-scoped Prisma queries must include `tenant_id`
+- Operational APIs use the validated active site; without one they return `422 ACTIVE_SITE_REQUIRED`. The two `/api/me` site endpoints remain available for recovery.
 - Roles: `OWNER`, `ADMIN`, `TECH`, `SALES` on `TenantMember`; `SUPER_ADMIN` on `PlatformAdmin`
 - Mechanic (tablet) sessions (`TECH`) may only call endpoints marked `@MechanicAccessible()`
 
@@ -524,8 +527,10 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/auth/me` | Current session, active tenant, memberships |
+| `GET` | `/api/auth/me` | Current session, active tenant, nullable `activeSiteId`, memberships |
 | `POST` | `/api/auth/switch-tenant` | Switch active tenant |
+| `GET` | `/api/me/sites` | List sites available to the current session |
+| `PATCH` | `/api/me/active-site` | Set or clear the session's active site |
 | `GET` | `/api/tenant-members` | List members of the active tenant |
 | `POST` | `/api/tenant-members/invite` | Invite a user to the tenant |
 | `GET` | `/api/platform/tenants` | Super-admin tenant directory |
