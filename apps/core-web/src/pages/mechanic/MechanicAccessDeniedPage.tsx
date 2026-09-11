@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 
 export default function MechanicAccessDeniedPage() {
   return (
@@ -14,7 +15,7 @@ export default function MechanicAccessDeniedPage() {
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link to="/mechanic/queue">Go to mechanic queue</Link>
+            <Link to={MECHANIC_ROUTE_PATHS.queue}>Go to mechanic queue</Link>
           </Button>
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { MechanicShell, ShellRouter } from './App'
 import * as mechanicApi from '@/api/mechanic'
+import { MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 
 vi.mock('@/api/mechanic')
 vi.mock('@/auth/AuthProvider', () => ({
@@ -253,7 +254,7 @@ describe('role-aware shell route guards', () => {
 
       expect(await screen.findByRole('heading', { name: 'Office access restricted' })).toBeInTheDocument()
       expect(screen.getByText(/don't have access to office tools/i)).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /go to mechanic queue/i })).toHaveAttribute('href', '/mechanic/queue')
+      expect(screen.getByRole('link', { name: /go to mechanic queue/i })).toHaveAttribute('href', MECHANIC_ROUTE_PATHS.queue)
       expect(screen.getByText('Mechanic')).toBeInTheDocument()
       expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument()
     },
