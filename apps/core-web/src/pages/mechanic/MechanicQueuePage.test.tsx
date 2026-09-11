@@ -153,6 +153,7 @@ describe('MechanicQueuePage', () => {
 
       renderQueuePage()
 
+      expect(screen.getByRole('cell', { name: '1' })).toBeInTheDocument()
       expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
       expect(screen.getByText('W-TEST-1')).toBeInTheDocument()
     })

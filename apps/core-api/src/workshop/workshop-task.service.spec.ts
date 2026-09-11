@@ -837,7 +837,10 @@ describe('WorkshopTaskService', () => {
       id: 'wo-1',
       status: WorkshopOrderStatus.INTAKE,
       scheduled_start_at: null,
-      tasks: [{ id: 'existing-task-1' }, { id: 'existing-task-2' }],
+      tasks: [
+        { id: 'existing-task-1', sequence: 1 },
+        { id: 'existing-task-2', sequence: 4 },
+      ],
       invoice: null,
     });
     mockPrisma.workshopTask.create.mockResolvedValue({
@@ -852,7 +855,7 @@ describe('WorkshopTaskService', () => {
 
     expect(mockPrisma.workshopTask.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ sequence: 3 }),
+        data: expect.objectContaining({ sequence: 5 }),
       }),
     );
   });
