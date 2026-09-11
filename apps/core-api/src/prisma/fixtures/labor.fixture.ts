@@ -6,31 +6,37 @@ export const LABOR_CATEGORIES_TO_SEED = [
     name: 'Engine',
     description: 'Engine and internal combustion system operations',
     sort_order: 1,
+    default_hourly_rate: 95.0,
   },
   {
     name: 'Brakes',
     description: 'Brake system inspection and replacement operations',
     sort_order: 2,
+    default_hourly_rate: 95.0,
   },
   {
     name: 'Electrical',
     description: 'Electrical system diagnostics and repairs',
     sort_order: 3,
+    default_hourly_rate: 95.0,
   },
   {
     name: 'Suspension',
     description: 'Suspension, steering, and chassis operations',
     sort_order: 4,
+    default_hourly_rate: 95.0,
   },
   {
     name: 'Transmission',
     description: 'Gearbox, clutch, and drivetrain operations',
     sort_order: 5,
+    default_hourly_rate: 95.0,
   },
   {
     name: 'General Service',
     description: 'Routine vehicle servicing and inspection operations',
     sort_order: 6,
+    default_hourly_rate: 95.0,
   },
 ];
 
@@ -219,6 +225,7 @@ export async function seedLabor(
         update: {
           description: cat.description,
           sort_order: cat.sort_order,
+          default_hourly_rate: cat.default_hourly_rate,
         },
         create: { tenant_id: tenantId, ...cat },
       }),
