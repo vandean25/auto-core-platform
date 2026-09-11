@@ -192,6 +192,7 @@ describe('GlobalSearch Component', () => {
             year: 2020,
             plate: 'W-12345AB',
             vin: 'WAUZZZ8K9BA123456',
+            customer: null,
           },
         ],
         orders: [],
