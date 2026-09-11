@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
@@ -41,6 +42,7 @@ describe('Workshop Board Assign (e2e)', () => {
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     authToken = createTestAuthToken(authService, testTenant);
+    const siteId = await resolveTestMainSiteId(basePrisma, tenantId);
 
     const customer = await prisma.customer.create({
       data: {
@@ -68,6 +70,7 @@ describe('Workshop Board Assign (e2e)', () => {
         order_number: `WO-E2E-${Date.now()}`,
         customer_id: customerId,
         vehicle_id: vehicleId,
+        site_id: siteId,
         odometer: 120000,
         fuel_level: 45,
         status: 'INTAKE',

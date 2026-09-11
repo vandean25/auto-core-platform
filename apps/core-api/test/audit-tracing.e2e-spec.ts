@@ -199,6 +199,7 @@ describe('Audit Tracing and Governance (e2e)', () => {
     const initialTx = await prismaA.inventoryTransaction.create({
       data: {
         item_id: item.id,
+        site_id: siteId,
         location_id: location.id,
         quantity: 10,
         type: 'INITIAL_BALANCE',

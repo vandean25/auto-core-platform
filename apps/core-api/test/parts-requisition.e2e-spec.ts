@@ -309,6 +309,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     const stock = await prisma.inventoryStock.create({
       data: {
         catalog_item_id: catalogItem.id,
+        site_id: site.id,
         location_id: sourceLocation.id,
         quantity_on_hand: 1,
       },

@@ -81,7 +81,7 @@ describe('Multi-tenant foundation schema', () => {
     expect(schema).toContain('@@unique([tenant_id, sku]) // tenant-scoped');
     expect(schema).toContain('@@unique([tenant_id, code]) // tenant-scoped');
     expect(schema).toContain(
-      '@@unique([tenant_id, catalog_item_id, location_id]) // tenant-scoped',
+      '@@unique([tenant_id, catalog_item_id, site_id, location_id])',
     );
     expect(schema).toContain(
       '@@unique([tenant_id, order_number]) // tenant-scoped',

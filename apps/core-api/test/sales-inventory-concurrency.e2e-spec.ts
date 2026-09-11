@@ -88,6 +88,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
       tenantPrisma.inventoryStock.create({
         data: {
           catalog_item_id: firstItem.id,
+          site_id: siteId,
           location_id: firstLocation.id,
           quantity_on_hand: 1,
         },
@@ -95,6 +96,7 @@ describe('Sales multi-stock concurrency (e2e)', () => {
       tenantPrisma.inventoryStock.create({
         data: {
           catalog_item_id: secondItem.id,
+          site_id: siteId,
           location_id: secondLocation.id,
           quantity_on_hand: 1,
         },
