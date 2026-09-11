@@ -129,6 +129,8 @@ describe('workshop-intake.helpers', () => {
         OR: [
           { vin: { contains: 'ABC', mode: 'insensitive' } },
           { plate: { contains: 'ABC', mode: 'insensitive' } },
+          { make: { contains: 'ABC', mode: 'insensitive' } },
+          { model: { contains: 'ABC', mode: 'insensitive' } },
         ],
       });
     });

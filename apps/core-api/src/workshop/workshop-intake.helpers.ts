@@ -141,6 +141,8 @@ export function buildVehicleSearchWhere(
     OR: [
       { vin: { contains: query, mode: 'insensitive' } },
       { plate: { contains: query, mode: 'insensitive' } },
+      { make: { contains: query, mode: 'insensitive' } },
+      { model: { contains: query, mode: 'insensitive' } },
     ],
   };
 }
