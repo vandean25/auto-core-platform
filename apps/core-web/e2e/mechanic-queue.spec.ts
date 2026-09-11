@@ -73,6 +73,8 @@ test.describe('Mechanic queue row navigation', () => {
 
     await expect(page.getByRole('heading', { name: 'My Queue' })).toBeVisible()
     await expect(page.getByText('QA Labor Test Task')).toBeVisible()
+    await expect(page.getByText('WO-2026-0004')).toBeVisible()
+    await expect(page.getByText('W-12345AB')).toBeVisible()
 
     const urlBefore = page.url()
     await page.getByText('QA Labor Test Task').click()
