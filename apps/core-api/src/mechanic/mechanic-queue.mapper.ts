@@ -109,6 +109,7 @@ export type RawTaskDetailRecord = {
   line_items: Array<{
     id: string;
     type: import('@prisma/client').WorkshopLineItemType;
+    item_no: string;
     description: string;
     quantity: Prisma.Decimal | number;
     part_execution_status: WorkshopPartLineExecutionStatus | null;
@@ -189,6 +190,7 @@ export function mapToMechanicTaskDetail(
     lineItems: task.line_items.map((li) => ({
       id: li.id,
       type: li.type,
+      itemNo: li.item_no,
       description: li.description,
       qty: Number(li.quantity),
       partExecutionStatus: li.part_execution_status ?? null,

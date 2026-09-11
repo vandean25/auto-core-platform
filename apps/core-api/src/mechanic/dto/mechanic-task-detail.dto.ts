@@ -41,6 +41,9 @@ export class MechanicTaskLineItemDto {
   type!: WorkshopLineItemType;
 
   @ApiProperty()
+  itemNo!: string;
+
+  @ApiProperty()
   description!: string;
 
   @ApiProperty()

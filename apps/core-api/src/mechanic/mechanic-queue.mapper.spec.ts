@@ -118,6 +118,7 @@ describe('mechanic-queue.mapper', () => {
         {
           id: 'li-2',
           type: WorkshopLineItemType.LABOR,
+          item_no: 'ENG-001',
           description: 'Oil drain and fill',
           quantity: 1,
           part_execution_status: null,
@@ -150,6 +151,7 @@ describe('mechanic-queue.mapper', () => {
         {
           id: 'li-2',
           type: WorkshopLineItemType.LABOR,
+          itemNo: 'ENG-001',
           description: 'Oil drain and fill',
           qty: 1,
           partExecutionStatus: null,

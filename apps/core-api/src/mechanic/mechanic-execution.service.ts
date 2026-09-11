@@ -156,6 +156,7 @@ export class MechanicExecutionService {
           select: {
             id: true,
             type: true,
+            item_no: true,
             description: true,
             quantity: true,
             part_execution_status: true,

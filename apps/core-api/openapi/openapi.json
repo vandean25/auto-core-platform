@@ -11760,6 +11760,9 @@
               "PART"
             ]
           },
+          "itemNo": {
+            "type": "string"
+          },
           "description": {
             "type": "string"
           },
@@ -11780,6 +11783,7 @@
         "required": [
           "id",
           "type",
+          "itemNo",
           "description",
           "qty"
         ]
