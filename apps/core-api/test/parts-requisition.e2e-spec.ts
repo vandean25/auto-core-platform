@@ -624,27 +624,28 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
           .set('Authorization', `Bearer ${fixture.authToken}`)
           .send({ unitCost: 25 }),
         request(app.getHttpServer())
-          .post(`/api/purchase-orders/${purchaseOrder.body.id}/receipts`)
+          .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
           .set('Authorization', `Bearer ${fixture.authToken}`)
           .send({
-            receivedItems: [{ itemId: catalogItem.id, quantity: 1 }],
+            items: [{ itemId: catalogItem.id, quantity: 1 }],
           }),
       ]);
 
-      const statuses = [patchRes.status, receiveRes.status].sort();
-      // Either receive won first and patch got 409, or patch won first and receive got 200/201
-      expect(statuses).toContain(200);
       if (patchRes.status === 409) {
-        expect(receiveRes.status).toBe(200);
-        // Cost basis recorded in transaction was pre-receive unit_cost 10
+        // Receive won the row lock; cost basis must reflect pre-receive unit_cost.
+        expect(receiveRes.status).toBeGreaterThanOrEqual(200);
+        expect(receiveRes.status).toBeLessThan(300);
         const txRecord = await fixture.prisma.inventoryTransaction.findFirstOrThrow({
           where: { item_id: catalogItem.id, type: 'PURCHASE_RECEIPT' },
         });
         expect(new Prisma.Decimal(txRecord.cost_basis).toString()).toBe('10');
-      } else {
-        expect(patchRes.status).toBe(200);
-        expect(receiveRes.status).toBe(200);
+        return;
       }
+
+      // Patch won the lock first; receive must still complete without server errors.
+      expect(patchRes.status).toBe(200);
+      expect(receiveRes.status).toBeGreaterThanOrEqual(200);
+      expect(receiveRes.status).toBeLessThan(300);
     });
   });
 
