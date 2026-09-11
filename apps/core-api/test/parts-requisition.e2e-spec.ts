@@ -858,8 +858,11 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       expect(sheet.status).toBe(201);
       expect(sheet.body.lines).toHaveLength(2);
 
-      const reservationId1 = sheet.body.lines[0].reservationId;
-      const reservationId2 = sheet.body.lines[1].reservationId;
+      const reservationId1 = getReservationIdForLine(
+        sheet.body.lines,
+        fixture.lineId,
+      );
+      const reservationId2 = getReservationIdForLine(sheet.body.lines, line2.id);
 
       const purchaseOrder = await postCreatePurchaseOrder(
         fixture,
@@ -976,8 +979,11 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       );
       expect(purchaseOrder.status).toBe(201);
 
-      const reservationId1 = sheet.body.lines[0].reservationId;
-      const reservationId2 = sheet.body.lines[1].reservationId;
+      const reservationId1 = getReservationIdForLine(
+        sheet.body.lines,
+        fixture.lineId,
+      );
+      const reservationId2 = getReservationIdForLine(sheet.body.lines, line2.id);
 
       // Resolve poItemIds via DB (API response doesn't include parts_reservation_id)
       const [resDb1, resDb2] = await Promise.all([
@@ -1056,6 +1062,22 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
           quantity: selection.quantity,
         })),
       });
+  }
+
+  function getReservationIdForLine(
+    lines: Array<{
+      workshopTaskLineItemId: string;
+      reservationId: string;
+    }>,
+    lineId: string,
+  ): string {
+    const line = lines.find(
+      (candidate) => candidate.workshopTaskLineItemId === lineId,
+    );
+    if (!line) {
+      throw new Error(`Requisition response did not include line ${lineId}.`);
+    }
+    return line.reservationId;
   }
 
   async function postCreatePurchaseOrder(
