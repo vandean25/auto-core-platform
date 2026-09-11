@@ -218,7 +218,7 @@ export class PurchaseService {
 
   async receiveItems(
     orderId: string,
-    receivedItems: { itemId: string; quantity: number }[],
+    receivedItems: { itemId: string; quantity: number; locationId?: string }[],
   ) {
     return this.receiptService.receiveItems(orderId, receivedItems);
   }

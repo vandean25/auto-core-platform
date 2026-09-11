@@ -11,10 +11,13 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ReceiveItemDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description: 'purchase_order_item.id',
+  })
   @IsString()
   @IsNotEmpty()
-  itemId!: string; // purchase_order_item.id
+  itemId!: string;
 
   @ApiProperty({
     example: 1.5,
@@ -27,7 +30,11 @@ export class ReceiveItemDto {
   @Min(0.001)
   quantity!: number;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Free-stock bin for unlinked or released items. Required when a linked reservation slice was released.',
+  })
   @IsString()
   @IsOptional()
   locationId?: string;

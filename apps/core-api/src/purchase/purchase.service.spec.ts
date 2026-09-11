@@ -3,6 +3,7 @@ import { PurchaseService } from './purchase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../inventory/ledger.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { SiteService } from '../site/site.service';
 import {
   BadRequestException,
@@ -92,6 +93,10 @@ describe('PurchaseService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContextService },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+        },
         { provide: SiteService, useValue: { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } },
       ],
     }).compile();
@@ -228,7 +233,7 @@ describe('PurchaseService', () => {
       });
       mockPrismaService.purchaseOrder.update.mockResolvedValue({});
 
-      await service.receiveItems('order1', [{ itemId: 'item1', quantity: 5 }]);
+      await service.receiveItems('order1', [{ itemId: 'poi1', quantity: 5 }]);
 
       expect(
         mockPrismaService.purchaseOrderItem.updateMany,
@@ -256,7 +261,7 @@ describe('PurchaseService', () => {
       );
     });
 
-    it('returns 409 when a concurrent receive already transitioned the PO', async () => {
+    it('returns 409 when the purchase order item was updated concurrently', async () => {
       const mockPO = {
         id: 'order1',
         order_number: 'PO-1',
@@ -268,32 +273,22 @@ describe('PurchaseService', () => {
             quantity: 10,
             quantity_received: 0,
             unit_cost: 50,
+            parts_reservation: null,
           },
         ],
       };
 
-      mockPrismaService.purchaseOrder.findFirst
-        .mockResolvedValueOnce(mockPO)
-        .mockResolvedValueOnce({
-          ...mockPO,
-          items: [{ ...mockPO.items[0], quantity_received: 10 }],
-        });
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(mockPO);
       mockPrismaService.storageLocation.findFirst.mockResolvedValue({
         id: 'loc1',
         type: 'warehouse',
       });
-      mockPrismaService.purchaseOrderItem.findMany.mockResolvedValue(
-        mockPO.items,
-      );
       mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
-        count: 1,
-      });
-      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
         count: 0,
       });
 
       await expect(
-        service.receiveItems('order1', [{ itemId: 'item1', quantity: 10 }]),
+        service.receiveItems('order1', [{ itemId: 'poi1', quantity: 10 }]),
       ).rejects.toBeInstanceOf(ConflictException);
     });
   });

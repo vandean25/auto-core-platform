@@ -115,7 +115,7 @@ export function useReceiveGoods() {
       items,
     }: {
       orderId: string;
-      items: { itemId: string; quantity: number }[];
+      items: { itemId: string; quantity: number; locationId?: string }[];
     }) => {
       const res = await fetchWithAuth(`${PO_API}/${orderId}/receive`, {
         method: "POST",

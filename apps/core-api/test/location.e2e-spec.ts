@@ -248,13 +248,17 @@ describe('Location Hierarchy (e2e)', () => {
           ],
         },
       },
+      include: { items: true },
     });
+
+    // itemId is now purchase_order_item.id (AUT-245: disambiguates duplicate SKUs on one PO)
+    const poItemId = po.items[0].id;
 
     // Let's rely on receiving items to create the General Bin automatically.
     const receiveRes = await request(app.getHttpServer())
       .post(`/api/purchase-orders/${po.id}/receive`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ items: [{ itemId: item.id, quantity: 10 }] })
+      .send({ items: [{ itemId: poItemId, quantity: 10 }] })
       .expect(201);
 
     // Check where the stock went

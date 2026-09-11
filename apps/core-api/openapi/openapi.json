@@ -7833,7 +7833,8 @@
         "properties": {
           "itemId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "purchase_order_item.id"
           },
           "quantity": {
             "type": "number",
@@ -7843,7 +7844,8 @@
           },
           "locationId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Free-stock bin for unlinked or released items. Required when a linked reservation slice was released."
           }
         },
         "required": [

@@ -1,11 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
-import { PurchaseOrderStatus, Prisma } from '@prisma/client';
+import {
+  PartsReservationStatus,
+  Prisma,
+  PurchaseOrderStatus,
+} from '@prisma/client';
 
 import Decimal = Prisma.Decimal;
 
 export interface IncomingReceiptItem {
   itemId: string;
   quantity: number;
+  locationId?: string;
 }
 
 export interface PoItemSummary {
@@ -23,6 +28,11 @@ export interface ValidatedAggregatedReceiptItem {
   quantityReceived: Decimal;
 }
 
+export interface ReceivedReservationState {
+  status: PartsReservationStatus;
+  detached_at: Date | null;
+}
+
 /**
  * Aggregates incoming received items by purchase order item and validates:
  * - itemId exists
@@ -36,7 +46,7 @@ export function aggregateAndValidateReceiptItems(
   currentItemsMap: Map<string, PoItemSummary>,
 ): ValidatedAggregatedReceiptItem[] {
   const aggregatedReceived = new Map<string, ValidatedAggregatedReceiptItem>();
-  const poItemsMap = new Map(poItems.map((i) => [i.catalog_item_id, i]));
+  const poItemsMap = new Map(poItems.map((i) => [i.id, i]));
 
   for (const received of receivedItems) {
     if (!received.itemId) {
@@ -47,7 +57,7 @@ export function aggregateAndValidateReceiptItems(
 
     const poItem = poItemsMap.get(received.itemId);
     if (!poItem) {
-      const availableIds = poItems.map((i) => i.catalog_item_id).join(', ');
+      const availableIds = poItems.map((i) => i.id).join(', ');
       throw new BadRequestException(
         `Item ${received.itemId} not in this PO. Available: ${availableIds}`,
       );
@@ -116,4 +126,31 @@ export function determinePostReceiptStatus(
   }
 
   return currentStatus;
+}
+
+/**
+ * An allocated slice still owns the received units: it is neither released nor
+ * cancelled, so receipt transfers the goods into the job tote.
+ */
+export function isAllocatedReservation<T extends ReceivedReservationState>(
+  reservation: T | null | undefined,
+): reservation is T {
+  return Boolean(
+    reservation &&
+    reservation.status !== PartsReservationStatus.CANCELLED &&
+    reservation.detached_at === null,
+  );
+}
+
+/**
+ * A slice becomes STAGED once its cumulative receipt covers the reserved
+ * quantity; a partial receipt stays ORDERED.
+ */
+export function determineReceivedReservationStatus(
+  quantity: number | Decimal,
+  quantityReceived: number | Decimal,
+): PartsReservationStatus {
+  return new Decimal(quantityReceived).gte(new Decimal(quantity))
+    ? PartsReservationStatus.STAGED
+    : PartsReservationStatus.ORDERED;
 }
