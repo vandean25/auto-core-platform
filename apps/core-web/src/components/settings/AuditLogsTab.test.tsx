@@ -38,6 +38,12 @@ vi.mock('@/api/audit', () => ({
   })),
 }))
 
+vi.mock('@/api/workshop', () => ({
+  useWorkshopSettings: vi.fn(() => ({
+    data: { timezone: 'Europe/Vienna' },
+  })),
+}))
+
 vi.mock('@/components/data-table/DataTable', () => ({
   DataTable: ({
     data,
@@ -94,6 +100,7 @@ describe('AuditLogsTab', () => {
     })
 
     expect(screen.getByText('Target ID: cust-uuid-1')).toBeInTheDocument()
+    expect(screen.getByText('2026-08-14 12:00:00')).toBeInTheDocument()
     expect(screen.getByText('admin@autocore.test')).toBeInTheDocument()
     expect(screen.getByText('req-abc-123')).toBeInTheDocument()
     expect(screen.getByText('password')).toBeInTheDocument()

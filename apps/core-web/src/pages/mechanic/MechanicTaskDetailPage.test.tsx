@@ -514,6 +514,40 @@ describe('MechanicTaskDetailPage', () => {
       }
     })
 
+    it('shows friendly guidance when no microphone is found', async () => {
+      const media = installMediaRecorderMock()
+      media.getUserMediaMock.mockRejectedValueOnce(
+        new DOMException('Requested device not found', 'NotFoundError'),
+      )
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/no microphone found\. check device permissions\./i)).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/requested device not found/i)).not.toBeInTheDocument()
+    })
+
+    it('shows friendly guidance when microphone permission is denied', async () => {
+      const media = installMediaRecorderMock()
+      media.getUserMediaMock.mockRejectedValueOnce(
+        new DOMException('Permission denied', 'NotAllowedError'),
+      )
+      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS', mechanicNotes: '' }))
+
+      renderDetailPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /record voice note/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/no microphone found\. check device permissions\./i)).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/permission denied/i)).not.toBeInTheDocument()
+    })
+
     it('transitions from recording to processing to draft-ready and uploads audio', async () => {
       const media = installMediaRecorderMock()
       let resolveUpload: ((value: { text: string }) => void) | undefined

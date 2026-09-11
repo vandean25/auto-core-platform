@@ -46,6 +46,8 @@ export default function MechanicQueuePage() {
     })
   }, [queueResponse, search])
 
+  const hasSearch = search.trim().length > 0
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -82,7 +84,12 @@ export default function MechanicQueuePage() {
       />
 
       {isLoading ? <p className="text-slate-500">Loading tasks…</p> : null}
-      {!isLoading && items.length === 0 ? (
+      {!isLoading && items.length === 0 && hasSearch ? (
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <p className="text-slate-500">No results.</p>
+        </div>
+      ) : null}
+      {!isLoading && items.length === 0 && !hasSearch ? (
         <div className="rounded-xl border border-dashed p-8 text-center">
           <h2 className="text-lg font-semibold">No tasks assigned</h2>
           <p className="mt-1 text-slate-500">Jobs you are assigned appear here.</p>

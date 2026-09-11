@@ -818,6 +818,7 @@ describe('WorkshopTaskService', () => {
       scheduled_date: new Date('2026-08-21T00:00:00.000Z'),
       line_items: [],
     });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
 
     await service.createTask('wo-1', { title: 'Brake service' });
 
@@ -825,7 +826,36 @@ describe('WorkshopTaskService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           scheduled_date: new Date('2026-08-21T00:00:00.000Z'),
+          sequence: 1,
         }),
+      }),
+    );
+  });
+
+  it('assigns the next sequence after existing tasks', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      status: WorkshopOrderStatus.INTAKE,
+      scheduled_start_at: null,
+      tasks: [
+        { id: 'existing-task-1', sequence: 1 },
+        { id: 'existing-task-2', sequence: 4 },
+      ],
+      invoice: null,
+    });
+    mockPrisma.workshopTask.create.mockResolvedValue({
+      id: 't-1',
+      status: WorkshopTaskStatus.NOT_STARTED,
+      scheduled_date: null,
+      line_items: [],
+    });
+    mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.createTask('wo-1', { title: 'Brake service' });
+
+    expect(mockPrisma.workshopTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ sequence: 5 }),
       }),
     );
   });

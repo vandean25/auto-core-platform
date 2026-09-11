@@ -50,4 +50,41 @@ describe('seedLabor', () => {
     expect(updateManyCalls).toHaveLength(6);
     expect(mockPrisma.laborFitment.create).toHaveBeenCalledTimes(2);
   });
+
+  it('seeds the default hourly rate on every category create and update', async () => {
+    const categoryUpserts: any[] = [];
+    const mockPrisma: any = {
+      laborCategory: {
+        upsert: jest.fn().mockImplementation(async (args) => {
+          categoryUpserts.push(args);
+          return { id: `cat-${args.create.name}`, name: args.create.name };
+        }),
+      },
+      laborOperation: {
+        upsert: jest.fn().mockResolvedValue({ id: 'operation-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      laborFitment: { create: jest.fn() },
+    };
+
+    await seedLabor(mockPrisma, 'tenant-1');
+
+    expect(categoryUpserts).toHaveLength(6);
+    expect(categoryUpserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          create: expect.objectContaining({ default_hourly_rate: 95.0 }),
+          update: expect.objectContaining({ default_hourly_rate: 95.0 }),
+        }),
+      ]),
+    );
+    expect(
+      categoryUpserts.every(
+        ({ create, update }) =>
+          create.default_hourly_rate === 95.0 &&
+          update.default_hourly_rate === 95.0,
+      ),
+    ).toBe(true);
+  });
 });

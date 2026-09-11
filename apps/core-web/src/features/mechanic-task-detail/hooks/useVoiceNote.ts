@@ -5,10 +5,30 @@ import { mergeVoiceDraftIntoNotes } from '../notes'
 import type { VoiceNoteState } from '../types'
 import { isVoiceNoteSupported, selectVoiceRecorderMimeType } from '../voice-recorder'
 
+const NO_MICROPHONE_MESSAGE = 'No microphone found. Check device permissions.'
+const MICROPHONE_ACCESS_ERROR_NAMES = new Set([
+  'NotFoundError',
+  'DevicesNotFoundError',
+  'OverconstrainedError',
+  'NotAllowedError',
+  'PermissionDeniedError',
+])
+
 type UseVoiceNoteOptions = {
   taskId: string
   notesValue: string
   onAcceptDraft: (mergedNotes: string) => void
+}
+
+function getMicrophoneAccessErrorMessage(error: unknown): string {
+  const errorName =
+    typeof error === 'object' && error !== null && 'name' in error ? String(error.name) : ''
+
+  if (MICROPHONE_ACCESS_ERROR_NAMES.has(errorName)) {
+    return NO_MICROPHONE_MESSAGE
+  }
+
+  return 'Unable to access microphone.'
 }
 
 export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNoteOptions) {
@@ -126,7 +146,7 @@ export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNote
     } catch (error: unknown) {
       stopMediaCapture()
       setVoiceNoteState('error')
-      setVoiceNoteError(getErrorMessage(error, 'Unable to access microphone.'))
+      setVoiceNoteError(getMicrophoneAccessErrorMessage(error))
     } finally {
       voiceStartInFlightRef.current = false
     }

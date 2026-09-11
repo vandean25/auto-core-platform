@@ -19,7 +19,7 @@ export function PageLoader() {
         ACP
       </motion.div>
       <div className="flex flex-col items-center space-y-1">
-        <p className="text-sm font-medium text-slate-600">Loading module...</p>
+        <p className="text-sm font-medium text-slate-600">Loading Auto Core…</p>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-slate-200">
           <motion.div
             initial={{ x: "-100%" }}

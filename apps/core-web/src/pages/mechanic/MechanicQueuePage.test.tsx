@@ -217,6 +217,19 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('WO-2026-0004')).toBeInTheDocument()
       expect(screen.queryByText('WO-2026-0005')).not.toBeInTheDocument()
     })
+
+    it('shows a no-results message when search has no matches', () => {
+      setupDefaultMocks()
+
+      renderQueuePage()
+
+      fireEvent.change(screen.getByPlaceholderText('Search tasks, plates, WO…'), {
+        target: { value: 'Missing task' },
+      })
+
+      expect(screen.getByText('No results.')).toBeInTheDocument()
+      expect(screen.queryByText('No tasks assigned')).not.toBeInTheDocument()
+    })
   })
 
   // ─── Header actions ──────────────────────────────────────────────────────────
