@@ -69,6 +69,7 @@ const HrClockPage = React.lazy(() => import('./pages/hr/HrClockPage'))
 const HrLeavePage = React.lazy(() => import('./pages/hr/HrLeavePage'))
 const MechanicQueuePage = React.lazy(() => import('./pages/mechanic/MechanicQueuePage'))
 const MechanicTaskDetailPage = React.lazy(() => import('./pages/mechanic/MechanicTaskDetailPage'))
+const MechanicAccessDeniedPage = React.lazy(() => import('./pages/mechanic/MechanicAccessDeniedPage'))
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
@@ -273,6 +274,7 @@ type MechanicShellProps = {
   activeTenant: AuthSessionTenant | null
   userEmail: string | null
   onSignOut: () => void
+  children?: React.ReactNode
 }
 
 function MechanicRoutes() {
@@ -305,7 +307,7 @@ function MechanicRoutes() {
 // can survive an upgrade even if the user never explicitly cleared site data.
 const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
 
-export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicShellProps) {
+export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: MechanicShellProps) {
   React.useEffect(() => {
     window.localStorage.removeItem(LEGACY_MECHANIC_ID_KEY)
   }, [])
@@ -342,7 +344,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicSh
       </header>
       <main>
         <GlobalErrorBoundary>
-          <MechanicRoutes />
+          {children ?? <MechanicRoutes />}
         </GlobalErrorBoundary>
       </main>
       <Toaster />
@@ -353,7 +355,6 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut }: MechanicSh
 // ─── Shell Router ─────────────────────────────────────────────────────────────
 
 const ADMIN_HOME_PATH = APP_ROUTE_PATHS.dashboard
-const MECHANIC_HOME_PATH = MECHANIC_ROUTE_PATHS.queue
 const SUPER_ADMIN_ROLE = 'SUPER_ADMIN'
 const TECH_ROLE = 'TECH'
 
@@ -369,10 +370,6 @@ function resolveShellRedirect(input: {
   // Frontend-only UX gates. API authorization remains the source of truth.
   const mechanicPath = isMechanicPath(input.pathname)
   const mechanicMode = input.activeRole === TECH_ROLE
-
-  if (mechanicMode && !mechanicPath) {
-    return MECHANIC_HOME_PATH
-  }
 
   if (mechanicPath && !mechanicMode) {
     return ADMIN_HOME_PATH
@@ -395,6 +392,20 @@ export function ShellRouter(props: ShellRouterProps) {
 
   if (redirectTo) {
     return <Navigate to={redirectTo} replace />
+  }
+
+  if (props.activeRole === TECH_ROLE && !isMechanicPath(location.pathname)) {
+    return (
+      <MechanicShell
+        activeTenant={props.activeTenant}
+        userEmail={props.userEmail}
+        onSignOut={props.onSignOut}
+      >
+        <React.Suspense fallback={<PageLoader />}>
+          <MechanicAccessDeniedPage />
+        </React.Suspense>
+      </MechanicShell>
+    )
   }
 
   if (isMechanicPath(location.pathname)) {
