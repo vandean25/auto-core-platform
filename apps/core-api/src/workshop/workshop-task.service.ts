@@ -131,7 +131,8 @@ export class WorkshopTaskService {
           title: dto.title,
           status: WorkshopTaskStatus.NOT_STARTED,
           sequence:
-            order.tasks.reduce((max, task) => Math.max(max, task.sequence), 0) + 1,
+            order.tasks.reduce((max, task) => Math.max(max, task.sequence), 0) +
+            1,
           scheduled_date: scheduledDate,
         },
         include: {
