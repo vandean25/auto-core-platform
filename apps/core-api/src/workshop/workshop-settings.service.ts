@@ -8,6 +8,7 @@ import type {
   Site,
   WorkshopOpeningHour,
 } from '@prisma/client';
+import { SiteContextService } from '../common/services/site-context.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -29,20 +30,20 @@ type SiteWithHours = Site & {
 /**
  * Tenant-singleton WorkshopSettings was replaced by per-site planner fields
  * (ADR-0022 / ruling 20, 56). The GET/PUT /api/workshop/settings routes keep
- * their shape but now read/write the tenant's MAIN Site. Legacy single-site
- * tenants get exactly one MAIN Site from the backfill migration, so the
- * existing planner/schedule/holiday code keeps working unchanged.
+ * their shape but now read/write the authenticated user's active site. Legacy
+ * single-site tenants get exactly one MAIN Site from the backfill migration, so
+ * the existing planner/schedule/holiday code keeps working unchanged.
  */
 @Injectable()
 export class WorkshopSettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async getSettings(): Promise<WorkshopSettingsResponseDto> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.getOrCreateSettings(tenantId);
+    const settings = await this.getActiveSiteSettings();
     return this.toResponse(settings);
   }
 
@@ -52,8 +53,11 @@ export class WorkshopSettingsService {
     this.assertTenantAdminAccess();
     this.assertValidUpdate(dto);
 
-    const tenantId = await this.tenantContext.getTenantId();
-    const existing = await this.getOrCreateSettings(tenantId);
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const existing = await this.getSettingsForSite(tenantId, siteId);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.site.update({
@@ -180,6 +184,30 @@ export class WorkshopSettingsService {
         include: { openingHours: { orderBy: { weekday: 'asc' } } },
       });
     });
+  }
+
+  async getSettingsForSite(
+    tenantId: string,
+    siteId: string,
+  ): Promise<SiteWithHours> {
+    const site = await this.prisma.site.findFirst({
+      where: { id: siteId, tenant_id: tenantId, is_active: true },
+      include: { openingHours: { orderBy: { weekday: 'asc' } } },
+    });
+    if (!site) {
+      throw new BadRequestException('The active site is unavailable.');
+    }
+    return site.openingHours.length === 7
+      ? site
+      : this.ensureSevenOpeningHours(tenantId, site);
+  }
+
+  private async getActiveSiteSettings(): Promise<SiteWithHours> {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    return this.getSettingsForSite(tenantId, siteId);
   }
 
   private async ensureSevenOpeningHours(

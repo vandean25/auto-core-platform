@@ -6,7 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteService } from '../site/site.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { CreateBayDto, ListBaysQueryDto, UpdateBayDto } from './dto/bay.dto';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class BayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
-    private readonly siteService: SiteService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   private mapBay(bay: {
@@ -45,7 +45,15 @@ export class BayService {
   }
 
   async findAll(query: ListBaysQueryDto) {
-    const where = query.includeInactive ? {} : { is_active: true };
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const where = {
+      tenant_id: tenantId,
+      site_id: siteId,
+      ...(query.includeInactive ? {} : { is_active: true }),
+    };
 
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 25));
@@ -73,7 +81,13 @@ export class BayService {
   }
 
   async findOne(id: string) {
-    const bay = await this.prisma.bay.findFirst({ where: { id } });
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const bay = await this.prisma.bay.findFirst({
+      where: { id, tenant_id: tenantId, site_id: siteId },
+    });
     if (!bay) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }
@@ -82,8 +96,7 @@ export class BayService {
 
   async create(dto: CreateBayDto) {
     try {
-      const tenantId = await this.tenantContext.getTenantId();
-      const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
+      const siteId = await this.siteContext.getSiteId();
       const created = await this.prisma.bay.create({
         data: {
           site_id: siteId,
@@ -100,20 +113,35 @@ export class BayService {
   }
 
   async update(id: string, dto: UpdateBayDto) {
-    const existing = await this.prisma.bay.findFirst({ where: { id } });
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const existing = await this.prisma.bay.findFirst({
+      where: { id, tenant_id: tenantId, site_id: siteId },
+    });
     if (!existing) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }
 
     try {
-      const updated = await this.prisma.bay.update({
-        where: { id },
+      const result = await this.prisma.bay.updateMany({
+        where: { id, tenant_id: tenantId, site_id: siteId },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
           ...(dto.isActive !== undefined && { is_active: dto.isActive }),
           ...(dto.sortOrder !== undefined && { sort_order: dto.sortOrder }),
         },
       });
+      if (result.count === 0) {
+        throw new NotFoundException(`Bay with ID ${id} not found`);
+      }
+      const updated = await this.prisma.bay.findFirst({
+        where: { id, tenant_id: tenantId, site_id: siteId },
+      });
+      if (!updated) {
+        throw new NotFoundException(`Bay with ID ${id} not found`);
+      }
 
       return this.mapBay(updated);
     } catch (error) {
@@ -123,13 +151,19 @@ export class BayService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.bay.findFirst({ where: { id } });
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const existing = await this.prisma.bay.findFirst({
+      where: { id, tenant_id: tenantId, site_id: siteId },
+    });
     if (!existing) {
       throw new NotFoundException(`Bay with ID ${id} not found`);
     }
 
     const linkedOrders = await this.prisma.workshopOrder.count({
-      where: { bay_id: id },
+      where: { bay_id: id, tenant_id: tenantId, site_id: siteId },
     });
     if (linkedOrders > 0) {
       throw new ConflictException(
@@ -138,14 +172,25 @@ export class BayService {
     }
 
     if (existing.is_active) {
-      const updated = await this.prisma.bay.update({
-        where: { id },
+      const result = await this.prisma.bay.updateMany({
+        where: { id, tenant_id: tenantId, site_id: siteId },
         data: { is_active: false },
       });
+      if (result.count === 0) {
+        throw new NotFoundException(`Bay with ID ${id} not found`);
+      }
+      const updated = await this.prisma.bay.findFirst({
+        where: { id, tenant_id: tenantId, site_id: siteId },
+      });
+      if (!updated) {
+        throw new NotFoundException(`Bay with ID ${id} not found`);
+      }
       return { id: updated.id, isActive: updated.is_active };
     }
 
-    await this.prisma.bay.delete({ where: { id } });
+    await this.prisma.bay.deleteMany({
+      where: { id, tenant_id: tenantId, site_id: siteId },
+    });
     return { id, deleted: true };
   }
 }

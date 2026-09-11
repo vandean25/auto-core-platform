@@ -197,6 +197,7 @@ export async function seedInventory(
   // Batch insert ledger transactions
   const transactionsData = initialStockEntries.map((entry) => ({
     tenant_id: tenantId,
+    site_id: siteId,
     item_id: entry.itemId,
     location_id: entry.locationId,
     quantity: entry.quantity,
@@ -214,6 +215,7 @@ export async function seedInventory(
   // Batch insert cached stocks
   const stocksData = initialStockEntries.map((entry) => ({
     tenant_id: tenantId,
+    site_id: siteId,
     catalog_item_id: entry.itemId,
     location_id: entry.locationId,
     quantity_on_hand: entry.quantity,

@@ -120,6 +120,7 @@ export async function processSaleInventoryDeduction({
 
       transactionCreations.push({
         tenant_id: tenantId,
+        site_id: siteId,
         item_id: item.catalog_item_id,
         location_id: stock.location_id,
         quantity: quantityFromStock.negated(),

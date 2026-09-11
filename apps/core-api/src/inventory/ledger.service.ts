@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -27,11 +28,14 @@ interface AggregatedStockDelta {
   quantity: Decimal;
 }
 
+type LocationSiteIds = ReadonlyMap<string, string>;
+
 @Injectable()
 export class LedgerService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   /**
@@ -66,12 +70,21 @@ export class LedgerService {
     const tenantId = await this.tenantContext.getTenantId();
 
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
-    await this.validateLocations(tx, tenantId, locationIds);
+    const locationSiteIds = await this.validateLocations(
+      tx,
+      tenantId,
+      locationIds,
+    );
 
-    await this.persistTransactions(tx, tenantId, paramsArray);
+    await this.persistTransactions(tx, tenantId, paramsArray, locationSiteIds);
 
     const aggregatedDeltas = this.aggregateStockDeltas(paramsArray);
-    await this.applyStockUpdates(tx, tenantId, aggregatedDeltas);
+    await this.applyStockUpdates(
+      tx,
+      tenantId,
+      aggregatedDeltas,
+      locationSiteIds,
+    );
   }
 
   /**
@@ -81,7 +94,7 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     locationIds: string[],
-  ): Promise<void> {
+  ): Promise<LocationSiteIds> {
     const locations = await tx.storageLocation.findMany({
       where: { tenant_id: tenantId, id: { in: locationIds } },
     });
@@ -98,6 +111,10 @@ export class LedgerService {
         );
       }
     }
+
+    return new Map(
+      locations.map((location) => [location.id, location.site_id]),
+    );
   }
 
   /**
@@ -107,9 +124,11 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     paramsArray: RecordTransactionParams[],
+    locationSiteIds: LocationSiteIds,
   ): Promise<void> {
     const transactionsData = paramsArray.map((params) => ({
       tenant_id: tenantId,
+      site_id: this.getLocationSiteId(locationSiteIds, params.locationId),
       item_id: params.itemId,
       location_id: params.locationId,
       quantity: new Decimal(params.quantity.toString()),
@@ -164,6 +183,7 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     deltas: AggregatedStockDelta[],
+    locationSiteIds: LocationSiteIds,
   ): Promise<void> {
     const existingStocks = await tx.inventoryStock.findMany({
       where: {
@@ -220,6 +240,7 @@ export class LedgerService {
         stock = await tx.inventoryStock.create({
           data: {
             tenant_id: tenantId,
+            site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
             catalog_item_id: delta.itemId,
             location_id: delta.locationId,
             quantity_on_hand: delta.quantity,
@@ -237,15 +258,30 @@ export class LedgerService {
     });
   }
 
+  private getLocationSiteId(
+    locationSiteIds: LocationSiteIds,
+    locationId: string,
+  ): string {
+    const siteId = locationSiteIds.get(locationId);
+    if (!siteId) {
+      throw new BadRequestException(`Location ${locationId} is missing a site`);
+    }
+    return siteId;
+  }
+
   /**
    * Gets all transactions for a specific item and location.
    * Useful for audit trail and debugging.
    */
   async getTransactionHistory(itemId: string, locationId?: string) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
     return await this.prisma.inventoryTransaction.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         item_id: itemId,
         ...(locationId && { location_id: locationId }),
       },

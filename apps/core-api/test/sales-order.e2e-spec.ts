@@ -92,6 +92,7 @@ describe('Sales Order Workflow (e2e)', () => {
     await prisma.inventoryStock.create({
       data: {
         catalog_item_id: catalogItemId,
+        site_id: siteId,
         location_id: locationId,
         quantity_on_hand: 100,
       },

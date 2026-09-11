@@ -64,6 +64,7 @@ describe('SalesController (e2e)', () => {
     await prisma.inventoryStock.create({
       data: {
         catalog_item_id: catalogItemId,
+        site_id: siteId,
         location_id: location.id,
         quantity_on_hand: 100,
       },

@@ -139,8 +139,9 @@ export class WorkshopScheduleService {
       },
     });
 
-    const settings = await this.settingsService.getOrCreateSettings(
+    const settings = await this.settingsService.getSettingsForSite(
       input.tenantId,
+      input.siteId,
     );
     const holidays = await input.db.workshopHoliday.findMany({
       where: { tenant_id: input.tenantId, site_id: input.siteId },

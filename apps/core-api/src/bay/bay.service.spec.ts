@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BayService } from './bay.service';
-import { SiteService } from '../site/site.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 const mockPrisma = {
   bay: {
@@ -12,7 +12,9 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
   },
   workshopOrder: {
     count: jest.fn(),
@@ -35,7 +37,9 @@ describe('BayService', () => {
     service = new BayService(
       mockPrisma as unknown as PrismaService,
       { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as never,
-      { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } as SiteService,
+      {
+        getSiteId: jest.fn().mockResolvedValue('site-1'),
+      } as SiteContextService,
     );
     jest.clearAllMocks();
   });
@@ -47,7 +51,7 @@ describe('BayService', () => {
     const result = await service.findAll({});
 
     expect(mockPrisma.bay.findMany).toHaveBeenCalledWith({
-      where: { is_active: true },
+      where: { tenant_id: 'tenant-1', site_id: 'site-1', is_active: true },
       orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
       skip: 0,
       take: 25,
@@ -68,7 +72,7 @@ describe('BayService', () => {
 
     expect(mockPrisma.bay.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {},
+        where: { tenant_id: 'tenant-1', site_id: 'site-1' },
         skip: 10,
         take: 10,
       }),
@@ -99,7 +103,9 @@ describe('BayService', () => {
   });
 
   it('maps duplicate update to ConflictException', async () => {
-    mockPrisma.bay.findFirst.mockResolvedValue(baseBay);
+    mockPrisma.bay.findFirst
+      .mockResolvedValueOnce(baseBay)
+      .mockResolvedValueOnce({ ...baseBay, is_active: false });
     const p2002 = new Prisma.PrismaClientKnownRequestError(
       'Unique constraint',
       {
@@ -107,7 +113,7 @@ describe('BayService', () => {
         clientVersion: '0',
       },
     );
-    mockPrisma.bay.update.mockRejectedValue(p2002);
+    mockPrisma.bay.updateMany.mockRejectedValue(p2002);
 
     await expect(service.update('bay-1', { name: 'Bay B' })).rejects.toThrow(
       ConflictException,
@@ -124,15 +130,17 @@ describe('BayService', () => {
   });
 
   it('soft-disables bay on first delete when unreferenced', async () => {
-    mockPrisma.bay.findFirst.mockResolvedValue(baseBay);
+    mockPrisma.bay.findFirst
+      .mockResolvedValueOnce(baseBay)
+      .mockResolvedValueOnce({ ...baseBay, is_active: false });
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
-    mockPrisma.bay.update.mockResolvedValue({ ...baseBay, is_active: false });
+    mockPrisma.bay.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await service.remove('bay-1');
 
     expect(result.isActive).toBe(false);
-    expect(mockPrisma.bay.update).toHaveBeenCalledWith({
-      where: { id: 'bay-1' },
+    expect(mockPrisma.bay.updateMany).toHaveBeenCalledWith({
+      where: { id: 'bay-1', tenant_id: 'tenant-1', site_id: 'site-1' },
       data: { is_active: false },
     });
   });
@@ -143,13 +151,13 @@ describe('BayService', () => {
       is_active: false,
     });
     mockPrisma.workshopOrder.count.mockResolvedValue(0);
-    mockPrisma.bay.delete.mockResolvedValue({ id: 'bay-1' });
+    mockPrisma.bay.deleteMany.mockResolvedValue({ count: 1 });
 
     const result = await service.remove('bay-1');
 
     expect(result).toEqual({ id: 'bay-1', deleted: true });
-    expect(mockPrisma.bay.delete).toHaveBeenCalledWith({
-      where: { id: 'bay-1' },
+    expect(mockPrisma.bay.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'bay-1', tenant_id: 'tenant-1', site_id: 'site-1' },
     });
   });
 });

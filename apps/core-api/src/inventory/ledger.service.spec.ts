@@ -4,15 +4,18 @@ import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { LedgerService, RecordTransactionParams } from './ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 describe('LedgerService', () => {
   let service: LedgerService;
   let mockPrisma: any;
   let mockTenantContext: { getTenantId: jest.Mock };
+  let mockSiteContext: { getSiteId: jest.Mock };
 
   const TENANT_ID = 'tenant-uuid-123';
   const ITEM_ID = 'item-uuid-1';
   const LOCATION_ID = 'loc-bin-1';
+  const SITE_ID = 'site-vienna';
 
   beforeEach(async () => {
     mockPrisma = {
@@ -34,12 +37,16 @@ describe('LedgerService', () => {
     mockTenantContext = {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
     };
+    mockSiteContext = {
+      getSiteId: jest.fn().mockResolvedValue(SITE_ID),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LedgerService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantContextService, useValue: mockTenantContext },
+        { provide: SiteContextService, useValue: mockSiteContext },
       ],
     }).compile();
 
@@ -106,8 +113,18 @@ describe('LedgerService', () => {
 
     it('should accept bin and staging_tote locations', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: 'loc-bin', type: LocationType.bin, name: 'Bin 1' },
-        { id: 'loc-tote', type: LocationType.staging_tote, name: 'Tote 1' },
+        {
+          id: 'loc-bin',
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
+        {
+          id: 'loc-tote',
+          site_id: SITE_ID,
+          type: LocationType.staging_tote,
+          name: 'Tote 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
       mockPrisma.inventoryStock.create
@@ -134,12 +151,14 @@ describe('LedgerService', () => {
         data: [
           expect.objectContaining({
             tenant_id: TENANT_ID,
+            site_id: SITE_ID,
             item_id: ITEM_ID,
             location_id: 'loc-bin',
             type: TransactionType.PURCHASE_RECEIPT,
           }),
           expect.objectContaining({
             tenant_id: TENANT_ID,
+            site_id: SITE_ID,
             item_id: ITEM_ID,
             location_id: 'loc-tote',
             type: TransactionType.TRANSFER_IN,
@@ -150,7 +169,12 @@ describe('LedgerService', () => {
 
     it('should create new stock record when existing stock does not exist', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
       mockPrisma.inventoryStock.create.mockResolvedValue({
@@ -180,6 +204,7 @@ describe('LedgerService', () => {
         data: [
           {
             tenant_id: TENANT_ID,
+            site_id: SITE_ID,
             item_id: ITEM_ID,
             location_id: LOCATION_ID,
             quantity: new Prisma.Decimal('10'),
@@ -193,6 +218,7 @@ describe('LedgerService', () => {
       expect(mockPrisma.inventoryStock.create).toHaveBeenCalledWith({
         data: {
           tenant_id: TENANT_ID,
+          site_id: SITE_ID,
           catalog_item_id: ITEM_ID,
           location_id: LOCATION_ID,
           quantity_on_hand: new Prisma.Decimal('10'),
@@ -203,7 +229,12 @@ describe('LedgerService', () => {
 
     it('persists nullable cost basis and reservation metadata', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([]);
       mockPrisma.inventoryStock.create.mockResolvedValue({
@@ -234,7 +265,12 @@ describe('LedgerService', () => {
 
     it('should aggregate duplicate item/location pairs before applying stock updates', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([
         {
@@ -289,7 +325,12 @@ describe('LedgerService', () => {
 
     it('should throw BadRequestException if updateMany matches 0 records', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([
         {
@@ -319,7 +360,12 @@ describe('LedgerService', () => {
 
     it('should throw BadRequestException if refreshed stock record cannot be found', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([
         {
@@ -350,7 +396,12 @@ describe('LedgerService', () => {
 
     it('should throw BadRequestException when transaction results in negative stock', async () => {
       mockPrisma.storageLocation.findMany.mockResolvedValue([
-        { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+        {
+          id: LOCATION_ID,
+          site_id: SITE_ID,
+          type: LocationType.bin,
+          name: 'Bin 1',
+        },
       ]);
       mockPrisma.inventoryStock.findMany.mockResolvedValue([
         {
@@ -386,7 +437,12 @@ describe('LedgerService', () => {
       const mockTx: any = {
         storageLocation: {
           findMany: jest.fn().mockResolvedValue([
-            { id: LOCATION_ID, type: LocationType.bin, name: 'Bin 1' },
+            {
+              id: LOCATION_ID,
+              site_id: SITE_ID,
+              type: LocationType.bin,
+              name: 'Bin 1',
+            },
           ]),
         },
         inventoryTransaction: {
@@ -459,6 +515,7 @@ describe('LedgerService', () => {
       expect(mockPrisma.inventoryTransaction.findMany).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
+          site_id: SITE_ID,
           item_id: ITEM_ID,
           location_id: LOCATION_ID,
         },
@@ -487,6 +544,7 @@ describe('LedgerService', () => {
       expect(mockPrisma.inventoryTransaction.findMany).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
+          site_id: SITE_ID,
           item_id: ITEM_ID,
         },
         select: expect.any(Object),

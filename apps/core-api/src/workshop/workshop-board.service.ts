@@ -9,6 +9,7 @@ import { PartsStatus } from './dto/board-response.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkshopOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 const ACTIVE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.SCHEDULED,
@@ -22,10 +23,15 @@ export class WorkshopBoardService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async getBoardResources() {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
 
     const [mechanics, bays] = await Promise.all([
       this.prisma.employee.findMany({
@@ -40,7 +46,7 @@ export class WorkshopBoardService {
         },
       }),
       this.prisma.bay.findMany({
-        where: { tenant_id: tenantId, is_active: true },
+        where: { tenant_id: tenantId, site_id: siteId, is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         select: { id: true, name: true, is_active: true, sort_order: true },
       }),
@@ -64,11 +70,18 @@ export class WorkshopBoardService {
   }
 
   async getBoardActive() {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
 
     // Query 1: all active workshop orders with their tasks and line items
     const orders = await this.prisma.workshopOrder.findMany({
-      where: { tenant_id: tenantId, status: { in: ACTIVE_ORDER_STATUSES } },
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        status: { in: ACTIVE_ORDER_STATUSES },
+      },
       include: {
         customer: true,
         vehicle: true,
@@ -100,6 +113,7 @@ export class WorkshopBoardService {
         ? await this.prisma.inventoryStock.findMany({
             where: {
               tenant_id: tenantId,
+              site_id: siteId,
               location_id: { in: stagingLocationIds },
             },
             select: {
@@ -210,10 +224,13 @@ export class WorkshopBoardService {
   }
 
   async assignBoard(dto: AssignBoardDto) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
 
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: dto.orderId, tenant_id: tenantId },
+      where: { id: dto.orderId, tenant_id: tenantId, site_id: siteId },
       select: { id: true, status: true },
     });
 
@@ -250,7 +267,7 @@ export class WorkshopBoardService {
 
     if (dto.bayId !== undefined && dto.bayId !== null) {
       const bay = await this.prisma.bay.findFirst({
-        where: { id: dto.bayId, tenant_id: tenantId },
+        where: { id: dto.bayId, tenant_id: tenantId, site_id: siteId },
         select: { id: true, is_active: true },
       });
 
@@ -264,17 +281,20 @@ export class WorkshopBoardService {
     }
 
     // Single-row update — last-write-wins (per ADR-0013)
-    const updated = await this.prisma.workshopOrder.update({
-      where: {
-        tenant_id_id: {
-          tenant_id: tenantId,
-          id: dto.orderId,
-        },
-      },
+    const updateResult = await this.prisma.workshopOrder.updateMany({
+      where: { id: dto.orderId, tenant_id: tenantId, site_id: siteId },
       data: {
         ...(dto.mechanicId !== undefined && { mechanic_id: dto.mechanicId }),
         ...(dto.bayId !== undefined && { bay_id: dto.bayId }),
       },
+    });
+
+    if (updateResult.count === 0) {
+      throw new NotFoundException(`Workshop order ${dto.orderId} not found`);
+    }
+
+    const updated = await this.prisma.workshopOrder.findFirstOrThrow({
+      where: { id: dto.orderId, tenant_id: tenantId, site_id: siteId },
       select: {
         id: true,
         order_number: true,

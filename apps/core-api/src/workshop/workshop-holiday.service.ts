@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopHolidaySource } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateWorkshopHolidayDto,
@@ -104,6 +105,7 @@ export class WorkshopHolidayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly settingsService: WorkshopSettingsService,
     @Inject(OPENHOLIDAYS_FETCH)
     private readonly openHolidaysFetch: OpenHolidaysFetch,
@@ -113,14 +115,17 @@ export class WorkshopHolidayService {
     from?: string,
     to?: string,
   ): Promise<{ data: WorkshopHolidayDto[] }> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.settingsService.getOrCreateSettings(tenantId);
+    const [tenantId, siteId] = await this.getActiveScope();
+    const settings = await this.settingsService.getSettingsForSite(
+      tenantId,
+      siteId,
+    );
     const range = this.resolveListRange(settings.timezone, from, to);
 
     const rows = await this.prisma.workshopHoliday.findMany({
       where: {
         tenant_id: tenantId,
-        site_id: settings.id,
+        site_id: siteId,
         OR: [
           {
             repeats_annually: false,
@@ -145,12 +150,11 @@ export class WorkshopHolidayService {
     const isClosed = dto.isClosed ?? true;
     this.assertHolidayWindow(isClosed, dto.openTime, dto.closeTime);
 
-    const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.settingsService.getOrCreateSettings(tenantId);
+    const [tenantId, siteId] = await this.getActiveScope();
     const observedOn = toUtcDateOnly(dto.observedOn.slice(0, 10));
     const repeatsAnnually = dto.repeatsAnnually ?? false;
 
-    await this.assertNoCollision(tenantId, settings.id, {
+    await this.assertNoCollision(tenantId, siteId, {
       observedOn,
       repeatsAnnually,
     });
@@ -158,7 +162,7 @@ export class WorkshopHolidayService {
     const created = await this.prisma.workshopHoliday.create({
       data: {
         tenant_id: tenantId,
-        site_id: settings.id,
+        site_id: siteId,
         name: dto.name.trim(),
         observed_on: observedOn,
         repeats_annually: repeatsAnnually,
@@ -177,9 +181,9 @@ export class WorkshopHolidayService {
     dto: UpdateWorkshopHolidayDto,
   ): Promise<WorkshopHolidayDto> {
     this.assertTenantAdminAccess();
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await this.getActiveScope();
     const existing = await this.prisma.workshopHoliday.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!existing) {
       throw new NotFoundException(`Holiday ${id} not found`);
@@ -225,9 +229,9 @@ export class WorkshopHolidayService {
 
   async deleteHoliday(id: string): Promise<void> {
     this.assertTenantAdminAccess();
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await this.getActiveScope();
     const deleted = await this.prisma.workshopHoliday.deleteMany({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (deleted.count === 0) {
       throw new NotFoundException(`Holiday ${id} not found`);
@@ -238,8 +242,11 @@ export class WorkshopHolidayService {
     dto: ImportWorkshopHolidaysDto,
   ): Promise<ImportWorkshopHolidaysResponseDto> {
     this.assertTenantAdminAccess();
-    const tenantId = await this.tenantContext.getTenantId();
-    const settings = await this.settingsService.getOrCreateSettings(tenantId);
+    const [tenantId, siteId] = await this.getActiveScope();
+    const settings = await this.settingsService.getSettingsForSite(
+      tenantId,
+      siteId,
+    );
     const yearFrom = this.calendarYear(settings.timezone);
     const yearTo = yearFrom + 1;
     const countryIsoCode = dto.countryIsoCode ?? settings.holiday_country_iso;
@@ -270,7 +277,7 @@ export class WorkshopHolidayService {
     }
 
     const existing = await this.prisma.workshopHoliday.findMany({
-      where: { tenant_id: tenantId, site_id: settings.id },
+      where: { tenant_id: tenantId, site_id: siteId },
     });
     const existingByDate = new Map(
       existing.map((row) => [formatUtcDateOnly(row.observed_on), row]),
@@ -310,7 +317,7 @@ export class WorkshopHolidayService {
         await tx.workshopHoliday.create({
           data: {
             tenant_id: tenantId,
-            site_id: settings.id,
+            site_id: siteId,
             name: day.name,
             observed_on: observedOn,
             repeats_annually: false,
@@ -341,6 +348,13 @@ export class WorkshopHolidayService {
         'A holiday already exists for that date after annual expansion',
       );
     }
+  }
+
+  private async getActiveScope(): Promise<[string, string]> {
+    return Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
   }
 
   private assertHolidayWindow(

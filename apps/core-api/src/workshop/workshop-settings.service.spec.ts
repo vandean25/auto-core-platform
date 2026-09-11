@@ -6,6 +6,7 @@ import {
   mockTenantContext,
   resetWorkshopMocks,
   workshopPrismaProvider,
+  workshopSiteProvider,
   workshopTenantProvider,
 } from './workshop.spec.support';
 
@@ -49,6 +50,7 @@ describe('WorkshopSettingsService', () => {
         WorkshopSettingsService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        workshopSiteProvider,
       ],
     }).compile();
 
@@ -58,23 +60,8 @@ describe('WorkshopSettingsService', () => {
     mockTenantContext.getAuthenticatedUser.mockReturnValue(adminUser);
   });
 
-  it('seeds seven weekday hours when no site exists', async () => {
-    mockPrisma.site.findFirst.mockResolvedValueOnce(null);
-    mockPrisma.tenant.findFirst.mockResolvedValue({
-      name: 'Test Tenant',
-    });
-    mockPrisma.legalEntity.create.mockResolvedValue({
-      id: 'le-1',
-      tenant_id: TENANT_ID,
-    });
-    mockPrisma.site.create.mockResolvedValue({
-      id: 'site-1',
-      tenant_id: TENANT_ID,
-      legal_entity_id: 'le-1',
-    });
-    mockPrisma.workshopOpeningHour.createMany.mockResolvedValue({ count: 7 });
-    mockPrisma.storageLocation.createMany.mockResolvedValue({ count: 2 });
-    mockPrisma.site.findFirstOrThrow.mockResolvedValue({
+  it('reads settings from the active site without creating a tenant default', async () => {
+    mockPrisma.site.findFirst.mockResolvedValue({
       id: 'site-1',
       tenant_id: TENANT_ID,
       timezone: 'Europe/Vienna',
@@ -92,37 +79,16 @@ describe('WorkshopSettingsService', () => {
 
     const result = await service.getSettings();
 
-    expect(mockPrisma.site.create).toHaveBeenCalled();
-    expect(mockPrisma.workshopOpeningHour.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({ weekday: 6, open_time: '08:00' }),
-          expect.objectContaining({ weekday: 7, is_closed: true }),
-        ]),
-      }),
-    );
-    expect(mockPrisma.storageLocation.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            code: 'TRANSIT',
-            type: 'in_transit',
-            is_system: true,
-          }),
-          expect.objectContaining({ code: 'LOT', type: 'vehicle_lot' }),
-        ]),
-      }),
-    );
+    expect(mockPrisma.site.create).not.toHaveBeenCalled();
     expect(result.openingHours).toHaveLength(7);
     expect(result.timezone).toBe('Europe/Vienna');
     expect(result.slotMinutes).toBe(30);
     expect(result.holidayCountryIso).toBe('AT');
   });
 
-  it('selects MAIN even when another active site sorts first', async () => {
+  it('selects the active site rather than the tenant MAIN site', async () => {
     mockPrisma.site.findFirst.mockResolvedValue({
       id: 'main',
-      code: 'MAIN',
       is_active: true,
       openingHours: DEFAULT_OPENING_HOURS,
       timezone: 'Europe/Vienna',
@@ -132,7 +98,7 @@ describe('WorkshopSettingsService', () => {
     await service.getSettings();
     expect(mockPrisma.site.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tenant_id: TENANT_ID, code: 'MAIN' },
+        where: { tenant_id: TENANT_ID, id: 'site-1', is_active: true },
       }),
     );
   });

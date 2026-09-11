@@ -15,14 +15,16 @@ describe('invoice-inventory.helpers', () => {
   };
 
   const atpService = {
-    calculateAtp: jest.fn((stock: {
-      quantity_on_hand: Prisma.Decimal;
-      quantity_reserved: Prisma.Decimal;
-    }) => ({
-      quantityAvailable: new Prisma.Decimal(stock.quantity_on_hand).sub(
-        stock.quantity_reserved,
-      ),
-    })),
+    calculateAtp: jest.fn(
+      (stock: {
+        quantity_on_hand: Prisma.Decimal;
+        quantity_reserved: Prisma.Decimal;
+      }) => ({
+        quantityAvailable: new Prisma.Decimal(stock.quantity_on_hand).sub(
+          stock.quantity_reserved,
+        ),
+      }),
+    ),
     deductOnHandForSale: jest.fn(),
   } as unknown as AtpService;
 
@@ -76,6 +78,7 @@ describe('invoice-inventory.helpers', () => {
       data: [
         {
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           item_id: 'catalog-1',
           location_id: 'loc-1',
           quantity: new Prisma.Decimal(-2),

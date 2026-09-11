@@ -13,6 +13,7 @@ import {
   mockTenantContext,
   resetWorkshopMocks,
   workshopPrismaProvider,
+  workshopSiteProvider,
   workshopTenantProvider,
 } from './workshop.spec.support';
 
@@ -39,7 +40,7 @@ const settings = {
 describe('WorkshopHolidayService', () => {
   let service: WorkshopHolidayService;
   const settingsService = {
-    getOrCreateSettings: jest.fn(),
+    getSettingsForSite: jest.fn(),
   };
   const fetchMock = jest.fn();
 
@@ -49,6 +50,7 @@ describe('WorkshopHolidayService', () => {
         WorkshopHolidayService,
         workshopPrismaProvider,
         workshopTenantProvider,
+        workshopSiteProvider,
         { provide: WorkshopSettingsService, useValue: settingsService },
         { provide: OPENHOLIDAYS_FETCH, useValue: fetchMock },
       ],
@@ -58,7 +60,7 @@ describe('WorkshopHolidayService', () => {
     resetWorkshopMocks();
     mockTenantContext.getTenantId.mockResolvedValue(TENANT_ID);
     mockTenantContext.getAuthenticatedUser.mockReturnValue(adminUser);
-    settingsService.getOrCreateSettings.mockResolvedValue(settings);
+    settingsService.getSettingsForSite.mockResolvedValue(settings);
     mockPrisma.workshopHoliday.findMany.mockResolvedValue([]);
     fetchMock.mockReset();
   });
@@ -87,7 +89,7 @@ describe('WorkshopHolidayService', () => {
     expect(mockPrisma.workshopHoliday.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          site_id: SETTINGS_ID,
+          site_id: 'site-1',
           is_closed: true,
           source: 'MANUAL',
         }),
@@ -199,7 +201,7 @@ describe('WorkshopHolidayService', () => {
     await service.deleteHoliday('h-1');
 
     expect(mockPrisma.workshopHoliday.deleteMany).toHaveBeenCalledWith({
-      where: { id: 'h-1', tenant_id: TENANT_ID },
+      where: { id: 'h-1', tenant_id: TENANT_ID, site_id: 'site-1' },
     });
   });
 
@@ -376,9 +378,8 @@ describe('WorkshopHolidayService', () => {
 
     jest.useFakeTimers();
     const pending = service.importPublicHolidays({});
-    const assertion = expect(pending).rejects.toBeInstanceOf(
-      BadGatewayException,
-    );
+    const assertion =
+      expect(pending).rejects.toBeInstanceOf(BadGatewayException);
     await jest.advanceTimersByTimeAsync(3000);
     await assertion;
     jest.useRealTimers();
