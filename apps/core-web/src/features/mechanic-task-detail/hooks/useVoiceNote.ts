@@ -6,6 +6,13 @@ import type { VoiceNoteState } from '../types'
 import { isVoiceNoteSupported, selectVoiceRecorderMimeType } from '../voice-recorder'
 
 const NO_MICROPHONE_MESSAGE = 'No microphone found. Check device permissions.'
+const MICROPHONE_ACCESS_ERROR_NAMES = new Set([
+  'NotFoundError',
+  'DevicesNotFoundError',
+  'OverconstrainedError',
+  'NotAllowedError',
+  'PermissionDeniedError',
+])
 
 type UseVoiceNoteOptions = {
   taskId: string
@@ -14,16 +21,14 @@ type UseVoiceNoteOptions = {
 }
 
 function getMicrophoneAccessErrorMessage(error: unknown): string {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'name' in error &&
-    error.name === 'NotFoundError'
-  ) {
+  const errorName =
+    typeof error === 'object' && error !== null && 'name' in error ? String(error.name) : ''
+
+  if (MICROPHONE_ACCESS_ERROR_NAMES.has(errorName)) {
     return NO_MICROPHONE_MESSAGE
   }
 
-  return getErrorMessage(error, 'Unable to access microphone.')
+  return 'Unable to access microphone.'
 }
 
 export function useVoiceNote({ taskId, notesValue, onAcceptDraft }: UseVoiceNoteOptions) {

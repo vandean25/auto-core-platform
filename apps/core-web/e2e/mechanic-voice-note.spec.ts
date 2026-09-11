@@ -324,4 +324,38 @@ test.describe('Mechanic voice-note diagnostics flow', () => {
     await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
     await expect(page.getByText('Requested device not found')).not.toBeVisible()
   })
+
+  test('shows friendly guidance when microphone permission is denied', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Mechanic')
+
+    await page.addInitScript(installMockMediaRecorder())
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'mediaDevices', {
+        configurable: true,
+        writable: true,
+        value: {
+          getUserMedia: async () => {
+            throw new DOMException('Permission denied', 'NotAllowedError')
+          },
+        },
+      })
+    })
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/mechanic/tasks/${TASK_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: makeTaskBody('Typed note'),
+        })
+      },
+    )
+
+    await corePage.navigate(`/mechanic/tasks/${TASK_ID}`)
+
+    await page.getByRole('button', { name: /record voice note/i }).click()
+    await expect(page.getByText('No microphone found. Check device permissions.')).toBeVisible()
+    await expect(page.getByText('Permission denied')).not.toBeVisible()
+  })
 })
