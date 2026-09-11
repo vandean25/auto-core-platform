@@ -135,6 +135,19 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('No tasks assigned')).toBeInTheDocument()
     })
 
+    it('shows the default empty state when search has no matches', () => {
+      setupDefaultMocks()
+
+      renderQueuePage()
+
+      fireEvent.change(screen.getByPlaceholderText('Search tasks, vehicles…'), {
+        target: { value: 'Missing task' },
+      })
+
+      expect(screen.queryByText('No tasks assigned')).not.toBeInTheDocument()
+      expect(screen.getByText('No results.')).toBeInTheDocument()
+    })
+
     it('shows multiple tasks in the queue', () => {
       setupDefaultMocks([
         makeQueueItem({ taskId: 'task-1', taskTitle: 'Oil Change', sequence: 1 }),
