@@ -174,7 +174,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       />
 
       <CommandList className="max-h-[420px] overflow-y-auto overflow-x-hidden px-1 pb-2">
-        {!hasAnyResults && !isFetching ? (
+        {!hasAnyResults && !isFetching && !error ? (
           <CommandEmpty>
             {hasSearch
               ? `No parts, customers, vehicles, jobs, or commands match “${truncatedQuery}”.`

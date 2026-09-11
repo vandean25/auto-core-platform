@@ -178,4 +178,123 @@ describe('GlobalSearch Component', () => {
       screen.getByText('No parts, customers, vehicles, jobs, or commands match “xyz123nonexistent”.'),
     ).toBeInTheDocument()
   })
+
+  it('navigates to /vehicles/:id when selecting a vehicle match', () => {
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+      data: {
+        inventory: [],
+        customers: [],
+        vehicles: [
+          {
+            id: 'veh-456',
+            make: 'Audi',
+            model: 'A4',
+            year: 2020,
+            plate: 'W-12345AB',
+            vin: 'WAUZZZ8K9BA123456',
+          },
+        ],
+        orders: [],
+      },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    const onOpenChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onOpenChange={onOpenChange} />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    fireEvent.change(input, { target: { value: 'W-12345AB' } })
+
+    const vehicleItem = screen.getByText('W-12345AB')
+    fireEvent.click(vehicleItem)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/vehicles/veh-456')
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('navigates to /workshop/orders/:id when selecting an order match', () => {
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+      data: {
+        inventory: [],
+        customers: [],
+        vehicles: [],
+        orders: [
+          {
+            id: 'wo-789',
+            order_number: 'WO-2026-0004',
+            status: 'IN_PROGRESS',
+            customer: { id: 'cust-123', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann' },
+            vehicle: { id: 'veh-456', make: 'Audi', model: 'A4', year: 2020, plate: 'W-12345AB' },
+          } as unknown as WorkshopOrder,
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    const onOpenChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onOpenChange={onOpenChange} />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    fireEvent.change(input, { target: { value: 'WO-2026-0004' } })
+
+    const orderItem = screen.getByText('WO-2026-0004')
+    fireEvent.click(orderItem)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/wo-789')
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('filters quick actions so searching "invoice" shows Create Sales Invoice', () => {
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+      data: { inventory: [], customers: [], vehicles: [], orders: [] },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onOpenChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    fireEvent.change(input, { target: { value: 'invoice' } })
+
+    expect(screen.getByText('Create Sales Invoice')).toBeInTheDocument()
+    expect(screen.queryByText('Create Purchase Order')).not.toBeInTheDocument()
+  })
+
+  it('does not display CommandEmpty when an error is present', () => {
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+      data: { inventory: [], customers: [], vehicles: [], orders: [] },
+      isLoading: false,
+      isFetching: false,
+      error: new Error('Network error'),
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onOpenChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    fireEvent.change(input, { target: { value: 'test' } })
+
+    expect(screen.getByText('Search is temporarily unavailable.')).toBeInTheDocument()
+    expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
+  })
 })
