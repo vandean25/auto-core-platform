@@ -278,6 +278,27 @@ describe('GlobalSearch Component', () => {
     expect(screen.queryByText('Create Purchase Order')).not.toBeInTheDocument()
   })
 
+  it('does not display CommandEmpty while search is still fetching', () => {
+    vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
+      data: { inventory: [], customers: [], vehicles: [], orders: [] },
+      isLoading: true,
+      isFetching: true,
+      error: null,
+    })
+
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onOpenChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
+    fireEvent.change(input, { target: { value: 'Mustermann' } })
+
+    expect(screen.getByText('Searching…')).toBeInTheDocument()
+    expect(screen.queryByText(/No parts, customers, vehicles, jobs, or commands match/)).not.toBeInTheDocument()
+  })
+
   it('does not display CommandEmpty when an error is present', () => {
     vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
       data: { inventory: [], customers: [], vehicles: [], orders: [] },

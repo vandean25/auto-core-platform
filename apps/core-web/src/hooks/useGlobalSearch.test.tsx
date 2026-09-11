@@ -141,5 +141,18 @@ describe('useGlobalSearch', () => {
     expect(result.current.isFetching).toBe(true)
     expect(result.current.data.customers).toHaveLength(0)
     expect(result.current.data.vehicles).toHaveLength(0)
+
+    await waitFor(
+      () => {
+        expect(result.current.data.vehicles).toHaveLength(1)
+      },
+      { timeout: 2000 },
+    )
+
+    // Clearing the search also treats the debounce window as pending
+    rerender({ term: '' })
+    expect(result.current.isFetching).toBe(true)
+    expect(result.current.data.customers).toHaveLength(0)
+    expect(result.current.data.vehicles).toHaveLength(0)
   })
 })
