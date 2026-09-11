@@ -1,7 +1,7 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGlobalSearch } from './useGlobalSearch'
 import * as clientApi from '@/api/client'
 
@@ -43,7 +43,8 @@ describe('useGlobalSearch', () => {
 
   it('debounces and queries inventory, workshop search, and workshop orders in parallel', async () => {
     const mockFetch = vi.mocked(clientApi.fetchWithAuth)
-    mockFetch.mockImplementation(async (url: string) => {
+    mockFetch.mockImplementation(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
       if (url.includes('/api/inventory')) {
         return new Response(
           JSON.stringify({

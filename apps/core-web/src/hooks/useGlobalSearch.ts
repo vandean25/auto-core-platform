@@ -71,7 +71,7 @@ export function useGlobalSearch(searchTerm: string) {
 
   // 3. Workshop Orders via GET /api/workshop/orders?search= (cap 5)
   const workshopOrdersQuery = useQuery<{ data: WorkshopOrder[] }>({
-    queryKey: workshopKeys.ordersPage({ search: query, pageSize: GLOBAL_SEARCH_CAP, page: 1 }),
+    queryKey: workshopKeys.ordersPage({ search: query, pageSize: GLOBAL_SEARCH_CAP, page: 1, filters: [] }),
     queryFn: async () => {
       const url = buildDataTableUrl('/api/workshop/orders', {
         search: query,

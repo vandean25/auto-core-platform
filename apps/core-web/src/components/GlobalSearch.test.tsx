@@ -85,6 +85,7 @@ describe('GlobalSearch Component', () => {
             brand: 'Bosch',
             price: 49.9,
             quantity_available: 4,
+            warehouse_location: 'A-01',
             status: 'IN_STOCK',
           },
         ],
