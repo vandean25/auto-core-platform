@@ -186,6 +186,7 @@ export default function MechanicQueuePage() {
         pageCount={1}
         isLoading={isLoading}
         searchPlaceholder="Search tasks, vehicles…"
+        emptyStateMessage={queryParams.search ? 'No results.' : 'No tasks assigned'}
         onRowClick={(row) => navigate(`/mechanic/tasks/${row.taskId}`)}
         {...tableState}
       />

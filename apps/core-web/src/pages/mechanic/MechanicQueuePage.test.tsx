@@ -132,8 +132,20 @@ describe('MechanicQueuePage', () => {
 
       renderQueuePage()
 
-      // DataTable shows an empty row when no data; we verify the queue heading is still visible
-      expect(screen.getByText('My Queue')).toBeInTheDocument()
+      expect(screen.getByText('No tasks assigned')).toBeInTheDocument()
+    })
+
+    it('shows the default empty state when search has no matches', () => {
+      setupDefaultMocks()
+
+      renderQueuePage()
+
+      fireEvent.change(screen.getByPlaceholderText('Search tasks, vehicles…'), {
+        target: { value: 'Missing task' },
+      })
+
+      expect(screen.queryByText('No tasks assigned')).not.toBeInTheDocument()
+      expect(screen.getByText('No results.')).toBeInTheDocument()
     })
 
     it('shows multiple tasks in the queue', () => {
