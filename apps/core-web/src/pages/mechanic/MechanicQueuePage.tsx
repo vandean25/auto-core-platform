@@ -79,7 +79,7 @@ export default function MechanicQueuePage() {
       orderNumber: item.orderNumber,
       title: item.taskTitle,
       vehicle: `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`,
-      plate: item.vehicle.plate,
+      plate: item.vehicle.plate ?? null,
       status: item.taskStatus,
       scheduledDate: item.scheduledDate ?? null,
     }))
