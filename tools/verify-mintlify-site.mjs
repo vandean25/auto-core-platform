@@ -5,12 +5,13 @@
  */
 import { chromium } from 'playwright';
 import { assertMintignore } from './verify-mintignore.mjs';
+import { assertDocsChrome } from './verify-mintlify-site-assertions.mjs';
 
 const DEFAULT_URL = process.env.MINTLIFY_DOCS_URL ?? 'http://localhost:3333/settings/brands';
 
 async function assertNoLeakedAssets(url) {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
@@ -29,6 +30,24 @@ async function assertNoLeakedAssets(url) {
     hasTailwindImport: document.documentElement.innerHTML.includes('@import "tailwindcss"'),
     hasEslintConfig: document.documentElement.innerHTML.includes('eslint.config'),
   }));
+
+  const docsChrome = await page.evaluate(() => {
+    const pageText = document.body.innerText ?? '';
+    const searchButton = [...document.querySelectorAll('button')].find((button) =>
+      /open search/i.test(button.getAttribute('aria-label') ?? button.textContent ?? ''),
+    );
+
+    return {
+      hasAskAssistant: /Ask a question(?:…|\.\.\.)/i.test(pageText),
+      hasSearchButton: Boolean(searchButton),
+    };
+  });
+
+  assertDocsChrome(docsChrome);
+
+  await page.getByRole('button', { name: 'Open search' }).click();
+  await page.locator('[role="dialog"]').waitFor({ state: 'visible', timeout: 5_000 });
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Change theme preference' }).click();
   await page.locator('[role="menuitem"]', { hasText: /^Dark/ }).click();
