@@ -362,19 +362,19 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className={cn("grid w-full max-w-[1300px]", canManageTeam ? 'grid-cols-12' : 'grid-cols-10')}>
-                    <TabsTrigger value="finance">Finance</TabsTrigger>
-                    <TabsTrigger value="voice-translation">Voice Translation</TabsTrigger>
-                    <TabsTrigger value="revenue-groups">Revenue Groups</TabsTrigger>
-                    <TabsTrigger value="brands">Brands</TabsTrigger>
-                    <TabsTrigger value="locations">Storage Locations</TabsTrigger>
-                    <TabsTrigger value="employees">Employees</TabsTrigger>
-                    <TabsTrigger value="bays">Bays</TabsTrigger>
-                    <TabsTrigger value="hours">Hours</TabsTrigger>
-                    <TabsTrigger value="labor">Labor</TabsTrigger>
-                    {canManageVehicleData ? <TabsTrigger value="vehicle-data">Vehicle data</TabsTrigger> : null}
-                    {canManageTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
-                    <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>
+                <TabsList className="flex w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
+                    <TabsTrigger className="shrink-0" value="finance">Finance</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="voice-translation">Voice Translation</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="revenue-groups">Revenue Groups</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="brands">Brands</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="locations">Storage Locations</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="employees">Employees</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="bays">Bays</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="hours">Hours</TabsTrigger>
+                    <TabsTrigger className="shrink-0" value="labor">Labor</TabsTrigger>
+                    {canManageVehicleData ? <TabsTrigger className="shrink-0" value="vehicle-data">Vehicle data</TabsTrigger> : null}
+                    {canManageTeam ? <TabsTrigger className="shrink-0" value="team">Team</TabsTrigger> : null}
+                    <TabsTrigger className="shrink-0" value="audit-logs">Audit Logs</TabsTrigger>
                 </TabsList>
 
                 {/* ── Finance Tab ── */}

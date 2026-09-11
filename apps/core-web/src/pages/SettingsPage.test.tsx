@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import SettingsPage from './SettingsPage'
+
+afterEach(() => {
+  cleanup()
+})
 
 const financeSettingsResult = {
   data: {
@@ -210,6 +214,20 @@ function LocationProbe() {
 }
 
 describe('SettingsPage tab integration', () => {
+  it('keeps the settings tab bar scrollable without shrinking tab labels', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <Routes>
+          <Route path='/settings' element={<SettingsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('tablist')).toHaveClass('overflow-x-auto')
+    expect(screen.getByRole('tab', { name: 'Voice Translation' })).toHaveClass('shrink-0')
+    expect(screen.getByRole('tab', { name: 'Storage Locations' })).toHaveClass('shrink-0')
+  })
+
   it('renders Employees, Bays, and Audit Logs triggers and respects the initial employees query param', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=employees']}>
