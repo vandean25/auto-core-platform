@@ -816,7 +816,12 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         },
       });
       const vehicle2 = await fixture.prisma.vehicle.create({
-        data: { make: 'Toyota', model: 'Corolla', year: 2021 },
+        data: {
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2021,
+          make_brand_id: fixture.brandId,
+        },
       });
       const order2 = await fixture.prisma.workshopOrder.create({
         data: {
@@ -921,7 +926,12 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         },
       });
       const vehicle2 = await fixture.prisma.vehicle.create({
-        data: { make: 'Honda', model: 'Civic', year: 2022 },
+        data: {
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2022,
+          make_brand_id: fixture.brandId,
+        },
       });
       const order2 = await fixture.prisma.workshopOrder.create({
         data: {
