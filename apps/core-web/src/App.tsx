@@ -27,7 +27,8 @@ import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PageLoader } from '@/components/ui/PageLoader'
 
-const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
+import LoginPage from '@/pages/LoginPage'
+
 const NotFoundPage = React.lazy(() => import('@/pages/NotFoundPage'))
 const InventoryList = React.lazy(() => import('./pages/InventoryList'))
 const InventoryLedgerPage = React.lazy(() => import('./pages/inventory/InventoryLedgerPage'))
@@ -76,14 +77,14 @@ export function AppRoutes() {
 
   return (
     <LayoutGroup id="app-routes">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-          exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-        >
-          <React.Suspense fallback={<PageLoader />}>
+      <React.Suspense fallback={<PageLoader />}>
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
+            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
+          >
             <Routes location={location}>
               <Route path={APP_ROUTE_PATHS.home} element={<Navigate to={APP_ROUTE_PATHS.inventory} replace />} />
               <Route path={APP_ROUTE_PATHS.inventory} element={<InventoryList />} />
@@ -133,9 +134,9 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderDetails />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </React.Suspense>
-        </motion.div>
-      </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
+      </React.Suspense>
     </LayoutGroup>
   )
 }
@@ -278,23 +279,23 @@ function MechanicRoutes() {
   const location = useLocation()
   return (
     <LayoutGroup id="mechanic-routes">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
-          exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
-        >
-          <React.Suspense fallback={<PageLoader />}>
+      <React.Suspense fallback={<PageLoader />}>
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } }}
+            exit={{ opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } }}
+          >
             <Routes location={location}>
               <Route path={MECHANIC_ROUTE_PATHS.queue} element={<MechanicQueuePage />} />
               <Route path={MECHANIC_ROUTE_PATHS.taskDetail} element={<MechanicTaskDetailPage />} />
               <Route path={MECHANIC_ROUTE_PATHS.root} element={<Navigate to={MECHANIC_ROUTE_PATHS.queue} replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </React.Suspense>
-        </motion.div>
-      </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
+      </React.Suspense>
     </LayoutGroup>
   )
 }
@@ -433,9 +434,7 @@ function LoginRoute() {
   return (
     <>
       <GlobalErrorBoundary>
-        <React.Suspense fallback={<PageLoader />}>
-          <LoginPage />
-        </React.Suspense>
+        <LoginPage />
       </GlobalErrorBoundary>
       <Toaster />
     </>

@@ -36,10 +36,10 @@ vi.mock('@/components/ui/sonner', () => ({
 }))
 
 describe('App logged-out surface', () => {
-  it('mounts a toast host for the public sign-in surface', async () => {
+  it('renders the public sign-in surface without waiting for a lazy chunk', () => {
     render(<App />)
 
-    expect(await screen.findByText('Sign-in surface')).toBeInTheDocument()
+    expect(screen.getByText('Sign-in surface')).toBeInTheDocument()
     expect(screen.getByTestId('toast-host')).toBeInTheDocument()
   })
 })
