@@ -90,7 +90,11 @@ export async function recomputeRequisitionStatus(
     where: { id: requisitionId, tenant_id: tenantId },
     select: { status: true },
   });
-  if (!requisition) {
+  if (
+    !requisition ||
+    requisition.status === PartsRequisitionStatus.CANCELLED ||
+    requisition.status === PartsRequisitionStatus.COMPLETED
+  ) {
     return;
   }
 

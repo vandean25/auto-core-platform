@@ -33,4 +33,16 @@ describe('CreateRequisitionPurchaseOrderDto', () => {
       expect(messages.length).toBeGreaterThan(0);
     }
   });
+
+  it('rejects empty items array', async () => {
+    const emptyDto = plainToInstance(CreateRequisitionPurchaseOrderDto, {
+      vendorId: '550e8400-e29b-41d4-a716-446655440000',
+      items: [],
+    });
+    const messages = collectConstraintMessages(await validate(emptyDto));
+    expect(messages.length).toBeGreaterThan(0);
+    expect(messages).toEqual(
+      expect.arrayContaining([expect.stringMatching(/should not be empty/i)]),
+    );
+  });
 });

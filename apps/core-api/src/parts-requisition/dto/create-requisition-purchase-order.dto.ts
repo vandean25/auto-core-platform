@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayNotEmpty,
   IsArray,
   IsNumber,
   IsUUID,
@@ -32,6 +33,7 @@ export class CreateRequisitionPurchaseOrderDto {
 
   @ApiProperty({ type: [RequisitionPurchaseOrderItemDto] })
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => RequisitionPurchaseOrderItemDto)
   items!: RequisitionPurchaseOrderItemDto[];

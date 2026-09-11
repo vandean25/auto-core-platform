@@ -1,6 +1,7 @@
 import { PartsReservationStatus, PartsRequisitionStatus } from '@prisma/client';
 import {
   deriveRequisitionStatus,
+  recomputeRequisitionStatus,
   type ReservationSliceState,
 } from './parts-requisition.helpers';
 
@@ -76,5 +77,35 @@ describe('deriveRequisitionStatus', () => {
         slice({ status: PartsReservationStatus.OPEN }),
       ]),
     ).toBe(PartsRequisitionStatus.ORDERED);
+  });
+});
+
+describe('recomputeRequisitionStatus', () => {
+  it('does not modify terminal CANCELLED or COMPLETED requisitions', async () => {
+    const mockTx = {
+      partsRequisition: {
+        findFirst: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      partsReservation: {
+        findMany: jest.fn(),
+      },
+    } as any;
+
+    // Terminal CANCELLED
+    mockTx.partsRequisition.findFirst.mockResolvedValueOnce({
+      status: PartsRequisitionStatus.CANCELLED,
+    });
+    await recomputeRequisitionStatus(mockTx, 'tenant-1', 'req-1');
+    expect(mockTx.partsReservation.findMany).not.toHaveBeenCalled();
+    expect(mockTx.partsRequisition.updateMany).not.toHaveBeenCalled();
+
+    // Terminal COMPLETED
+    mockTx.partsRequisition.findFirst.mockResolvedValueOnce({
+      status: PartsRequisitionStatus.COMPLETED,
+    });
+    await recomputeRequisitionStatus(mockTx, 'tenant-1', 'req-2');
+    expect(mockTx.partsReservation.findMany).not.toHaveBeenCalled();
+    expect(mockTx.partsRequisition.updateMany).not.toHaveBeenCalled();
   });
 });
