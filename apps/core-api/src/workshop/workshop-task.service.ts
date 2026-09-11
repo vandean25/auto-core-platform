@@ -130,6 +130,7 @@ export class WorkshopTaskService {
           workshop_order_id: orderId,
           title: dto.title,
           status: WorkshopTaskStatus.NOT_STARTED,
+          sequence: order.tasks.length + 1,
           scheduled_date: scheduledDate,
         },
         include: {
