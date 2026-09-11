@@ -1,9 +1,9 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
 import { Eye, ShieldAlert, User, Server, Terminal, Filter } from 'lucide-react'
 import type { AuditLog } from '@/api/audit'
 import { useAuditLogs } from '@/api/audit'
+import { useWorkshopSettings } from '@/api/workshop'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -12,6 +12,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+
+const DEFAULT_TIMEZONE = 'Europe/Vienna'
+
+export function formatAuditTimestamp(timestamp: string, timezone: string): string {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map(({ type, value }) => [type, value]),
+  )
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
+}
 
 function normalizeSearch(value: string): string {
   return value.trim().toLowerCase()
@@ -75,6 +99,8 @@ export function AuditLogsTab() {
   const [actionFilter, setActionFilter] = React.useState<'ALL' | 'CREATE' | 'UPDATE' | 'DELETE'>('ALL')
   const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null)
   const [detailOpen, setDetailOpen] = React.useState(false)
+  const { data: workshopSettings } = useWorkshopSettings()
+  const timezone = workshopSettings?.timezone ?? DEFAULT_TIMEZONE
 
   const { data: responseData, isLoading } = useAuditLogs({
     limit: 100,
@@ -111,10 +137,11 @@ export function AuditLogsTab() {
         accessorKey: 'occurredAt',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Timestamp" />,
         cell: ({ row }) => {
-          const date = new Date(row.original.occurredAt)
           return (
             <div className="flex flex-col text-xs">
-              <span className="font-medium text-slate-800">{format(date, 'yyyy-MM-dd HH:mm:ss')}</span>
+              <span className="font-medium text-slate-800">
+                {formatAuditTimestamp(row.original.occurredAt, timezone)}
+              </span>
               <span className="text-slate-400 font-mono text-[10px]">{row.original.occurredAt}</span>
             </div>
           )
@@ -210,7 +237,7 @@ export function AuditLogsTab() {
         ),
       },
     ],
-    [handleRowClick],
+    [handleRowClick, timezone],
   )
 
   return (
@@ -274,7 +301,7 @@ export function AuditLogsTab() {
                 <div>
                   <span className="text-slate-400 block mb-0.5">Occurred At</span>
                   <span className="font-medium text-slate-800">
-                    {format(new Date(selectedLog.occurredAt), 'yyyy-MM-dd HH:mm:ss')}
+                    {formatAuditTimestamp(selectedLog.occurredAt, timezone)}
                   </span>
                 </div>
                 <div>
