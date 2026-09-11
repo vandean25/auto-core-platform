@@ -108,6 +108,7 @@ interface DataTableProps<TData extends object> {
   setPagination: OnChangeFn<PaginationState>
   searchColumn?: string
   searchPlaceholder?: string
+  emptyStateMessage?: string
   onRowClick?: (row: TData) => void
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
 }
@@ -129,6 +130,7 @@ export function DataTable<TData extends object>({
   setPagination,
   searchColumn,
   searchPlaceholder,
+  emptyStateMessage = 'No results.',
   onRowClick,
   getRowContextActions,
 }: DataTableProps<TData>) {
@@ -304,7 +306,7 @@ export function DataTable<TData extends object>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  {emptyStateMessage}
                 </TableCell>
               </TableRow>
             )}

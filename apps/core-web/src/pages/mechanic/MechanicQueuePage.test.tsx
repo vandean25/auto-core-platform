@@ -132,8 +132,7 @@ describe('MechanicQueuePage', () => {
 
       renderQueuePage()
 
-      // DataTable shows an empty row when no data; we verify the queue heading is still visible
-      expect(screen.getByText('My Queue')).toBeInTheDocument()
+      expect(screen.getByText('No tasks assigned')).toBeInTheDocument()
     })
 
     it('shows multiple tasks in the queue', () => {
