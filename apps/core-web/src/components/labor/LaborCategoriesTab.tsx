@@ -142,7 +142,7 @@ function InlineRateEditor({
       className="text-xs text-slate-600 hover:underline cursor-pointer tabular-nums min-w-[64px] text-left"
       title="Click to edit rate"
     >
-      {value != null ? `฿${value.toFixed(2)}` : <span className="text-slate-400">—</span>}
+      {value != null ? `฿${value.toFixed(2)}` : <span className="text-slate-400">Not set</span>}
     </button>
   )
 }
