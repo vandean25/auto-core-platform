@@ -223,7 +223,7 @@ describe('SettingsPage tab integration', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('tablist')).toHaveClass('overflow-x-auto')
+    expect(screen.getByRole('tablist')).toHaveClass('h-auto', 'overflow-x-auto')
     expect(screen.getByRole('tab', { name: 'Voice Translation' })).toHaveClass('shrink-0')
     expect(screen.getByRole('tab', { name: 'Storage Locations' })).toHaveClass('shrink-0')
   })

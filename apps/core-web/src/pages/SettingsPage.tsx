@@ -362,7 +362,7 @@ export default function SettingsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className="flex w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
+                <TabsList className="flex h-auto w-full max-w-[1300px] justify-start gap-1 overflow-x-auto">
                     <TabsTrigger className="shrink-0" value="finance">Finance</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="revenue-groups">Revenue Groups</TabsTrigger>
