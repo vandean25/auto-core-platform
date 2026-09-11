@@ -127,7 +127,7 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('2022 BMW 320d')).toBeInTheDocument()
       expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
       expect(screen.getByText('W-TEST-1')).toBeInTheDocument()
-      expect(screen.getByText('Bay 1')).toBeInTheDocument()
+      expect(screen.getByText('Bay: Bay 1')).toBeInTheDocument()
       expect(screen.getByText('Task 1')).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /Oil Change/ })).toHaveAttribute(
         'href',
