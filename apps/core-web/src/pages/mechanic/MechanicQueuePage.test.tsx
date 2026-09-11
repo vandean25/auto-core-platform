@@ -148,6 +148,16 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('Brake Inspection')).toBeInTheDocument()
     })
 
+    it('shows the work order number and vehicle plate', () => {
+      setupDefaultMocks()
+
+      renderQueuePage()
+
+      expect(screen.getByRole('cell', { name: '1' })).toBeInTheDocument()
+      expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
+      expect(screen.getByText('W-TEST-1')).toBeInTheDocument()
+    })
+
     it('shows scheduled date when present', () => {
       setupDefaultMocks([
         makeQueueItem({ scheduledDate: '2026-04-30' }),

@@ -21,8 +21,10 @@ import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 interface QueueRow {
   taskId: string
   seq: number
+  orderNumber: string
   title: string
   vehicle: string
+  plate: string | null
   status: MechanicQueueItem['taskStatus']
   scheduledDate: string | null
 }
@@ -63,6 +65,7 @@ export default function MechanicQueuePage() {
           return (
             item.taskTitle.toLowerCase().includes(needle) ||
             item.orderNumber.toLowerCase().includes(needle) ||
+            (item.vehicle.plate ?? '').toLowerCase().includes(needle) ||
             `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`
               .toLowerCase()
               .includes(needle)
@@ -73,8 +76,10 @@ export default function MechanicQueuePage() {
     const mapped: QueueRow[] = filtered.map((item) => ({
       taskId: item.taskId,
       seq: item.sequence,
+      orderNumber: item.orderNumber,
       title: item.taskTitle,
       vehicle: `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`,
+      plate: item.vehicle.plate ?? null,
       status: item.taskStatus,
       scheduledDate: item.scheduledDate ?? null,
     }))
@@ -102,6 +107,13 @@ export default function MechanicQueuePage() {
       size: 48,
     },
     {
+      accessorKey: 'orderNumber',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="WO #" />,
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.orderNumber}</span>
+      ),
+    },
+    {
       accessorKey: 'title',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Task" />,
       cell: ({ row }) => (
@@ -113,6 +125,13 @@ export default function MechanicQueuePage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Vehicle" />,
       cell: ({ row }) => (
         <span className="text-slate-600">{row.original.vehicle}</span>
+      ),
+    },
+    {
+      accessorKey: 'plate',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Plate" />,
+      cell: ({ row }) => (
+        <span className="text-slate-600">{row.original.plate ?? '—'}</span>
       ),
     },
     {
