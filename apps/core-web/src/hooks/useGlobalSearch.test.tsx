@@ -112,11 +112,14 @@ describe('useGlobalSearch', () => {
       return new Response(JSON.stringify({}), { status: 404 })
     })
 
-    const { result } = renderHook(() => useGlobalSearch('Mustermann'), {
+    const { result, rerender } = renderHook(({ term }) => useGlobalSearch(term), {
+      initialProps: { term: 'Mustermann' },
       wrapper: createWrapper(),
     })
 
-    // Before debounce
+    // Before debounce fires: debouncing is treated as pending, returning empty results
+    expect(result.current.isFetching).toBe(true)
+    expect(result.current.data.customers).toHaveLength(0)
     expect(mockFetch).not.toHaveBeenCalled()
 
     await waitFor(
@@ -132,5 +135,11 @@ describe('useGlobalSearch', () => {
     expect(result.current.data.customers[0].first_name).toBe('Max')
     expect(result.current.data.vehicles[0].plate).toBe('W-12345AB')
     expect(result.current.data.orders[0].order_number).toBe('WO-2026-0004')
+
+    // When search term changes, immediately clears previous results and sets isFetching: true
+    rerender({ term: 'Audi' })
+    expect(result.current.isFetching).toBe(true)
+    expect(result.current.data.customers).toHaveLength(0)
+    expect(result.current.data.vehicles).toHaveLength(0)
   })
 })

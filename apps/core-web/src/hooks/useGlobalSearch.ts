@@ -98,8 +98,11 @@ export function useGlobalSearch(searchTerm: string) {
     enabled: isEnabled,
   })
 
+  const trimmedSearch = searchTerm.trim()
+  const isDebouncing = trimmedSearch !== query && trimmedSearch.length > 0
+
   const data = useMemo<GlobalSearchResults>(() => {
-    if (!isEnabled) {
+    if (!isEnabled || isDebouncing) {
       return {
         inventory: [],
         customers: [],
@@ -121,6 +124,7 @@ export function useGlobalSearch(searchTerm: string) {
     }
   }, [
     isEnabled,
+    isDebouncing,
     inventoryQuery.data,
     workshopSearchQuery.data,
     workshopOrdersQuery.data,
@@ -134,10 +138,11 @@ export function useGlobalSearch(searchTerm: string) {
   )
 
   const isFetching = Boolean(
-    isEnabled &&
-      (inventoryQuery.isFetching ||
-        workshopSearchQuery.isFetching ||
-        workshopOrdersQuery.isFetching),
+    isDebouncing ||
+      (isEnabled &&
+        (inventoryQuery.isFetching ||
+          workshopSearchQuery.isFetching ||
+          workshopOrdersQuery.isFetching)),
   )
 
   const error =
