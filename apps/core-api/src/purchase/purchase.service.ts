@@ -18,6 +18,11 @@ import {
 import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers';
 import { generatePurchaseOrderNumber } from './purchase-order-number.util';
 import { PurchaseReceiptService } from './purchase-receipt.service';
+import {
+  lockPurchaseOrderHeader,
+  lockPurchaseOrderItems,
+  lockPartsReservations,
+} from './purchase-lock.helpers';
 
 import Decimal = Prisma.Decimal;
 
@@ -289,41 +294,69 @@ export class PurchaseService {
     updates: { quantity?: number; unitCost?: number },
   ) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: { items: true },
-    });
-    if (!po) throw new NotFoundException('Purchase Order not found');
 
-    const poItem = po.items.find((i) => i.id === itemId);
-    if (!poItem)
-      throw new BadRequestException('Item not found in this purchase order');
+    return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, orderId);
+      await lockPurchaseOrderItems(tx, tenantId, [itemId]);
 
-    // Validate that new quantity is not less than already received
-    if (
-      updates.quantity !== undefined &&
-      new Decimal(updates.quantity).lt(poItem.quantity_received)
-    ) {
-      throw new BadRequestException(
-        `Cannot reduce quantity below ${poItem.quantity_received.toString()} already received`,
-      );
-    }
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        include: {
+          items: {
+            include: { parts_reservation: true },
+          },
+        },
+      });
+      if (!po) throw new NotFoundException('Purchase Order not found');
 
-    // Map camelCase to snake_case for Prisma
-    const prismaUpdates: Prisma.PurchaseOrderItemUpdateInput = {};
-    if (updates.quantity !== undefined)
-      prismaUpdates.quantity = updates.quantity;
-    if (updates.unitCost !== undefined)
-      prismaUpdates.unit_cost = updates.unitCost;
+      const poItem = po.items.find((i) => i.id === itemId);
+      if (!poItem)
+        throw new BadRequestException('Item not found in this purchase order');
 
-    // Update in a transaction
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Linked PO item rule: quantity changes must happen via reservation line release
+      if (poItem.parts_reservation && updates.quantity !== undefined) {
+        throw new ConflictException(
+          'Cannot update quantity of a purchase order item linked to a parts reservation. Adjust via reservation slice.',
+        );
+      }
+
+      // Validate that new quantity is not less than already received
+      if (
+        updates.quantity !== undefined &&
+        new Decimal(updates.quantity).lt(poItem.quantity_received)
+      ) {
+        throw new BadRequestException(
+          `Cannot reduce quantity below ${poItem.quantity_received.toString()} already received`,
+        );
+      }
+
+      // Map camelCase to snake_case for Prisma
+      const prismaUpdates: Prisma.PurchaseOrderItemUpdateInput = {};
+      if (updates.quantity !== undefined)
+        prismaUpdates.quantity = updates.quantity;
+      if (updates.unitCost !== undefined)
+        prismaUpdates.unit_cost = updates.unitCost;
+
+      // When unitCost is updated, freeze rule: quantity_received must be 0
+      const whereClause: Prisma.PurchaseOrderItemWhereInput = {
+        id: itemId,
+        tenant_id: tenantId,
+        ...(updates.unitCost !== undefined
+          ? { quantity_received: new Decimal(0) }
+          : {}),
+      };
+
       const updateResult = await tx.purchaseOrderItem.updateMany({
-        where: { id: itemId, tenant_id: tenantId },
+        where: whereClause,
         data: prismaUpdates,
       });
 
       if (updateResult.count === 0) {
+        if (updates.unitCost !== undefined) {
+          throw new ConflictException(
+            'Cannot update unit cost on a purchase order item that has already received goods.',
+          );
+        }
         throw new NotFoundException('Purchase order item not found');
       }
 
@@ -334,54 +367,57 @@ export class PurchaseService {
         po.status,
       );
     });
-
-    return updatedOrder;
   }
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: {
-        items: {
-          include: {
-            parts_reservation: {
-              select: {
-                id: true,
-                quantity_staged: true,
-                requisition_line: { select: { requisition_id: true } },
+
+    return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, orderId);
+      await lockPurchaseOrderItems(tx, tenantId, [itemId]);
+
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        include: {
+          items: {
+            where: { id: itemId },
+            include: {
+              parts_reservation: {
+                select: {
+                  id: true,
+                  quantity_staged: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
               },
             },
           },
         },
-      },
-    });
-    if (!po) throw new NotFoundException('Purchase Order not found');
+      });
+      if (!po) throw new NotFoundException('Purchase Order not found');
 
-    const poItem = po.items.find((i) => i.id === itemId);
-    if (!poItem)
-      throw new BadRequestException('Item not found in this purchase order');
+      const poItem = po.items[0];
+      if (!poItem)
+        throw new BadRequestException('Item not found in this purchase order');
 
-    if (new Decimal(poItem.quantity_received).gt(0)) {
-      throw new BadRequestException(
-        'Cannot delete an item that has already been received',
-      );
-    }
+      if (new Decimal(poItem.quantity_received).gt(0)) {
+        throw new BadRequestException(
+          'Cannot delete an item that has already been received',
+        );
+      }
 
-    const linkedReservation = poItem.parts_reservation;
-    if (
-      linkedReservation &&
-      (po.status !== PurchaseOrderStatus.DRAFT ||
-        new Decimal(linkedReservation.quantity_staged).gt(0))
-    ) {
-      throw new ConflictException(
-        'A linked reservation slice must be released before deleting a sent purchase order item.',
-      );
-    }
-
-    // Delete in a transaction
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      const linkedReservation = poItem.parts_reservation;
       if (linkedReservation) {
+        await lockPartsReservations(tx, tenantId, [linkedReservation.id]);
+
+        if (
+          po.status !== PurchaseOrderStatus.DRAFT ||
+          new Decimal(linkedReservation.quantity_staged).gt(0)
+        ) {
+          throw new ConflictException(
+            'A linked reservation slice must be released before deleting a sent purchase order item.',
+          );
+        }
+
         const cancelled = await tx.partsReservation.updateMany({
           where: { tenant_id: tenantId, id: linkedReservation.id },
           data: {
@@ -419,8 +455,6 @@ export class PurchaseService {
 
       return updated;
     });
-
-    return updatedOrder;
   }
 
   async getPurchaseOrderItems(orderId: string) {
@@ -519,11 +553,14 @@ export class PurchaseService {
     const tenantId = await this.tenantContext.getTenantId();
 
     return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, id);
+
       const order = await tx.purchaseOrder.findFirst({
         where: { id, tenant_id: tenantId },
         include: {
           items: {
             select: {
+              id: true,
               parts_reservation: {
                 select: {
                   id: true,
@@ -545,6 +582,17 @@ export class PurchaseService {
         );
       }
 
+      const itemIds = order.items.map((i) => i.id);
+      await lockPurchaseOrderItems(tx, tenantId, itemIds);
+
+      const linkedReservations = order.items
+        .map((item) => item.parts_reservation)
+        .filter((reservation): reservation is NonNullable<typeof reservation> =>
+          Boolean(reservation),
+        );
+      const reservationIds = linkedReservations.map((r) => r.id);
+      await lockPartsReservations(tx, tenantId, reservationIds);
+
       await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
         id,
         tenantId,
@@ -554,16 +602,7 @@ export class PurchaseService {
           'Purchase order status changed concurrently. Please refresh and try again.',
       });
 
-      const linkedReservations = order.items
-        .map((item) => item.parts_reservation)
-        .filter((reservation): reservation is NonNullable<typeof reservation> =>
-          Boolean(reservation),
-        );
-
-      if (linkedReservations.length > 0) {
-        const reservationIds = linkedReservations.map(
-          (reservation) => reservation.id,
-        );
+      if (reservationIds.length > 0) {
         await tx.partsReservation.updateMany({
           where: {
             tenant_id: tenantId,
@@ -606,6 +645,8 @@ export class PurchaseService {
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, id);
+
       const order = await tx.purchaseOrder.findFirst({
         where: { id, tenant_id: tenantId },
         include: {
@@ -615,6 +656,7 @@ export class PurchaseService {
               parts_reservation: {
                 select: {
                   id: true,
+                  quantity_staged: true,
                   requisition_line: { select: { requisition_id: true } },
                 },
               },
@@ -633,12 +675,24 @@ export class PurchaseService {
         );
       }
 
+      const itemIds = order.items.map((i) => i.id);
+      await lockPurchaseOrderItems(tx, tenantId, itemIds);
+
       const hasReceivedItems = order.items.some((item) =>
         new Decimal(item.quantity_received).gt(0),
       );
       if (hasReceivedItems) {
-        throw new BadRequestException(
+        throw new ConflictException(
           'Purchase order cannot be deleted because items were already received.',
+        );
+      }
+
+      const hasStagedReservations = order.items.some((item) =>
+        item.parts_reservation && new Decimal(item.parts_reservation.quantity_staged).gt(0),
+      );
+      if (hasStagedReservations) {
+        throw new ConflictException(
+          'Purchase order cannot be deleted because linked reservation slices are staged.',
         );
       }
 
@@ -661,11 +715,21 @@ export class PurchaseService {
         .filter((reservation): reservation is NonNullable<typeof reservation> =>
           Boolean(reservation),
         );
+      const reservationIds = linkedReservations.map((r) => r.id);
+      await lockPartsReservations(tx, tenantId, reservationIds);
 
-      if (linkedReservations.length > 0) {
-        const reservationIds = linkedReservations.map(
-          (reservation) => reservation.id,
+      // Atomic delete of DRAFT purchase order header
+      const deleteResult = await tx.purchaseOrder.deleteMany({
+        where: { id, tenant_id: tenantId, status: PurchaseOrderStatus.DRAFT },
+      });
+
+      if (deleteResult.count === 0) {
+        throw new ConflictException(
+          'Purchase order status changed concurrently or was already deleted.',
         );
+      }
+
+      if (reservationIds.length > 0) {
         const cancelled = await tx.partsReservation.updateMany({
           where: {
             tenant_id: tenantId,
@@ -687,14 +751,6 @@ export class PurchaseService {
       await tx.purchaseOrderItem.deleteMany({
         where: { purchase_order_id: id },
       });
-
-      const deleteResult = await tx.purchaseOrder.deleteMany({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (deleteResult.count === 0) {
-        throw new NotFoundException('Purchase Order not found');
-      }
 
       const requisitionIds = [
         ...new Set(

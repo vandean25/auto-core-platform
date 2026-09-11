@@ -26,6 +26,7 @@ describe('PurchaseService', () => {
     $transaction: jest
       .fn()
       .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
+    $queryRaw: jest.fn().mockResolvedValue([]),
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -494,7 +495,7 @@ describe('PurchaseService', () => {
         where: { purchase_order_id: 'po-1' },
       });
       expect(mockPrismaService.purchaseOrder.deleteMany).toHaveBeenCalledWith({
-        where: { id: 'po-1', tenant_id: 'tenant-1' },
+        where: { id: 'po-1', tenant_id: 'tenant-1', status: PurchaseOrderStatus.DRAFT },
       });
     });
 
@@ -521,7 +522,7 @@ describe('PurchaseService', () => {
         ],
       });
 
-      await expect(service.remove('po-3')).rejects.toThrow(BadRequestException);
+      await expect(service.remove('po-3')).rejects.toThrow(ConflictException);
     });
 
     it('should block deleting purchase order with invoiced items', async () => {
@@ -709,16 +710,16 @@ describe('PurchaseService', () => {
         .mockResolvedValueOnce({
           id: 'po-1',
           status: PurchaseOrderStatus.DRAFT,
-          items: [{ id: 'item-1', quantity: 5, quantity_received: 0 }],
+          items: [{ id: 'item-1', quantity: 5, quantity_received: 0, parts_reservation: null }],
         })
         .mockResolvedValueOnce({
           id: 'po-1',
           status: PurchaseOrderStatus.DRAFT,
-          items: [{ id: 'item-1', quantity: 10, quantity_received: 0 }],
+          items: [{ id: 'item-1', quantity: 10, quantity_received: 0, parts_reservation: null }],
         })
         .mockResolvedValueOnce({
           id: 'po-1',
-          items: [{ id: 'item-1', quantity: 10, quantity_received: 0 }],
+          items: [{ id: 'item-1', quantity: 10, quantity_received: 0, parts_reservation: null }],
         });
 
       mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
@@ -734,16 +735,51 @@ describe('PurchaseService', () => {
       expect(
         mockPrismaService.purchaseOrderItem.updateMany,
       ).toHaveBeenCalledWith({
-        where: { id: 'item-1', tenant_id: 'tenant-1' },
+        where: { id: 'item-1', tenant_id: 'tenant-1', quantity_received: new Decimal(0) },
         data: { quantity: 10, unit_cost: 20 },
       });
+    });
+
+    it('should reject updating quantity of an item linked to a reservation', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [
+          {
+            id: 'item-1',
+            quantity: 4,
+            quantity_received: 0,
+            parts_reservation: { id: 'res-1' },
+          },
+        ],
+      });
+
+      await expect(
+        service.updatePurchaseOrderItem('po-1', 'item-1', { quantity: 10 }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should reject updating unit cost when item is already received', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        status: PurchaseOrderStatus.PARTIAL,
+        items: [{ id: 'item-1', quantity: 10, quantity_received: 5, parts_reservation: null }],
+      });
+
+      mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.updatePurchaseOrderItem('po-1', 'item-1', { unitCost: 35 }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should reject reducing quantity below received quantity', async () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.PARTIAL,
-        items: [{ id: 'item-1', quantity: 10, quantity_received: 5 }],
+        items: [{ id: 'item-1', quantity: 10, quantity_received: 5, parts_reservation: null }],
       });
 
       await expect(

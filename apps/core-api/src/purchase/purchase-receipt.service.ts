@@ -24,6 +24,10 @@ import {
   determinePostReceiptStatus,
   IncomingReceiptItem,
 } from './purchase-receipt.helpers';
+import {
+  lockPurchaseOrderHeader,
+  lockPurchaseOrderItems,
+} from './purchase-lock.helpers';
 
 export type PurchaseOrderWithItems = Prisma.PurchaseOrderGetPayload<{
   include: { items: true };
@@ -99,6 +103,8 @@ export class PurchaseReceiptService {
     const tenantId = await this.tenantContext.getTenantId();
 
     return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, orderId);
+
       const po = await tx.purchaseOrder.findFirst({
         where: { id: orderId, tenant_id: tenantId },
         include: { items: true },
@@ -117,12 +123,14 @@ export class PurchaseReceiptService {
         );
       }
 
+      const poItemIds = po.items.map((item) => item.id);
+      await lockPurchaseOrderItems(tx, tenantId, poItemIds);
+
       const { generalBin } = await this.resolveWarehouseAndGeneralBin(
         tx,
         tenantId,
       );
 
-      const poItemIds = po.items.map((item) => item.id);
       const currentItems = await tx.purchaseOrderItem.findMany({
         where: { id: { in: poItemIds }, tenant_id: tenantId },
       });
