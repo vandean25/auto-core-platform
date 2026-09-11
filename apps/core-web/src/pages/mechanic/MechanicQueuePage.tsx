@@ -1,42 +1,21 @@
-import { useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { format } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { DataTable } from '@/components/data-table/DataTable'
-import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { StatusBadge } from '@/components/status/StatusBadge'
+import { Input } from '@/components/ui/input'
 import { AttendancePunchBar } from '@/components/hr/AttendancePunchBar'
-import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { useMechanicQueue } from '@/api/mechanic'
 import type { MechanicQueueItem } from '@/api/mechanic'
 import { useHrMeClock, usePunchClock } from '@/api/hr'
 import type { PunchClockPayload } from '@/api/hr'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
-
-// ─── Queue Row ────────────────────────────────────────────────────────────────
-
-interface QueueRow {
-  taskId: string
-  seq: number
-  orderNumber: string
-  title: string
-  vehicle: string
-  plate: string | null
-  status: MechanicQueueItem['taskStatus']
-  scheduledDate: string | null
-}
-
-// ─── Queue Page ───────────────────────────────────────────────────────────────
+import { MechanicQueueCard } from './MechanicQueueCard'
 
 export default function MechanicQueuePage() {
-  const navigate = useNavigate()
-
   const { data: queueResponse, isLoading, refetch } = useMechanicQueue()
   const { data: clockResponse, error: clockError } = useHrMeClock()
   const { mutate: punchClock, isPending: isPunchPending } = usePunchClock()
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!clockError || getErrorStatus(clockError) === 403) return
@@ -55,106 +34,22 @@ export default function MechanicQueuePage() {
     )
   }
 
-  const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
+  const items = useMemo(() => {
+    const queueItems = queueResponse?.data ?? []
+    const needle = search.trim().toLowerCase()
+    if (!needle) return queueItems
 
-  const rows = useMemo<QueueRow[]>(() => {
-    const items = queueResponse?.data ?? []
-    const filtered = queryParams.search
-      ? items.filter((item) => {
-          const needle = queryParams.search!.toLowerCase()
-          return (
-            item.taskTitle.toLowerCase().includes(needle) ||
-            item.orderNumber.toLowerCase().includes(needle) ||
-            (item.vehicle.plate ?? '').toLowerCase().includes(needle) ||
-            `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`
-              .toLowerCase()
-              .includes(needle)
-          )
-        })
-      : items
-
-    const mapped: QueueRow[] = filtered.map((item) => ({
-      taskId: item.taskId,
-      seq: item.sequence,
-      orderNumber: item.orderNumber,
-      title: item.taskTitle,
-      vehicle: `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`,
-      plate: item.vehicle.plate ?? null,
-      status: item.taskStatus,
-      scheduledDate: item.scheduledDate ?? null,
-    }))
-
-    const { sortField, sortDirection } = queryParams
-    if (!sortField) return mapped
-
-    return [...mapped].sort((a, b) => {
-      const aVal = a[sortField as keyof QueueRow] ?? ''
-      const bVal = b[sortField as keyof QueueRow] ?? ''
-      const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
-      return sortDirection === 'desc' ? -cmp : cmp
+    return queueItems.filter((item) => {
+      const vehicle = `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`
+      return [item.taskTitle, item.orderNumber, item.vehicle.plate ?? '', vehicle]
+        .some((field) => field.toLowerCase().includes(needle))
     })
-  }, [queueResponse, queryParams])
+  }, [queueResponse, search])
 
-  const columns: ColumnDef<QueueRow>[] = [
-    {
-      accessorKey: 'seq',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
-      cell: ({ row }) => (
-        <span className="w-8 text-center font-mono text-sm font-semibold text-slate-500">
-          {row.original.seq}
-        </span>
-      ),
-      size: 48,
-    },
-    {
-      accessorKey: 'orderNumber',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="WO #" />,
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.orderNumber}</span>
-      ),
-    },
-    {
-      accessorKey: 'title',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Task" />,
-      cell: ({ row }) => (
-        <span className="font-medium leading-tight">{row.original.title}</span>
-      ),
-    },
-    {
-      accessorKey: 'vehicle',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Vehicle" />,
-      cell: ({ row }) => (
-        <span className="text-slate-600">{row.original.vehicle}</span>
-      ),
-    },
-    {
-      accessorKey: 'plate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Plate" />,
-      cell: ({ row }) => (
-        <span className="text-slate-600">{row.original.plate ?? '—'}</span>
-      ),
-    },
-    {
-      accessorKey: 'scheduledDate',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Scheduled" />,
-      cell: ({ row }) =>
-        row.original.scheduledDate ? (
-          <span className="text-slate-500 text-sm">
-            {format(new Date(row.original.scheduledDate), 'PP')}
-          </span>
-        ) : (
-          <span className="text-slate-400 text-sm">—</span>
-        ),
-    },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-  ]
+  const hasSearch = search.trim().length > 0
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-6 space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Queue</h1>
@@ -180,16 +75,32 @@ export default function MechanicQueuePage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        pageCount={1}
-        isLoading={isLoading}
-        searchPlaceholder="Search tasks, vehicles…"
-        emptyStateMessage={queryParams.search ? 'No results.' : 'No tasks assigned'}
-        onRowClick={(row) => navigate(`/mechanic/tasks/${row.taskId}`)}
-        {...tableState}
+      <Input
+        type="search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search tasks, plates, WO…"
+        aria-label="Search mechanic queue"
       />
+
+      {isLoading ? <p className="text-slate-500">Loading tasks…</p> : null}
+      {!isLoading && items.length === 0 && hasSearch ? (
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <p className="text-slate-500">No results.</p>
+        </div>
+      ) : null}
+      {!isLoading && items.length === 0 && !hasSearch ? (
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <h2 className="text-lg font-semibold">No tasks assigned</h2>
+          <p className="mt-1 text-slate-500">Jobs you are assigned appear here.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item: MechanicQueueItem) => (
+            <MechanicQueueCard key={item.taskId} item={item} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

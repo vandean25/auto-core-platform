@@ -125,9 +125,8 @@ export function WorkshopHoursSettingsTab() {
     setFormState(settingsToFormState(settings))
   }, [formState, settings])
 
-  const holidays = holidaysResponse?.data ?? []
-
   const filteredHolidays = React.useMemo(() => {
+    const holidays = holidaysResponse?.data ?? []
     const term = (queryParams.search ?? '').trim().toLowerCase()
     if (!term) return holidays
     return holidays.filter((holiday) =>
@@ -139,7 +138,7 @@ export function WorkshopHoursSettingsTab() {
         formatHolidayHours(holiday),
       ].some((value) => value.toLowerCase().includes(term)),
     )
-  }, [holidays, queryParams.search])
+  }, [holidaysResponse?.data, queryParams.search])
 
   const sortedHolidays = React.useMemo(() => {
     const field = queryParams.sortField

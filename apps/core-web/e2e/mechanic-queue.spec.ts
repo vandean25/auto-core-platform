@@ -3,8 +3,8 @@ import { AutoCorePage } from './pom/AutoCorePage'
 
 const TASK_ID = '8229abb5-16d5-43a0-b5f5-9ce3a5fdc96b'
 
-test.describe('Mechanic queue row navigation', () => {
-  test('clicking a queue cell navigates to the task detail page', async ({ page }) => {
+test.describe('Mechanic queue card navigation', () => {
+  test('clicking a queue card with a real mouse navigates to the task detail page', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Mechanic')
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/mechanic/queue'), async (route) => {
@@ -73,12 +73,12 @@ test.describe('Mechanic queue row navigation', () => {
 
     await expect(page.getByRole('heading', { name: 'My Queue' })).toBeVisible()
     await expect(page.getByText('QA Labor Test Task')).toBeVisible()
-    await expect(page.getByRole('cell', { name: '1', exact: true })).toBeVisible()
+    await expect(page.getByText('Task 1')).toBeVisible()
     await expect(page.getByText('WO-2026-0004')).toBeVisible()
     await expect(page.getByText('W-12345AB')).toBeVisible()
 
     const urlBefore = page.url()
-    await page.getByText('QA Labor Test Task').click()
+    await page.getByRole('link', { name: /QA Labor Test Task/ }).click({ button: 'left' })
 
     await expect(async () => {
       expect(page.url()).not.toBe(urlBefore)
