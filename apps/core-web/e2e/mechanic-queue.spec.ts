@@ -73,7 +73,7 @@ test.describe('Mechanic queue card navigation', () => {
 
     await expect(page.getByRole('heading', { name: 'My Queue' })).toBeVisible()
     await expect(page.getByText('QA Labor Test Task')).toBeVisible()
-    await expect(page.getByRole('cell', { name: '1', exact: true })).toBeVisible()
+    await expect(page.getByText('Task 1')).toBeVisible()
     await expect(page.getByText('WO-2026-0004')).toBeVisible()
     await expect(page.getByText('W-12345AB')).toBeVisible()
 
