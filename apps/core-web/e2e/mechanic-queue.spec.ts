@@ -3,8 +3,8 @@ import { AutoCorePage } from './pom/AutoCorePage'
 
 const TASK_ID = '8229abb5-16d5-43a0-b5f5-9ce3a5fdc96b'
 
-test.describe('Mechanic queue row navigation', () => {
-  test('clicking a queue cell navigates to the task detail page', async ({ page }) => {
+test.describe('Mechanic queue card navigation', () => {
+  test('clicking a queue card with a real mouse navigates to the task detail page', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Mechanic')
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/mechanic/queue'), async (route) => {
@@ -75,7 +75,7 @@ test.describe('Mechanic queue row navigation', () => {
     await expect(page.getByText('QA Labor Test Task')).toBeVisible()
 
     const urlBefore = page.url()
-    await page.getByText('QA Labor Test Task').click()
+    await page.getByRole('link', { name: /QA Labor Test Task/ }).click({ button: 'left' })
 
     await expect(async () => {
       expect(page.url()).not.toBe(urlBefore)

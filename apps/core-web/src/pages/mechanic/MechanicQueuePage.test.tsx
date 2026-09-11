@@ -107,14 +107,32 @@ describe('MechanicQueuePage', () => {
   // ─── Queue visibility ────────────────────────────────────────────────────────
 
   describe('queue visibility', () => {
-    it('renders the queue table with task rows', () => {
+    it('renders tablet-friendly task cards with the complete task context', () => {
       setupDefaultMocks()
+      asMock(mechanicApi.useMechanicQueue).mockReturnValue(
+        createQueryMock({
+          data: [
+            makeQueueItem({
+              bay: { id: 'bay-1', name: 'Bay 1' },
+              scheduledDate: '2026-04-30',
+            }),
+          ],
+        }),
+      )
 
       renderQueuePage()
 
       expect(screen.getByText('My Queue')).toBeInTheDocument()
       expect(screen.getByText('Oil Change')).toBeInTheDocument()
       expect(screen.getByText('2022 BMW 320d')).toBeInTheDocument()
+      expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
+      expect(screen.getByText('W-TEST-1')).toBeInTheDocument()
+      expect(screen.getByText('Bay 1')).toBeInTheDocument()
+      expect(screen.getByText('Task 1')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Oil Change/ })).toHaveAttribute(
+        'href',
+        '/mechanic/tasks/22222222-2222-2222-2222-222222222222',
+      )
     })
 
     it('shows the task status badge', () => {
@@ -132,8 +150,9 @@ describe('MechanicQueuePage', () => {
 
       renderQueuePage()
 
-      // DataTable shows an empty row when no data; we verify the queue heading is still visible
       expect(screen.getByText('My Queue')).toBeInTheDocument()
+      expect(screen.getByText('No tasks assigned')).toBeInTheDocument()
+      expect(screen.getByText('Jobs you are assigned appear here.')).toBeInTheDocument()
     })
 
     it('shows multiple tasks in the queue', () => {
@@ -146,6 +165,14 @@ describe('MechanicQueuePage', () => {
 
       expect(screen.getByText('Oil Change')).toBeInTheDocument()
       expect(screen.getByText('Brake Inspection')).toBeInTheDocument()
+    })
+
+    it('hides the sequence label when the task sequence is zero', () => {
+      setupDefaultMocks([makeQueueItem({ sequence: 0 })])
+
+      renderQueuePage()
+
+      expect(screen.queryByText('Task 0')).not.toBeInTheDocument()
     })
 
     it('shows scheduled date when present', () => {
@@ -173,6 +200,22 @@ describe('MechanicQueuePage', () => {
       renderQueuePage()
 
       expect(screen.queryByText('john@example.com')).not.toBeInTheDocument()
+    })
+
+    it('searches task cards by work order and plate', () => {
+      setupDefaultMocks([
+        makeQueueItem({ orderNumber: 'WO-2026-0004', vehicle: { ...baseItem.vehicle, plate: 'W-12345AB' } }),
+        makeQueueItem({ taskId: 'task-2', orderNumber: 'WO-2026-0005', vehicle: { ...baseItem.vehicle, plate: 'W-99999ZZ' } }),
+      ])
+
+      renderQueuePage()
+
+      fireEvent.change(screen.getByPlaceholderText('Search tasks, plates, WO…'), {
+        target: { value: 'W-12345AB' },
+      })
+
+      expect(screen.getByText('WO-2026-0004')).toBeInTheDocument()
+      expect(screen.queryByText('WO-2026-0005')).not.toBeInTheDocument()
     })
   })
 
@@ -302,12 +345,12 @@ describe('MechanicQueuePage', () => {
 
   // ─── Navigation ─────────────────────────────────────────────────────────────
 
-  describe('row navigation', () => {
-    it('clicking a task cell navigates to task detail without mechanicId param', async () => {
+  describe('card navigation', () => {
+    it('clicking a task card navigates to task detail without mechanicId param', async () => {
       setupDefaultMocks()
       renderQueuePage()
 
-      fireEvent.click(screen.getByText('Oil Change'))
+      fireEvent.click(screen.getByRole('link', { name: /Oil Change/ }))
 
       await waitFor(() => {
         expect(screen.getByText('Task Detail')).toBeInTheDocument()
