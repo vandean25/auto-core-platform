@@ -803,6 +803,232 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       });
       expect(freeStock.quantity_on_hand).toEqual(new Prisma.Decimal(2));
     });
+
+    it('two jobs, same SKU, two PO items: receiving one item stages only that job\'s tote', async () => {
+      // Second job with its own staging tote, same catalog item
+      const site = await fixture.prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } });
+      const stagingTote2 = await fixture.prisma.storageLocation.create({
+        data: {
+          site_id: site.id,
+          code: `TOTE2-${Date.now()}`,
+          name: 'Staging tote 2',
+          type: 'staging_tote',
+        },
+      });
+      const vehicle2 = await fixture.prisma.vehicle.create({
+        data: { make: 'Toyota', model: 'Corolla', year: 2021 },
+      });
+      const order2 = await fixture.prisma.workshopOrder.create({
+        data: {
+          order_number: `ORDER2-${Date.now()}`,
+          site_id: site.id,
+          vehicle_id: vehicle2.id,
+          staging_location_id: stagingTote2.id,
+          status: 'IN_PROGRESS',
+          odometer: 10000,
+          fuel_level: 50,
+        },
+      });
+      const task2 = await fixture.prisma.workshopTask.create({
+        data: { workshop_order_id: order2.id, title: 'Replace pads job 2' },
+      });
+      const line2 = await fixture.prisma.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task2.id,
+          type: 'PART',
+          part_execution_status: 'PENDING_PICK',
+          item_no: 'SKU-SHARED',
+          description: 'Shared SKU part',
+          quantity: 1,
+          unit_price: 20,
+          catalog_item_id: fixture.catalogItemId,
+        },
+      });
+
+      // Both jobs on one requisition sheet
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+        { lineId: line2.id, quantity: 1 },
+      ]);
+      expect(sheet.status).toBe(201);
+      expect(sheet.body.lines).toHaveLength(2);
+
+      const reservationId1 = sheet.body.lines[0].reservationId;
+      const reservationId2 = sheet.body.lines[1].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        sheet.body.lines.map((l: { reservationId: string }) => ({
+          reservationId: l.reservationId,
+          unitCost: 10,
+        })),
+      );
+      expect(purchaseOrder.status).toBe(201);
+      expect(purchaseOrder.body.items).toHaveLength(2);
+
+      // Resolve poItemId for reservation 1 via DB (API response doesn't include parts_reservation_id)
+      const res1Db = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId1 },
+        select: { purchase_order_item_id: true },
+      });
+      const poItemId1 = res1Db.purchase_order_item_id!;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      // Receive only item 1 (qty 1)
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ items: [{ itemId: poItemId1, quantity: 1 }] })
+        .expect(201);
+
+      // Reservation 1: STAGED in tote 1
+      const res1 = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId1 },
+      });
+      expect(res1.status).toBe('STAGED');
+      expect(res1.quantity_received).toEqual(new Prisma.Decimal(1));
+      expect(res1.location_id).toBe(fixture.stagingLocationId);
+
+      // Reservation 2: still ORDERED, nothing staged
+      const res2 = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId2 },
+      });
+      expect(res2.status).toBe('ORDERED');
+      expect(res2.quantity_received).toEqual(new Prisma.Decimal(0));
+      expect(res2.location_id).toBeNull();
+
+      // Tote 2 has no stock
+      const tote2Stock = await fixture.prisma.inventoryStock.findFirst({
+        where: { catalog_item_id: fixture.catalogItemId, location_id: stagingTote2.id },
+      });
+      expect(tote2Stock).toBeNull();
+    });
+
+    it('reversed PO-item order in receive payload: no deadlock, each unit attributed once', async () => {
+      // Second job with its own staging tote, same catalog item
+      const site = await fixture.prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } });
+      const stagingTote2 = await fixture.prisma.storageLocation.create({
+        data: {
+          site_id: site.id,
+          code: `TOTE-REV-${Date.now()}`,
+          name: 'Staging tote rev',
+          type: 'staging_tote',
+        },
+      });
+      const vehicle2 = await fixture.prisma.vehicle.create({
+        data: { make: 'Honda', model: 'Civic', year: 2022 },
+      });
+      const order2 = await fixture.prisma.workshopOrder.create({
+        data: {
+          order_number: `ORDER-REV-${Date.now()}`,
+          site_id: site.id,
+          vehicle_id: vehicle2.id,
+          staging_location_id: stagingTote2.id,
+          status: 'IN_PROGRESS',
+          odometer: 5000,
+          fuel_level: 80,
+        },
+      });
+      const task2 = await fixture.prisma.workshopTask.create({
+        data: { workshop_order_id: order2.id, title: 'Replace pads rev' },
+      });
+      const line2 = await fixture.prisma.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task2.id,
+          type: 'PART',
+          part_execution_status: 'PENDING_PICK',
+          item_no: 'SKU-SHARED-REV',
+          description: 'Shared SKU rev',
+          quantity: 1,
+          unit_price: 20,
+          catalog_item_id: fixture.catalogItemId,
+        },
+      });
+
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+        { lineId: line2.id, quantity: 1 },
+      ]);
+      expect(sheet.status).toBe(201);
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        sheet.body.lines.map((l: { reservationId: string }) => ({
+          reservationId: l.reservationId,
+          unitCost: 10,
+        })),
+      );
+      expect(purchaseOrder.status).toBe(201);
+
+      const reservationId1 = sheet.body.lines[0].reservationId;
+      const reservationId2 = sheet.body.lines[1].reservationId;
+
+      // Resolve poItemIds via DB (API response doesn't include parts_reservation_id)
+      const [resDb1, resDb2] = await Promise.all([
+        fixture.prisma.partsReservation.findFirstOrThrow({
+          where: { id: reservationId1 },
+          select: { purchase_order_item_id: true },
+        }),
+        fixture.prisma.partsReservation.findFirstOrThrow({
+          where: { id: reservationId2 },
+          select: { purchase_order_item_id: true },
+        }),
+      ]);
+      const poItem1Id = resDb1.purchase_order_item_id!;
+      const poItem2Id = resDb2.purchase_order_item_id!;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      // Send items in REVERSED order (poItem2 first, poItem1 second)
+      const receiveRes = await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({
+          items: [
+            { itemId: poItem2Id, quantity: 1 },
+            { itemId: poItem1Id, quantity: 1 },
+          ],
+        });
+
+      // No deadlock — must succeed with 2xx
+      expect(receiveRes.status).toBeGreaterThanOrEqual(200);
+      expect(receiveRes.status).toBeLessThan(300);
+
+      // Both reservations staged, each in their own tote
+      const res1 = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId1 },
+      });
+      expect(res1.status).toBe('STAGED');
+      expect(res1.quantity_received).toEqual(new Prisma.Decimal(1));
+      expect(res1.location_id).toBe(fixture.stagingLocationId);
+
+      const res2 = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId2 },
+      });
+      expect(res2.status).toBe('STAGED');
+      expect(res2.quantity_received).toEqual(new Prisma.Decimal(1));
+      expect(res2.location_id).toBe(stagingTote2.id);
+
+      // Each tote has exactly 1 unit
+      const tote1Stock = await fixture.prisma.inventoryStock.findFirstOrThrow({
+        where: { catalog_item_id: fixture.catalogItemId, location_id: fixture.stagingLocationId },
+      });
+      expect(tote1Stock.quantity_on_hand).toEqual(new Prisma.Decimal(1));
+
+      const tote2Stock = await fixture.prisma.inventoryStock.findFirstOrThrow({
+        where: { catalog_item_id: fixture.catalogItemId, location_id: stagingTote2.id },
+      });
+      expect(tote2Stock.quantity_on_hand).toEqual(new Prisma.Decimal(1));
+    });
   });
 
   async function postRequisitionSheet(

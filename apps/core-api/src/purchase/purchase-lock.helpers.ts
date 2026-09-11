@@ -1,16 +1,19 @@
 import { Prisma } from '@prisma/client';
 
 /**
- * Global lock order for purchase order operations:
+ * Global lock order for purchase order operations (must match the BE-9 Release path):
  * 1. workshop_tasks (ORDER BY id ASC)
  * 2. workshop_task_line_items (ORDER BY id ASC)
- * 3. purchase_orders (PO headers)
- * 4. purchase_order_items (PO lines, ORDER BY id ASC)
- * 5. parts_reservations (linked slices, ORDER BY id ASC)
+ * 3. parts_reservations (linked slices, ORDER BY id ASC)  ← before PO rows
+ * 4. purchase_orders (PO headers)
+ * 5. purchase_order_items (PO lines, ORDER BY id ASC)
  *
- * Workshop tasks are locked first so receive stays compatible with the pick
- * hierarchy (tasks -> lines -> reservations). All row locks are strictly
- * tenant-qualified and executed inside the calling transaction.
+ * parts_reservations are locked before the PO header so that receive and the
+ * upcoming BE-9 Release path (which locks reservations first) share the same
+ * acquisition order and cannot deadlock each other.
+ *
+ * All row locks are strictly tenant-qualified and executed inside the calling
+ * transaction.
  */
 
 async function lockTenantRows(

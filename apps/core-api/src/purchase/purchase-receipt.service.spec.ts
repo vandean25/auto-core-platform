@@ -458,5 +458,38 @@ describe('PurchaseReceiptService', () => {
         service.receiveItems('order-1', [{ itemId: 'poi-1', quantity: 4 }]),
       ).rejects.toThrow(ConflictException);
     });
+
+    it.each([
+      ['1.5', new Decimal('1.5')],
+      ['0.001', new Decimal('0.001')],
+    ])(
+      'preserves decimal quantity %s through the ledger pipeline without truncation',
+      async (rawQty, expectedDecimal) => {
+        const items = [buildPoItem(null)];
+        mockReceiptOrder(items);
+
+        await service.receiveItems('order-1', [
+          { itemId: 'poi-1', quantity: parseFloat(rawQty) },
+        ]);
+
+        expect(
+          mockPrismaService.purchaseOrderItem.updateMany,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { quantity_received: { increment: expectedDecimal } },
+          }),
+        );
+
+        expect(mockLedgerService.recordTransactions).toHaveBeenCalledWith(
+          [
+            expect.objectContaining({
+              quantity: expectedDecimal,
+              type: TransactionType.PURCHASE_RECEIPT,
+            }),
+          ],
+          mockPrismaService,
+        );
+      },
+    );
   });
 });

@@ -241,9 +241,9 @@ export class PurchaseReceiptService {
       const locks = collectReceiptLocks(snapshot);
       await lockWorkshopTasks(tx, tenantId, locks.taskIds);
       await lockWorkshopTaskLineItems(tx, tenantId, locks.lineIds);
+      await lockPartsReservations(tx, tenantId, locks.reservationIds);
       await lockPurchaseOrderHeader(tx, tenantId, orderId);
       await lockPurchaseOrderItems(tx, tenantId, locks.itemIds);
-      await lockPartsReservations(tx, tenantId, locks.reservationIds);
 
       const po = await this.loadReceiptOrder(tx, tenantId, orderId);
       this.assertReceivable(po);
