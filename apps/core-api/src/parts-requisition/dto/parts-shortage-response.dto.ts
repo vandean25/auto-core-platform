@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PartsShortageResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -33,4 +33,16 @@ export class PartsShortageResponseDto {
 
   @ApiProperty({ format: 'uuid' })
   siteId!: string;
+
+  @ApiProperty({
+    description: 'Vehicle make label from the workshop order vehicle.',
+  })
+  vehicleMake!: string;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    description: 'Vehicle-make Brand id used to group the requisition sheet.',
+  })
+  vehicleMakeBrandId!: number | null;
 }

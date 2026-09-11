@@ -1,17 +1,28 @@
-import { randomInt } from 'node:crypto';
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PurchaseOrderStatus, Prisma } from '@prisma/client';
+import {
+  PartsReservationStatus,
+  PurchaseOrderStatus,
+  Prisma,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition';
+import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers';
+import { generatePurchaseOrderNumber } from './purchase-order-number.util';
 import { PurchaseReceiptService } from './purchase-receipt.service';
+import {
+  lockPurchaseOrderHeader,
+  lockPurchaseOrderItems,
+  lockPartsReservations,
+} from './purchase-lock.helpers';
 
 import Decimal = Prisma.Decimal;
 
@@ -43,10 +54,7 @@ export class PurchaseService {
   ) {}
 
   private generateOrderNumber(): string {
-    const date = new Date();
-    return `PO-${date.getFullYear()}-${randomInt(0, 10000)
-      .toString()
-      .padStart(4, '0')}`;
+    return generatePurchaseOrderNumber();
   }
 
   private recomputePurchaseOrderStatus(
@@ -286,41 +294,69 @@ export class PurchaseService {
     updates: { quantity?: number; unitCost?: number },
   ) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: { items: true },
-    });
-    if (!po) throw new NotFoundException('Purchase Order not found');
 
-    const poItem = po.items.find((i) => i.id === itemId);
-    if (!poItem)
-      throw new BadRequestException('Item not found in this purchase order');
+    return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, orderId);
+      await lockPurchaseOrderItems(tx, tenantId, [itemId]);
 
-    // Validate that new quantity is not less than already received
-    if (
-      updates.quantity !== undefined &&
-      new Decimal(updates.quantity).lt(poItem.quantity_received)
-    ) {
-      throw new BadRequestException(
-        `Cannot reduce quantity below ${poItem.quantity_received.toString()} already received`,
-      );
-    }
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        include: {
+          items: {
+            include: { parts_reservation: true },
+          },
+        },
+      });
+      if (!po) throw new NotFoundException('Purchase Order not found');
 
-    // Map camelCase to snake_case for Prisma
-    const prismaUpdates: Prisma.PurchaseOrderItemUpdateInput = {};
-    if (updates.quantity !== undefined)
-      prismaUpdates.quantity = updates.quantity;
-    if (updates.unitCost !== undefined)
-      prismaUpdates.unit_cost = updates.unitCost;
+      const poItem = po.items.find((i) => i.id === itemId);
+      if (!poItem)
+        throw new BadRequestException('Item not found in this purchase order');
 
-    // Update in a transaction
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Linked PO item rule: quantity changes must happen via reservation line release
+      if (poItem.parts_reservation && updates.quantity !== undefined) {
+        throw new ConflictException(
+          'Cannot update quantity of a purchase order item linked to a parts reservation. Adjust via reservation slice.',
+        );
+      }
+
+      // Validate that new quantity is not less than already received
+      if (
+        updates.quantity !== undefined &&
+        new Decimal(updates.quantity).lt(poItem.quantity_received)
+      ) {
+        throw new BadRequestException(
+          `Cannot reduce quantity below ${poItem.quantity_received.toString()} already received`,
+        );
+      }
+
+      // Map camelCase to snake_case for Prisma
+      const prismaUpdates: Prisma.PurchaseOrderItemUpdateInput = {};
+      if (updates.quantity !== undefined)
+        prismaUpdates.quantity = updates.quantity;
+      if (updates.unitCost !== undefined)
+        prismaUpdates.unit_cost = updates.unitCost;
+
+      // When unitCost is updated, freeze rule: quantity_received must be 0
+      const whereClause: Prisma.PurchaseOrderItemWhereInput = {
+        id: itemId,
+        tenant_id: tenantId,
+        ...(updates.unitCost !== undefined
+          ? { quantity_received: new Decimal(0) }
+          : {}),
+      };
+
       const updateResult = await tx.purchaseOrderItem.updateMany({
-        where: { id: itemId, tenant_id: tenantId },
+        where: whereClause,
         data: prismaUpdates,
       });
 
       if (updateResult.count === 0) {
+        if (updates.unitCost !== undefined) {
+          throw new ConflictException(
+            'Cannot update unit cost on a purchase order item that has already received goods.',
+          );
+        }
         throw new NotFoundException('Purchase order item not found');
       }
 
@@ -331,30 +367,72 @@ export class PurchaseService {
         po.status,
       );
     });
-
-    return updatedOrder;
   }
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-      include: { items: true },
-    });
-    if (!po) throw new NotFoundException('Purchase Order not found');
 
-    const poItem = po.items.find((i) => i.id === itemId);
-    if (!poItem)
-      throw new BadRequestException('Item not found in this purchase order');
+    return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, orderId);
+      await lockPurchaseOrderItems(tx, tenantId, [itemId]);
 
-    if (new Decimal(poItem.quantity_received).gt(0)) {
-      throw new BadRequestException(
-        'Cannot delete an item that has already been received',
-      );
-    }
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+        include: {
+          items: {
+            where: { id: itemId },
+            include: {
+              parts_reservation: {
+                select: {
+                  id: true,
+                  quantity_staged: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!po) throw new NotFoundException('Purchase Order not found');
 
-    // Delete in a transaction
-    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      const poItem = po.items[0];
+      if (!poItem)
+        throw new BadRequestException('Item not found in this purchase order');
+
+      if (new Decimal(poItem.quantity_received).gt(0)) {
+        throw new BadRequestException(
+          'Cannot delete an item that has already been received',
+        );
+      }
+
+      const linkedReservation = poItem.parts_reservation;
+      if (linkedReservation) {
+        await lockPartsReservations(tx, tenantId, [linkedReservation.id]);
+
+        if (
+          po.status !== PurchaseOrderStatus.DRAFT ||
+          new Decimal(linkedReservation.quantity_staged).gt(0)
+        ) {
+          throw new ConflictException(
+            'A linked reservation slice must be released before deleting a sent purchase order item.',
+          );
+        }
+
+        const cancelled = await tx.partsReservation.updateMany({
+          where: { tenant_id: tenantId, id: linkedReservation.id },
+          data: {
+            status: PartsReservationStatus.CANCELLED,
+            purchase_order_item_id: null,
+            detached_at: new Date(),
+          },
+        });
+        if (cancelled.count !== 1) {
+          throw new ConflictException(
+            'A reservation slice changed while deleting the purchase order item. Please refresh and try again.',
+          );
+        }
+      }
+
       const deleteResult = await tx.purchaseOrderItem.deleteMany({
         where: { id: itemId, tenant_id: tenantId },
       });
@@ -363,15 +441,20 @@ export class PurchaseService {
         throw new NotFoundException('Purchase order item not found');
       }
 
-      return this.syncPurchaseOrderStatusAndFetch(
+      const updated = await this.syncPurchaseOrderStatusAndFetch(
         tx,
         orderId,
         tenantId,
         po.status,
       );
-    });
 
-    return updatedOrder;
+      const requisitionId = linkedReservation?.requisition_line?.requisition_id;
+      if (requisitionId) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
+
+      return updated;
+    });
   }
 
   async getPurchaseOrderItems(orderId: string) {
@@ -469,55 +552,21 @@ export class PurchaseService {
   async markAsSent(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
 
-    const order = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, id);
 
-    if (!order) {
-      throw new NotFoundException('Purchase Order not found');
-    }
-
-    if (order.status !== PurchaseOrderStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only DRAFT purchase orders can be marked as sent',
-      );
-    }
-
-    await guardedStatusUpdate(bindStatusUpdateMany(this.prisma.purchaseOrder), {
-      id,
-      tenantId,
-      from: PurchaseOrderStatus.DRAFT,
-      to: PurchaseOrderStatus.SENT,
-      conflictMessage:
-        'Purchase order status changed concurrently. Please refresh and try again.',
-    });
-
-    const updated = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
-      include: {
-        vendor: true,
-        items: {
-          include: { catalog_item: true },
-        },
-      },
-    });
-
-    if (!updated) {
-      throw new NotFoundException('Purchase Order not found');
-    }
-
-    return updated;
-  }
-
-  async remove(id: string) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const deletedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await tx.purchaseOrder.findFirst({
         where: { id, tenant_id: tenantId },
         include: {
           items: {
-            include: {
-              purchase_invoice_lines: true,
+            select: {
+              id: true,
+              parts_reservation: {
+                select: {
+                  id: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
+              },
             },
           },
         },
@@ -529,16 +578,123 @@ export class PurchaseService {
 
       if (order.status !== PurchaseOrderStatus.DRAFT) {
         throw new BadRequestException(
+          'Only DRAFT purchase orders can be marked as sent',
+        );
+      }
+
+      const itemIds = order.items.map((i) => i.id);
+      await lockPurchaseOrderItems(tx, tenantId, itemIds);
+
+      const linkedReservations = order.items
+        .map((item) => item.parts_reservation)
+        .filter((reservation): reservation is NonNullable<typeof reservation> =>
+          Boolean(reservation),
+        );
+      const reservationIds = linkedReservations.map((r) => r.id);
+      await lockPartsReservations(tx, tenantId, reservationIds);
+
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+        id,
+        tenantId,
+        from: PurchaseOrderStatus.DRAFT,
+        to: PurchaseOrderStatus.SENT,
+        conflictMessage:
+          'Purchase order status changed concurrently. Please refresh and try again.',
+      });
+
+      if (reservationIds.length > 0) {
+        await tx.partsReservation.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: reservationIds },
+            status: PartsReservationStatus.OPEN,
+          },
+          data: { status: PartsReservationStatus.ORDERED },
+        });
+      }
+
+      const requisitionIds = [
+        ...new Set(
+          linkedReservations
+            .map((reservation) => reservation.requisition_line?.requisition_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+      for (const requisitionId of requisitionIds) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
+
+      const updated = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: {
+          vendor: true,
+          items: {
+            include: { catalog_item: true },
+          },
+        },
+      });
+
+      if (!updated) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      return updated;
+    });
+  }
+
+  async remove(id: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const deletedOrder = await this.prisma.$transaction(async (tx) => {
+      await lockPurchaseOrderHeader(tx, tenantId, id);
+
+      const order = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: {
+          items: {
+            include: {
+              purchase_invoice_lines: true,
+              parts_reservation: {
+                select: {
+                  id: true,
+                  quantity_staged: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      if (order.status !== PurchaseOrderStatus.DRAFT) {
+        throw new ConflictException(
           'Only DRAFT purchase orders can be deleted',
         );
       }
+
+      const itemIds = order.items.map((i) => i.id);
+      await lockPurchaseOrderItems(tx, tenantId, itemIds);
 
       const hasReceivedItems = order.items.some((item) =>
         new Decimal(item.quantity_received).gt(0),
       );
       if (hasReceivedItems) {
-        throw new BadRequestException(
+        throw new ConflictException(
           'Purchase order cannot be deleted because items were already received.',
+        );
+      }
+
+      const hasStagedReservations = order.items.some(
+        (item) =>
+          item.parts_reservation &&
+          new Decimal(item.parts_reservation.quantity_staged).gt(0),
+      );
+      if (hasStagedReservations) {
+        throw new ConflictException(
+          'Purchase order cannot be deleted because linked reservation slices are staged.',
         );
       }
 
@@ -556,16 +712,60 @@ export class PurchaseService {
         );
       }
 
+      const linkedReservations = order.items
+        .map((item) => item.parts_reservation)
+        .filter((reservation): reservation is NonNullable<typeof reservation> =>
+          Boolean(reservation),
+        );
+      const reservationIds = linkedReservations.map((r) => r.id);
+      await lockPartsReservations(tx, tenantId, reservationIds);
+
+      if (reservationIds.length > 0) {
+        const cancelled = await tx.partsReservation.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: reservationIds },
+            status: PartsReservationStatus.OPEN,
+            purchase_order_item_id: { not: null },
+            quantity_staged: new Decimal(0),
+          },
+          data: {
+            status: PartsReservationStatus.CANCELLED,
+            purchase_order_item_id: null,
+            detached_at: new Date(),
+          },
+        });
+        if (cancelled.count !== reservationIds.length) {
+          throw new ConflictException(
+            'A reservation slice changed while deleting the purchase order. Please refresh and try again.',
+          );
+        }
+      }
+
       await tx.purchaseOrderItem.deleteMany({
-        where: { purchase_order_id: id },
+        where: { purchase_order_id: id, tenant_id: tenantId },
       });
 
+      // Atomic delete of DRAFT purchase order header after child rows are removed.
       const deleteResult = await tx.purchaseOrder.deleteMany({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, status: PurchaseOrderStatus.DRAFT },
       });
 
       if (deleteResult.count === 0) {
-        throw new NotFoundException('Purchase Order not found');
+        throw new ConflictException(
+          'Purchase order status changed concurrently or was already deleted.',
+        );
+      }
+
+      const requisitionIds = [
+        ...new Set(
+          linkedReservations
+            .map((reservation) => reservation.requisition_line?.requisition_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+      for (const requisitionId of requisitionIds) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
       }
 
       return { id };

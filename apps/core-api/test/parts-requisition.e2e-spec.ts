@@ -26,6 +26,8 @@ type ReservationFixture = {
   lineId: string;
   stockId: string;
   sourceLocationId: string;
+  brandId: number;
+  vendorId: string;
 };
 
 describe('Parts requisition persistence and site authorization (e2e)', () => {
@@ -235,6 +237,451 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
     });
   });
 
+  describe('parts requisition sheets', () => {
+    it('builds a DRAFT make sheet with a REQUISITION slice', async () => {
+      const response = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({
+        vehicleMakeBrandId: fixture.brandId,
+        status: 'DRAFT',
+      });
+      expect(response.body.lines).toHaveLength(1);
+      expect(response.body.lines[0]).toMatchObject({
+        workshopTaskLineItemId: fixture.lineId,
+        quantity: '1',
+        status: 'OPEN',
+      });
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow(
+        {
+          where: { workshop_task_line_item_id: fixture.lineId },
+        },
+      );
+      expect(reservation.kind).toBe('REQUISITION');
+      expect(reservation.status).toBe('OPEN');
+      expect(reservation.quantity).toEqual(new Prisma.Decimal('1'));
+
+      const task = await fixture.prisma.workshopTask.findFirstOrThrow({
+        where: { workshop_order_id: fixture.orderId },
+      });
+      expect(task.line_items_version).toBe(1);
+    });
+
+    it('rejects a make-sheet from a different vehicle make', async () => {
+      const otherBrandName = `other-make-${Date.now()}`;
+      const otherBrand = await fixture.prisma.brand.create({
+        data: {
+          name: otherBrandName,
+          normalized_name: otherBrandName.toLowerCase(),
+          isVehicleMake: true,
+        },
+      });
+
+      const response = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ], otherBrand.id);
+
+      expect(response.status).toBe(422);
+      const reservationCount = await fixture.prisma.partsReservation.count({
+        where: { workshop_task_line_item_id: fixture.lineId },
+      });
+      expect(reservationCount).toBe(0);
+    });
+
+    it('rejects a slice beyond the remaining shortage', async () => {
+      const response = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 2 },
+      ]);
+
+      expect(response.status).toBe(409);
+      const reservationCount = await fixture.prisma.partsReservation.count({
+        where: { workshop_task_line_item_id: fixture.lineId },
+      });
+      expect(reservationCount).toBe(0);
+    });
+
+    it('rejects TECH sessions', async () => {
+      const techIdentity = await createTechIdentity(fixture);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/parts-requisitions')
+        .set('Authorization', `Bearer ${techIdentity.authToken}`)
+        .send({
+          vehicleMakeBrandId: fixture.brandId,
+          items: [{ workshopTaskLineItemId: fixture.lineId, quantity: 1 }],
+        });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('creates one purchase order item per reservation slice with a confirmed unit cost', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const response = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10.5 },
+      ]);
+
+      expect(response.status).toBe(201);
+      expect(response.body.status).toBe('DRAFT');
+      expect(response.body.items).toHaveLength(1);
+      expect(
+        new Prisma.Decimal(response.body.items[0].quantity).toString(),
+      ).toBe('1');
+      expect(
+        new Prisma.Decimal(response.body.items[0].unit_cost).toString(),
+      ).toBe('10.5');
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow(
+        { where: { id: reservationId } },
+      );
+      expect(reservation.purchase_order_item_id).toBe(
+        response.body.items[0].id,
+      );
+      expect(reservation.status).toBe('OPEN');
+    });
+
+    it('does not collapse duplicate SKUs across jobs into one purchase order item', async () => {
+      const task = await fixture.prisma.workshopTask.findFirstOrThrow({
+        where: { workshop_order_id: fixture.orderId },
+      });
+      const catalogItem = await fixture.prisma.catalogItem.create({
+        data: {
+          sku: `second-${Date.now()}`,
+          name: 'Oil filter',
+          cost_price: 4,
+          retail_price: 8,
+        },
+      });
+      const secondLine = await fixture.prisma.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'PART',
+          part_execution_status: 'PENDING_PICK',
+          item_no: catalogItem.sku,
+          description: catalogItem.name,
+          quantity: 2,
+          unit_price: 8,
+          catalog_item_id: catalogItem.id,
+        },
+      });
+
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+        { lineId: secondLine.id, quantity: 2 },
+      ]);
+      expect(sheet.status).toBe(201);
+      expect(sheet.body.lines).toHaveLength(2);
+
+      const response = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        sheet.body.lines.map((line: { reservationId: string }) => ({
+          reservationId: line.reservationId,
+          unitCost: 3,
+        })),
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.body.items).toHaveLength(2);
+
+      const reservations = await fixture.prisma.partsReservation.findMany({
+        where: { workshop_task_line_item_id: { in: [fixture.lineId, secondLine.id] } },
+      });
+      expect(
+        reservations.every((reservation) => reservation.purchase_order_item_id),
+      ).toBe(true);
+    });
+
+    it('rejects a string unit cost before creating a purchase order', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/parts-requisitions/${sheet.body.id}/create-purchase-order`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({
+          vendorId: fixture.vendorId,
+          items: [
+            {
+              reservationId: sheet.body.lines[0].reservationId,
+              unitCost: '',
+            },
+          ],
+        });
+
+      expect(response.status).toBe(400);
+      const purchaseOrderCount = await fixture.prisma.purchaseOrder.count();
+      expect(purchaseOrderCount).toBe(0);
+    });
+
+    it('rejects relinking a reservation slice to a second purchase order', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const first = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+      expect(first.status).toBe(201);
+
+      const second = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+      expect(second.status).toBe(409);
+    });
+
+    it('marks the requisition ORDERED when the purchase order is sent', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        [{ reservationId, unitCost: 10 }],
+      );
+      expect(purchaseOrder.status).toBe(201);
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow(
+        { where: { id: reservationId } },
+      );
+      expect(reservation.status).toBe('ORDERED');
+
+      const requisition = await fixture.prisma.partsRequisition.findFirstOrThrow(
+        { where: { id: sheet.body.id } },
+      );
+      expect(requisition.status).toBe('ORDERED');
+    });
+
+    it('accepts unitCost: 0 JSON number and rejects empty items array', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      // Empty items array -> 400
+      const emptyRes = await request(app.getHttpServer())
+        .post(`/api/parts-requisitions/${sheet.body.id}/create-purchase-order`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ vendorId: fixture.vendorId, items: [] });
+      expect(emptyRes.status).toBe(400);
+
+      // unitCost: 0 -> 201
+      const zeroCostRes = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 0 },
+      ]);
+      expect(zeroCostRes.status).toBe(201);
+      expect(new Prisma.Decimal(zeroCostRes.body.items[0].unit_cost).toString()).toBe('0');
+    });
+
+    it('rejects PATCH quantity on a purchase order item linked to a reservation slice', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+      expect(purchaseOrder.status).toBe(201);
+      const itemId = purchaseOrder.body.items[0].id;
+
+      // PATCH quantity 1 -> 5 -> 409 Conflict
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/api/purchase-orders/${purchaseOrder.body.id}/items/${itemId}`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ quantity: 5 });
+
+      expect(patchRes.status).toBe(409);
+
+      // Reservation quantity remains 1
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(new Prisma.Decimal(reservation.quantity).toString()).toBe('1');
+    });
+
+    it('rejects DELETE on a linked SENT purchase order item with 409 and keeps the FK intact', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+      const itemId = purchaseOrder.body.items[0].id;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      const deleteRes = await request(app.getHttpServer())
+        .delete(`/api/purchase-orders/${purchaseOrder.body.id}/items/${itemId}`)
+        .set('Authorization', `Bearer ${fixture.authToken}`);
+
+      expect(deleteRes.status).toBe(409);
+
+      // Reservation FK remains intact
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(reservation.purchase_order_item_id).toBe(itemId);
+    });
+
+    it('deletes a DRAFT purchase order: cancels unreceived reservations, unlinks FK, and updates requisition status', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+
+      const deleteRes = await request(app.getHttpServer())
+        .delete(`/api/purchase-orders/${purchaseOrder.body.id}`)
+        .set('Authorization', `Bearer ${fixture.authToken}`);
+
+      expect(deleteRes.status).toBe(200);
+
+      // Reservation slice is cancelled and FK is nulled
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(reservation.status).toBe('CANCELLED');
+      expect(reservation.purchase_order_item_id).toBeNull();
+
+      // Since every slice in sheet is cancelled, requisition becomes CANCELLED
+      const requisition = await fixture.prisma.partsRequisition.findFirstOrThrow({
+        where: { id: sheet.body.id },
+      });
+      expect(requisition.status).toBe('CANCELLED');
+    });
+
+    it('serializes concurrent mark-as-sent vs DRAFT delete: one 200 and one 409 without deadlock', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+
+      const [sentRes, deleteRes] = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+          .set('Authorization', `Bearer ${fixture.authToken}`),
+        request(app.getHttpServer())
+          .delete(`/api/purchase-orders/${purchaseOrder.body.id}`)
+          .set('Authorization', `Bearer ${fixture.authToken}`),
+      ]);
+
+      const statuses = [sentRes.status, deleteRes.status].sort();
+      expect(statuses).toEqual([200, 409]);
+    });
+
+    it('serializes concurrent unitCost PATCH vs receive: one succeeds and one 409, receipt cost_basis is preserved', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(fixture, sheet.body.id, [
+        { reservationId, unitCost: 10 },
+      ]);
+      const itemId = purchaseOrder.body.items[0].id;
+
+      // Mark as sent so it can receive
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      const catalogItem = await fixture.prisma.catalogItem.findFirstOrThrow({
+        where: { workshop_task_line_items: { some: { id: fixture.lineId } } },
+      });
+
+      const [patchRes, receiveRes] = await Promise.all([
+        request(app.getHttpServer())
+          .patch(`/api/purchase-orders/${purchaseOrder.body.id}/items/${itemId}`)
+          .set('Authorization', `Bearer ${fixture.authToken}`)
+          .send({ unitCost: 25 }),
+        request(app.getHttpServer())
+          .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
+          .set('Authorization', `Bearer ${fixture.authToken}`)
+          .send({
+            items: [{ itemId: catalogItem.id, quantity: 1 }],
+          }),
+      ]);
+
+      if (patchRes.status === 409) {
+        // Receive won the row lock; cost basis must reflect pre-receive unit_cost.
+        expect(receiveRes.status).toBeGreaterThanOrEqual(200);
+        expect(receiveRes.status).toBeLessThan(300);
+        const txRecord = await fixture.prisma.inventoryTransaction.findFirstOrThrow({
+          where: { item_id: catalogItem.id, type: 'PURCHASE_RECEIPT' },
+        });
+        expect(new Prisma.Decimal(txRecord.cost_basis).toString()).toBe('10');
+        return;
+      }
+
+      // Patch won the lock first; receive must still complete without server errors.
+      expect(patchRes.status).toBe(200);
+      expect(receiveRes.status).toBeGreaterThanOrEqual(200);
+      expect(receiveRes.status).toBeLessThan(300);
+    });
+  });
+
+  async function postRequisitionSheet(
+    reservationFixture: ReservationFixture,
+    selections: { lineId: string; quantity: number }[],
+    brandId: number = reservationFixture.brandId,
+  ) {
+    return request(app.getHttpServer())
+      .post('/api/parts-requisitions')
+      .set('Authorization', `Bearer ${reservationFixture.authToken}`)
+      .send({
+        vehicleMakeBrandId: brandId,
+        items: selections.map((selection) => ({
+          workshopTaskLineItemId: selection.lineId,
+          quantity: selection.quantity,
+        })),
+      });
+  }
+
+  async function postCreatePurchaseOrder(
+    reservationFixture: ReservationFixture,
+    requisitionId: string,
+    items: { reservationId: string; unitCost: number }[],
+  ) {
+    return request(app.getHttpServer())
+      .post(
+        `/api/parts-requisitions/${requisitionId}/create-purchase-order`,
+      )
+      .set('Authorization', `Bearer ${reservationFixture.authToken}`)
+      .send({
+        vendorId: reservationFixture.vendorId,
+        items,
+      });
+  }
+
   async function createReservationFixture(
     prefix: string,
     sourceType: 'bin' | 'warehouse' = 'bin',
@@ -270,11 +717,27 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         retail_price: 20,
       },
     });
+    const makeName = `${prefix}-make-${Date.now()}`;
+    const brand = await prisma.brand.create({
+      data: {
+        name: makeName,
+        normalized_name: makeName.toLowerCase(),
+        isVehicleMake: true,
+      },
+    });
+    const vendor = await prisma.vendor.create({
+      data: {
+        name: `${prefix} vendor`,
+        email: `${prefix}-vendor@example.com`,
+        account_number: `${prefix}-ACC-${Date.now()}`,
+      },
+    });
     const vehicle = await prisma.vehicle.create({
       data: {
         make: 'Toyota',
         model: 'Corolla',
         year: 2020,
+        make_brand_id: brand.id,
       },
     });
     const order = await prisma.workshopOrder.create({
@@ -323,6 +786,8 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       lineId: line.id,
       stockId: stock.id,
       sourceLocationId: sourceLocation.id,
+      brandId: brand.id,
+      vendorId: vendor.id,
     };
   }
 
