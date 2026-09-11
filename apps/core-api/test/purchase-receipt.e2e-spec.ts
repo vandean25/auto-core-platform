@@ -13,6 +13,23 @@ import {
 } from './tenant-test-utils';
 import { teardownTestApp } from './test-lifecycle';
 
+interface PurchaseOrderResponseBody {
+  items: Array<{ id: string; catalog_item_id: string }>;
+}
+
+function poItemIdFor(
+  poResponse: { body: PurchaseOrderResponseBody },
+  catalogItemId: string,
+): string {
+  const item = poResponse.body.items.find(
+    (candidate) => candidate.catalog_item_id === catalogItemId,
+  );
+  if (!item) {
+    throw new Error(`PO has no item for catalog item ${catalogItemId}`);
+  }
+  return item.id;
+}
+
 describe('Purchase Order Receipt Flow (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
@@ -107,7 +124,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .send({
           items: [
             {
-              itemId: catalogItemId,
+              itemId: poItemIdFor(poResponse, catalogItemId),
               quantity: 5,
             },
           ],
@@ -154,8 +171,8 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
           .set('Authorization', `Bearer ${authToken}`)
         .send({
           items: [
-            { itemId: catalogItemId, quantity: 3 },
-            { itemId: item2.id, quantity: 2 },
+            { itemId: poItemIdFor(poResponse, catalogItemId), quantity: 3 },
+            { itemId: poItemIdFor(poResponse, item2.id), quantity: 2 },
           ],
         })
         .expect(201);
@@ -215,7 +232,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .post(`/api/purchase-orders/${poId}/receive`)
           .set('Authorization', `Bearer ${authToken}`)
         .send({
-          items: [{ itemId: catalogItemId, quantity: 5 }],
+          items: [{ itemId: poItemIdFor(poResponse, catalogItemId), quantity: 5 }],
         })
         .expect(201);
 
@@ -226,7 +243,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .post(`/api/purchase-orders/${poId}/receive`)
           .set('Authorization', `Bearer ${authToken}`)
         .send({
-          items: [{ itemId: catalogItemId, quantity: 5 }],
+          items: [{ itemId: poItemIdFor(poResponse, catalogItemId), quantity: 5 }],
         })
         .expect(201);
 
@@ -251,7 +268,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .post(`/api/purchase-orders/${poId}/receive`)
           .set('Authorization', `Bearer ${authToken}`)
         .send({
-          items: [{ itemId: catalogItemId, quantity: 10 }],
+          items: [{ itemId: poItemIdFor(poResponse, catalogItemId), quantity: 10 }],
         })
         .expect(400);
     });
@@ -282,7 +299,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
         .post(`/api/purchase-orders/${poId}/receive`)
           .set('Authorization', `Bearer ${authToken}`)
         .send({
-          items: [{ itemId: catalogItemId, quantity: 5 }],
+          items: [{ itemId: poItemIdFor(poResponse, catalogItemId), quantity: 5 }],
         })
         .expect(201);
 

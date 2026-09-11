@@ -2330,11 +2330,17 @@ export interface components {
             createdAt: string;
         };
         ReceiveItemDto: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description purchase_order_item.id
+             */
             itemId: string;
             /** @example 1.5 */
             quantity: number;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Free-stock bin for unlinked or released items. Required when a linked reservation slice was released.
+             */
             locationId?: string;
         };
         ReceivePurchaseOrderDto: {

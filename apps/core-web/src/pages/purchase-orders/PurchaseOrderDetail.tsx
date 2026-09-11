@@ -726,7 +726,7 @@ function ReceiveGoodsDialog({
                 if (remaining <= 0) return null;
 
                 return (
-                  <TableRow key={item.catalog_item_id}>
+                  <TableRow key={item.id}>
                     <TableCell>
                       <div className="font-medium">{item.catalog_item?.sku}</div>
                       <div className="text-sm text-muted-foreground">
@@ -739,13 +739,14 @@ function ReceiveGoodsDialog({
                         type="number"
                         min="0"
                         max={remaining}
+                        step="0.001"
                         className="text-right"
                         placeholder="0"
-                        value={receiveQuantities[item.catalog_item_id] || ""}
+                        value={receiveQuantities[item.id] || ""}
                         onChange={(e) =>
                           handleQuantityChange(
-                            item.catalog_item_id,
-                            parseInt(e.target.value) || 0,
+                            item.id,
+                            parseFloat(e.target.value) || 0,
                           )
                         }
                       />

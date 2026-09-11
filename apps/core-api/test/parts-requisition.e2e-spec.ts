@@ -26,6 +26,8 @@ type ReservationFixture = {
   lineId: string;
   stockId: string;
   sourceLocationId: string;
+  stagingLocationId: string;
+  catalogItemId: string;
   brandId: number;
   vendorId: string;
 };
@@ -627,7 +629,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
           .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
           .set('Authorization', `Bearer ${fixture.authToken}`)
           .send({
-            items: [{ itemId: catalogItem.id, quantity: 1 }],
+            items: [{ itemId, quantity: 1 }],
           }),
       ]);
 
@@ -646,6 +648,160 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       expect(patchRes.status).toBe(200);
       expect(receiveRes.status).toBeGreaterThanOrEqual(200);
       expect(receiveRes.status).toBeLessThan(300);
+    });
+
+    it('receives an allocated slice into the job tote and stages it', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        [{ reservationId, unitCost: 10 }],
+      );
+      const purchaseOrderId = purchaseOrder.body.id;
+      const poItemId = purchaseOrder.body.items[0].id;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ items: [{ itemId: poItemId, quantity: 1 }] })
+        .expect(201);
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(reservation.status).toBe('STAGED');
+      expect(reservation.quantity_received).toEqual(new Prisma.Decimal(1));
+      expect(reservation.quantity_staged).toEqual(new Prisma.Decimal(1));
+      expect(reservation.tote_cost_basis).toEqual(new Prisma.Decimal(10));
+      expect(reservation.location_id).toBe(fixture.stagingLocationId);
+
+      const toteStock = await fixture.prisma.inventoryStock.findFirstOrThrow({
+        where: {
+          catalog_item_id: fixture.catalogItemId,
+          location_id: fixture.stagingLocationId,
+        },
+      });
+      expect(toteStock.quantity_on_hand).toEqual(new Prisma.Decimal(1));
+
+      const ledger = await fixture.prisma.inventoryTransaction.findFirstOrThrow({
+        where: { parts_reservation_id: reservationId },
+      });
+      expect(ledger.type).toBe('PURCHASE_RECEIPT');
+      expect(ledger.location_id).toBe(fixture.stagingLocationId);
+    });
+
+    it('keeps a partially received slice ORDERED until the receipt is complete', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        [{ reservationId, unitCost: 10 }],
+      );
+      const purchaseOrderId = purchaseOrder.body.id;
+      const poItemId = purchaseOrder.body.items[0].id;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ items: [{ itemId: poItemId, quantity: 0.5 }] })
+        .expect(201);
+
+      const partial = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(partial.status).toBe('ORDERED');
+      expect(partial.quantity_received).toEqual(new Prisma.Decimal('0.5'));
+      expect(partial.tote_cost_basis).toEqual(new Prisma.Decimal(10));
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ items: [{ itemId: poItemId, quantity: 0.5 }] })
+        .expect(201);
+
+      const complete = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(complete.status).toBe('STAGED');
+      expect(complete.quantity_received).toEqual(new Prisma.Decimal(1));
+      expect(complete.quantity_staged).toEqual(new Prisma.Decimal(1));
+    });
+
+    it('receives a released slice as free stock only when locationId is provided', async () => {
+      const sheet = await postRequisitionSheet(fixture, [
+        { lineId: fixture.lineId, quantity: 1 },
+      ]);
+      const reservationId = sheet.body.lines[0].reservationId;
+
+      const purchaseOrder = await postCreatePurchaseOrder(
+        fixture,
+        sheet.body.id,
+        [{ reservationId, unitCost: 10 }],
+      );
+      const purchaseOrderId = purchaseOrder.body.id;
+      const poItemId = purchaseOrder.body.items[0].id;
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/mark-as-sent`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .expect(200);
+
+      await fixture.prisma.partsReservation.update({
+        where: { id: reservationId },
+        data: { status: 'CANCELLED', detached_at: new Date() },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ items: [{ itemId: poItemId, quantity: 1 }] })
+        .expect(422);
+
+      await request(app.getHttpServer())
+        .post(`/api/purchase-orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({
+          items: [
+            {
+              itemId: poItemId,
+              quantity: 1,
+              locationId: fixture.sourceLocationId,
+            },
+          ],
+        })
+        .expect(201);
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(reservation.quantity_received).toEqual(new Prisma.Decimal(0));
+      expect(reservation.quantity_staged).toEqual(new Prisma.Decimal(0));
+
+      const freeStock = await fixture.prisma.inventoryStock.findFirstOrThrow({
+        where: {
+          catalog_item_id: fixture.catalogItemId,
+          location_id: fixture.sourceLocationId,
+        },
+      });
+      expect(freeStock.quantity_on_hand).toEqual(new Prisma.Decimal(2));
     });
   });
 
@@ -787,6 +943,8 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       lineId: line.id,
       stockId: stock.id,
       sourceLocationId: sourceLocation.id,
+      stagingLocationId: stagingLocation.id,
+      catalogItemId: catalogItem.id,
       brandId: brand.id,
       vendorId: vendor.id,
     };

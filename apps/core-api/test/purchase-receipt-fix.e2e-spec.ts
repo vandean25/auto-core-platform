@@ -113,6 +113,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         .expect(201);
 
       const poId = poResponse.body.id;
+      const poItemId = poResponse.body.items[0].id;
 
       // 2. Receive 5 items (PARTIAL)
       await request(app.getHttpServer())
@@ -121,7 +122,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         .send({
           items: [
             {
-              itemId: catalogItemId,
+              itemId: poItemId,
               quantity: 5,
             },
           ],
@@ -170,7 +171,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         .post(`/api/purchase-orders/${po1Response.body.id}/receive`)
           .set('Authorization', `Bearer ${authToken}`)
         .send({
-          items: [{ itemId: freshItemId, quantity: 5 }],
+          items: [{ itemId: po1Response.body.items[0].id, quantity: 5 }],
         })
         .expect(201);
 
@@ -199,7 +200,7 @@ describe('Purchase Receipt Fix Verification (e2e)', () => {
         .send({
           items: [
             {
-              itemId: freshItemId,
+              itemId: po2Response.body.items[0].id,
               quantity: 5,
             },
           ],
