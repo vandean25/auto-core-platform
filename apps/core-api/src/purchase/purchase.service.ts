@@ -670,7 +670,7 @@ export class PurchaseService {
       }
 
       if (order.status !== PurchaseOrderStatus.DRAFT) {
-        throw new BadRequestException(
+        throw new ConflictException(
           'Only DRAFT purchase orders can be deleted',
         );
       }
@@ -720,22 +720,14 @@ export class PurchaseService {
       const reservationIds = linkedReservations.map((r) => r.id);
       await lockPartsReservations(tx, tenantId, reservationIds);
 
-      // Atomic delete of DRAFT purchase order header
-      const deleteResult = await tx.purchaseOrder.deleteMany({
-        where: { id, tenant_id: tenantId, status: PurchaseOrderStatus.DRAFT },
-      });
-
-      if (deleteResult.count === 0) {
-        throw new ConflictException(
-          'Purchase order status changed concurrently or was already deleted.',
-        );
-      }
-
       if (reservationIds.length > 0) {
         const cancelled = await tx.partsReservation.updateMany({
           where: {
             tenant_id: tenantId,
             id: { in: reservationIds },
+            status: PartsReservationStatus.OPEN,
+            purchase_order_item_id: { not: null },
+            quantity_staged: new Decimal(0),
           },
           data: {
             status: PartsReservationStatus.CANCELLED,
@@ -751,8 +743,19 @@ export class PurchaseService {
       }
 
       await tx.purchaseOrderItem.deleteMany({
-        where: { purchase_order_id: id },
+        where: { purchase_order_id: id, tenant_id: tenantId },
       });
+
+      // Atomic delete of DRAFT purchase order header after child rows are removed.
+      const deleteResult = await tx.purchaseOrder.deleteMany({
+        where: { id, tenant_id: tenantId, status: PurchaseOrderStatus.DRAFT },
+      });
+
+      if (deleteResult.count === 0) {
+        throw new ConflictException(
+          'Purchase order status changed concurrently or was already deleted.',
+        );
+      }
 
       const requisitionIds = [
         ...new Set(

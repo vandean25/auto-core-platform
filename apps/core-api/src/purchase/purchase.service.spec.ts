@@ -492,7 +492,7 @@ describe('PurchaseService', () => {
       expect(
         mockPrismaService.purchaseOrderItem.deleteMany,
       ).toHaveBeenCalledWith({
-        where: { purchase_order_id: 'po-1' },
+        where: { purchase_order_id: 'po-1', tenant_id: 'tenant-1' },
       });
       expect(mockPrismaService.purchaseOrder.deleteMany).toHaveBeenCalledWith({
         where: { id: 'po-1', tenant_id: 'tenant-1', status: PurchaseOrderStatus.DRAFT },
@@ -506,7 +506,7 @@ describe('PurchaseService', () => {
         items: [],
       });
 
-      await expect(service.remove('po-2')).rejects.toThrow(BadRequestException);
+      await expect(service.remove('po-2')).rejects.toThrow(ConflictException);
     });
 
     it('should block deleting purchase order with received items', async () => {

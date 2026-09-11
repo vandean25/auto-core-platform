@@ -615,7 +615,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         .expect(200);
 
       const catalogItem = await fixture.prisma.catalogItem.findFirstOrThrow({
-        where: { workshopTaskLineItems: { some: { id: fixture.lineId } } },
+        where: { workshop_task_line_items: { some: { id: fixture.lineId } } },
       });
 
       const [patchRes, receiveRes] = await Promise.all([
