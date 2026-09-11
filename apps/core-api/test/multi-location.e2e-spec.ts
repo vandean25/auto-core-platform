@@ -179,6 +179,69 @@ describe('Multi-Location guards (e2e)', () => {
 
       await expect(attempt).rejects.toMatchObject({ code: 'P2003' });
     });
+
+    it('rejects stock and ledger rows whose site does not own the location', async () => {
+      const siteA = await mainSite(tenantA.tenantId);
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const legalEntity = await tenantAPrisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId },
+      });
+      const siteB = await tenantAPrisma.site.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          legal_entity_id: legalEntity.id,
+          code: 'SECOND',
+          name: 'Second site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+          is_active: true,
+        },
+      });
+      const locationB = await tenantAPrisma.storageLocation.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          site_id: siteB.id,
+          code: 'B-BIN',
+          name: 'Second site bin',
+          type: 'bin',
+        },
+      });
+      const item = await tenantAPrisma.catalogItem.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          sku: 'SITE-MISMATCH',
+          name: 'Site mismatch item',
+          cost_price: 1,
+          retail_price: 2,
+        },
+      });
+
+      await expect(
+        tenantAPrisma.inventoryStock.create({
+          data: {
+            tenant_id: tenantA.tenantId,
+            site_id: siteA.id,
+            catalog_item_id: item.id,
+            location_id: locationB.id,
+            quantity_on_hand: 1,
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'P2003' });
+
+      await expect(
+        tenantAPrisma.inventoryTransaction.create({
+          data: {
+            tenant_id: tenantA.tenantId,
+            site_id: siteA.id,
+            item_id: item.id,
+            location_id: locationB.id,
+            quantity: 1,
+            type: 'INITIAL_BALANCE',
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'P2003' });
+    });
   });
 
   describe('system-location delete guards', () => {
@@ -360,6 +423,96 @@ describe('Multi-Location guards (e2e)', () => {
         .get('/sites?includeInactive=true')
         .set('Authorization', authHeader)
         .expect(403);
+    });
+  });
+
+  describe('bay site isolation (AUT-255)', () => {
+    it('lists and mutates bays only within the active site', async () => {
+      const siteA = await mainSite(tenantA.tenantId);
+      const tenantAPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const legalEntity = await tenantAPrisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId },
+      });
+      const siteB = await tenantAPrisma.site.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          legal_entity_id: legalEntity.id,
+          code: 'BAY-SECOND',
+          name: 'Bay second site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+          is_active: true,
+        },
+      });
+      const user = await tenantAPrisma.user.findFirstOrThrow({
+        where: { email: tenantA.email },
+      });
+      await tenantAPrisma.siteMembership.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          user_id: user.id,
+          site_id: siteB.id,
+          is_active: true,
+        },
+      });
+      const bayA = await tenantAPrisma.bay.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          site_id: siteA.id,
+          name: 'Vienna bay',
+          sort_order: 1,
+        },
+      });
+      const bayB = await tenantAPrisma.bay.create({
+        data: {
+          tenant_id: tenantA.tenantId,
+          site_id: siteB.id,
+          name: 'Munich bay',
+          sort_order: 1,
+        },
+      });
+      const authHeader = `Bearer ${createTestAuthToken(authService, tenantA)}`;
+
+      const viennaList = await request(app.getHttpServer())
+        .get('/bays')
+        .set('Authorization', authHeader)
+        .expect(200);
+      expect(viennaList.body.data.map((bay: { id: string }) => bay.id)).toContain(
+        bayA.id,
+      );
+      expect(viennaList.body.data.map((bay: { id: string }) => bay.id)).not.toContain(
+        bayB.id,
+      );
+
+      await tenantAPrisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: siteB.id },
+      });
+
+      const munichList = await request(app.getHttpServer())
+        .get('/bays')
+        .set('Authorization', authHeader)
+        .expect(200);
+      expect(munichList.body.data.map((bay: { id: string }) => bay.id)).toEqual([
+        bayB.id,
+      ]);
+
+      const created = await request(app.getHttpServer())
+        .post('/bays')
+        .set('Authorization', authHeader)
+        .send({ name: 'Created in second site' })
+        .expect(201);
+      const createdBay = await tenantAPrisma.bay.findFirstOrThrow({
+        where: { id: created.body.id },
+      });
+      expect(createdBay.site_id).toBe(siteB.id);
+
+      await request(app.getHttpServer())
+        .patch(`/bays/${bayA.id}`)
+        .set('Authorization', authHeader)
+        .send({ name: 'Cross-site update' })
+        .expect(404);
     });
   });
 

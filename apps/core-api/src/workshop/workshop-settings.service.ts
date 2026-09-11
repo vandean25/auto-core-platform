@@ -30,9 +30,9 @@ type SiteWithHours = Site & {
 /**
  * Tenant-singleton WorkshopSettings was replaced by per-site planner fields
  * (ADR-0022 / ruling 20, 56). The GET/PUT /api/workshop/settings routes keep
- * their shape but now read/write the tenant's MAIN Site. Legacy single-site
- * tenants get exactly one MAIN Site from the backfill migration, so the
- * existing planner/schedule/holiday code keeps working unchanged.
+ * their shape but now read/write the authenticated user's active site. Legacy
+ * single-site tenants get exactly one MAIN Site from the backfill migration, so
+ * the existing planner/schedule/holiday code keeps working unchanged.
  */
 @Injectable()
 export class WorkshopSettingsService {

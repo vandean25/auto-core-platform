@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 import Decimal = Prisma.Decimal;
 
@@ -34,6 +35,7 @@ export class LedgerService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   /**
@@ -272,10 +274,14 @@ export class LedgerService {
    * Useful for audit trail and debugging.
    */
   async getTransactionHistory(itemId: string, locationId?: string) {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
     return await this.prisma.inventoryTransaction.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         item_id: itemId,
         ...(locationId && { location_id: locationId }),
       },

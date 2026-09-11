@@ -12,7 +12,6 @@ describe('LocationService', () => {
       } as never,
       {
         getSiteId: jest.fn().mockResolvedValue('site-wien'),
-        resolveDefaultSiteId: jest.fn(),
       } as never,
     );
 

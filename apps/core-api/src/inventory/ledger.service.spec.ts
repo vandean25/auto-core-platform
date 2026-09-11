@@ -4,11 +4,13 @@ import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { LedgerService, RecordTransactionParams } from './ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/services/tenant-context.service';
+import { SiteContextService } from '../common/services/site-context.service';
 
 describe('LedgerService', () => {
   let service: LedgerService;
   let mockPrisma: any;
   let mockTenantContext: { getTenantId: jest.Mock };
+  let mockSiteContext: { getSiteId: jest.Mock };
 
   const TENANT_ID = 'tenant-uuid-123';
   const ITEM_ID = 'item-uuid-1';
@@ -35,12 +37,16 @@ describe('LedgerService', () => {
     mockTenantContext = {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
     };
+    mockSiteContext = {
+      getSiteId: jest.fn().mockResolvedValue(SITE_ID),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LedgerService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantContextService, useValue: mockTenantContext },
+        { provide: SiteContextService, useValue: mockSiteContext },
       ],
     }).compile();
 
@@ -509,6 +515,7 @@ describe('LedgerService', () => {
       expect(mockPrisma.inventoryTransaction.findMany).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
+          site_id: SITE_ID,
           item_id: ITEM_ID,
           location_id: LOCATION_ID,
         },
@@ -537,6 +544,7 @@ describe('LedgerService', () => {
       expect(mockPrisma.inventoryTransaction.findMany).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
+          site_id: SITE_ID,
           item_id: ITEM_ID,
         },
         select: expect.any(Object),

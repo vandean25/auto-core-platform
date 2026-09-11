@@ -113,6 +113,27 @@ describe('WorkshopPlannerService', () => {
         ],
       }),
     );
+    expect(mockPrisma.bay.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          site_id: 'site-1',
+        }),
+      }),
+    );
+    expect(mockPrisma.workshopHoliday.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenant_id: TENANT_ID, site_id: 'site-1' },
+      }),
+    );
+    expect(mockPrisma.workshopOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          site_id: 'site-1',
+        }),
+      }),
+    );
     expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.leaveRequest.findMany).toHaveBeenCalledWith({
       where: {

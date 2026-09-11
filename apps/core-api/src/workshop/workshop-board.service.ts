@@ -281,12 +281,20 @@ export class WorkshopBoardService {
     }
 
     // Single-row update — last-write-wins (per ADR-0013)
-    const updated = await this.prisma.workshopOrder.update({
-      where: { id: dto.orderId },
+    const updateResult = await this.prisma.workshopOrder.updateMany({
+      where: { id: dto.orderId, tenant_id: tenantId, site_id: siteId },
       data: {
         ...(dto.mechanicId !== undefined && { mechanic_id: dto.mechanicId }),
         ...(dto.bayId !== undefined && { bay_id: dto.bayId }),
       },
+    });
+
+    if (updateResult.count === 0) {
+      throw new NotFoundException(`Workshop order ${dto.orderId} not found`);
+    }
+
+    const updated = await this.prisma.workshopOrder.findFirstOrThrow({
+      where: { id: dto.orderId, tenant_id: tenantId, site_id: siteId },
       select: {
         id: true,
         order_number: true,
