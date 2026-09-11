@@ -573,7 +573,9 @@ export class PurchaseService {
       });
 
       if (!order) {
-        throw new NotFoundException('Purchase Order not found');
+        throw new ConflictException(
+          'Purchase order was deleted concurrently. Please refresh and try again.',
+        );
       }
 
       if (order.status !== PurchaseOrderStatus.DRAFT) {
