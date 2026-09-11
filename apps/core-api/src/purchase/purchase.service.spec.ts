@@ -417,6 +417,14 @@ describe('PurchaseService', () => {
         ConflictException,
       );
     });
+
+    it('returns 409 when the purchase order is deleted before the lock is acquired', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue(null);
+
+      await expect(service.markAsSent('po-1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
   });
 
   describe('findAll', () => {
