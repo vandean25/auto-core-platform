@@ -1,6 +1,6 @@
 ---
 title: "Dashboard and search"
-description: "Turn saved list filters into widgets, and jump to a part with Ctrl+K."
+description: "Turn saved list filters into widgets, and jump to parts, customers, vehicles, or jobs with Ctrl+K."
 ---
 
 **Dashboard** is a command board you build, not a fixed report pack. Subtitle: build your command center from saved table filters.
@@ -23,10 +23,16 @@ That button is on Customers, Vehicles, Sales Orders, Workshop Orders, Inventory,
 
 ## Global search
 
-**Ctrl+K** (Windows) or **Cmd+K** (Mac) opens search. Placeholder: **Search inventory or commands…**
+**Ctrl+K** (Windows) or **Cmd+K** (Mac) opens search. Placeholder: **Search parts, customers, vehicles, jobs…**
 
-Typing a SKU jumps to that part’s ledger. Empty search shows commands such as **Open Workshop Intake** and **Create Sales Order**. This is not a customer search.
+Search runs across five groups in parallel:
+- **Commands**: Jump directly to views or trigger create dialogs (for example, **Open Workshop Intake** or **Create Sales Order**).
+- **Customers**: Search by individual name, company name, phone, or email to open `/customers/:id`.
+- **Vehicles**: Search by license plate, VIN, or make/model to open `/vehicles/:id`.
+- **Workshop orders**: Search by work order number (e.g. `WO-2026-0004`), vehicle plate, or customer to open `/workshop/orders/:id`.
+- **Inventory**: Search by SKU or description to jump to the part's stock ledger.
 
 <Tip>
 Lists stay live. When someone else receives stock or updates a job, the widgets update.
 </Tip>
+
