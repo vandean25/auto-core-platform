@@ -227,7 +227,7 @@ describe('role-aware shell route guards', () => {
     expect(screen.queryByText('Platform tenants page')).not.toBeInTheDocument()
   })
 
-  it('redirects a TECH user away from back-office routes into the mechanic queue', async () => {
+  it('keeps a TECH user in the mechanic shell on back-office routes', async () => {
     renderShellRouter('/inventory', { activeRole: 'TECH' })
 
     expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument()
@@ -243,6 +243,19 @@ describe('role-aware shell route guards', () => {
       expect(screen.getByText('Mechanic')).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'HR' })).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Employees' })).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['/workshop/orders', '/settings'])(
+    'shows an access-denied page for a TECH user visiting %s',
+    async (path) => {
+      renderShellRouter(path, { activeRole: 'TECH' })
+
+      expect(await screen.findByRole('heading', { name: 'Office access restricted' })).toBeInTheDocument()
+      expect(screen.getByText(/don't have access to office tools/i)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /go to mechanic queue/i })).toHaveAttribute('href', '/mechanic/queue')
+      expect(screen.getByText('Mechanic')).toBeInTheDocument()
+      expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument()
     },
   )
 })
