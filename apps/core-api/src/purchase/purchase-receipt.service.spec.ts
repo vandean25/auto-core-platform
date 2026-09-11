@@ -20,6 +20,7 @@ describe('PurchaseReceiptService', () => {
     $transaction: jest
       .fn()
       .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
+    $queryRaw: jest.fn().mockResolvedValue([]),
     purchaseOrder: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),

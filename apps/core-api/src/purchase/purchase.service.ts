@@ -687,8 +687,10 @@ export class PurchaseService {
         );
       }
 
-      const hasStagedReservations = order.items.some((item) =>
-        item.parts_reservation && new Decimal(item.parts_reservation.quantity_staged).gt(0),
+      const hasStagedReservations = order.items.some(
+        (item) =>
+          item.parts_reservation &&
+          new Decimal(item.parts_reservation.quantity_staged).gt(0),
       );
       if (hasStagedReservations) {
         throw new ConflictException(
