@@ -9,7 +9,12 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PurchaseOrderStatus, TransactionType, Prisma } from '@prisma/client';
+import {
+  PartsReservationStatus,
+  PurchaseOrderStatus,
+  TransactionType,
+  Prisma,
+} from '@prisma/client';
 import { PurchaseReceiptService } from './purchase-receipt.service';
 
 import Decimal = Prisma.Decimal;
@@ -55,6 +60,14 @@ describe('PurchaseService', () => {
     },
     catalogItem: {
       findMany: jest.fn(),
+    },
+    partsReservation: {
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    partsRequisition: {
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
     },
     storageLocation: {
       findFirst: jest.fn(),
@@ -288,17 +301,21 @@ describe('PurchaseService', () => {
     it('transitions DRAFT to SENT with an expected-from guard', async () => {
       mockPrismaService.purchaseOrder.findFirst.mockImplementation(
         async (args: { include?: unknown }) => {
-          if (args?.include) {
+          const include = args?.include as
+            | { items?: { select?: unknown } }
+            | undefined;
+          if (include?.items?.select) {
             return {
               id: 'po-1',
-              status: PurchaseOrderStatus.SENT,
-              vendor: true,
+              status: PurchaseOrderStatus.DRAFT,
               items: [],
             };
           }
           return {
             id: 'po-1',
-            status: PurchaseOrderStatus.DRAFT,
+            status: PurchaseOrderStatus.SENT,
+            vendor: true,
+            items: [],
           };
         },
       );
@@ -318,10 +335,83 @@ describe('PurchaseService', () => {
       });
     });
 
+    it('orders linked reservation slices and recomputes the requisition', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockImplementation(
+        async (args: { include?: unknown }) => {
+          const include = args?.include as
+            | { items?: { select?: unknown } }
+            | undefined;
+          if (include?.items?.select) {
+            return {
+              id: 'po-1',
+              status: PurchaseOrderStatus.DRAFT,
+              items: [
+                {
+                  parts_reservation: {
+                    id: 'reservation-1',
+                    requisition_line: { requisition_id: 'requisition-1' },
+                  },
+                },
+              ],
+            };
+          }
+          return {
+            id: 'po-1',
+            status: PurchaseOrderStatus.SENT,
+            vendor: true,
+            items: [],
+          };
+        },
+      );
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.partsReservation.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.partsReservation.findMany.mockResolvedValue([
+        {
+          status: PartsReservationStatus.ORDERED,
+          quantity: new Prisma.Decimal(4),
+          quantity_consumed: new Prisma.Decimal(0),
+          quantity_returned: new Prisma.Decimal(0),
+          quantity_staged: new Prisma.Decimal(0),
+        },
+      ]);
+      mockPrismaService.partsRequisition.findFirst.mockResolvedValue({
+        status: 'DRAFT',
+      });
+      mockPrismaService.partsRequisition.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      await service.markAsSent('po-1');
+
+      expect(mockPrismaService.partsReservation.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'tenant-1',
+          id: { in: ['reservation-1'] },
+          status: PartsReservationStatus.OPEN,
+        },
+        data: { status: PartsReservationStatus.ORDERED },
+      });
+      expect(
+        mockPrismaService.partsRequisition.updateMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          id: 'requisition-1',
+          tenant_id: 'tenant-1',
+          status: 'DRAFT',
+        },
+        data: { status: 'ORDERED' },
+      });
+    });
+
     it('returns 409 when markAsSent loses the DRAFT race', async () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.DRAFT,
+        items: [],
       });
       mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
         count: 0,

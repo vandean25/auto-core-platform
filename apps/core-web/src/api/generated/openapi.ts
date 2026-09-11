@@ -2087,6 +2087,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/parts-requisitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createRequisitionSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4632,6 +4664,75 @@ export interface components {
             shortageQuantity: string;
             /** Format: uuid */
             siteId: string;
+            /** @description Vehicle make label from the workshop order vehicle. */
+            vehicleMake: string;
+            /** @description Vehicle-make Brand id used to group the requisition sheet. */
+            vehicleMakeBrandId?: number | null;
+        };
+        PartsRequisitionItemDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+        };
+        CreatePartsRequisitionDto: {
+            /**
+             * @description Vehicle-make Brand the sheet is raised for.
+             * @example 1
+             */
+            vehicleMakeBrandId: number;
+            items: components["schemas"]["PartsRequisitionItemDto"][];
+        };
+        PartsRequisitionLineResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            reservationId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            itemNo: string;
+            description: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            purchaseOrderItemId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PartsRequisitionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            vehicleMakeBrandId: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ORDERED" | "COMPLETED" | "CANCELLED";
+            lines: components["schemas"]["PartsRequisitionLineResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RequisitionPurchaseOrderItemDto: {
+            /** Format: uuid */
+            reservationId: string;
+            /**
+             * @description Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.
+             * @example 10.5
+             */
+            unitCost: number;
+        };
+        CreateRequisitionPurchaseOrderDto: {
+            /** Format: uuid */
+            vendorId: string;
+            items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
         };
     };
     responses: never;
@@ -9173,6 +9274,54 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedResponseDto"] & {
                         data?: components["schemas"]["PartsShortageResponseDto"][];
                     };
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createRequisitionSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsRequisitionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsRequisitionResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRequisitionPurchaseOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };

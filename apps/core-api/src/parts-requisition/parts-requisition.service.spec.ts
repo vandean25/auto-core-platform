@@ -7,7 +7,9 @@ import {
   LocationType,
   PartsReservationKind,
   PartsReservationStatus,
+  PartsRequisitionStatus,
   Prisma,
+  PurchaseOrderStatus,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
@@ -21,10 +23,35 @@ const taskId = 'task-1';
 const lineId = 'line-1';
 const stockId = 'stock-1';
 const locationId = 'location-1';
+const vendorId = 'vendor-1';
 
 function buildTransactionClient() {
   return {
     $queryRaw: jest.fn(),
+    brand: {
+      findFirst: jest.fn(),
+    },
+    vendor: {
+      findFirst: jest.fn(),
+    },
+    catalogItem: {
+      findMany: jest.fn(),
+    },
+    purchaseOrder: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    purchaseOrderItem: {
+      create: jest.fn(),
+    },
+    partsRequisition: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    partsRequisitionLine: {
+      create: jest.fn(),
+    },
     workshopTaskLineItem: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -35,6 +62,7 @@ function buildTransactionClient() {
     partsReservation: {
       findMany: jest.fn(),
       create: jest.fn(),
+      updateMany: jest.fn(),
     },
     storageLocation: {
       findFirst: jest.fn(),
@@ -64,6 +92,10 @@ function buildLine(overrides: Record<string, unknown> = {}) {
         tenant_id: tenantId,
         order_number: 'WO-1',
         status: WorkshopOrderStatus.IN_PROGRESS,
+        vehicle: {
+          make: 'Toyota',
+          make_brand_id: 1,
+        },
         stagingLocation: {
           id: 'tote-1',
           tenant_id: tenantId,
@@ -439,17 +471,253 @@ describe('PartsRequisitionService', () => {
     const result = await service.getShortages({});
 
     expect(result.data).toEqual([]);
-    expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenant_id: tenantId,
-          workshop_task: expect.objectContaining({
-            workshop_order: expect.objectContaining({
-              site_id: siteId,
+      expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: tenantId,
+            workshop_task: expect.objectContaining({
+              workshop_order: expect.objectContaining({
+                site_id: siteId,
+              }),
             }),
           }),
         }),
-      }),
-    );
+      );
+    });
+
+  describe('createRequisitionSheet', () => {
+    function buildCandidateLine(makeBrandId: number) {
+      return {
+        id: lineId,
+        workshop_task_id: taskId,
+        quantity: new Prisma.Decimal('2.500'),
+        workshop_task: {
+          workshop_order: {
+            id: 'order-1',
+            order_number: 'WO-1',
+            vehicle: { make_brand_id: makeBrandId },
+          },
+        },
+      };
+    }
+
+    it('creates a DRAFT requisition with an OPEN REQUISITION slice', async () => {
+      tx.brand.findFirst.mockResolvedValue({ id: 1 });
+      tx.workshopTaskLineItem.findMany.mockResolvedValue([
+        buildCandidateLine(1),
+      ]);
+      tx.partsRequisition.create.mockResolvedValue({ id: 'requisition-1' });
+      tx.partsRequisitionLine.create.mockResolvedValue({
+        id: 'requisition-line-1',
+      });
+      tx.partsRequisition.findFirst.mockResolvedValue({
+        id: 'requisition-1',
+        tenant_id: tenantId,
+        vehicle_make_brand_id: 1,
+        status: PartsRequisitionStatus.DRAFT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lines: [
+          {
+            id: 'requisition-line-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            reservation: {
+              id: 'reservation-1',
+              workshop_task_line_item_id: lineId,
+              quantity: new Prisma.Decimal('1.500'),
+              status: PartsReservationStatus.OPEN,
+              purchase_order_item_id: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              workshop_task_line_item: {
+                item_no: 'SKU-1',
+                description: 'Brake pad',
+                workshop_task: {
+                  workshop_order: { id: 'order-1', order_number: 'WO-1' },
+                },
+              },
+            },
+          },
+        ],
+      });
+
+      const result = await service.createRequisitionSheet({
+        vehicleMakeBrandId: 1,
+        items: [{ workshopTaskLineItemId: lineId, quantity: 1.5 }],
+      });
+
+      expect(tx.brand.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 1,
+          tenant_id: tenantId,
+          isVehicleMake: true,
+        },
+        select: { id: true },
+      });
+      expect(tx.partsRequisition.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: tenantId,
+          vehicle_make_brand_id: 1,
+          status: PartsRequisitionStatus.DRAFT,
+        },
+        select: { id: true },
+      });
+      expect(tx.partsReservation.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: tenantId,
+          workshop_task_line_item_id: lineId,
+          quantity: new Prisma.Decimal('1.5'),
+          kind: PartsReservationKind.REQUISITION,
+          status: PartsReservationStatus.OPEN,
+          requisition_line_id: 'requisition-line-1',
+        },
+      });
+      expect(tx.workshopTask.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: { in: [taskId] } },
+        data: { line_items_version: { increment: 1 } },
+      });
+      expect(result.status).toBe(PartsRequisitionStatus.DRAFT);
+      expect(result.lines).toHaveLength(1);
+    });
+
+    it('rejects a line from a different vehicle make', async () => {
+      tx.brand.findFirst.mockResolvedValue({ id: 1 });
+      tx.workshopTaskLineItem.findMany.mockResolvedValue([
+        buildCandidateLine(2),
+      ]);
+
+      await expect(
+        service.createRequisitionSheet({
+          vehicleMakeBrandId: 1,
+          items: [{ workshopTaskLineItemId: lineId, quantity: 1 }],
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(tx.partsReservation.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createPurchaseOrderForRequisition', () => {
+    it('creates one linked purchase order item per reservation slice', async () => {
+      tx.partsRequisition.findFirst.mockResolvedValue({
+        id: 'requisition-1',
+        status: PartsRequisitionStatus.DRAFT,
+      });
+      tx.partsReservation.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'reservation-1',
+            quantity: new Prisma.Decimal('1.5'),
+            status: PartsReservationStatus.OPEN,
+            kind: PartsReservationKind.REQUISITION,
+            purchase_order_item_id: null,
+            requisition_line: { requisition_id: 'requisition-1' },
+            workshop_task_line_item: {
+              catalog_item_id: 'catalog-1',
+              workshop_task: { workshop_order: { site_id: siteId } },
+            },
+          },
+        ])
+        .mockResolvedValue([]);
+      tx.vendor.findFirst.mockResolvedValue({
+        id: vendorId,
+        name: 'Vendor',
+        supportedBrands: [],
+      });
+      tx.catalogItem.findMany.mockResolvedValue([
+        { id: 'catalog-1', brand_id: null, brand: null },
+      ]);
+      tx.purchaseOrder.create.mockResolvedValue({ id: 'po-1' });
+      tx.purchaseOrderItem.create.mockResolvedValue({ id: 'poi-1' });
+      tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+      tx.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        vendor_id: vendorId,
+        status: PurchaseOrderStatus.DRAFT,
+        order_number: 'PO-2026-0001',
+        vendor: {},
+        items: [
+          {
+            id: 'poi-1',
+            quantity: new Prisma.Decimal('1.5'),
+            quantity_received: new Prisma.Decimal(0),
+            unit_cost: new Prisma.Decimal('10'),
+            catalog_item_id: 'catalog-1',
+          },
+        ],
+        createdAt: new Date(),
+      });
+
+      const result = await service.createPurchaseOrderForRequisition(
+        'requisition-1',
+        { vendorId, items: [{ reservationId: 'reservation-1', unitCost: 10 }] },
+      );
+
+      expect(tx.purchaseOrderItem.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: tenantId,
+          purchase_order_id: 'po-1',
+          catalog_item_id: 'catalog-1',
+          quantity: new Prisma.Decimal('1.5'),
+          unit_cost: 10,
+          quantity_received: 0,
+        },
+        select: { id: true },
+      });
+      expect(tx.partsReservation.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          id: 'reservation-1',
+          purchase_order_item_id: null,
+          status: {
+            in: [
+              PartsReservationStatus.OPEN,
+              PartsReservationStatus.ORDERED,
+            ],
+          },
+        },
+        data: { purchase_order_item_id: 'poi-1' },
+      });
+      expect(result).toMatchObject({ id: 'po-1' });
+    });
+
+    it('rejects a reservation that is already linked to a purchase order item', async () => {
+      tx.partsRequisition.findFirst.mockResolvedValue({
+        id: 'requisition-1',
+        status: PartsRequisitionStatus.DRAFT,
+      });
+      tx.partsReservation.findMany.mockResolvedValueOnce([
+        {
+          id: 'reservation-1',
+          quantity: new Prisma.Decimal('1.5'),
+          status: PartsReservationStatus.OPEN,
+          kind: PartsReservationKind.REQUISITION,
+          purchase_order_item_id: 'poi-existing',
+          requisition_line: { requisition_id: 'requisition-1' },
+          workshop_task_line_item: {
+            catalog_item_id: 'catalog-1',
+            workshop_task: { workshop_order: { site_id: siteId } },
+          },
+        },
+      ]);
+      tx.vendor.findFirst.mockResolvedValue({
+        id: vendorId,
+        name: 'Vendor',
+        supportedBrands: [],
+      });
+      tx.catalogItem.findMany.mockResolvedValue([
+        { id: 'catalog-1', brand_id: null, brand: null },
+      ]);
+
+      await expect(
+        service.createPurchaseOrderForRequisition('requisition-1', {
+          vendorId,
+          items: [{ reservationId: 'reservation-1', unitCost: 10 }],
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(tx.purchaseOrder.create).not.toHaveBeenCalled();
+    });
   });
 });

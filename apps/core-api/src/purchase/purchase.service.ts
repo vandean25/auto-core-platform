@@ -1,16 +1,22 @@
-import { randomInt } from 'node:crypto';
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PurchaseOrderStatus, Prisma } from '@prisma/client';
+import {
+  PartsReservationStatus,
+  PurchaseOrderStatus,
+  Prisma,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition';
+import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers';
+import { generatePurchaseOrderNumber } from './purchase-order-number.util';
 import { PurchaseReceiptService } from './purchase-receipt.service';
 
 import Decimal = Prisma.Decimal;
@@ -43,10 +49,7 @@ export class PurchaseService {
   ) {}
 
   private generateOrderNumber(): string {
-    const date = new Date();
-    return `PO-${date.getFullYear()}-${randomInt(0, 10000)
-      .toString()
-      .padStart(4, '0')}`;
+    return generatePurchaseOrderNumber();
   }
 
   private recomputePurchaseOrderStatus(
@@ -339,7 +342,19 @@ export class PurchaseService {
     const tenantId = await this.tenantContext.getTenantId();
     const po = await this.prisma.purchaseOrder.findFirst({
       where: { id: orderId, tenant_id: tenantId },
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            parts_reservation: {
+              select: {
+                id: true,
+                quantity_staged: true,
+                requisition_line: { select: { requisition_id: true } },
+              },
+            },
+          },
+        },
+      },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
 
@@ -353,8 +368,35 @@ export class PurchaseService {
       );
     }
 
+    const linkedReservation = poItem.parts_reservation;
+    if (
+      linkedReservation &&
+      (po.status !== PurchaseOrderStatus.DRAFT ||
+        new Decimal(linkedReservation.quantity_staged).gt(0))
+    ) {
+      throw new ConflictException(
+        'A linked reservation slice must be released before deleting a sent purchase order item.',
+      );
+    }
+
     // Delete in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      if (linkedReservation) {
+        const cancelled = await tx.partsReservation.updateMany({
+          where: { tenant_id: tenantId, id: linkedReservation.id },
+          data: {
+            status: PartsReservationStatus.CANCELLED,
+            purchase_order_item_id: null,
+            detached_at: new Date(),
+          },
+        });
+        if (cancelled.count !== 1) {
+          throw new ConflictException(
+            'A reservation slice changed while deleting the purchase order item. Please refresh and try again.',
+          );
+        }
+      }
+
       const deleteResult = await tx.purchaseOrderItem.deleteMany({
         where: { id: itemId, tenant_id: tenantId },
       });
@@ -363,12 +405,19 @@ export class PurchaseService {
         throw new NotFoundException('Purchase order item not found');
       }
 
-      return this.syncPurchaseOrderStatusAndFetch(
+      const updated = await this.syncPurchaseOrderStatusAndFetch(
         tx,
         orderId,
         tenantId,
         po.status,
       );
+
+      const requisitionId = linkedReservation?.requisition_line?.requisition_id;
+      if (requisitionId) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
+
+      return updated;
     });
 
     return updatedOrder;
@@ -469,44 +518,89 @@ export class PurchaseService {
   async markAsSent(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
 
-    const order = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
-
-    if (!order) {
-      throw new NotFoundException('Purchase Order not found');
-    }
-
-    if (order.status !== PurchaseOrderStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only DRAFT purchase orders can be marked as sent',
-      );
-    }
-
-    await guardedStatusUpdate(bindStatusUpdateMany(this.prisma.purchaseOrder), {
-      id,
-      tenantId,
-      from: PurchaseOrderStatus.DRAFT,
-      to: PurchaseOrderStatus.SENT,
-      conflictMessage:
-        'Purchase order status changed concurrently. Please refresh and try again.',
-    });
-
-    const updated = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
-      include: {
-        vendor: true,
-        items: {
-          include: { catalog_item: true },
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: {
+          items: {
+            select: {
+              parts_reservation: {
+                select: {
+                  id: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
+              },
+            },
+          },
         },
-      },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      if (order.status !== PurchaseOrderStatus.DRAFT) {
+        throw new BadRequestException(
+          'Only DRAFT purchase orders can be marked as sent',
+        );
+      }
+
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.purchaseOrder), {
+        id,
+        tenantId,
+        from: PurchaseOrderStatus.DRAFT,
+        to: PurchaseOrderStatus.SENT,
+        conflictMessage:
+          'Purchase order status changed concurrently. Please refresh and try again.',
+      });
+
+      const linkedReservations = order.items
+        .map((item) => item.parts_reservation)
+        .filter((reservation): reservation is NonNullable<typeof reservation> =>
+          Boolean(reservation),
+        );
+
+      if (linkedReservations.length > 0) {
+        const reservationIds = linkedReservations.map(
+          (reservation) => reservation.id,
+        );
+        await tx.partsReservation.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: reservationIds },
+            status: PartsReservationStatus.OPEN,
+          },
+          data: { status: PartsReservationStatus.ORDERED },
+        });
+      }
+
+      const requisitionIds = [
+        ...new Set(
+          linkedReservations
+            .map((reservation) => reservation.requisition_line?.requisition_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+      for (const requisitionId of requisitionIds) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
+
+      const updated = await tx.purchaseOrder.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: {
+          vendor: true,
+          items: {
+            include: { catalog_item: true },
+          },
+        },
+      });
+
+      if (!updated) {
+        throw new NotFoundException('Purchase Order not found');
+      }
+
+      return updated;
     });
-
-    if (!updated) {
-      throw new NotFoundException('Purchase Order not found');
-    }
-
-    return updated;
   }
 
   async remove(id: string) {
@@ -518,6 +612,12 @@ export class PurchaseService {
           items: {
             include: {
               purchase_invoice_lines: true,
+              parts_reservation: {
+                select: {
+                  id: true,
+                  requisition_line: { select: { requisition_id: true } },
+                },
+              },
             },
           },
         },
@@ -556,6 +656,34 @@ export class PurchaseService {
         );
       }
 
+      const linkedReservations = order.items
+        .map((item) => item.parts_reservation)
+        .filter((reservation): reservation is NonNullable<typeof reservation> =>
+          Boolean(reservation),
+        );
+
+      if (linkedReservations.length > 0) {
+        const reservationIds = linkedReservations.map(
+          (reservation) => reservation.id,
+        );
+        const cancelled = await tx.partsReservation.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id: { in: reservationIds },
+          },
+          data: {
+            status: PartsReservationStatus.CANCELLED,
+            purchase_order_item_id: null,
+            detached_at: new Date(),
+          },
+        });
+        if (cancelled.count !== reservationIds.length) {
+          throw new ConflictException(
+            'A reservation slice changed while deleting the purchase order. Please refresh and try again.',
+          );
+        }
+      }
+
       await tx.purchaseOrderItem.deleteMany({
         where: { purchase_order_id: id },
       });
@@ -566,6 +694,17 @@ export class PurchaseService {
 
       if (deleteResult.count === 0) {
         throw new NotFoundException('Purchase Order not found');
+      }
+
+      const requisitionIds = [
+        ...new Set(
+          linkedReservations
+            .map((reservation) => reservation.requisition_line?.requisition_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ];
+      for (const requisitionId of requisitionIds) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
       }
 
       return { id };
