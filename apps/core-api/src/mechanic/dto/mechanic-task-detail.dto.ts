@@ -40,8 +40,8 @@ export class MechanicTaskLineItemDto {
   @ApiProperty({ enum: WorkshopLineItemType })
   type!: WorkshopLineItemType;
 
-  @ApiProperty()
-  itemNo!: string;
+  @ApiProperty({ type: String, required: false, nullable: true })
+  itemNo?: string | null;
 
   @ApiProperty()
   description!: string;

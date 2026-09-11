@@ -1,10 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MechanicTaskDetail } from "@/api/mechanic";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { MechanicTaskDetail } from '@/api/mechanic'
 
-type LaborLine = MechanicTaskDetail["lineItems"][number];
+type LaborLine = MechanicTaskDetail['lineItems'][number]
 
 export function LaborItemsCard({ laborItems }: { laborItems: LaborLine[] }) {
-  if (laborItems.length === 0) return null;
+  if (laborItems.length === 0) return null
 
   return (
     <Card>
@@ -14,22 +14,17 @@ export function LaborItemsCard({ laborItems }: { laborItems: LaborLine[] }) {
       <CardContent>
         <ul className="divide-y divide-slate-100">
           {laborItems.map((lineItem) => (
-            <li
-              key={lineItem.id}
-              className="flex items-center justify-between py-3"
-            >
+            <li key={lineItem.id} className="flex items-center justify-between py-3">
               <span className="text-sm font-medium">
-                {lineItem.itemNo
-                  ? `${lineItem.itemNo} · ${lineItem.description}`
-                  : lineItem.description}
+                {lineItem.itemNo ? `${lineItem.itemNo} · ${lineItem.description}` : lineItem.description}
               </span>
               <span className="text-sm text-slate-500 ml-4 shrink-0">
-                {lineItem.qty} {lineItem.qty === 1 ? "hr" : "hrs"}
+                {lineItem.qty} {lineItem.qty === 1 ? 'hr' : 'hrs'}
               </span>
             </li>
           ))}
         </ul>
       </CardContent>
     </Card>
-  );
+  )
 }

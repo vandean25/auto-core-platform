@@ -3393,7 +3393,7 @@ export interface components {
             id: string;
             /** @enum {string} */
             type: "LABOR" | "PART";
-            itemNo: string;
+            itemNo?: string | null;
             description: string;
             qty: number;
             /** @enum {string|null} */

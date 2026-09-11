@@ -11761,7 +11761,8 @@
             ]
           },
           "itemNo": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "description": {
             "type": "string"
@@ -11783,7 +11784,6 @@
         "required": [
           "id",
           "type",
-          "itemNo",
           "description",
           "qty"
         ]
