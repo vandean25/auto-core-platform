@@ -9,7 +9,7 @@ export function LaborItemsCard({ laborItems }: { laborItems: LaborLine[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Labour</CardTitle>
+        <CardTitle className="text-base">Labor</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="divide-y divide-slate-100">
