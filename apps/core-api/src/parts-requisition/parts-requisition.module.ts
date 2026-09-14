@@ -8,5 +8,6 @@ import { PartsRequisitionService } from './parts-requisition.service.js';
   imports: [InventoryModule, PrismaModule],
   controllers: [PartsRequisitionController],
   providers: [PartsRequisitionService],
+  exports: [PartsRequisitionService],
 })
 export class PartsRequisitionModule {}

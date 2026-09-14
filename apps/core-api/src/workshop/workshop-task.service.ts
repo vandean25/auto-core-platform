@@ -38,7 +38,11 @@ import {
   resolveOrderStatusConflict,
   validateLaborOperationIds,
 } from './workshop-task.helpers.js';
-import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
+import {
+  isActiveSlice,
+  isTaskBlockedByParts,
+} from '../parts-requisition/parts-requisition.helpers.js';
+import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 
 @Injectable()
 export class WorkshopTaskService {
@@ -51,6 +55,7 @@ export class WorkshopTaskService {
     @Inject(VehicleLedgerService)
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
+    private readonly partsReservations: PartsRequisitionService,
   ) {}
 
   private async applyDerivedOrderStatus(
@@ -365,6 +370,7 @@ export class WorkshopTaskService {
           existingItems,
           submittedIds,
           reservationHistory,
+          dto.returnLocationId,
         );
         await this.createNewTaskLineItems(tx, tenantId, taskId, dto.items);
         await this.updateExistingTaskLineItems(
@@ -501,6 +507,7 @@ export class WorkshopTaskService {
         quantity: true,
         quantity_consumed: true,
         quantity_returned: true,
+        quantity_staged: true,
         status: true,
       },
     });
@@ -575,9 +582,15 @@ export class WorkshopTaskService {
     }>,
     submittedIds: string[],
     reservationHistory: Array<{
+      id: string;
       workshop_task_line_item_id: string;
+      quantity: Prisma.Decimal;
       quantity_consumed: Prisma.Decimal;
+      quantity_returned: Prisma.Decimal;
+      quantity_staged: Prisma.Decimal;
+      status: PartsReservationStatus;
     }>,
+    returnLocationId?: string,
   ) {
     const deletedIds = existingItems
       .map((item) => item.id)
@@ -613,7 +626,20 @@ export class WorkshopTaskService {
     );
     const consumedIds = deletedIds.filter(isConsumed);
 
-    if (consumedIds.length > 0) {
+    const activeReservations = reservationHistory.filter(
+      (reservation) =>
+        deletedIds.includes(reservation.workshop_task_line_item_id) &&
+        isActiveSlice(reservation),
+    );
+    for (const reservation of activeReservations) {
+      await this.partsReservations.releaseReservation(
+        reservation.id,
+        { returnLocationId },
+        tx,
+      );
+    }
+
+    if (consumedIds.length > 0 && activeReservations.length === 0) {
       throw new ConflictException(
         'Consumed line items must be released before removal',
       );

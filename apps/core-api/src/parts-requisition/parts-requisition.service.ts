@@ -556,12 +556,13 @@ export class PartsRequisitionService {
   async releaseReservation(
     reservationId: string,
     dto: ReleasePartsReservationDto,
+    transaction?: Prisma.TransactionClient,
   ): Promise<PartsReservationResponseDto> {
     this.assertBackOfficeAccess();
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
 
-    return this.prisma.$transaction(async (tx) => {
+    const release = async (tx: Prisma.TransactionClient) => {
       const reservation = await tx.partsReservation.findFirst({
         where: {
           tenant_id: tenantId,
@@ -772,7 +773,10 @@ export class PartsRequisitionService {
       });
       if (!result) throw new NotFoundException('Parts reservation not found');
       return this.toReservationResponse(result);
-    });
+    };
+    return transaction
+      ? release(transaction)
+      : this.prisma.$transaction(release);
   }
 
   private assertBackOfficeAccess(): void {

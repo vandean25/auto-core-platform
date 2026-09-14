@@ -1140,6 +1140,102 @@ export interface paths {
         patch: operations["VehicleStockController_patch"];
         trace?: never;
     };
+    "/api/parts-reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-reservations/{id}/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_consumeReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-reservations/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_releaseReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/shortages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PartsRequisitionController_getShortages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createRequisitionSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartsRequisitionController_createPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/queue": {
         parameters: {
             query?: never;
@@ -2049,102 +2145,6 @@ export interface paths {
         get: operations["AuditController_findAll"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-reservations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-reservations/{id}/consume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_consumeReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-reservations/{id}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_releaseReservation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions/shortages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PartsRequisitionController_getShortages"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createRequisitionSheet"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/parts-requisitions/{id}/create-purchase-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PartsRequisitionController_createPurchaseOrder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3171,6 +3171,11 @@ export interface components {
         ReplaceWorkshopTaskLineItemsDto: {
             /** @description Version read before applying the patch. */
             expectedLineItemsVersion: number;
+            /**
+             * Format: uuid
+             * @description Return bin used when omitting a line with staged reservation quantity.
+             */
+            returnLocationId?: string;
             items: components["schemas"]["ReplaceWorkshopTaskLineItemDto"][];
         };
         WorkshopSearchVehicleDto: {
@@ -3371,6 +3376,140 @@ export interface components {
             color?: string;
             key_number?: string;
             registration_certificate_no?: string;
+        };
+        CreatePartsReservationDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+            /** Format: uuid */
+            locationId: string;
+        };
+        PartsReservationResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @example 0.000 */
+            quantityReceived: string;
+            /** @example 0.000 */
+            quantityConsumed: string;
+            /** @example 0.000 */
+            quantityStaged: string;
+            /** @example 0.000 */
+            quantityReturned: string;
+            /** @enum {string} */
+            kind: "ON_HAND" | "REQUISITION";
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            locationId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ConsumePartsReservationDto: {
+            /** @example 1.5 */
+            quantity: number;
+        };
+        ReleasePartsReservationDto: {
+            /** Format: uuid */
+            returnLocationId?: string;
+        };
+        PartsShortageResponseDto: {
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            /** Format: uuid */
+            workshopTaskId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            itemNo: string;
+            description: string;
+            /** @example 4.000 */
+            lineQuantity: string;
+            /** @example 1.500 */
+            consumedQuantity: string;
+            /** @example 1.000 */
+            activeCommitment: string;
+            /** @example 1.500 */
+            shortageQuantity: string;
+            /** Format: uuid */
+            siteId: string;
+            /** @description Vehicle make label from the workshop order vehicle. */
+            vehicleMake: string;
+            /** @description Vehicle-make Brand id used to group the requisition sheet. */
+            vehicleMakeBrandId?: number | null;
+        };
+        PartsRequisitionItemDto: {
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** @example 1.5 */
+            quantity: number;
+        };
+        CreatePartsRequisitionDto: {
+            /**
+             * @description Vehicle-make Brand the sheet is raised for.
+             * @example 1
+             */
+            vehicleMakeBrandId: number;
+            items: components["schemas"]["PartsRequisitionItemDto"][];
+        };
+        PartsRequisitionLineResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            reservationId: string;
+            /** Format: uuid */
+            workshopTaskLineItemId: string;
+            /** Format: uuid */
+            workshopOrderId: string;
+            workshopOrderNumber: string;
+            itemNo: string;
+            description: string;
+            /** @example 1.500 */
+            quantity: string;
+            /** @enum {string} */
+            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
+            /** Format: uuid */
+            purchaseOrderItemId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PartsRequisitionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            vehicleMakeBrandId: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ORDERED" | "COMPLETED" | "CANCELLED";
+            lines: components["schemas"]["PartsRequisitionLineResponseDto"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RequisitionPurchaseOrderItemDto: {
+            /** Format: uuid */
+            reservationId: string;
+            /**
+             * @description Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.
+             * @example 10.5
+             */
+            unitCost: number;
+        };
+        CreateRequisitionPurchaseOrderDto: {
+            /** Format: uuid */
+            vendorId: string;
+            items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
         };
         MechanicVehicleDto: {
             id: string;
@@ -4646,140 +4785,6 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
-        };
-        CreatePartsReservationDto: {
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.5 */
-            quantity: number;
-            /** Format: uuid */
-            locationId: string;
-        };
-        PartsReservationResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenantId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.500 */
-            quantity: string;
-            /** @example 0.000 */
-            quantityReceived: string;
-            /** @example 0.000 */
-            quantityConsumed: string;
-            /** @example 0.000 */
-            quantityStaged: string;
-            /** @example 0.000 */
-            quantityReturned: string;
-            /** @enum {string} */
-            kind: "ON_HAND" | "REQUISITION";
-            /** @enum {string} */
-            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
-            /** Format: uuid */
-            locationId?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        ConsumePartsReservationDto: {
-            /** @example 1.5 */
-            quantity: number;
-        };
-        ReleasePartsReservationDto: {
-            /** Format: uuid */
-            returnLocationId?: string;
-        };
-        PartsShortageResponseDto: {
-            /** Format: uuid */
-            workshopOrderId: string;
-            workshopOrderNumber: string;
-            /** Format: uuid */
-            workshopTaskId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            itemNo: string;
-            description: string;
-            /** @example 4.000 */
-            lineQuantity: string;
-            /** @example 1.500 */
-            consumedQuantity: string;
-            /** @example 1.000 */
-            activeCommitment: string;
-            /** @example 1.500 */
-            shortageQuantity: string;
-            /** Format: uuid */
-            siteId: string;
-            /** @description Vehicle make label from the workshop order vehicle. */
-            vehicleMake: string;
-            /** @description Vehicle-make Brand id used to group the requisition sheet. */
-            vehicleMakeBrandId?: number | null;
-        };
-        PartsRequisitionItemDto: {
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** @example 1.5 */
-            quantity: number;
-        };
-        CreatePartsRequisitionDto: {
-            /**
-             * @description Vehicle-make Brand the sheet is raised for.
-             * @example 1
-             */
-            vehicleMakeBrandId: number;
-            items: components["schemas"]["PartsRequisitionItemDto"][];
-        };
-        PartsRequisitionLineResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            reservationId: string;
-            /** Format: uuid */
-            workshopTaskLineItemId: string;
-            /** Format: uuid */
-            workshopOrderId: string;
-            workshopOrderNumber: string;
-            itemNo: string;
-            description: string;
-            /** @example 1.500 */
-            quantity: string;
-            /** @enum {string} */
-            status: "OPEN" | "ORDERED" | "STAGED" | "FULFILLED" | "CANCELLED";
-            /** Format: uuid */
-            purchaseOrderItemId?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        PartsRequisitionResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenantId: string;
-            vehicleMakeBrandId: number;
-            /** @enum {string} */
-            status: "DRAFT" | "ORDERED" | "COMPLETED" | "CANCELLED";
-            lines: components["schemas"]["PartsRequisitionLineResponseDto"][];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        RequisitionPurchaseOrderItemDto: {
-            /** Format: uuid */
-            reservationId: string;
-            /**
-             * @description Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.
-             * @example 10.5
-             */
-            unitCost: number;
-        };
-        CreateRequisitionPurchaseOrderDto: {
-            /** Format: uuid */
-            vendorId: string;
-            items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
         };
     };
     responses: never;
@@ -7300,6 +7305,151 @@ export interface operations {
             };
         };
     };
+    PartsRequisitionController_createReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsReservationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_consumeReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsumePartsReservationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_releaseReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleasePartsReservationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsReservationResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_getShortages: {
+        parameters: {
+            query?: {
+                /** @description Limit the queue to one workshop order. */
+                workshopOrderId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PartsShortageResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createRequisitionSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartsRequisitionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsRequisitionResponseDto"];
+                };
+            };
+        };
+    };
+    PartsRequisitionController_createPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRequisitionPurchaseOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
+                };
+            };
+        };
+    };
     MechanicController_getQueue: {
         parameters: {
             query?: never;
@@ -9274,151 +9424,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_createReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePartsReservationDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_consumeReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsumePartsReservationDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_releaseReservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReleasePartsReservationDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsReservationResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_getShortages: {
-        parameters: {
-            query?: {
-                /** @description Limit the queue to one workshop order. */
-                workshopOrderId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
-                        data?: components["schemas"]["PartsShortageResponseDto"][];
-                    };
-                };
-            };
-        };
-    };
-    PartsRequisitionController_createRequisitionSheet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePartsRequisitionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartsRequisitionResponseDto"];
-                };
-            };
-        };
-    };
-    PartsRequisitionController_createPurchaseOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRequisitionPurchaseOrderDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
             };
         };

@@ -91,6 +91,15 @@ export class ReplaceWorkshopTaskLineItemsDto {
   @Min(0)
   expectedLineItemsVersion!: number;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Return bin used when omitting a line with staged reservation quantity.',
+  })
+  @IsOptional()
+  @IsUUID()
+  returnLocationId?: string;
+
   @ApiProperty({
     type: () => [ReplaceWorkshopTaskLineItemDto],
   })
