@@ -6,6 +6,10 @@ import {
   WorkshopTaskStatus,
 } from '@prisma/client';
 import type { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
+import {
+  isTaskBlockedByParts,
+  type TaskPartsGateState,
+} from '../parts-requisition/parts-requisition.helpers.js';
 
 /**
  * Maps a `LaborPauseReason` to the resulting `WorkshopTaskStatus` for that
@@ -178,6 +182,44 @@ export async function completeLaborAndTask(
   params: CompleteLaborAndTaskParams,
 ): Promise<void> {
   const { tenantId, taskId, orderId, openEntryId, allOtherTasksDone } = params;
+
+  // Completion shares the task-first lock order with reservation mutations.
+  // eslint-disable-next-line no-restricted-syntax -- task gate requires a row lock.
+  await tx.$queryRaw`
+    SELECT id
+    FROM workshop_tasks
+    WHERE tenant_id = ${tenantId} AND id = ${taskId}
+    FOR UPDATE
+  `;
+  const lines =
+    (await tx.workshopTaskLineItem.findMany({
+      where: { tenant_id: tenantId, workshop_task_id: taskId },
+      select: { part_execution_status: true },
+    })) ?? [];
+  const reservations =
+    (await tx.partsReservation.findMany({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_line_item: { workshop_task_id: taskId },
+      },
+      select: {
+        status: true,
+        quantity: true,
+        quantity_consumed: true,
+        quantity_returned: true,
+        quantity_staged: true,
+      },
+    })) ?? [];
+  if (
+    isTaskBlockedByParts({
+      lines,
+      reservations,
+    } satisfies TaskPartsGateState)
+  ) {
+    throw new ConflictException(
+      'Task cannot be completed while part lines or reservations are still active.',
+    );
+  }
 
   if (openEntryId) {
     const laborEntryUpdate = await tx.laborEntry.updateMany({

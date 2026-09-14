@@ -13,6 +13,7 @@ import {
   PartsRequisitionStatus,
   Prisma,
   PurchaseOrderStatus,
+  TransactionType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
@@ -21,12 +22,15 @@ import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AtpService } from '../inventory/atp.service.js';
+import { LedgerService } from '../inventory/ledger.service.js';
 import { generatePurchaseOrderNumber } from '../purchase/purchase-order-number.util.js';
 import type { PurchaseOrderWithRelations } from '../purchase/purchase.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto.js';
 import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto.js';
 import { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto.js';
+import type { ConsumePartsReservationDto } from './dto/consume-parts-reservation.dto.js';
+import type { ReleasePartsReservationDto } from './dto/release-parts-reservation.dto.js';
 import { PartsRequisitionResponseDto } from './dto/parts-requisition-response.dto.js';
 import { PartsReservationResponseDto } from './dto/parts-reservation-response.dto.js';
 import { PartsShortageResponseDto } from './dto/parts-shortage-response.dto.js';
@@ -34,6 +38,7 @@ import { PartsShortagesQueryDto } from './dto/parts-shortages-query.dto.js';
 import {
   getRemainingCommitment,
   isActiveSlice,
+  allocateStagedConsumption,
   recomputeRequisitionStatus,
 } from './parts-requisition.helpers.js';
 
@@ -160,6 +165,7 @@ export class PartsRequisitionService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
     private readonly atpService: AtpService,
+    private readonly ledgerService: LedgerService,
   ) {}
 
   async createOnHandReservation(
@@ -352,6 +358,354 @@ export class PartsRequisitionService {
         pageCount: 1,
       },
     };
+  }
+
+  async consumeReservation(
+    reservationId: string,
+    dto: ConsumePartsReservationDto,
+  ): Promise<PartsReservationResponseDto> {
+    this.assertBackOfficeAccess();
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const quantity = new Prisma.Decimal(dto.quantity);
+
+    return this.prisma.$transaction(async (tx) => {
+      const anchor = await tx.partsReservation.findFirst({
+        where: {
+          tenant_id: tenantId,
+          id: reservationId,
+          workshop_task_line_item: {
+            workshop_task: { workshop_order: { site_id: siteId } },
+          },
+        },
+        select: { workshop_task_line_item_id: true },
+      });
+      if (!anchor) {
+        throw new NotFoundException('Parts reservation not found');
+      }
+
+      const line = await tx.workshopTaskLineItem.findFirst({
+        where: { id: anchor.workshop_task_line_item_id, tenant_id: tenantId },
+        select: {
+          id: true,
+          workshop_task_id: true,
+          catalog_item_id: true,
+          workshop_task: {
+            select: {
+              workshop_order: { select: { staging_location_id: true } },
+            },
+          },
+        },
+      });
+      if (
+        !line?.catalog_item_id ||
+        !line.workshop_task.workshop_order.staging_location_id
+      ) {
+        throw new UnprocessableEntityException(
+          'Reservation line is not linked to a job tote.',
+        );
+      }
+
+      await this.lockTask(tx, tenantId, line.workshop_task_id);
+      await this.lockLine(tx, tenantId, line.id);
+      const reservations = await tx.partsReservation.findMany({
+        where: {
+          tenant_id: tenantId,
+          workshop_task_line_item_id: line.id,
+          status: {
+            in: [
+              PartsReservationStatus.OPEN,
+              PartsReservationStatus.ORDERED,
+              PartsReservationStatus.STAGED,
+            ],
+          },
+          quantity_staged: { gt: ZERO },
+        },
+        select: {
+          id: true,
+          workshop_task_line_item_id: true,
+          quantity: true,
+          quantity_received: true,
+          quantity_consumed: true,
+          quantity_staged: true,
+          quantity_returned: true,
+          kind: true,
+          status: true,
+          location_id: true,
+          tote_cost_basis: true,
+          createdAt: true,
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      await this.lockReservations(
+        tx,
+        tenantId,
+        reservations.map(({ id }) => id),
+      );
+
+      const allocations = allocateStagedConsumption(reservations, quantity);
+      const transactions = allocations.map(
+        ({ reservationId: id, quantity: value }) => {
+          const reservation = reservations.find(
+            (candidate) => candidate.id === id,
+          );
+          if (!reservation) {
+            throw new ConflictException(
+              'Reservation changed during consumption.',
+            );
+          }
+          return {
+            itemId: line.catalog_item_id as string,
+            locationId: line.workshop_task.workshop_order
+              .staging_location_id as string,
+            quantity: new Prisma.Decimal(value).negated(),
+            type: TransactionType.WORKSHOP_CONSUMPTION,
+            referenceId: `WO-CONSUME-${line.id}-${id}`,
+            costBasis: reservation.tote_cost_basis,
+            partsReservationId: id,
+          };
+        },
+      );
+      await this.ledgerService.recordTransactions(transactions, tx);
+
+      for (const { reservationId: id, quantity: value } of allocations) {
+        const reservation = reservations.find(
+          (candidate) => candidate.id === id,
+        );
+        if (!reservation) continue;
+        const consumed = reservation.quantity_consumed.add(value);
+        const staged = reservation.quantity_staged.sub(value);
+        const nextStatus =
+          staged.eq(0) &&
+          reservation.quantity
+            .sub(consumed)
+            .sub(reservation.quantity_returned)
+            .lte(0)
+            ? PartsReservationStatus.FULFILLED
+            : PartsReservationStatus.STAGED;
+        const result = await tx.partsReservation.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id,
+            status: reservation.status,
+            quantity_staged: reservation.quantity_staged,
+          },
+          data: {
+            quantity_consumed: { increment: value },
+            quantity_staged: { decrement: value },
+            status: nextStatus,
+          },
+        });
+        if (result.count !== 1) {
+          throw new ConflictException(
+            'Reservation changed during consumption.',
+          );
+        }
+      }
+
+      await tx.workshopTask.updateMany({
+        where: { id: line.workshop_task_id, tenant_id: tenantId },
+        data: { line_items_version: { increment: 1 } },
+      });
+
+      const updated = await tx.partsReservation.findFirst({
+        where: { id: reservationId, tenant_id: tenantId },
+      });
+      if (!updated) throw new NotFoundException('Parts reservation not found');
+      return this.toReservationResponse(updated);
+    });
+  }
+
+  async releaseReservation(
+    reservationId: string,
+    dto: ReleasePartsReservationDto,
+  ): Promise<PartsReservationResponseDto> {
+    this.assertBackOfficeAccess();
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+
+    return this.prisma.$transaction(async (tx) => {
+      const reservation = await tx.partsReservation.findFirst({
+        where: {
+          tenant_id: tenantId,
+          id: reservationId,
+          status: {
+            in: [
+              PartsReservationStatus.OPEN,
+              PartsReservationStatus.ORDERED,
+              PartsReservationStatus.STAGED,
+            ],
+          },
+          workshop_task_line_item: {
+            workshop_task: { workshop_order: { site_id: siteId } },
+          },
+        },
+        include: {
+          workshop_task_line_item: {
+            select: {
+              id: true,
+              workshop_task_id: true,
+              catalog_item_id: true,
+              workshop_task: {
+                select: {
+                  workshop_order: { select: { staging_location_id: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!reservation) {
+        const fulfilled = await tx.partsReservation.findFirst({
+          where: { tenant_id: tenantId, id: reservationId },
+          select: { status: true },
+        });
+        if (fulfilled?.status === PartsReservationStatus.FULFILLED) {
+          throw new UnprocessableEntityException(
+            'Fulfilled reservations cannot be released.',
+          );
+        }
+        throw new NotFoundException('Parts reservation not found');
+      }
+
+      const line = reservation.workshop_task_line_item;
+      await this.lockTask(tx, tenantId, line.workshop_task_id);
+      await this.lockLine(tx, tenantId, line.id);
+      await this.lockReservations(tx, tenantId, [reservation.id]);
+
+      const staged = new Prisma.Decimal(reservation.quantity_staged);
+      if (staged.gt(0) && !dto.returnLocationId) {
+        throw new UnprocessableEntityException(
+          'returnLocationId is required when staged quantity is present.',
+        );
+      }
+
+      if (staged.gt(0)) {
+        const returnLocation = await tx.storageLocation.findFirst({
+          where: {
+            id: dto.returnLocationId,
+            tenant_id: tenantId,
+            site_id: siteId,
+            deletedAt: null,
+            type: LocationType.bin,
+            site: { is_active: true },
+          },
+          select: { id: true },
+        });
+        if (!returnLocation) {
+          throw new UnprocessableEntityException(
+            'Return location is not available in the active site.',
+          );
+        }
+        const toteId = line.workshop_task.workshop_order.staging_location_id;
+        if (!toteId || !line.catalog_item_id) {
+          throw new UnprocessableEntityException(
+            'Reservation line is not linked to a job tote.',
+          );
+        }
+        await this.ledgerService.recordTransactions(
+          [
+            {
+              itemId: line.catalog_item_id,
+              locationId: toteId,
+              quantity: staged.negated(),
+              type: TransactionType.TRANSFER_OUT,
+              referenceId: `WO-RELEASE-${reservation.id}`,
+              costBasis: reservation.tote_cost_basis,
+              partsReservationId: reservation.id,
+            },
+            {
+              itemId: line.catalog_item_id,
+              locationId: returnLocation.id,
+              quantity: staged,
+              type: TransactionType.TRANSFER_IN,
+              referenceId: `WO-RELEASE-${reservation.id}`,
+              costBasis: reservation.tote_cost_basis,
+              partsReservationId: reservation.id,
+            },
+          ],
+          tx,
+        );
+      }
+      if (
+        reservation.kind === PartsReservationKind.ON_HAND &&
+        reservation.status === PartsReservationStatus.OPEN
+      ) {
+        const remainingOnHand = getRemainingCommitment(reservation).sub(staged);
+        const quantityToRelease = remainingOnHand.gt(0)
+          ? remainingOnHand
+          : ZERO;
+        if (
+          quantityToRelease.gt(0) &&
+          reservation.location_id &&
+          line.catalog_item_id
+        ) {
+          const stock = await tx.inventoryStock.findFirst({
+            where: {
+              tenant_id: tenantId,
+              catalog_item_id: line.catalog_item_id,
+              location_id: reservation.location_id,
+            },
+            select: { id: true },
+          });
+          if (stock) {
+            await this.lockStock(tx, tenantId, stock.id);
+            await this.atpService.releaseOnHand(
+              { stockId: stock.id, quantity: quantityToRelease },
+              tx,
+            );
+          }
+        }
+      }
+
+      const updated = await tx.partsReservation.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id: reservation.id,
+          status: reservation.status,
+          quantity_staged: reservation.quantity_staged,
+        },
+        data: {
+          quantity_returned: { increment: staged },
+          quantity_staged: 0,
+          status: PartsReservationStatus.CANCELLED,
+          ...(reservation.purchase_order_item_id && !reservation.detached_at
+            ? { detached_at: new Date() }
+            : {}),
+        },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException('Reservation changed during release.');
+      }
+
+      const allReservations = await tx.partsReservation.findMany({
+        where: { tenant_id: tenantId, workshop_task_line_item_id: line.id },
+        select: { quantity_consumed: true },
+      });
+      const consumed = allReservations.reduce(
+        (sum, candidate) => sum.add(candidate.quantity_consumed),
+        ZERO,
+      );
+      await tx.workshopTaskLineItem.updateMany({
+        where: { tenant_id: tenantId, id: line.id },
+        data: {
+          quantity: consumed,
+          part_execution_status: consumed.gt(0)
+            ? WorkshopPartLineExecutionStatus.CONSUMED
+            : WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      });
+      await tx.workshopTask.updateMany({
+        where: { id: line.workshop_task_id, tenant_id: tenantId },
+        data: { line_items_version: { increment: 1 } },
+      });
+
+      const result = await tx.partsReservation.findFirst({
+        where: { id: reservation.id, tenant_id: tenantId },
+      });
+      if (!result) throw new NotFoundException('Parts reservation not found');
+      return this.toReservationResponse(result);
+    });
   }
 
   private assertBackOfficeAccess(): void {

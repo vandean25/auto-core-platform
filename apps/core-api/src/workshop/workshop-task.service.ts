@@ -38,6 +38,7 @@ import {
   resolveOrderStatusConflict,
   validateLaborOperationIds,
 } from './workshop-task.helpers.js';
+import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
 
 @Injectable()
 export class WorkshopTaskService {
@@ -188,6 +189,33 @@ export class WorkshopTaskService {
         siteId,
       );
 
+      if (dto.status === WorkshopTaskStatus.DONE) {
+        const lines =
+          (await tx.workshopTaskLineItem.findMany({
+            where: { tenant_id: tenantId, workshop_task_id: taskId },
+            select: { part_execution_status: true },
+          })) ?? [];
+        const reservations =
+          (await tx.partsReservation.findMany({
+            where: {
+              tenant_id: tenantId,
+              workshop_task_line_item: { workshop_task_id: taskId },
+            },
+            select: {
+              status: true,
+              quantity: true,
+              quantity_consumed: true,
+              quantity_returned: true,
+              quantity_staged: true,
+            },
+          })) ?? [];
+        if (isTaskBlockedByParts({ lines, reservations })) {
+          throw new ConflictException(
+            'Task cannot be completed while part work is incomplete.',
+          );
+        }
+      }
+
       await executeTaskUpdate(
         tx,
         tenantId,
@@ -229,6 +257,21 @@ export class WorkshopTaskService {
       if (task.workshop_order.invoice) {
         throw new BadRequestException(
           'Workshop order already has an invoice; tasks cannot be deleted',
+        );
+      }
+
+      const reservationHistory =
+        (await tx.partsReservation.findMany({
+          where: {
+            tenant_id: tenantId,
+            workshop_task_line_item: { workshop_task_id: taskId },
+          },
+          select: { id: true },
+          take: 1,
+        })) ?? [];
+      if (reservationHistory.length > 0) {
+        throw new ConflictException(
+          'Tasks with reservation or inventory activity cannot be hard-deleted.',
         );
       }
 

@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   Prisma,
   VehicleLedgerEntryType,
   VehicleStockStatus,
   WorkshopLineItemType,
   WorkshopOrderPurpose,
+  WorkshopPartLineExecutionStatus,
+  TransactionType,
 } from '@prisma/client';
 import { FinanceService } from '../finance/finance.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -95,38 +101,50 @@ export class VehicleLedgerService {
     }
 
     const lines = (order.tasks ?? []).flatMap((task) => task.line_items ?? []);
-    const partSkus = [
-      ...new Set(
-        lines
-          .filter((line) => line.type === WorkshopLineItemType.PART)
-          .map((line) => line.item_no),
-      ),
-    ];
-    const catalogItems =
-      partSkus.length > 0
-        ? await tx.catalogItem.findMany({
-            where: { tenant_id: tenantId, sku: { in: partSkus } },
-            select: { sku: true, cost_price: true },
-          })
-        : [];
-    const costBySku = new Map(
-      catalogItems.map((item) => [item.sku, item.cost_price]),
-    );
+    const consumption = await tx.inventoryTransaction.findMany({
+      where: {
+        tenant_id: tenantId,
+        type: TransactionType.WORKSHOP_CONSUMPTION,
+        parts_reservation: {
+          workshop_task_line_item: {
+            workshop_task: { workshop_order_id: orderId },
+          },
+        },
+      },
+      select: { quantity: true, cost_basis: true },
+    });
+    if (consumption.some((entry) => entry.cost_basis === null)) {
+      throw new ConflictException(
+        'Cannot complete STOCK_PREP while a consumed part has no cost basis.',
+      );
+    }
 
-    const amount = lines.reduce((sum, line) => {
-      if (line.type === WorkshopLineItemType.LABOR) {
-        if (!line.internal_cost_rate) {
-          return sum;
-        }
-        const hours = line.actual_hours ?? line.quantity;
-        return sum.add(hours.mul(line.internal_cost_rate));
-      }
-      const unitCost = costBySku.get(line.item_no);
-      if (!unitCost) {
-        return sum;
-      }
-      return sum.add(line.quantity.mul(unitCost));
-    }, new Prisma.Decimal(0));
+    const laborLines = lines.filter(
+      (line) =>
+        line.type === WorkshopLineItemType.LABOR &&
+        line.part_execution_status !==
+          WorkshopPartLineExecutionStatus.CANCELLED,
+    );
+    if (laborLines.some((line) => line.internal_cost_rate === null)) {
+      throw new ConflictException(
+        'Cannot complete STOCK_PREP while labor has no internal cost rate.',
+      );
+    }
+
+    const amount = consumption
+      .reduce(
+        (sum, entry) =>
+          sum.add(
+            new Prisma.Decimal(entry.quantity).abs().mul(entry.cost_basis!),
+          ),
+        new Prisma.Decimal(0),
+      )
+      .add(
+        laborLines.reduce((sum, line) => {
+          const hours = line.actual_hours ?? line.quantity;
+          return sum.add(hours.mul(line.internal_cost_rate!));
+        }, new Prisma.Decimal(0)),
+      );
 
     if (amount.gt(0)) {
       await this.append(
