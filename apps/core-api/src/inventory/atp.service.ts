@@ -116,7 +116,7 @@ export class AtpService {
         AND stock.location_id = location.id
         AND location.tenant_id = ${context.tenantId}
         AND location.site_id = ${context.siteId}
-        AND location.type <> ${LocationType.staging_tote}::"LocationType"
+        AND location.type NOT IN (${LocationType.staging_tote}::"LocationType", ${LocationType.in_transit}::"LocationType")
         AND stock.quantity_on_hand - stock.quantity_reserved >= ${quantity}
     `;
 
@@ -153,7 +153,7 @@ export class AtpService {
         AND stock.location_id = location.id
         AND location.tenant_id = ${context.tenantId}
         AND location.site_id = ${context.siteId}
-        AND location.type <> ${LocationType.staging_tote}::"LocationType"
+        AND location.type NOT IN (${LocationType.staging_tote}::"LocationType", ${LocationType.in_transit}::"LocationType")
         AND stock.quantity_reserved >= ${quantity}
     `;
 
@@ -193,7 +193,7 @@ export class AtpService {
         AND stock.location_id = location.id
         AND location.tenant_id = ${params.tenantId}
         AND location.site_id = ${params.siteId}
-        AND location.type <> ${LocationType.staging_tote}::"LocationType"
+        AND location.type NOT IN (${LocationType.staging_tote}::"LocationType", ${LocationType.in_transit}::"LocationType")
         AND stock.quantity_on_hand - stock.quantity_reserved >= ${quantity}
     `;
 
@@ -359,9 +359,11 @@ export class AtpService {
       location: {
         tenant_id: context.tenantId,
         site_id: context.siteId,
-        type: { not: LocationType.staging_tote },
+        type: {
+          notIn: [LocationType.staging_tote, LocationType.in_transit],
+        },
       },
-    } as const;
+    };
   }
 
   private parsePositiveQuantity(quantity: DecimalQuantity): Prisma.Decimal {

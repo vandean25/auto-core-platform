@@ -538,7 +538,7 @@ export class SiteService {
    * does implement today (stock qty + parked dealer vehicles).
    */
   async guardSiteDeactivation(tenantId: string, siteId: string) {
-    const [stockQty, parkedVehicles] = await Promise.all([
+    const [stockQty, parkedVehicles, openTransfers] = await Promise.all([
       this.prisma.inventoryStock.count({
         where: {
           tenant_id: tenantId,
@@ -550,8 +550,20 @@ export class SiteService {
         },
       }),
       countParkedVehicles(this.prisma, tenantId, siteId),
+      this.prisma.stockTransfer.count({
+        where: {
+          tenant_id: tenantId,
+          OR: [{ from_site_id: siteId }, { to_site_id: siteId }],
+          status: { notIn: ['COMPLETED', 'REJECTED', 'CANCELLED'] },
+        },
+      }),
     ]);
 
+    if (openTransfers > 0) {
+      throw new ConflictException(
+        'Cannot deactivate a site with open stock transfers. Complete, reject, or cancel them first.',
+      );
+    }
     if (stockQty > 0) {
       throw new ConflictException(
         'Cannot deactivate a site with on-hand or reserved stock at its locations.',

@@ -2,6 +2,7 @@ export const DASHBOARD_ENTITY_UPDATED_EVENT = 'entity_updated';
 export const AUTH_CLAIMS_UPDATED_EVENT = 'auth:claims_updated';
 export const SITE_CONTEXT_UPDATED_EVENT = 'site:context_updated';
 export const SITE_ACCESS_SCOPE_UPDATED_EVENT = 'site:access_scope_updated';
+export const STOCK_TRANSFER_UPDATED_EVENT = 'stock_transfer_updated';
 
 export type DashboardEntityType =
   | 'PURCHASE_ORDER'
@@ -53,3 +54,27 @@ export type EmitDashboardEntityUpdatedInput = Omit<
   DashboardEntityUpdatedPayload,
   'timestamp'
 >;
+
+/**
+ * Ruling 36/43: same-GmbH transfer mutations fan out to both endpoint site
+ * rooms and to the private user rooms of every member. Source-bin fields are
+ * redacted per recipient before delivery.
+ */
+export interface StockTransferRecipient {
+  firebaseUid: string;
+  includeSourceBin: boolean;
+}
+
+export interface StockTransferUpdatedPayload {
+  action: 'CREATED' | 'UPDATED';
+  transfer: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface EmitStockTransferUpdatedInput {
+  action: 'CREATED' | 'UPDATED';
+  fromSiteId: string;
+  toSiteId: string;
+  transfer: Record<string, unknown>;
+  recipients: StockTransferRecipient[];
+}

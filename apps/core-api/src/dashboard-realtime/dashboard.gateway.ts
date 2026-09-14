@@ -27,10 +27,14 @@ import {
   AuthClaimsUpdatedPayload,
   DASHBOARD_ENTITY_UPDATED_EVENT,
   DashboardEntityUpdatedPayload,
+  EmitStockTransferUpdatedInput,
   SITE_ACCESS_SCOPE_UPDATED_EVENT,
   SITE_CONTEXT_UPDATED_EVENT,
   SiteAccessScopeUpdatedPayload,
   SiteContextUpdatedPayload,
+} from './dashboard-events.types.js';
+  STOCK_TRANSFER_UPDATED_EVENT,
+  type StockTransferUpdatedPayload,
 } from './dashboard-events.types.js';
 
 export { resolveCorsOrigins } from '../common/http/cors-origins.js';
@@ -452,6 +456,84 @@ export class DashboardGateway
         room,
       }),
     );
+  }
+
+  /**
+   * Ruling 36/43: per-recipient source-bin redaction. The from-site room sees
+   * the unredacted payload, the to-site room the redacted variant, and every
+   * member's private user room their own variant. One unredacted payload is
+   * never broadcast to mixed from/to rooms.
+   */
+  emitStockTransferUpdated(
+    tenantId: string,
+    input: EmitStockTransferUpdatedInput,
+  ): void {
+    if (!this.server) {
+      this.logger.debug(
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event: STOCK_TRANSFER_UPDATED_EVENT,
+          reason: 'No server connected',
+        }),
+      );
+      return;
+    }
+
+    const redactedTransfer = this.redactTransferForSockets(input.transfer);
+
+    const payloadFor = (
+      includeSourceBin: boolean,
+    ): StockTransferUpdatedPayload =>
+      includeSourceBin
+        ? {
+            action: input.action,
+            transfer: input.transfer,
+            timestamp: new Date().toISOString(),
+          }
+        : {
+            action: input.action,
+            transfer: redactedTransfer,
+            timestamp: new Date().toISOString(),
+          };
+
+    this.server
+      .to(`${DashboardGateway.SITE_ROOM_PREFIX}${input.fromSiteId}`)
+      .emit(STOCK_TRANSFER_UPDATED_EVENT, payloadFor(true));
+    this.server
+      .to(`${DashboardGateway.SITE_ROOM_PREFIX}${input.toSiteId}`)
+      .emit(STOCK_TRANSFER_UPDATED_EVENT, payloadFor(false));
+
+    for (const recipient of input.recipients) {
+      const room = `${DashboardGateway.USER_ROOM_PREFIX}${recipient.firebaseUid}`;
+      this.server
+        .to(room)
+        .emit(
+          STOCK_TRANSFER_UPDATED_EVENT,
+          payloadFor(recipient.includeSourceBin),
+        );
+    }
+
+    this.logger.debug(
+      JSON.stringify({
+        type: 'ws_emit',
+        event: STOCK_TRANSFER_UPDATED_EVENT,
+        tenantId,
+        action: input.action,
+        recipients: input.recipients.length,
+      }),
+    );
+  }
+
+  private redactTransferForSockets(transfer: {
+    lines?: Array<Record<string, unknown>>;
+  }): Record<string, unknown> {
+    return {
+      ...transfer,
+      lines: (transfer.lines ?? []).map((line) => ({
+        ...line,
+        sourceLocationId: null,
+      })),
+    };
   }
 
   async onModuleDestroy() {

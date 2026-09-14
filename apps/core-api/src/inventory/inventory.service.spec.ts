@@ -252,7 +252,7 @@ describe('InventoryService', () => {
                 location: {
                   tenant_id: 'tenant-1',
                   site_id: 'site-1',
-                  type: { not: 'staging_tote' },
+                  type: { notIn: ['staging_tote', 'in_transit'] },
                   name: { contains: location, mode: 'insensitive' },
                 },
               },

@@ -98,6 +98,9 @@ model Tenant {
   activeUsers              User[]                    @relation("UserActiveTenant")
   legalEntities            LegalEntity[]
   sites                    Site[]
+  stockTransfers           StockTransfer[]
+  stockTransferLines       StockTransferLine[]
+  stockTransferCommands    StockTransferCommand[]
 
   @@map("tenants")
 }
@@ -115,6 +118,10 @@ model User {
   siteMemberships  SiteMembership[]
   platformAdmin    PlatformAdmin?
   employees        Employee[]
+  transfersRequested   StockTransfer[] @relation("StockTransferRequestedBy")
+  transfersApproved    StockTransfer[] @relation("StockTransferApprovedBy")
+  transfersShipped     StockTransfer[] @relation("StockTransferShippedBy")
+  transfersReceived    StockTransfer[] @relation("StockTransferReceivedBy")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -197,6 +204,8 @@ model Site {
   bays                     Bay[]
   storageLocations         StorageLocation[]
   workshopOrders           WorkshopOrder[]
+  outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
+  inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -267,6 +276,8 @@ model FinanceSettings {
   vehicle_purchase_prefix      String    @default("VP-2026-")
   next_vehicle_sale_number     Int       @default(1)
   vehicle_sale_prefix          String    @default("VS-2026-")
+  next_stock_transfer_number   Int       @default(1)
+  stock_transfer_prefix        String    @default("TR-2026-")
 
   updatedAt DateTime @updatedAt
 
@@ -427,6 +438,7 @@ model CatalogItem {
   invoice_items            InvoiceItem[]
   sales_order_items        SalesOrderItem[]
   workshop_task_line_items WorkshopTaskLineItem[]
+  stock_transfer_lines     StockTransferLine[]
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
 
@@ -469,6 +481,8 @@ model StorageLocation {
   stagingWorkshopOrders WorkshopOrder[]        @relation("WorkshopOrderStagingLocation")
   parkedVehicles        Vehicle[]              @relation("VehicleLot")
   partsReservations     PartsReservation[]
+  transferSourceLines   StockTransferLine[]    @relation("StockTransferSourceLocation")
+  transferDestLines     StockTransferLine[]    @relation("StockTransferDestLocation")
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deletedAt             DateTime?
@@ -539,6 +553,9 @@ model InventoryTransaction {
   cost_basis           Decimal?          @db.Decimal(10, 2) // For profit calculation
   parts_reservation_id String?
   parts_reservation    PartsReservation? @relation(fields: [parts_reservation_id], references: [id], onDelete: Restrict)
+  movement_group_id    String? // Pairs transfer ledger movements (ship/receive/return)
+  stock_transfer_id    String?
+  stock_transfer       StockTransfer?    @relation(fields: [tenant_id, stock_transfer_id], references: [tenant_id, id])
   createdAt            DateTime          @default(now())
 
   @@unique([tenant_id, seq])
@@ -548,7 +565,109 @@ model InventoryTransaction {
   @@index([type])
   @@index([createdAt])
   @@index([seq])
+  @@index([movement_group_id])
   @@map("inventory_transactions")
+}
+
+// ============================================================================
+// Same-GmbH Stock Transfers (ADR-0022)
+// ============================================================================
+
+enum StockTransferStatus {
+  REQUESTED
+  APPROVED
+  SHIPPED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum StockTransferCommandAction {
+  RECEIVE
+  RETURN
+}
+
+model StockTransfer {
+  id                   String                 @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                 @relation(fields: [tenant_id], references: [id])
+  transfer_number      String
+  from_site_id         String
+  from_site            Site                   @relation("StockTransferFromSite", fields: [tenant_id, from_site_id], references: [tenant_id, id])
+  to_site_id           String
+  to_site              Site                   @relation("StockTransferToSite", fields: [tenant_id, to_site_id], references: [tenant_id, id])
+  status               StockTransferStatus    @default(REQUESTED)
+  version              Int                    @default(1)
+  requested_by_user_id String
+  requestedBy          User                   @relation("StockTransferRequestedBy", fields: [requested_by_user_id], references: [id])
+  approved_by_user_id  String?
+  approvedBy           User?                  @relation("StockTransferApprovedBy", fields: [approved_by_user_id], references: [id])
+  shipped_by_user_id   String?
+  shippedBy            User?                  @relation("StockTransferShippedBy", fields: [shipped_by_user_id], references: [id])
+  received_by_user_id  String?
+  receivedBy           User?                  @relation("StockTransferReceivedBy", fields: [received_by_user_id], references: [id])
+  reject_reason        String?
+  cancel_reason        String?
+  lines                StockTransferLine[]
+  commands             StockTransferCommand[]
+  ledgerMovements      InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, id, from_site_id, to_site_id])
+  @@unique([tenant_id, transfer_number])
+  @@index([tenant_id, from_site_id])
+  @@index([tenant_id, to_site_id])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id                 String           @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant           @relation(fields: [tenant_id], references: [id])
+  transfer_id        String
+  from_site_id       String
+  to_site_id         String
+  transfer           StockTransfer    @relation(fields: [tenant_id, transfer_id, from_site_id, to_site_id], references: [tenant_id, id, from_site_id, to_site_id], onDelete: Cascade)
+  catalog_item_id    String
+  catalog_item       CatalogItem      @relation(fields: [catalog_item_id], references: [id])
+  source_location_id String?
+  source_location    StorageLocation? @relation("StockTransferSourceLocation", fields: [tenant_id, from_site_id, source_location_id], references: [tenant_id, site_id, id])
+  dest_location_id   String?
+  dest_location      StorageLocation? @relation("StockTransferDestLocation", fields: [tenant_id, to_site_id, dest_location_id], references: [tenant_id, site_id, id])
+  requested_qty      Decimal          @db.Decimal(10, 3)
+  approved_qty       Decimal          @default(0) @db.Decimal(10, 3)
+  shipped_qty        Decimal          @default(0) @db.Decimal(10, 3)
+  received_qty       Decimal          @default(0) @db.Decimal(10, 3)
+  returned_qty       Decimal          @default(0) @db.Decimal(10, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, transfer_id])
+  @@map("stock_transfer_lines")
+}
+
+model StockTransferCommand {
+  id              String                     @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant                     @relation(fields: [tenant_id], references: [id])
+  transfer_id     String
+  transfer        StockTransfer              @relation(fields: [tenant_id, transfer_id], references: [tenant_id, id], onDelete: Cascade)
+  action          StockTransferCommandAction
+  idempotency_key String
+  request_hash    String
+  response_status Int
+  response_body   Json
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenant_id, transfer_id, action, idempotency_key])
+  @@index([tenant_id, transfer_id])
+  @@map("stock_transfer_commands")
 }
 
 model AuditLog {

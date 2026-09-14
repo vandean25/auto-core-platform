@@ -197,6 +197,42 @@ export class LocationService {
       );
     }
 
+    const openTransferLines = await this.prisma.stockTransferLine.findMany({
+      where: {
+        tenant_id: scope.tenantId,
+        transfer: { status: { in: ['REQUESTED', 'APPROVED', 'SHIPPED'] } },
+        OR: [{ source_location_id: id }, { dest_location_id: id }],
+      },
+      select: {
+        source_location_id: true,
+        dest_location_id: true,
+        approved_qty: true,
+        shipped_qty: true,
+        received_qty: true,
+        returned_qty: true,
+      },
+    });
+    const hasOutstandingTransferQty = openTransferLines.some((line) => {
+      const outstanding = line.shipped_qty.minus(
+        line.received_qty.plus(line.returned_qty),
+      );
+      if (line.source_location_id === id) {
+        // Frozen future pick or remaining in-transit qty from this bin.
+        if (line.approved_qty.gt(0) || outstanding.gt(0)) {
+          return true;
+        }
+      }
+      if (line.dest_location_id === id && outstanding.gt(0)) {
+        return true;
+      }
+      return false;
+    });
+    if (hasOutstandingTransferQty) {
+      throw new ConflictException(
+        'Cannot delete or disable a location referenced by a stock transfer with outstanding quantity.',
+      );
+    }
+
     await this.prisma.storageLocation.updateMany({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       data: { deletedAt: new Date() },

@@ -6630,6 +6630,272 @@
         ]
       }
     },
+    "/api/stock-transfers": {
+      "get": {
+        "operationId": "StockTransferController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List same-GmbH stock transfers (membership on from or to; source bins redacted without from-site access)",
+        "tags": [
+          "stock-transfers"
+        ]
+      },
+      "post": {
+        "operationId": "StockTransferController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a stock transfer request (membership on from or to)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}": {
+      "get": {
+        "operationId": "StockTransferController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a stock transfer (404 without membership on from or to; source bins redacted without from-site access)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/approve": {
+      "post": {
+        "operationId": "StockTransferController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Approve a requested transfer (from OWNER/ADMIN)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/reject": {
+      "post": {
+        "operationId": "StockTransferController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Reject a requested transfer (from OWNER/ADMIN)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/cancel": {
+      "post": {
+        "operationId": "StockTransferController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Cancel a requested/approved transfer (requester or from OWNER/ADMIN)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/ship": {
+      "post": {
+        "operationId": "StockTransferController_ship",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Ship an approved transfer one-shot and full (from-site membership)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/receive": {
+      "post": {
+        "operationId": "StockTransferController_receive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Receive shipped stock into a destination bin (to-site membership)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
+    "/api/stock-transfers/{id}/return": {
+      "post": {
+        "operationId": "StockTransferController_returnTransfer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnStockTransferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Return unreceived stock to the source bin (to-site membership or from OWNER/ADMIN)",
+        "tags": [
+          "stock-transfers"
+        ]
+      }
+    },
     "/api/platform/tenants": {
       "get": {
         "operationId": "PlatformAdminController_findAll",
@@ -15009,6 +15275,225 @@
         },
         "required": [
           "activeSiteId"
+        ]
+      },
+      "CreateStockTransferLineDto": {
+        "type": "object",
+        "properties": {
+          "catalogItemId": {
+            "type": "string"
+          },
+          "requestedQty": {
+            "type": "number",
+            "example": 5
+          },
+          "sourceLocationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogItemId",
+          "requestedQty"
+        ]
+      },
+      "CreateStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "fromSiteId": {
+            "type": "string"
+          },
+          "toSiteId": {
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateStockTransferLineDto"
+            }
+          }
+        },
+        "required": [
+          "fromSiteId",
+          "toSiteId",
+          "lines"
+        ]
+      },
+      "ApproveStockTransferLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "approvedQty": {
+            "type": "number"
+          },
+          "sourceLocationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ApproveStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApproveStockTransferLineDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "RejectStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "CancelStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "ShipStockTransferLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceLocationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ShipStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShipStockTransferLineDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "lines"
+        ]
+      },
+      "ReceiveStockTransferLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "receiveQty": {
+            "type": "number"
+          },
+          "destLocationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "receiveQty",
+          "destLocationId"
+        ]
+      },
+      "ReceiveStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiveStockTransferLineDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "idempotencyKey",
+          "lines"
+        ]
+      },
+      "ReturnStockTransferLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "returnQty": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "returnQty"
+        ]
+      },
+      "ReturnStockTransferDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReturnStockTransferLineDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "idempotencyKey",
+          "lines"
         ]
       },
       "TenantPlan": {
