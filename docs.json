@@ -108,6 +108,7 @@
             "pages": [
               "workflows/workshop-intake",
               "workflows/workshop-orders",
+              "workflows/workshop-planner",
               "workflows/workshop-board",
               "workflows/workshop-pick",
               "workflows/mechanic"
