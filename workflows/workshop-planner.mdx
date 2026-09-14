@@ -1,0 +1,98 @@
+---
+title: "Workshop planner"
+description: "Check bay availability on a day or week clock, book appointments, and set workshop hours."
+---
+
+**Workshop Planner** (`/workshop/planner`) is your booking calendar. Where the [Workshop Board](/workflows/workshop-board) tracks who owns each stall right now on the floor, the planner shows which bays are free today or later this week.
+
+## Planner vs Board
+
+| Surface | Question it answers | What you do there |
+| --- | --- | --- |
+| **Workshop Planner** | When is a stall free? | Check open time slots, book incoming jobs, drag to reschedule |
+| **Workshop Board** | Who owns the stall right now? | Drag active floor orders onto mechanics and bays |
+
+## Reading the calendar
+
+Top-right controls let you switch between **Day** and **Week** view, move the date range with previous and next buttons, and open **+ Workshop Order**.
+
+- **Day view**: Bays appear as rows, with time columns spaced by your workshop slot size (15, 30, or 60 minutes).
+- **Week view**: Bays appear as rows, with Monday through Sunday across the columns.
+- **Occupied stalls**: Colored cards show the order number, vehicle, license plate, and customer.
+- **Closed days**: When the shop is closed for a weekend or holiday, the grid displays a notice with a direct link to adjust your hours in Settings.
+
+## Book an appointment
+
+Click any empty cell on the grid to hold that stall and time window.
+
+<Steps>
+  <Step title="Pick the slot">
+    Click an empty spot under the bay you want. The create sheet opens with that bay and start time prefilled.
+  </Step>
+  <Step title="Find the vehicle">
+    Search by customer name, license plate, or VIN. Select the vehicle to link the customer record.
+  </Step>
+  <Step title="Set duration and details">
+    Start and end times default to a 60-minute window (clamped to workshop closing time). Pick an optional mechanic if you already know who gets the job, and add a reported issue if needed.
+  </Step>
+  <Step title="Save the booking">
+    Click **+ Workshop Order** in the sheet header. The job is created in **SCHEDULED** status and reserves the bay.
+  </Step>
+</Steps>
+
+<Warning>
+**Bay collisions are hard-blocked.** Two vehicles cannot occupy the same physical bay at the same time. The sheet disables the create button and alerts you if another order already claims that stall.
+</Warning>
+
+<Tip>
+Scheduling outside normal opening hours or double-booking a mechanic shows an amber warning, but is still allowed for rush jobs or shared hands.
+</Tip>
+
+<Check>
+When the car arrives on site, go to [Workshop Intake](/workflows/workshop-intake). Starting service on that vehicle automatically claims and promotes the scheduled booking to **INTAKE**—no duplicate order number is created.
+</Check>
+
+## Reschedule a booking
+
+You can move appointments directly on the grid:
+
+- **Drag and drop**: Drag a **SCHEDULED** booking block onto another free time slot or a different bay. If the new stall is already taken, the move rolls back with an alert.
+- **Active jobs**: Jobs already in **INTAKE** or **IN_PROGRESS** occupy the bay for today so stalls never look empty while a car is in them, but active cars cannot be dragged on the planner. Reassign them on the [Workshop Board](/workflows/workshop-board) or the order page.
+
+## Opening hours and holidays
+
+The planner grid is shaped by your hours and holiday calendar in **Settings → Hours**.
+
+<Steps>
+  <Step title="Open Settings">
+    Click the **gear** icon in the header and select the **Hours** tab.
+  </Step>
+  <Step title="Set timezone and slot size">
+    Choose your shop timezone and pick your preferred grid slot interval (15, 30, or 60 minutes).
+  </Step>
+  <Step title="Configure weekdays">
+    Set the open and close times for each day of the week, or check **Closed** (for example, on Sunday). Click **Save hours**.
+  </Step>
+  <Step title="Add or import holidays">
+    Use **+ Holiday** to add manual dates (such as shop vacations or short days like Christmas Eve). Or click **Import public holidays** to load nationwide public holidays automatically.
+  </Step>
+</Steps>
+
+## Common questions
+
+<AccordionGroup>
+  <Accordion title="What happens when the customer arrives at the workshop?">
+    Open **Workshop Intake** (`/workshop/intake`) and search for the vehicle or license plate. When you start service, the system detects the scheduled appointment, promotes the order from **SCHEDULED** to **INTAKE**, and lets you record odometer and fuel levels. The order keeps its original `WO-` number.
+  </Accordion>
+  <Accordion title="Can I book outside workshop hours or on holidays?">
+    Yes. The create sheet displays an alert ("Outside workshop hours"), but you can still submit the order. The block will appear on the calendar so after-hours work is never lost.
+  </Accordion>
+  <Accordion title="How do I cancel a scheduled appointment?">
+    Open the order from the calendar or the **Workshop Orders** list. While the order is still in **SCHEDULED** status, you can delete it if the customer cancels or fails to show up.
+  </Accordion>
+  <Accordion title="Why is a stall blocked when no appointment is scheduled today?">
+    A vehicle on the shop floor in **INTAKE** or **IN_PROGRESS** status with an assigned bay automatically reserves that stall for the day, ensuring the planner accurately reflects real bay occupancy.
+  </Accordion>
+</AccordionGroup>
+
+Related: [Intake](/workflows/workshop-intake), [Orders](/workflows/workshop-orders), [Board](/workflows/workshop-board), [Bays](/settings/bays).
