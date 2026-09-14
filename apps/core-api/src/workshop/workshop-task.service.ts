@@ -181,6 +181,7 @@ export class WorkshopTaskService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await this.prisma.$transaction(async (tx) => {
+      await this.lockRows(tx, 'workshop_tasks', tenantId, [taskId], siteId);
       const task = await findTaskAndAssertEditable(
         tx,
         tenantId,

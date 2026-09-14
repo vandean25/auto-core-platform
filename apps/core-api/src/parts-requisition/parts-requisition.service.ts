@@ -390,6 +390,7 @@ export class PartsRequisitionService {
           id: true,
           workshop_task_id: true,
           catalog_item_id: true,
+          quantity: true,
           workshop_task: {
             select: {
               workshop_order: { select: { staging_location_id: true } },
@@ -503,10 +504,32 @@ export class PartsRequisitionService {
         }
       }
 
-      await tx.workshopTask.updateMany({
+      const consumedReservations = await tx.partsReservation.findMany({
+        where: { tenant_id: tenantId, workshop_task_line_item_id: line.id },
+        select: { quantity_consumed: true },
+      });
+      const consumedQuantity = consumedReservations.reduce(
+        (sum, reservation) => sum.add(reservation.quantity_consumed),
+        ZERO,
+      );
+      if (consumedQuantity.gte(line.quantity)) {
+        await tx.workshopTaskLineItem.updateMany({
+          where: { tenant_id: tenantId, id: line.id },
+          data: {
+            part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
+          },
+        });
+      }
+
+      const versionUpdate = await tx.workshopTask.updateMany({
         where: { id: line.workshop_task_id, tenant_id: tenantId },
         data: { line_items_version: { increment: 1 } },
       });
+      if (versionUpdate.count !== 1) {
+        throw new ConflictException(
+          'Workshop task changed during consumption. Refresh and retry.',
+        );
+      }
 
       const updated = await tx.partsReservation.findFirst({
         where: { id: reservationId, tenant_id: tenantId },
@@ -695,10 +718,15 @@ export class PartsRequisitionService {
             : WorkshopPartLineExecutionStatus.CANCELLED,
         },
       });
-      await tx.workshopTask.updateMany({
+      const versionUpdate = await tx.workshopTask.updateMany({
         where: { id: line.workshop_task_id, tenant_id: tenantId },
         data: { line_items_version: { increment: 1 } },
       });
+      if (versionUpdate.count !== 1) {
+        throw new ConflictException(
+          'Workshop task changed during release. Refresh and retry.',
+        );
+      }
 
       const result = await tx.partsReservation.findFirst({
         where: { id: reservation.id, tenant_id: tenantId },
