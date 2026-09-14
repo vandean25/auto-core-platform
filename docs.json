@@ -41,10 +41,6 @@
   "navbar": {
     "links": [
       {
-        "label": "Live demo",
-        "href": "https://auto-core-platform-vande.web.app/"
-      },
-      {
         "type": "github",
         "href": "https://github.com/vandean25/auto-core-platform"
       }
@@ -81,20 +77,6 @@
     ]
   },
   "navigation": {
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Live demo",
-          "icon": "play",
-          "href": "https://auto-core-platform-vande.web.app/"
-        },
-        {
-          "anchor": "GitHub",
-          "icon": "github",
-          "href": "https://github.com/vandean25/auto-core-platform"
-        }
-      ]
-    },
     "tabs": [
       {
         "tab": "Guides",
