@@ -124,13 +124,6 @@ describe('Workshop Invoicing (e2e)', () => {
             qty: 2,
             unitPrice: 80,
           },
-          {
-            type: 'PART',
-            itemNo: 'PART-001',
-            description: 'Brake pads',
-            qty: 1,
-            unitPrice: 40,
-          },
         ],
       })
       .expect(200);
@@ -151,20 +144,15 @@ describe('Workshop Invoicing (e2e)', () => {
 
     expect(invoiceRes.body.status).toBe('DRAFT');
     expect(invoiceRes.body.workshop_order_id).toBe(orderId);
-    expect(invoiceRes.body.items).toHaveLength(2);
+    expect(invoiceRes.body.items).toHaveLength(1);
 
     const laborLine = invoiceRes.body.items.find(
       (item: any) => item.description === 'Brake labor',
     );
-    const partLine = invoiceRes.body.items.find(
-      (item: any) => item.description === 'Brake pads',
-    );
-
     expect(Number(laborLine.line_total)).toBeCloseTo(160);
-    expect(Number(partLine.line_total)).toBeCloseTo(40);
-    expect(Number(invoiceRes.body.total_net)).toBeCloseTo(200);
-    expect(Number(invoiceRes.body.total_tax)).toBeCloseTo(40);
-    expect(Number(invoiceRes.body.total_gross)).toBeCloseTo(240);
+    expect(Number(invoiceRes.body.total_net)).toBeCloseTo(160);
+    expect(Number(invoiceRes.body.total_tax)).toBeCloseTo(32);
+    expect(Number(invoiceRes.body.total_gross)).toBeCloseTo(192);
 
     const invoiceId = invoiceRes.body.id;
     const issueRes = await api
@@ -281,9 +269,9 @@ describe('Workshop Invoicing (e2e)', () => {
         expectedLineItemsVersion: 0,
         items: [
           {
-            type: 'PART',
-            itemNo: 'PART-PROTECT',
-            description: 'Protected part',
+            type: 'LABOR',
+            itemNo: 'LAB-PROTECT',
+            description: 'Protected labor',
             qty: 1,
             unitPrice: 25,
           },

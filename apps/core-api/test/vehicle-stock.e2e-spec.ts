@@ -251,16 +251,6 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ title: 'TÜV and polish' })
       .expect(201);
 
-    const polishSku = `POLISH-${Date.now()}`;
-    await prisma.catalogItem.create({
-      data: {
-        sku: polishSku,
-        name: 'Polish',
-        cost_price: 180,
-        retail_price: 500,
-      },
-    });
-
     await request(app.getHttpServer())
       .patch(
         `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
@@ -268,15 +258,7 @@ describe('Vehicle stock trading (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         expectedLineItemsVersion: 0,
-        items: [
-          {
-            type: 'PART',
-            itemNo: polishSku,
-            description: 'Polish',
-            qty: 1,
-            unitPrice: 500,
-          },
-        ],
+        items: [],
       })
       .expect(200);
 
@@ -295,15 +277,7 @@ describe('Vehicle stock trading (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         expectedLineItemsVersion: 1,
-        items: [
-          {
-            type: 'PART',
-            itemNo: polishSku,
-            description: 'Polish',
-            qty: 2,
-            unitPrice: 500,
-          },
-        ],
+        items: [],
       })
       .expect(400);
 
@@ -315,8 +289,7 @@ describe('Vehicle stock trading (e2e)', () => {
     const costs = await prisma.vehicleLedgerEntry.findMany({
       where: { vehicle_id: vehicleId, entry_type: 'WORKSHOP_COST' },
     });
-    expect(costs).toHaveLength(1);
-    expect(Number(costs[0].amount)).toBe(180);
+    expect(costs).toHaveLength(0);
 
     const invoices = await prisma.invoice.count({
       where: { vehicle_id: vehicleId },

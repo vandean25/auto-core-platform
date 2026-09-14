@@ -39,6 +39,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   let orderId: string;
   let taskId: string;
   let taskBId: string;
+  let taskCId: string;
   let authToken: string;
   let mechanicUserId: string;
   let otherTenantId: string | undefined;
@@ -163,6 +164,17 @@ describe('Mechanic Execution Engine (e2e)', () => {
         },
       });
       taskBId = taskB.id;
+
+      const taskC = await basePrisma.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: 'Fluid Top-Up',
+          sequence: 3,
+          status: 'NOT_STARTED',
+        },
+      });
+      taskCId = taskC.id;
     });
   });
 
@@ -256,7 +268,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/parts creates a PENDING_PICK part line item', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/parts`)
+      .post(`/api/mechanic/tasks/${taskCId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         itemNo: 'OIL-FILTER-001',
@@ -276,7 +288,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   it('POST /tasks/:taskId/parts rejects missing required fields with 400', async () => {
     await request(app.getHttpServer())
-      .post(`/api/mechanic/tasks/${taskId}/parts`)
+      .post(`/api/mechanic/tasks/${taskCId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ description: 'Missing itemNo', qty: 1 })
       .expect(400);

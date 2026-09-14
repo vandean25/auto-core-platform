@@ -6931,6 +6931,86 @@
         ]
       }
     },
+    "/api/parts-reservations/{id}/consume": {
+      "post": {
+        "operationId": "PartsRequisitionController_consumeReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/release": {
+      "post": {
+        "operationId": "PartsRequisitionController_releaseReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleasePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
     "/api/parts-requisitions/shortages": {
       "get": {
         "operationId": "PartsRequisitionController_getShortages",
@@ -15408,6 +15488,29 @@
           "createdAt",
           "updatedAt"
         ]
+      },
+      "ConsumePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "ReleasePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "returnLocationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "PartsShortageResponseDto": {
         "type": "object",

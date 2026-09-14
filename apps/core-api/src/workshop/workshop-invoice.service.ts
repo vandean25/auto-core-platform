@@ -55,7 +55,7 @@ export class WorkshopInvoiceService {
         isTaskBlockedByParts({
           lines: task.line_items,
           reservations: task.line_items.flatMap(
-            (line) => line.parts_reservations,
+            (line) => line.parts_reservations ?? [],
           ),
         }),
       )
