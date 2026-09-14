@@ -60,6 +60,7 @@ function buildTransactionClient() {
       updateMany: jest.fn(),
     },
     partsReservation: {
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       updateMany: jest.fn(),
@@ -132,6 +133,9 @@ describe('PartsRequisitionService', () => {
   const atpService = {
     reserveOnHand: jest.fn(),
   } as unknown as Pick<AtpService, 'reserveOnHand'>;
+  const ledgerService = {
+    recordTransactions: jest.fn(),
+  };
   let prisma: ReturnType<typeof buildTransactionClient> & {
     $transaction: jest.Mock;
   };
@@ -153,6 +157,7 @@ describe('PartsRequisitionService', () => {
     });
     siteContext.getSiteId.mockResolvedValue(siteId);
     atpService.reserveOnHand.mockResolvedValue(undefined);
+    ledgerService.recordTransactions.mockResolvedValue(undefined);
     tx.workshopTaskLineItem.findFirst.mockResolvedValue(buildLine());
     tx.storageLocation.findFirst.mockResolvedValue({
       id: locationId,
@@ -184,6 +189,7 @@ describe('PartsRequisitionService', () => {
       tenantContext as never,
       siteContext as never,
       atpService as never,
+      ledgerService as never,
     );
   });
 
@@ -213,6 +219,82 @@ describe('PartsRequisitionService', () => {
       data: { line_items_version: { increment: 1 } },
     });
     expect(result.quantity).toBe('1.5');
+  });
+
+  it('consumes staged quantity FIFO and records WORKSHOP_CONSUMPTION', async () => {
+    const stagedReservation = buildReservation({
+      status: PartsReservationStatus.STAGED,
+      quantity: new Prisma.Decimal('1.5'),
+      quantity_staged: new Prisma.Decimal('1.5'),
+      tote_cost_basis: new Prisma.Decimal('10'),
+      createdAt: new Date('2026-09-10T10:00:00.000Z'),
+    });
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce({ workshop_task_line_item_id: lineId })
+      .mockResolvedValueOnce({
+        ...stagedReservation,
+        quantity_consumed: new Prisma.Decimal('1.5'),
+        quantity_staged: new Prisma.Decimal('0'),
+        status: PartsReservationStatus.FULFILLED,
+      });
+    tx.workshopTaskLineItem.findFirst.mockResolvedValue({
+      ...buildLine(),
+      workshop_task: {
+        workshop_order: { staging_location_id: 'tote-1' },
+      },
+    });
+    tx.partsReservation.findMany
+      .mockResolvedValueOnce([stagedReservation])
+      .mockResolvedValueOnce([
+        { quantity_consumed: new Prisma.Decimal('1.5') },
+      ]);
+    tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.consumeReservation('reservation-1', {
+      quantity: 1.5,
+    });
+
+    expect(result.quantityConsumed).toBe('1.5');
+    expect(ledgerService.recordTransactions).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          type: 'WORKSHOP_CONSUMPTION',
+          quantity: new Prisma.Decimal('-1.5'),
+          costBasis: new Prisma.Decimal('10'),
+          partsReservationId: 'reservation-1',
+        }),
+      ],
+      tx,
+    );
+    expect(tx.partsReservation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PartsReservationStatus.FULFILLED,
+        }),
+      }),
+    );
+  });
+
+  it('rejects service consumption above staged quantity before ledger writes', async () => {
+    const stagedReservation = buildReservation({
+      status: PartsReservationStatus.STAGED,
+      quantity_staged: new Prisma.Decimal('1.5'),
+    });
+    tx.partsReservation.findFirst.mockResolvedValue({
+      workshop_task_line_item_id: lineId,
+    });
+    tx.workshopTaskLineItem.findFirst.mockResolvedValue({
+      ...buildLine(),
+      workshop_task: {
+        workshop_order: { staging_location_id: 'tote-1' },
+      },
+    });
+    tx.partsReservation.findMany.mockResolvedValue([stagedReservation]);
+
+    await expect(
+      service.consumeReservation('reservation-1', { quantity: 1.501 }),
+    ).rejects.toThrow(ConflictException);
+    expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
   });
 
   it('rejects allocation beyond consumed plus active demand without side effects', async () => {
@@ -336,13 +418,12 @@ describe('PartsRequisitionService', () => {
   });
 
   it('rejects cancelled workshop lines before reserving ATP or creating a reservation', async () => {
-    tx.workshopTaskLineItem.findFirst.mockImplementation(
-      async ({ where }) =>
-        where.part_execution_status
-          ? null
-          : buildLine({
-              part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
-            }),
+    tx.workshopTaskLineItem.findFirst.mockImplementation(async ({ where }) =>
+      where.part_execution_status
+        ? null
+        : buildLine({
+            part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+          }),
     );
 
     await expect(
@@ -471,19 +552,19 @@ describe('PartsRequisitionService', () => {
     const result = await service.getShortages({});
 
     expect(result.data).toEqual([]);
-      expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: tenantId,
-            workshop_task: expect.objectContaining({
-              workshop_order: expect.objectContaining({
-                site_id: siteId,
-              }),
+    expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: tenantId,
+          workshop_task: expect.objectContaining({
+            workshop_order: expect.objectContaining({
+              site_id: siteId,
             }),
           }),
         }),
-      );
-    });
+      }),
+    );
+  });
 
   describe('createRequisitionSheet', () => {
     function buildCandidateLine(makeBrandId: number) {
@@ -671,10 +752,7 @@ describe('PartsRequisitionService', () => {
           id: 'reservation-1',
           purchase_order_item_id: null,
           status: {
-            in: [
-              PartsReservationStatus.OPEN,
-              PartsReservationStatus.ORDERED,
-            ],
+            in: [PartsReservationStatus.OPEN, PartsReservationStatus.ORDERED],
           },
         },
         data: { purchase_order_item_id: 'poi-1' },

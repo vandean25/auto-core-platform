@@ -727,10 +727,10 @@ describe('WorkshopTaskService', () => {
       description: 'Updated pad',
       quantity: new Prisma.Decimal(2),
       unit_price: new Prisma.Decimal(95),
+      part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
     });
     expect(updateCall?.data).not.toHaveProperty('catalog_hit_jti');
     expect(updateCall?.data).not.toHaveProperty('catalog_item_id');
-    expect(updateCall?.data).not.toHaveProperty('part_execution_status');
   });
 
   it('returns the incremented lineItemsVersion after patching line items', async () => {

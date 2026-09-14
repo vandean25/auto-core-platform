@@ -79,6 +79,19 @@ export class InvoicesService {
         );
       }
 
+      const taskIds = order.tasks.map((task) => task.id).sort();
+      if (taskIds.length > 0) {
+        // eslint-disable-next-line no-restricted-syntax -- invoice creation shares the task-first mutation lock.
+        await tx.$queryRaw`
+          SELECT id
+          FROM workshop_tasks
+          WHERE tenant_id = ${tenantId}
+            AND id IN (${Prisma.join(taskIds)})
+          ORDER BY id
+          FOR UPDATE
+        `;
+      }
+
       if (
         order.tasks.some((task) =>
           isTaskBlockedByParts({

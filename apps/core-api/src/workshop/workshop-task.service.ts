@@ -695,6 +695,56 @@ export class WorkshopTaskService {
     const existingItemsToUpdate = items.filter(
       (item): item is typeof item & { id: string } => !!item.id,
     );
+    const partLineIds = existingItemsToUpdate
+      .filter((item) => item.type === WorkshopLineItemType.PART)
+      .map((item) => item.id);
+    const reservations = partLineIds.length
+      ? await tx.partsReservation.findMany({
+          where: {
+            tenant_id: tenantId,
+            workshop_task_line_item_id: { in: partLineIds },
+          },
+          select: {
+            workshop_task_line_item_id: true,
+            quantity_consumed: true,
+            quantity_staged: true,
+          },
+        })
+      : [];
+    const reservationsByLine = new Map<string, typeof reservations>();
+    for (const reservation of reservations) {
+      const lineReservations =
+        reservationsByLine.get(reservation.workshop_task_line_item_id) ?? [];
+      lineReservations.push(reservation);
+      reservationsByLine.set(
+        reservation.workshop_task_line_item_id,
+        lineReservations,
+      );
+    }
+    const partExecutionStatusById = new Map<
+      string,
+      WorkshopPartLineExecutionStatus
+    >();
+    for (const item of existingItemsToUpdate.filter(
+      (candidate) => candidate.type === WorkshopLineItemType.PART,
+    )) {
+      const lineReservations = reservationsByLine.get(item.id) ?? [];
+      const consumed = lineReservations.reduce(
+        (sum, reservation) => sum.add(reservation.quantity_consumed),
+        new Prisma.Decimal(0),
+      );
+      const hasStaged = lineReservations.some((reservation) =>
+        new Prisma.Decimal(reservation.quantity_staged).gt(0),
+      );
+      partExecutionStatusById.set(
+        item.id,
+        consumed.gte(item.qty)
+          ? WorkshopPartLineExecutionStatus.CONSUMED
+          : hasStaged
+            ? WorkshopPartLineExecutionStatus.STAGED
+            : WorkshopPartLineExecutionStatus.PENDING_PICK,
+      );
+    }
 
     await Promise.all(
       existingItemsToUpdate.map((item) =>
@@ -720,6 +770,9 @@ export class WorkshopTaskService {
             }),
             ...(item.laborOperationId !== undefined && {
               labor_operation_id: item.laborOperationId,
+            }),
+            ...(item.type === WorkshopLineItemType.PART && {
+              part_execution_status: partExecutionStatusById.get(item.id),
             }),
           },
         }),

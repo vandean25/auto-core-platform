@@ -435,6 +435,7 @@ export class PartsRequisitionService {
           location_id: true,
           tote_cost_basis: true,
           createdAt: true,
+          requisition_line: { select: { requisition_id: true } },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
@@ -521,6 +522,19 @@ export class PartsRequisitionService {
         });
       }
 
+      const requisitionIds = new Set(
+        allocations
+          .map(
+            ({ reservationId: id }) =>
+              reservations.find((reservation) => reservation.id === id)
+                ?.requisition_line?.requisition_id,
+          )
+          .filter((id): id is string => Boolean(id)),
+      );
+      for (const requisitionId of requisitionIds) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
+
       const versionUpdate = await tx.workshopTask.updateMany({
         where: { id: line.workshop_task_id, tenant_id: tenantId },
         data: { line_items_version: { increment: 1 } },
@@ -576,6 +590,7 @@ export class PartsRequisitionService {
               },
             },
           },
+          requisition_line: { select: { requisition_id: true } },
         },
       });
       if (!reservation) {
@@ -703,21 +718,45 @@ export class PartsRequisitionService {
 
       const allReservations = await tx.partsReservation.findMany({
         where: { tenant_id: tenantId, workshop_task_line_item_id: line.id },
-        select: { quantity_consumed: true },
+        select: {
+          status: true,
+          quantity: true,
+          quantity_consumed: true,
+          quantity_returned: true,
+          quantity_staged: true,
+        },
       });
       const consumed = allReservations.reduce(
         (sum, candidate) => sum.add(candidate.quantity_consumed),
         ZERO,
       );
-      await tx.workshopTaskLineItem.updateMany({
-        where: { tenant_id: tenantId, id: line.id },
-        data: {
-          quantity: consumed,
-          part_execution_status: consumed.gt(0)
-            ? WorkshopPartLineExecutionStatus.CONSUMED
-            : WorkshopPartLineExecutionStatus.CANCELLED,
-        },
-      });
+      const hasActiveSlices = allReservations.some(isActiveSlice);
+      if (!hasActiveSlices) {
+        await tx.workshopTaskLineItem.updateMany({
+          where: { tenant_id: tenantId, id: line.id },
+          data: {
+            quantity: consumed,
+            part_execution_status: consumed.gt(0)
+              ? WorkshopPartLineExecutionStatus.CONSUMED
+              : WorkshopPartLineExecutionStatus.CANCELLED,
+          },
+        });
+      } else {
+        await tx.workshopTaskLineItem.updateMany({
+          where: { tenant_id: tenantId, id: line.id },
+          data: {
+            part_execution_status: allReservations.some((slice) =>
+              new Prisma.Decimal(slice.quantity_staged).gt(0),
+            )
+              ? WorkshopPartLineExecutionStatus.STAGED
+              : WorkshopPartLineExecutionStatus.PENDING_PICK,
+          },
+        });
+      }
+      const requisitionId = reservation.requisition_line?.requisition_id;
+      if (requisitionId) {
+        await recomputeRequisitionStatus(tx, tenantId, requisitionId);
+      }
       const versionUpdate = await tx.workshopTask.updateMany({
         where: { id: line.workshop_task_id, tenant_id: tenantId },
         data: { line_items_version: { increment: 1 } },

@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import {
   PartsReservationStatus,
   PartsRequisitionStatus,
@@ -114,6 +115,24 @@ describe('allocateStagedConsumption', () => {
       { reservationId: 'older', quantity: '1.5' },
       { reservationId: 'newer', quantity: '0.5' },
     ]);
+  });
+
+  it('rejects a request larger than all staged slices', () => {
+    expect(() =>
+      allocateStagedConsumption(
+        [
+          {
+            id: 'staged',
+            status: PartsReservationStatus.STAGED,
+            quantity: '4',
+            quantity_consumed: '0',
+            quantity_returned: '0',
+            quantity_staged: '1.5',
+          },
+        ],
+        '1.501',
+      ),
+    ).toThrow(ConflictException);
   });
 });
 
