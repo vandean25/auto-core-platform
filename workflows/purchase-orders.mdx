@@ -1,6 +1,6 @@
 ---
 title: "Purchase orders"
-description: "Send the PO, receive into a bin, then bill only what arrived."
+description: "Send the PO, receive parts to the right stock location, then bill only what arrived."
 ---
 
 **Purchase Orders**: **+ Purchase Order**. Statuses: **DRAFT → SENT → PARTIAL → COMPLETED**. Right-click **Delete** on **DRAFT** only.
@@ -13,7 +13,7 @@ description: "Send the PO, receive into a bin, then bill only what arrived."
     On **DRAFT**, top-right **Mark as Sent**. That is the office saying it left the building.
   </Step>
   <Step title="Receive Goods">
-    Until **COMPLETED**, **Receive Goods**. Partial receipts move status to **PARTIAL**. Quantities write the inventory ledger into the bin you choose.
+    Until **COMPLETED**, **Receive Goods**. Partial receipts move status to **PARTIAL**. Lines reserved for a workshop job go straight to that job's staging tote, not a free-stock bin. Unlinked items use the free-stock bin provided, or the default general bin; released linked items require a free-stock bin.
   </Step>
   <Step title="Create Bill">
     **Create Bill (N items)** uses unbilled received qty and jumps to a new vendor bill with vendor and PO prefilled. Disabled when the unbilled count is 0.
