@@ -417,6 +417,16 @@ describe('PurchaseService', () => {
         ConflictException,
       );
     });
+
+    it('returns 409 when the purchase order is deleted after the request starts', async () => {
+      mockPrismaService.purchaseOrder.findFirst
+        .mockResolvedValueOnce({ id: 'po-1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(service.markAsSent('po-1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
   });
 
   describe('findAll', () => {
