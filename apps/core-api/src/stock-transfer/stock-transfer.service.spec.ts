@@ -106,10 +106,12 @@ function buildTransactionClient() {
     },
     stockTransferCommand: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
     },
     inventoryTransaction: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
     catalogItem: {
       findMany: jest.fn(),
@@ -166,6 +168,8 @@ describe('StockTransferService', () => {
     });
 
     prisma.user.findFirst.mockResolvedValue({ id: userId });
+    prisma.stockTransfer.findFirst.mockResolvedValue(buildTransfer());
+    prisma.stockTransferCommand.findFirst.mockResolvedValue(null);
     prisma.siteMembership.findMany.mockResolvedValue([
       {
         site_id: fromSiteId,
@@ -187,6 +191,7 @@ describe('StockTransferService', () => {
     tx.financeSettings.upsert.mockResolvedValue({});
     tx.financeSettings.update.mockResolvedValue({
       next_stock_transfer_number: 2,
+      stock_transfer_prefix: 'TR-2026-',
     });
     tx.stockTransferCommand.findUnique.mockResolvedValue(null);
     tx.stockTransferCommand.create.mockResolvedValue({});
@@ -204,6 +209,10 @@ describe('StockTransferService', () => {
     tx.catalogItem.findFirstOrThrow.mockResolvedValue({
       cost_price: decimal('12.50'),
     });
+    tx.catalogItem.findMany.mockResolvedValue([
+      { id: itemId, cost_price: decimal('12.50') },
+    ]);
+    tx.inventoryTransaction.findMany.mockResolvedValue([]);
     tx.stockTransferLine.updateMany.mockResolvedValue({ count: 1 });
     tx.stockTransfer.updateMany.mockResolvedValue({ count: 1 });
 
@@ -220,12 +229,470 @@ describe('StockTransferService', () => {
     );
   });
 
+  describe('commit boundary', () => {
+    function prepareAction(action: string) {
+      prisma.siteMembership.findMany.mockResolvedValue([
+        {
+          site_id: fromSiteId,
+          tenantMember: { role: 'OWNER' },
+          user: { firebaseUid: 'firebase-1' },
+        },
+        {
+          site_id: toSiteId,
+          tenantMember: { role: 'OWNER' },
+          user: { firebaseUid: 'firebase-2' },
+        },
+      ]);
+      const line = buildLine({
+        approved_qty: decimal('5'),
+        shipped_qty: decimal('5'),
+        source_location_id: sourceBinId,
+      });
+      const status =
+        action === 'ship'
+          ? StockTransferStatus.APPROVED
+          : action === 'receive' || action === 'return'
+            ? StockTransferStatus.SHIPPED
+            : StockTransferStatus.REQUESTED;
+      tx.stockTransfer.findFirst.mockResolvedValue(
+        buildTransfer({ status, lines: [line] }),
+      );
+      tx.stockTransfer.create.mockResolvedValue(buildTransfer());
+      tx.stockTransferLine.findMany.mockResolvedValue([line]);
+      tx.storageLocation.findMany.mockImplementation(({ where }) =>
+        Promise.resolve(
+          where.id.in.map((id: string) => ({
+            id,
+            site_id: id === destBinId ? toSiteId : fromSiteId,
+            type: LocationType.bin,
+            deletedAt: null,
+          })),
+        ),
+      );
+      tx.inventoryStock.findMany.mockResolvedValue([{ id: 'stock-1' }]);
+      tx.$queryRaw.mockResolvedValue([
+        {
+          id: 'stock-1',
+          catalog_item_id: itemId,
+          location_id: sourceBinId,
+          quantity_on_hand: decimal('10'),
+          quantity_reserved: decimal('0'),
+        },
+      ]);
+
+      const version = { expectedVersion: 1 };
+      const actions = {
+        create: () =>
+          service.create({
+            fromSiteId,
+            toSiteId,
+            lines: [{ catalogItemId: itemId, requestedQty: 5 }],
+          }),
+        approve: () => service.approve(transferId, version),
+        reject: () => service.reject(transferId, version),
+        cancel: () => service.cancel(transferId, version),
+        ship: () =>
+          service.ship(transferId, { ...version, lines: [{ id: 'line-1' }] }),
+        receive: () =>
+          service.receive(transferId, {
+            ...version,
+            idempotencyKey: 'commit-key',
+            lines: [{ id: 'line-1', receiveQty: 1, destLocationId: destBinId }],
+          }),
+        return: () =>
+          service.returnTransfer(transferId, {
+            ...version,
+            idempotencyKey: 'commit-key',
+            lines: [{ id: 'line-1', returnQty: 1 }],
+          }),
+      };
+      return actions[action as keyof typeof actions];
+    }
+
+    it.each([
+      'create',
+      'approve',
+      'reject',
+      'cancel',
+      'ship',
+      'receive',
+      'return',
+    ])('%s emits only after commit', async (action) => {
+      const invoke = prepareAction(action);
+      const events: string[] = [];
+      prisma.$transaction.mockImplementation(async (callback) => {
+        const result = await callback(tx);
+        events.push('commit');
+        return result;
+      });
+      realtimeService.emitStockTransferUpdated.mockImplementation(() => {
+        events.push('emit');
+      });
+
+      await invoke();
+
+      expect(events).toEqual(['commit', 'emit']);
+    });
+
+    it.each([
+      'create',
+      'approve',
+      'reject',
+      'cancel',
+      'ship',
+      'receive',
+      'return',
+    ])('%s emits nothing when commit fails', async (action) => {
+      const invoke = prepareAction(action);
+      prisma.$transaction.mockImplementation(async (callback) => {
+        await callback(tx);
+        throw new Error('Commit failed');
+      });
+
+      await expect(invoke()).rejects.toThrow('Commit failed');
+
+      expect(realtimeService.emitStockTransferUpdated).not.toHaveBeenCalled();
+    });
+  });
+
+  describe.each(['receive', 'return'] as const)(
+    '%s replay authorization',
+    (action) => {
+      const dto = {
+        expectedVersion: 1,
+        idempotencyKey: 'replay-key',
+        lines: [
+          {
+            id: 'line-1',
+            receiveQty: 1,
+            returnQty: 1,
+            destLocationId: destBinId,
+          },
+        ],
+      };
+      const invoke = () =>
+        action === 'receive'
+          ? service.receive(transferId, dto)
+          : service.returnTransfer(transferId, dto);
+
+      it('uses an explicitly tenant-scoped command lookup', async () => {
+        const command = {
+          request_hash: hashCommandRequest(dto),
+          response_body: {
+            transfer: serializeStockTransfer(buildTransfer(), {
+              includeSourceBin: true,
+            }),
+          },
+        };
+        prisma.stockTransferCommand.findUnique.mockRejectedValue(
+          new Error('findUnique bypasses tenant isolation'),
+        );
+        prisma.stockTransferCommand.findFirst.mockResolvedValue(command);
+
+        await expect(invoke()).resolves.toMatchObject({ id: transferId });
+
+        expect(prisma.stockTransferCommand.findFirst).toHaveBeenCalledWith({
+          where: {
+            tenant_id: tenantId,
+            transfer_id: transferId,
+            action: action.toUpperCase(),
+            idempotency_key: 'replay-key',
+          },
+        });
+      });
+
+      it.each(['matching', 'mismatching', 'missing'])(
+        'returns 404 before disclosing a %s command to an outsider',
+        async (kind) => {
+          prisma.siteMembership.findMany.mockResolvedValue([
+            { site_id: thirdSiteId, tenantMember: { role: 'SALES' } },
+          ]);
+          const command =
+            kind === 'missing'
+              ? null
+              : {
+                  request_hash:
+                    kind === 'matching' ? hashCommandRequest(dto) : 'different',
+                  response_body: {},
+                };
+          prisma.stockTransferCommand.findUnique.mockResolvedValue(command);
+          prisma.stockTransferCommand.findFirst.mockResolvedValue(command);
+          tx.stockTransfer.findFirst.mockResolvedValue(buildTransfer());
+
+          await expect(invoke()).rejects.toBeInstanceOf(NotFoundException);
+
+          expect(prisma.stockTransferCommand.findFirst).not.toHaveBeenCalled();
+          expect(prisma.stockTransferCommand.findUnique).not.toHaveBeenCalled();
+          expect(prisma.$transaction).not.toHaveBeenCalled();
+        },
+      );
+
+      it('authorizes access again before disclosing a winner hash mismatch', async () => {
+        prisma.stockTransfer.findFirst
+          .mockResolvedValueOnce(buildTransfer())
+          .mockResolvedValue(null);
+        const winner = { request_hash: 'different', response_body: {} };
+        prisma.stockTransferCommand.findUnique
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue(winner);
+        prisma.stockTransferCommand.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue(winner);
+        prisma.$transaction.mockRejectedValue(
+          new ConflictException('Version conflict'),
+        );
+
+        await expect(invoke()).rejects.toBeInstanceOf(NotFoundException);
+      });
+    },
+  );
+
+  describe('multiline stock movements', () => {
+    function prepareMovement(action: 'ship' | 'receive' | 'return') {
+      const lines = [
+        buildLine({
+          approved_qty: decimal('2'),
+          shipped_qty: decimal('2'),
+          source_location_id: sourceBinId,
+        }),
+        buildLine({
+          id: 'line-2',
+          catalog_item_id: 'item-2',
+          approved_qty: decimal('3'),
+          shipped_qty: decimal('3'),
+          source_location_id: 'source-2',
+        }),
+        buildLine({
+          id: 'line-3',
+          approved_qty: decimal('4'),
+          shipped_qty: decimal('4'),
+          source_location_id: 'source-2',
+        }),
+      ];
+      tx.stockTransfer.findFirst.mockResolvedValue(
+        buildTransfer({
+          status:
+            action === 'ship'
+              ? StockTransferStatus.APPROVED
+              : StockTransferStatus.SHIPPED,
+          lines,
+        }),
+      );
+      tx.stockTransferLine.findMany.mockResolvedValue(lines);
+      tx.stockTransferLine.findFirstOrThrow.mockImplementation(({ where }) =>
+        Promise.resolve(lines.find((line) => line.id === where.id)),
+      );
+      const items = [
+        { id: itemId, cost_price: decimal('12.50') },
+        { id: 'item-2', cost_price: decimal('0') },
+      ];
+      tx.catalogItem.findMany.mockResolvedValue(items);
+      tx.catalogItem.findFirstOrThrow.mockImplementation(({ where }) =>
+        Promise.resolve(items.find((item) => item.id === where.id)),
+      );
+      tx.storageLocation.findMany.mockImplementation(({ where }) =>
+        Promise.resolve(
+          where.id.in.map((id: string) => ({
+            id,
+            site_id: id === destBinId ? toSiteId : fromSiteId,
+            type: LocationType.bin,
+            deletedAt: null,
+          })),
+        ),
+      );
+      const stocks = lines.map((line) => ({
+        id: `stock-${line.id}`,
+        catalog_item_id: line.catalog_item_id,
+        location_id: line.source_location_id,
+        quantity_on_hand: decimal('20'),
+        quantity_reserved: decimal('1'),
+      }));
+      tx.inventoryStock.findMany.mockResolvedValue(stocks);
+      tx.$queryRaw.mockResolvedValue(stocks);
+      const shipMovements = [
+        {
+          item_id: itemId,
+          location_id: sourceBinId,
+          cost_basis: decimal('10.25'),
+          seq: 1,
+        },
+        {
+          item_id: 'item-2',
+          location_id: 'source-2',
+          cost_basis: decimal('0'),
+          seq: 2,
+        },
+        { item_id: itemId, location_id: 'source-2', cost_basis: null, seq: 3 },
+        {
+          item_id: itemId,
+          location_id: sourceBinId,
+          cost_basis: decimal('999'),
+          seq: 4,
+        },
+      ];
+      tx.inventoryTransaction.findMany.mockResolvedValue(shipMovements);
+      tx.inventoryTransaction.findFirst.mockImplementation(({ where }) =>
+        Promise.resolve(
+          shipMovements.find(
+            (movement) =>
+              movement.item_id === where.item_id &&
+              movement.location_id === where.location_id,
+          ),
+        ),
+      );
+
+      const version = { expectedVersion: 1, idempotencyKey: 'multiline-key' };
+      const actions = {
+        ship: () =>
+          service.ship(transferId, {
+            ...version,
+            lines: lines.map((line) => ({ id: line.id })),
+          }),
+        receive: () =>
+          service.receive(transferId, {
+            ...version,
+            lines: lines.map((line) => ({
+              id: line.id,
+              receiveQty: 1,
+              destLocationId: destBinId,
+            })),
+          }),
+        return: () =>
+          service.returnTransfer(transferId, {
+            ...version,
+            lines: lines.map((line) => ({ id: line.id, returnQty: 1 })),
+          }),
+      };
+      return actions[action];
+    }
+
+    it('ships from loaded lines with one catalog cost fetch', async () => {
+      await prepareMovement('ship')();
+
+      const [movements] = (ledgerService.recordTransactions as jest.Mock).mock
+        .calls[0] as [Array<Record<string, unknown>>];
+      expect(
+        movements.map(({ itemId, costBasis, quantity }) => ({
+          itemId,
+          costBasis,
+          quantity,
+        })),
+      ).toEqual([
+        { itemId, costBasis: 12.5, quantity: -2 },
+        { itemId, costBasis: 12.5, quantity: 2 },
+        { itemId: 'item-2', costBasis: 0, quantity: -3 },
+        { itemId: 'item-2', costBasis: 0, quantity: 3 },
+        { itemId, costBasis: 12.5, quantity: -4 },
+        { itemId, costBasis: 12.5, quantity: 4 },
+      ]);
+      expect(tx.catalogItem.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: { in: [itemId, 'item-2'] } },
+        select: { id: true, cost_price: true },
+      });
+      expect(tx.catalogItem.findMany).toHaveBeenCalledTimes(1);
+      expect(tx.stockTransferLine.findFirstOrThrow).not.toHaveBeenCalled();
+      expect(tx.catalogItem.findFirstOrThrow).not.toHaveBeenCalled();
+    });
+
+    it.each(['receive', 'return'] as const)(
+      '%s prefetches historical costs once, keyed by item and source bin',
+      async (action) => {
+        await prepareMovement(action)();
+
+        const [movements] = (ledgerService.recordTransactions as jest.Mock).mock
+          .calls[0] as [Array<Record<string, unknown>>];
+        expect(movements.map(({ costBasis }) => costBasis)).toEqual([
+          10.25,
+          10.25,
+          0,
+          0,
+          null,
+          null,
+        ]);
+        expect(tx.inventoryTransaction.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              tenant_id: tenantId,
+              site_id: fromSiteId,
+              stock_transfer_id: transferId,
+              type: 'TRANSFER_OUT',
+            }),
+            orderBy: { seq: 'asc' },
+          }),
+        );
+        expect(tx.inventoryTransaction.findMany).toHaveBeenCalledTimes(1);
+        expect(tx.inventoryTransaction.findFirst).not.toHaveBeenCalled();
+        expect(tx.catalogItem.findMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['ship', 'receive', 'return'] as const)(
+      '%s dispatches independent guarded line writes together',
+      async (action) => {
+        const invoke = prepareMovement(action);
+        let pending = 0;
+        let peakPending = 0;
+        tx.stockTransferLine.updateMany.mockImplementation(() => {
+          pending += 1;
+          peakPending = Math.max(peakPending, pending);
+          return new Promise((resolve) =>
+            setImmediate(() => {
+              pending -= 1;
+              resolve({ count: 1 });
+            }),
+          );
+        });
+
+        await invoke();
+
+        expect(peakPending).toBe(3);
+      },
+    );
+
+    it.each(['ship', 'receive', 'return'] as const)(
+      '%s rolls back on a guarded line conflict before ledger writes',
+      async (action) => {
+        const invoke = prepareMovement(action);
+        tx.stockTransferLine.updateMany
+          .mockResolvedValueOnce({ count: 1 })
+          .mockResolvedValueOnce({ count: 0 });
+
+        await expect(invoke()).rejects.toBeInstanceOf(ConflictException);
+
+        expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
+        expect(realtimeService.emitStockTransferUpdated).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   describe('create', () => {
     const createDto = {
       fromSiteId,
       toSiteId,
       lines: [{ catalogItemId: itemId, requestedQty: 5 }],
     };
+
+    it.each(['MOVE-VIE-', 'TR-2025-', ''])(
+      'preserves configured prefix %s when allocating a number',
+      async (prefix) => {
+        tx.catalogItem.findMany.mockResolvedValue([{ id: itemId }]);
+        tx.financeSettings.update.mockImplementation(({ data }) =>
+          Promise.resolve({
+            next_stock_transfer_number: 43,
+            stock_transfer_prefix: data.stock_transfer_prefix ?? prefix,
+          }),
+        );
+        tx.stockTransfer.create.mockImplementation(({ data }) =>
+          Promise.resolve(
+            buildTransfer({ transfer_number: data.transfer_number }),
+          ),
+        );
+
+        const result = await service.create(createDto);
+
+        expect(result.transferNumber).toBe(`${prefix}0042`);
+      },
+    );
 
     it('creates a REQUESTED transfer and assigns a tenant-wide number (ruling 52)', async () => {
       tx.catalogItem.findMany.mockResolvedValue([{ id: itemId }]);
@@ -676,7 +1143,7 @@ describe('StockTransferService', () => {
         from_site_id: fromSiteId,
         to_site_id: toSiteId,
       });
-      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+      prisma.stockTransferCommand.findFirst.mockResolvedValue({
         id: 'command-1',
         tenant_id: tenantId,
         transfer_id: transferId,
@@ -706,7 +1173,7 @@ describe('StockTransferService', () => {
         from_site_id: fromSiteId,
         to_site_id: toSiteId,
       });
-      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+      prisma.stockTransferCommand.findFirst.mockResolvedValue({
         request_hash: hashCommandRequest(receiveDto),
         response_body: {
           transfer: serializeStockTransfer(shippedTransfer(), {
@@ -728,7 +1195,7 @@ describe('StockTransferService', () => {
         from_site_id: fromSiteId,
         to_site_id: toSiteId,
       });
-      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+      prisma.stockTransferCommand.findFirst.mockResolvedValue({
         request_hash: hashCommandRequest(receiveDto),
         response_body: {
           action: 'RECEIVE',
@@ -764,7 +1231,7 @@ describe('StockTransferService', () => {
         buildTransfer({ status: StockTransferStatus.COMPLETED, version: 2 }),
         { includeSourceBin: true },
       );
-      prisma.stockTransferCommand.findUnique
+      prisma.stockTransferCommand.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           request_hash: hashCommandRequest(receiveDto),
@@ -782,7 +1249,7 @@ describe('StockTransferService', () => {
     });
 
     it('keeps the idempotency mismatch conflict after a stale-version loser', async () => {
-      prisma.stockTransferCommand.findUnique
+      prisma.stockTransferCommand.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           request_hash: hashCommandRequest({
@@ -801,7 +1268,7 @@ describe('StockTransferService', () => {
     });
 
     it('conflicts when the same key is reused with a different body', async () => {
-      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+      prisma.stockTransferCommand.findFirst.mockResolvedValue({
         id: 'command-1',
         tenant_id: tenantId,
         transfer_id: transferId,
