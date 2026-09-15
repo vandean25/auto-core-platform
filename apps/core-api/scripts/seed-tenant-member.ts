@@ -191,11 +191,13 @@ export async function seedTenantMember(
   );
   const resolvedEmail = (firebaseUser.email ?? options.email).trim().toLowerCase();
 
-  const existingUser = await dependencies.prisma.user.findFirst({
-    where: {
-      OR: [{ firebaseUid: firebaseUser.uid }, { email: resolvedEmail }],
-    },
-  });
+  const existingUser =
+    (await dependencies.prisma.user.findFirst({
+      where: { firebaseUid: firebaseUser.uid },
+    })) ??
+    (await dependencies.prisma.user.findFirst({
+      where: { email: resolvedEmail, firebaseUid: null },
+    }));
 
   const activeTenantId = options.makeActive
     ? tenant.id

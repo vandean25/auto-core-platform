@@ -20,6 +20,7 @@ import type {
 type AuthSessionClaims = {
   sub: string;
   email: string;
+  emailVerified?: boolean;
 };
 
 type UserAccessMembership = {
@@ -69,6 +70,42 @@ export type AuthSession = {
   activeSiteId: string | null;
   memberships: AuthSessionMembership[];
   platformRole?: PlatformAdminRole;
+};
+
+const USER_ACCESS_SELECT = {
+  id: true,
+  firebaseUid: true,
+  email: true,
+  active_tenant_id: true,
+  active_site_id: true,
+  platformAdmin: {
+    select: {
+      is_active: true,
+      role: true,
+    },
+  },
+  memberships: {
+    where: {
+      is_active: true,
+      tenant: {
+        is_active: true,
+      },
+    },
+    orderBy: [{ createdAt: 'asc' as const }],
+    select: {
+      tenant_id: true,
+      role: true,
+      is_active: true,
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          is_active: true,
+        },
+      },
+    },
+  },
 };
 
 @Injectable()
@@ -127,6 +164,7 @@ export class AuthSessionService {
     const session = await this.getSessionForClaims({
       sub: user.userId,
       email: user.email,
+      emailVerified: true,
     });
 
     if (!session) {
@@ -173,6 +211,7 @@ export class AuthSessionService {
     const userRecord = await this.findUserAccessRecordByIdentity({
       sub: user.userId,
       email: user.email,
+      emailVerified: true,
     });
 
     if (!userRecord) {
@@ -223,46 +262,45 @@ export class AuthSessionService {
   private async findUserAccessRecordByIdentity(
     claims: AuthSessionClaims,
   ): Promise<UserAccessRecord | null> {
-    return this.systemPrisma.user.findFirst({
-      where: {
-        OR: [{ firebaseUid: claims.sub }, { email: claims.email }],
-      },
-      select: {
-        id: true,
-        firebaseUid: true,
-        email: true,
-        active_tenant_id: true,
-        active_site_id: true,
-        platformAdmin: {
-          select: {
-            is_active: true,
-            role: true,
-          },
-        },
-        memberships: {
-          where: {
-            is_active: true,
-            tenant: {
-              is_active: true,
-            },
-          },
-          orderBy: [{ createdAt: 'asc' }],
-          select: {
-            tenant_id: true,
-            role: true,
-            is_active: true,
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                is_active: true,
-              },
-            },
-          },
-        },
-      },
+    const byUid = await this.systemPrisma.user.findFirst({
+      where: { firebaseUid: claims.sub },
+      select: USER_ACCESS_SELECT,
     });
+
+    if (byUid) {
+      if (!byUid.firebaseUid) {
+        return null;
+      }
+      return byUid as UserAccessRecord;
+    }
+
+    // Email fallback only for verified emails, and only to *link* an
+    // un-bound row; never match a row already bound to a different uid.
+    if (!claims.emailVerified) {
+      return null;
+    }
+
+    const byEmail = await this.systemPrisma.user.findFirst({
+      where: {
+        email: claims.email,
+        firebaseUid: null,
+      },
+      select: USER_ACCESS_SELECT,
+    });
+
+    if (!byEmail) {
+      return null;
+    }
+
+    await this.systemPrisma.user.update({
+      where: { id: byEmail.id },
+      data: { firebaseUid: claims.sub },
+    });
+
+    return {
+      ...byEmail,
+      firebaseUid: claims.sub,
+    };
   }
 
   private async ensureActiveMembership(

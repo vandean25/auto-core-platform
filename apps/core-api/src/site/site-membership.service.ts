@@ -61,7 +61,7 @@ export class SiteMembershipService {
       where: { id: dto.userId },
       select: { firebaseUid: true },
     });
-    if (user) {
+    if (user?.firebaseUid) {
       this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
     }
     return membership;
@@ -93,7 +93,7 @@ export class SiteMembershipService {
       });
     });
 
-    if (user) {
+    if (user?.firebaseUid) {
       this.dashboardRealtime.emitSiteAccessScopeUpdated(user.firebaseUid);
       if (user.active_site_id === null) {
         this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);

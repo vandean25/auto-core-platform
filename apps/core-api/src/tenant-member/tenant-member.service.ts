@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { UserRecord } from 'firebase-admin/auth';
@@ -69,11 +71,26 @@ export class TenantMemberService {
       .trim()
       .toLowerCase();
 
-    const existingUser = await this.systemPrisma.user.findFirst({
-      where: {
-        OR: [{ firebaseUid: firebaseUser.uid }, { email: resolvedEmail }],
-      },
+    let existingUser = await this.systemPrisma.user.findFirst({
+      where: { firebaseUid: firebaseUser.uid },
     });
+
+    if (!existingUser) {
+      existingUser = await this.systemPrisma.user.findFirst({
+        where: { email: resolvedEmail, firebaseUid: null },
+      });
+    }
+
+    if (!existingUser) {
+      const conflictingUser = await this.systemPrisma.user.findFirst({
+        where: { email: resolvedEmail },
+      });
+      if (conflictingUser) {
+        throw new ConflictException(
+          `User with email ${resolvedEmail} is already bound to another Firebase account.`,
+        );
+      }
+    }
 
     let userId: string;
     let hasActiveTenant: boolean;
@@ -209,8 +226,18 @@ export class TenantMemberService {
     const firebaseAuth = this.getFirebaseAuth();
 
     try {
-      return await firebaseAuth.getUserByEmail(email);
+      const existing = await firebaseAuth.getUserByEmail(email);
+      if (!existing.emailVerified) {
+        throw new UnprocessableEntityException(
+          `A Firebase account for ${email} exists but its email is not verified; the user must verify it before being invited.`,
+        );
+      }
+      return existing;
     } catch (error) {
+      if (error instanceof UnprocessableEntityException) {
+        throw error;
+      }
+
       if (this.getFirebaseErrorCode(error) === 'auth/user-not-found') {
         return firebaseAuth.createUser({ email });
       }
@@ -237,7 +264,7 @@ export class TenantMemberService {
       },
     });
 
-    if (!user) {
+    if (!user || !user.firebaseUid) {
       throw new BadRequestException(
         `Unable to project claims for user ${userId}.`,
       );

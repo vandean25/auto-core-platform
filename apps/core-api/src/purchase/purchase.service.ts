@@ -551,6 +551,10 @@ export class PurchaseService {
 
   async markAsSent(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const orderAtRequestStart = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true },
+    });
 
     return this.prisma.$transaction(async (tx) => {
       await lockPurchaseOrderHeader(tx, tenantId, id);
@@ -573,6 +577,11 @@ export class PurchaseService {
       });
 
       if (!order) {
+        if (orderAtRequestStart) {
+          throw new ConflictException(
+            'Purchase order was deleted concurrently. Please refresh and try again.',
+          );
+        }
         throw new NotFoundException('Purchase Order not found');
       }
 

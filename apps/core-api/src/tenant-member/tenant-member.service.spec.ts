@@ -1,4 +1,8 @@
-import { ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { TenantMemberRole } from '@prisma/client';
 import type { Auth } from 'firebase-admin/auth';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
@@ -48,6 +52,14 @@ describe('TenantMemberService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSystemPrisma.tenantMember.findMany.mockReset();
+    mockSystemPrisma.tenantMember.count.mockReset();
+    mockSystemPrisma.tenantMember.upsert.mockReset();
+    mockSystemPrisma.tenantMember.findFirst.mockReset();
+    mockSystemPrisma.tenantMember.update.mockReset();
+    mockSystemPrisma.user.findFirst.mockReset();
+    mockSystemPrisma.user.create.mockReset();
+    mockSystemPrisma.user.update.mockReset();
 
     mockDashboardRealtime = {
       emitClaimsUpdated: jest.fn(),
@@ -139,6 +151,8 @@ describe('TenantMemberService', () => {
     });
     mockSystemPrisma.user.findFirst
       .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         id: 'user-1',
         firebaseUid: 'firebase-uid-1',
@@ -219,6 +233,118 @@ describe('TenantMemberService', () => {
       role: TenantMemberRole.TECH,
       isActive: true,
     });
+  });
+
+  it('throws UnprocessableEntityException when inviting an email with an unverified existing Firebase account', async () => {
+    mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+      uid: 'attacker-uid',
+      email: 'unverified@autocore.com',
+      emailVerified: false,
+    });
+
+    await expect(
+      service.invite({
+        email: 'unverified@autocore.com',
+        role: TenantMemberRole.TECH,
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+    expect(mockFirebaseAuth.createUser).not.toHaveBeenCalled();
+    expect(mockSystemPrisma.user.create).not.toHaveBeenCalled();
+    expect(mockSystemPrisma.tenantMember.upsert).not.toHaveBeenCalled();
+  });
+
+  it('invites a tenant member when existing Firebase account has emailVerified: true', async () => {
+    mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+      uid: 'verified-uid-2',
+      email: 'verified@autocore.com',
+      emailVerified: true,
+    });
+    mockSystemPrisma.user.findFirst
+      .mockResolvedValueOnce(null) // by UID
+      .mockResolvedValueOnce(null) // by email unbound
+      .mockResolvedValueOnce(null) // by email conflict check
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        firebaseUid: 'verified-uid-2',
+        email: 'verified@autocore.com',
+        active_tenant_id: 'tenant-a',
+        platformAdmin: null,
+        memberships: [
+          {
+            tenant_id: 'tenant-a',
+            role: TenantMemberRole.TECH,
+            is_active: true,
+          },
+        ],
+      });
+    mockSystemPrisma.user.create.mockResolvedValue({
+      id: 'user-2',
+      active_tenant_id: null,
+    });
+    mockSystemPrisma.user.update.mockResolvedValue({
+      id: 'user-2',
+      active_tenant_id: 'tenant-a',
+    });
+    mockSystemPrisma.tenantMember.upsert.mockResolvedValue({
+      id: 'membership-2',
+      tenant_id: 'tenant-a',
+      user_id: 'user-2',
+      role: TenantMemberRole.TECH,
+      is_active: true,
+      createdAt: new Date('2026-04-23T10:00:00.000Z'),
+      updatedAt: new Date('2026-04-23T10:00:00.000Z'),
+      user: {
+        id: 'user-2',
+        email: 'verified@autocore.com',
+        firstName: null,
+        lastName: null,
+      },
+    });
+    mockFirebaseAuth.getUser.mockResolvedValue({
+      uid: 'verified-uid-2',
+      customClaims: {},
+    });
+    mockFirebaseAuth.setCustomUserClaims.mockResolvedValue(undefined);
+
+    const result = await service.invite({
+      email: 'verified@autocore.com',
+      role: TenantMemberRole.TECH,
+    });
+
+    expect(result).toMatchObject({
+      id: 'membership-2',
+      tenantId: 'tenant-a',
+      userId: 'user-2',
+      email: 'verified@autocore.com',
+      role: TenantMemberRole.TECH,
+    });
+  });
+
+  it('throws ConflictException when inviting an email that belongs to another UID in the database', async () => {
+    mockFirebaseAuth.getUserByEmail.mockResolvedValue({
+      uid: 'attacker-uid-3',
+      email: 'victim@autocore.com',
+      emailVerified: true,
+    });
+    mockSystemPrisma.user.findFirst
+      .mockResolvedValueOnce(null) // by UID attacker-uid-3
+      .mockResolvedValueOnce(null) // by email unbound
+      .mockResolvedValueOnce({
+        id: 'victim-user-id',
+        firebaseUid: 'victim-uid-original',
+        email: 'victim@autocore.com',
+      }); // by email conflict check
+
+    await expect(
+      service.invite({
+        email: 'victim@autocore.com',
+        role: TenantMemberRole.TECH,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(mockSystemPrisma.user.create).not.toHaveBeenCalled();
+    expect(mockSystemPrisma.tenantMember.upsert).not.toHaveBeenCalled();
   });
 
   it('updates a membership, revokes refresh tokens for security-sensitive changes, and emits claims refresh', async () => {
