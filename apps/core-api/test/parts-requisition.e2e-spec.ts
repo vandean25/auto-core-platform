@@ -706,7 +706,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         .post(`/api/parts-reservations/${reservationId}/consume`)
         .set('Authorization', `Bearer ${fixture.authToken}`)
         .send({ quantity: 1 })
-        .expect(200);
+        .expect(201);
 
       const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
         where: { id: reservationId },
@@ -739,8 +739,10 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
           .send({ returnLocationId: fixture.sourceLocationId }),
       ]);
 
-      const statuses = responses.map((response) => response.status).sort();
-      expect(statuses[0]).toBe(200);
+      const statuses = responses.map((response) => response.status).sort(
+        (left, right) => left - right,
+      );
+      expect(statuses[0]).toBe(201);
       expect([409, 422]).toContain(statuses[1]);
 
       const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
@@ -782,7 +784,7 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
         .post(`/api/parts-reservations/${first.body.id}/release`)
         .set('Authorization', `Bearer ${fixture.authToken}`)
         .send({})
-        .expect(200);
+        .expect(201);
 
       const line = await fixture.prisma.workshopTaskLineItem.findFirstOrThrow({
         where: { id: fixture.lineId },
