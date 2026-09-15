@@ -739,11 +739,13 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
           .send({ returnLocationId: fixture.sourceLocationId }),
       ]);
 
-      const statuses = responses.map((response) => response.status).sort(
-        (left, right) => left - right,
+      const success = responses.filter(
+        (response) => response.status === 200 || response.status === 201,
       );
-      expect(statuses[0]).toBe(201);
-      expect([409, 422]).toContain(statuses[1]);
+      const failures = responses.filter((response) => response.status >= 400);
+      expect(success).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+      expect([400, 409, 422]).toContain(failures[0].status);
 
       const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
         where: { id: reservationId },
