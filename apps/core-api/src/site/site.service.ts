@@ -575,13 +575,13 @@ export class SiteService {
       where: { firebaseUid: authUser.userId },
       select: { id: true, firebaseUid: true, active_site_id: true },
     });
-    if (!user) {
+    if (!user || !user.firebaseUid) {
       return null;
     }
     const member = await this.prisma.tenantMember.findFirst({
       where: { tenant_id: tenantId, user_id: user.id, is_active: true },
       select: { id: true },
     });
-    return member ? user : null;
+    return member ? { ...user, firebaseUid: user.firebaseUid } : null;
   }
 }
