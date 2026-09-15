@@ -1,13 +1,26 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { VehicleStockStatus } from '@prisma/client';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
+import { MoveVehicleSiteDto } from './dto/move-vehicle-site.dto.js';
+import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
 
 @ApiTags('vehicle-stock')
 @Controller('vehicle-stock')
 export class VehicleStockController {
-  constructor(private readonly stock: VehicleStockQueryService) {}
+  constructor(
+    private readonly stock: VehicleStockQueryService,
+    private readonly moves: VehicleStockMoveService,
+  ) {}
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
@@ -76,5 +89,13 @@ export class VehicleStockController {
     @Body() dto: PatchVehicleStockDto,
   ) {
     return this.stock.patch(vehicleId, dto);
+  }
+
+  @Post(':vehicleId/move-site')
+  moveSite(
+    @Param('vehicleId') vehicleId: string,
+    @Body() dto: MoveVehicleSiteDto,
+  ) {
+    return this.moves.moveAcrossSites(vehicleId, dto);
   }
 }

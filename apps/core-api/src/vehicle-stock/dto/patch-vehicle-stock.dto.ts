@@ -16,6 +16,11 @@ export class PatchVehicleStockDto {
   @IsUUID()
   location_id?: string | null;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  expectedLocationId?: string;
+
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)

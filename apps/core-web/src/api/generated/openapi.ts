@@ -1140,6 +1140,22 @@ export interface paths {
         patch: operations["VehicleStockController_patch"];
         trace?: never;
     };
+    "/api/vehicle-stock/{vehicleId}/move-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleStockController_moveSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/parts-reservations": {
         parameters: {
             query?: never;
@@ -3540,11 +3556,17 @@ export interface components {
         };
         PatchVehicleStockDto: {
             location_id?: Record<string, never> | null;
+            expectedLocationId?: string;
             reserved_for_customer_id?: Record<string, never> | null;
             mileage?: number;
             color?: string;
             key_number?: string;
             registration_certificate_no?: string;
+        };
+        MoveVehicleSiteDto: {
+            toSiteId: string;
+            toLocationId: string;
+            expectedLocationId: string;
         };
         CreatePartsReservationDto: {
             /** Format: uuid */
@@ -7585,6 +7607,29 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleStockController_moveSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveVehicleSiteDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
