@@ -55,11 +55,13 @@ function buildTransactionClient() {
     workshopTaskLineItem: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     workshopTask: {
       updateMany: jest.fn(),
     },
     partsReservation: {
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       updateMany: jest.fn(),
@@ -132,6 +134,9 @@ describe('PartsRequisitionService', () => {
   const atpService = {
     reserveOnHand: jest.fn(),
   } as unknown as Pick<AtpService, 'reserveOnHand'>;
+  const ledgerService = {
+    recordTransactions: jest.fn(),
+  };
   let prisma: ReturnType<typeof buildTransactionClient> & {
     $transaction: jest.Mock;
   };
@@ -153,6 +158,7 @@ describe('PartsRequisitionService', () => {
     });
     siteContext.getSiteId.mockResolvedValue(siteId);
     atpService.reserveOnHand.mockResolvedValue(undefined);
+    ledgerService.recordTransactions.mockResolvedValue(undefined);
     tx.workshopTaskLineItem.findFirst.mockResolvedValue(buildLine());
     tx.storageLocation.findFirst.mockResolvedValue({
       id: locationId,
@@ -184,6 +190,7 @@ describe('PartsRequisitionService', () => {
       tenantContext as never,
       siteContext as never,
       atpService as never,
+      ledgerService as never,
     );
   });
 
@@ -213,6 +220,209 @@ describe('PartsRequisitionService', () => {
       data: { line_items_version: { increment: 1 } },
     });
     expect(result.quantity).toBe('1.5');
+  });
+
+  it('consumes staged quantity FIFO and records WORKSHOP_CONSUMPTION', async () => {
+    const stagedReservation = buildReservation({
+      status: PartsReservationStatus.STAGED,
+      quantity: new Prisma.Decimal('1.5'),
+      quantity_staged: new Prisma.Decimal('1.5'),
+      tote_cost_basis: new Prisma.Decimal('10'),
+      createdAt: new Date('2026-09-10T10:00:00.000Z'),
+    });
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce({ workshop_task_line_item_id: lineId })
+      .mockResolvedValueOnce({
+        ...stagedReservation,
+        quantity_consumed: new Prisma.Decimal('1.5'),
+        quantity_staged: new Prisma.Decimal('0'),
+        status: PartsReservationStatus.FULFILLED,
+      });
+    tx.workshopTaskLineItem.findFirst.mockResolvedValue({
+      ...buildLine(),
+      workshop_task: {
+        workshop_order: { staging_location_id: 'tote-1' },
+      },
+    });
+    tx.partsReservation.findMany
+      .mockResolvedValueOnce([stagedReservation])
+      .mockResolvedValueOnce([
+        { quantity_consumed: new Prisma.Decimal('1.5') },
+      ]);
+    tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.consumeReservation('reservation-1', {
+      quantity: 1.5,
+    });
+
+    expect(result.quantityConsumed).toBe('1.5');
+    expect(ledgerService.recordTransactions).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          type: 'WORKSHOP_CONSUMPTION',
+          quantity: new Prisma.Decimal('-1.5'),
+          costBasis: new Prisma.Decimal('10'),
+          partsReservationId: 'reservation-1',
+        }),
+      ],
+      tx,
+    );
+    expect(tx.partsReservation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PartsReservationStatus.FULFILLED,
+        }),
+      }),
+    );
+  });
+
+  it('rejects service consumption above staged quantity before ledger writes', async () => {
+    const stagedReservation = buildReservation({
+      status: PartsReservationStatus.STAGED,
+      quantity_staged: new Prisma.Decimal('1.5'),
+    });
+    tx.partsReservation.findFirst.mockResolvedValue({
+      workshop_task_line_item_id: lineId,
+    });
+    tx.workshopTaskLineItem.findFirst.mockResolvedValue({
+      ...buildLine(),
+      workshop_task: {
+        workshop_order: { staging_location_id: 'tote-1' },
+      },
+    });
+    tx.partsReservation.findMany.mockResolvedValue([stagedReservation]);
+
+    await expect(
+      service.consumeReservation('reservation-1', { quantity: 1.501 }),
+    ).rejects.toThrow(ConflictException);
+    expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
+  });
+
+  it('releases leftover demand and keeps consumed line quantity billable', async () => {
+    const reservation = buildReservation({
+      status: PartsReservationStatus.ORDERED,
+      quantity: new Prisma.Decimal('4'),
+      quantity_consumed: new Prisma.Decimal('1.5'),
+      quantity_returned: new Prisma.Decimal('0'),
+      quantity_staged: new Prisma.Decimal('0'),
+      kind: PartsReservationKind.REQUISITION,
+    });
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce({
+        ...reservation,
+        workshop_task_line_item: {
+          id: lineId,
+          workshop_task_id: taskId,
+          catalog_item_id: 'catalog-1',
+          workshop_task: {
+            workshop_order: { staging_location_id: 'tote-1' },
+          },
+        },
+      })
+      .mockResolvedValueOnce(reservation);
+    tx.partsReservation.findMany.mockResolvedValue([
+      {
+        ...reservation,
+        status: PartsReservationStatus.CANCELLED,
+        quantity_returned: new Prisma.Decimal('2.5'),
+      },
+    ]);
+    tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.releaseReservation('reservation-1', {});
+
+    expect(result.status).toBe(PartsReservationStatus.ORDERED);
+    expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          quantity: new Prisma.Decimal('1.5'),
+          part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
+        },
+      }),
+    );
+    expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
+  });
+
+  it('does not shrink the line quantity while a sibling slice remains active', async () => {
+    const released = buildReservation({
+      status: PartsReservationStatus.OPEN,
+      quantity: new Prisma.Decimal('2'),
+      kind: PartsReservationKind.REQUISITION,
+    });
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce({
+        ...released,
+        workshop_task_line_item: {
+          id: lineId,
+          workshop_task_id: taskId,
+          catalog_item_id: 'catalog-1',
+          workshop_task: {
+            workshop_order: { staging_location_id: 'tote-1' },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        ...released,
+        status: PartsReservationStatus.CANCELLED,
+      });
+    tx.partsReservation.findMany.mockResolvedValue([
+      {
+        ...released,
+        status: PartsReservationStatus.CANCELLED,
+      },
+      {
+        status: PartsReservationStatus.STAGED,
+        quantity: new Prisma.Decimal('2'),
+        quantity_consumed: new Prisma.Decimal('0'),
+        quantity_returned: new Prisma.Decimal('0'),
+        quantity_staged: new Prisma.Decimal('2'),
+      },
+    ]);
+    tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.releaseReservation('reservation-1', {});
+
+    expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+        },
+      }),
+    );
+    expect(tx.workshopTaskLineItem.updateMany.mock.calls[0][0].data).not.toHaveProperty(
+      'quantity',
+    );
+  });
+
+  it('requires a return location for staged release', async () => {
+    tx.partsReservation.findFirst.mockResolvedValue({
+      ...buildReservation({
+        status: PartsReservationStatus.STAGED,
+        quantity_staged: new Prisma.Decimal('1.5'),
+      }),
+      workshop_task_line_item: {
+        id: lineId,
+        workshop_task_id: taskId,
+        catalog_item_id: 'catalog-1',
+        workshop_task: {
+          workshop_order: { staging_location_id: 'tote-1' },
+        },
+      },
+    });
+
+    await expect(
+      service.releaseReservation('reservation-1', {}),
+    ).rejects.toThrow(UnprocessableEntityException);
+  });
+
+  it('rejects release of a fulfilled reservation', async () => {
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ status: PartsReservationStatus.FULFILLED });
+
+    await expect(
+      service.releaseReservation('reservation-1', {}),
+    ).rejects.toThrow(UnprocessableEntityException);
   });
 
   it('rejects allocation beyond consumed plus active demand without side effects', async () => {
@@ -336,13 +546,12 @@ describe('PartsRequisitionService', () => {
   });
 
   it('rejects cancelled workshop lines before reserving ATP or creating a reservation', async () => {
-    tx.workshopTaskLineItem.findFirst.mockImplementation(
-      async ({ where }) =>
-        where.part_execution_status
-          ? null
-          : buildLine({
-              part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
-            }),
+    tx.workshopTaskLineItem.findFirst.mockImplementation(async ({ where }) =>
+      where.part_execution_status
+        ? null
+        : buildLine({
+            part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+          }),
     );
 
     await expect(
@@ -471,19 +680,19 @@ describe('PartsRequisitionService', () => {
     const result = await service.getShortages({});
 
     expect(result.data).toEqual([]);
-      expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: tenantId,
-            workshop_task: expect.objectContaining({
-              workshop_order: expect.objectContaining({
-                site_id: siteId,
-              }),
+    expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: tenantId,
+          workshop_task: expect.objectContaining({
+            workshop_order: expect.objectContaining({
+              site_id: siteId,
             }),
           }),
         }),
-      );
-    });
+      }),
+    );
+  });
 
   describe('createRequisitionSheet', () => {
     function buildCandidateLine(makeBrandId: number) {
@@ -671,10 +880,7 @@ describe('PartsRequisitionService', () => {
           id: 'reservation-1',
           purchase_order_item_id: null,
           status: {
-            in: [
-              PartsReservationStatus.OPEN,
-              PartsReservationStatus.ORDERED,
-            ],
+            in: [PartsReservationStatus.OPEN, PartsReservationStatus.ORDERED],
           },
         },
         data: { purchase_order_item_id: 'poi-1' },

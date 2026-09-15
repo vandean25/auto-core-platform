@@ -17,7 +17,11 @@ export const mockPrisma = {
     update: jest.fn(),
     updateMany: jest.fn(),
   },
-  workshopTaskLineItem: { create: jest.fn() },
+  workshopTaskLineItem: {
+    create: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
   workshopInspection: { findFirst: jest.fn() },
   workshopInspectionItem: { updateMany: jest.fn() },
   workshopMedia: { create: jest.fn() },
@@ -33,6 +37,7 @@ export const mockPrisma = {
     updateMany: jest.fn(),
   },
   workshopOrder: { updateMany: jest.fn() },
+  $queryRaw: jest.fn().mockResolvedValue([]),
   $transaction: jest.fn(),
 } as unknown as PrismaService;
 

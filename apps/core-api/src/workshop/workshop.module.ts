@@ -4,6 +4,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
+import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
 import { OPENHOLIDAYS_FETCH } from './openholidays.client.js';
 import { WorkshopBoardService } from './workshop-board.service.js';
 import { WorkshopHolidayService } from './workshop-holiday.service.js';
@@ -26,6 +27,7 @@ import { WorkshopController } from './workshop.controller.js';
     InventoryModule,
     CommonModule,
     VehicleStockModule,
+    PartsRequisitionModule,
   ],
   controllers: [WorkshopController],
   providers: [

@@ -186,6 +186,13 @@ describe('mechanic-task-transitions', () => {
   describe('completeLaborAndTask', () => {
     it('closes labor entry if open and marks task DONE', async () => {
       const mockTx = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        workshopTaskLineItem: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        partsReservation: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
         laborEntry: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },

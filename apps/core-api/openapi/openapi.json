@@ -3873,6 +3873,234 @@
         ]
       }
     },
+    "/api/parts-reservations": {
+      "post": {
+        "operationId": "PartsRequisitionController_createReservation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/consume": {
+      "post": {
+        "operationId": "PartsRequisitionController_consumeReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/release": {
+      "post": {
+        "operationId": "PartsRequisitionController_releaseReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleasePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/shortages": {
+      "get": {
+        "operationId": "PartsRequisitionController_getShortages",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Limit the queue to one workshop order.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PartsShortageResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions": {
+      "post": {
+        "operationId": "PartsRequisitionController_createRequisitionSheet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+      "post": {
+        "operationId": "PartsRequisitionController_createPurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
     "/api/mechanic/queue": {
       "get": {
         "operationId": "MechanicController_getQueue",
@@ -6897,154 +7125,6 @@
         "summary": "List tenant audit logs",
         "tags": [
           "Audit Logs"
-        ]
-      }
-    },
-    "/api/parts-reservations": {
-      "post": {
-        "operationId": "PartsRequisitionController_createReservation",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/shortages": {
-      "get": {
-        "operationId": "PartsRequisitionController_getShortages",
-        "parameters": [
-          {
-            "name": "workshopOrderId",
-            "required": false,
-            "in": "query",
-            "description": "Limit the queue to one workshop order.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/PaginatedResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/PartsShortageResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions": {
-      "post": {
-        "operationId": "PartsRequisitionController_createRequisitionSheet",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/{id}/create-purchase-order": {
-      "post": {
-        "operationId": "PartsRequisitionController_createPurchaseOrder",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
         ]
       }
     }
@@ -10784,6 +10864,11 @@
             "minimum": 0,
             "description": "Version read before applying the patch."
           },
+          "returnLocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Return bin used when omitting a line with staged reservation quantity."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -11543,6 +11628,398 @@
             "type": "string"
           }
         }
+      },
+      "CreatePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity",
+          "locationId"
+        ]
+      },
+      "PartsReservationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "quantityReceived": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityConsumed": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityStaged": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityReturned": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ON_HAND",
+              "REQUISITION"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "workshopTaskLineItemId",
+          "quantity",
+          "quantityReceived",
+          "quantityConsumed",
+          "quantityStaged",
+          "quantityReturned",
+          "kind",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ConsumePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "ReleasePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "returnLocationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PartsShortageResponseDto": {
+        "type": "object",
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "workshopTaskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lineQuantity": {
+            "type": "string",
+            "example": "4.000"
+          },
+          "consumedQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "activeCommitment": {
+            "type": "string",
+            "example": "1.000"
+          },
+          "shortageQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMake": {
+            "type": "string",
+            "description": "Vehicle make label from the workshop order vehicle."
+          },
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "nullable": true,
+            "description": "Vehicle-make Brand id used to group the requisition sheet."
+          }
+        },
+        "required": [
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "workshopTaskId",
+          "workshopTaskLineItemId",
+          "itemNo",
+          "description",
+          "lineQuantity",
+          "consumedQuantity",
+          "activeCommitment",
+          "shortageQuantity",
+          "siteId",
+          "vehicleMake"
+        ]
+      },
+      "PartsRequisitionItemDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity"
+        ]
+      },
+      "CreatePartsRequisitionDto": {
+        "type": "object",
+        "properties": {
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "description": "Vehicle-make Brand the sheet is raised for.",
+            "example": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionItemDto"
+            }
+          }
+        },
+        "required": [
+          "vehicleMakeBrandId",
+          "items"
+        ]
+      },
+      "PartsRequisitionLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "purchaseOrderItemId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reservationId",
+          "workshopTaskLineItemId",
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "itemNo",
+          "description",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PartsRequisitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMakeBrandId": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ORDERED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "vehicleMakeBrandId",
+          "status",
+          "lines",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "RequisitionPurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
+            "example": 10.5,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "reservationId",
+          "unitCost"
+        ]
+      },
+      "CreateRequisitionPurchaseOrderDto": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "items"
+        ]
       },
       "MechanicVehicleDto": {
         "type": "object",
@@ -15302,375 +15779,6 @@
         "required": [
           "data",
           "meta"
-        ]
-      },
-      "CreatePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity",
-          "locationId"
-        ]
-      },
-      "PartsReservationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "quantityReceived": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityConsumed": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityStaged": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityReturned": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ON_HAND",
-              "REQUISITION"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "workshopTaskLineItemId",
-          "quantity",
-          "quantityReceived",
-          "quantityConsumed",
-          "quantityStaged",
-          "quantityReturned",
-          "kind",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PartsShortageResponseDto": {
-        "type": "object",
-        "properties": {
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "workshopTaskId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "lineQuantity": {
-            "type": "string",
-            "example": "4.000"
-          },
-          "consumedQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "activeCommitment": {
-            "type": "string",
-            "example": "1.000"
-          },
-          "shortageQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "siteId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMake": {
-            "type": "string",
-            "description": "Vehicle make label from the workshop order vehicle."
-          },
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "nullable": true,
-            "description": "Vehicle-make Brand id used to group the requisition sheet."
-          }
-        },
-        "required": [
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "workshopTaskId",
-          "workshopTaskLineItemId",
-          "itemNo",
-          "description",
-          "lineQuantity",
-          "consumedQuantity",
-          "activeCommitment",
-          "shortageQuantity",
-          "siteId",
-          "vehicleMake"
-        ]
-      },
-      "PartsRequisitionItemDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity"
-        ]
-      },
-      "CreatePartsRequisitionDto": {
-        "type": "object",
-        "properties": {
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "description": "Vehicle-make Brand the sheet is raised for.",
-            "example": 1
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionItemDto"
-            }
-          }
-        },
-        "required": [
-          "vehicleMakeBrandId",
-          "items"
-        ]
-      },
-      "PartsRequisitionLineResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "purchaseOrderItemId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "reservationId",
-          "workshopTaskLineItemId",
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "itemNo",
-          "description",
-          "quantity",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PartsRequisitionResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMakeBrandId": {
-            "type": "number"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "DRAFT",
-              "ORDERED",
-              "COMPLETED",
-              "CANCELLED"
-            ]
-          },
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "vehicleMakeBrandId",
-          "status",
-          "lines",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "RequisitionPurchaseOrderItemDto": {
-        "type": "object",
-        "properties": {
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unitCost": {
-            "type": "number",
-            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
-            "example": 10.5,
-            "minimum": 0
-          }
-        },
-        "required": [
-          "reservationId",
-          "unitCost"
-        ]
-      },
-      "CreateRequisitionPurchaseOrderDto": {
-        "type": "object",
-        "properties": {
-          "vendorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
-            }
-          }
-        },
-        "required": [
-          "vendorId",
-          "items"
         ]
       }
     }

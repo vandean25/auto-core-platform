@@ -3,6 +3,7 @@ import {
   PartsReservationStatus,
   PartsRequisitionStatus,
   Prisma,
+  WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 
 const ZERO = new Prisma.Decimal(0);
@@ -26,6 +27,17 @@ export type ReservationSliceState = {
   quantity_staged: Prisma.Decimal | number | string;
 };
 
+export type StagedConsumptionSlice = ReservationSliceState & {
+  id: string;
+};
+
+export type TaskPartsGateState = {
+  lines: ReadonlyArray<{
+    part_execution_status: WorkshopPartLineExecutionStatus | null;
+  }>;
+  reservations: ReadonlyArray<ReservationSliceState>;
+};
+
 export function getRemainingCommitment(
   slice: Pick<
     ReservationSliceState,
@@ -36,6 +48,58 @@ export function getRemainingCommitment(
     .sub(slice.quantity_consumed)
     .sub(slice.quantity_returned);
   return remaining.gt(ZERO) ? remaining : ZERO;
+}
+
+export function allocateStagedConsumption(
+  slices: readonly StagedConsumptionSlice[],
+  requestedQuantity: Prisma.Decimal | number | string,
+): Array<{ reservationId: string; quantity: string }> {
+  let remaining = new Prisma.Decimal(requestedQuantity);
+  const allocations: Array<{ reservationId: string; quantity: string }> = [];
+
+  for (const slice of slices) {
+    if (
+      remaining.lte(ZERO) ||
+      slice.status === PartsReservationStatus.CANCELLED
+    ) {
+      break;
+    }
+
+    const available = new Prisma.Decimal(slice.quantity_staged);
+    if (available.lte(ZERO)) {
+      continue;
+    }
+
+    const quantity = Prisma.Decimal.min(remaining, available);
+    allocations.push({
+      reservationId: slice.id,
+      quantity: quantity.toString(),
+    });
+    remaining = remaining.sub(quantity);
+  }
+
+  if (remaining.gt(ZERO)) {
+    throw new ConflictException(
+      'Requested quantity exceeds staged reservation quantity.',
+    );
+  }
+
+  return allocations;
+}
+
+export function isTaskBlockedByParts(state: TaskPartsGateState): boolean {
+  return (
+    state.lines.some(
+      (line) =>
+        line.part_execution_status ===
+          WorkshopPartLineExecutionStatus.PENDING_PICK ||
+        line.part_execution_status === WorkshopPartLineExecutionStatus.STAGED,
+    ) ||
+    state.reservations.some(isActiveSlice) ||
+    state.reservations.some((reservation) =>
+      new Prisma.Decimal(reservation.quantity_staged).gt(ZERO),
+    )
+  );
 }
 
 export function isActiveSlice(slice: ReservationSliceState): boolean {

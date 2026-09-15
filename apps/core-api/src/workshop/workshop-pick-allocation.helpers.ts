@@ -50,6 +50,7 @@ export type ReservationSlice = {
   location_id: string | null;
   tote_cost_basis: Decimal | null;
   createdAt: Date;
+  requisition_line?: { requisition_id: string } | null;
 };
 
 export type SourceStock = {

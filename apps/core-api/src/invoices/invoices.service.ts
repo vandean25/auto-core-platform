@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import {
   DiscountType,
   InvoiceStatus,
   Prisma,
+  WorkshopPartLineExecutionStatus,
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
@@ -19,6 +21,7 @@ import {
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -36,12 +39,24 @@ export class InvoicesService {
     await this.financeService.validateTransactionDate(new Date());
 
     return this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findFirst({
+      let order = await tx.workshopOrder.findFirst({
         where: { id: workshopOrderId, tenant_id: tenantId },
         include: {
           tasks: {
             include: {
-              line_items: true,
+              line_items: {
+                include: {
+                  parts_reservations: {
+                    select: {
+                      status: true,
+                      quantity: true,
+                      quantity_consumed: true,
+                      quantity_returned: true,
+                      quantity_staged: true,
+                    },
+                  },
+                },
+              },
             },
           },
           invoice: { select: { id: true, invoice_number: true } },
@@ -64,7 +79,71 @@ export class InvoicesService {
         );
       }
 
-      const lineItems = order.tasks.flatMap((task) => task.line_items);
+      const taskIds = order.tasks.map((task) => task.id).sort();
+      if (taskIds.length > 0) {
+        // eslint-disable-next-line no-restricted-syntax -- invoice creation shares the task-first mutation lock.
+        await tx.$queryRaw`
+          SELECT id
+          FROM workshop_tasks
+          WHERE tenant_id = ${tenantId}
+            AND id IN (${Prisma.join(taskIds)})
+          ORDER BY id
+          FOR UPDATE
+        `;
+
+        const lockedOrder = await tx.workshopOrder.findFirst({
+          where: { id: workshopOrderId, tenant_id: tenantId },
+          include: {
+            tasks: {
+              include: {
+                line_items: {
+                  include: {
+                    parts_reservations: {
+                      select: {
+                        status: true,
+                        quantity: true,
+                        quantity_consumed: true,
+                        quantity_returned: true,
+                        quantity_staged: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            invoice: { select: { id: true, invoice_number: true } },
+          },
+        });
+        if (!lockedOrder) {
+          throw new NotFoundException(
+            `Workshop order ${workshopOrderId} not found`,
+          );
+        }
+        order = lockedOrder;
+      }
+
+      if (
+        order.tasks.some((task) =>
+          isTaskBlockedByParts({
+            lines: task.line_items,
+            reservations: task.line_items.flatMap(
+              (line) => line.parts_reservations ?? [],
+            ),
+          }),
+        )
+      ) {
+        throw new ConflictException(
+          'Workshop order cannot be invoiced while part work is incomplete.',
+        );
+      }
+
+      const lineItems = order.tasks
+        .flatMap((task) => task.line_items)
+        .filter(
+          (line) =>
+            line.part_execution_status !==
+            WorkshopPartLineExecutionStatus.CANCELLED,
+        );
       if (lineItems.length === 0) {
         throw new BadRequestException(
           'Cannot create invoice because no labor/parts lines exist on tasks',

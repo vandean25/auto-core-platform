@@ -1,6 +1,13 @@
-import { PartsReservationStatus, PartsRequisitionStatus } from '@prisma/client';
+import { ConflictException } from '@nestjs/common';
 import {
+  PartsReservationStatus,
+  PartsRequisitionStatus,
+  WorkshopPartLineExecutionStatus,
+} from '@prisma/client';
+import {
+  allocateStagedConsumption,
   deriveRequisitionStatus,
+  isTaskBlockedByParts,
   recomputeRequisitionStatus,
   type ReservationSliceState,
 } from './parts-requisition.helpers.js';
@@ -77,6 +84,70 @@ describe('deriveRequisitionStatus', () => {
         slice({ status: PartsReservationStatus.OPEN }),
       ]),
     ).toBe(PartsRequisitionStatus.ORDERED);
+  });
+});
+
+describe('allocateStagedConsumption', () => {
+  it('allocates requested quantity FIFO across staged slices', () => {
+    const allocations = allocateStagedConsumption(
+      [
+        {
+          id: 'older',
+          status: PartsReservationStatus.STAGED,
+          quantity: '4',
+          quantity_consumed: '0',
+          quantity_returned: '0',
+          quantity_staged: '1.5',
+        },
+        {
+          id: 'newer',
+          status: PartsReservationStatus.STAGED,
+          quantity: '2',
+          quantity_consumed: '0',
+          quantity_returned: '0',
+          quantity_staged: '2',
+        },
+      ],
+      '2',
+    );
+
+    expect(allocations).toEqual([
+      { reservationId: 'older', quantity: '1.5' },
+      { reservationId: 'newer', quantity: '0.5' },
+    ]);
+  });
+
+  it('rejects a request larger than all staged slices', () => {
+    expect(() =>
+      allocateStagedConsumption(
+        [
+          {
+            id: 'staged',
+            status: PartsReservationStatus.STAGED,
+            quantity: '4',
+            quantity_consumed: '0',
+            quantity_returned: '0',
+            quantity_staged: '1.5',
+          },
+        ],
+        '1.501',
+      ),
+    ).toThrow(ConflictException);
+  });
+});
+
+describe('isTaskBlockedByParts', () => {
+  it('ignores cancelled formula demand and fulfilled slices', () => {
+    expect(
+      isTaskBlockedByParts({
+        lines: [
+          {
+            part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+          },
+        ],
+        reservations: [],
+      }),
+    ).toBe(false);
   });
 });
 

@@ -15,6 +15,7 @@ describe('InvoicesService', () => {
   let service: InvoicesService;
 
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     invoice: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -124,9 +125,7 @@ describe('InvoicesService', () => {
 
     const result = await service.createDraftInvoice('wo-1');
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
@@ -145,9 +144,7 @@ describe('InvoicesService', () => {
 
     const result = await service.issueInvoice('inv-1');
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
