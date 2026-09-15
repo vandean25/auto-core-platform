@@ -679,7 +679,7 @@ describe('VehiclePurchaseService', () => {
       prisma.storageLocation.findFirst.mockResolvedValue({
         id: 'loc-2',
         site_id: 'site-2',
-        is_vehicle_lot: true,
+        type: 'vehicle_lot',
       });
       prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
       prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
@@ -727,7 +727,7 @@ describe('VehiclePurchaseService', () => {
       prisma.storageLocation.findFirst.mockResolvedValue({
         id: 'loc-1',
         site_id: 'site-1', // belongs to source site!
-        is_vehicle_lot: true,
+        type: 'vehicle_lot',
       });
 
       await expect(

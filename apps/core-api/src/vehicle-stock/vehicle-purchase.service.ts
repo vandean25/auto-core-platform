@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  LocationType,
   Prisma,
   VehicleAcquisitionKind,
   VehicleInventoryRole,
@@ -54,9 +55,13 @@ export class VehiclePurchaseService {
     if (dto.location_id) {
       const loc = await this.prisma.storageLocation.findFirst({
         where: { id: dto.location_id, tenant_id: tenantId },
-        select: { site_id: true, is_vehicle_lot: true },
+        select: { site_id: true, type: true },
       });
-      if (!loc || loc.site_id !== siteId) {
+      if (
+        !loc ||
+        loc.site_id !== siteId ||
+        loc.type !== LocationType.vehicle_lot
+      ) {
         throw new UnprocessableEntityException(
           'Location does not belong to the active site',
         );
@@ -190,9 +195,13 @@ export class VehiclePurchaseService {
         if (dto.location_id) {
           const loc = await this.prisma.storageLocation.findFirst({
             where: { id: dto.location_id, tenant_id: tenantId },
-            select: { site_id: true, is_vehicle_lot: true },
+            select: { site_id: true, type: true },
           });
-          if (!loc || loc.site_id !== targetSiteId) {
+          if (
+            !loc ||
+            loc.site_id !== targetSiteId ||
+            loc.type !== LocationType.vehicle_lot
+          ) {
             throw new UnprocessableEntityException(
               'Destination lot must belong to target site',
             );
@@ -349,26 +358,51 @@ export class VehiclePurchaseService {
     tenantId: string,
     purchase: Prisma.VehiclePurchaseGetPayload<object>,
   ): Promise<string> {
+    const purchaseWithLot = {
+      ...purchase,
+      location_id: await this.resolveReceiveLocationId(tx, tenantId, purchase),
+    };
     const vin = normalizeVehicleIdentityValueOrNull(purchase.vin);
     if (!vin) {
-      return this.createNewStockVehicle(tx, tenantId, purchase, null);
+      return this.createNewStockVehicle(tx, tenantId, purchaseWithLot, null);
     }
 
     const existing = await tx.vehicle.findFirst({
       where: { tenant_id: tenantId, vin },
     });
     if (!existing) {
-      return this.createNewStockVehicle(tx, tenantId, purchase, vin);
+      return this.createNewStockVehicle(tx, tenantId, purchaseWithLot, vin);
     }
 
     await this.updateExistingStockVehicle(
       tx,
       tenantId,
       existing,
-      purchase,
+      purchaseWithLot,
       vin,
     );
     return existing.id;
+  }
+
+  private async resolveReceiveLocationId(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    purchase: { site_id: string; location_id: string | null },
+  ): Promise<string | null> {
+    if (purchase.location_id) {
+      return purchase.location_id;
+    }
+
+    const defaultLot = await tx.storageLocation.findFirst({
+      where: {
+        tenant_id: tenantId,
+        site_id: purchase.site_id,
+        type: LocationType.vehicle_lot,
+      },
+      select: { id: true },
+      orderBy: [{ is_system: 'asc' }, { code: 'asc' }],
+    });
+    return defaultLot?.id ?? null;
   }
 
   private async updateExistingStockVehicle(

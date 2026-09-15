@@ -148,7 +148,7 @@ export class VehicleSaleService {
       await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       if (isRetargeting) {
         await lockSitesAndAssertActive(
           tx,
@@ -184,9 +184,9 @@ export class VehicleSaleService {
           'Vehicle sale state or site changed concurrently. Please refresh.',
         );
       }
-
-      return this.findOne(id);
     });
+
+    return this.findOne(id);
   }
 
   async finalize(id: string) {

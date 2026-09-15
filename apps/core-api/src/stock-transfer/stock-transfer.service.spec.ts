@@ -8,20 +8,20 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { LocationType, Prisma, StockTransferStatus } from '@prisma/client';
-import { LedgerService } from '../inventory/ledger.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { StockTransferService } from './stock-transfer.service';
+import { LedgerService } from '../inventory/ledger.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { StockTransferService } from './stock-transfer.service.js';
 import {
   hashCommandRequest,
   redactStoredCommandResponse,
   serializeStockTransfer,
-} from './stock-transfer-serializer';
+} from './stock-transfer-serializer.js';
 import {
   ApproveStockTransferDto,
   ReceiveStockTransferDto,
   ReturnStockTransferDto,
   ShipStockTransferDto,
-} from './dto/stock-transfer.dto';
+} from './dto/stock-transfer.dto.js';
 
 const tenantId = 'tenant-1';
 const userId = 'user-1';

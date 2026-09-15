@@ -584,6 +584,7 @@ export class WorkshopIntakeService {
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const activeSiteId = await this.siteContext.getSiteId();
     const existing = await this.prisma.workshopOrder.findFirst({
       where: { id, tenant_id: tenantId },
       include: ORDER_WITH_INVOICE_RELATIONS,
@@ -592,6 +593,13 @@ export class WorkshopIntakeService {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
     assertOrderEditable(existing);
+
+    const isRetargeting =
+      dto.siteId !== undefined && dto.siteId !== existing.site_id;
+
+    if (!isRetargeting && existing.site_id && existing.site_id !== activeSiteId) {
+      throw new NotFoundException(`Workshop order ${id} not found`);
+    }
 
     if (
       dto.expectedSiteId !== undefined &&
@@ -602,9 +610,6 @@ export class WorkshopIntakeService {
         'Workshop order site changed concurrently. Please refresh.',
       );
     }
-
-    const isRetargeting =
-      dto.siteId !== undefined && dto.siteId !== existing.site_id;
 
     if (isRetargeting) {
       if (existing.status !== WorkshopOrderStatus.SCHEDULED) {
@@ -648,7 +653,7 @@ export class WorkshopIntakeService {
           where: {
             tenant_id: tenantId,
             workshop_task_line_item: {
-              task: { order_id: id },
+              workshop_task: { workshop_order_id: id },
             },
           },
         });
@@ -704,8 +709,7 @@ export class WorkshopIntakeService {
       dto.scheduledEndAt !== undefined ||
       dto.mechanicId !== undefined;
 
-    const currentSiteId =
-      existing.site_id ?? (await this.siteContext.getSiteId());
+    const currentSiteId = existing.site_id ?? activeSiteId;
 
     if (hasScheduleUpdate) {
       const updated = await this.prisma.$transaction(async (tx) => {

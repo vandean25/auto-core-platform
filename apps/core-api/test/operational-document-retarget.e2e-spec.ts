@@ -1,18 +1,18 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { AuthService } from '../src/auth/auth.service';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   type TestTenantResult,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Operational Document Retarget (e2e)', () => {
   let app: INestApplication;
@@ -233,6 +233,38 @@ describe('Operational Document Retarget (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
+  let scheduledSlotIndex = 0;
+
+  async function createScheduledWorkshopOrder(token: string) {
+    const slot = scheduledSlotIndex++;
+    const hour = 8 + (slot % 10);
+    const vehicle = await tenantPrisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'Audi',
+        model: 'A4',
+        year: 2022,
+        vin: `WAUZZZ8K0DA${String(100000 + slot).padStart(6, '0')}`,
+        plate: `W-${String(1000 + slot).padStart(4, '0')}ZZ`,
+      },
+    });
+    const start = new Date(`2026-09-20T${String(hour).padStart(2, '0')}:00:00.000Z`);
+    const end = new Date(`2026-09-20T${String(hour).padStart(2, '0')}:30:00.000Z`);
+
+    return await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', 'Bearer ' + token)
+      .send({
+        customerId,
+        vehicleId: vehicle.id,
+        status: 'SCHEDULED',
+        bayId: baySiteA.id,
+        scheduledStartAt: start.toISOString(),
+        scheduledEndAt: end.toISOString(),
+      })
+      .expect(201);
+  }
+
   describe('WorkshopOrder Stamping & Retargeting', () => {
     it('stamps site_id from active site upon creation', async () => {
       const res = await request(app.getHttpServer())
@@ -242,6 +274,7 @@ describe('Operational Document Retarget (e2e)', () => {
           customerId,
           vehicleId,
           odometer: 15000,
+          fuelLevel: 50,
           notes: 'Regular service',
         })
         .expect(201);
@@ -251,73 +284,57 @@ describe('Operational Document Retarget (e2e)', () => {
     });
 
     it('rejects retargeting when caller lacks membership on target site (422)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/workshop/orders')
-        .set('Authorization', 'Bearer ' + userAOnlyToken)
-        .send({ customerId, vehicleId })
-        .expect(201);
+      const createRes = await createScheduledWorkshopOrder(userAOnlyToken);
 
       await request(app.getHttpServer())
         .patch('/api/workshop/orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userAOnlyToken)
         .send({
-          site_id: siteB.id,
+          siteId: siteB.id,
           expectedSiteId: siteA.id,
-          bay_id: baySiteB.id,
+          bayId: baySiteB.id,
         })
         .expect(422);
     });
 
     it('rejects retargeting if bay belongs to source site (422)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/workshop/orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({ customerId, vehicleId })
-        .expect(201);
+      const createRes = await createScheduledWorkshopOrder(userBothSitesToken);
 
       await request(app.getHttpServer())
         .patch('/api/workshop/orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
-          site_id: siteB.id,
+          siteId: siteB.id,
           expectedSiteId: siteA.id,
-          bay_id: baySiteA.id,
+          bayId: baySiteA.id,
         })
         .expect(422);
     });
 
     it('rejects retargeting on stale expectedSiteId (409)', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/workshop/orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({ customerId, vehicleId })
-        .expect(201);
+      const createRes = await createScheduledWorkshopOrder(userBothSitesToken);
 
       await request(app.getHttpServer())
         .patch('/api/workshop/orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
-          site_id: siteB.id,
+          siteId: siteB.id,
           expectedSiteId: siteB.id,
-          bay_id: baySiteB.id,
+          bayId: baySiteB.id,
         })
         .expect(409);
     });
 
-    it('successfully retargets in SCHEDULED/INTAKE status when authorized', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/api/workshop/orders')
-        .set('Authorization', 'Bearer ' + userBothSitesToken)
-        .send({ customerId, vehicleId })
-        .expect(201);
+    it('successfully retargets in SCHEDULED status when authorized', async () => {
+      const createRes = await createScheduledWorkshopOrder(userBothSitesToken);
 
       const retargetRes = await request(app.getHttpServer())
         .patch('/api/workshop/orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
-          site_id: siteB.id,
+          siteId: siteB.id,
           expectedSiteId: siteA.id,
-          bay_id: baySiteB.id,
+          bayId: baySiteB.id,
         })
         .expect(200);
 
@@ -329,18 +346,26 @@ describe('Operational Document Retarget (e2e)', () => {
   describe('SalesOrder Stamping & Retargeting', () => {
     it('stamps site_id upon creation and retargets when in DRAFT', async () => {
       const createRes = await request(app.getHttpServer())
-        .post('/api/sales/orders')
+        .post('/api/sales-orders')
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
-          customerId,
-          items: [{ catalogItemId, quantity: 2, unitPrice: 30 }],
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 2,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
         })
         .expect(201);
 
       expect(createRes.body.site_id).toBe(siteA.id);
 
       const patchRes = await request(app.getHttpServer())
-        .patch('/api/sales/orders/' + createRes.body.id)
+        .patch('/api/sales-orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
           siteId: siteB.id,
@@ -353,16 +378,24 @@ describe('Operational Document Retarget (e2e)', () => {
 
     it('rejects retargeting when user lacks membership on target site (422)', async () => {
       const createRes = await request(app.getHttpServer())
-        .post('/api/sales/orders')
+        .post('/api/sales-orders')
         .set('Authorization', 'Bearer ' + userAOnlyToken)
         .send({
-          customerId,
-          items: [{ catalogItemId, quantity: 1, unitPrice: 30 }],
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 1,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
         })
         .expect(201);
 
       await request(app.getHttpServer())
-        .patch('/api/sales/orders/' + createRes.body.id)
+        .patch('/api/sales-orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userAOnlyToken)
         .send({
           siteId: siteB.id,
@@ -373,16 +406,24 @@ describe('Operational Document Retarget (e2e)', () => {
 
     it('rejects retargeting when target site is inactive (422)', async () => {
       const createRes = await request(app.getHttpServer())
-        .post('/api/sales/orders')
+        .post('/api/sales-orders')
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
-          customerId,
-          items: [{ catalogItemId, quantity: 1, unitPrice: 30 }],
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 1,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
         })
         .expect(201);
 
       await request(app.getHttpServer())
-        .patch('/api/sales/orders/' + createRes.body.id)
+        .patch('/api/sales-orders/' + createRes.body.id)
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
           siteId: siteInactive.id,
@@ -428,7 +469,7 @@ describe('Operational Document Retarget (e2e)', () => {
         .expect(201);
 
       await request(app.getHttpServer())
-        .post('/api/purchase-orders/' + createRes.body.id + '/send')
+        .post('/api/purchase-orders/' + createRes.body.id + '/mark-as-sent')
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .expect(200);
 
@@ -521,7 +562,6 @@ describe('Operational Document Retarget (e2e)', () => {
         .set('Authorization', 'Bearer ' + userBothSitesToken)
         .send({
           vehicle_id: dealerVehicleA.id,
-          buyer_type: 'CUSTOMER',
           customer_id: customerId,
           sale_price: 35000,
         })

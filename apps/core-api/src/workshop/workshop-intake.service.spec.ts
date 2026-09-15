@@ -913,7 +913,7 @@ describe('WorkshopIntakeService', () => {
         where: {
           tenant_id: '00000000-0000-0000-0000-000000000001',
           workshop_task_line_item: {
-            task: { order_id: 'wo-1' },
+            workshop_task: { workshop_order_id: 'wo-1' },
           },
         },
       });
