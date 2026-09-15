@@ -164,7 +164,18 @@ export class LocationService {
 
   async remove(id: string) {
     const scope = await this.getLocationScope();
-    const location = await this.prisma.storageLocation.findFirst({
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockActiveSite(tx, scope);
+      return this.softDeleteLocation(tx, id, scope);
+    });
+  }
+
+  private async softDeleteLocation(
+    tx: Prisma.TransactionClient,
+    id: string,
+    scope: LocationScope,
+  ) {
+    const location = await tx.storageLocation.findFirst({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: { _count: { select: { children: true, stocks: true } } },
     });
@@ -183,7 +194,7 @@ export class LocationService {
       throw new BadRequestException('Cannot delete location containing stock.');
     }
 
-    const parkedVehicles = await this.prisma.vehicle.count({
+    const parkedVehicles = await tx.vehicle.count({
       where: {
         tenant_id: scope.tenantId,
         location_id: id,
@@ -197,7 +208,7 @@ export class LocationService {
       );
     }
 
-    const openTransferLines = await this.prisma.stockTransferLine.findMany({
+    const openTransferLines = await tx.stockTransferLine.findMany({
       where: {
         tenant_id: scope.tenantId,
         transfer: { status: { in: ['REQUESTED', 'APPROVED', 'SHIPPED'] } },
@@ -236,12 +247,12 @@ export class LocationService {
       );
     }
 
-    await this.prisma.storageLocation.updateMany({
+    await tx.storageLocation.updateMany({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       data: { deletedAt: new Date() },
     });
 
-    const updated = await this.prisma.storageLocation.findFirst({
+    const updated = await tx.storageLocation.findFirst({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: locationInclude,
     });
@@ -249,6 +260,21 @@ export class LocationService {
       throw new NotFoundException('Location not found');
     }
     return updated;
+  }
+
+  private async lockActiveSite(
+    tx: Prisma.TransactionClient,
+    scope: LocationScope,
+  ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- ADR-0021/0022 site-row lock serializes location deactivation with transfer writes.
+    await tx.$queryRaw`
+      SELECT id
+      FROM "sites"
+      WHERE tenant_id = ${scope.tenantId}
+        AND id = ${scope.siteId}
+      ORDER BY id
+      FOR UPDATE
+    `;
   }
 
   private async validateHierarchy(

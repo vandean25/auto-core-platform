@@ -31,18 +31,43 @@ describe('LocationService', () => {
     );
   });
 
-  it('rejects deleting a frozen destination bin with outstanding shipped quantity', async () => {
+  it('rejects deletion after a concurrent transfer freezes the destination bin', async () => {
     const destinationLocationId = 'destination-bin';
     const location = {
       id: destinationLocationId,
       is_system: false,
       _count: { children: 0, stocks: 0 },
     };
-    const findLocation = jest
+    const outstandingDestinationLine = {
+      source_location_id: 'source-bin',
+      dest_location_id: destinationLocationId,
+      approved_qty: new Prisma.Decimal(5),
+      shipped_qty: new Prisma.Decimal(5),
+      received_qty: new Prisma.Decimal(2),
+      returned_qty: new Prisma.Decimal(1),
+    };
+    let concurrentTransferCommitted = false;
+    const waitForActiveSiteLock = jest
       .fn()
-      .mockResolvedValueOnce(location)
-      .mockResolvedValueOnce(location);
-    const findTransferLines = jest.fn().mockImplementation(
+      .mockImplementation(
+        (
+          query: TemplateStringsArray,
+          queryTenantId: string,
+          querySiteId: string,
+        ) => {
+          const statement = query.join(' ');
+          if (
+            statement.includes('FROM "sites"') &&
+            statement.includes('FOR UPDATE') &&
+            queryTenantId === 'tenant-1' &&
+            querySiteId === 'site-wien'
+          ) {
+            concurrentTransferCommitted = true;
+          }
+          return Promise.resolve([]);
+        },
+      );
+    const findTransactionTransferLines = jest.fn().mockImplementation(
       (query: {
         where: {
           OR?: Array<{
@@ -58,30 +83,36 @@ describe('LocationService', () => {
         );
 
         return Promise.resolve(
-          queriesActiveDestinationSite
-            ? [
-                {
-                  source_location_id: 'source-bin',
-                  dest_location_id: destinationLocationId,
-                  approved_qty: new Prisma.Decimal(5),
-                  shipped_qty: new Prisma.Decimal(5),
-                  received_qty: new Prisma.Decimal(2),
-                  returned_qty: new Prisma.Decimal(1),
-                },
-              ]
+          concurrentTransferCommitted && queriesActiveDestinationSite
+            ? [outstandingDestinationLine]
             : [],
         );
       },
     );
+    const buildLocationClient = (findTransferLines: jest.Mock) => ({
+      storageLocation: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(location)
+          .mockResolvedValueOnce(location),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      vehicle: { count: jest.fn().mockResolvedValue(0) },
+      stockTransferLine: { findMany: findTransferLines },
+    });
+    const transactionClient = {
+      ...buildLocationClient(findTransactionTransferLines),
+      $queryRaw: waitForActiveSiteLock,
+    };
+    const prisma = {
+      ...buildLocationClient(jest.fn().mockResolvedValue([])),
+      $transaction: jest.fn(
+        (callback: (tx: typeof transactionClient) => unknown) =>
+          callback(transactionClient),
+      ),
+    };
     const service = new LocationService(
-      {
-        storageLocation: {
-          findFirst: findLocation,
-          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        },
-        vehicle: { count: jest.fn().mockResolvedValue(0) },
-        stockTransferLine: { findMany: findTransferLines },
-      } as never,
+      prisma as never,
       {
         getTenantId: jest.fn().mockResolvedValue('tenant-1'),
       } as never,
