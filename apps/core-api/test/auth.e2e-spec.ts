@@ -526,4 +526,56 @@ describe('Bearer auth (e2e)', () => {
 
     expect(systemPrismaMock.user.update).not.toHaveBeenCalled();
   });
+
+  it('rejects a token with emailVerified: false and unknown sub even when email matches a User row', async () => {
+    systemPrismaMock.user.findFirst.mockResolvedValue(null);
+
+    const token = authService.createTestToken({
+      sub: 'attacker-sub',
+      email: 'testauto@auto.core.at',
+      emailVerified: false,
+    });
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
+    expect(systemPrismaMock.user.findFirst).toHaveBeenCalledTimes(1);
+    expect(systemPrismaMock.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { firebaseUid: 'attacker-sub' },
+      }),
+    );
+  });
+
+  it('rejects a token with unknown sub even if emailVerified: true when User row is bound to another UID', async () => {
+    systemPrismaMock.user.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    const token = authService.createTestToken({
+      sub: 'attacker-sub',
+      email: 'testauto@auto.core.at',
+      emailVerified: true,
+    });
+
+    await request(app.getHttpServer())
+      .get('/protected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
+    expect(systemPrismaMock.user.findFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { firebaseUid: 'attacker-sub' },
+      }),
+    );
+    expect(systemPrismaMock.user.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { email: 'testauto@auto.core.at', firebaseUid: null },
+      }),
+    );
+  });
 });
