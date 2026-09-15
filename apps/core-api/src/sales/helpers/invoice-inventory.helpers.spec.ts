@@ -146,7 +146,9 @@ describe('invoice-inventory.helpers', () => {
         location: {
           tenant_id: 'tenant-1',
           site_id: 'site-1',
-          type: { not: LocationType.staging_tote },
+          type: {
+            notIn: [LocationType.staging_tote, LocationType.in_transit],
+          },
         },
       },
       orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
