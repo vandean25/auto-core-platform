@@ -1,11 +1,9 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const migrationSql = readFileSync(
   resolve(
-    __dirname,
+    import.meta.dirname,
     '../../prisma/migrations/20260829170000_harden_vehicle_identity_storage/migration.sql',
   ),
   'utf8',

@@ -11,7 +11,7 @@ import {
   seedInventory,
   seedLabor,
   seedCustomersAndVehicles,
-} from '../src/prisma/fixtures';
+} from '../src/prisma/fixtures/index.js';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });

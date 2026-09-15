@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -94,7 +92,7 @@ function checkCoreApiProductionEnvironment(
 }
 
 function main(): void {
-  const cloudBuildPath = join(__dirname, '../../../cloudbuild.yaml');
+  const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
   const source = readFileSync(cloudBuildPath, 'utf8');
   const { coreApi } = parseCloudBuildDeployContracts(source);
   const missingKeys = checkCoreApiProductionEnvironment(coreApi);
@@ -110,6 +108,6 @@ function main(): void {
   console.log('Cloud Run core-api environment contract passed.');
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.filename === process.argv[1]) {
   main();
 }

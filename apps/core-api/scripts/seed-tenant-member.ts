@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 import { PlatformAdminRole, PrismaClient, TenantMemberRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -399,7 +398,7 @@ function getFirebaseErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.filename === process.argv[1]) {
   runSeedTenantMemberCli()
     .then(() => process.exit(0))
     .catch((error: unknown) => {

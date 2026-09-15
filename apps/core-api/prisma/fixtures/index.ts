@@ -1,1 +1,1 @@
-export * from '../../src/prisma/fixtures';
+export * from '../../src/prisma/fixtures/index.js';

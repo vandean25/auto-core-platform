@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -119,7 +117,7 @@ describe('runPrismaMigrateDeployCli', () => {
 
 describe('cloudbuild.yaml migrate-db', () => {
   const yaml = fs.readFileSync(
-    path.join(__dirname, '../../../cloudbuild.yaml'),
+    path.join(import.meta.dirname, '../../../cloudbuild.yaml'),
     'utf8',
   );
   const migrateStep = extractStep(yaml, 'migrate-db');
@@ -150,7 +148,7 @@ describe('cloudbuild.yaml migrate-db', () => {
 describe('prisma-migrate-deploy-exit spawn', () => {
   it('does not spawn npx', () => {
     const source = fs.readFileSync(
-      path.join(__dirname, 'prisma-migrate-deploy-exit.ts'),
+      path.join(import.meta.dirname, 'prisma-migrate-deploy-exit.ts'),
       'utf8',
     );
 

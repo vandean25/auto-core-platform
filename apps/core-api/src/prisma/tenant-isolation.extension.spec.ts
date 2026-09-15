@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { InternalServerErrorException } from '@nestjs/common';
@@ -38,7 +36,7 @@ describe('applyTenantIsolation', () => {
     ];
 
     for (const extensionFile of extensionFiles) {
-      const source = readFileSync(join(__dirname, extensionFile), 'utf8');
+      const source = readFileSync(join(import.meta.dirname, extensionFile), 'utf8');
 
       expect(source).not.toMatch(/\bany\b/);
     }

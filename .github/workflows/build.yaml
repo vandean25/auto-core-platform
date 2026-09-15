@@ -55,6 +55,9 @@ jobs:
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
+      - name: Verify backend ESM source contract
+        run: npm run check:esm --workspace=core-api
+
       - name: Verify backend OpenAPI contract is up to date
         run: npm run openapi:check --workspace=core-api
 
@@ -265,6 +268,9 @@ jobs:
 
       - name: Build backend
         run: npm run build --workspace=core-api
+
+      - name: Verify backend ESM production artifact
+        run: npm run verify:esm-artifact --workspace=core-api
 
       - name: Run unit tests
         env:

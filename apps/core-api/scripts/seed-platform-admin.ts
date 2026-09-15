@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 import { PlatformAdminRole, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -198,7 +197,7 @@ function readCliOption(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.filename === process.argv[1]) {
   runSeedPlatformAdminCli()
     .then(() => process.exit(0))
     .catch((error: unknown) => {

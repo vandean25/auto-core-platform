@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -7,14 +5,14 @@ const MAX_DOMAIN_SERVICE_LINES = 1500;
 
 describe('workshop domain service size', () => {
   it('keeps every workshop *.service.ts file under 1500 lines', () => {
-    const files = readdirSync(__dirname).filter((name) =>
+    const files = readdirSync(import.meta.dirname).filter((name) =>
       name.endsWith('.service.ts'),
     );
 
     expect(files.length).toBeGreaterThan(0);
 
     for (const file of files) {
-      const lineCount = readFileSync(join(__dirname, file), 'utf8').split(
+      const lineCount = readFileSync(join(import.meta.dirname, file), 'utf8').split(
         '\n',
       ).length;
       expect({
