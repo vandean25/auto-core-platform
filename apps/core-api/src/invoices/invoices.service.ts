@@ -39,7 +39,7 @@ export class InvoicesService {
     await this.financeService.validateTransactionDate(new Date());
 
     return this.prisma.$transaction(async (tx) => {
-      const order = await tx.workshopOrder.findFirst({
+      let order = await tx.workshopOrder.findFirst({
         where: { id: workshopOrderId, tenant_id: tenantId },
         include: {
           tasks: {
@@ -90,6 +90,36 @@ export class InvoicesService {
           ORDER BY id
           FOR UPDATE
         `;
+
+        const lockedOrder = await tx.workshopOrder.findFirst({
+          where: { id: workshopOrderId, tenant_id: tenantId },
+          include: {
+            tasks: {
+              include: {
+                line_items: {
+                  include: {
+                    parts_reservations: {
+                      select: {
+                        status: true,
+                        quantity: true,
+                        quantity_consumed: true,
+                        quantity_returned: true,
+                        quantity_staged: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            invoice: { select: { id: true, invoice_number: true } },
+          },
+        });
+        if (!lockedOrder) {
+          throw new NotFoundException(
+            `Workshop order ${workshopOrderId} not found`,
+          );
+        }
+        order = lockedOrder;
       }
 
       if (
