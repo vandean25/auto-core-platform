@@ -31,4 +31,14 @@ export class UpdateWorkshopOrderDto {
   @IsOptional()
   @IsString()
   scheduledEndAt?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  expectedSiteId?: string;
 }

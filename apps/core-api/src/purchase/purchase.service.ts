@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -11,6 +12,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import {
+  assertActiveTargetSiteMembership,
+  lockSitesAndAssertActive,
+} from '../site/document-retarget.helpers.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
@@ -23,6 +29,7 @@ import {
   lockPurchaseOrderItems,
   lockPartsReservations,
 } from './purchase-lock.helpers.js';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -50,6 +57,7 @@ export class PurchaseService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly receiptService: PurchaseReceiptService,
   ) {}
 
@@ -179,6 +187,8 @@ export class PurchaseService {
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, tenant_id: tenantId },
       include: { supportedBrands: true },
@@ -194,23 +204,28 @@ export class PurchaseService {
     const catalogItemsMap = new Map(catalogItems.map((c) => [c.id, c]));
     this.validateCatalogItemsForVendor(items, catalogItemsMap, vendor);
 
-    const purchaseOrder = await this.prisma.purchaseOrder.create({
-      data: {
-        tenant_id: tenantId,
-        vendor_id: vendorId,
-        order_number: this.generateOrderNumber(),
-        status: PurchaseOrderStatus.DRAFT,
-        items: {
-          create: items.map((i) => ({
-            tenant_id: tenantId,
-            catalog_item_id: i.catalogItemId,
-            quantity: i.quantity,
-            unit_cost: i.unitCost,
-            quantity_received: 0,
-          })),
+    const purchaseOrder = await this.prisma.$transaction(async (tx) => {
+      await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
+      return tx.purchaseOrder.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vendor_id: vendorId,
+          order_number: this.generateOrderNumber(),
+          status: PurchaseOrderStatus.DRAFT,
+          items: {
+            create: items.map((i) => ({
+              tenant_id: tenantId,
+              catalog_item_id: i.catalogItemId,
+              quantity: i.quantity,
+              unit_cost: i.unitCost,
+              quantity_received: 0,
+            })),
+          },
         },
-      },
-      include: { items: true },
+        include: { items: true },
+      });
     });
 
     return purchaseOrder;
@@ -497,8 +512,14 @@ export class PurchaseService {
     params?: Prisma.PurchaseOrderFindManyArgs | string,
   ): Promise<PaginatedPurchaseOrderResult> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+
     if (isPurchaseOrderFindManyArgs(params)) {
-      const scopedWhere = { ...(params.where ?? {}), tenant_id: tenantId };
+      const scopedWhere = {
+        ...(params.where ?? {}),
+        tenant_id: tenantId,
+        site_id: siteId,
+      };
       const [data, total] = await Promise.all([
         this.prisma.purchaseOrder.findMany({
           ...params,
@@ -512,12 +533,16 @@ export class PurchaseService {
       return { data, total };
     }
 
-    let where: Prisma.PurchaseOrderWhereInput = { tenant_id: tenantId };
+    let where: Prisma.PurchaseOrderWhereInput = {
+      tenant_id: tenantId,
+      site_id: siteId,
+    };
     const status = typeof params === 'string' ? params : 'all';
 
     if (status === 'open') {
       where = {
         tenant_id: tenantId,
+        site_id: siteId,
         status: {
           in: [
             PurchaseOrderStatus.DRAFT,
@@ -547,6 +572,75 @@ export class PurchaseService {
         },
       },
     });
+  }
+
+  async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: { items: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Purchase order ${id} not found`);
+    }
+
+    if (
+      dto.expectedSiteId !== undefined &&
+      existing.site_id &&
+      dto.expectedSiteId !== existing.site_id
+    ) {
+      throw new ConflictException(
+        'Purchase order site changed concurrently. Please refresh.',
+      );
+    }
+
+    const isRetargeting =
+      dto.siteId !== undefined && dto.siteId !== existing.site_id;
+
+    if (isRetargeting) {
+      if (existing.status !== PurchaseOrderStatus.DRAFT) {
+        throw new UnprocessableEntityException(
+          'Purchase order site can only be changed while in DRAFT status',
+        );
+      }
+
+      await assertActiveTargetSiteMembership(
+        this.prisma,
+        this.tenantContext,
+        tenantId,
+        dto.siteId!,
+      );
+
+      await this.prisma.$transaction(async (tx) => {
+        await lockSitesAndAssertActive(
+          tx,
+          tenantId,
+          [existing.site_id, dto.siteId].filter((s): s is string => Boolean(s)),
+        );
+
+        const updateResult = await tx.purchaseOrder.updateMany({
+          where: {
+            id,
+            tenant_id: tenantId,
+            site_id: existing.site_id,
+            status: PurchaseOrderStatus.DRAFT,
+            ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
+          },
+          data: {
+            site_id: dto.siteId,
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'Purchase order state or site changed concurrently. Please refresh.',
+          );
+        }
+      });
+    }
+
+    return this.findOne(id);
   }
 
   async markAsSent(id: string) {

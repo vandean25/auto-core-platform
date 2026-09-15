@@ -725,6 +725,44 @@
           "Purchase"
         ]
       },
+      "patch": {
+        "operationId": "PurchaseController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePurchaseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Purchase"
+        ]
+      },
       "delete": {
         "operationId": "PurchaseController_remove",
         "parameters": [
@@ -8279,6 +8317,21 @@
           "items"
         ]
       },
+      "UpdatePurchaseOrderDto": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string",
+            "description": "Target site ID to retarget this purchase order to (DRAFT only)",
+            "example": "site-uuid"
+          },
+          "expectedSiteId": {
+            "type": "string",
+            "description": "Expected site ID for optimistic concurrency checks",
+            "example": "site-uuid"
+          }
+        }
+      },
       "AddPurchaseOrderItemsDto": {
         "type": "object",
         "properties": {
@@ -9819,6 +9872,14 @@
                 "$ref": "#/components/schemas/SalesOrderStatus"
               }
             ]
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedSiteId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -10866,6 +10927,14 @@
           },
           "scheduledEndAt": {
             "type": "string"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedSiteId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -11903,6 +11972,18 @@
           },
           "location_id": {
             "type": "object"
+          },
+          "site_id": {
+            "type": "string",
+            "description": "Target site ID to retarget vehicle purchase to (DRAFT only)"
+          },
+          "siteId": {
+            "type": "string",
+            "description": "Alias for site_id"
+          },
+          "expectedSiteId": {
+            "type": "string",
+            "description": "Expected site ID for optimistic concurrency checks"
           }
         }
       },
@@ -11933,6 +12014,18 @@
           },
           "sale_price": {
             "type": "number"
+          },
+          "site_id": {
+            "type": "string",
+            "description": "Target site ID to retarget vehicle sale to (DRAFT only)"
+          },
+          "siteId": {
+            "type": "string",
+            "description": "Alias for site_id"
+          },
+          "expectedSiteId": {
+            "type": "string",
+            "description": "Expected site ID for optimistic concurrency checks"
           }
         }
       },

@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
@@ -814,5 +818,106 @@ describe('WorkshopIntakeService', () => {
         }),
       }),
     );
+  });
+
+  describe('guarded site retargeting', () => {
+    it('rejects retargeting when order is in INTAKE status', async () => {
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.INTAKE,
+      });
+
+      await expect(
+        service.updateOrder('wo-1', { siteId: 'site-2', bayId: 'bay-2' }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting when bayId is missing', async () => {
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.SCHEDULED,
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
+
+      await expect(
+        service.updateOrder('wo-1', { siteId: 'site-2' }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting when bay does not belong to target site', async () => {
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.SCHEDULED,
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
+      mockPrisma.bay.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateOrder('wo-1', { siteId: 'site-2', bayId: 'bay-1' }),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting when expectedSiteId does not match', async () => {
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.SCHEDULED,
+      });
+
+      await expect(
+        service.updateOrder('wo-1', {
+          siteId: 'site-2',
+          expectedSiteId: 'site-wrong',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('retargets successfully when in SCHEDULED with valid target bay', async () => {
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.SCHEDULED,
+        order_number: 'WO-2026-0001',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
+      mockPrisma.bay.findFirst.mockResolvedValue({ id: 'bay-2', site_id: 'site-2' });
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopOrder.findFirstOrThrow.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-2',
+        bay_id: 'bay-2',
+        status: WorkshopOrderStatus.SCHEDULED,
+        order_number: 'WO-2026-0001',
+        tasks: [],
+      });
+
+      const result = await service.updateOrder('wo-1', {
+        siteId: 'site-2',
+        bayId: 'bay-2',
+      });
+
+      expect(mockPrisma.partsReservation.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: '00000000-0000-0000-0000-000000000001',
+          workshop_task_line_item: {
+            task: { order_id: 'wo-1' },
+          },
+        },
+      });
+      expect(result.site_id).toBe('site-2');
+    });
   });
 });

@@ -16,6 +16,7 @@ import { ReceivePurchaseOrderDto } from './dto/receive-items.dto.js';
 import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto.js';
 import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto.js';
 import { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto.js';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto.js';
 import {
   PurchaseOrderResponseDto,
   PurchaseOrderItemResponseDto,
@@ -75,6 +76,12 @@ export class PurchaseController {
   @ApiOkResponse({ type: PurchaseOrderResponseDto })
   findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);
+  }
+
+  @Patch(':id')
+  @ApiOkResponse({ type: PurchaseOrderResponseDto })
+  update(@Param('id') id: string, @Body() updateDto: UpdatePurchaseOrderDto) {
+    return this.purchaseService.updatePurchaseOrder(id, updateDto);
   }
 
   @Delete(':id')

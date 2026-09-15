@@ -273,7 +273,7 @@ export interface paths {
         delete: operations["PurchaseController_remove"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["PurchaseController_update"];
         trace?: never;
     };
     "/api/purchase-orders/{id}/items": {
@@ -2515,6 +2515,18 @@ export interface components {
         ReceivePurchaseOrderDto: {
             items: components["schemas"]["ReceiveItemDto"][];
         };
+        UpdatePurchaseOrderDto: {
+            /**
+             * @description Target site ID to retarget this purchase order to (DRAFT only)
+             * @example site-uuid
+             */
+            siteId?: string;
+            /**
+             * @description Expected site ID for optimistic concurrency checks
+             * @example site-uuid
+             */
+            expectedSiteId?: string;
+        };
         AddPurchaseOrderItemsDto: {
             /** @description Items to add to the purchase order */
             items: components["schemas"]["PurchaseOrderItemDto"][];
@@ -2927,6 +2939,10 @@ export interface components {
             notes?: string;
             items?: components["schemas"]["CreateSalesOrderItemDto"][];
             status?: components["schemas"]["SalesOrderStatus"];
+            /** Format: uuid */
+            siteId?: string;
+            /** Format: uuid */
+            expectedSiteId?: string;
         };
         WorkshopOpeningHourDto: {
             weekday: number;
@@ -3212,6 +3228,10 @@ export interface components {
             mechanicId?: string | null;
             scheduledStartAt?: string;
             scheduledEndAt?: string;
+            /** Format: uuid */
+            siteId?: string;
+            /** Format: uuid */
+            expectedSiteId?: string;
         };
         CreateWorkshopTaskDto: {
             title: string;
@@ -3496,6 +3516,12 @@ export interface components {
             registration_certificate_no?: string;
             purchase_price?: number;
             location_id?: Record<string, never>;
+            /** @description Target site ID to retarget vehicle purchase to (DRAFT only) */
+            site_id?: string;
+            /** @description Alias for site_id */
+            siteId?: string;
+            /** @description Expected site ID for optimistic concurrency checks */
+            expectedSiteId?: string;
         };
         CreateVehicleSaleDto: {
             vehicle_id: string;
@@ -3505,6 +3531,12 @@ export interface components {
         PatchVehicleSaleDto: {
             customer_id?: string;
             sale_price?: number;
+            /** @description Target site ID to retarget vehicle sale to (DRAFT only) */
+            site_id?: string;
+            /** @description Alias for site_id */
+            siteId?: string;
+            /** @description Expected site ID for optimistic concurrency checks */
+            expectedSiteId?: string;
         };
         PatchVehicleStockDto: {
             location_id?: Record<string, never> | null;
@@ -5499,6 +5531,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PurchaseController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePurchaseOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderResponseDto"];
+                };
             };
         };
     };

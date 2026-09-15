@@ -1,7 +1,12 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
+import { SiteContextService } from '../../common/services/site-context.service.js';
 import { FinanceService } from '../../finance/finance.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SalesOrderService } from './sales-order.service.js';
@@ -11,6 +16,7 @@ describe('SalesOrderService', () => {
 
   const mockPrisma = {
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     catalogItem: {
       count: jest.fn(),
     },
@@ -25,18 +31,30 @@ describe('SalesOrderService', () => {
       count: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     vehicle: {
+      findFirst: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
+    },
+    tenantMember: {
+      findFirst: jest.fn(),
+    },
+    siteMembership: {
       findFirst: jest.fn(),
     },
   };
 
   const transactionContext = {
+    $queryRaw: jest.fn(),
     financeSettings: {
       upsert: jest.fn(),
       update: jest.fn(),
     },
     salesOrder: {
+      create: jest.fn(),
       updateMany: jest.fn(),
       findFirst: jest.fn(),
     },
@@ -50,6 +68,15 @@ describe('SalesOrderService', () => {
     validateTransactionDate: jest.fn(),
   };
 
+  const mockSiteContext = {
+    getSiteId: jest.fn().mockResolvedValue('site-1'),
+  };
+
+  const mockTenantContext = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+    getAuthenticatedUser: jest.fn().mockReturnValue({ userId: 'fb-user-1' }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,7 +85,11 @@ describe('SalesOrderService', () => {
         { provide: FinanceService, useValue: mockFinance },
         {
           provide: TenantContextService,
-          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+          useValue: mockTenantContext,
+        },
+        {
+          provide: SiteContextService,
+          useValue: mockSiteContext,
         },
       ],
     }).compile();
@@ -74,6 +105,9 @@ describe('SalesOrderService', () => {
       identity_resolution_token: 'token-1',
     };
     mockPrisma.customer.findFirst.mockResolvedValue({ id: 'customer-1' });
+    transactionContext.$queryRaw.mockResolvedValue([
+      { id: 'site-1', is_active: true },
+    ]);
     transactionContext.financeSettings.upsert.mockResolvedValue({});
     transactionContext.financeSettings.update.mockResolvedValue({
       sales_order_prefix: 'SO-2026-',
@@ -82,7 +116,7 @@ describe('SalesOrderService', () => {
     mockPrisma.$transaction.mockImplementation(async (callback: any) =>
       callback(transactionContext),
     );
-    mockPrisma.salesOrder.create.mockResolvedValue({
+    transactionContext.salesOrder.create.mockResolvedValue({
       id: 'so-1',
       vehicle,
     });
@@ -134,6 +168,7 @@ describe('SalesOrderService', () => {
         where: {
           status: SalesOrderStatus.DRAFT,
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
         },
         skip: 10,
         take: 10,
@@ -143,6 +178,7 @@ describe('SalesOrderService', () => {
       where: {
         status: SalesOrderStatus.DRAFT,
         tenant_id: 'tenant-1',
+        site_id: 'site-1',
       },
     });
     expect(result.total).toBe(5);
@@ -157,6 +193,7 @@ describe('SalesOrderService', () => {
       expect.objectContaining({
         where: {
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           status: SalesOrderStatus.CONFIRMED,
         },
       }),
@@ -359,5 +396,103 @@ describe('SalesOrderService', () => {
     ).rejects.toThrow('Each sales order item must include catalog_item_id');
 
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  describe('guarded retargeting', () => {
+    it('retargets sales order when in DRAFT and caller has target site membership', async () => {
+      mockPrisma.salesOrder.findFirst.mockResolvedValue({
+        id: 'so-1',
+        site_id: 'site-1',
+        status: SalesOrderStatus.DRAFT,
+        total_amount: new Prisma.Decimal(20),
+        items: [],
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-internal-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+
+      transactionContext.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 1 });
+      transactionContext.salesOrder.findFirst.mockResolvedValue({
+        id: 'so-1',
+        site_id: 'site-2',
+        status: SalesOrderStatus.DRAFT,
+        items: [],
+      });
+      mockPrisma.$transaction.mockImplementation(async (callback: any) =>
+        callback(transactionContext),
+      );
+
+      const result = await service.update('so-1', {
+        siteId: 'site-2',
+        expectedSiteId: 'site-1',
+      });
+
+      expect(transactionContext.salesOrder.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'so-1',
+            tenant_id: 'tenant-1',
+            site_id: 'site-1',
+            status: SalesOrderStatus.DRAFT,
+          }),
+          data: expect.objectContaining({
+            site_id: 'site-2',
+          }),
+        }),
+      );
+      expect(result.site_id).toBe('site-2');
+    });
+
+    it('rejects retargeting if sales order is not in DRAFT status with 422', async () => {
+      mockPrisma.salesOrder.findFirst.mockResolvedValue({
+        id: 'so-1',
+        site_id: 'site-1',
+        status: SalesOrderStatus.CONFIRMED,
+        total_amount: new Prisma.Decimal(20),
+        items: [],
+      });
+
+      await expect(
+        service.update('so-1', { siteId: 'site-2' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting if caller lacks active target site membership with 422', async () => {
+      mockPrisma.salesOrder.findFirst.mockResolvedValue({
+        id: 'so-1',
+        site_id: 'site-1',
+        status: SalesOrderStatus.DRAFT,
+        total_amount: new Prisma.Decimal(20),
+        items: [],
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-internal-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update('so-1', { siteId: 'site-2' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting with 409 if expectedSiteId does not match current site', async () => {
+      mockPrisma.salesOrder.findFirst.mockResolvedValue({
+        id: 'so-1',
+        site_id: 'site-1',
+        status: SalesOrderStatus.DRAFT,
+        total_amount: new Prisma.Decimal(20),
+        items: [],
+      });
+
+      await expect(
+        service.update('so-1', {
+          siteId: 'site-2',
+          expectedSiteId: 'site-other',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 });

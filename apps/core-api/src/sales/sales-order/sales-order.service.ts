@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateSalesOrderDto } from './dto/create-sales-order.dto.js';
@@ -10,6 +12,11 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto.js';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
+import { SiteContextService } from '../../common/services/site-context.service.js';
+import {
+  assertActiveTargetSiteMembership,
+  lockSitesAndAssertActive,
+} from '../../site/document-retarget.helpers.js';
 import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
 import {
   assertCatalogItemsBelongToTenant,
@@ -39,10 +46,13 @@ export class SalesOrderService {
     @Inject(FinanceService) private financeService: FinanceService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async create(createDto: CreateSalesOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
 
     if (createDto.customer_id) {
       await assertCustomerBelongsToTenant(
@@ -69,9 +79,16 @@ export class SalesOrderService {
       tenantId,
     );
 
-    // Get and increment sales order number atomically
+    const itemsData = createDto.items.map((item) =>
+      formatSalesOrderItem(tenantId, item),
+    );
+    const totalAmount = sumSalesOrderItemTotals(itemsData);
+
+    // Get and increment sales order number atomically under site lock
     const currentYear = new Date().getFullYear();
-    const settings = await this.prisma.$transaction(async (tx) => {
+    const createdOrder = await this.prisma.$transaction(async (tx) => {
+      await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
       await tx.financeSettings.upsert({
         where: { tenant_id: tenantId },
         update: {},
@@ -88,36 +105,32 @@ export class SalesOrderService {
         },
       });
 
-      return tx.financeSettings.update({
+      const settings = await tx.financeSettings.update({
         where: { tenant_id: tenantId },
         data: { next_sales_order_number: { increment: 1 } },
       });
-    });
-    const orderNumber = `${settings.sales_order_prefix}${settings.next_sales_order_number - 1}`;
+      const orderNumber = `${settings.sales_order_prefix}${settings.next_sales_order_number - 1}`;
 
-    const itemsData = createDto.items.map((item) =>
-      formatSalesOrderItem(tenantId, item),
-    );
-    const totalAmount = sumSalesOrderItemTotals(itemsData);
-
-    const createdOrder = await this.prisma.salesOrder.create({
-      data: {
-        tenant_id: tenantId,
-        order_number: orderNumber,
-        customer_id: createDto.customer_id,
-        vehicle_id: createDto.vehicle_id,
-        notes: createDto.notes,
-        status: SalesOrderStatus.DRAFT,
-        total_amount: totalAmount,
-        items: {
-          create: itemsData,
+      return tx.salesOrder.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          order_number: orderNumber,
+          customer_id: createDto.customer_id,
+          vehicle_id: createDto.vehicle_id,
+          notes: createDto.notes,
+          status: SalesOrderStatus.DRAFT,
+          total_amount: totalAmount,
+          items: {
+            create: itemsData,
+          },
         },
-      },
-      include: {
-        items: true,
-        customer: true,
-        vehicle: true,
-      },
+        include: {
+          items: true,
+          customer: true,
+          vehicle: true,
+        },
+      });
     });
 
     return {
@@ -135,13 +148,14 @@ export class SalesOrderService {
     total: number;
   }> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
 
     if (isSalesOrderFindManyArgs(params)) {
-      return findPaginatedSalesOrders(this.prisma, tenantId, params);
+      return findPaginatedSalesOrders(this.prisma, tenantId, params, siteId);
     }
 
     const status = typeof params === 'string' ? params : undefined;
-    return findDefaultSalesOrders(this.prisma, tenantId, status);
+    return findDefaultSalesOrders(this.prisma, tenantId, status, siteId);
   }
 
   async findOne(id: string) {
@@ -171,6 +185,34 @@ export class SalesOrderService {
   async update(id: string, updateDto: UpdateSalesOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const order = await this.findOne(id);
+
+    if (
+      updateDto.expectedSiteId !== undefined &&
+      order.site_id &&
+      updateDto.expectedSiteId !== order.site_id
+    ) {
+      throw new ConflictException(
+        'Sales order site changed concurrently. Please refresh.',
+      );
+    }
+
+    const isRetargeting =
+      updateDto.siteId !== undefined && updateDto.siteId !== order.site_id;
+
+    if (isRetargeting) {
+      if (order.status !== SalesOrderStatus.DRAFT) {
+        throw new UnprocessableEntityException(
+          'Sales order site can only be changed while in DRAFT status',
+        );
+      }
+
+      await assertActiveTargetSiteMembership(
+        this.prisma,
+        this.tenantContext,
+        tenantId,
+        updateDto.siteId!,
+      );
+    }
 
     if (updateDto.customer_id) {
       await assertCustomerBelongsToTenant(
@@ -204,13 +246,29 @@ export class SalesOrderService {
       total_amount: replacement?.totalAmount ?? order.total_amount,
     };
 
+    if (isRetargeting) {
+      fieldData.site_id = updateDto.siteId;
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      if (isRetargeting) {
+        await lockSitesAndAssertActive(
+          tx,
+          tenantId,
+          [order.site_id, updateDto.siteId].filter((s): s is string =>
+            Boolean(s),
+          ),
+        );
+      }
+
       await persistSalesOrderUpdate(tx, {
         id,
         tenantId,
         currentStatus: order.status,
         nextStatus,
         fieldData,
+        currentSiteId: order.site_id,
+        isRetargeting,
       });
 
       if (replacement) {

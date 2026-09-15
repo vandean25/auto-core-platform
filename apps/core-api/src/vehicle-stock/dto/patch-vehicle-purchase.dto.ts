@@ -98,4 +98,25 @@ export class PatchVehiclePurchaseDto {
   @ValidateIf((_, value) => value != null)
   @IsUUID()
   location_id?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Target site ID to retarget vehicle purchase to (DRAFT only)',
+  })
+  @IsOptional()
+  @IsUUID()
+  site_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias for site_id',
+  })
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Expected site ID for optimistic concurrency checks',
+  })
+  @IsOptional()
+  @IsUUID()
+  expectedSiteId?: string;
 }

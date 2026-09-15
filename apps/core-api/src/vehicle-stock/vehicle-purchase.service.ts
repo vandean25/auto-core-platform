@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -14,6 +15,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import {
+  assertActiveTargetSiteMembership,
+  lockSitesAndAssertActive,
+} from '../site/document-retarget.helpers.js';
 import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import {
@@ -35,50 +41,71 @@ export class VehiclePurchaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly ledger: VehicleLedgerService,
   ) {}
 
   async create(dto: CreateVehiclePurchaseDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     this.assertSeller(dto);
     await this.assertTenantRefs(tenantId, dto);
 
+    if (dto.location_id) {
+      const loc = await this.prisma.storageLocation.findFirst({
+        where: { id: dto.location_id, tenant_id: tenantId },
+        select: { site_id: true, is_vehicle_lot: true },
+      });
+      if (!loc || loc.site_id !== siteId) {
+        throw new UnprocessableEntityException(
+          'Location does not belong to the active site',
+        );
+      }
+    }
+
     const purchaseNumber = await this.nextPurchaseNumber(tenantId);
 
-    return this.prisma.vehiclePurchase.create({
-      data: {
-        tenant_id: tenantId,
-        purchase_number: purchaseNumber,
-        seller_type: dto.seller_type,
-        vendor_id:
-          dto.seller_type === VehiclePurchaseSellerType.VENDOR
-            ? dto.vendor_id
-            : null,
-        customer_id:
-          dto.seller_type === VehiclePurchaseSellerType.CUSTOMER
-            ? dto.customer_id
-            : null,
-        acquisition_kind: VehicleAcquisitionKind.DIRECT,
-        vin: normalizeVehicleIdentityValueOrNull(dto.vin),
-        make: dto.make,
-        model: dto.model,
-        year: dto.year,
-        engine_code: dto.engine_code,
-        plate: dto.plate,
-        color: dto.color,
-        mileage: dto.mileage,
-        key_number: dto.key_number,
-        registration_certificate_no: dto.registration_certificate_no,
-        purchase_price: new Prisma.Decimal(dto.purchase_price),
-        location_id: dto.location_id,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
+      return tx.vehiclePurchase.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          purchase_number: purchaseNumber,
+          seller_type: dto.seller_type,
+          vendor_id:
+            dto.seller_type === VehiclePurchaseSellerType.VENDOR
+              ? dto.vendor_id
+              : null,
+          customer_id:
+            dto.seller_type === VehiclePurchaseSellerType.CUSTOMER
+              ? dto.customer_id
+              : null,
+          acquisition_kind: VehicleAcquisitionKind.DIRECT,
+          vin: normalizeVehicleIdentityValueOrNull(dto.vin),
+          make: dto.make,
+          model: dto.model,
+          year: dto.year,
+          engine_code: dto.engine_code,
+          plate: dto.plate,
+          color: dto.color,
+          mileage: dto.mileage,
+          key_number: dto.key_number,
+          registration_certificate_no: dto.registration_certificate_no,
+          purchase_price: new Prisma.Decimal(dto.purchase_price),
+          location_id: dto.location_id,
+        },
+      });
     });
   }
 
   async findAll(page = 1, limit = 25, search?: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const where: Prisma.VehiclePurchaseWhereInput = {
       tenant_id: tenantId,
+      site_id: siteId,
       ...(search
         ? {
             OR: [
@@ -127,8 +154,62 @@ export class VehiclePurchaseService {
   async updateDraft(id: string, dto: PatchVehiclePurchaseDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const purchase = await this.findOne(id);
+    const targetSiteId = dto.siteId ?? dto.site_id;
+    const isRetargeting =
+      targetSiteId !== undefined && targetSiteId !== purchase.site_id;
+
     if (purchase.status !== VehiclePurchaseStatus.DRAFT) {
+      if (isRetargeting) {
+        throw new UnprocessableEntityException(
+          'Vehicle purchase site can only be changed while in DRAFT status',
+        );
+      }
       throw new ConflictException('Only DRAFT purchases can be updated');
+    }
+
+    if (
+      dto.expectedSiteId !== undefined &&
+      purchase.site_id &&
+      dto.expectedSiteId !== purchase.site_id
+    ) {
+      throw new ConflictException(
+        'Vehicle purchase site changed concurrently. Please refresh.',
+      );
+    }
+
+    if (isRetargeting) {
+      await assertActiveTargetSiteMembership(
+        this.prisma,
+        this.tenantContext,
+        tenantId,
+        targetSiteId,
+      );
+
+      // Ruling 17: Destination lot required on target site when provided or leaving source lot
+      if (dto.location_id !== undefined) {
+        if (dto.location_id) {
+          const loc = await this.prisma.storageLocation.findFirst({
+            where: { id: dto.location_id, tenant_id: tenantId },
+            select: { site_id: true, is_vehicle_lot: true },
+          });
+          if (!loc || loc.site_id !== targetSiteId) {
+            throw new UnprocessableEntityException(
+              'Destination lot must belong to target site',
+            );
+          }
+        }
+      } else if (purchase.location_id) {
+        // If purchase already has a location_id on the source site, cannot leave it on source site
+        const loc = await this.prisma.storageLocation.findFirst({
+          where: { id: purchase.location_id, tenant_id: tenantId },
+          select: { site_id: true },
+        });
+        if (loc && loc.site_id !== targetSiteId) {
+          throw new UnprocessableEntityException(
+            'Destination lot must belong to target site',
+          );
+        }
+      }
     }
 
     this.assertSeller(resolveSellerValidationTarget(dto, purchase));
@@ -138,20 +219,51 @@ export class VehiclePurchaseService {
       location_id: dto.location_id,
     });
 
-    const data = prepareDraftUpdateData(dto);
-    const updated = await this.prisma.vehiclePurchase.updateMany({
-      where: {
-        id,
-        tenant_id: tenantId,
-        status: VehiclePurchaseStatus.DRAFT,
-        updatedAt: purchase.updatedAt,
-      },
-      data,
-    });
-    if (updated.count === 0) {
-      throw new ConflictException('Only DRAFT purchases can be updated');
+    const data: Prisma.VehiclePurchaseUncheckedUpdateManyInput =
+      prepareDraftUpdateData(dto);
+    if (isRetargeting) {
+      data.site_id = targetSiteId;
     }
-    return this.findOne(id);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (isRetargeting) {
+        await lockSitesAndAssertActive(
+          tx,
+          tenantId,
+          [purchase.site_id, targetSiteId].filter((s): s is string =>
+            Boolean(s),
+          ),
+        );
+      }
+
+      const updated = await tx.vehiclePurchase.updateMany({
+        where: {
+          id,
+          tenant_id: tenantId,
+          status: VehiclePurchaseStatus.DRAFT,
+          updatedAt: purchase.updatedAt,
+          ...(isRetargeting && purchase.site_id
+            ? { site_id: purchase.site_id }
+            : {}),
+          ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
+        },
+        data,
+      });
+
+      if (updated.count === 0) {
+        if (isRetargeting) {
+          throw new ConflictException(
+            'Vehicle purchase state or site changed concurrently. Please refresh.',
+          );
+        }
+        throw new ConflictException('Only DRAFT purchases can be updated');
+      }
+
+      return tx.vehiclePurchase.findFirst({
+        where: { id, tenant_id: tenantId },
+        include: { customer: true },
+      });
+    });
   }
 
   async receive(id: string) {
