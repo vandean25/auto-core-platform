@@ -5,6 +5,7 @@ import type {
   AuthClaimsUpdatedPayload,
   DashboardEntityUpdatedPayload,
   EmitDashboardEntityUpdatedInput,
+  EmitStockTransferUpdatedInput,
   SiteAccessScopeUpdatedPayload,
   SiteContextUpdatedPayload,
 } from './dashboard-events.types.js';
@@ -60,5 +61,16 @@ export class DashboardRealtimeService {
       timestamp: new Date().toISOString(),
     };
     this.dashboardGateway.emitSiteAccessScopeUpdated(firebaseUid, payload);
+  }
+
+  /**
+   * Ruling 36/43: same-GmbH transfer fan-out with per-recipient source-bin
+   * redaction. Recipients are resolved by the caller from active memberships.
+   */
+  emitStockTransferUpdated(
+    tenantId: string,
+    input: EmitStockTransferUpdatedInput,
+  ): void {
+    this.dashboardGateway.emitStockTransferUpdated(tenantId, input);
   }
 }

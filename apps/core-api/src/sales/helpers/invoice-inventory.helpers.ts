@@ -57,7 +57,9 @@ export async function processSaleInventoryDeduction({
         location: {
           tenant_id: tenantId,
           site_id: siteId,
-          type: { not: LocationType.staging_tote },
+          type: {
+            notIn: [LocationType.staging_tote, LocationType.in_transit],
+          },
         },
       },
       orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],

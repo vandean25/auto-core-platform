@@ -78,7 +78,9 @@ describe('AtpService', () => {
         location: {
           tenant_id: TENANT_ID,
           site_id: SITE_ID,
-          type: { not: LocationType.staging_tote },
+          type: {
+            notIn: [LocationType.staging_tote, LocationType.in_transit],
+          },
         },
       },
       select: {
@@ -157,7 +159,9 @@ describe('AtpService', () => {
       'stock.quantity_on_hand - stock.quantity_reserved >=',
     );
     expect(sql).toContain('location.site_id =');
-    expect(sql).toContain('location.type <>');
+    expect(sql).toContain('location.type NOT IN');
+    expect(values).toContain(LocationType.staging_tote);
+    expect(values).toContain(LocationType.in_transit);
     expect(values).toContain(TENANT_ID);
     expect(values).toContain(SITE_ID);
     expect(values).toContain(STOCK_ID);

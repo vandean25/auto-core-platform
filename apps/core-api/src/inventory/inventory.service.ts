@@ -18,7 +18,7 @@ function buildCatalogItemInclude(tenantId: string, siteId: string) {
         location: {
           tenant_id: tenantId,
           site_id: siteId,
-          type: { not: LocationType.staging_tote },
+          type: { notIn: [LocationType.staging_tote, LocationType.in_transit] },
         },
       },
       include: {
@@ -96,7 +96,7 @@ function buildLegacyInventoryWhere(
         location: {
           tenant_id: tenantId,
           site_id: siteId,
-          type: { not: LocationType.staging_tote },
+          type: { notIn: [LocationType.staging_tote, LocationType.in_transit] },
           name: { contains: params.location, mode: 'insensitive' },
         },
       },
@@ -135,7 +135,8 @@ function filterAtpStocks(
   return stocks.filter(
     (stock) =>
       stock.location.site_id === siteId &&
-      stock.location.type !== LocationType.staging_tote,
+      stock.location.type !== LocationType.staging_tote &&
+      stock.location.type !== LocationType.in_transit,
   );
 }
 

@@ -42,6 +42,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { HrModule } from './hr/hr.module.js';
 import { PartsRequisitionModule } from './parts-requisition/parts-requisition.module.js';
 import { HealthController } from './health.controller.js';
+import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { HealthController } from './health.controller.js';
     EmployeeModule,
     BayModule,
     SiteModule,
+    StockTransferModule,
     AuthModule,
     PlatformAdminModule,
     TenantMemberModule,

@@ -164,7 +164,18 @@ export class LocationService {
 
   async remove(id: string) {
     const scope = await this.getLocationScope();
-    const location = await this.prisma.storageLocation.findFirst({
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockActiveSite(tx, scope);
+      return this.softDeleteLocation(tx, id, scope);
+    });
+  }
+
+  private async softDeleteLocation(
+    tx: Prisma.TransactionClient,
+    id: string,
+    scope: LocationScope,
+  ) {
+    const location = await tx.storageLocation.findFirst({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: { _count: { select: { children: true, stocks: true } } },
     });
@@ -183,7 +194,7 @@ export class LocationService {
       throw new BadRequestException('Cannot delete location containing stock.');
     }
 
-    const parkedVehicles = await this.prisma.vehicle.count({
+    const parkedVehicles = await tx.vehicle.count({
       where: {
         tenant_id: scope.tenantId,
         location_id: id,
@@ -197,12 +208,51 @@ export class LocationService {
       );
     }
 
-    await this.prisma.storageLocation.updateMany({
+    const openTransferLines = await tx.stockTransferLine.findMany({
+      where: {
+        tenant_id: scope.tenantId,
+        transfer: { status: { in: ['REQUESTED', 'APPROVED', 'SHIPPED'] } },
+        OR: [
+          { from_site_id: scope.siteId, source_location_id: id },
+          { to_site_id: scope.siteId, dest_location_id: id },
+        ],
+      },
+      select: {
+        source_location_id: true,
+        dest_location_id: true,
+        approved_qty: true,
+        shipped_qty: true,
+        received_qty: true,
+        returned_qty: true,
+      },
+    });
+    const hasOutstandingTransferQty = openTransferLines.some((line) => {
+      const outstanding = line.shipped_qty.minus(
+        line.received_qty.plus(line.returned_qty),
+      );
+      if (line.source_location_id === id) {
+        // Frozen future pick or remaining in-transit qty from this bin.
+        if (line.approved_qty.gt(0) || outstanding.gt(0)) {
+          return true;
+        }
+      }
+      if (line.dest_location_id === id && outstanding.gt(0)) {
+        return true;
+      }
+      return false;
+    });
+    if (hasOutstandingTransferQty) {
+      throw new ConflictException(
+        'Cannot delete or disable a location referenced by a stock transfer with outstanding quantity.',
+      );
+    }
+
+    await tx.storageLocation.updateMany({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       data: { deletedAt: new Date() },
     });
 
-    const updated = await this.prisma.storageLocation.findFirst({
+    const updated = await tx.storageLocation.findFirst({
       where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
       include: locationInclude,
     });
@@ -210,6 +260,21 @@ export class LocationService {
       throw new NotFoundException('Location not found');
     }
     return updated;
+  }
+
+  private async lockActiveSite(
+    tx: Prisma.TransactionClient,
+    scope: LocationScope,
+  ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- ADR-0021/0022 site-row lock serializes location deactivation with transfer writes.
+    await tx.$queryRaw`
+      SELECT id
+      FROM "sites"
+      WHERE tenant_id = ${scope.tenantId}
+        AND id = ${scope.siteId}
+      ORDER BY id
+      FOR UPDATE
+    `;
   }
 
   private async validateHierarchy(

@@ -20,6 +20,16 @@ export interface RecordTransactionParams {
   referenceId?: string;
   costBasis?: number | Decimal | null;
   partsReservationId?: string | null;
+  movementGroupId?: string | null;
+  stockTransferId?: string | null;
+}
+
+export interface RecordTransactionsOptions {
+  /**
+   * Overrides the stock-eligible location types. Same-GmbH transfers write
+   * ledger rows against the system in_transit locations (ruling 34).
+   */
+  allowedLocationTypes?: ReadonlySet<LocationType>;
 }
 
 interface AggregatedStockDelta {
@@ -63,6 +73,7 @@ export class LedgerService {
   async recordTransactions(
     paramsArray: RecordTransactionParams[],
     prismaVal?: Prisma.TransactionClient,
+    options?: RecordTransactionsOptions,
   ): Promise<void> {
     if (paramsArray.length === 0) return;
 
@@ -74,6 +85,7 @@ export class LedgerService {
       tx,
       tenantId,
       locationIds,
+      options?.allowedLocationTypes,
     );
 
     await this.persistTransactions(tx, tenantId, paramsArray, locationSiteIds);
@@ -94,7 +106,9 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     locationIds: string[],
+    allowedTypes?: ReadonlySet<LocationType>,
   ): Promise<LocationSiteIds> {
+    const enabledTypes = allowedTypes ?? STOCK_ENABLED_LOCATION_TYPES;
     const locations = await tx.storageLocation.findMany({
       where: { tenant_id: tenantId, id: { in: locationIds } },
     });
@@ -105,9 +119,13 @@ export class LedgerService {
       if (!location) {
         throw new BadRequestException(`Location ${locationId} not found`);
       }
-      if (!STOCK_ENABLED_LOCATION_TYPES.has(location.type)) {
+      if (!enabledTypes.has(location.type)) {
         throw new BadRequestException(
-          `Stock can only be stored in BIN or STAGING_TOTE locations. Current type: ${location.type} (${location.name})`,
+          `Stock can only be stored in ${[...enabledTypes]
+            .map((type) => type.toUpperCase())
+            .join(' or ')} locations. Current type: ${location.type} (${
+            location.name
+          })`,
         );
       }
     }
@@ -136,6 +154,12 @@ export class LedgerService {
       reference_id: params.referenceId,
       ...(params.partsReservationId !== undefined && {
         parts_reservation_id: params.partsReservationId,
+      }),
+      ...(params.movementGroupId !== undefined && {
+        movement_group_id: params.movementGroupId,
+      }),
+      ...(params.stockTransferId !== undefined && {
+        stock_transfer_id: params.stockTransferId,
       }),
       cost_basis:
         params.costBasis !== undefined && params.costBasis !== null

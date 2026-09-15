@@ -2017,6 +2017,143 @@ export interface paths {
         patch: operations["MeSiteController_setActiveSite"];
         trace?: never;
     };
+    "/api/stock-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List same-GmbH stock transfers (membership on from or to; source bins redacted without from-site access) */
+        get: operations["StockTransferController_list"];
+        put?: never;
+        /** Create a stock transfer request (membership on from or to) */
+        post: operations["StockTransferController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a stock transfer (404 without membership on from or to; source bins redacted without from-site access) */
+        get: operations["StockTransferController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a requested transfer (from OWNER/ADMIN) */
+        post: operations["StockTransferController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a requested transfer (from OWNER/ADMIN) */
+        post: operations["StockTransferController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a requested/approved transfer (requester or from OWNER/ADMIN) */
+        post: operations["StockTransferController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/ship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ship an approved transfer one-shot and full (from-site membership) */
+        post: operations["StockTransferController_ship"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive shipped stock into a destination bin (to-site membership) */
+        post: operations["StockTransferController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stock-transfers/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Return unreceived stock to the source bin (to-site membership or from OWNER/ADMIN) */
+        post: operations["StockTransferController_returnTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/tenants": {
         parameters: {
             query?: never;
@@ -4492,6 +4629,99 @@ export interface components {
         ActiveSiteResponseDto: {
             /** Format: uuid */
             activeSiteId: string | null;
+        };
+        StockTransferLineResponseDto: {
+            id: string;
+            catalogItemId: string;
+            /** @example 5.000 */
+            requestedQty: string;
+            /** @example 5.000 */
+            approvedQty: string;
+            /** @example 5.000 */
+            shippedQty: string;
+            /** @example 5.000 */
+            receivedQty: string;
+            /** @example 0.000 */
+            returnedQty: string;
+            sourceLocationId: string | null;
+            destLocationId: string | null;
+        };
+        StockTransferResponseDto: {
+            id: string;
+            transferNumber: string;
+            fromSiteId: string;
+            fromSiteName: string | null;
+            toSiteId: string;
+            toSiteName: string | null;
+            /** @enum {string} */
+            status: "REQUESTED" | "APPROVED" | "SHIPPED" | "COMPLETED" | "REJECTED" | "CANCELLED";
+            version: number;
+            requestedByUserId: string;
+            approvedByUserId: string | null;
+            shippedByUserId: string | null;
+            receivedByUserId: string | null;
+            rejectReason: string | null;
+            cancelReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lines: components["schemas"]["StockTransferLineResponseDto"][];
+        };
+        CreateStockTransferLineDto: {
+            catalogItemId: string;
+            /** @example 5 */
+            requestedQty: number;
+            sourceLocationId?: string;
+        };
+        CreateStockTransferDto: {
+            fromSiteId: string;
+            toSiteId: string;
+            lines: components["schemas"]["CreateStockTransferLineDto"][];
+        };
+        ApproveStockTransferLineDto: {
+            id: string;
+            approvedQty?: number;
+            sourceLocationId?: string;
+        };
+        ApproveStockTransferDto: {
+            expectedVersion: number;
+            lines?: components["schemas"]["ApproveStockTransferLineDto"][];
+        };
+        RejectStockTransferDto: {
+            expectedVersion: number;
+            reason?: string;
+        };
+        CancelStockTransferDto: {
+            expectedVersion: number;
+            reason?: string;
+        };
+        ShipStockTransferLineDto: {
+            id: string;
+            sourceLocationId?: string;
+        };
+        ShipStockTransferDto: {
+            expectedVersion: number;
+            lines: components["schemas"]["ShipStockTransferLineDto"][];
+        };
+        ReceiveStockTransferLineDto: {
+            id: string;
+            receiveQty: number;
+            destLocationId: string;
+        };
+        ReceiveStockTransferDto: {
+            expectedVersion: number;
+            idempotencyKey: string;
+            lines: components["schemas"]["ReceiveStockTransferLineDto"][];
+        };
+        ReturnStockTransferLineDto: {
+            id: string;
+            returnQty: number;
+        };
+        ReturnStockTransferDto: {
+            expectedVersion: number;
+            idempotencyKey: string;
+            lines: components["schemas"]["ReturnStockTransferLineDto"][];
         };
         /** @enum {string} */
         TenantPlan: "STANDARD" | "PREMIUM" | "ENTERPRISE";
@@ -9124,6 +9354,219 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActiveSiteResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"][];
+                };
+            };
+        };
+    };
+    StockTransferController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStockTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveStockTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectStockTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelStockTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_ship: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipStockTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveStockTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
+            };
+        };
+    };
+    StockTransferController_returnTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnStockTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
                 };
             };
         };
