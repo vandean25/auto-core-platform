@@ -59,6 +59,16 @@ interface CallerAccess {
   isAdmin: boolean;
 }
 
+interface StoredCommandReplay {
+  command: {
+    request_hash: string;
+    response_body: Prisma.JsonValue;
+  };
+  transferId: string;
+  requestBody: unknown;
+  access: CallerAccess;
+}
+
 @Injectable()
 export class StockTransferService {
   constructor(
@@ -1405,24 +1415,12 @@ export class StockTransferService {
     if (!command) {
       return null;
     }
-    if (command.request_hash !== hashCommandRequest(requestBody)) {
-      throw new ConflictException(
-        'This idempotency key was already used with a different request body.',
-      );
-    }
-    const transfer = await this.prisma.stockTransfer.findFirst({
-      where: { id: transferId, tenant_id: tenantId },
-      select: { from_site_id: true, to_site_id: true },
+    return this.replayStoredCommand({
+      command,
+      transferId,
+      requestBody,
+      access,
     });
-    if (!transfer) {
-      throw new NotFoundException('Stock transfer not found');
-    }
-    const stored = (command.response_body as Record<string, unknown>)
-      .transfer as SerializedStockTransfer;
-    return redactStoredCommandResponse(
-      stored,
-      access.accessBySite.has(transfer.from_site_id),
-    );
   }
 
   private async replayOrRethrow(
@@ -1446,20 +1444,37 @@ export class StockTransferService {
           },
         })
         .catch(() => null);
-      if (command && command.request_hash === hashCommandRequest(requestBody)) {
-        const transfer = await this.prisma.stockTransfer.findFirst({
-          where: { id: transferId, tenant_id: access.tenantId },
-          select: { from_site_id: true },
+      if (command) {
+        return this.replayStoredCommand({
+          command,
+          transferId,
+          requestBody,
+          access,
         });
-        const stored = (command.response_body as Record<string, unknown>)
-          .transfer as SerializedStockTransfer;
-        return redactStoredCommandResponse(
-          stored,
-          access.accessBySite.has(transfer?.from_site_id ?? ''),
-        );
       }
     }
     throw error;
+  }
+
+  private async replayStoredCommand({
+    command,
+    transferId,
+    requestBody,
+    access,
+  }: StoredCommandReplay): Promise<SerializedStockTransfer> {
+    if (command.request_hash !== hashCommandRequest(requestBody)) {
+      throw new ConflictException(
+        'This idempotency key was already used with a different request body.',
+      );
+    }
+    const transfer = await this.prisma.stockTransfer.findFirst({
+      where: { id: transferId, tenant_id: access.tenantId },
+      select: { from_site_id: true, to_site_id: true },
+    });
+    const { fromAccess } = this.assertTransferAccess(access, transfer, {});
+    const stored = (command.response_body as Record<string, unknown>)
+      .transfer as SerializedStockTransfer;
+    return redactStoredCommandResponse(stored, fromAccess);
   }
 
   private async generateTransferNumber(tx: Prisma.TransactionClient) {

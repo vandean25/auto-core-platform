@@ -19,6 +19,7 @@ const tenantId = 'tenant-1';
 const userId = 'user-1';
 const fromSiteId = 'site-from';
 const toSiteId = 'site-to';
+const thirdSiteId = 'site-third';
 const transferId = 'transfer-1';
 const itemId = 'item-1';
 const sourceBinId = 'bin-1';
@@ -175,7 +176,9 @@ describe('StockTransferService', () => {
       { id: toSiteId, is_active: true, legal_entity_id: 'gmbh-1' },
     ]);
     tx.financeSettings.upsert.mockResolvedValue({});
-    tx.financeSettings.update.mockResolvedValue({ next_stock_transfer_number: 2 });
+    tx.financeSettings.update.mockResolvedValue({
+      next_stock_transfer_number: 2,
+    });
     tx.stockTransferCommand.findUnique.mockResolvedValue(null);
     tx.stockTransferCommand.create.mockResolvedValue({});
     tx.storageLocation.findFirst.mockResolvedValue({
@@ -195,7 +198,9 @@ describe('StockTransferService', () => {
     tx.stockTransferLine.updateMany.mockResolvedValue({ count: 1 });
     tx.stockTransfer.updateMany.mockResolvedValue({ count: 1 });
 
-    (ledgerService.recordTransactions as jest.Mock).mockResolvedValue(undefined);
+    (ledgerService.recordTransactions as jest.Mock).mockResolvedValue(
+      undefined,
+    );
     realtimeService.emitStockTransferUpdated.mockReturnValue(undefined);
 
     service = new StockTransferService(
@@ -302,7 +307,9 @@ describe('StockTransferService', () => {
     });
 
     it('expands omitted lines to approved_qty = requested_qty (ruling 27)', async () => {
-      const requested = buildTransfer({ status: StockTransferStatus.REQUESTED });
+      const requested = buildTransfer({
+        status: StockTransferStatus.REQUESTED,
+      });
       tx.stockTransfer.findFirst
         .mockResolvedValueOnce(requested)
         .mockResolvedValueOnce(
@@ -426,8 +433,9 @@ describe('StockTransferService', () => {
 
       expect(result.status).toBe(StockTransferStatus.SHIPPED);
       expect(ledgerService.recordTransactions).toHaveBeenCalledTimes(1);
-      const [recorded, , options] = (ledgerService.recordTransactions as jest.Mock)
-        .mock.calls[0];
+      const [recorded, , options] = (
+        ledgerService.recordTransactions as jest.Mock
+      ).mock.calls[0];
       expect(recorded).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -475,7 +483,10 @@ describe('StockTransferService', () => {
         buildTransfer({
           status: StockTransferStatus.APPROVED,
           lines: [
-            buildLine({ approved_qty: decimal('5'), requested_qty: decimal('5') }),
+            buildLine({
+              approved_qty: decimal('5'),
+              requested_qty: decimal('5'),
+            }),
             buildLine({
               id: 'line-2',
               approved_qty: decimal('3'),
@@ -613,6 +624,108 @@ describe('StockTransferService', () => {
 
       expect(result.id).toBe(transferId);
       expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 instead of replaying to a caller outside both transfer sites', async () => {
+      prisma.siteMembership.findMany.mockResolvedValue([
+        { site_id: thirdSiteId, tenantMember: { role: 'SALES' } },
+      ]);
+      prisma.stockTransfer.findFirst.mockResolvedValue({
+        from_site_id: fromSiteId,
+        to_site_id: toSiteId,
+      });
+      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+        request_hash: hashCommandRequest(receiveDto),
+        response_body: {
+          transfer: serializeStockTransfer(shippedTransfer(), {
+            includeSourceBin: true,
+          }),
+        },
+      });
+
+      await expect(
+        service.receive(transferId, receiveDto),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('redacts source data and does not expose the stored command envelope on destination-only replay', async () => {
+      prisma.siteMembership.findMany.mockResolvedValue([
+        { site_id: toSiteId, tenantMember: { role: 'SALES' } },
+      ]);
+      prisma.stockTransfer.findFirst.mockResolvedValue({
+        from_site_id: fromSiteId,
+        to_site_id: toSiteId,
+      });
+      prisma.stockTransferCommand.findUnique.mockResolvedValue({
+        request_hash: hashCommandRequest(receiveDto),
+        response_body: {
+          action: 'RECEIVE',
+          request: receiveDto,
+          transfer: serializeStockTransfer(shippedTransfer(), {
+            includeSourceBin: true,
+          }),
+        },
+      });
+
+      const result = await service.receive(transferId, receiveDto);
+
+      expect(result.lines[0].sourceLocationId).toBeNull();
+      expect(result).not.toHaveProperty('response_body');
+    });
+
+    it.each([
+      [
+        'an OCC conflict',
+        new ConflictException(
+          'Transfer changed during receiving. Refresh and retry.',
+        ),
+      ],
+      [
+        'a P2002 conflict',
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.10.0',
+        }),
+      ],
+    ])('replays the winner response after %s', async (_label, loserError) => {
+      const winnerResponse = serializeStockTransfer(
+        buildTransfer({ status: StockTransferStatus.COMPLETED, version: 2 }),
+        { includeSourceBin: true },
+      );
+      prisma.stockTransferCommand.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          request_hash: hashCommandRequest(receiveDto),
+          response_body: { transfer: winnerResponse },
+        });
+      prisma.stockTransfer.findFirst.mockResolvedValue({
+        from_site_id: fromSiteId,
+        to_site_id: toSiteId,
+      });
+      prisma.$transaction.mockRejectedValue(loserError);
+
+      await expect(service.receive(transferId, receiveDto)).resolves.toEqual(
+        winnerResponse,
+      );
+    });
+
+    it('keeps the idempotency mismatch conflict after a stale-version loser', async () => {
+      prisma.stockTransferCommand.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          request_hash: hashCommandRequest({
+            ...receiveDto,
+            expectedVersion: 2,
+          }),
+          response_body: {},
+        });
+      prisma.$transaction.mockRejectedValue(
+        new ConflictException('Version conflict: expected 1, current 2.'),
+      );
+
+      await expect(service.receive(transferId, receiveDto)).rejects.toThrow(
+        'This idempotency key was already used with a different request body.',
+      );
     });
 
     it('conflicts when the same key is reused with a different body', async () => {
@@ -878,10 +991,16 @@ describe('StockTransferService', () => {
     it('hashCommandRequest is order-insensitive', () => {
       const a = hashCommandRequest({
         expectedVersion: 1,
-        lines: [{ id: 'a', qty: 1 }, { id: 'b', qty: 2 }],
+        lines: [
+          { id: 'a', qty: 1 },
+          { id: 'b', qty: 2 },
+        ],
       });
       const b = hashCommandRequest({
-        lines: [{ id: 'b', qty: 2 }, { id: 'a', qty: 1 }],
+        lines: [
+          { id: 'b', qty: 2 },
+          { id: 'a', qty: 1 },
+        ],
         expectedVersion: 1,
       });
       expect(a).toBe(b);
