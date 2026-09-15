@@ -46,7 +46,6 @@ VALUES
   ('leave_requests'),
   ('parts_requisitions'),
   ('purchase_invoices'),
-  ('purchase_orders'),
   ('sites'),
   ('vehicle_make_aliases'),
   ('voice_note_rate_limits'),
@@ -54,17 +53,18 @@ VALUES
   ('employee_work_schedule_days'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
-  ('purchase_order_items'),
+  ('purchase_orders'),
   ('site_memberships'),
   ('stock_transfers'),
   ('storage_locations'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
   ('inventory_stocks'),
-  ('purchase_invoice_lines'),
+  ('purchase_order_items'),
   ('stock_transfer_commands'),
   ('stock_transfer_lines'),
   ('vehicles'),
+  ('purchase_invoice_lines'),
   ('sales_orders'),
   ('vehicle_purchases'),
   ('vehicle_sales'),
@@ -195,6 +195,7 @@ VALUES
   ('purchase_order_items', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_order_items', 'purchase_orders', 'purchase_order_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_order_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('purchase_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'vendors', 'vendor_id', 'id', 'RESTRICT', 'CASCADE'),
   ('revenue_groups', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -202,6 +203,7 @@ VALUES
   ('sales_order_items', 'sales_orders', 'sales_order_id', 'id', 'CASCADE', 'CASCADE'),
   ('sales_order_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sales_orders', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('sales_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('sales_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sales_orders', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('site_memberships', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -238,10 +240,12 @@ VALUES
   ('vehicle_make_aliases', 'brands', 'brand_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_make_aliases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicle_purchases', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_purchases', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_purchases', 'vendors', 'vendor_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_sales', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_sales', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicles', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
@@ -500,13 +504,15 @@ DELETE FROM public."vehicle_purchases"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."purchase_invoice_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."stock_transfer_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."stock_transfer_commands"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_invoice_lines"
+DELETE FROM public."purchase_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -520,7 +526,7 @@ DELETE FROM public."stock_transfers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."site_memberships"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_order_items"
+DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -535,8 +541,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_make_aliases"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sites"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

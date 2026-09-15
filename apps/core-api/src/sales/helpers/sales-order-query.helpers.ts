@@ -44,8 +44,13 @@ export async function findPaginatedSalesOrders(
   prisma: Pick<PrismaService, 'salesOrder'>,
   tenantId: string,
   params: Prisma.SalesOrderFindManyArgs,
+  siteId?: string,
 ): Promise<{ data: PublicSalesOrder[]; total: number }> {
-  const scopedWhere = { ...(params.where ?? {}), tenant_id: tenantId };
+  const scopedWhere = {
+    ...(params.where ?? {}),
+    tenant_id: tenantId,
+    ...(siteId ? { site_id: siteId } : {}),
+  };
   const [data, total] = await Promise.all([
     prisma.salesOrder.findMany({
       ...params,
@@ -65,8 +70,12 @@ export async function findDefaultSalesOrders(
   prisma: Pick<PrismaService, 'salesOrder'>,
   tenantId: string,
   status?: SalesOrderStatus,
+  siteId?: string,
 ): Promise<{ data: PublicSalesOrder[]; total: number }> {
-  const where: Prisma.SalesOrderWhereInput = { tenant_id: tenantId };
+  const where: Prisma.SalesOrderWhereInput = {
+    tenant_id: tenantId,
+    ...(siteId ? { site_id: siteId } : {}),
+  };
   if (status) {
     where.status = status;
   }

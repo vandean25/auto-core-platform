@@ -1,3 +1,4 @@
+import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   InvoiceTaxMode,
   Prisma,
@@ -5,6 +6,7 @@ import {
   VehicleSaleStatus,
   VehicleStockStatus,
 } from '@prisma/client';
+import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -21,6 +23,7 @@ describe('VehicleSaleService', () => {
       findFirst: jest.Mock;
       updateMany: jest.Mock;
       update: jest.Mock;
+      create: jest.Mock;
     };
     vehicle: { findFirst: jest.Mock; updateMany: jest.Mock };
     customer: { findFirst: jest.Mock };
@@ -28,9 +31,14 @@ describe('VehicleSaleService', () => {
     vehicleLedgerEntry: { findMany: jest.Mock };
     invoiceSequence: { upsert: jest.Mock };
     invoice: { create: jest.Mock; updateMany: jest.Mock };
+    user: { findUnique: jest.Mock };
+    tenantMember: { findFirst: jest.Mock };
+    siteMembership: { findFirst: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
-  let tenantContext: { getTenantId: jest.Mock };
+  let tenantContext: { getTenantId: jest.Mock; getAuthenticatedUser: jest.Mock };
+  let siteContext: { getSiteId: jest.Mock };
   let ledger: { listForVehicle: jest.Mock; append: jest.Mock };
 
   beforeEach(() => {
@@ -39,6 +47,7 @@ describe('VehicleSaleService', () => {
         findFirst: jest.fn(),
         updateMany: jest.fn(),
         update: jest.fn(),
+        create: jest.fn(),
       },
       vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
       customer: { findFirst: jest.fn() },
@@ -46,13 +55,23 @@ describe('VehicleSaleService', () => {
       vehicleLedgerEntry: { findMany: jest.fn() },
       invoiceSequence: { upsert: jest.fn() },
       invoice: { create: jest.fn(), updateMany: jest.fn() },
+      user: { findUnique: jest.fn() },
+      tenantMember: { findFirst: jest.fn() },
+      siteMembership: { findFirst: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(
       async (callback: (tx: typeof prisma) => Promise<unknown>) =>
         callback(prisma),
     );
-    tenantContext = { getTenantId: jest.fn().mockResolvedValue(tenantId) };
+    tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(tenantId),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ userId: 'fb-user-1' }),
+    };
+    siteContext = {
+      getSiteId: jest.fn().mockResolvedValue('site-1'),
+    };
     ledger = {
       listForVehicle: jest.fn().mockResolvedValue([]),
       append: jest.fn(),
@@ -60,6 +79,7 @@ describe('VehicleSaleService', () => {
     service = new VehicleSaleService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
+      siteContext as unknown as SiteContextService,
       ledger as unknown as VehicleLedgerService,
     );
   });
@@ -115,6 +135,7 @@ describe('VehicleSaleService', () => {
     };
     const sale = {
       id: saleId,
+      site_id: 'site-1',
       vehicle_id: vehicleId,
       customer_id: customerId,
       status: VehicleSaleStatus.DRAFT,
@@ -170,5 +191,106 @@ describe('VehicleSaleService', () => {
     expect(result.invoice.vehicle).not.toHaveProperty(
       'identity_resolution_token',
     );
+  });
+
+  describe('updateDraft (retargeting)', () => {
+    it('retargets vehicle sale when in DRAFT, caller has membership, and parked vehicle is on target site lot', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        sale_price: new Prisma.Decimal(10000),
+        vehicle: {
+          id: vehicleId,
+          location: { id: 'loc-2', site_id: 'site-2' },
+        },
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+      prisma.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.updateDraft(saleId, {
+        siteId: 'site-2',
+        expectedSiteId: 'site-1',
+      });
+
+      expect(prisma.vehicleSale.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: saleId,
+            tenant_id: tenantId,
+            site_id: 'site-1',
+            status: VehicleSaleStatus.DRAFT,
+          }),
+          data: expect.objectContaining({
+            site_id: 'site-2',
+          }),
+        }),
+      );
+    });
+
+    it('rejects retargeting if parked vehicle is on a lot that does not belong to target site with 422', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        vehicle: {
+          id: vehicleId,
+          location: { id: 'loc-1', site_id: 'site-1' }, // still on site-1!
+        },
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+
+      await expect(
+        service.updateDraft(saleId, { siteId: 'site-2' }),
+      ).rejects.toThrow(
+        'Vehicle is parked on another site; move the vehicle before retargeting sale',
+      );
+    });
+
+    it('rejects retargeting if caller lacks target site membership with 422', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        vehicle: {
+          id: vehicleId,
+          location: { id: 'loc-2', site_id: 'site-2' },
+        },
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateDraft(saleId, { siteId: 'site-2' }),
+      ).rejects.toThrow('Active site membership required on target site');
+    });
+
+    it('rejects retargeting with 409 if expectedSiteId does not match current site', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+      });
+
+      await expect(
+        service.updateDraft(saleId, {
+          siteId: 'site-2',
+          expectedSiteId: 'stale-site',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 });

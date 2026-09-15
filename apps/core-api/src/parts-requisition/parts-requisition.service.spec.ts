@@ -808,6 +808,10 @@ describe('PartsRequisitionService', () => {
   });
 
   describe('createPurchaseOrderForRequisition', () => {
+    beforeEach(() => {
+      tx.$queryRaw.mockResolvedValue([{ id: siteId, is_active: true }]);
+    });
+
     it('creates one linked purchase order item per reservation slice', async () => {
       tx.partsRequisition.findFirst.mockResolvedValue({
         id: 'requisition-1',
@@ -863,6 +867,16 @@ describe('PartsRequisitionService', () => {
         { vendorId, items: [{ reservationId: 'reservation-1', unitCost: 10 }] },
       );
 
+      expect(tx.purchaseOrder.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vendor_id: vendorId,
+          order_number: expect.any(String),
+          status: PurchaseOrderStatus.DRAFT,
+        },
+        select: { id: true },
+      });
       expect(tx.purchaseOrderItem.create).toHaveBeenCalledWith({
         data: {
           tenant_id: tenantId,

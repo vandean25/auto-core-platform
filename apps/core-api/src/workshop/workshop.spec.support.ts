@@ -113,9 +113,20 @@ export const mockPrisma = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  tenantMember: {
+    findFirst: jest.fn(),
+  },
+  siteMembership: {
+    findFirst: jest.fn(),
+  },
   partsReservation: {
     findMany: jest.fn(),
     updateMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   workshopTaskLineItem: {
     deleteMany: jest.fn(),
@@ -168,6 +179,7 @@ export function resetWorkshopMocks() {
   mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
     cb(mockPrisma),
   );
+  mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
 }
 
 export const workshopPrismaProvider = {

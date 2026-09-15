@@ -3,12 +3,13 @@ import { PurchaseService } from './purchase.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
 import { SiteService } from '../site/site.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   PartsReservationStatus,
@@ -27,7 +28,7 @@ describe('PurchaseService', () => {
     $transaction: jest
       .fn()
       .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
-    $queryRaw: jest.fn().mockResolvedValue([]),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -42,6 +43,7 @@ describe('PurchaseService', () => {
       updateMany: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
+      count: jest.fn(),
     },
     purchaseOrderItem: {
       findFirst: jest.fn(),
@@ -58,7 +60,6 @@ describe('PurchaseService', () => {
           unit_cost: 50,
         },
       ]),
-      deleteMany: jest.fn(),
     },
     catalogItem: {
       findMany: jest.fn(),
@@ -74,6 +75,15 @@ describe('PurchaseService', () => {
     storageLocation: {
       findFirst: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
+    tenantMember: {
+      findFirst: jest.fn(),
+    },
+    siteMembership: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockLedgerService = {
@@ -83,6 +93,11 @@ describe('PurchaseService', () => {
 
   const mockTenantContextService = {
     getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+    getAuthenticatedUser: jest.fn().mockReturnValue({ userId: 'fb-user-1' }),
+  };
+
+  const mockSiteContextService = {
+    getSiteId: jest.fn().mockResolvedValue('site-1'),
   };
 
   beforeEach(async () => {
@@ -93,10 +108,7 @@ describe('PurchaseService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContextService },
-        {
-          provide: SiteContextService,
-          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
-        },
+        { provide: SiteContextService, useValue: mockSiteContextService },
         { provide: SiteService, useValue: { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } },
       ],
     }).compile();
@@ -303,6 +315,7 @@ describe('PurchaseService', () => {
           if (include?.items?.select) {
             return {
               id: 'po-1',
+              site_id: 'site-1',
               status: PurchaseOrderStatus.DRAFT,
               items: [],
             };
@@ -325,6 +338,7 @@ describe('PurchaseService', () => {
         where: {
           id: 'po-1',
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           status: PurchaseOrderStatus.DRAFT,
         },
         data: { status: PurchaseOrderStatus.SENT },
@@ -340,6 +354,7 @@ describe('PurchaseService', () => {
           if (include?.items?.select) {
             return {
               id: 'po-1',
+              site_id: 'site-1',
               status: PurchaseOrderStatus.DRAFT,
               items: [
                 {
@@ -406,6 +421,7 @@ describe('PurchaseService', () => {
     it('returns 409 when markAsSent loses the DRAFT race', async () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
+        site_id: 'site-1',
         status: PurchaseOrderStatus.DRAFT,
         items: [],
       });
@@ -433,10 +449,9 @@ describe('PurchaseService', () => {
     it('should return all orders by default when no filter is specified', async () => {
       mockPrismaService.purchaseOrder.findMany.mockResolvedValue([]);
       await service.findAll();
-      // Based on code: filter defaults to 'all', which means where only contains tenant_id
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { tenant_id: 'tenant-1' },
+          where: { tenant_id: 'tenant-1', site_id: 'site-1' },
         }),
       );
     });
@@ -448,6 +463,7 @@ describe('PurchaseService', () => {
         expect.objectContaining({
           where: {
             tenant_id: 'tenant-1',
+            site_id: 'site-1',
             status: {
               in: [
                 PurchaseOrderStatus.DRAFT,
@@ -465,7 +481,7 @@ describe('PurchaseService', () => {
       await service.findAll('all');
       expect(mockPrismaService.purchaseOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { tenant_id: 'tenant-1' },
+          where: { tenant_id: 'tenant-1', site_id: 'site-1' },
         }),
       );
     });
@@ -837,6 +853,89 @@ describe('PurchaseService', () => {
       ).toHaveBeenCalledWith({
         where: { id: 'item-1', tenant_id: 'tenant-1' },
       });
+    });
+  });
+
+  describe('updatePurchaseOrder (retargeting)', () => {
+    it('retargets purchase order when in DRAFT and caller has target site membership', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        site_id: 'site-1',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [],
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      mockPrismaService.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrismaService.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+      mockPrismaService.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.updatePurchaseOrder('po-1', {
+        siteId: 'site-2',
+        expectedSiteId: 'site-1',
+      });
+
+      expect(mockPrismaService.purchaseOrder.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'po-1',
+            tenant_id: 'tenant-1',
+            site_id: 'site-1',
+            status: PurchaseOrderStatus.DRAFT,
+          }),
+          data: expect.objectContaining({
+            site_id: 'site-2',
+          }),
+        }),
+      );
+    });
+
+    it('rejects retargeting if purchase order is not in DRAFT status with 422', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        site_id: 'site-1',
+        status: PurchaseOrderStatus.SENT,
+        items: [],
+      });
+
+      await expect(
+        service.updatePurchaseOrder('po-1', { siteId: 'site-2' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting if caller lacks target site membership with 422', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        site_id: 'site-1',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [],
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      mockPrismaService.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrismaService.siteMembership.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updatePurchaseOrder('po-1', { siteId: 'site-2' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('rejects retargeting with 409 if expectedSiteId does not match current site', async () => {
+      mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        site_id: 'site-1',
+        status: PurchaseOrderStatus.DRAFT,
+        items: [],
+      });
+
+      await expect(
+        service.updatePurchaseOrder('po-1', {
+          siteId: 'site-2',
+          expectedSiteId: 'stale-site',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   InvoiceStatus,
@@ -16,6 +17,16 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import {
+  assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
+  lockSitesAndAssertActive,
+} from '../site/document-retarget.helpers.js';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition.js';
 import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -35,22 +46,40 @@ export class VehicleSaleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
     private readonly ledger: VehicleLedgerService,
   ) {}
 
   async create(dto: CreateVehicleSaleDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     await this.assertSellable(tenantId, dto.vehicle_id, dto.customer_id);
 
+    // Verify vehicle's lot belongs to the active site
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: dto.vehicle_id, tenant_id: tenantId },
+      include: { location: true },
+    });
+    if (!vehicle?.location || vehicle.location.site_id !== siteId) {
+      throw new UnprocessableEntityException(
+        'Vehicle is parked at a lot that does not belong to the active site',
+      );
+    }
+
     const saleNumber = await this.nextSaleNumber(tenantId);
-    return this.prisma.vehicleSale.create({
-      data: {
-        tenant_id: tenantId,
-        sale_number: saleNumber,
-        vehicle_id: dto.vehicle_id,
-        customer_id: dto.customer_id,
-        sale_price: new Prisma.Decimal(dto.sale_price),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
+      return tx.vehicleSale.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          sale_number: saleNumber,
+          vehicle_id: dto.vehicle_id,
+          customer_id: dto.customer_id,
+          sale_price: new Prisma.Decimal(dto.sale_price),
+        },
+      });
     });
   }
 
@@ -78,29 +107,90 @@ export class VehicleSaleService {
     const tenantId = await this.tenantContext.getTenantId();
     const sale = await this.prisma.vehicleSale.findFirst({
       where: { id, tenant_id: tenantId },
+      include: { vehicle: { include: { location: true } } },
     });
     if (!sale) {
       throw new NotFoundException(`Vehicle sale ${id} not found`);
     }
     if (sale.status !== VehicleSaleStatus.DRAFT) {
-      throw new ConflictException('Only DRAFT sales can be updated');
+      throw new UnprocessableEntityException('Only DRAFT sales can be updated');
     }
+
+    const targetSiteId = dto.siteId ?? dto.site_id;
+    if (
+      dto.expectedSiteId !== undefined &&
+      sale.site_id &&
+      dto.expectedSiteId !== sale.site_id
+    ) {
+      throw new ConflictException(
+        'Vehicle sale site changed concurrently. Please refresh.',
+      );
+    }
+
+    const isRetargeting =
+      targetSiteId !== undefined && targetSiteId !== sale.site_id;
+
+    if (isRetargeting) {
+      await assertActiveTargetSiteMembership(
+        this.prisma,
+        this.tenantContext,
+        tenantId,
+        targetSiteId,
+      );
+
+      // Ruling 18: Parked vehicle's lot must already belong to target site; 422 otherwise
+      if (
+        !sale.vehicle?.location ||
+        sale.vehicle.location.site_id !== targetSiteId
+      ) {
+        throw new UnprocessableEntityException(
+          'Vehicle is parked on another site; move the vehicle before retargeting sale',
+        );
+      }
+    }
+
     if (dto.customer_id) {
       await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
     }
-    const updated = await this.prisma.vehicleSale.updateMany({
-      where: { id, tenant_id: tenantId, status: VehicleSaleStatus.DRAFT },
-      data: {
+
+    await this.prisma.$transaction(async (tx) => {
+      if (isRetargeting) {
+        await lockSitesAndAssertActive(
+          tx,
+          tenantId,
+          [sale.site_id, targetSiteId].filter((s): s is string => Boolean(s)),
+        );
+      }
+
+      const updateData: Prisma.VehicleSaleUncheckedUpdateManyInput = {
         customer_id: dto.customer_id,
         sale_price:
           dto.sale_price !== undefined
             ? new Prisma.Decimal(dto.sale_price)
             : undefined,
-      },
+      };
+      if (isRetargeting) {
+        updateData.site_id = targetSiteId;
+      }
+
+      const updated = await tx.vehicleSale.updateMany({
+        where: {
+          id,
+          tenant_id: tenantId,
+          status: VehicleSaleStatus.DRAFT,
+          ...(isRetargeting && sale.site_id ? { site_id: sale.site_id } : {}),
+          ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
+        },
+        data: updateData,
+      });
+
+      if (updated.count === 0) {
+        throw new ConflictException(
+          'Vehicle sale state or site changed concurrently. Please refresh.',
+        );
+      }
     });
-    if (updated.count === 0) {
-      throw new ConflictException('Only DRAFT sales can be updated');
-    }
+
     return this.findOne(id);
   }
 
@@ -122,13 +212,21 @@ export class VehicleSaleService {
         tx,
       );
 
-      const guarded = await tx.vehicleSale.updateMany({
-        where: { id, tenant_id: tenantId, status: VehicleSaleStatus.DRAFT },
-        data: { status: VehicleSaleStatus.INVOICED },
+      const persistedSiteId = assertPersistedSiteId(
+        sale.site_id,
+        'Vehicle sale site ownership is required',
+      );
+      await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
+
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
+        id,
+        tenantId,
+        from: VehicleSaleStatus.DRAFT,
+        to: VehicleSaleStatus.INVOICED,
+        extraWhere: { site_id: persistedSiteId },
+        conflictMessage:
+          'Vehicle sale state or site changed concurrently. Please refresh.',
       });
-      if (guarded.count === 0) {
-        throw new ConflictException('Sale is not in DRAFT status');
-      }
 
       const posted = await tx.vehicleSale.findFirst({
         where: { id, tenant_id: tenantId },

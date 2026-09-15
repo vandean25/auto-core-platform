@@ -13,6 +13,7 @@ import {
   VehicleStockStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -73,6 +74,10 @@ describe('VehiclePurchaseService', () => {
       customer: { findFirst: jest.fn() },
       storageLocation: { findFirst: jest.fn() },
       vehicleLedgerEntry: { count: jest.fn() },
+      user: { findUnique: jest.fn() },
+      tenantMember: { findFirst: jest.fn() },
+      siteMembership: { findFirst: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
     };
     prisma.$transaction.mockImplementation(
       async (callback: (tx: typeof prisma) => Promise<unknown>) =>
@@ -80,7 +85,8 @@ describe('VehiclePurchaseService', () => {
     );
     tenantContext = {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
-    };
+      getAuthenticatedUser: jest.fn().mockReturnValue({ userId: 'fb-user-1' }),
+    } as any;
     ledger = { append: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -88,6 +94,10 @@ describe('VehiclePurchaseService', () => {
         VehiclePurchaseService,
         { provide: PrismaService, useValue: prisma },
         { provide: TenantContextService, useValue: tenantContext },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+        },
         { provide: VehicleLedgerService, useValue: ledger },
       ],
     }).compile();
@@ -338,6 +348,7 @@ describe('VehiclePurchaseService', () => {
   describe('receive', () => {
     const defaultDraftPurchase = {
       id: purchaseId,
+      site_id: 'site-1',
       vin: 'VF1ABC123',
       make: 'Volkswagen',
       model: 'Golf',
@@ -353,6 +364,17 @@ describe('VehiclePurchaseService', () => {
       purchase_price: 10000,
       status: VehiclePurchaseStatus.DRAFT,
     };
+
+    beforeEach(() => {
+      prisma.vehiclePurchase.findFirst.mockImplementation(
+        (args: { select?: { site_id?: boolean } }) => {
+          if (args?.select?.site_id) {
+            return Promise.resolve({ site_id: 'site-1' });
+          }
+          return Promise.resolve(defaultDraftPurchase);
+        },
+      );
+    });
 
     it('throws ConflictException when purchase is not in DRAFT status', async () => {
       prisma.vehiclePurchase.updateMany.mockResolvedValue({ count: 0 });
@@ -652,6 +674,118 @@ describe('VehiclePurchaseService', () => {
         },
       });
       expect(result).toEqual({ id: purchaseId });
+    });
+  });
+
+  describe('updateDraft (retargeting)', () => {
+    it('retargets vehicle purchase when in DRAFT and caller has target site membership and lot belongs to target site', async () => {
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({
+        id: purchaseId,
+        site_id: 'site-1',
+        status: VehiclePurchaseStatus.DRAFT,
+        seller_type: VehiclePurchaseSellerType.VENDOR,
+        vendor_id: 'vendor-1',
+        updatedAt: new Date(),
+      });
+      prisma.vendor.findFirst.mockResolvedValue({ id: 'vendor-1' });
+      prisma.storageLocation.findFirst.mockResolvedValue({
+        id: 'loc-2',
+        site_id: 'site-2',
+        type: 'vehicle_lot',
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+      prisma.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      prisma.vehiclePurchase.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.updateDraft(purchaseId, {
+        siteId: 'site-2',
+        expectedSiteId: 'site-1',
+        location_id: 'loc-2',
+      });
+
+      expect(prisma.vehiclePurchase.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: purchaseId,
+            tenant_id: tenantId,
+            site_id: 'site-1',
+            status: VehiclePurchaseStatus.DRAFT,
+          }),
+          data: expect.objectContaining({
+            site_id: 'site-2',
+            location_id: 'loc-2',
+          }),
+        }),
+      );
+    });
+
+    it('rejects retargeting if destination lot does not belong to target site with 422', async () => {
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({
+        id: purchaseId,
+        site_id: 'site-1',
+        status: VehiclePurchaseStatus.DRAFT,
+        seller_type: VehiclePurchaseSellerType.VENDOR,
+        vendor_id: 'vendor-1',
+        updatedAt: new Date(),
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+      prisma.storageLocation.findFirst.mockResolvedValue({
+        id: 'loc-1',
+        site_id: 'site-1', // belongs to source site!
+        type: 'vehicle_lot',
+      });
+
+      await expect(
+        service.updateDraft(purchaseId, {
+          siteId: 'site-2',
+          location_id: 'loc-1',
+        }),
+      ).rejects.toThrow('Destination lot must belong to target site');
+    });
+
+    it('rejects retargeting if caller lacks target site membership with 422', async () => {
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({
+        id: purchaseId,
+        site_id: 'site-1',
+        status: VehiclePurchaseStatus.DRAFT,
+        seller_type: VehiclePurchaseSellerType.VENDOR,
+        vendor_id: 'vendor-1',
+        updatedAt: new Date(),
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateDraft(purchaseId, {
+          siteId: 'site-2',
+        }),
+      ).rejects.toThrow('Active site membership required on target site');
+    });
+
+    it('rejects retargeting with 409 if expectedSiteId does not match current site', async () => {
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({
+        id: purchaseId,
+        site_id: 'site-1',
+        status: VehiclePurchaseStatus.DRAFT,
+        seller_type: VehiclePurchaseSellerType.VENDOR,
+        vendor_id: 'vendor-1',
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        service.updateDraft(purchaseId, {
+          siteId: 'site-2',
+          expectedSiteId: 'stale-site',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

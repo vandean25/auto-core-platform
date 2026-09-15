@@ -4,12 +4,20 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
+  lockSitesAndAssertActive,
+} from '../site/document-retarget.helpers.js';
+import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import {
+  PartsReservationStatus,
   Prisma,
   VehicleStockStatus,
   WorkshopOrderPurpose,
@@ -53,6 +61,7 @@ export class WorkshopIntakeService {
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
     private readonly scheduleService: WorkshopScheduleService,
+    private readonly partsRequisitionService: PartsRequisitionService,
   ) {}
 
   private async generateOrderNumber(tx?: Prisma.TransactionClient) {
@@ -454,6 +463,38 @@ export class WorkshopIntakeService {
     });
   }
 
+  private async releaseOrderReservationsForRetarget(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+    returnLocationId: string | null,
+  ): Promise<void> {
+    const reservations = await tx.partsReservation.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: {
+          in: [
+            PartsReservationStatus.OPEN,
+            PartsReservationStatus.ORDERED,
+            PartsReservationStatus.STAGED,
+          ],
+        },
+        workshop_task_line_item: {
+          workshop_task: { workshop_order_id: orderId },
+        },
+      },
+      select: { id: true },
+    });
+
+    for (const reservation of reservations) {
+      await this.partsRequisitionService.releaseReservation(
+        reservation.id,
+        returnLocationId ? { returnLocationId } : {},
+        tx,
+      );
+    }
+  }
+
   private async executeCreateOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -463,6 +504,8 @@ export class WorkshopIntakeService {
     vehicleId: string,
     isScheduled: boolean,
   ): Promise<WorkshopOrderWithRelations> {
+    await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
     if (!isScheduled) {
       const promoted = await this.tryPromoteScheduledOrder(
         tx,
@@ -579,15 +622,131 @@ export class WorkshopIntakeService {
 
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    const existing = await this.findOne(id);
+    const activeSiteId = await this.siteContext.getSiteId();
+    const existing = await this.prisma.workshopOrder.findFirst({
+      where: { id, tenant_id: tenantId },
+      include: ORDER_WITH_INVOICE_RELATIONS,
+    });
+    if (!existing) {
+      throw new NotFoundException(`Workshop order ${id} not found`);
+    }
     assertOrderEditable(existing);
+    const persistedSiteId = assertPersistedSiteId(
+      existing.site_id,
+      'Workshop order site ownership is required',
+    );
+
+    const isRetargeting =
+      dto.siteId !== undefined && dto.siteId !== persistedSiteId;
+
+    if (!isRetargeting && persistedSiteId !== activeSiteId) {
+      throw new NotFoundException(`Workshop order ${id} not found`);
+    }
+
+    if (
+      dto.expectedSiteId !== undefined &&
+      dto.expectedSiteId !== persistedSiteId
+    ) {
+      throw new ConflictException(
+        'Workshop order site changed concurrently. Please refresh.',
+      );
+    }
+
+    if (isRetargeting) {
+      if (existing.status !== WorkshopOrderStatus.SCHEDULED) {
+        throw new UnprocessableEntityException(
+          'Workshop order site can only be changed while SCHEDULED',
+        );
+      }
+
+      await assertActiveTargetSiteMembership(
+        this.prisma,
+        this.tenantContext,
+        tenantId,
+        dto.siteId!,
+      );
+
+      if (!dto.bayId) {
+        throw new UnprocessableEntityException(
+          'A bay on the target site is required when retargeting workshop order',
+        );
+      }
+
+      const targetBay = await this.prisma.bay.findFirst({
+        where: { id: dto.bayId, tenant_id: tenantId, site_id: dto.siteId! },
+        select: { id: true },
+      });
+      if (!targetBay) {
+        throw new UnprocessableEntityException(
+          'A bay on the target site is required when retargeting workshop order',
+        );
+      }
+
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await lockSitesAndAssertActive(tx, tenantId, [
+          persistedSiteId,
+          dto.siteId!,
+        ]);
+
+        await this.releaseOrderReservationsForRetarget(
+          tx,
+          tenantId,
+          id,
+          existing.staging_location_id,
+        );
+
+        const updateResult = await tx.workshopOrder.updateMany({
+          where: {
+            id,
+            tenant_id: tenantId,
+            site_id: persistedSiteId,
+            status: WorkshopOrderStatus.SCHEDULED,
+            ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
+          },
+          data: {
+            site_id: dto.siteId,
+            bay_id: dto.bayId,
+            staging_location_id: null,
+            reported_issue:
+              dto.reportedIssue !== undefined
+                ? dto.reportedIssue
+                : existing.reported_issue,
+            notes: dto.notes !== undefined ? dto.notes : existing.notes,
+            mechanic_id:
+              dto.mechanicId !== undefined
+                ? dto.mechanicId
+                : existing.mechanic_id,
+            scheduled_start_at: dto.scheduledStartAt
+              ? new Date(dto.scheduledStartAt)
+              : existing.scheduled_start_at,
+            scheduled_end_at: dto.scheduledEndAt
+              ? new Date(dto.scheduledEndAt)
+              : existing.scheduled_end_at,
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new ConflictException(
+            'Workshop order state or site changed concurrently. Please refresh.',
+          );
+        }
+
+        return tx.workshopOrder.findFirstOrThrow({
+          where: { id, tenant_id: tenantId, site_id: dto.siteId },
+          include: ORDER_WITH_INVOICE_RELATIONS,
+        });
+      });
+
+      return normalizeWorkshopOrder(updated);
+    }
 
     const hasScheduleUpdate =
       dto.bayId !== undefined ||
       dto.scheduledStartAt !== undefined ||
       dto.scheduledEndAt !== undefined ||
       dto.mechanicId !== undefined;
+
+    const currentSiteId = persistedSiteId;
 
     if (hasScheduleUpdate) {
       const updated = await this.prisma.$transaction(async (tx) => {
@@ -606,7 +765,7 @@ export class WorkshopIntakeService {
         );
 
         const updateResult = await tx.workshopOrder.updateMany({
-          where: { id, tenant_id: tenantId, site_id: siteId },
+          where: { id, tenant_id: tenantId, site_id: currentSiteId },
           data: {
             reported_issue: dto.reportedIssue,
             notes: dto.notes,
@@ -621,7 +780,7 @@ export class WorkshopIntakeService {
         }
 
         return tx.workshopOrder.findFirstOrThrow({
-          where: { id, tenant_id: tenantId, site_id: siteId },
+          where: { id, tenant_id: tenantId, site_id: currentSiteId },
           include: ORDER_WITH_INVOICE_RELATIONS,
         });
       });
@@ -630,7 +789,7 @@ export class WorkshopIntakeService {
     }
 
     const updateResult = await this.prisma.workshopOrder.updateMany({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: { id, tenant_id: tenantId, site_id: currentSiteId },
       data: {
         reported_issue: dto.reportedIssue,
         notes: dto.notes,
@@ -640,7 +799,12 @@ export class WorkshopIntakeService {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
 
-    return this.findOne(id);
+    return normalizeWorkshopOrder(
+      await this.prisma.workshopOrder.findFirstOrThrow({
+        where: { id, tenant_id: tenantId, site_id: currentSiteId },
+        include: ORDER_WITH_INVOICE_RELATIONS,
+      }),
+    );
   }
 
   async search(query: string) {

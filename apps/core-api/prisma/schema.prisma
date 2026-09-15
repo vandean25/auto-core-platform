@@ -206,6 +206,10 @@ model Site {
   workshopOrders           WorkshopOrder[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
+  salesOrders              SalesOrder[]
+  purchaseOrders           PurchaseOrder[]
+  vehiclePurchases         VehiclePurchase[]
+  vehicleSales             VehicleSale[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -728,6 +732,8 @@ model PurchaseOrder {
   id           String              @id @default(uuid())
   tenant_id    String
   tenant       Tenant              @relation(fields: [tenant_id], references: [id])
+  site_id      String?
+  site         Site?               @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   vendor_id    String
   vendor       Vendor              @relation(fields: [vendor_id], references: [id])
   status       PurchaseOrderStatus @default(DRAFT)
@@ -739,6 +745,7 @@ model PurchaseOrder {
 
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@map("purchase_orders")
 }
 
@@ -920,6 +927,8 @@ model VehiclePurchase {
   id                          String                    @id @default(uuid())
   tenant_id                   String
   tenant                      Tenant                    @relation(fields: [tenant_id], references: [id])
+  site_id                     String?
+  site                        Site?                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   purchase_number             String
   status                      VehiclePurchaseStatus     @default(DRAFT)
   seller_type                 VehiclePurchaseSellerType
@@ -949,6 +958,7 @@ model VehiclePurchase {
 
   @@unique([tenant_id, purchase_number])
   @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@map("vehicle_purchases")
 }
 
@@ -956,6 +966,8 @@ model VehicleSale {
   id                   String               @id @default(uuid())
   tenant_id            String
   tenant               Tenant               @relation(fields: [tenant_id], references: [id])
+  site_id              String?
+  site                 Site?                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   sale_number          String
   status               VehicleSaleStatus    @default(DRAFT)
   vehicle_id           String
@@ -974,6 +986,7 @@ model VehicleSale {
   @@unique([tenant_id, id])
   @@unique([tenant_id, sale_number])
   @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@map("vehicle_sales")
 }
 
@@ -1012,6 +1025,8 @@ model SalesOrder {
   id           String   @id @default(uuid())
   tenant_id    String
   tenant       Tenant   @relation(fields: [tenant_id], references: [id])
+  site_id      String?
+  site         Site?    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
   order_number String // e.g., SO-2026-001
   customer_id  String
   customer     Customer @relation(fields: [customer_id], references: [id])
@@ -1031,6 +1046,7 @@ model SalesOrder {
   @@unique([tenant_id, id])
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
+  @@index([tenant_id, site_id])
   @@map("sales_orders")
 }
 

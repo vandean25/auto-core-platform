@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
 import {
   bindStatusUpdateMany,
@@ -124,6 +128,8 @@ export async function persistSalesOrderUpdate(
     currentStatus: SalesOrderStatus;
     nextStatus?: SalesOrderStatus;
     fieldData: Prisma.SalesOrderUncheckedUpdateManyInput;
+    currentSiteId?: string | null;
+    isRetargeting?: boolean;
   },
 ): Promise<void> {
   const statusChanging =
@@ -137,18 +143,37 @@ export async function persistSalesOrderUpdate(
       from: params.currentStatus,
       to: params.nextStatus!,
       extraData: params.fieldData,
+      ...(params.currentSiteId
+        ? { extraWhere: { site_id: params.currentSiteId } }
+        : {}),
       conflictMessage:
         'Sales order status changed concurrently. Please refresh and try again.',
     });
     return;
   }
 
+  const whereClause: Prisma.SalesOrderWhereInput = {
+    id: params.id,
+    tenant_id: params.tenantId,
+  };
+  if (params.isRetargeting) {
+    whereClause.status = SalesOrderStatus.DRAFT;
+    if (params.currentSiteId) {
+      whereClause.site_id = params.currentSiteId;
+    }
+  }
+
   const updateResult = await tx.salesOrder.updateMany({
-    where: { id: params.id, tenant_id: params.tenantId },
+    where: whereClause,
     data: params.fieldData,
   });
 
   if (updateResult.count === 0) {
+    if (params.isRetargeting) {
+      throw new ConflictException(
+        'Sales order state or site changed concurrently. Please refresh.',
+      );
+    }
     throw new NotFoundException('Sales order not found');
   }
 }
