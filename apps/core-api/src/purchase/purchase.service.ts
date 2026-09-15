@@ -15,6 +15,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
 import {
@@ -685,6 +686,12 @@ export class PurchaseService {
         );
       }
 
+      const persistedSiteId = assertPersistedSiteId(
+        order.site_id,
+        'Purchase order site ownership is required',
+      );
+      await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
+
       const itemIds = order.items.map((i) => i.id);
       await lockPurchaseOrderItems(tx, tenantId, itemIds);
 
@@ -701,6 +708,7 @@ export class PurchaseService {
         tenantId,
         from: PurchaseOrderStatus.DRAFT,
         to: PurchaseOrderStatus.SENT,
+        extraWhere: { site_id: persistedSiteId },
         conflictMessage:
           'Purchase order status changed concurrently. Please refresh and try again.',
       });

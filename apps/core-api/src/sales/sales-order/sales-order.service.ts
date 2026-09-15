@@ -15,6 +15,7 @@ import { TenantContextService } from '../../common/services/tenant-context.servi
 import { SiteContextService } from '../../common/services/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
   lockSitesAndAssertActive,
 } from '../../site/document-retarget.helpers.js';
 import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
@@ -250,15 +251,21 @@ export class SalesOrderService {
       fieldData.site_id = updateDto.siteId;
     }
 
+    const persistedSiteId = assertPersistedSiteId(
+      order.site_id,
+      'Sales order site ownership is required',
+    );
+    const statusChanging =
+      nextStatus !== undefined && nextStatus !== order.status;
+
     return this.prisma.$transaction(async (tx) => {
       if (isRetargeting) {
-        await lockSitesAndAssertActive(
-          tx,
-          tenantId,
-          [order.site_id, updateDto.siteId].filter((s): s is string =>
-            Boolean(s),
-          ),
-        );
+        await lockSitesAndAssertActive(tx, tenantId, [
+          persistedSiteId,
+          updateDto.siteId!,
+        ]);
+      } else if (statusChanging) {
+        await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
       }
 
       await persistSalesOrderUpdate(tx, {
@@ -267,7 +274,7 @@ export class SalesOrderService {
         currentStatus: order.status,
         nextStatus,
         fieldData,
-        currentSiteId: order.site_id,
+        currentSiteId: persistedSiteId,
         isRetargeting,
       });
 

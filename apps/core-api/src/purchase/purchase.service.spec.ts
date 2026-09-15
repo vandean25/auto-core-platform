@@ -315,6 +315,7 @@ describe('PurchaseService', () => {
           if (include?.items?.select) {
             return {
               id: 'po-1',
+              site_id: 'site-1',
               status: PurchaseOrderStatus.DRAFT,
               items: [],
             };
@@ -337,6 +338,7 @@ describe('PurchaseService', () => {
         where: {
           id: 'po-1',
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           status: PurchaseOrderStatus.DRAFT,
         },
         data: { status: PurchaseOrderStatus.SENT },
@@ -352,6 +354,7 @@ describe('PurchaseService', () => {
           if (include?.items?.select) {
             return {
               id: 'po-1',
+              site_id: 'site-1',
               status: PurchaseOrderStatus.DRAFT,
               items: [
                 {
@@ -418,6 +421,7 @@ describe('PurchaseService', () => {
     it('returns 409 when markAsSent loses the DRAFT race', async () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
+        site_id: 'site-1',
         status: PurchaseOrderStatus.DRAFT,
         items: [],
       });

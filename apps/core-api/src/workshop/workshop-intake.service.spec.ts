@@ -6,6 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
+import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import {
   mockPrisma,
@@ -34,6 +35,10 @@ describe('WorkshopIntakeService', () => {
         {
           provide: WorkshopScheduleService,
           useValue: { assertCanBook: jest.fn(), rescheduleOrder },
+        },
+        {
+          provide: PartsRequisitionService,
+          useValue: { releaseReservation: jest.fn() },
         },
       ],
     }).compile();
@@ -677,6 +682,7 @@ describe('WorkshopIntakeService', () => {
   it('reschedules within a transaction when schedule fields are patched', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       status: WorkshopOrderStatus.SCHEDULED,
       vehicle_id: 'v-1',
       bay_id: 'bay-1',
@@ -894,6 +900,7 @@ describe('WorkshopIntakeService', () => {
         { id: 'site-1', is_active: true },
         { id: 'site-2', is_active: true },
       ]);
+      mockPrisma.partsReservation.findMany.mockResolvedValue([]);
       mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.workshopOrder.findFirstOrThrow.mockResolvedValue({
         id: 'wo-1',
@@ -909,14 +916,7 @@ describe('WorkshopIntakeService', () => {
         bayId: 'bay-2',
       });
 
-      expect(mockPrisma.partsReservation.deleteMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: '00000000-0000-0000-0000-000000000001',
-          workshop_task_line_item: {
-            workshop_task: { workshop_order_id: 'wo-1' },
-          },
-        },
-      });
+      expect(mockPrisma.partsReservation.findMany).toHaveBeenCalled();
       expect(result.site_id).toBe('site-2');
     });
   });

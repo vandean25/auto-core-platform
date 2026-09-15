@@ -243,6 +243,7 @@ describe('SalesOrderService', () => {
   it('replaces items and recalculates total when update payload includes items', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       total_amount: new Prisma.Decimal(20),
       items: [],
     });
@@ -290,6 +291,7 @@ describe('SalesOrderService', () => {
   it('guards sales-order status transitions with expected-from status', async () => {
     mockPrisma.salesOrder.findFirst.mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       status: SalesOrderStatus.DRAFT,
       total_amount: new Prisma.Decimal(20),
       items: [],
@@ -300,6 +302,7 @@ describe('SalesOrderService', () => {
       status: SalesOrderStatus.CONFIRMED,
       items: [],
     });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
     mockPrisma.$transaction.mockImplementation(async (callback: any) =>
       callback(transactionContext),
     );
@@ -311,6 +314,7 @@ describe('SalesOrderService', () => {
         where: {
           id: 'so-1',
           tenant_id: 'tenant-1',
+          site_id: 'site-1',
           status: SalesOrderStatus.DRAFT,
         },
         data: expect.objectContaining({
@@ -323,11 +327,13 @@ describe('SalesOrderService', () => {
   it('returns 409 when a sales-order status transition is stale', async () => {
     mockPrisma.salesOrder.findFirst.mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       status: SalesOrderStatus.DRAFT,
       total_amount: new Prisma.Decimal(20),
       items: [],
     });
     transactionContext.salesOrder.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
     mockPrisma.$transaction.mockImplementation(async (callback: any) =>
       callback(transactionContext),
     );
@@ -340,6 +346,7 @@ describe('SalesOrderService', () => {
   it('does not write status on field-only sales order updates', async () => {
     mockPrisma.salesOrder.findFirst.mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       status: SalesOrderStatus.DRAFT,
       total_amount: new Prisma.Decimal(20),
       items: [],
@@ -350,6 +357,7 @@ describe('SalesOrderService', () => {
       status: SalesOrderStatus.DRAFT,
       items: [],
     });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
     mockPrisma.$transaction.mockImplementation(async (callback: any) =>
       callback(transactionContext),
     );
@@ -364,6 +372,7 @@ describe('SalesOrderService', () => {
   it('rejects sales-order status skips that are not adjacent transitions', async () => {
     mockPrisma.salesOrder.findFirst.mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       status: SalesOrderStatus.DRAFT,
       total_amount: new Prisma.Decimal(20),
       items: [],
@@ -378,6 +387,7 @@ describe('SalesOrderService', () => {
   it('rejects replacement items that omit catalog_item_id', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue({
       id: 'so-1',
+      site_id: 'site-1',
       total_amount: new Prisma.Decimal(20),
       items: [],
     });

@@ -217,13 +217,29 @@ describe('Operational Document Retarget (e2e)', () => {
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
-        sku: 'OIL-FILTER-01',
+        sku: `OIL-FILTER-${tenant.tenantId.slice(0, 8)}`,
         name: 'Synthetic Oil Filter',
         cost_price: 15.0,
         retail_price: 30.0,
       },
     });
     catalogItemId = catalogItem.id;
+
+    const year = new Date().getFullYear();
+    const orderPrefix = `${tenant.tenantId.slice(0, 8)}-`;
+    await tenantPrisma.financeSettings.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        fiscal_year_start_month: 1,
+        lock_date: null,
+        next_invoice_number: 1001,
+        invoice_prefix: `RE-${orderPrefix}`,
+        next_sales_order_number: 1001,
+        sales_order_prefix: `SO-${year}-${orderPrefix}`,
+        next_workshop_order_number: 1,
+        workshop_order_prefix: `WO-${year}-${orderPrefix}`,
+      },
+    });
   });
 
   afterAll(async () => {
@@ -540,6 +556,238 @@ describe('Operational Document Retarget (e2e)', () => {
           expectedSiteId: siteA.id,
         })
         .expect(422);
+    });
+  });
+
+  describe('Freeze boundaries and concurrency', () => {
+    it('rejects sales order retarget after CONFIRMED (422)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/sales-orders')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 1,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch('/api/sales-orders/' + createRes.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({ status: 'CONFIRMED' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch('/api/sales-orders/' + createRes.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          siteId: siteB.id,
+          expectedSiteId: siteA.id,
+        })
+        .expect(422);
+    });
+
+    it('returns 409 when confirm races retarget on the same sales order', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/sales-orders')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 1,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
+        })
+        .expect(201);
+
+      const [confirmRes, retargetRes] = await Promise.all([
+        request(app.getHttpServer())
+          .patch('/api/sales-orders/' + createRes.body.id)
+          .set('Authorization', 'Bearer ' + userBothSitesToken)
+          .send({ status: 'CONFIRMED' }),
+        request(app.getHttpServer())
+          .patch('/api/sales-orders/' + createRes.body.id)
+          .set('Authorization', 'Bearer ' + userBothSitesToken)
+          .send({
+            siteId: siteB.id,
+            expectedSiteId: siteA.id,
+          }),
+      ]);
+
+      const statuses = [confirmRes.status, retargetRes.status].sort();
+      expect(statuses).toEqual([200, 409]);
+    });
+
+    it('rejects workshop retarget after INTAKE promotion (422)', async () => {
+      const scheduled = await createScheduledWorkshopOrder(userBothSitesToken);
+
+      await request(app.getHttpServer())
+        .post('/api/workshop/orders')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          customerId,
+          vehicleId: scheduled.body.vehicle_id,
+          odometer: 12000,
+          fuelLevel: 60,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch('/api/workshop/orders/' + scheduled.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          siteId: siteB.id,
+          expectedSiteId: siteA.id,
+          bayId: baySiteB.id,
+        })
+        .expect(422);
+    });
+
+    it('rejects vehicle purchase retarget after RECEIVED (422)', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/vehicle-purchases')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          seller_type: 'VENDOR',
+          vendor_id: vendorId,
+          vin: 'WAUZZZ8K0DA999333',
+          make: 'Audi',
+          model: 'A6',
+          year: 2021,
+          purchase_price: 25000,
+          location_id: lotSiteA.id,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/api/vehicle-purchases/' + createRes.body.id + '/receive')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch('/api/vehicle-purchases/' + createRes.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          site_id: siteB.id,
+          expectedSiteId: siteA.id,
+          location_id: lotSiteB.id,
+        })
+        .expect(422);
+    });
+  });
+
+  describe('Active site switcher does not rewrite document site', () => {
+    it('retarget uses persisted site_id after switching active site to target', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/sales-orders')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          customer_id: customerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Synthetic Oil Filter',
+              quantity: 1,
+              unit_price: 30,
+              tax_rate: 20,
+            },
+          ],
+        })
+        .expect(201);
+
+      expect(createRes.body.site_id).toBe(siteA.id);
+
+      await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({ siteId: siteB.id })
+        .expect(200);
+
+      const getRes = await request(app.getHttpServer())
+        .get('/api/sales-orders/' + createRes.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .expect(200);
+
+      expect(getRes.body.site_id).toBe(siteA.id);
+
+      const retargetRes = await request(app.getHttpServer())
+        .patch('/api/sales-orders/' + createRes.body.id)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          siteId: siteB.id,
+          expectedSiteId: siteA.id,
+        })
+        .expect(200);
+
+      expect(retargetRes.body.site_id).toBe(siteB.id);
+
+      await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({ siteId: siteA.id })
+        .expect(200);
+    });
+  });
+
+  describe('Workshop retarget releases parts reservations', () => {
+    it('cancels OPEN reservations when retargeting a SCHEDULED order', async () => {
+      const scheduled = await createScheduledWorkshopOrder(userBothSitesToken);
+      const orderId = scheduled.body.id;
+
+      const task = await tenantPrisma.workshopTask.create({
+        data: {
+          workshop_order_id: orderId,
+          title: 'Brake service',
+        },
+      });
+      const line = await tenantPrisma.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: task.id,
+          type: 'PART',
+          part_execution_status: 'PENDING_PICK',
+          item_no: 'PART-RETARGET',
+          description: 'Brake pad',
+          quantity: 1,
+          unit_price: 20,
+          catalog_item_id: catalogItemId,
+        },
+      });
+      const reservation = await tenantPrisma.partsReservation.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          workshop_task_line_item_id: line.id,
+          status: 'OPEN',
+          kind: 'ON_HAND',
+          quantity: 1,
+        },
+      });
+
+      await request(app.getHttpServer())
+        .patch('/api/workshop/orders/' + orderId)
+        .set('Authorization', 'Bearer ' + userBothSitesToken)
+        .send({
+          siteId: siteB.id,
+          expectedSiteId: siteA.id,
+          bayId: baySiteB.id,
+        })
+        .expect(200);
+
+      const released = await tenantPrisma.partsReservation.findFirstOrThrow({
+        where: { id: reservation.id },
+      });
+      expect(released.status).toBe('CANCELLED');
     });
   });
 

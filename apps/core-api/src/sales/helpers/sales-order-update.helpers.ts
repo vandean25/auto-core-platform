@@ -143,6 +143,9 @@ export async function persistSalesOrderUpdate(
       from: params.currentStatus,
       to: params.nextStatus!,
       extraData: params.fieldData,
+      ...(params.currentSiteId
+        ? { extraWhere: { site_id: params.currentSiteId } }
+        : {}),
       conflictMessage:
         'Sales order status changed concurrently. Please refresh and try again.',
     });

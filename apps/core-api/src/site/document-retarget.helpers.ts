@@ -75,6 +75,19 @@ export async function assertActiveTargetSiteMembership(
  * (then vehicle/transfer ids). Every caller-supplied target site must be
  * is_active or the write is 422.
  */
+/**
+ * Ruling 13: persisted document site_id must never be derived from the switcher.
+ */
+export function assertPersistedSiteId(
+  siteId: string | null | undefined,
+  message = 'Document site ownership is required',
+): string {
+  if (!siteId) {
+    throw new UnprocessableEntityException(message);
+  }
+  return siteId;
+}
+
 export async function lockSitesAndAssertActive(
   tx: Prisma.TransactionClient,
   tenantId: string,

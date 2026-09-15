@@ -19,6 +19,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
 import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util.js';
@@ -190,34 +191,24 @@ export class VehiclePurchaseService {
         targetSiteId,
       );
 
-      // Ruling 17: Destination lot required on target site when provided or leaving source lot
-      if (dto.location_id !== undefined) {
-        if (dto.location_id) {
-          const loc = await this.prisma.storageLocation.findFirst({
-            where: { id: dto.location_id, tenant_id: tenantId },
-            select: { site_id: true, type: true },
-          });
-          if (
-            !loc ||
-            loc.site_id !== targetSiteId ||
-            loc.type !== LocationType.vehicle_lot
-          ) {
-            throw new UnprocessableEntityException(
-              'Destination lot must belong to target site',
-            );
-          }
-        }
-      } else if (purchase.location_id) {
-        // If purchase already has a location_id on the source site, cannot leave it on source site
-        const loc = await this.prisma.storageLocation.findFirst({
-          where: { id: purchase.location_id, tenant_id: tenantId },
-          select: { site_id: true },
-        });
-        if (loc && loc.site_id !== targetSiteId) {
-          throw new UnprocessableEntityException(
-            'Destination lot must belong to target site',
-          );
-        }
+      if (!dto.location_id) {
+        throw new UnprocessableEntityException(
+          'Destination lot must belong to target site',
+        );
+      }
+
+      const loc = await this.prisma.storageLocation.findFirst({
+        where: { id: dto.location_id, tenant_id: tenantId },
+        select: { site_id: true, type: true },
+      });
+      if (
+        !loc ||
+        loc.site_id !== targetSiteId ||
+        loc.type !== LocationType.vehicle_lot
+      ) {
+        throw new UnprocessableEntityException(
+          'Destination lot must belong to target site',
+        );
       }
     }
 
@@ -278,7 +269,25 @@ export class VehiclePurchaseService {
   async receive(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
     return this.prisma.$transaction(async (tx) => {
-      const purchase = await this.validatePurchaseForReceipt(tx, tenantId, id);
+      const draft = await tx.vehiclePurchase.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { site_id: true },
+      });
+      if (!draft) {
+        throw new NotFoundException(`Vehicle purchase ${id} not found`);
+      }
+      const persistedSiteId = assertPersistedSiteId(
+        draft.site_id,
+        'Vehicle purchase site ownership is required',
+      );
+      await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
+
+      const purchase = await this.validatePurchaseForReceipt(
+        tx,
+        tenantId,
+        id,
+        persistedSiteId,
+      );
       const vehicleId = await this.upsertLotVehicle(tx, tenantId, purchase);
       await this.recordPurchaseLedgerEntry(tx, vehicleId, purchase);
       return this.linkPurchaseToVehicle(tx, tenantId, purchase.id, vehicleId);
@@ -332,9 +341,15 @@ export class VehiclePurchaseService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     id: string,
+    siteId: string,
   ) {
     const guarded = await tx.vehiclePurchase.updateMany({
-      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: siteId,
+        status: VehiclePurchaseStatus.DRAFT,
+      },
       data: {
         status: VehiclePurchaseStatus.RECEIVED,
         received_at: new Date(),

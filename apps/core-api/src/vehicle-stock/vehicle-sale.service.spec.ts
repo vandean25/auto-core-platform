@@ -135,6 +135,7 @@ describe('VehicleSaleService', () => {
     };
     const sale = {
       id: saleId,
+      site_id: 'site-1',
       vehicle_id: vehicleId,
       customer_id: customerId,
       status: VehicleSaleStatus.DRAFT,

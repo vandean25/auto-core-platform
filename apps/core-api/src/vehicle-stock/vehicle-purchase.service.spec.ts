@@ -348,6 +348,7 @@ describe('VehiclePurchaseService', () => {
   describe('receive', () => {
     const defaultDraftPurchase = {
       id: purchaseId,
+      site_id: 'site-1',
       vin: 'VF1ABC123',
       make: 'Volkswagen',
       model: 'Golf',
@@ -363,6 +364,17 @@ describe('VehiclePurchaseService', () => {
       purchase_price: 10000,
       status: VehiclePurchaseStatus.DRAFT,
     };
+
+    beforeEach(() => {
+      prisma.vehiclePurchase.findFirst.mockImplementation(
+        (args: { select?: { site_id?: boolean } }) => {
+          if (args?.select?.site_id) {
+            return Promise.resolve({ site_id: 'site-1' });
+          }
+          return Promise.resolve(defaultDraftPurchase);
+        },
+      );
+    });
 
     it('throws ConflictException when purchase is not in DRAFT status', async () => {
       prisma.vehiclePurchase.updateMany.mockResolvedValue({ count: 0 });

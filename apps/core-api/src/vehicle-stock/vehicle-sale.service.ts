@@ -20,8 +20,13 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
+import {
+  bindStatusUpdateMany,
+  guardedStatusUpdate,
+} from '../common/utils/status-transition.js';
 import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -207,13 +212,21 @@ export class VehicleSaleService {
         tx,
       );
 
-      const guarded = await tx.vehicleSale.updateMany({
-        where: { id, tenant_id: tenantId, status: VehicleSaleStatus.DRAFT },
-        data: { status: VehicleSaleStatus.INVOICED },
+      const persistedSiteId = assertPersistedSiteId(
+        sale.site_id,
+        'Vehicle sale site ownership is required',
+      );
+      await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
+
+      await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
+        id,
+        tenantId,
+        from: VehicleSaleStatus.DRAFT,
+        to: VehicleSaleStatus.INVOICED,
+        extraWhere: { site_id: persistedSiteId },
+        conflictMessage:
+          'Vehicle sale state or site changed concurrently. Please refresh.',
       });
-      if (guarded.count === 0) {
-        throw new ConflictException('Sale is not in DRAFT status');
-      }
 
       const posted = await tx.vehicleSale.findFirst({
         where: { id, tenant_id: tenantId },

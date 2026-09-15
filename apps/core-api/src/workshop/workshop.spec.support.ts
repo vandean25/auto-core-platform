@@ -179,6 +179,7 @@ export function resetWorkshopMocks() {
   mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
     cb(mockPrisma),
   );
+  mockPrisma.$queryRaw.mockResolvedValue([{ id: 'site-1', is_active: true }]);
 }
 
 export const workshopPrismaProvider = {

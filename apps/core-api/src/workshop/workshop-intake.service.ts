@@ -9,12 +9,15 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   assertActiveTargetSiteMembership,
+  assertPersistedSiteId,
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
+import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import {
+  PartsReservationStatus,
   Prisma,
   VehicleStockStatus,
   WorkshopOrderPurpose,
@@ -58,6 +61,7 @@ export class WorkshopIntakeService {
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
     private readonly scheduleService: WorkshopScheduleService,
+    private readonly partsRequisitionService: PartsRequisitionService,
   ) {}
 
   private async generateOrderNumber(tx?: Prisma.TransactionClient) {
@@ -459,6 +463,38 @@ export class WorkshopIntakeService {
     });
   }
 
+  private async releaseOrderReservationsForRetarget(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+    returnLocationId: string | null,
+  ): Promise<void> {
+    const reservations = await tx.partsReservation.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: {
+          in: [
+            PartsReservationStatus.OPEN,
+            PartsReservationStatus.ORDERED,
+            PartsReservationStatus.STAGED,
+          ],
+        },
+        workshop_task_line_item: {
+          workshop_task: { workshop_order_id: orderId },
+        },
+      },
+      select: { id: true },
+    });
+
+    for (const reservation of reservations) {
+      await this.partsRequisitionService.releaseReservation(
+        reservation.id,
+        returnLocationId ? { returnLocationId } : {},
+        tx,
+      );
+    }
+  }
+
   private async executeCreateOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -468,6 +504,8 @@ export class WorkshopIntakeService {
     vehicleId: string,
     isScheduled: boolean,
   ): Promise<WorkshopOrderWithRelations> {
+    await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
     if (!isScheduled) {
       const promoted = await this.tryPromoteScheduledOrder(
         tx,
@@ -593,22 +631,21 @@ export class WorkshopIntakeService {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
     assertOrderEditable(existing);
+    const persistedSiteId = assertPersistedSiteId(
+      existing.site_id,
+      'Workshop order site ownership is required',
+    );
 
     const isRetargeting =
-      dto.siteId !== undefined && dto.siteId !== existing.site_id;
+      dto.siteId !== undefined && dto.siteId !== persistedSiteId;
 
-    if (
-      !isRetargeting &&
-      existing.site_id &&
-      existing.site_id !== activeSiteId
-    ) {
+    if (!isRetargeting && persistedSiteId !== activeSiteId) {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
 
     if (
       dto.expectedSiteId !== undefined &&
-      existing.site_id &&
-      dto.expectedSiteId !== existing.site_id
+      dto.expectedSiteId !== persistedSiteId
     ) {
       throw new ConflictException(
         'Workshop order site changed concurrently. Please refresh.',
@@ -646,27 +683,23 @@ export class WorkshopIntakeService {
       }
 
       const updated = await this.prisma.$transaction(async (tx) => {
-        await lockSitesAndAssertActive(
+        await lockSitesAndAssertActive(tx, tenantId, [
+          persistedSiteId,
+          dto.siteId!,
+        ]);
+
+        await this.releaseOrderReservationsForRetarget(
           tx,
           tenantId,
-          [existing.site_id, dto.siteId].filter((s): s is string => Boolean(s)),
+          id,
+          existing.staging_location_id,
         );
-
-        // Ruling 15: Clear reservations, kits, and staging bin so none remain on source site
-        await tx.partsReservation.deleteMany({
-          where: {
-            tenant_id: tenantId,
-            workshop_task_line_item: {
-              workshop_task: { workshop_order_id: id },
-            },
-          },
-        });
 
         const updateResult = await tx.workshopOrder.updateMany({
           where: {
             id,
             tenant_id: tenantId,
-            site_id: existing.site_id,
+            site_id: persistedSiteId,
             status: WorkshopOrderStatus.SCHEDULED,
             ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
           },
@@ -713,7 +746,7 @@ export class WorkshopIntakeService {
       dto.scheduledEndAt !== undefined ||
       dto.mechanicId !== undefined;
 
-    const currentSiteId = existing.site_id ?? activeSiteId;
+    const currentSiteId = persistedSiteId;
 
     if (hasScheduleUpdate) {
       const updated = await this.prisma.$transaction(async (tx) => {
