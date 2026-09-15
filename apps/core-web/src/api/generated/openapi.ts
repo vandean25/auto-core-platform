@@ -4630,6 +4630,44 @@ export interface components {
             /** Format: uuid */
             activeSiteId: string | null;
         };
+        StockTransferLineResponseDto: {
+            id: string;
+            catalogItemId: string;
+            /** @example 5.000 */
+            requestedQty: string;
+            /** @example 5.000 */
+            approvedQty: string;
+            /** @example 5.000 */
+            shippedQty: string;
+            /** @example 5.000 */
+            receivedQty: string;
+            /** @example 0.000 */
+            returnedQty: string;
+            sourceLocationId: string | null;
+            destLocationId: string | null;
+        };
+        StockTransferResponseDto: {
+            id: string;
+            transferNumber: string;
+            fromSiteId: string;
+            fromSiteName: string | null;
+            toSiteId: string;
+            toSiteName: string | null;
+            /** @enum {string} */
+            status: "REQUESTED" | "APPROVED" | "SHIPPED" | "COMPLETED" | "REJECTED" | "CANCELLED";
+            version: number;
+            requestedByUserId: string;
+            approvedByUserId: string | null;
+            shippedByUserId: string | null;
+            receivedByUserId: string | null;
+            rejectReason: string | null;
+            cancelReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lines: components["schemas"]["StockTransferLineResponseDto"][];
+        };
         CreateStockTransferLineDto: {
             catalogItemId: string;
             /** @example 5 */
@@ -9333,7 +9371,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"][];
+                };
             };
         };
     };
@@ -9354,7 +9394,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9373,7 +9415,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9396,7 +9440,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9419,7 +9465,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9442,7 +9490,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9465,7 +9515,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9484,11 +9536,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
@@ -9507,11 +9561,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StockTransferResponseDto"];
+                };
             };
         };
     };
