@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
-import { CustomerResponseDto } from '../../customer/dto/customer-response.dto';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
+import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
 
 export class VehicleResponseDto {
   @ApiProperty()

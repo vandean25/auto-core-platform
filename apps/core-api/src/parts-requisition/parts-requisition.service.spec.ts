@@ -14,8 +14,8 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
-import { AtpService } from '../inventory/atp.service';
-import { PartsRequisitionService } from './parts-requisition.service';
+import { AtpService } from '../inventory/atp.service.js';
+import { PartsRequisitionService } from './parts-requisition.service.js';
 
 const tenantId = 'tenant-1';
 const siteId = 'site-1';

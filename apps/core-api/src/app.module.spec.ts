@@ -1,4 +1,4 @@
-import { AppModule } from './app.module';
+import { AppModule } from './app.module.js';
 
 describe('AppModule middleware routing', () => {
   it('registers tenant context middleware with an Express 5-compatible wildcard path', () => {

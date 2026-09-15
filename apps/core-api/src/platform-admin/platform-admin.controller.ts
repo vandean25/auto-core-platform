@@ -9,16 +9,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { SuperAdminGuard } from '../auth/super-admin.guard';
-import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator';
+import { SuperAdminGuard } from '../auth/super-admin.guard.js';
+import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator.js';
 import {
   CreatePlatformTenantDto,
   ListPlatformTenantsQueryDto,
   PlatformTenantListResponseDto,
   PlatformTenantResponseDto,
   UpdatePlatformTenantDto,
-} from './dto/platform-tenant.dto';
-import { PlatformAdminService } from './platform-admin.service';
+} from './dto/platform-tenant.dto.js';
+import { PlatformAdminService } from './platform-admin.service.js';
 
 @ApiTags('platform-tenants')
 @AllowPlatformAdmin()

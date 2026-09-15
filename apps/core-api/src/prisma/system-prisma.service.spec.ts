@@ -2,12 +2,12 @@ import { describe, expect, it } from '@jest/globals';
 import {
   SYSTEM_PRISMA_OMITS_TENANT_MODELS,
   SystemPrismaService,
-} from './system-prisma.service';
+} from './system-prisma.service.js';
 import {
   createSystemPrismaTransactionClient,
   SYSTEM_PRISMA_MODEL_DELEGATES,
-} from './system-prisma.types';
-import { resetSharedRuntimePool } from './shared-pg-pool';
+} from './system-prisma.types.js';
+import { resetSharedRuntimePool } from './shared-pg-pool.js';
 
 const TENANT_MODEL_DELEGATES = [
   'customer',

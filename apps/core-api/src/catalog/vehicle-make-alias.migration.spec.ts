@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 

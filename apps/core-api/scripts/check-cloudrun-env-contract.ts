@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -108,6 +110,6 @@ function main(): void {
   console.log('Cloud Run core-api environment contract passed.');
 }
 
-if (require.main === module) {
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   main();
 }

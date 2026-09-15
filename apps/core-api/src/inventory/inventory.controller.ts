@@ -1,15 +1,15 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
-import { InventoryService } from './inventory.service';
-import { LedgerService } from './ledger.service';
-import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
+import { InventoryService } from './inventory.service.js';
+import { LedgerService } from './ledger.service.js';
+import { CreateInventoryItemDto } from './dto/create-inventory-item.dto.js';
 import {
   AvailabilityCheckResultDto,
   InventoryItemResponseDto,
   InventoryTransactionResponseDto,
   CatalogItemResponseDto,
-} from './dto/inventory-response.dto';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
+} from './dto/inventory-response.dto.js';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 
 @Controller('inventory')
 export class InventoryController {

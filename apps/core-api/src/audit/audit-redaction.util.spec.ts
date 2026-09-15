@@ -1,7 +1,7 @@
 import {
   REDACTED_VALUE,
   redactAuditSecrets,
-} from './audit-redaction.util';
+} from './audit-redaction.util.js';
 
 describe('redactAuditSecrets', () => {
   it('redacts nested secret fields and returns redacted paths', () => {

@@ -1,5 +1,5 @@
-import type { AuditFieldDiff, AuditJsonValue } from './audit.types';
-import { redactAuditSecrets } from './audit-redaction.util';
+import type { AuditFieldDiff, AuditJsonValue } from './audit.types.js';
+import { redactAuditSecrets } from './audit-redaction.util.js';
 
 const isObject = (value: unknown): value is Record<string, unknown> => {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

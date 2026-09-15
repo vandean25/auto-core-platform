@@ -1,8 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VendorService } from './vendor.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VendorService } from './vendor.service.js';
 
 describe('VendorService', () => {
   let service: VendorService;

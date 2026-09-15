@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { TransactionType } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class AvailabilityCheckResultDto {
   @ApiProperty()

@@ -6,9 +6,9 @@ import {
   applyAuditUpdateMany,
   AUDITED_MODELS,
   createAuditExtension,
-} from './prisma-audit.extension';
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { REDACTED_VALUE } from '../audit/audit-redaction.util';
+} from './prisma-audit.extension.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 
 const TENANT_ID = 'tenant-audit-123';
 

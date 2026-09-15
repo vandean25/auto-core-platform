@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { EmployeeRole } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface ResolvedEmployeeMe {
   id: string;

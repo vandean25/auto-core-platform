@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseInvoiceStatus } from '@prisma/client';
-import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service';
+import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service.js';
 
 describe('PurchaseInvoiceLifecycleService', () => {
   let service: PurchaseInvoiceLifecycleService;

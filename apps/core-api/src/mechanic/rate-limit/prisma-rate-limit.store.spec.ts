@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { PrismaRateLimitStore } from './prisma-rate-limit.store';
-import type { Clock } from './rate-limit.store';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { PrismaRateLimitStore } from './prisma-rate-limit.store.js';
+import type { Clock } from './rate-limit.store.js';
 
 class FakeClock implements Clock {
   constructor(private currentMs: number) {}

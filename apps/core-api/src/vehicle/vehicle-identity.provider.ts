@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { normalizeVehicleIdentityValue } from './vehicle-identity.util';
+import { normalizeVehicleIdentityValue } from './vehicle-identity.util.js';
 
 export const VEHICLE_IDENTITY_PROVIDER = Symbol('VehicleIdentityProvider');
 

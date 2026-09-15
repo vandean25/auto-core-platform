@@ -1,4 +1,4 @@
-import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation';
+import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 
 describe('readCachedWorkshopPdfMetadata', () => {
   const generatedAt = new Date('2026-04-01T12:00:00.000Z');

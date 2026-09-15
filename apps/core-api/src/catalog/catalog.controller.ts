@@ -7,19 +7,19 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CatalogService } from './catalog.service';
-import { CatalogExternalService } from './catalog-external.service';
-import { CatalogSearchResponseDto } from './dto/catalog-search.dto';
+import { CatalogService } from './catalog.service.js';
+import { CatalogExternalService } from './catalog-external.service.js';
+import { CatalogSearchResponseDto } from './dto/catalog-search.dto.js';
 import {
   CatalogAssemblyGroupsResponseDto,
   CatalogExternalLaborItemDto,
   CatalogExternalPartsItemDto,
   CatalogExternalSearchResponseDto,
-} from './dto/catalog-external-search.dto';
+} from './dto/catalog-external-search.dto.js';
 import {
   CatalogAssemblyGroupsQueryDto,
   CatalogExternalSearchQueryDto,
-} from './dto/catalog-external-search-query.dto';
+} from './dto/catalog-external-search-query.dto.js';
 
 @ApiTags('catalog')
 @ApiExtraModels(CatalogExternalPartsItemDto, CatalogExternalLaborItemDto)

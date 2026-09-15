@@ -1,7 +1,7 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { configureHttpSecurity } from './http-security';
+import { configureHttpSecurity } from './http-security.js';
 
 @Controller('health')
 class HealthController {

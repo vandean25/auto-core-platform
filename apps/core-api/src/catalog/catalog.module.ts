@@ -1,23 +1,23 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { CatalogController } from './catalog.controller';
-import { CatalogService } from './catalog.service';
-import { CatalogExternalService } from './catalog-external.service';
-import { CatalogRouterService } from './catalog-router.service';
-import { CatalogAdapterRegistry } from './catalog-adapter.registry';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { CatalogController } from './catalog.controller.js';
+import { CatalogService } from './catalog.service.js';
+import { CatalogExternalService } from './catalog-external.service.js';
+import { CatalogRouterService } from './catalog-router.service.js';
+import { CatalogAdapterRegistry } from './catalog-adapter.registry.js';
 import {
   PARTS_CATALOG_PROVIDER,
   type PartsCatalogProvider,
-} from './providers/parts-catalog.provider';
+} from './providers/parts-catalog.provider.js';
 import {
   LABOR_CATALOG_PROVIDER,
   type LaborCatalogProvider,
-} from './providers/labor-catalog.provider';
-import { SandboxOemPartsCatalogProvider } from './providers/sandbox/sandbox-oem-parts.provider';
-import { SandboxOemLaborCatalogProvider } from './providers/sandbox/sandbox-oem-labor.provider';
-import { SandboxAftermarketPartsCatalogProvider } from './providers/sandbox/sandbox-aftermarket-parts.provider';
-import { SandboxAftermarketLaborCatalogProvider } from './providers/sandbox/sandbox-aftermarket-labor.provider';
-import type { CatalogAssemblyGroupContext } from './providers/catalog-provider.types';
+} from './providers/labor-catalog.provider.js';
+import { SandboxOemPartsCatalogProvider } from './providers/sandbox/sandbox-oem-parts.provider.js';
+import { SandboxOemLaborCatalogProvider } from './providers/sandbox/sandbox-oem-labor.provider.js';
+import { SandboxAftermarketPartsCatalogProvider } from './providers/sandbox/sandbox-aftermarket-parts.provider.js';
+import { SandboxAftermarketLaborCatalogProvider } from './providers/sandbox/sandbox-aftermarket-labor.provider.js';
+import type { CatalogAssemblyGroupContext } from './providers/catalog-provider.types.js';
 
 class CompositePartsCatalogProvider implements PartsCatalogProvider {
   constructor(

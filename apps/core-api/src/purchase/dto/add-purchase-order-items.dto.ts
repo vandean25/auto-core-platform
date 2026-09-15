@@ -1,7 +1,7 @@
 import { IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { PurchaseOrderItemDto } from './create-purchase-order.dto';
+import { PurchaseOrderItemDto } from './create-purchase-order.dto.js';
 
 export class AddPurchaseOrderItemsDto {
   @ApiProperty({

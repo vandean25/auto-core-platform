@@ -14,8 +14,8 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
-import type { RecordTransactionParams } from '../inventory/ledger.service';
-import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
+import type { RecordTransactionParams } from '../inventory/ledger.service.js';
+import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto.js';
 
 import Decimal = Prisma.Decimal;
 

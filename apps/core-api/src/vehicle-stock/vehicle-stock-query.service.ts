@@ -10,16 +10,16 @@ import {
   VehiclePurchaseStatus,
   VehicleStockStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { QueryBuilder } from '../common/utils/query-builder';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
-import { costBasis } from './vehicle-cost';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { QueryBuilder } from '../common/utils/query-builder.js';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { costBasis } from './vehicle-cost.js';
 import {
   assertTenantCustomerExists,
   assertTenantStorageLocationExists,
-} from './vehicle-stock-ref.validator';
-import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto';
+} from './vehicle-stock-ref.validator.js';
+import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 
 const STOCK_SORT_WHITELIST = [
   'make',

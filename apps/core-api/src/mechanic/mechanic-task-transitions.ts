@@ -5,7 +5,7 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import type { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
+import type { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 
 /**
  * Maps a `LaborPauseReason` to the resulting `WorkshopTaskStatus` for that

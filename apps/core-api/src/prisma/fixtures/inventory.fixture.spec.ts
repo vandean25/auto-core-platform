@@ -1,4 +1,4 @@
-import { seedInventory } from './inventory.fixture';
+import { seedInventory } from './inventory.fixture.js';
 
 describe('seedInventory', () => {
   const createMockPrisma = () => ({

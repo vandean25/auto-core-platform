@@ -1,4 +1,4 @@
-import { projectCustomerDetail } from './customer-detail.projection';
+import { projectCustomerDetail } from './customer-detail.projection.js';
 
 describe('projectCustomerDetail', () => {
   it('projects customer detail with history metadata and stripped vehicles', () => {

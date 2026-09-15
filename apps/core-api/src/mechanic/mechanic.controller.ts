@@ -24,29 +24,32 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
-import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
-import { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
-import { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
+import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto.js';
+import { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
+import { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto.js';
 import {
   SaveDiagnosticsDto,
   SaveDiagnosticsResponseDto,
-} from './dto/save-diagnostics.dto';
-import { RequestPartDto, RequestPartResponseDto } from './dto/request-part.dto';
+} from './dto/save-diagnostics.dto.js';
+import {
+  RequestPartDto,
+  RequestPartResponseDto,
+} from './dto/request-part.dto.js';
 import {
   CreateMediaDto,
   MediaUploadPolicyDto,
   RequestMediaUploadDto,
   WorkshopMediaDto,
-} from './dto/media.dto';
+} from './dto/media.dto.js';
 import {
   MAX_VOICE_NOTE_BYTES,
   VoiceNoteDraftResponseDto,
-} from './dto/voice-note.dto';
-import { MechanicExecutionService } from './mechanic-execution.service';
-import { MechanicIdentityService } from './mechanic-identity.service';
-import { MechanicMediaService } from './mechanic-media.service';
-import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
+} from './dto/voice-note.dto.js';
+import { MechanicExecutionService } from './mechanic-execution.service.js';
+import { MechanicIdentityService } from './mechanic-identity.service.js';
+import { MechanicMediaService } from './mechanic-media.service.js';
+import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
 
 @ApiTags('mechanic')
 @MechanicAccessible()

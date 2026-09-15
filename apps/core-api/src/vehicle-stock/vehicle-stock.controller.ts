@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { VehicleStockStatus } from '@prisma/client';
-import { VehicleStockQueryService } from './vehicle-stock-query.service';
-import { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto';
+import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
+import { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 
 @ApiTags('vehicle-stock')
 @Controller('vehicle-stock')

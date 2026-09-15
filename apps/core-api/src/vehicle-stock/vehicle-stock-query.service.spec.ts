@@ -1,7 +1,7 @@
 import { VehicleInventoryRole, VehicleStockStatus } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VehicleStockQueryService } from './vehicle-stock-query.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 
 describe('VehicleStockQueryService', () => {
   const tenantId = 'tenant-1';

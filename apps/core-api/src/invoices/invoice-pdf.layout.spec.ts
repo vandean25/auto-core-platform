@@ -1,4 +1,4 @@
-import { escapeHtml } from '../common/pdf/pdf-layout';
+import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
   buildInvoiceCustomerSection,
   buildInvoiceDocumentStyles,
@@ -10,8 +10,8 @@ import {
   buildInvoiceNotesSection,
   buildInvoiceTotalsSection,
   buildInvoiceVehicleSection,
-} from './invoice-pdf.layout';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+} from './invoice-pdf.layout.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 describe('invoice-pdf.layout', () => {
   const createSnapshot = (): InvoiceSnapshot => ({

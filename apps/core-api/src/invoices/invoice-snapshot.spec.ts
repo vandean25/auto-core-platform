@@ -1,4 +1,4 @@
-import { buildInvoiceSnapshot } from './invoice-snapshot';
+import { buildInvoiceSnapshot } from './invoice-snapshot.js';
 import {
   CustomerType,
   Prisma,

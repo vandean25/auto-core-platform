@@ -1,4 +1,4 @@
-import { escapeHtml } from '../common/pdf/pdf-layout';
+import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
   buildWorkshopCustomerSection,
   buildWorkshopDocumentStyles,
@@ -10,8 +10,8 @@ import {
   buildWorkshopReportedIssueSection,
   buildWorkshopTasksSection,
   buildWorkshopVehicleSection,
-} from './workshop-pdf.layout';
-import type { WorkshopOrderForPdf } from './workshop-pdf.types';
+} from './workshop-pdf.layout.js';
+import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 describe('workshop-pdf.layout', () => {
   const createBaseOrder = (): WorkshopOrderForPdf => ({

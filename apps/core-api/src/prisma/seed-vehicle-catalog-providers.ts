@@ -1,8 +1,8 @@
 import { CatalogOemConcernCode, Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
-import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
-import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids.js';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 
 type CatalogSeedClient =
   | Pick<

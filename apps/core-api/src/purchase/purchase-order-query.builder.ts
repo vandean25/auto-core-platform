@@ -1,7 +1,10 @@
-import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
+import {
+  QueryBuilder,
+  type QueryParams,
+} from '../common/utils/query-builder.js';
 import type { Prisma } from '@prisma/client';
-import type { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto';
-import type { PaginatedPurchaseOrderResult } from './purchase.service';
+import type { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto.js';
+import type { PaginatedPurchaseOrderResult } from './purchase.service.js';
 
 const SORT_WHITELIST = [
   'order_number',

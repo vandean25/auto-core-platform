@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmployeeDeleteResponseDto } from './dto/employee.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { EmployeeDeleteResponseDto } from './dto/employee.dto.js';
 
 @Injectable()
 export class EmployeeLifecycleService {

@@ -15,8 +15,8 @@ import {
   NotFoundError,
   BadRequestError,
   ValidationError,
-} from '../errors/application-errors';
-import { TenantContextStorage } from '../services/tenant-context.storage';
+} from '../errors/application-errors.js';
+import { TenantContextStorage } from '../services/tenant-context.storage.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;

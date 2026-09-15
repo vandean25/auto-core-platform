@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { CatalogProviderError } from './providers/catalog-provider.error';
+import { CatalogProviderError } from './providers/catalog-provider.error.js';
 import type {
   CatalogAssemblyGroupNode,
   CatalogFallbackReason,
@@ -9,8 +9,8 @@ import type {
   CatalogSearchConcern,
   CatalogSearchContext,
   CatalogSearchSource,
-} from './providers/catalog-provider.types';
-import { CatalogAdapterRegistry } from './catalog-adapter.registry';
+} from './providers/catalog-provider.types.js';
+import { CatalogAdapterRegistry } from './catalog-adapter.registry.js';
 
 export type CatalogExternalSearchResult = {
   concern: CatalogSearchConcern;

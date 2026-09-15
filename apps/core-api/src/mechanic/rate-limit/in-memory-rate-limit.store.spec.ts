@@ -1,5 +1,5 @@
-import { InMemoryRateLimitStore } from './in-memory-rate-limit.store';
-import type { Clock } from './rate-limit.store';
+import { InMemoryRateLimitStore } from './in-memory-rate-limit.store.js';
+import type { Clock } from './rate-limit.store.js';
 
 class FakeClock implements Clock {
   constructor(private currentMs: number) {}

@@ -1,6 +1,8 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DOCUMENTED_ENV_KEYS, EnvValidationError, validateEnv } from './env';
+import { DOCUMENTED_ENV_KEYS, EnvValidationError, validateEnv } from './env.js';
 
 const VALID_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
 const SHORT_ENCRYPTION_KEY = Buffer.alloc(16, 9).toString('base64');

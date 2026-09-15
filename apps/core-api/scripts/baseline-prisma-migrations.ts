@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 import {
   interpretPrismaCliSpawn,
   spawnLocalPrisma,
-} from './local-prisma-cli';
+} from './local-prisma-cli.js';
 
 export type BaselinePrismaOptions = {
   appliedMigration: string;
@@ -53,7 +54,7 @@ function readCliOption(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-if (require.main === module) {
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     runBaselinePrismaMigrationsCli();
   } catch (error: unknown) {

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { LaborController } from './labor.controller';
-import { LaborService } from './labor.service';
-import { LaborCategoryService } from './labor-category.service';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { LaborController } from './labor.controller.js';
+import { LaborService } from './labor.service.js';
+import { LaborCategoryService } from './labor-category.service.js';
 
 @Module({
   imports: [PrismaModule],

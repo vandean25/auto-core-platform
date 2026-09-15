@@ -1,4 +1,4 @@
-import { seedTenantFoundation } from './tenant-foundation.fixture';
+import { seedTenantFoundation } from './tenant-foundation.fixture.js';
 
 describe('tenant-foundation.fixture', () => {
   it('creates tenant, legal entity, main site, and system storage locations', async () => {

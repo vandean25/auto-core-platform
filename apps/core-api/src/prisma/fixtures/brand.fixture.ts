@@ -1,6 +1,6 @@
-import { normalizeVehicleMakeAlias } from '../../catalog/vehicle-make-alias.util';
-import { seedVehicleCatalogProviders } from '../seed-vehicle-catalog-providers';
-import type { SeedPrismaClient, BrandContext } from './types';
+import { normalizeVehicleMakeAlias } from '../../catalog/vehicle-make-alias.util.js';
+import { seedVehicleCatalogProviders } from '../seed-vehicle-catalog-providers.js';
+import type { SeedPrismaClient, BrandContext } from './types.js';
 
 export const DUAL_BRANDS = [
   'Volkswagen',

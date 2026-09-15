@@ -5,16 +5,16 @@ import {
   WorkshopOpeningHour,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   PlannerBookingDto,
   PlannerGridResponseDto,
   PlannerHolidayDto,
   PlannerQueryDto,
-} from './dto/workshop-planner.dto';
-import { WorkshopOpeningHourDto } from './dto/workshop-settings.dto';
+} from './dto/workshop-planner.dto.js';
+import { WorkshopOpeningHourDto } from './dto/workshop-settings.dto.js';
 import {
   eachLocalDate,
   formatLocalDate,
@@ -23,8 +23,8 @@ import {
   parseHhMm,
   parseLocalDate,
   zonedWallClockToUtc,
-} from './workshop-planner.time';
-import { WorkshopSettingsService } from './workshop-settings.service';
+} from './workshop-planner.time.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
 
 const MAX_RANGE_MS = 8 * 24 * 60 * 60 * 1000;
 const ACTIVE_STATUSES: WorkshopOrderStatus[] = [

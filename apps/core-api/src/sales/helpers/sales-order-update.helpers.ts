@@ -3,12 +3,12 @@ import { Prisma, SalesOrderStatus } from '@prisma/client';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../../common/utils/status-transition';
-import type { CreateSalesOrderItemDto } from '../sales-order/dto/create-sales-order.dto';
+} from '../../common/utils/status-transition.js';
+import type { CreateSalesOrderItemDto } from '../sales-order/dto/create-sales-order.dto.js';
 import {
   assertCatalogItemsBelongToTenant,
   type TenantScopedPrisma,
-} from './sales-tenant-validation.helpers';
+} from './sales-tenant-validation.helpers.js';
 
 export const SALES_ORDER_NEXT_STATUS: Record<
   SalesOrderStatus,

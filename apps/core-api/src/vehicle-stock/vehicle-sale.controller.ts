@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { VehicleSaleService } from './vehicle-sale.service';
-import { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto';
-import { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto';
+import { VehicleSaleService } from './vehicle-sale.service.js';
+import { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
+import { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 
 @ApiTags('vehicle-sales')
 @Controller('vehicle-sales')

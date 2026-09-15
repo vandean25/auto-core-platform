@@ -2,7 +2,7 @@ import { PlatformAdminRole } from '@prisma/client';
 import {
   parseSeedPlatformAdminArgs,
   seedPlatformAdmin,
-} from './seed-platform-admin';
+} from './seed-platform-admin.js';
 
 describe('parseSeedPlatformAdminArgs', () => {
   it('fails when --email is missing', () => {

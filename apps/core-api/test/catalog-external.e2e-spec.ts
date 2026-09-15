@@ -2,17 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AuthService } from '../src/auth/auth.service';
-import { createGlobalValidationPipe } from '../src/common';
-import { SANDBOX_CATALOG_QUERY } from '../src/catalog/catalog-adapter-ids';
+import { AuthService } from '../src/auth/auth.service.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { SANDBOX_CATALOG_QUERY } from '../src/catalog/catalog-adapter-ids.js';
 import {
   signCatalogHitPayload,
   verifyCatalogHitPayload,
-} from '../src/catalog/catalog-hit-payload';
-import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers';
-import { createIdentityInputFingerprint } from '../src/vehicle/vehicle-identity.util';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+} from '../src/catalog/catalog-hit-payload.js';
+import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers.js';
+import { createIdentityInputFingerprint } from '../src/vehicle/vehicle-identity.util.js';
+import { AppModule } from '../src/app.module.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -20,8 +20,8 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 function resignCatalogHitToken(
   token: string,

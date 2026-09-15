@@ -1,5 +1,5 @@
-import { isInvoiceSnapshot, parseInvoiceSnapshot } from './invoice-snapshot.validation';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import { isInvoiceSnapshot, parseInvoiceSnapshot } from './invoice-snapshot.validation.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 const validSnapshot: InvoiceSnapshot = {
   id: 'inv-1',

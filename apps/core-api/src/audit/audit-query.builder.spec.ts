@@ -3,7 +3,7 @@ import {
   AuditQueryBuilder,
   mapAuditLogRecordToDto,
   redactAuditResponseValue,
-} from './audit-query.builder';
+} from './audit-query.builder.js';
 
 describe('AuditQueryBuilder', () => {
   const tenantId = 'tenant-xyz';

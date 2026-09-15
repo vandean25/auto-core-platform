@@ -1,4 +1,4 @@
-import type { SystemPrismaClient } from '../../prisma/system-prisma.types';
+import type { SystemPrismaClient } from '../../prisma/system-prisma.types.js';
 
 /**
  * The ONLY production writer of `User.active_tenant_id` (ruling 11/50).

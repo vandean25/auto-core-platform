@@ -5,7 +5,7 @@ import {
   calculateLineAmounts,
   validatePoItemsAvailability,
   PoItemWithOrderVendor,
-} from './purchase-invoice.helpers';
+} from './purchase-invoice.helpers.js';
 
 describe('purchase-invoice.helpers', () => {
   describe('aggregatePoItemTotals', () => {

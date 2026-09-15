@@ -1,4 +1,4 @@
-export { CommonModule } from './common.module';
+export { CommonModule } from './common.module.js';
 
 // common barrel — single import path for shared utilities
 export {
@@ -8,7 +8,7 @@ export {
   type PaginationMeta,
   type FindManyParams,
   type FindManyPaginatedParams,
-} from './repositories/prisma-repository';
+} from './repositories/prisma-repository.js';
 
 export {
   ApplicationError,
@@ -16,9 +16,9 @@ export {
   ConflictError,
   BadRequestError,
   ValidationError,
-} from './errors/application-errors';
+} from './errors/application-errors.js';
 
-export { GlobalExceptionFilter } from './filters/global-exception.filter';
+export { GlobalExceptionFilter } from './filters/global-exception.filter.js';
 export {
   HttpLoggingInterceptor,
   type HttpRequestLog,
@@ -28,9 +28,9 @@ export {
   type LogLevelOverride,
   type SetLogLevelOptions,
   type LogLevelStatus,
-} from './logging';
+} from './logging/index.js';
 
-export { CloudTasksService } from './services/cloud-tasks.service';
+export { CloudTasksService } from './services/cloud-tasks.service.js';
 export {
   PdfStorage,
   PdfTaskTenantGuard,
@@ -40,13 +40,13 @@ export {
   type PdfTaskClaims,
   type PdfTaskKind,
   type SignedPdfTaskPayload,
-} from './pdf';
-export { PlaywrightBrowserService } from './services/playwright-browser.service';
-export { createGlobalValidationPipe } from './validation.pipe';
+} from './pdf/index.js';
+export { PlaywrightBrowserService } from './services/playwright-browser.service.js';
+export { createGlobalValidationPipe } from './validation.pipe.js';
 export {
   STALE_STATUS_CONFLICT_MESSAGE,
   bindStatusUpdateMany,
   guardedStatusUpdate,
   type StatusUpdateMany,
   type GuardedStatusUpdateInput,
-} from './utils/status-transition';
+} from './utils/status-transition.js';

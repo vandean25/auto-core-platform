@@ -8,14 +8,14 @@ import {
   Delete,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
-import { LocationService } from './location.service';
+import { LocationService } from './location.service.js';
 
-import { CreateLocationDto } from './dto/create-location.dto';
-import { UpdateLocationDto } from './dto/update-location.dto';
+import { CreateLocationDto } from './dto/create-location.dto.js';
+import { UpdateLocationDto } from './dto/update-location.dto.js';
 import {
   LocationResponseDto,
   LocationTreeNodeDto,
-} from './dto/location-response.dto';
+} from './dto/location-response.dto.js';
 
 @Controller('inventory/locations')
 export class LocationController {

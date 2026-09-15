@@ -1,4 +1,4 @@
-import { resolveRuntimeDatabaseUrl } from './runtime-database-url';
+import { resolveRuntimeDatabaseUrl } from './runtime-database-url.js';
 
 describe('resolveRuntimeDatabaseUrl', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;

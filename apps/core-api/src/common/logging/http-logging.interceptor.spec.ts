@@ -1,7 +1,7 @@
 import { ExecutionContext, CallHandler, HttpException, HttpStatus } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
-import { HttpLoggingInterceptor } from './http-logging.interceptor';
-import { TenantContextStorage } from '../services/tenant-context.storage';
+import { HttpLoggingInterceptor } from './http-logging.interceptor.js';
+import { TenantContextStorage } from '../services/tenant-context.storage.js';
 
 describe('HttpLoggingInterceptor', () => {
   let interceptor: HttpLoggingInterceptor;

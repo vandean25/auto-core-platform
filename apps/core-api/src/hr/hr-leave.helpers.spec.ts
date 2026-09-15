@@ -7,7 +7,7 @@ import {
   toUtcDateOnly,
   validateDateRange,
   validateLeaveTransition,
-} from './hr-leave.helpers';
+} from './hr-leave.helpers.js';
 
 describe('hr-leave.helpers', () => {
   describe('toUtcDateOnly', () => {

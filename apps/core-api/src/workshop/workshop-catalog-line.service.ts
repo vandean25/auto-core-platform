@@ -13,11 +13,11 @@ import {
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
-import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
-import { verifyCatalogHitPayload } from '../catalog/catalog-hit-payload';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import type { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util.js';
+import { verifyCatalogHitPayload } from '../catalog/catalog-hit-payload.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto.js';
 
 const MAX_CATALOG_LINE_TRANSACTION_ATTEMPTS = 2;
 

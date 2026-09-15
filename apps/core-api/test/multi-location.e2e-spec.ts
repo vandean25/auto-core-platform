@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { AuthService } from '../src/auth/auth.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { LocationService } from '../src/inventory/location.service';
-import { SiteService } from '../src/site/site.service';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { LocationService } from '../src/inventory/location.service.js';
+import { SiteService } from '../src/site/site.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -19,8 +19,8 @@ import {
   createTestTenant,
   runWithTenantContext,
   type TestTenantResult,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 describe('Multi-Location guards (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;

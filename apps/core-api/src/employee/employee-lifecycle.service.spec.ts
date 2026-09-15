@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmployeeLifecycleService } from './employee-lifecycle.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { EmployeeLifecycleService } from './employee-lifecycle.service.js';
 
 describe('EmployeeLifecycleService', () => {
   let service: EmployeeLifecycleService;

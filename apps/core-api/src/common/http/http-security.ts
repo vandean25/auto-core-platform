@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import helmet from 'helmet';
-import type { AppEnv } from '../../config/env';
-import { resolveCorsOrigins } from './cors-origins';
+import type { AppEnv } from '../../config/env.js';
+import { resolveCorsOrigins } from './cors-origins.js';
 
 export interface HttpSecurityOptions {
   frontendUrl?: string;

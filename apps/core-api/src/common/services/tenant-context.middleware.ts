@@ -1,7 +1,7 @@
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import { TenantContextStorage } from './tenant-context.storage';
+import { TenantContextStorage } from './tenant-context.storage.js';
 
 function getNormalizedHeaderValue(
   value: string | string[] | undefined,

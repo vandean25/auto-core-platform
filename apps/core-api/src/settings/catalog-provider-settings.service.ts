@@ -10,15 +10,15 @@ import {
   type CatalogProviderSettings,
   type LaborCategory,
 } from '@prisma/client';
-import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CatalogProviderDefaultLaborCategoryDto,
   CatalogProviderOemConcernResponseDto,
   CatalogProviderSettingsResponseDto,
   UpdateCatalogProviderSettingsDto,
-} from './dto/catalog-provider-settings.dto';
+} from './dto/catalog-provider-settings.dto.js';
 
 const OEM_CONCERN_CODES: CatalogOemConcernCode[] = [
   'BMW',

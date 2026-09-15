@@ -2,7 +2,7 @@ import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import {
   parseSeedTenantMemberArgs,
   seedTenantMember,
-} from './seed-tenant-member';
+} from './seed-tenant-member.js';
 
 describe('parseSeedTenantMemberArgs', () => {
   it('fails when --email is missing', () => {

@@ -1,7 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantAdminUser } from './site.constants';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantAdminUser } from './site.constants.js';
 
 export function assertTenantAdmin(tenantContext: TenantContextService): void {
   const user = tenantContext.getAuthenticatedUser() as

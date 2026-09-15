@@ -4,9 +4,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PdfTaskTenantGuard } from './pdf-task-tenant.guard';
-import { PDF_TASK_KIND_KEY, signPdfTaskPayload } from './pdf-task-payload';
-import { TenantContextService } from '../services/tenant-context.service';
+import { PdfTaskTenantGuard } from './pdf-task-tenant.guard.js';
+import { PDF_TASK_KIND_KEY, signPdfTaskPayload } from './pdf-task-payload.js';
+import { TenantContextService } from '../services/tenant-context.service.js';
 
 describe('PdfTaskTenantGuard', () => {
   const secret = 'valid-secret';

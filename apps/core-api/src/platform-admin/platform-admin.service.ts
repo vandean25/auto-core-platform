@@ -5,8 +5,8 @@ import {
   CreatePlatformTenantDto,
   ListPlatformTenantsQueryDto,
   UpdatePlatformTenantDto,
-} from './dto/platform-tenant.dto';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
+} from './dto/platform-tenant.dto.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
 type PlatformTenantRecord = PrismaTypes.TenantGetPayload<{
   include: {

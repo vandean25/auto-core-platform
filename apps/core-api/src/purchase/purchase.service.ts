@@ -4,25 +4,25 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   PartsReservationStatus,
   PurchaseOrderStatus,
   Prisma,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
-import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers';
-import { generatePurchaseOrderNumber } from './purchase-order-number.util';
-import { PurchaseReceiptService } from './purchase-receipt.service';
+} from '../common/utils/status-transition.js';
+import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers.js';
+import { generatePurchaseOrderNumber } from './purchase-order-number.util.js';
+import { PurchaseReceiptService } from './purchase-receipt.service.js';
 import {
   lockPurchaseOrderHeader,
   lockPurchaseOrderItems,
   lockPartsReservations,
-} from './purchase-lock.helpers';
+} from './purchase-lock.helpers.js';
 
 import Decimal = Prisma.Decimal;
 

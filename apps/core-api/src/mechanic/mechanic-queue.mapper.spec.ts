@@ -9,7 +9,7 @@ import {
   buildScheduledDateFilter,
   mapToMechanicQueueItem,
   mapToMechanicTaskDetail,
-} from './mechanic-queue.mapper';
+} from './mechanic-queue.mapper.js';
 
 describe('mechanic-queue.mapper', () => {
   it('builds scheduled date filter correctly', () => {

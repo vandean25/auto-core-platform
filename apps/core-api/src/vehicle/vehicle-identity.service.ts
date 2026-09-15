@@ -8,20 +8,20 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
-import { VEHICLE_IDENTITY_PROVIDER } from './vehicle-identity.provider';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util.js';
+import { VEHICLE_IDENTITY_PROVIDER } from './vehicle-identity.provider.js';
 import type {
   VehicleIdentityProvider,
   VehicleIdentityProviderResult,
-} from './vehicle-identity.provider';
+} from './vehicle-identity.provider.js';
 import {
   VEHICLE_IDENTITY_RESET,
   createIdentityInputFingerprint,
   normalizeVehicleIdentityValue,
   stripVehicleIdentityResolutionState,
-} from './vehicle-identity.util';
+} from './vehicle-identity.util.js';
 
 const MAX_IDENTITY_TRANSACTION_ATTEMPTS = 2;
 

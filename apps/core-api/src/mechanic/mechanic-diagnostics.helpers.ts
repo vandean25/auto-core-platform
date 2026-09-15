@@ -1,6 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type { SaveDiagnosticsDto } from './dto/save-diagnostics.dto';
+import type { SaveDiagnosticsDto } from './dto/save-diagnostics.dto.js';
 
 /**
  * Validates and accepts a pending voice note draft, returning its translated text.

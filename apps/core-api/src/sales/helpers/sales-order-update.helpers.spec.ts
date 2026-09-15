@@ -11,7 +11,7 @@ import {
   prepareReplacementItems,
   reconcileSalesOrderItems,
   sumSalesOrderItemTotals,
-} from './sales-order-update.helpers';
+} from './sales-order-update.helpers.js';
 
 describe('sales-order-update.helpers', () => {
   describe('assertSalesOrderStatusTransition', () => {

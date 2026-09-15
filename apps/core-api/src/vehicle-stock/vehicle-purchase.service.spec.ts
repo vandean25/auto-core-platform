@@ -12,11 +12,11 @@ import {
   VehiclePurchaseStatus,
   VehicleStockStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util';
-import { VehicleLedgerService } from './vehicle-ledger.service';
-import { VehiclePurchaseService } from './vehicle-purchase.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
+import { VehiclePurchaseService } from './vehicle-purchase.service.js';
 
 describe('VehiclePurchaseService', () => {
   const tenantId = 'tenant-1';

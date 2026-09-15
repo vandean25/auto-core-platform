@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CatalogService } from './catalog.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { CatalogService } from './catalog.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { NotFoundException } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 describe('CatalogService Search (Mocked)', () => {
   let service: CatalogService;

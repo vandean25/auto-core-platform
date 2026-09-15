@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { LocationType, Prisma, TransactionType } from '@prisma/client';
-import type { AtpService } from '../../inventory/atp.service';
-import { processSaleInventoryDeduction } from './invoice-inventory.helpers';
+import type { AtpService } from '../../inventory/atp.service.js';
+import { processSaleInventoryDeduction } from './invoice-inventory.helpers.js';
 
 describe('invoice-inventory.helpers', () => {
   const tx = {

@@ -13,7 +13,7 @@ import {
   WorkshopLineItemType,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
-import { mockPrisma, resetWorkshopMocks } from './workshop.spec.support';
+import { mockPrisma, resetWorkshopMocks } from './workshop.spec.support.js';
 import {
   aggregateRequestedPicks,
   buildLedgerTransactions,
@@ -26,13 +26,13 @@ import {
   getUnstagedQuantity,
   loadAndLockPickContext,
   loadSourceStocksAndLocations,
-} from './workshop-pick-allocation.helpers';
+} from './workshop-pick-allocation.helpers.js';
 import type {
   PickLine,
   ReservationSlice,
   SourceStock,
   StagePlan,
-} from './workshop-pick-allocation.helpers';
+} from './workshop-pick-allocation.helpers.js';
 
 const Decimal = Prisma.Decimal;
 

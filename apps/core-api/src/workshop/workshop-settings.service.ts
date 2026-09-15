@@ -8,20 +8,20 @@ import type {
   Site,
   WorkshopOpeningHour,
 } from '@prisma/client';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   UpdateWorkshopSettingsDto,
   WorkshopOpeningHourDto,
   WorkshopSettingsResponseDto,
-} from './dto/workshop-settings.dto';
+} from './dto/workshop-settings.dto.js';
 import {
   DEFAULT_OPENING_HOURS,
   SLOT_MINUTES,
   isOpenWindowValid,
   isValidIanaTimeZone,
-} from './workshop-hours.defaults';
+} from './workshop-hours.defaults.js';
 
 type SiteWithHours = Site & {
   openingHours: WorkshopOpeningHour[];

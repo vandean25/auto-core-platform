@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CustomerType } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class CustomerResponseDto {
   @ApiProperty()

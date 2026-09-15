@@ -1,19 +1,19 @@
-import './instrument';
+import './instrument.js';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module.js';
 import {
   createGlobalValidationPipe,
   GlobalExceptionFilter,
   HttpLoggingInterceptor,
   LogLevelService,
-} from './common';
-import { validateEnv } from './config/env';
-import { configureHttpSecurity } from './common/http/http-security';
+} from './common/index.js';
+import { validateEnv } from './config/env.js';
+import { configureHttpSecurity } from './common/http/http-security.js';
 import {
   inspectRuntimeDatabaseUrls,
   logRuntimeDatabaseUrlStatus,
   requireRuntimePooler,
-} from './prisma/runtime-database-url-health';
+} from './prisma/runtime-database-url-health.js';
 
 async function bootstrap() {
   const env = validateEnv();

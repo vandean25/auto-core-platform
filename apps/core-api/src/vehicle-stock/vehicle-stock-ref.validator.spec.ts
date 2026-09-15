@@ -3,7 +3,7 @@ import {
   assertTenantCustomerExists,
   assertTenantStorageLocationExists,
   assertTenantVendorExists,
-} from './vehicle-stock-ref.validator';
+} from './vehicle-stock-ref.validator.js';
 
 describe('vehicle-stock-ref.validator', () => {
   const tenantId = 'tenant-123';

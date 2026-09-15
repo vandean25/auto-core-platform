@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AdminLogLevelController } from './admin-log-level.controller';
-import { LogLevelService } from '../common/logging/log-level.service';
+import { AdminLogLevelController } from './admin-log-level.controller.js';
+import { LogLevelService } from '../common/logging/log-level.service.js';
 import type { Request } from 'express';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 
 describe('AdminLogLevelController', () => {
   let controller: AdminLogLevelController;

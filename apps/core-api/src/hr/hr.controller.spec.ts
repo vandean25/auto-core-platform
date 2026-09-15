@@ -5,10 +5,10 @@ import {
   EmployeeRole,
   LeaveRequestStatus,
 } from '@prisma/client';
-import { HrController } from './hr.controller';
-import { HrAttendanceService } from './hr-attendance.service';
-import { HrLeaveService } from './hr-leave.service';
-import { HrWorkScheduleService } from './hr-work-schedule.service';
+import { HrController } from './hr.controller.js';
+import { HrAttendanceService } from './hr-attendance.service.js';
+import { HrLeaveService } from './hr-leave.service.js';
+import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 
 describe('HrController', () => {
   let controller: HrController;

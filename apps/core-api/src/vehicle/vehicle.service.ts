@@ -4,24 +4,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { Prisma } from '@prisma/client';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
+import { CreateVehicleDto } from './dto/create-vehicle.dto.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   invoicesHistorySlice,
   salesOrdersHistorySlice,
   workshopOrdersHistorySlice,
-} from '../common/queries/entity-history.query';
-import { DEFAULT_HISTORY_LIMIT } from '../common/utils/history-pagination.util';
+} from '../common/queries/entity-history.query.js';
+import { DEFAULT_HISTORY_LIMIT } from '../common/utils/history-pagination.util.js';
 import {
   VEHICLE_IDENTITY_RESET,
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
   stripVehicleIdentityResolutionState,
-} from './vehicle-identity.util';
-import { VehicleQueryBuilder } from './vehicle-query.builder';
+} from './vehicle-identity.util.js';
+import { VehicleQueryBuilder } from './vehicle-query.builder.js';
 
 interface ExistingVehicleIdentity {
   id: string;

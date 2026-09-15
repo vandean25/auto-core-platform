@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SalesOrderStatus } from '@prisma/client';
-import { PaginationMetaDto } from '../../../common/dto/paginated-response.dto';
-import { CatalogItemResponseDto } from '../../../inventory/dto/inventory-response.dto';
-import { CustomerResponseDto } from '../../../customer/dto/customer-response.dto';
-import { VehicleResponseDto } from '../../../vehicle/dto/vehicle-response.dto';
+import { PaginationMetaDto } from '../../../common/dto/paginated-response.dto.js';
+import { CatalogItemResponseDto } from '../../../inventory/dto/inventory-response.dto.js';
+import { CustomerResponseDto } from '../../../customer/dto/customer-response.dto.js';
+import { VehicleResponseDto } from '../../../vehicle/dto/vehicle-response.dto.js';
 
 export class SalesOrderInvoiceSummaryDto {
   @ApiProperty()

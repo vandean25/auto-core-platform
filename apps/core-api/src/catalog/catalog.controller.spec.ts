@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CatalogController } from './catalog.controller';
-import { CatalogExternalService } from './catalog-external.service';
-import { CatalogService } from './catalog.service';
+import { CatalogController } from './catalog.controller.js';
+import { CatalogExternalService } from './catalog-external.service.js';
+import { CatalogService } from './catalog.service.js';
 
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 

@@ -4,11 +4,11 @@ import {
   createIdentityInputFingerprint,
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
-} from './vehicle-identity.util';
+} from './vehicle-identity.util.js';
 import {
   SandboxVehicleIdentityProvider,
   VEHICLE_IDENTITY_PROVIDER,
-} from './vehicle-identity.provider';
+} from './vehicle-identity.provider.js';
 
 describe('vehicle identity utilities', () => {
   describe('normalizeVehicleIdentityValue()', () => {

@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { CloudTasksClient } from '@google-cloud/tasks';
 import * as Sentry from '@sentry/node';
-import { type PdfTaskKind, signPdfTaskPayload } from '../pdf/pdf-task-payload';
+import {
+  type PdfTaskKind,
+  signPdfTaskPayload,
+} from '../pdf/pdf-task-payload.js';
 
 const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,

@@ -1,4 +1,4 @@
-import type { AuditJsonValue } from './audit.types';
+import type { AuditJsonValue } from './audit.types.js';
 
 export const REDACTED_VALUE = '[REDACTED]';
 

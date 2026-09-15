@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { FinanceService } from '../finance/finance.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { FinanceService } from '../finance/finance.service.js';
 import {
   DiscountType,
   InvoiceStatus,
@@ -12,13 +12,13 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
-import { buildInvoiceSnapshot } from './invoice-snapshot';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { buildInvoiceSnapshot } from './invoice-snapshot.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
+} from '../common/utils/status-transition.js';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;

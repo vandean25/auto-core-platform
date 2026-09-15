@@ -1,5 +1,5 @@
-import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
-import type { WorkshopOrderForPdf } from './workshop-pdf.types';
+import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
+import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 describe('WorkshopPdfRenderer', () => {
   const createOrder = (

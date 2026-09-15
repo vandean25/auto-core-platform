@@ -1,13 +1,13 @@
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { InvoiceStatus, SalesOrderStatus } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { FinanceService } from '../finance/finance.service';
-import { AtpService } from '../inventory/atp.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SalesService } from './sales.service';
-import { InvoiceFinalizationService } from './invoice-finalization.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { FinanceService } from '../finance/finance.service.js';
+import { AtpService } from '../inventory/atp.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SalesService } from './sales.service.js';
+import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
 describe('SalesService', () => {
   let service: SalesService;

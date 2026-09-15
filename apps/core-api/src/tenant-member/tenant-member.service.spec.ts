@@ -1,10 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import { TenantMemberRole } from '@prisma/client';
 import type { Auth } from 'firebase-admin/auth';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { TenantMemberService } from './tenant-member.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { TenantMemberService } from './tenant-member.service.js';
 
 const mockSystemPrisma = {
   tenantMember: {

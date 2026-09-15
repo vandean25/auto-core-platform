@@ -16,7 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { EmployeeRole } from '@prisma/client';
-import { EmployeeService } from './employee.service';
+import { EmployeeService } from './employee.service.js';
 import {
   CreateEmployeeDto,
   EmployeeDeleteResponseDto,
@@ -24,7 +24,7 @@ import {
   EmployeesListResponseDto,
   ListEmployeesQueryDto,
   UpdateEmployeeDto,
-} from './dto/employee.dto';
+} from './dto/employee.dto.js';
 
 @ApiTags('employees')
 @Controller('employees')

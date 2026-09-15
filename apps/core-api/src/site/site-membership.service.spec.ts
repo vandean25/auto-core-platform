@@ -6,10 +6,10 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { SiteMembershipService } from './site-membership.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { SiteMembershipService } from './site-membership.service.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 

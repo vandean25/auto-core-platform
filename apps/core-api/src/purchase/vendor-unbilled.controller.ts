@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { PurchaseInvoiceService } from './purchase-invoice.service';
+import { PurchaseInvoiceService } from './purchase-invoice.service.js';
 import { ApiOkResponse, ApiQuery } from '@nestjs/swagger';
-import { UnbilledReceiptItemDto } from './dto/purchase-invoice-response.dto';
+import { UnbilledReceiptItemDto } from './dto/purchase-invoice-response.dto.js';
 
 @Controller('vendors')
 export class VendorUnbilledController {

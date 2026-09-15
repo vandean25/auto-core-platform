@@ -3,14 +3,14 @@ import { Prisma } from '@prisma/client';
 import {
   buildAuditChangeSet,
   normalizeAuditValue,
-} from '../audit/audit-diff.util';
-import { redactAuditSecrets } from '../audit/audit-redaction.util';
+} from '../audit/audit-diff.util.js';
+import { redactAuditSecrets } from '../audit/audit-redaction.util.js';
 import {
   TenantContextStorage,
   type RequestMeta,
-} from '../common/services/tenant-context.storage';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user';
-import { resolvePrismaModelDelegate } from './prisma-delegate';
+} from '../common/services/tenant-context.storage.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
+import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 
 type PrismaQueryArgs = {
   where?: Record<string, unknown>;

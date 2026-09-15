@@ -13,19 +13,19 @@ import {
   Prisma,
   StorageLocation,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   LedgerService,
   RecordTransactionParams,
-} from '../inventory/ledger.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { SiteService } from '../site/site.service';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+} from '../inventory/ledger.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteService } from '../site/site.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
+} from '../common/utils/status-transition.js';
 import {
   aggregateAndValidateReceiptItems,
   determinePostReceiptStatus,
@@ -33,14 +33,14 @@ import {
   isAllocatedReservation,
   IncomingReceiptItem,
   ValidatedAggregatedReceiptItem,
-} from './purchase-receipt.helpers';
+} from './purchase-receipt.helpers.js';
 import {
   lockPurchaseOrderHeader,
   lockPurchaseOrderItems,
   lockPartsReservations,
   lockWorkshopTaskLineItems,
   lockWorkshopTasks,
-} from './purchase-lock.helpers';
+} from './purchase-lock.helpers.js';
 
 import Decimal = Prisma.Decimal;
 

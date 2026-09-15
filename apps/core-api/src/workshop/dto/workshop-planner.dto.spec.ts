@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { PlannerQueryDto } from './workshop-planner.dto';
+import { PlannerQueryDto } from './workshop-planner.dto.js';
 
 describe('PlannerQueryDto', () => {
   it('accepts ISO from/to instants', async () => {

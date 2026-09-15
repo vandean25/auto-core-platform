@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import { PlaywrightBrowserService } from '../common';
-import { escapeHtml } from '../common/pdf/pdf-layout';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import { PlaywrightBrowserService } from '../common/index.js';
+import { escapeHtml } from '../common/pdf/pdf-layout.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import {
   buildInvoiceFooterTemplate,
   buildInvoiceHtmlDocument,
   type FormatDate,
-} from './invoice-pdf.layout';
+} from './invoice-pdf.layout.js';
 
 @Injectable()
 export class InvoicePdfRenderer {

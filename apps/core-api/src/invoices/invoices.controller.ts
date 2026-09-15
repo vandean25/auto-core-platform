@@ -16,11 +16,11 @@ import {
 } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
 import type { Readable } from 'node:stream';
-import { PdfWorker } from '../common';
-import { InvoicesService } from './invoices.service';
-import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto';
-import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
-import { InvoicePdfService } from './invoice-pdf.service';
+import { PdfWorker } from '../common/index.js';
+import { InvoicesService } from './invoices.service.js';
+import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
+import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
+import { InvoicePdfService } from './invoice-pdf.service.js';
 
 interface InvoicePdfPayload {
   filename: string;

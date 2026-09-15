@@ -4,10 +4,10 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { LocationType, Prisma } from '@prisma/client';
-import { AtpService } from './atp.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { AtpService } from './atp.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 describe('AtpService', () => {
   let service: AtpService;

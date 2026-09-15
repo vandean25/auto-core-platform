@@ -1,7 +1,10 @@
 import { NotFoundException } from '@nestjs/common';
-import type { PrismaService } from '../prisma/prisma.service';
-import { buildInvoiceSnapshot, type InvoiceSnapshot } from './invoice-snapshot';
-import { isInvoiceSnapshot } from './invoice-snapshot.validation';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import {
+  buildInvoiceSnapshot,
+  type InvoiceSnapshot,
+} from './invoice-snapshot.js';
+import { isInvoiceSnapshot } from './invoice-snapshot.validation.js';
 
 export async function resolveInvoiceSnapshot(
   prisma: PrismaService,

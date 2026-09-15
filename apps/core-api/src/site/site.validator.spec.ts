@@ -10,7 +10,7 @@ import {
   validateSiteCreateInput,
   validateSiteMembershipCreateInput,
   validateSiteUpdateInput,
-} from './site.validator';
+} from './site.validator.js';
 
 describe('site.validator', () => {
   describe('validateLegalEntityCreateInput', () => {

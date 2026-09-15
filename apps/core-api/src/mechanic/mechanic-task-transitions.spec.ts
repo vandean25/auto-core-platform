@@ -5,14 +5,14 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import type { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
+import type { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 import {
   closeLaborEntryAndTransitionTask,
   completeLaborAndTask,
   ensureOrderInProgress,
   pauseReasonToTaskStatus,
   startLaborAndTransitionTask,
-} from './mechanic-task-transitions';
+} from './mechanic-task-transitions.js';
 
 describe('mechanic-task-transitions', () => {
   const tenantId = 'tenant-1';

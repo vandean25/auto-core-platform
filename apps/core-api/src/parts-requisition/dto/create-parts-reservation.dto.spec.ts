@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
-import { CreatePartsReservationDto } from './create-parts-reservation.dto';
+import { CreatePartsReservationDto } from './create-parts-reservation.dto.js';
 
 const collectConstraintMessages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [

@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Param, Put, Patch } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { SalesService } from './sales.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { InvoiceResponseDto } from './dto/invoice-response.dto';
+import { SalesService } from './sales.service.js';
+import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
+import { InvoiceResponseDto } from './dto/invoice-response.dto.js';
 
 @Controller('sales')
 export class SalesController {

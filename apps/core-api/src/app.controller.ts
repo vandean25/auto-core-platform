@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
-import { AppService } from './app.service';
+import { AppService } from './app.service.js';
 
 @Controller()
 export class AppController {

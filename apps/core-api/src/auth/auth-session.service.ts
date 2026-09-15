@@ -3,17 +3,19 @@ import {
   Injectable,
   Optional,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { setActiveTenant } from '../common/services/user-active-tenant';
-import { getFirebaseAdminAuth } from './firebase-admin';
+import type { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { DASHBOARD_REALTIME_SERVICE_TOKEN } from '../dashboard-realtime/dashboard-realtime.tokens.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { setActiveTenant } from '../common/services/user-active-tenant.js';
+import { getFirebaseAdminAuth } from './firebase-admin.js';
 import type {
   AuthenticatedUser,
   PlatformAuthenticatedUser,
   TenantAuthenticatedUser,
-} from './types/authenticated-user';
+} from './types/authenticated-user.js';
 
 type AuthSessionClaims = {
   sub: string;
@@ -74,6 +76,7 @@ export class AuthSessionService {
   constructor(
     private readonly systemPrisma: SystemPrismaService,
     @Optional()
+    @Inject(DASHBOARD_REALTIME_SERVICE_TOKEN)
     private readonly dashboardRealtime?: DashboardRealtimeService,
   ) {}
 

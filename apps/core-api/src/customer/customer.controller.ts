@@ -9,13 +9,16 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
-import { CustomerService } from './customer.service';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto';
-import { CustomerResponseDto } from './dto/customer-response.dto';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
-import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
+import { CustomerService } from './customer.service.js';
+import { CreateCustomerDto } from './dto/create-customer.dto.js';
+import { UpdateCustomerDto } from './dto/update-customer.dto.js';
+import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto.js';
+import { CustomerResponseDto } from './dto/customer-response.dto.js';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import {
+  QueryBuilder,
+  type QueryParams,
+} from '../common/utils/query-builder.js';
 
 @Controller('customers')
 export class CustomerController {

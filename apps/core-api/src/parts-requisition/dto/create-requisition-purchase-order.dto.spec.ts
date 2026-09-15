@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
-import { CreateRequisitionPurchaseOrderDto } from './create-requisition-purchase-order.dto';
+import { CreateRequisitionPurchaseOrderDto } from './create-requisition-purchase-order.dto.js';
 
 const collectConstraintMessages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [

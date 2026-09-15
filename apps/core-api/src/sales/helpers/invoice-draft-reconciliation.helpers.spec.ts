@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InvoiceStatus } from '@prisma/client';
-import { reconcileDraftInvoiceItems } from './invoice-draft-reconciliation.helpers';
+import { reconcileDraftInvoiceItems } from './invoice-draft-reconciliation.helpers.js';
 
 describe('invoice-draft-reconciliation.helpers', () => {
   const tx = {

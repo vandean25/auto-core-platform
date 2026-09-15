@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WorkshopOrderStatus } from '@prisma/client';
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
-import { WorkshopOpeningHourDto } from './workshop-settings.dto';
+import { WorkshopOpeningHourDto } from './workshop-settings.dto.js';
 
 export class PlannerRangeDto {
   @ApiProperty()

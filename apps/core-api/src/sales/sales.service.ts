@@ -3,22 +3,22 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { FinanceService } from '../finance/finance.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { FinanceService } from '../finance/finance.service.js';
+import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
 import { InvoiceStatus } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import {
   assertCustomerBelongsToTenant,
   assertVehicleBelongsToTenant,
-} from './helpers/sales-tenant-validation.helpers';
+} from './helpers/sales-tenant-validation.helpers.js';
 import {
   buildFormattedInvoiceItems,
   buildInvoiceDueDate,
-} from './helpers/invoice-line-items.helpers';
-import { reconcileDraftInvoiceItems } from './helpers/invoice-draft-reconciliation.helpers';
-import { InvoiceFinalizationService } from './invoice-finalization.service';
+} from './helpers/invoice-line-items.helpers.js';
+import { reconcileDraftInvoiceItems } from './helpers/invoice-draft-reconciliation.helpers.js';
+import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
 @Injectable()
 export class SalesService {

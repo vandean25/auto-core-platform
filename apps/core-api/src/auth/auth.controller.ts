@@ -2,17 +2,20 @@ import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOkResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
-import { AuthSessionService, type AuthSession } from './auth-session.service';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
+import {
+  AuthSessionService,
+  type AuthSession,
+} from './auth-session.service.js';
 import {
   AuthSessionResponseDto,
   SwitchTenantDto,
-} from './dto/auth-session.dto';
-import type { AuthenticatedUser } from './types/authenticated-user';
+} from './dto/auth-session.dto.js';
+import type { AuthenticatedUser } from './types/authenticated-user.js';
 import {
   AUTH_ME_RATE_LIMIT,
   AUTH_SWITCH_TENANT_RATE_LIMIT,
-} from './auth-throttling';
+} from './auth-throttling.js';
 
 @Controller('auth')
 export class AuthController {

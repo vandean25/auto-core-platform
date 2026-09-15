@@ -1,6 +1,6 @@
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import { HrWorkdayService } from './hr-workday.service';
+import { HrWorkdayService } from './hr-workday.service.js';
 
 function createOpeningHours(): WorkshopOpeningHour[] {
   return [

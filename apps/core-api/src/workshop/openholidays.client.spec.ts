@@ -3,7 +3,7 @@ import {
   OpenHolidaysUnavailableError,
   fetchPublicHolidays,
   selectPublicHolidayDays,
-} from './openholidays.client';
+} from './openholidays.client.js';
 
 const publicAt = {
   id: 'oh-neujahr',

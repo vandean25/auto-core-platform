@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import {
   interpretPrismaCliSpawn,
   spawnLocalPrisma,
   type PrismaCliSpawnResult,
-} from './local-prisma-cli';
+} from './local-prisma-cli.js';
 
 export type CloudBuildMigrateExit = {
   exitCode: number;
@@ -59,7 +60,7 @@ function spawnPrismaMigrateDeploy(): PrismaCliSpawnResult {
   return spawnLocalPrisma(['migrate', 'deploy']);
 }
 
-if (require.main === module) {
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   const exitCode = runPrismaMigrateDeployCli(
     spawnPrismaMigrateDeploy,
     (text) => {

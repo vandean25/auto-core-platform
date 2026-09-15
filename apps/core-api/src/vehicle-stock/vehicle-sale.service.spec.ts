@@ -5,10 +5,10 @@ import {
   VehicleSaleStatus,
   VehicleStockStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VehicleLedgerService } from './vehicle-ledger.service';
-import { VehicleSaleService } from './vehicle-sale.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
+import { VehicleSaleService } from './vehicle-sale.service.js';
 
 describe('VehicleSaleService', () => {
   const tenantId = 'tenant-1';

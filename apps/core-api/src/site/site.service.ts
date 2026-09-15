@@ -6,9 +6,9 @@ import {
   Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateLegalEntityDto,
   CreateSiteDto,
@@ -16,25 +16,25 @@ import {
   SetActiveSiteDto,
   UpdateLegalEntityDto,
   UpdateSiteDto,
-} from './dto/site.dto';
-import { LegalEntityService } from './legal-entity.service';
+} from './dto/site.dto.js';
+import { LegalEntityService } from './legal-entity.service.js';
 import {
   assertActiveMemberWithSiteAccess,
   assertSiteReadAccess,
   assertTenantAdmin,
-} from './site.authorization';
+} from './site.authorization.js';
 import {
   countParkedVehicles,
   createSitePrerequisites,
   deleteSitePrerequisites,
-} from './site.helpers';
-import { SiteMembershipService } from './site-membership.service';
+} from './site.helpers.js';
+import { SiteMembershipService } from './site-membership.service.js';
 import {
   assertSiteDeletable,
   assertSiteUpdatePayloadValid,
   validateSiteCreateInput,
   validateSiteUpdateInput,
-} from './site.validator';
+} from './site.validator.js';
 
 type SiteContextUser = {
   id: string;

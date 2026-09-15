@@ -1,13 +1,13 @@
 import { Controller, Get, Patch, Post, Body } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { FinanceService } from './finance.service';
-import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
-import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
+import { FinanceService } from './finance.service.js';
+import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto.js';
+import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
 import {
   FinanceSettingsResponseDto,
   RevenueAnalyticsResponseDto,
   RevenueGroupResponseDto,
-} from './dto/finance-response.dto';
+} from './dto/finance-response.dto.js';
 
 @Controller('finance')
 export class FinanceController {

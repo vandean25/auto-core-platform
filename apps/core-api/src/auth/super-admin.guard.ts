@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
-import type { AuthenticatedUser } from './types/authenticated-user';
+import type { AuthenticatedUser } from './types/authenticated-user.js';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {

@@ -3,14 +3,14 @@ import {
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { DEFAULT_OPENING_HOURS } from '../workshop/workshop-hours.defaults';
+import { DEFAULT_OPENING_HOURS } from '../workshop/workshop-hours.defaults.js';
 import {
   CreateLegalEntityDto,
   CreateSiteDto,
   SUPPORTED_LEGAL_ENTITY_COUNTRIES,
   UpdateSiteDto,
-} from './dto/site.dto';
-import { SYSTEM_LOCATION_TYPE, TIMEZONE_BY_COUNTRY } from './site.constants';
+} from './dto/site.dto.js';
+import { SYSTEM_LOCATION_TYPE, TIMEZONE_BY_COUNTRY } from './site.constants.js';
 
 export type ResolvedSiteCreateDefaults = {
   timezone: string;

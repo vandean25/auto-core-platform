@@ -5,10 +5,10 @@ import {
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { signCatalogHitPayload } from '../catalog/catalog-hit-payload';
-import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { signCatalogHitPayload } from '../catalog/catalog-hit-payload.js';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const ORDER_ID = '00000000-0000-0000-0000-000000000002';

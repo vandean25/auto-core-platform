@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 const SEARCH_LIMIT = 20;
 

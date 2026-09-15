@@ -5,14 +5,14 @@ import { Test } from '@nestjs/testing';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import request from 'supertest';
-import { AuthController } from './auth.controller';
-import { AuthSessionService } from './auth-session.service';
+import { AuthController } from './auth.controller.js';
+import { AuthSessionService } from './auth-session.service.js';
 import {
   AUTH_ME_RATE_LIMIT,
   AUTH_SWITCH_TENANT_RATE_LIMIT,
   AUTH_THROTTLER_OPTIONS,
   shouldThrottleAuthRoute,
-} from './auth-throttling';
+} from './auth-throttling.js';
 
 describe('auth throttling', () => {
   it('selects only auth routes after the API prefix', () => {

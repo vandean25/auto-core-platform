@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { formatLocalDate } from '../workshop/workshop-planner.time';
-import { HrWorkScheduleService } from '../hr/hr-work-schedule.service';
-import { averageExpectedMinutesPerWorkday } from '../hr/hr-work-schedule.time';
-import { PrismaService } from '../prisma/prisma.service';
-import { mapEmployee, RawEmployee, toDateOnly } from './employee.helpers';
+import { formatLocalDate } from '../workshop/workshop-planner.time.js';
+import { HrWorkScheduleService } from '../hr/hr-work-schedule.service.js';
+import { averageExpectedMinutesPerWorkday } from '../hr/hr-work-schedule.time.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { mapEmployee, RawEmployee, toDateOnly } from './employee.helpers.js';
 
 const DEFAULT_TIME_ZONE = 'Europe/Vienna';
 

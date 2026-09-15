@@ -1,12 +1,12 @@
 import { LocationType, TransactionType } from '@prisma/client';
-import { seedFixedStagingTotes } from '../seed-staging-totes';
+import { seedFixedStagingTotes } from '../seed-staging-totes.js';
 import type {
   BrandContext,
   FinanceContext,
   InventoryContext,
   SeedPrismaClient,
   TenantFoundationContext,
-} from './types';
+} from './types.js';
 
 export const PART_CATEGORIES = [
   { name: 'Oil Filter', prefix: 'OF' },

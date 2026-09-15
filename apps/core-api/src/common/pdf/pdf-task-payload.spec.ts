@@ -3,7 +3,7 @@ import {
   PDF_TASK_KINDS,
   signPdfTaskPayload,
   verifyPdfTaskPayload,
-} from './pdf-task-payload';
+} from './pdf-task-payload.js';
 
 describe('pdf-task-payload', () => {
   const secret = 'worker-secret';

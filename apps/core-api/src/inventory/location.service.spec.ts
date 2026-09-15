@@ -1,4 +1,4 @@
-import { LocationService } from './location.service';
+import { LocationService } from './location.service.js';
 
 describe('LocationService', () => {
   it('lists only locations owned by the active site', async () => {

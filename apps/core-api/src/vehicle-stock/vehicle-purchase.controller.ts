@@ -9,9 +9,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { VehiclePurchaseService } from './vehicle-purchase.service';
-import { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
-import { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto';
+import { VehiclePurchaseService } from './vehicle-purchase.service.js';
+import { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto.js';
+import { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto.js';
 
 @ApiTags('vehicle-purchases')
 @Controller('vehicle-purchases')

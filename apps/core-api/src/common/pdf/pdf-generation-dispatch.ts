@@ -1,6 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import type { CloudTasksService } from '../services/cloud-tasks.service';
-import type { PdfTaskKind } from './pdf-task-payload';
+import type { CloudTasksService } from '../services/cloud-tasks.service.js';
+import type { PdfTaskKind } from './pdf-task-payload.js';
 
 export type PdfGenerationDispatchMode = 'enqueue' | 'inline';
 

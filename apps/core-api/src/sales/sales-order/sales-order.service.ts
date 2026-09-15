@@ -4,25 +4,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
-import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { CreateSalesOrderDto } from './dto/create-sales-order.dto.js';
+import { UpdateSalesOrderDto } from './dto/update-sales-order.dto.js';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
-import { FinanceService } from '../../finance/finance.service';
-import { TenantContextService } from '../../common/services/tenant-context.service';
-import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
+import { FinanceService } from '../../finance/finance.service.js';
+import { TenantContextService } from '../../common/services/tenant-context.service.js';
+import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
 import {
   assertCatalogItemsBelongToTenant,
   assertCustomerBelongsToTenant,
   assertVehicleBelongsToTenant,
-} from '../helpers/sales-tenant-validation.helpers';
-import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers';
+} from '../helpers/sales-tenant-validation.helpers.js';
+import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers.js';
 import {
   findDefaultSalesOrders,
   findPaginatedSalesOrders,
   isSalesOrderFindManyArgs,
   type PublicSalesOrder,
-} from '../helpers/sales-order-query.helpers';
+} from '../helpers/sales-order-query.helpers.js';
 import {
   assertSalesOrderStatusTransition,
   formatSalesOrderItem,
@@ -30,7 +30,7 @@ import {
   prepareReplacementItems,
   reconcileSalesOrderItems,
   sumSalesOrderItemTotals,
-} from '../helpers/sales-order-update.helpers';
+} from '../helpers/sales-order-update.helpers.js';
 
 @Injectable()
 export class SalesOrderService {

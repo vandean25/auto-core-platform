@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { AuthService } from '../src/auth/auth.service';
-import { InventoryService } from '../src/inventory/inventory.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { cleanupTestTenantGraph, createTestAuthToken, createTestTenant } from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { InventoryService } from '../src/inventory/inventory.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { cleanupTestTenantGraph, createTestAuthToken, createTestTenant } from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('InventoryController (e2e) Security', () => {
   let app: INestApplication;

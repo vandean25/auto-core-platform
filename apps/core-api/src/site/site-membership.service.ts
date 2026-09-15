@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateSiteMembershipDto } from './dto/site.dto';
-import { assertSiteInTenant, assertTenantAdmin } from './site.authorization';
-import { validateSiteMembershipCreateInput } from './site.validator';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateSiteMembershipDto } from './dto/site.dto.js';
+import { assertSiteInTenant, assertTenantAdmin } from './site.authorization.js';
+import { validateSiteMembershipCreateInput } from './site.validator.js';
 
 @Injectable()
 export class SiteMembershipService {

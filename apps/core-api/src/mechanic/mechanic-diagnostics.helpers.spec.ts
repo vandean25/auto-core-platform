@@ -4,7 +4,7 @@ import {
   processVoiceNoteDraft,
   updateInspectionItems,
   updateTaskNotes,
-} from './mechanic-diagnostics.helpers';
+} from './mechanic-diagnostics.helpers.js';
 
 describe('mechanic-diagnostics.helpers', () => {
   const tenantId = 'tenant-1';

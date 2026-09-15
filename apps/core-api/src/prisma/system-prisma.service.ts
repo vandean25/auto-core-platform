@@ -10,13 +10,13 @@ import { Pool } from 'pg';
 import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
-} from './shared-pg-pool';
+} from './shared-pg-pool.js';
 import {
   createSystemPrismaTransactionClient,
   type AssertSystemPrismaOmitsTenantModels,
   type SystemPrismaClient,
   type SystemPrismaTransactionClient,
-} from './system-prisma.types';
+} from './system-prisma.types.js';
 
 /**
  * Unextended Prisma client for global identity and three documented exceptions.

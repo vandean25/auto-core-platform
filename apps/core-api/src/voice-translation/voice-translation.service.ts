@@ -6,16 +6,16 @@ import {
 } from '@nestjs/common';
 import { TranslationServiceClient } from '@google-cloud/translate';
 import { SpeechClient } from '@google-cloud/speech';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   UpdateVoiceTranslationSettingsDto,
   VoiceTranslationSettingsResponseDto,
-} from './dto/voice-translation-settings.dto';
+} from './dto/voice-translation-settings.dto.js';
 import type {
   VoiceTranslationRequest,
   VoiceTranslationResult,
-} from './voice-translation.types';
+} from './voice-translation.types.js';
 import {
   createCipheriv,
   createDecipheriv,

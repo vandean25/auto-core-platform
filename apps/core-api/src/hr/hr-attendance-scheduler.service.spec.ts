@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { HrAttendanceSchedulerService } from './hr-attendance-scheduler.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { HrAttendanceSchedulerService } from './hr-attendance-scheduler.service.js';
 
 describe('HrAttendanceSchedulerService', () => {
   let service: HrAttendanceSchedulerService;

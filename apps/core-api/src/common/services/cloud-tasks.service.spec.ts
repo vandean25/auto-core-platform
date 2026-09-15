@@ -1,5 +1,5 @@
-import { CloudTasksService } from './cloud-tasks.service';
-import { verifyPdfTaskPayload } from '../pdf/pdf-task-payload';
+import { CloudTasksService } from './cloud-tasks.service.js';
+import { verifyPdfTaskPayload } from '../pdf/pdf-task-payload.js';
 
 describe('CloudTasksService', () => {
   const originalEnv = { ...process.env };

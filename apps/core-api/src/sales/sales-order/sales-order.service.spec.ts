@@ -1,10 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
-import { TenantContextService } from '../../common/services/tenant-context.service';
-import { FinanceService } from '../../finance/finance.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { SalesOrderService } from './sales-order.service';
+import { TenantContextService } from '../../common/services/tenant-context.service.js';
+import { FinanceService } from '../../finance/finance.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { SalesOrderService } from './sales-order.service.js';
 
 describe('SalesOrderService', () => {
   let service: SalesOrderService;

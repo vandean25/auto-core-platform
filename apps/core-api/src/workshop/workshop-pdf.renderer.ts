@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import { PlaywrightBrowserService } from '../common';
-import { escapeHtml } from '../common/pdf/pdf-layout';
-import type { WorkshopOrderForPdf } from './workshop-pdf.types';
+import { PlaywrightBrowserService } from '../common/index.js';
+import { escapeHtml } from '../common/pdf/pdf-layout.js';
+import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 import {
   buildWorkshopFooterTemplate,
   buildWorkshopHtmlDocument,
-} from './workshop-pdf.layout';
+} from './workshop-pdf.layout.js';
 
 @Injectable()
 export class WorkshopPdfRenderer {

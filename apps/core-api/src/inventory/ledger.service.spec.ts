@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
-import { LedgerService, RecordTransactionParams } from './ledger.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
+import { LedgerService, RecordTransactionParams } from './ledger.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 describe('LedgerService', () => {
   let service: LedgerService;

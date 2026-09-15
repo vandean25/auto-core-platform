@@ -5,9 +5,9 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkshopIntakeService } from './workshop-intake.service';
-import { WorkshopScheduleService } from './workshop-schedule.service';
-import { WorkshopTaskService } from './workshop-task.service';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopScheduleService } from './workshop-schedule.service.js';
+import { WorkshopTaskService } from './workshop-task.service.js';
 import {
   mockPrisma,
   resetWorkshopMocks,
@@ -20,7 +20,7 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 describe('WorkshopTaskService', () => {
   let service: WorkshopTaskService;

@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client';
-import { PrismaRepository } from './prisma-repository';
+import { PrismaRepository } from './prisma-repository.js';
 import {
   ConflictError,
   NotFoundError,
   BadRequestError,
-} from '../errors/application-errors';
+} from '../errors/application-errors.js';
 
 describe('PrismaRepository', () => {
   let repository: PrismaRepository<any>;

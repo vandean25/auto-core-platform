@@ -5,18 +5,23 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as Sentry from '@sentry/node';
 import { Readable } from 'node:stream';
-import { InvoicesController } from './invoices.controller';
-import { InvoicesService } from './invoices.service';
-import { InvoicePdfService } from './invoice-pdf.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
 import { InvoiceStatus } from '@prisma/client';
 
-jest.mock('@sentry/node', () => ({
-  captureException: jest.fn(),
+const mockCaptureException = jest.fn();
+jest.unstable_mockModule('@sentry/node', () => ({
+  captureException: mockCaptureException,
 }));
+
+const Sentry = await import('@sentry/node');
+const { InvoicesController } = await import('./invoices.controller.js');
+const { InvoicesService } = await import('./invoices.service.js');
+const { InvoicePdfService } = await import('./invoice-pdf.service.js');
+const { TenantContextService } = await import(
+  '../common/services/tenant-context.service.js'
+);
 
 describe('InvoicesController', () => {
   let controller: InvoicesController;

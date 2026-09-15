@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { EmployeeWorkScheduleDay } from '@prisma/client';
-import { isValidHhMm } from '../workshop/workshop-hours.defaults';
+import { isValidHhMm } from '../workshop/workshop-hours.defaults.js';
 
 export const FALLBACK_AVG_WORKDAY_MINUTES = 480;
 

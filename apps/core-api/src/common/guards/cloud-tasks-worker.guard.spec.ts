@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { CloudTasksWorkerGuard } from './cloud-tasks-worker.guard';
+import { CloudTasksWorkerGuard } from './cloud-tasks-worker.guard.js';
 
 describe('CloudTasksWorkerGuard', () => {
   let guard: CloudTasksWorkerGuard;

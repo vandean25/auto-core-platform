@@ -1,6 +1,7 @@
 {
   "name": "core-api",
   "version": "0.0.1",
+  "type": "module",
   "description": "",
   "author": "",
   "private": true,
@@ -17,14 +18,14 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk --import tsx node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --watch",
+    "test:cov": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --coverage",
+    "test:debug": "node --inspect-brk --experimental-vm-modules ../../node_modules/jest/bin/jest.js --runInBand",
+    "test:e2e": "node --max-old-space-size=6144 --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "check:cloudrun-env": "tsx scripts/check-cloudrun-env-contract.ts",
     "lint:prisma-tenant": "tsx scripts/lint-prisma-tenant.ts prisma/schema.prisma",
-    "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
+    "openapi:generate": "node --loader ts-node/esm scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "gcs:lifecycle": "tsx scripts/apply-gcs-lifecycle.ts",
     "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
@@ -33,7 +34,7 @@
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
   },
   "prisma": {
-    "seed": "ts-node -r tsconfig-paths/register prisma/seed.ts"
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
   },
   "dependencies": {
     "@google-cloud/speech": "^8.0.1",
@@ -42,7 +43,7 @@
     "@google-cloud/translate": "^10.0.1",
     "@nestjs/common": "^11.2.1",
     "@nestjs/core": "^11.2.1",
-    "@nestjs/event-emitter": "^3.1.0",
+    "@nestjs/event-emitter": "^12.0.0",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/platform-express": "^11.2.1",
@@ -119,11 +120,18 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
+          "useESM": true,
           "tsconfig": {
-            "rootDir": "."
+            "rootDir": ".",
+            "module": "ESNext"
           }
         }
       ]
+    },
+    "extensionsToTreatAsEsm": [".ts"],
+    "setupFilesAfterEnv": ["<rootDir>/test/jest-esm-setup.ts"],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(jose)/)"

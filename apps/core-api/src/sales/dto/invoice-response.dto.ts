@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DiscountType, InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
-import { CustomerResponseDto } from '../../customer/dto/customer-response.dto';
-import { VehicleResponseDto } from '../../vehicle/dto/vehicle-response.dto';
+import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
+import { VehicleResponseDto } from '../../vehicle/dto/vehicle-response.dto.js';
 
 export class InvoiceItemResponseDto {
   @ApiProperty()

@@ -4,7 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { WorkshopMediaUrlStrategy, WorkshopTaskStatus } from '@prisma/client';
-import { MechanicMediaService } from './mechanic-media.service';
+import { MechanicMediaService } from './mechanic-media.service.js';
 import {
   MECHANIC_ID,
   ORDER_ID,
@@ -14,7 +14,7 @@ import {
   mockPrisma,
   mockRealtimeService,
   mockTenantContext,
-} from './mechanic.spec.support';
+} from './mechanic.spec.support.js';
 
 describe('MechanicMediaService', () => {
   let service: MechanicMediaService;

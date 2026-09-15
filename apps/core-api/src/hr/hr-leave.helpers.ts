@@ -4,7 +4,7 @@ import type {
   LeaveRequest,
   LeaveRequestStatus,
 } from '@prisma/client';
-import type { LeaveRequestResponseDto } from './dto/hr-leave.dto';
+import type { LeaveRequestResponseDto } from './dto/hr-leave.dto.js';
 
 export interface ValidatedDateRange {
   startOnStr: string;

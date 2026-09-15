@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
 /**
  * Nightly scheduled job that force-closes open/orphaned attendance shifts.

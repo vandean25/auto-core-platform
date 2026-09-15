@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { PrismaService } from './prisma.service';
-import { SystemPrismaService } from './system-prisma.service';
-import { resetSharedRuntimePool } from './shared-pg-pool';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from './prisma.service.js';
+import { SystemPrismaService } from './system-prisma.service.js';
+import { resetSharedRuntimePool } from './shared-pg-pool.js';
 
 describe('PrismaService', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;

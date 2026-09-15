@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { SystemPrismaService } from '../prisma/system-prisma.service';
-import { AuthSessionService } from './auth-session.service';
+import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { AuthSessionService } from './auth-session.service.js';
 
 const ACTIVE_TENANT_ID = 'tenant-1';
 const ACTIVE_SITE_ID = 'site-1';

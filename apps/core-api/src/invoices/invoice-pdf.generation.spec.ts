@@ -3,7 +3,7 @@ import { InvoiceStatus } from '@prisma/client';
 import {
   assertInvoicePdfGenerationAllowed,
   readCachedPdfMetadata,
-} from './invoice-pdf.generation';
+} from './invoice-pdf.generation.js';
 
 describe('invoice-pdf.generation', () => {
   describe('readCachedPdfMetadata', () => {

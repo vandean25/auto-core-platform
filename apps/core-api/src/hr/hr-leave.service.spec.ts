@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LeaveRequestStatus } from '@prisma/client';
-import { HrLeaveService } from './hr-leave.service';
+import { HrLeaveService } from './hr-leave.service.js';
 
 describe('HrLeaveService', () => {
   let service: HrLeaveService;

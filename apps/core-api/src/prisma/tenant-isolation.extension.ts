@@ -3,8 +3,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { resolvePrismaModelDelegate } from './prisma-delegate';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.

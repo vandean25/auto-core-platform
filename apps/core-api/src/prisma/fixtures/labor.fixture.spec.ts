@@ -1,4 +1,4 @@
-import { seedLabor, resolveCategoryId } from './labor.fixture';
+import { seedLabor, resolveCategoryId } from './labor.fixture.js';
 
 describe('seedLabor', () => {
   it('resolves category id from operation code prefix', () => {

@@ -11,29 +11,29 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
-import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
-import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
-import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
+import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto.js';
+import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
+import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto.js';
 import type {
   SaveDiagnosticsDto,
   SaveDiagnosticsResponseDto,
-} from './dto/save-diagnostics.dto';
+} from './dto/save-diagnostics.dto.js';
 import type {
   RequestPartDto,
   RequestPartResponseDto,
-} from './dto/request-part.dto';
+} from './dto/request-part.dto.js';
 import {
   TASK_WAITING_CUSTOMER_EVENT,
   type TaskWaitingCustomerPayload,
-} from './mechanic-events.constants';
+} from './mechanic-events.constants.js';
 import {
   assertTaskAccessible,
   assertTaskAccessibleAndNotDone,
-} from './mechanic-task-access';
+} from './mechanic-task-access.js';
 import {
   ACTIVE_OR_BLOCKED_STATUSES,
   QUEUE_ORDER_STATUSES,
@@ -41,19 +41,19 @@ import {
   buildScheduledDateFilter,
   mapToMechanicQueueItem,
   mapToMechanicTaskDetail,
-} from './mechanic-queue.mapper';
+} from './mechanic-queue.mapper.js';
 import {
   closeLaborEntryAndTransitionTask,
   completeLaborAndTask,
   ensureOrderInProgress,
   pauseReasonToTaskStatus,
   startLaborAndTransitionTask,
-} from './mechanic-task-transitions';
+} from './mechanic-task-transitions.js';
 import {
   processVoiceNoteDraft,
   updateInspectionItems,
   updateTaskNotes,
-} from './mechanic-diagnostics.helpers';
+} from './mechanic-diagnostics.helpers.js';
 
 @Injectable()
 export class MechanicExecutionService {

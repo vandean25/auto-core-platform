@@ -4,12 +4,12 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { AssignBoardDto } from './dto/assign-board.dto';
-import { PartsStatus } from './dto/board-response.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import type { AssignBoardDto } from './dto/assign-board.dto.js';
+import { PartsStatus } from './dto/board-response.dto.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { WorkshopOrderStatus } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 const ACTIVE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.SCHEDULED,

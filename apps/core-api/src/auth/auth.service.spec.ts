@@ -1,13 +1,15 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthService } from './auth.service';
-import type { AuthenticatedUser } from './types/authenticated-user';
+import { jest } from '@jest/globals';
+import type { AuthenticatedUser } from './types/authenticated-user.js';
 
 const getFirebaseAdminAuth = jest.fn();
 
-jest.mock('./firebase-admin', () => ({
+jest.unstable_mockModule('./firebase-admin.js', () => ({
   getFirebaseAdminAuth: () => getFirebaseAdminAuth(),
 }));
+
+const { AuthService } = await import('./auth.service.js');
 
 describe('AuthService Firebase verification', () => {
   const authSessionService = {

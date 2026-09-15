@@ -1,4 +1,4 @@
-import { cleanDb } from './clean-db';
+import { cleanDb } from './clean-db.js';
 
 describe('cleanDb', () => {
   it('discovers existing tables in single query and deletes in topological order', async () => {

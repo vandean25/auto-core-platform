@@ -1,8 +1,8 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { MechanicMediaStorage } from './mechanic-media.storage';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { MechanicMediaStorage } from './mechanic-media.storage.js';
 
 export const TENANT_ID = 'tenant-1';
 export const MECHANIC_ID = 'mechanic-employee-1';
@@ -56,8 +56,8 @@ export const mockMediaStorage = {
 export const mockVoiceTranslationService = {
   getTargetLanguageCode: jest.fn().mockResolvedValue('de'),
   translateVoiceNote: jest.fn(),
-} as unknown as import('../voice-translation/voice-translation.service').VoiceTranslationService;
+} as unknown as import('../voice-translation/voice-translation.service.js').VoiceTranslationService;
 
 export const mockVehicleLedger = {
   completeStockPrep: jest.fn(),
-} as unknown as import('../vehicle-stock/vehicle-ledger.service').VehicleLedgerService;
+} as unknown as import('../vehicle-stock/vehicle-ledger.service.js').VehicleLedgerService;

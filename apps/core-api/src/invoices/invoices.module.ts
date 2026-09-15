@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { InvoicesController } from './invoices.controller';
-import { InvoicesService } from './invoices.service';
-import { CommonModule } from '../common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { InvoicePdfService } from './invoice-pdf.service';
-import { InvoicePdfRenderer } from './invoice-pdf.renderer';
+import { InvoicesController } from './invoices.controller.js';
+import { InvoicesService } from './invoices.service.js';
+import { CommonModule } from '../common/index.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { InvoicePdfService } from './invoice-pdf.service.js';
+import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 
 @Module({
   imports: [PrismaModule, CommonModule],

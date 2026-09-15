@@ -1,10 +1,10 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { HrAttendanceService } from './hr-attendance.service';
-import { HrIdentityService } from './hr-identity.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { HrAttendanceService } from './hr-attendance.service.js';
+import { HrIdentityService } from './hr-identity.service.js';
 
 describe('HrAttendanceService', () => {
   let service: HrAttendanceService;

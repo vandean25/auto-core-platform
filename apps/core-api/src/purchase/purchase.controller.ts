@@ -10,18 +10,18 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { PurchaseService } from './purchase.service';
-import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
-import { ReceivePurchaseOrderDto } from './dto/receive-items.dto';
-import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto';
-import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto';
-import { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto';
+import { PurchaseService } from './purchase.service.js';
+import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto.js';
+import { ReceivePurchaseOrderDto } from './dto/receive-items.dto.js';
+import { AddPurchaseOrderItemsDto } from './dto/add-purchase-order-items.dto.js';
+import { UpdatePurchaseOrderItemDto } from './dto/update-purchase-order-item.dto.js';
+import { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto.js';
 import {
   PurchaseOrderResponseDto,
   PurchaseOrderItemResponseDto,
-} from './dto/purchase-order-response.dto';
-import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
+} from './dto/purchase-order-response.dto.js';
+import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder.js';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 
 @Controller('purchase-orders')
 export class PurchaseController {

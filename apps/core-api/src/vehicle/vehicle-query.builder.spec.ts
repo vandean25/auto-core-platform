@@ -1,4 +1,4 @@
-import { VehicleQueryBuilder } from './vehicle-query.builder';
+import { VehicleQueryBuilder } from './vehicle-query.builder.js';
 
 describe('VehicleQueryBuilder', () => {
   const tenantId = 'tenant-123';

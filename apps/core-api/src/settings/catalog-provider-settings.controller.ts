@@ -6,12 +6,12 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { CatalogProviderSettingsService } from './catalog-provider-settings.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { CatalogProviderSettingsService } from './catalog-provider-settings.service.js';
 import {
   CatalogProviderSettingsResponseDto,
   UpdateCatalogProviderSettingsDto,
-} from './dto/catalog-provider-settings.dto';
+} from './dto/catalog-provider-settings.dto.js';
 
 @ApiTags('settings')
 @Controller('settings/catalog-providers')

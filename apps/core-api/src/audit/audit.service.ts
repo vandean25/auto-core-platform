@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { QueryAuditLogsDto, AuditLogListResponseDto } from './dto';
-import { AuditQueryBuilder } from './audit-query.builder';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { QueryAuditLogsDto, AuditLogListResponseDto } from './dto/index.js';
+import { AuditQueryBuilder } from './audit-query.builder.js';
 
 @Injectable()
 export class AuditService {

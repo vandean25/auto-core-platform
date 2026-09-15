@@ -6,12 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { resolveOemConcernForBrand } from '../prisma/seed-vehicle-catalog-providers';
-import { createIdentityInputFingerprint } from '../vehicle/vehicle-identity.util';
-import { signCatalogHitPayload } from './catalog-hit-payload';
-import { CatalogRouterService } from './catalog-router.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { resolveOemConcernForBrand } from '../prisma/seed-vehicle-catalog-providers.js';
+import { createIdentityInputFingerprint } from '../vehicle/vehicle-identity.util.js';
+import { signCatalogHitPayload } from './catalog-hit-payload.js';
+import { CatalogRouterService } from './catalog-router.service.js';
 import type {
   CatalogAssemblyGroupNode,
   CatalogLaborHit,
@@ -19,7 +19,7 @@ import type {
   CatalogSearchConcern,
   CatalogSearchContext,
   CatalogSearchSource,
-} from './providers/catalog-provider.types';
+} from './providers/catalog-provider.types.js';
 
 type VehicleIdentitySnapshot = {
   id: string;

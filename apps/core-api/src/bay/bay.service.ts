@@ -4,10 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { CreateBayDto, ListBaysQueryDto, UpdateBayDto } from './dto/bay.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { CreateBayDto, ListBaysQueryDto, UpdateBayDto } from './dto/bay.dto.js';
 
 @Injectable()
 export class BayService {

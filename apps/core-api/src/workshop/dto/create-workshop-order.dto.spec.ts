@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { WorkshopOrderStatus } from '@prisma/client';
-import { CreateWorkshopOrderDto } from './create-workshop-order.dto';
+import { CreateWorkshopOrderDto } from './create-workshop-order.dto.js';
 
 const vehicleId = '550e8400-e29b-41d4-a716-446655440000';
 const customerId = '550e8400-e29b-41d4-a716-446655440001';

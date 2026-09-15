@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PurchaseOrderStatus } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
-import { CatalogItemResponseDto } from '../../inventory/dto/inventory-response.dto';
-import { VendorResponseDto } from '../../vendor/dto/vendor-response.dto';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
+import { CatalogItemResponseDto } from '../../inventory/dto/inventory-response.dto.js';
+import { VendorResponseDto } from '../../vendor/dto/vendor-response.dto.js';
 
 export class PurchaseOrderItemResponseDto {
   @ApiProperty()

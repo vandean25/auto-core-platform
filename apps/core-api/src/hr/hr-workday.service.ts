@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   isLeapYear,
   isoWeekdayFromUtcDate,
   parseLocalDate,
-} from '../workshop/workshop-planner.time';
-import { WorkshopSettingsService } from '../workshop/workshop-settings.service';
-import { expectedMinutesForScheduleDay } from './hr-work-schedule.time';
-import { HrWorkScheduleService } from './hr-work-schedule.service';
+} from '../workshop/workshop-planner.time.js';
+import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
+import { expectedMinutesForScheduleDay } from './hr-work-schedule.time.js';
+import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 
 export interface TenantCalendarData {
   timezone: string;

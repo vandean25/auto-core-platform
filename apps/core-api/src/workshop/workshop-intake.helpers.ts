@@ -5,7 +5,7 @@ import {
   VehicleStockStatus,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
+import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;

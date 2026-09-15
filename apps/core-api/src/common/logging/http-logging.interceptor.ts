@@ -9,7 +9,7 @@ import {
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { Request, Response } from 'express';
-import { TenantContextStorage } from '../services/tenant-context.storage';
+import { TenantContextStorage } from '../services/tenant-context.storage.js';
 
 export type HttpRequestLog = {
   type: 'http_request';

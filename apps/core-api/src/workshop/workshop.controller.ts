@@ -25,31 +25,31 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
-import { PdfWorker } from '../common';
-import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
-import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
-import { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto';
-import { RegisterIntakeDto } from './dto/register-intake.dto';
-import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
-import { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
-import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto';
-import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
-import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
-import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import { PdfWorker } from '../common/index.js';
+import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
+import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto.js';
+import { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto.js';
+import { RegisterIntakeDto } from './dto/register-intake.dto.js';
+import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
+import { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto.js';
+import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto.js';
+import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
+import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
+import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto.js';
 import {
   WorkshopOrderResponseDto,
   WorkshopTaskResponseDto,
-} from './dto/workshop-response.dto';
-import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto';
-import { WorkshopSearchResponseDto } from './dto/workshop-search-response.dto';
-import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto';
-import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto';
-import { AssignBoardDto } from './dto/assign-board.dto';
+} from './dto/workshop-response.dto.js';
+import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
+import { WorkshopSearchResponseDto } from './dto/workshop-search-response.dto.js';
+import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
+import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto.js';
+import { AssignBoardDto } from './dto/assign-board.dto.js';
 import {
   BoardActiveResponseDto,
   WorkshopResourcesResponseDto,
-} from './dto/board-response.dto';
+} from './dto/board-response.dto.js';
 import {
   CreateWorkshopHolidayDto,
   ImportWorkshopHolidaysDto,
@@ -58,25 +58,25 @@ import {
   UpdateWorkshopHolidayDto,
   WorkshopHolidayDto,
   WorkshopHolidayListResponseDto,
-} from './dto/workshop-holiday.dto';
+} from './dto/workshop-holiday.dto.js';
 import {
   PlannerGridResponseDto,
   PlannerQueryDto,
-} from './dto/workshop-planner.dto';
+} from './dto/workshop-planner.dto.js';
 import {
   UpdateWorkshopSettingsDto,
   WorkshopSettingsResponseDto,
-} from './dto/workshop-settings.dto';
-import { WorkshopHolidayService } from './workshop-holiday.service';
-import { WorkshopPlannerService } from './workshop-planner.service';
-import { WorkshopBoardService } from './workshop-board.service';
-import { WorkshopIntakeService } from './workshop-intake.service';
-import { WorkshopInvoiceService } from './workshop-invoice.service';
-import { WorkshopPdfService } from './workshop-pdf.service';
-import { WorkshopPickPartsService } from './workshop-pick-parts.service';
-import { WorkshopSettingsService } from './workshop-settings.service';
-import { WorkshopTaskService } from './workshop-task.service';
-import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
+} from './dto/workshop-settings.dto.js';
+import { WorkshopHolidayService } from './workshop-holiday.service.js';
+import { WorkshopPlannerService } from './workshop-planner.service.js';
+import { WorkshopBoardService } from './workshop-board.service.js';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopInvoiceService } from './workshop-invoice.service.js';
+import { WorkshopPdfService } from './workshop-pdf.service.js';
+import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
+import { WorkshopTaskService } from './workshop-task.service.js';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
 
 @Controller('workshop')
 export class WorkshopController {

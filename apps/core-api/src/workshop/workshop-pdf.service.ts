@@ -1,17 +1,17 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
-import { PrismaService } from '../prisma/prisma.service';
-import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
-import { CloudTasksService, PdfStorage } from '../common';
-import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
+import { CloudTasksService, PdfStorage } from '../common/index.js';
+import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
 import {
   renderAndUploadPdf,
   type PdfUploadResult,
-} from '../common/pdf/pdf-render-upload';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation';
-import type { WorkshopOrderForPdf } from './workshop-pdf.types';
+} from '../common/pdf/pdf-render-upload.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
+import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';

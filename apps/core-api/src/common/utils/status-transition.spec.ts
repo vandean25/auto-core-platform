@@ -2,7 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import {
   STALE_STATUS_CONFLICT_MESSAGE,
   guardedStatusUpdate,
-} from './status-transition';
+} from './status-transition.js';
 
 describe('guardedStatusUpdate', () => {
   it('updates with id, tenant, and expected-from status', async () => {

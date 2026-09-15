@@ -1,4 +1,4 @@
-import { lintPrismaTenantSchema } from './lint-prisma-tenant';
+import { lintPrismaTenantSchema } from './lint-prisma-tenant.js';
 
 describe('lintPrismaTenantSchema', () => {
   it('fails when a tenant model uses field-level @unique', () => {

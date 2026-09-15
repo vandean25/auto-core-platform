@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator';
-import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator';
-import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { AuthService } from './auth.service';
-import type { AuthenticatedUser } from './types/authenticated-user';
+import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator.js';
+import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator.js';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { AuthService } from './auth.service.js';
+import type { AuthenticatedUser } from './types/authenticated-user.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

@@ -12,7 +12,7 @@ import {
   MAX_VIDEO_BYTES,
   UPLOAD_POLICY_TTL_SECONDS,
   type AllowedMediaMimeType,
-} from './dto/media.dto';
+} from './dto/media.dto.js';
 
 export interface GenerateUploadPolicyParams {
   tenantId: string;

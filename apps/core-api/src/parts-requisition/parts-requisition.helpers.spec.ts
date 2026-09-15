@@ -3,7 +3,7 @@ import {
   deriveRequisitionStatus,
   recomputeRequisitionStatus,
   type ReservationSliceState,
-} from './parts-requisition.helpers';
+} from './parts-requisition.helpers.js';
 
 const slice = (
   overrides: Partial<ReservationSliceState> = {},

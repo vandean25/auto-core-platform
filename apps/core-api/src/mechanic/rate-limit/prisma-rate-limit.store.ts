@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   RATE_LIMIT_CLOCK,
   RateLimitStore,
@@ -8,7 +8,7 @@ import {
   type RateLimitDecision,
   type RateLimitScope,
   type RateLimitWindow,
-} from './rate-limit.store';
+} from './rate-limit.store.js';
 
 const MAX_CONSUME_ATTEMPTS = 3;
 

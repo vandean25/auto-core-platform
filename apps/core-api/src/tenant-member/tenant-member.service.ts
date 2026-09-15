@@ -5,16 +5,16 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { UserRecord } from 'firebase-admin/auth';
-import { getFirebaseAdminAuth } from '../auth/firebase-admin';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { setActiveTenant } from '../common/services/user-active-tenant';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
+import { getFirebaseAdminAuth } from '../auth/firebase-admin.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { setActiveTenant } from '../common/services/user-active-tenant.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   InviteTenantMemberDto,
   ListTenantMembersQueryDto,
   UpdateTenantMemberDto,
-} from './dto/tenant-member.dto';
+} from './dto/tenant-member.dto.js';
 
 type TenantMemberListRecord = Prisma.TenantMemberGetPayload<{
   include: { user: true };

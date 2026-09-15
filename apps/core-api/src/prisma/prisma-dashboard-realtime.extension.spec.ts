@@ -1,5 +1,5 @@
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension.js';
 
 function runWithTenant<T>(tenantId: string, fn: () => Promise<T> | T) {
   return TenantContextStorage.run(() => {

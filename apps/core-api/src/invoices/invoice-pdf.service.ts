@@ -1,17 +1,17 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
-import { PrismaService } from '../prisma/prisma.service';
-import { InvoicePdfRenderer } from './invoice-pdf.renderer';
-import { CloudTasksService, PdfStorage } from '../common';
-import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch';
-import { renderAndUploadPdf } from '../common/pdf/pdf-render-upload';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
+import { CloudTasksService, PdfStorage } from '../common/index.js';
+import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
+import { renderAndUploadPdf } from '../common/pdf/pdf-render-upload.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   assertInvoicePdfGenerationAllowed,
   readCachedPdfMetadata,
-} from './invoice-pdf.generation';
-import { resolveInvoiceSnapshot } from './invoice-snapshot.resolver';
+} from './invoice-pdf.generation.js';
+import { resolveInvoiceSnapshot } from './invoice-snapshot.resolver.js';
 
 export type InvoicePdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';

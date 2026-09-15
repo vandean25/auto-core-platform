@@ -1,9 +1,9 @@
-import './pre-generate-openapi'; // MUST BE FIRST
+import './pre-generate-openapi.js'; // MUST BE FIRST
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../src/app.module.js';
 
 /**
  * Boots the Nest app in-process and writes the current OpenAPI document

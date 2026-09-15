@@ -17,7 +17,7 @@ import {
   handleTaskLineItemsError,
   resolveDefaultTaskScheduledDate,
   resolveOrderStatusConflict,
-} from './workshop-task.helpers';
+} from './workshop-task.helpers.js';
 
 describe('workshop-task.helpers', () => {
   describe('computeFieldNameText', () => {

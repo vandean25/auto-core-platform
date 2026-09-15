@@ -6,9 +6,9 @@ import {
   WorkshopLineItemType,
   WorkshopOrderPurpose,
 } from '@prisma/client';
-import { FinanceService } from '../finance/finance.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { FinanceService } from '../finance/finance.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 export type VehicleLedgerAppendInput = {
   vehicleId: string;
