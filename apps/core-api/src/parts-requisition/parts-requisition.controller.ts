@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import { PurchaseOrderResponseDto } from '../purchase/dto/purchase-order-response.dto.js';
@@ -34,7 +25,6 @@ export class PartsRequisitionController {
   }
 
   @Post('parts-reservations/:id/consume')
-  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: PartsReservationResponseDto })
   consumeReservation(
     @Param('id') reservationId: string,
@@ -44,7 +34,6 @@ export class PartsRequisitionController {
   }
 
   @Post('parts-reservations/:id/release')
-  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: PartsReservationResponseDto })
   releaseReservation(
     @Param('id') reservationId: string,
