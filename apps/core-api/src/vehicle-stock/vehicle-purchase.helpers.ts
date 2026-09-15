@@ -9,9 +9,9 @@ import {
   VEHICLE_IDENTITY_RESET,
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
-} from '../vehicle/vehicle-identity.util';
-import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
-import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto';
+} from '../vehicle/vehicle-identity.util.js';
+import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto.js';
+import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto.js';
 
 export const ACTIVE_STOCK_STATUSES: VehicleStockStatus[] = [
   VehicleStockStatus.ON_ORDER,

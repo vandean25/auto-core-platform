@@ -1,4 +1,4 @@
-import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
+import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
 
 type VehicleLike = Parameters<typeof stripVehicleIdentityResolutionState>[0];
 

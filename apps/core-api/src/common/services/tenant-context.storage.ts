@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user';
+import type { AuthenticatedUser } from '../../auth/types/authenticated-user.js';
 
 /** The originating context for an auditable operation. */
 export type AuditSource = 'API' | 'JOB' | 'SCRIPT';

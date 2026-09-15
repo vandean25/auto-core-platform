@@ -1,13 +1,18 @@
-import { applyGcsLifecycle, LIFECYCLE_RULES } from './apply-gcs-lifecycle';
+import { jest } from '@jest/globals';
 
 const mockSetMetadata = jest.fn().mockResolvedValue([{}]);
 const mockBucket = jest.fn().mockReturnValue({ setMetadata: mockSetMetadata });
-
-jest.mock('@google-cloud/storage', () => ({
-  Storage: jest.fn().mockImplementation(() => ({
-    bucket: mockBucket,
-  })),
+const mockStorage = jest.fn().mockImplementation(() => ({
+  bucket: mockBucket,
 }));
+
+jest.unstable_mockModule('@google-cloud/storage', () => ({
+  Storage: mockStorage,
+}));
+
+const { applyGcsLifecycle, LIFECYCLE_RULES } = await import(
+  './apply-gcs-lifecycle.js'
+);
 
 describe('applyGcsLifecycle', () => {
   const originalEnv = process.env;
@@ -78,17 +83,13 @@ describe('applyGcsLifecycle', () => {
   });
 
   it('initialises Storage with parsed GCP_CREDENTIALS when provided', async () => {
-    const { Storage } = jest.requireMock('@google-cloud/storage') as {
-      Storage: jest.Mock;
-    };
-
     process.env.INVOICE_PDF_BUCKET = 'test-bucket';
     const creds = { type: 'service_account', project_id: 'test-project' };
     process.env.GCP_CREDENTIALS = JSON.stringify(creds);
 
     await applyGcsLifecycle();
 
-    expect(Storage).toHaveBeenCalledWith({ credentials: creds });
+    expect(mockStorage).toHaveBeenCalledWith({ credentials: creds });
   });
 
   it('throws error when GCP_CREDENTIALS is invalid JSON', async () => {

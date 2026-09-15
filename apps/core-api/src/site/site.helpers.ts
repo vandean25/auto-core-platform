@@ -1,11 +1,11 @@
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   DEALER_INVENTORY_ROLES,
   DEALER_STOCK_STATUSES,
   SYSTEM_LOCATION_CODE,
   SYSTEM_LOCATION_TYPE,
-} from './site.constants';
+} from './site.constants.js';
 
 export async function createSitePrerequisites(
   tx: Prisma.TransactionClient,

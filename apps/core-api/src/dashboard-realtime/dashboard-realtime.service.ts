@@ -1,17 +1,18 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
-import { DashboardGateway } from './dashboard.gateway';
+import { Inject, Injectable } from '@nestjs/common';
+import type { DashboardGateway } from './dashboard.gateway.js';
+import { DASHBOARD_GATEWAY_TOKEN } from './dashboard-realtime.tokens.js';
 import type {
   AuthClaimsUpdatedPayload,
   DashboardEntityUpdatedPayload,
   EmitDashboardEntityUpdatedInput,
   SiteAccessScopeUpdatedPayload,
   SiteContextUpdatedPayload,
-} from './dashboard-events.types';
+} from './dashboard-events.types.js';
 
 @Injectable()
 export class DashboardRealtimeService {
   constructor(
-    @Inject(forwardRef(() => DashboardGateway))
+    @Inject(DASHBOARD_GATEWAY_TOKEN)
     private readonly dashboardGateway: DashboardGateway,
   ) {}
 

@@ -1,7 +1,7 @@
 import {
   stripVehicleListIdentity,
   stripWorkshopOrdersVehicleIdentity,
-} from './vehicle-entity.projection';
+} from './vehicle-entity.projection.js';
 
 describe('vehicle-entity.projection', () => {
   const vehicleWithIdentityState = {

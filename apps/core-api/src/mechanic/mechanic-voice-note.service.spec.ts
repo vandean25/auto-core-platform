@@ -9,9 +9,9 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { WorkshopTaskStatus } from '@prisma/client';
-import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
-import { InMemoryRateLimitStore } from './rate-limit/in-memory-rate-limit.store';
-import type { Clock } from './rate-limit/rate-limit.store';
+import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
+import { InMemoryRateLimitStore } from './rate-limit/in-memory-rate-limit.store.js';
+import type { Clock } from './rate-limit/rate-limit.store.js';
 import {
   MECHANIC_ID,
   ORDER_ID,
@@ -20,7 +20,7 @@ import {
   mockPrisma,
   mockTenantContext,
   mockVoiceTranslationService,
-} from './mechanic.spec.support';
+} from './mechanic.spec.support.js';
 
 class FakeClock implements Clock {
   constructor(private currentMs: number) {}

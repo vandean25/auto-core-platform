@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   SANDBOX_CATALOG_ADAPTER_IDS,
   SANDBOX_CATALOG_QUERY,
-} from '../../catalog-adapter-ids';
-import { CatalogProviderError } from '../catalog-provider.error';
+} from '../../catalog-adapter-ids.js';
+import { CatalogProviderError } from '../catalog-provider.error.js';
 import type {
   CatalogLaborHit,
   CatalogSearchContext,
-} from '../catalog-provider.types';
-import type { LaborCatalogProvider } from '../labor-catalog.provider';
+} from '../catalog-provider.types.js';
+import type { LaborCatalogProvider } from '../labor-catalog.provider.js';
 
 function assertSandboxBehavior(query: string): void {
   if (query.includes(SANDBOX_CATALOG_QUERY.ERROR)) {

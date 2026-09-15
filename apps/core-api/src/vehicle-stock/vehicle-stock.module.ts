@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { VehicleLedgerService } from './vehicle-ledger.service';
-import { VehiclePurchaseService } from './vehicle-purchase.service';
-import { VehiclePurchaseController } from './vehicle-purchase.controller';
-import { VehicleSaleService } from './vehicle-sale.service';
-import { VehicleSaleController } from './vehicle-sale.controller';
-import { VehicleStockQueryService } from './vehicle-stock-query.service';
-import { VehicleStockController } from './vehicle-stock.controller';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
+import { VehiclePurchaseService } from './vehicle-purchase.service.js';
+import { VehiclePurchaseController } from './vehicle-purchase.controller.js';
+import { VehicleSaleService } from './vehicle-sale.service.js';
+import { VehicleSaleController } from './vehicle-sale.controller.js';
+import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
+import { VehicleStockController } from './vehicle-stock.controller.js';
 
 @Module({
   imports: [PrismaModule],

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { CloudTasksWorkerGuard } from './guards/cloud-tasks-worker.guard';
-import { PdfStorage } from './pdf/pdf-storage';
-import { PdfTaskTenantGuard } from './pdf/pdf-task-tenant.guard';
-import { CloudTasksService } from './services/cloud-tasks.service';
-import { PlaywrightBrowserService } from './services/playwright-browser.service';
-import { HttpLoggingInterceptor } from './logging/http-logging.interceptor';
-import { LogLevelService } from './logging/log-level.service';
+import { CloudTasksWorkerGuard } from './guards/cloud-tasks-worker.guard.js';
+import { PdfStorage } from './pdf/pdf-storage.js';
+import { PdfTaskTenantGuard } from './pdf/pdf-task-tenant.guard.js';
+import { CloudTasksService } from './services/cloud-tasks.service.js';
+import { PlaywrightBrowserService } from './services/playwright-browser.service.js';
+import { HttpLoggingInterceptor } from './logging/http-logging.interceptor.js';
+import { LogLevelService } from './logging/log-level.service.js';
 
 @Module({
   providers: [

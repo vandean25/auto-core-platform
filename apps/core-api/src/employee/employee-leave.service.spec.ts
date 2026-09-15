@@ -1,7 +1,7 @@
 import { EmployeeRole } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { HrWorkScheduleService } from '../hr/hr-work-schedule.service';
-import { EmployeeLeaveService } from './employee-leave.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { HrWorkScheduleService } from '../hr/hr-work-schedule.service.js';
+import { EmployeeLeaveService } from './employee-leave.service.js';
 
 describe('EmployeeLeaveService', () => {
   let service: EmployeeLeaveService;

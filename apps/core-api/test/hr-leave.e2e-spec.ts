@@ -1,10 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/auth/auth.service';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../src/app.module.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTestTenant,
@@ -17,8 +17,8 @@ import {
   runWithTenantContext,
   seedTestEmployee,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
   let app: INestApplication;

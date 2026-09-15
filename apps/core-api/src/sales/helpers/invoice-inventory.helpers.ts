@@ -5,7 +5,7 @@ import {
   LocationType,
   type InvoiceItem,
 } from '@prisma/client';
-import type { AtpService } from '../../inventory/atp.service';
+import type { AtpService } from '../../inventory/atp.service.js';
 
 import Decimal = Prisma.Decimal;
 

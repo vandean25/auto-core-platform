@@ -1,6 +1,6 @@
 import { TenantPlan } from '@prisma/client';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { PlatformAdminService } from './platform-admin.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { PlatformAdminService } from './platform-admin.service.js';
 
 const mockSystemPrisma = {
   tenant: {

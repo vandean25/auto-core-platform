@@ -3,13 +3,13 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { BrandService } from './brand.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { BrandService } from './brand.service.js';
 import {
   ConflictError,
   NotFoundError,
-} from '../common/errors/application-errors';
-import { TenantContextService } from '../common/services/tenant-context.service';
+} from '../common/errors/application-errors.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 // ---------------------------------------------------------------------------
 // Mock the repository at the correct layer. We inject a minimal PrismaService

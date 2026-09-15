@@ -2,7 +2,7 @@ import { InternalServerErrorException } from '@nestjs/common';
 import {
   resolvePdfGenerationDispatch,
   enqueueOrGeneratePdf,
-} from './pdf-generation-dispatch';
+} from './pdf-generation-dispatch.js';
 
 describe('resolvePdfGenerationDispatch', () => {
   it('returns enqueue when Cloud Tasks is enabled and target base URL is set', () => {

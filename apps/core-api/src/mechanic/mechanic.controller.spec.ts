@@ -5,16 +5,16 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto';
-import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
-import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto';
-import type { RequestPartResponseDto } from './dto/request-part.dto';
-import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
-import { MechanicController } from './mechanic.controller';
-import { MechanicExecutionService } from './mechanic-execution.service';
-import { MechanicIdentityService } from './mechanic-identity.service';
-import { MechanicMediaService } from './mechanic-media.service';
-import { MechanicVoiceNoteService } from './mechanic-voice-note.service';
+import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto.js';
+import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
+import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto.js';
+import type { RequestPartResponseDto } from './dto/request-part.dto.js';
+import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto.js';
+import { MechanicController } from './mechanic.controller.js';
+import { MechanicExecutionService } from './mechanic-execution.service.js';
+import { MechanicIdentityService } from './mechanic-identity.service.js';
+import { MechanicMediaService } from './mechanic-media.service.js';
+import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
 
 const MECHANIC_ID = '11111111-1111-1111-1111-111111111111';
 const TASK_ID = '22222222-2222-2222-2222-222222222222';

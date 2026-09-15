@@ -1,10 +1,10 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
-import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator';
-import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
-import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator.js';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator.js';
+import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-admin.decorator.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 const TECH_USER = {
   userId: 'firebase-uid-tech',

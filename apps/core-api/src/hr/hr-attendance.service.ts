@@ -9,25 +9,25 @@ import {
   AttendanceEventSource,
   AttendanceEventType,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   formatLocalDate,
   parseLocalDate,
   zonedWallClockToUtc,
-} from '../workshop/workshop-planner.time';
+} from '../workshop/workshop-planner.time.js';
 import {
   CreateHrAttendanceDto,
   QueryHrAttendanceDto,
-} from './dto/hr-attendance.dto';
+} from './dto/hr-attendance.dto.js';
 import {
   AttendanceEventResponseDto,
   AttendanceState,
   ClockResponseDto,
   HrMeResponseDto,
   PunchResponseDto,
-} from './dto/hr-clock.dto';
-import { HrIdentityService } from './hr-identity.service';
+} from './dto/hr-clock.dto.js';
+import { HrIdentityService } from './hr-identity.service.js';
 
 export const ALLOWED_NEXT: Record<AttendanceState, AttendanceEventType[]> = {
   CLOCKED_OUT: [AttendanceEventType.CLOCK_IN],

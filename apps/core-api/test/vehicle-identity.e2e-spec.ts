@@ -2,18 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AuthService } from '../src/auth/auth.service';
-import { createGlobalValidationPipe } from '../src/common';
+import { AuthService } from '../src/auth/auth.service.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
 import {
   SandboxVehicleIdentityProvider,
   VEHICLE_IDENTITY_PROVIDER,
   type VehicleIdentityProvider,
   type VehicleIdentityProviderInput,
-} from '../src/vehicle/vehicle-identity.provider';
-import { createIdentityInputFingerprint } from '../src/vehicle/vehicle-identity.util';
-import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+} from '../src/vehicle/vehicle-identity.provider.js';
+import { createIdentityInputFingerprint } from '../src/vehicle/vehicle-identity.util.js';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util.js';
+import { AppModule } from '../src/app.module.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -21,8 +21,8 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 const INVALID_POWER_KW_FOR_INT_COLUMN = 2_147_483_648;
 

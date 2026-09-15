@@ -1,11 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { AuthService } from '../src/auth/auth.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -13,8 +13,8 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 /**
  * E2E tests for mechanic execution engine endpoints (ADR-0014 §4–7).

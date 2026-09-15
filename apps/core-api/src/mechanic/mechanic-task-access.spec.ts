@@ -9,7 +9,7 @@ import {
   assertTaskAccessibleAndNotDone,
   assertTaskAssignedToMechanic,
   assertTaskNotDone,
-} from './mechanic-task-access';
+} from './mechanic-task-access.js';
 
 describe('mechanic-task-access', () => {
   const mechanicId = 'tech-1';

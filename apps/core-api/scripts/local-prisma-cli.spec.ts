@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import {
   interpretPrismaCliSpawn,
   localPrismaSpawnTarget,
-} from './local-prisma-cli';
+} from './local-prisma-cli.js';
 
 function makeTempDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));

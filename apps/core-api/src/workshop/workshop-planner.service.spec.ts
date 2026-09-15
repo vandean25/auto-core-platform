@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { LeaveRequestStatus, WorkshopOrderStatus } from '@prisma/client';
-import { WorkshopPlannerService } from './workshop-planner.service';
-import { WorkshopSettingsService } from './workshop-settings.service';
+import { WorkshopPlannerService } from './workshop-planner.service.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
 import {
   mockPrisma,
   mockTenantContext,
@@ -10,7 +10,7 @@ import {
   workshopPrismaProvider,
   workshopSiteProvider,
   workshopTenantProvider,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 

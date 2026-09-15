@@ -4,7 +4,7 @@ import {
   TenantContextStorage,
   type AuditSource,
   type RequestMeta,
-} from './tenant-context.storage';
+} from './tenant-context.storage.js';
 
 export type { AuditSource, RequestMeta };
 

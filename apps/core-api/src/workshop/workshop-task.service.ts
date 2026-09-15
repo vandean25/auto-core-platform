@@ -6,10 +6,10 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto';
-import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
-import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto.js';
+import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
+import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
 import {
   Prisma,
   PartsReservationStatus,
@@ -18,18 +18,18 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
-import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
+} from '../common/utils/status-transition.js';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 import {
   assertOrderEditable,
   deriveOrderStatus,
-} from './workshop-order.helpers';
-import { WorkshopIntakeService } from './workshop-intake.service';
+} from './workshop-order.helpers.js';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
 import {
   executeTaskUpdate,
   findTaskAndAssertEditable,
@@ -37,7 +37,7 @@ import {
   resolveDefaultTaskScheduledDate,
   resolveOrderStatusConflict,
   validateLaborOperationIds,
-} from './workshop-task.helpers';
+} from './workshop-task.helpers.js';
 
 @Injectable()
 export class WorkshopTaskService {

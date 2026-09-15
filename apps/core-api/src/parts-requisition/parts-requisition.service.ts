@@ -17,25 +17,25 @@ import {
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { AtpService } from '../inventory/atp.service';
-import { generatePurchaseOrderNumber } from '../purchase/purchase-order-number.util';
-import type { PurchaseOrderWithRelations } from '../purchase/purchase.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto';
-import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto';
-import { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto';
-import { PartsRequisitionResponseDto } from './dto/parts-requisition-response.dto';
-import { PartsReservationResponseDto } from './dto/parts-reservation-response.dto';
-import { PartsShortageResponseDto } from './dto/parts-shortage-response.dto';
-import { PartsShortagesQueryDto } from './dto/parts-shortages-query.dto';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { AtpService } from '../inventory/atp.service.js';
+import { generatePurchaseOrderNumber } from '../purchase/purchase-order-number.util.js';
+import type { PurchaseOrderWithRelations } from '../purchase/purchase.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto.js';
+import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto.js';
+import { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto.js';
+import { PartsRequisitionResponseDto } from './dto/parts-requisition-response.dto.js';
+import { PartsReservationResponseDto } from './dto/parts-reservation-response.dto.js';
+import { PartsShortageResponseDto } from './dto/parts-shortage-response.dto.js';
+import { PartsShortagesQueryDto } from './dto/parts-shortages-query.dto.js';
 import {
   getRemainingCommitment,
   isActiveSlice,
   recomputeRequisitionStatus,
-} from './parts-requisition.helpers';
+} from './parts-requisition.helpers.js';
 
 const OPEN_WORKSHOP_ORDER_STATUSES = [
   WorkshopOrderStatus.SCHEDULED,

@@ -14,8 +14,8 @@ import {
   TenantMemberResponseDto,
   TenantMembersListResponseDto,
   UpdateTenantMemberDto,
-} from './dto/tenant-member.dto';
-import { TenantMemberService } from './tenant-member.service';
+} from './dto/tenant-member.dto.js';
+import { TenantMemberService } from './tenant-member.service.js';
 
 @ApiTags('tenant-members')
 @Controller('tenant-members')

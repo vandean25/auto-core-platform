@@ -1,4 +1,4 @@
-import type { SeedPrismaClient } from './types';
+import type { SeedPrismaClient } from './types.js';
 
 export const SAMPLE_CUSTOMERS_DATA = [
   {

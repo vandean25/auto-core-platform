@@ -3,7 +3,7 @@ import {
   assertCatalogItemsBelongToTenant,
   assertCustomerBelongsToTenant,
   assertVehicleBelongsToTenant,
-} from './sales-tenant-validation.helpers';
+} from './sales-tenant-validation.helpers.js';
 
 describe('sales-tenant-validation.helpers', () => {
   const prisma = {

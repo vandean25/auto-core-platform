@@ -3,12 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateLegalEntityDto, UpdateLegalEntityDto } from './dto/site.dto';
-import { assertTenantAdmin } from './site.authorization';
-import { isForeignKeyViolation } from './site.helpers';
-import { validateLegalEntityCreateInput } from './site.validator';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateLegalEntityDto, UpdateLegalEntityDto } from './dto/site.dto.js';
+import { assertTenantAdmin } from './site.authorization.js';
+import { isForeignKeyViolation } from './site.helpers.js';
+import { validateLegalEntityCreateInput } from './site.validator.js';
 
 @Injectable()
 export class LegalEntityService {

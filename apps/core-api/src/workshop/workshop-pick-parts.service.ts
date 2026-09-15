@@ -13,13 +13,13 @@ import {
   WorkshopLineItemType,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { AtpService } from '../inventory/atp.service';
-import { LedgerService } from '../inventory/ledger.service';
-import { PrismaService } from '../prisma/prisma.service';
-import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { AtpService } from '../inventory/atp.service.js';
+import { LedgerService } from '../inventory/ledger.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto.js';
 import {
   aggregateRequestedPicks,
   buildLedgerTransactions,
@@ -29,13 +29,13 @@ import {
   findFullyStagedLineIds,
   loadAndLockPickContext,
   PICK_ELIGIBLE_ORDER_STATUSES,
-} from './workshop-pick-allocation.helpers';
+} from './workshop-pick-allocation.helpers.js';
 import type {
   LockRowsFn,
   ReservationSlice,
   SourceStock,
   StagePlan,
-} from './workshop-pick-allocation.helpers';
+} from './workshop-pick-allocation.helpers.js';
 
 import Decimal = Prisma.Decimal;
 

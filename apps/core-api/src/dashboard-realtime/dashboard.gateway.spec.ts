@@ -1,8 +1,7 @@
 import type { Socket, Server } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
-import Redis from 'ioredis';
-import type { AuthService } from '../auth/auth.service';
-import type { SiteContextService } from '../site/site-context.service';
+import { jest } from '@jest/globals';
+import type { AuthService } from '../auth/auth.service.js';
+import type { SiteContextService } from '../site/site-context.service.js';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   DASHBOARD_ENTITY_UPDATED_EVENT,
@@ -12,14 +11,8 @@ import {
   type DashboardEntityUpdatedPayload,
   type SiteAccessScopeUpdatedPayload,
   type SiteContextUpdatedPayload,
-} from './dashboard-events.types';
-import {
-  DashboardGateway,
-  REDIS_CONNECT_TIMEOUT_MS,
-  connectRedisClients,
-  resolveCorsOrigins,
-  resolveRedisUrl,
-} from './dashboard.gateway';
+} from './dashboard-events.types.js';
+const mockCreateAdapter = jest.fn(() => 'mock-redis-adapter');
 
 const mockPubQuit = jest.fn().mockResolvedValue('OK');
 const mockPubConnect = jest.fn().mockResolvedValue('OK');
@@ -28,22 +21,31 @@ const mockSubConnect = jest.fn().mockResolvedValue('OK');
 const mockPubOn = jest.fn();
 const mockSubOn = jest.fn();
 
-jest.mock('@socket.io/redis-adapter', () => ({
-  createAdapter: jest.fn(() => 'mock-redis-adapter'),
+jest.unstable_mockModule('@socket.io/redis-adapter', () => ({
+  createAdapter: mockCreateAdapter,
 }));
 
-jest.mock('ioredis', () => {
-  return jest.fn().mockImplementation(() => ({
-    duplicate: jest.fn().mockReturnValue({
-      on: mockSubOn,
-      connect: mockSubConnect,
-      quit: mockSubQuit,
-    }),
-    on: mockPubOn,
-    connect: mockPubConnect,
-    quit: mockPubQuit,
-  }));
-});
+const mockRedis = jest.fn().mockImplementation(() => ({
+  duplicate: jest.fn().mockReturnValue({
+    on: mockSubOn,
+    connect: mockSubConnect,
+    quit: mockSubQuit,
+  }),
+  on: mockPubOn,
+  connect: mockPubConnect,
+  quit: mockPubQuit,
+}));
+jest.unstable_mockModule('ioredis', () => ({ Redis: mockRedis }));
+
+const { createAdapter } = await import('@socket.io/redis-adapter');
+const { Redis } = await import('ioredis');
+const {
+  DashboardGateway,
+  REDIS_CONNECT_TIMEOUT_MS,
+  connectRedisClients,
+  resolveCorsOrigins,
+  resolveRedisUrl,
+} = await import('./dashboard.gateway.js');
 
 describe('resolveRedisUrl', () => {
   it('returns undefined when REDIS_URL is undefined or empty', () => {
@@ -115,7 +117,7 @@ describe('DashboardGateway', () => {
         middleware = fn;
       }),
     };
-    gateway.afterInit(mockServer as unknown as Server);
+    gateway.afterInit(mockServer);
   });
 
   describe('middleware authentication', () => {
@@ -188,7 +190,7 @@ describe('DashboardGateway', () => {
       client.data = { tenantId: 'tenant-a', userId: 'user-1' };
       const loggerDebugSpy = jest.spyOn((gateway as any).logger, 'debug');
 
-      await gateway.handleConnection(client as unknown as Socket);
+      await gateway.handleConnection(client);
 
       expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
       expect(client.join).toHaveBeenCalledWith('user_user-1');
@@ -211,7 +213,7 @@ describe('DashboardGateway', () => {
       client.data = { tenantId: 'tenant-a', userId: 'user-1' };
       siteContext.resolveSiteId.mockResolvedValue('site-1');
 
-      await gateway.handleConnection(client as unknown as Socket);
+      await gateway.handleConnection(client);
 
       expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
       expect(client.join).toHaveBeenCalledWith('user_user-1');
@@ -224,7 +226,7 @@ describe('DashboardGateway', () => {
       client.data = { tenantId: 'tenant-a', userId: 'user-1' };
       siteContext.resolveSiteId.mockResolvedValue(null);
 
-      await gateway.handleConnection(client as unknown as Socket);
+      await gateway.handleConnection(client);
 
       expect(client.join).toHaveBeenCalledWith('tenant_tenant-a');
       expect(client.join).toHaveBeenCalledWith('user_user-1');
@@ -240,7 +242,7 @@ describe('DashboardGateway', () => {
       client.data = { tenantId: 'tenant-a', userId: 'user-1' };
       const loggerDebugSpy = jest.spyOn((gateway as any).logger, 'debug');
 
-      gateway.handleDisconnect(client as unknown as Socket);
+      gateway.handleDisconnect(client);
 
       const logCalls = loggerDebugSpy.mock.calls.map((call) =>
         JSON.parse(call[0]),
@@ -259,7 +261,7 @@ describe('DashboardGateway', () => {
   it('emits realtime updates only to tenant-prefixed room without tenantId in payload', () => {
     const emit = jest.fn();
     const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to } as unknown as DashboardGateway['server'];
+    gateway.server = { to };
 
     const payload: DashboardEntityUpdatedPayload = {
       type: 'CUSTOMER',
@@ -279,7 +281,7 @@ describe('DashboardGateway', () => {
   it('emits claims refresh events only to the affected user room', () => {
     const emit = jest.fn();
     const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to } as unknown as DashboardGateway['server'];
+    gateway.server = { to };
 
     const payload: AuthClaimsUpdatedPayload = {
       reason: 'membership-updated',
@@ -295,7 +297,7 @@ describe('DashboardGateway', () => {
   it('emits site access scope events only to the affected user room', () => {
     const emit = jest.fn();
     const to = jest.fn().mockReturnValue({ emit });
-    gateway.server = { to } as unknown as DashboardGateway['server'];
+    gateway.server = { to };
 
     const payload: SiteAccessScopeUpdatedPayload = {
       timestamp: new Date().toISOString(),
@@ -325,7 +327,7 @@ describe('DashboardGateway', () => {
     gateway.server = {
       to,
       in: inRoom,
-    } as unknown as DashboardGateway['server'];
+    };
 
     const payload: SiteContextUpdatedPayload = {
       siteId: 'site-new',
@@ -359,7 +361,7 @@ describe('DashboardGateway', () => {
     gateway.server = {
       to,
       in: jest.fn().mockReturnValue({ fetchSockets }),
-    } as unknown as DashboardGateway['server'];
+    };
 
     const payload: SiteContextUpdatedPayload = {
       siteId: null,
@@ -390,7 +392,7 @@ describe('DashboardGateway', () => {
     gateway.server = {
       to: jest.fn().mockReturnValue({ emit }),
       in: jest.fn().mockReturnValue({ fetchSockets }),
-    } as unknown as DashboardGateway['server'];
+    };
 
     await gateway.emitSiteContextUpdated('user-1', {
       siteId: 'site-new',

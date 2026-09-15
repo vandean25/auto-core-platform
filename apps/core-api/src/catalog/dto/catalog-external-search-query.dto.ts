@@ -4,7 +4,7 @@ import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import type {
   CatalogSearchConcern,
   CatalogSearchSource,
-} from '../providers/catalog-provider.types';
+} from '../providers/catalog-provider.types.js';
 
 function parseOptionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === '') {

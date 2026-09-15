@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkshopInvoiceService } from './workshop-invoice.service';
+import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import {
   mockInvoices,
   mockPrisma,
@@ -8,7 +8,7 @@ import {
   workshopInvoiceProvider,
   workshopPrismaProvider,
   workshopTenantProvider,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 describe('WorkshopInvoiceService', () => {
   let service: WorkshopInvoiceService;

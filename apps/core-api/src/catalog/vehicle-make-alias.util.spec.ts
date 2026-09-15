@@ -1,4 +1,4 @@
-import { normalizeVehicleMakeAlias } from './vehicle-make-alias.util';
+import { normalizeVehicleMakeAlias } from './vehicle-make-alias.util.js';
 
 describe('normalizeVehicleMakeAlias', () => {
   it('uppercases and strips non-alphanumeric characters', () => {

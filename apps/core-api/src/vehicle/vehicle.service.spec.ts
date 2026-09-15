@@ -1,10 +1,10 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { Prisma } from '@prisma/client';
-import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util';
-import { VehicleService } from './vehicle.service';
+import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
+import { VehicleService } from './vehicle.service.js';
 
 describe('VehicleService', () => {
   const tenantId = 'tenant-1';

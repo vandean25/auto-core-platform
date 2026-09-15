@@ -1,19 +1,19 @@
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService } from '../src/auth/auth.service.js';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { OPENHOLIDAYS_FETCH } from '../src/workshop/openholidays.client';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { OPENHOLIDAYS_FETCH } from '../src/workshop/openholidays.client.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 const DEFAULT_OPENING_HOURS = [
   { weekday: 1, isClosed: false, openTime: '07:30', closeTime: '17:00' },

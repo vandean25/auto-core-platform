@@ -15,7 +15,7 @@ import {
   resolveFindAllPagination,
   validateCreateOrderInput,
   validateStockPrepVehicle,
-} from './workshop-intake.helpers';
+} from './workshop-intake.helpers.js';
 
 describe('workshop-intake.helpers', () => {
   describe('resolveFindAllPagination', () => {

@@ -1,11 +1,11 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { MechanicIdentityService } from './mechanic-identity.service';
+import { MechanicIdentityService } from './mechanic-identity.service.js';
 import {
   MECHANIC_ID,
   TENANT_ID,
   mockPrisma,
   mockTenantContext,
-} from './mechanic.spec.support';
+} from './mechanic.spec.support.js';
 
 describe('MechanicIdentityService', () => {
   let service: MechanicIdentityService;

@@ -12,19 +12,19 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma, WorkshopTaskStatus } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VoiceTranslationService } from '../voice-translation/voice-translation.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { VoiceTranslationService } from '../voice-translation/voice-translation.service.js';
 import {
   ALLOWED_VOICE_NOTE_MIME_TYPES,
   MAX_VOICE_NOTE_BYTES,
   MAX_VOICE_NOTE_DURATION_SECONDS,
   MIN_VOICE_NOTE_BYTES,
   type VoiceNoteDraftResponseDto,
-} from './dto/voice-note.dto';
-import { readAudioDurationSeconds } from './audio-duration';
-import { assertTaskAssignedToMechanic } from './mechanic-task-access';
-import { RateLimitStore } from './rate-limit/rate-limit.store';
+} from './dto/voice-note.dto.js';
+import { readAudioDurationSeconds } from './audio-duration.js';
+import { assertTaskAssignedToMechanic } from './mechanic-task-access.js';
+import { RateLimitStore } from './rate-limit/rate-limit.store.js';
 
 /**
  * Rate-limit configuration for the voice-note upload endpoint.

@@ -5,9 +5,9 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { WorkshopHolidayService } from './workshop-holiday.service';
-import { WorkshopSettingsService } from './workshop-settings.service';
-import { OPENHOLIDAYS_FETCH } from './openholidays.client';
+import { WorkshopHolidayService } from './workshop-holiday.service.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
+import { OPENHOLIDAYS_FETCH } from './openholidays.client.js';
 import {
   mockPrisma,
   mockTenantContext,
@@ -15,7 +15,7 @@ import {
   workshopPrismaProvider,
   workshopSiteProvider,
   workshopTenantProvider,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const SETTINGS_ID = 'ws-1';

@@ -1,11 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils';
-import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes';
-import { teardownTestApp } from './test-lifecycle';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { createTenantAwarePrisma, createTestTenant } from './tenant-test-utils.js';
+import { seedFixedStagingTotes } from '../src/prisma/seed-staging-totes.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Staging Tote Seed (e2e)', () => {
   let app: INestApplication;

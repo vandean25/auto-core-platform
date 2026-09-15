@@ -7,7 +7,7 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class WorkshopCustomerSummaryDto {
   @ApiProperty()

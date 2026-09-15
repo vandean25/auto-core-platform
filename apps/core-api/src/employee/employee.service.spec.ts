@@ -1,9 +1,9 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { EmployeeRole, Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { formatLocalDate } from '../workshop/workshop-planner.time';
-import { EmployeeService } from './employee.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { formatLocalDate } from '../workshop/workshop-planner.time.js';
+import { EmployeeService } from './employee.service.js';
 
 const mockPrisma = {
   employee: {

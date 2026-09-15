@@ -1,4 +1,4 @@
-import { renderAndUploadPdf } from './pdf-render-upload';
+import { renderAndUploadPdf } from './pdf-render-upload.js';
 
 describe('renderAndUploadPdf', () => {
   const uploadResult = {

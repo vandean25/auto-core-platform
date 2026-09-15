@@ -1,6 +1,6 @@
 import type { Employee, EmployeeRole, TenantMemberRole } from '@prisma/client';
-import type { PrismaService } from '../src/prisma/prisma.service';
-import { TenantContextStorage } from '../src/common/services/tenant-context.storage';
+import type { PrismaService } from '../src/prisma/prisma.service.js';
+import { TenantContextStorage } from '../src/common/services/tenant-context.storage.js';
 import { randomUUID } from 'node:crypto';
 
 export const HR_TEST_AVG_WORKDAY_MINUTES = 515;

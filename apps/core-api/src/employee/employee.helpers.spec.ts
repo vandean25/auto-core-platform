@@ -5,7 +5,7 @@ import {
   handleEmployeeConflict,
   mapEmployee,
   toDateOnly,
-} from './employee.helpers';
+} from './employee.helpers.js';
 
 describe('employee.helpers', () => {
   describe('toDateOnly', () => {

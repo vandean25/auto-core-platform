@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InvoiceStatus, Prisma } from '@prisma/client';
-import type { FormattedInvoiceItem } from './invoice-line-items.helpers';
+import type { FormattedInvoiceItem } from './invoice-line-items.helpers.js';
 
 export async function reconcileDraftInvoiceItems(
   tx: Prisma.TransactionClient,

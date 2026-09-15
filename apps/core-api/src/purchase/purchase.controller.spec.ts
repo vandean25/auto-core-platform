@@ -6,11 +6,11 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
-import { PurchaseController } from './purchase.controller';
-import { PurchaseService } from './purchase.service';
-import { PurchaseOrderResponseDto } from './dto/purchase-order-response.dto';
-import { PurchaseOrderItemResponseDto } from './dto/purchase-order-response.dto';
-import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder';
+import { PurchaseController } from './purchase.controller.js';
+import { PurchaseService } from './purchase.service.js';
+import { PurchaseOrderResponseDto } from './dto/purchase-order-response.dto.js';
+import { PurchaseOrderItemResponseDto } from './dto/purchase-order-response.dto.js';
+import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder.js';
 
 describe('PurchaseController', () => {
   let controller: PurchaseController;

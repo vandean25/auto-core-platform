@@ -2,8 +2,8 @@ import {
   buildBasePdfStyles,
   buildPdfFooterTemplate,
   type EscapeHtml,
-} from '../common/pdf/pdf-layout';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+} from '../common/pdf/pdf-layout.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 export type { EscapeHtml };
 export type FormatDate = (value: string | Date) => string;

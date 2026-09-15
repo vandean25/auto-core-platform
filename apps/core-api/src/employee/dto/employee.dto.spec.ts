@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { UpdateEmployeeDto } from './employee.dto';
+import { UpdateEmployeeDto } from './employee.dto.js';
 
 describe('Employee DTO date fields', () => {
   it('rejects a timestamp when a hire date is expected', async () => {

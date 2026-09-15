@@ -5,18 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EmployeeRole, WorkshopOrderStatus, type Prisma } from '@prisma/client';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import {
   formatLocalDate,
   zonedWallClockToUtc,
   parseHhMm,
   parseLocalDate,
-} from './workshop-planner.time';
-import { WorkshopPlannerService } from './workshop-planner.service';
-import { WorkshopSettingsService } from './workshop-settings.service';
+} from './workshop-planner.time.js';
+import { WorkshopPlannerService } from './workshop-planner.service.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
 
 export type BookedWindow = {
   bayId: string;

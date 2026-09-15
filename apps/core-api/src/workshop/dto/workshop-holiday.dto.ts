@@ -7,7 +7,7 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { HH_MM } from '../workshop-hours.defaults';
+import { HH_MM } from '../workshop-hours.defaults.js';
 import { WorkshopHolidaySource } from '@prisma/client';
 
 export class WorkshopHolidayDto {

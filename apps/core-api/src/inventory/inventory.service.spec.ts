@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
-import { InventoryService } from './inventory.service';
-import { AtpService } from './atp.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { InventoryService } from './inventory.service.js';
+import { AtpService } from './atp.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { NotFoundException } from '@nestjs/common';
 
 describe('InventoryService', () => {

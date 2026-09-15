@@ -1,14 +1,14 @@
 import { Global, Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { LegalEntityService } from './legal-entity.service';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { LegalEntityService } from './legal-entity.service.js';
 import {
   LegalEntityController,
   MeSiteController,
   SiteController,
-} from './site.controller';
-import { SiteContextService } from './site-context.service';
-import { SiteMembershipService } from './site-membership.service';
-import { SiteService } from './site.service';
+} from './site.controller.js';
+import { SiteContextService } from './site-context.service.js';
+import { SiteMembershipService } from './site-membership.service.js';
+import { SiteService } from './site.service.js';
 
 /**
  * Global module so BayService / LocationService / WorkshopSettingsService can

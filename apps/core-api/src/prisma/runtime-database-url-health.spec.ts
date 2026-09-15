@@ -2,7 +2,7 @@ import {
   inspectRuntimeDatabaseUrls,
   logRuntimeDatabaseUrlStatus,
   requireRuntimePooler,
-} from './runtime-database-url-health';
+} from './runtime-database-url-health.js';
 
 describe('inspectRuntimeDatabaseUrls', () => {
   it('identifies a distinct Neon pooler host', () => {

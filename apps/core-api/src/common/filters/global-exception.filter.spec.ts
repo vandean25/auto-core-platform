@@ -1,8 +1,8 @@
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { GlobalExceptionFilter } from './global-exception.filter';
-import { TenantContextStorage } from '../services/tenant-context.storage';
-import { ConflictError, NotFoundError } from '../errors/application-errors';
+import { GlobalExceptionFilter } from './global-exception.filter.js';
+import { TenantContextStorage } from '../services/tenant-context.storage.js';
+import { ConflictError, NotFoundError } from '../errors/application-errors.js';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;

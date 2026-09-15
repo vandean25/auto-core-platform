@@ -1,9 +1,11 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   parseBaselinePrismaArgs,
   prismaBaselineResolveArgs,
-} from './baseline-prisma-migrations';
+} from './baseline-prisma-migrations.js';
 
 describe('parseBaselinePrismaArgs', () => {
   it('fails when --applied is missing', () => {

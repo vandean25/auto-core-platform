@@ -6,7 +6,7 @@ import {
   signCatalogHitPayload,
   verifyCatalogHitPayload,
   type CatalogHitPayloadClaims,
-} from './catalog-hit-payload';
+} from './catalog-hit-payload.js';
 
 describe('catalog-hit-payload', () => {
   const baseClaims = {

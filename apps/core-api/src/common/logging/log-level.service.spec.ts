@@ -1,4 +1,4 @@
-import { LogLevelService, type AppLogLevel } from './log-level.service';
+import { LogLevelService, type AppLogLevel } from './log-level.service.js';
 
 describe('LogLevelService', () => {
   let service: LogLevelService;

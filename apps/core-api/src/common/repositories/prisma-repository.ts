@@ -3,7 +3,7 @@ import {
   ConflictError,
   NotFoundError,
   BadRequestError,
-} from '../errors/application-errors';
+} from '../errors/application-errors.js';
 
 // ---------------------------------------------------------------------------
 // Types

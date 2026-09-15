@@ -1,7 +1,7 @@
 export {
   HttpLoggingInterceptor,
   type HttpRequestLog,
-} from './http-logging.interceptor';
+} from './http-logging.interceptor.js';
 export {
   LogLevelService,
   VALID_LOG_LEVELS,
@@ -9,4 +9,4 @@ export {
   type LogLevelOverride,
   type SetLogLevelOptions,
   type LogLevelStatus,
-} from './log-level.service';
+} from './log-level.service.js';

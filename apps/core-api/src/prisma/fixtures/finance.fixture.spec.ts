@@ -1,4 +1,4 @@
-import { seedFinance } from './finance.fixture';
+import { seedFinance } from './finance.fixture.js';
 
 describe('finance.fixture', () => {
   it('creates Austrian standard revenue groups and default finance settings', async () => {

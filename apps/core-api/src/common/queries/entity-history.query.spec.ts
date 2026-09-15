@@ -2,7 +2,7 @@ import {
   invoicesHistorySlice,
   salesOrdersHistorySlice,
   workshopOrdersHistorySlice,
-} from './entity-history.query';
+} from './entity-history.query.js';
 
 describe('entity-history.query', () => {
   it('builds a paginated sales order history slice', () => {

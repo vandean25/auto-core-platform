@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /// <reference types="node" />
 
 import * as fs from 'node:fs';
@@ -53,7 +54,7 @@ function main() {
   console.log('[Success] Prisma schema passed tenant isolation linting.');
 }
 
-if (require.main === module) {
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     main();
   } catch (error) {

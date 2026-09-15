@@ -1,6 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { describe, expect, it } from '@jest/globals';
-import { SuperAdminGuard } from './super-admin.guard';
+import { SuperAdminGuard } from './super-admin.guard.js';
 
 describe('SuperAdminGuard', () => {
   it('allows authenticated platform super admins', () => {

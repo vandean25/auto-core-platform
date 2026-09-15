@@ -1,4 +1,4 @@
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService } from '../src/auth/auth.service.js';
 import {
   INestApplication,
   NotFoundException,
@@ -6,19 +6,19 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Readable } from 'node:stream';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service';
+import { AppModule } from '../src/app.module.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { WorkshopPdfService } from '../src/workshop/workshop-pdf.service.js';
 import {
   createGlobalValidationPipe,
   signPdfTaskPayload,
-} from '../src/common';
-import { teardownTestApp } from './test-lifecycle';
+} from '../src/common/index.js';
+import { teardownTestApp } from './test-lifecycle.js';
 import {
   createTestAuthToken,
   createTestTenant,
   cleanupTestTenantGraph,
-} from './tenant-test-utils';
+} from './tenant-test-utils.js';
 
 const WORKER_SECRET = 'workshop-pdf-e2e-worker-secret';
 const WORKSHOP_ORDER_ID = '11111111-1111-1111-1111-111111111111';

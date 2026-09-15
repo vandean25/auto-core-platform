@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { WorkshopLineItemType } from '@prisma/client';
-import { ReplaceWorkshopTaskLineItemsDto } from './replace-workshop-task-line-items.dto';
+import { ReplaceWorkshopTaskLineItemsDto } from './replace-workshop-task-line-items.dto.js';
 
 async function validateQuantity(qty: number) {
   const dto = plainToInstance(ReplaceWorkshopTaskLineItemsDto, {

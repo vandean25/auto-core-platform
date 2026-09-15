@@ -9,12 +9,12 @@ import {
   Delete,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { PurchaseInvoiceService } from './purchase-invoice.service';
-import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
+import { PurchaseInvoiceService } from './purchase-invoice.service.js';
+import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto.js';
 import {
   PurchaseInvoicePaginatedResponseDto,
   PurchaseInvoiceResponseDto,
-} from './dto/purchase-invoice-response.dto';
+} from './dto/purchase-invoice-response.dto.js';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 
 @Controller('purchase-invoices')

@@ -1,6 +1,6 @@
 import type { Browser } from 'playwright';
 import { chromium } from 'playwright';
-import { PlaywrightBrowserService } from './playwright-browser.service';
+import { PlaywrightBrowserService } from './playwright-browser.service.js';
 
 describe('PlaywrightBrowserService', () => {
   let service: PlaywrightBrowserService;

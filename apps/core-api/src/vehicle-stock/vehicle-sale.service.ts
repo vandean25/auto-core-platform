@@ -14,14 +14,14 @@ import {
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
-import { VehicleLedgerService } from './vehicle-ledger.service';
-import { costBasis, marginVatGross } from './vehicle-cost';
-import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto';
-import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot.js';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
+import { costBasis, marginVatGross } from './vehicle-cost.js';
+import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
+import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(20);
 const MARGIN_REVENUE_GROUP = 'Vehicle used (margin)';

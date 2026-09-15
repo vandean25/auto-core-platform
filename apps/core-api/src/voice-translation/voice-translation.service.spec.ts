@@ -1,14 +1,14 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { VoiceTranslationService } from './voice-translation.service';
+import { jest } from '@jest/globals';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 
 const mockLongRunningRecognize = jest.fn();
 const mockTranslateText = jest.fn();
 const mockSpeechClientCtor = jest.fn();
 const mockTranslationClientCtor = jest.fn();
 
-jest.mock('@google-cloud/speech', () => ({
+jest.unstable_mockModule('@google-cloud/speech', () => ({
   SpeechClient: jest.fn().mockImplementation(() => {
     mockSpeechClientCtor();
     return {
@@ -17,7 +17,7 @@ jest.mock('@google-cloud/speech', () => ({
   }),
 }));
 
-jest.mock('@google-cloud/translate', () => ({
+jest.unstable_mockModule('@google-cloud/translate', () => ({
   TranslationServiceClient: jest.fn().mockImplementation(() => {
     mockTranslationClientCtor();
     return {
@@ -25,6 +25,8 @@ jest.mock('@google-cloud/translate', () => ({
     };
   }),
 }));
+
+const { VoiceTranslationService } = await import('./voice-translation.service.js');
 
 describe('VoiceTranslationService', () => {
   const tenantId = 'tenant-1';

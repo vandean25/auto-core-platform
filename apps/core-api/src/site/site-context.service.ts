@@ -6,8 +6,8 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import type { Site } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 /**
  * Resolves the authenticated session's active site (ADR-0022 / ruling 7).

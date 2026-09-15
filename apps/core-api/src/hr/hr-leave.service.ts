@@ -6,9 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LeaveRequestStatus, type Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { formatLocalDate } from '../workshop/workshop-planner.time';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { formatLocalDate } from '../workshop/workshop-planner.time.js';
 import type {
   CreateEmployeeLeaveDto,
   CreateMyLeaveDto,
@@ -18,13 +18,13 @@ import type {
   PatchLeaveBalanceDto,
   QueryHrLeaveDto,
   UpdateLeaveRequestDto,
-} from './dto/hr-leave.dto';
-import { HrIdentityService } from './hr-identity.service';
+} from './dto/hr-leave.dto.js';
+import { HrIdentityService } from './hr-identity.service.js';
 import type {
   CreateLeaveBookingInput,
   LeaveBalanceAdjustmentInput,
   ValidatedDateRange,
-} from './hr-leave.helpers';
+} from './hr-leave.helpers.js';
 import {
   calculateRemainingLeaveMinutes,
   formatUtcDateOnly,
@@ -32,8 +32,8 @@ import {
   toUtcDateOnly,
   validateDateRange,
   validateLeaveTransition,
-} from './hr-leave.helpers';
-import { HrWorkdayService } from './hr-workday.service';
+} from './hr-leave.helpers.js';
+import { HrWorkdayService } from './hr-workday.service.js';
 
 export { formatUtcDateOnly, toUtcDateOnly };
 export type { CreateLeaveBookingInput, ValidatedDateRange };

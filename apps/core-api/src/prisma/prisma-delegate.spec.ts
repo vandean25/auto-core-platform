@@ -1,4 +1,4 @@
-import { resolvePrismaModelDelegate } from './prisma-delegate';
+import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 
 describe('resolvePrismaModelDelegate', () => {
   it('resolves a model delegate when the extension context is wrapped in an array', () => {

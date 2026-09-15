@@ -9,14 +9,14 @@ import {
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension';
-import { createAuditExtension } from './prisma-audit.extension';
-import { createTenantIsolationExtension } from './tenant-isolation.extension';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension.js';
+import { createAuditExtension } from './prisma-audit.extension.js';
+import { createTenantIsolationExtension } from './tenant-isolation.extension.js';
 import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
-} from './shared-pg-pool';
+} from './shared-pg-pool.js';
 
 @Injectable()
 export class PrismaService

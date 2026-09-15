@@ -1,11 +1,11 @@
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService } from '../src/auth/auth.service.js';
 import { INestApplication } from '@nestjs/common';
 import { LeaveRequestStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -13,8 +13,8 @@ import {
   createTestTenant,
   resolveTestMainSiteId,
   seedTestEmployee,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Workshop planner booking (e2e)', () => {
   let app: INestApplication;

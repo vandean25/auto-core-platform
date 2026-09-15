@@ -3,19 +3,19 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto.js';
 import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service.js';
 import {
   aggregatePoItemTotals,
   calculateLineAmounts,
   validatePoItemsAvailability,
   PoItemWithOrderVendor,
-} from './purchase-invoice.helpers';
+} from './purchase-invoice.helpers.js';
 
 import Decimal = Prisma.Decimal;
 

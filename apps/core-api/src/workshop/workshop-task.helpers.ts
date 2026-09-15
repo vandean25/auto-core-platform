@@ -11,18 +11,18 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
+} from '../common/utils/status-transition.js';
 import {
   assertOrderEditable,
   deriveOrderStatus,
-} from './workshop-order.helpers';
-import { formatLocalDate, parseLocalDate } from './workshop-planner.time';
-import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto';
-import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto';
+} from './workshop-order.helpers.js';
+import { formatLocalDate, parseLocalDate } from './workshop-planner.time.js';
+import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
+import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
 
 export interface DeleteLineItemsContext {
   tx: Prisma.TransactionClient;

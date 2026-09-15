@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { HrWorkScheduleService } from './hr-work-schedule.service';
-import { averageExpectedMinutesPerWorkday } from './hr-work-schedule.time';
+import { HrWorkScheduleService } from './hr-work-schedule.service.js';
+import { averageExpectedMinutesPerWorkday } from './hr-work-schedule.time.js';
 
 const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
   weekday,

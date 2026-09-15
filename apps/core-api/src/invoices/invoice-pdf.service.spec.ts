@@ -4,13 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InvoiceStatus } from '@prisma/client';
-import { InvoicePdfService } from './invoice-pdf.service';
-import type { CloudTasksService } from '../common/services/cloud-tasks.service';
-import type { TenantContextService } from '../common/services/tenant-context.service';
-import type { PrismaService } from '../prisma/prisma.service';
-import type { InvoicePdfRenderer } from './invoice-pdf.renderer';
-import type { PdfStorage } from '../common/pdf/pdf-storage';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import { InvoicePdfService } from './invoice-pdf.service.js';
+import type { CloudTasksService } from '../common/services/cloud-tasks.service.js';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
+import type { PdfStorage } from '../common/pdf/pdf-storage.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 describe('InvoicePdfService.requestGeneration', () => {
   const tenantId = 'tenant-1';

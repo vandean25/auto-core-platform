@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse } from '@nestjs/swagger';
-import { Public } from './common/decorators/public.decorator';
+import { Public } from './common/decorators/public.decorator.js';
 
 @Controller('health')
 export class HealthController {

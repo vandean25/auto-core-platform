@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuditController } from './audit.controller';
-import { AuditService } from './audit.service';
+import { AuditController } from './audit.controller.js';
+import { AuditService } from './audit.service.js';
 import { AuditActorType, AuditLogAction } from '@prisma/client';
-import { QueryAuditLogsDto } from './dto';
+import { QueryAuditLogsDto } from './dto/index.js';
 
 describe('AuditController', () => {
   let controller: AuditController;

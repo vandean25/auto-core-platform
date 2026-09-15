@@ -7,12 +7,12 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { TenantContextService } from '../services/tenant-context.service';
+import { TenantContextService } from '../services/tenant-context.service.js';
 import {
   PDF_TASK_KIND_KEY,
   type PdfTaskKind,
   verifyPdfTaskPayload,
-} from './pdf-task-payload';
+} from './pdf-task-payload.js';
 
 @Injectable()
 export class PdfTaskTenantGuard implements CanActivate {

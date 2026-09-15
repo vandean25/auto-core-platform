@@ -4,8 +4,8 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto';
-import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto';
+import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto.js';
+import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
 
 export const QUEUE_ORDER_STATUSES: WorkshopOrderStatus[] = [
   WorkshopOrderStatus.INTAKE,

@@ -15,7 +15,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { BayService } from './bay.service';
+import { BayService } from './bay.service.js';
 import {
   BayDeleteResponseDto,
   BayResponseDto,
@@ -23,7 +23,7 @@ import {
   CreateBayDto,
   ListBaysQueryDto,
   UpdateBayDto,
-} from './dto/bay.dto';
+} from './dto/bay.dto.js';
 
 @ApiTags('bays')
 @Controller('bays')

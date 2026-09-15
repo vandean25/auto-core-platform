@@ -6,18 +6,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Brand } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   PrismaRepository,
   PaginatedResult,
-} from '../common/repositories/prisma-repository';
+} from '../common/repositories/prisma-repository.js';
 import {
   ConflictError,
   NotFoundError,
-} from '../common/errors/application-errors';
-import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util';
+} from '../common/errors/application-errors.js';
+import { normalizeVehicleMakeAlias } from '../catalog/vehicle-make-alias.util.js';
 
 @Injectable()
 export class BrandService {

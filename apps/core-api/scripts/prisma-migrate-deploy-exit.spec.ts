@@ -1,10 +1,12 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   P3005_BASELINE_HINT,
   resolveCloudBuildMigrateExit,
   runPrismaMigrateDeployCli,
-} from './prisma-migrate-deploy-exit';
+} from './prisma-migrate-deploy-exit.js';
 
 const P3005_LOG = `
 Error: P3005

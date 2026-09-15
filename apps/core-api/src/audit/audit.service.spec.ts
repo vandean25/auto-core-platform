@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuditService } from './audit.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { AuditService } from './audit.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AuditActorType, AuditLogAction } from '@prisma/client';
 
 describe('AuditService', () => {

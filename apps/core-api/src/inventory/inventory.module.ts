@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { InventoryService } from './inventory.service';
-import { InventoryController } from './inventory.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { LedgerService } from './ledger.service';
-import { LocationService } from './location.service';
-import { LocationController } from './location.controller';
-import { AtpService } from './atp.service';
+import { InventoryService } from './inventory.service.js';
+import { InventoryController } from './inventory.controller.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { LedgerService } from './ledger.service.js';
+import { LocationService } from './location.service.js';
+import { LocationController } from './location.controller.js';
+import { AtpService } from './atp.service.js';
 
 @Module({
   imports: [PrismaModule],

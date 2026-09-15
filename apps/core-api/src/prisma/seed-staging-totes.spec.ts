@@ -1,4 +1,4 @@
-import { seedFixedStagingTotes } from './seed-staging-totes';
+import { seedFixedStagingTotes } from './seed-staging-totes.js';
 
 type MockLocation = {
   id: string;

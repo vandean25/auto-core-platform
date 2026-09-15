@@ -6,10 +6,10 @@ import {
   Prisma,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { FinanceService } from '../finance/finance.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { InvoicesService } from './invoices.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { FinanceService } from '../finance/finance.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { InvoicesService } from './invoices.service.js';
 
 describe('InvoicesService', () => {
   let service: InvoicesService;

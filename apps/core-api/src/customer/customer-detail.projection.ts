@@ -1,12 +1,12 @@
 import {
   stripVehicleListIdentity,
   stripWorkshopOrdersVehicleIdentity,
-} from '../common/projections/vehicle-entity.projection';
+} from '../common/projections/vehicle-entity.projection.js';
 import {
   buildHistoryMeta,
   type HistoryPagination,
-} from '../common/utils/history-pagination.util';
-import type { CustomerDetailRecord } from './customer-detail.query';
+} from '../common/utils/history-pagination.util.js';
+import type { CustomerDetailRecord } from './customer-detail.query.js';
 
 export interface CustomerDetailCounts {
   workshopOrders: number;

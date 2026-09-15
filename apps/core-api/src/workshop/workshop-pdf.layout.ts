@@ -2,8 +2,8 @@ import {
   buildBasePdfStyles,
   buildPdfFooterTemplate,
   type EscapeHtml,
-} from '../common/pdf/pdf-layout';
-import type { WorkshopOrderForPdf } from './workshop-pdf.types';
+} from '../common/pdf/pdf-layout.js';
+import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
 
 export const buildWorkshopDocumentStyles = (): string => `
   ${buildBasePdfStyles()}

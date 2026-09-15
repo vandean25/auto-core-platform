@@ -5,7 +5,7 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 
 export type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
   include: {

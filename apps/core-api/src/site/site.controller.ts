@@ -23,8 +23,8 @@ import {
   MeSiteDto,
   SetActiveSiteDto,
   UpdateSiteDto,
-} from './dto/site.dto';
-import { SiteService } from './site.service';
+} from './dto/site.dto.js';
+import { SiteService } from './site.service.js';
 
 @ApiTags('legal-entities')
 @Controller('legal-entities')

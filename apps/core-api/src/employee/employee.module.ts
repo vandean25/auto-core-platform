@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { HrModule } from '../hr/hr.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { EmployeeController } from './employee.controller';
-import { EmployeeLeaveService } from './employee-leave.service';
-import { EmployeeLifecycleService } from './employee-lifecycle.service';
-import { EmployeeService } from './employee.service';
+import { HrModule } from '../hr/hr.module.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { EmployeeController } from './employee.controller.js';
+import { EmployeeLeaveService } from './employee-leave.service.js';
+import { EmployeeLifecycleService } from './employee-lifecycle.service.js';
+import { EmployeeService } from './employee.service.js';
 
 @Module({
   imports: [PrismaModule, HrModule],

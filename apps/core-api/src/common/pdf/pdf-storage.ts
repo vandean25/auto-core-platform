@@ -7,7 +7,7 @@ import {
 import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
-import { resolvePdfStorageBucket } from './pdf-bucket';
+import { resolvePdfStorageBucket } from './pdf-bucket.js';
 
 @Injectable()
 export class PdfStorage {

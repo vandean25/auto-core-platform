@@ -3,7 +3,7 @@ import { Prisma, SalesOrderStatus } from '@prisma/client';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../../common/utils/status-transition';
+} from '../../common/utils/status-transition.js';
 
 const INVOICEABLE_SALES_ORDER_STATUSES = new Set<SalesOrderStatus>([
   SalesOrderStatus.CONFIRMED,

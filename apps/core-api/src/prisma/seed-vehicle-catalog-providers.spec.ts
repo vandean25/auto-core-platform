@@ -1,10 +1,10 @@
 import { CatalogOemConcernCode } from '@prisma/client';
-import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids.js';
 import {
   resolveOemConcernForBrand,
   resolveVehicleMakeBrand,
   seedVehicleCatalogProviders,
-} from './seed-vehicle-catalog-providers';
+} from './seed-vehicle-catalog-providers.js';
 
 type BrandRecord = {
   id: number;

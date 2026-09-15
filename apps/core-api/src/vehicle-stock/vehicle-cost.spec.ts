@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { costBasis, marginVatGross } from './vehicle-cost';
+import { costBasis, marginVatGross } from './vehicle-cost.js';
 
 describe('vehicle-cost', () => {
   describe('marginVatGross', () => {

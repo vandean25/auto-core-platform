@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 import Decimal = Prisma.Decimal;
 

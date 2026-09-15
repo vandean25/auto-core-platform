@@ -2,15 +2,15 @@ import { Injectable } from '@nestjs/common';
 import {
   SANDBOX_CATALOG_ADAPTER_IDS,
   SANDBOX_CATALOG_QUERY,
-} from '../../catalog-adapter-ids';
-import { CatalogProviderError } from '../catalog-provider.error';
+} from '../../catalog-adapter-ids.js';
+import { CatalogProviderError } from '../catalog-provider.error.js';
 import type {
   CatalogAssemblyGroupContext,
   CatalogAssemblyGroupNode,
   CatalogPartsHit,
   CatalogSearchContext,
-} from '../catalog-provider.types';
-import type { PartsCatalogProvider } from '../parts-catalog.provider';
+} from '../catalog-provider.types.js';
+import type { PartsCatalogProvider } from '../parts-catalog.provider.js';
 
 function assertSandboxBehavior(query: string): void {
   if (query.includes(SANDBOX_CATALOG_QUERY.ERROR)) {

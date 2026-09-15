@@ -3,7 +3,7 @@ import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import {
   VALID_LOG_LEVELS,
   type AppLogLevel,
-} from '../../common/logging/log-level.service';
+} from '../../common/logging/log-level.service.js';
 
 export class UpdateLogLevelDto {
   @ApiProperty({

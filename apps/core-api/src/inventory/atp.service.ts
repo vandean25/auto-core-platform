@@ -11,9 +11,9 @@ import {
   PartsReservationStatus,
   Prisma,
 } from '@prisma/client';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 type DecimalQuantity = Prisma.Decimal | number | string;
 type AtpTransactionClient = PrismaService | Prisma.TransactionClient;

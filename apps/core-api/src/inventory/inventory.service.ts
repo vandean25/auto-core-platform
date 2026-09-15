@@ -4,10 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { LocationType, Prisma } from '@prisma/client';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { AtpService, type AtpStockInput } from './atp.service';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { AtpService, type AtpStockInput } from './atp.service.js';
 
 function buildCatalogItemInclude(tenantId: string, siteId: string) {
   return {

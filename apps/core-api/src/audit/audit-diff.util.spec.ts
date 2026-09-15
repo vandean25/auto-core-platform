@@ -2,8 +2,8 @@ import {
   buildAuditChangeSet,
   computeAuditDiff,
   normalizeAuditValue,
-} from './audit-diff.util';
-import { REDACTED_VALUE } from './audit-redaction.util';
+} from './audit-diff.util.js';
+import { REDACTED_VALUE } from './audit-redaction.util.js';
 
 class Decimal {
   constructor(private readonly value: string) {}

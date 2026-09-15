@@ -1,4 +1,4 @@
-import type { SeedPrismaClient, TenantFoundationContext } from './types';
+import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
 
 export async function seedTenantFoundation(
   prisma: SeedPrismaClient,

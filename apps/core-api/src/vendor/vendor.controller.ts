@@ -14,12 +14,15 @@ import {
   ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
-import { VendorService } from './vendor.service';
-import { QueryBuilder, type QueryParams } from '../common/utils/query-builder';
-import { CreateVendorDto } from './dto/create-vendor.dto';
-import { UpdateVendorDto } from './dto/update-vendor.dto';
-import { VendorResponseDto } from './dto/vendor-response.dto';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
+import { VendorService } from './vendor.service.js';
+import {
+  QueryBuilder,
+  type QueryParams,
+} from '../common/utils/query-builder.js';
+import { CreateVendorDto } from './dto/create-vendor.dto.js';
+import { UpdateVendorDto } from './dto/update-vendor.dto.js';
+import { VendorResponseDto } from './dto/vendor-response.dto.js';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 
 @Controller('vendors')
 export class VendorController {

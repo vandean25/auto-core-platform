@@ -1,8 +1,8 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { WorkshopOrderPurpose } from '@prisma/client';
-import { InvoicesService } from '../invoices/invoices.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { InvoicesService } from '../invoices/invoices.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 @Injectable()
 export class WorkshopInvoiceService {

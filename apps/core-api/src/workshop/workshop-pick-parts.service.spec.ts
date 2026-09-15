@@ -4,8 +4,8 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AtpService } from '../inventory/atp.service';
-import { WorkshopPickPartsService } from './workshop-pick-parts.service';
+import { AtpService } from '../inventory/atp.service.js';
+import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
 import {
   PartsReservationKind,
   PartsReservationStatus,
@@ -21,7 +21,7 @@ import {
   TransactionType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 describe('WorkshopPickPartsService', () => {
   let service: WorkshopPickPartsService;

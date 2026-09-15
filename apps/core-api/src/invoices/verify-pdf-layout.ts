@@ -1,9 +1,10 @@
-import { PlaywrightBrowserService } from '../common';
-import { InvoicePdfRenderer } from './invoice-pdf.renderer';
+import { PlaywrightBrowserService } from '../common/index.js';
+import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import { CustomerType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import { fileURLToPath } from 'node:url';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 async function generatePDFs() {
   const browserService = new PlaywrightBrowserService();
@@ -129,7 +130,10 @@ async function generatePDFs() {
 }
 
 // Add a guard to prevent execution when imported
-if (require.main === module) {
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === process.argv[1]
+) {
   generatePDFs()
     .then(() => {
       console.log('Verification PDF generation complete.');

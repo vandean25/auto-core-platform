@@ -1,8 +1,8 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { InvoiceStatus, Prisma, SalesOrderStatus } from '@prisma/client';
-import type { AtpService } from '../inventory/atp.service';
-import type { SiteContextService } from '../common/services/site-context.service';
-import { InvoiceFinalizationService } from './invoice-finalization.service';
+import type { AtpService } from '../inventory/atp.service.js';
+import type { SiteContextService } from '../common/services/site-context.service.js';
+import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
 describe('InvoiceFinalizationService', () => {
   let service: InvoiceFinalizationService;

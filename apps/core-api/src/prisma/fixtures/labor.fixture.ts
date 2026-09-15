@@ -1,5 +1,5 @@
 import type { LaborCategory } from '@prisma/client';
-import type { LaborContext, SeedPrismaClient } from './types';
+import type { LaborContext, SeedPrismaClient } from './types.js';
 
 export const LABOR_CATEGORIES_TO_SEED = [
   {

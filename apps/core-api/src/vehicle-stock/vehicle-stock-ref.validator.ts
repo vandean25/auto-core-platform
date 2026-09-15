@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../prisma/prisma.service.js';
 
 type StorageLocationLookupClient = Pick<PrismaService, 'storageLocation'>;
 type CustomerLookupClient = Pick<PrismaService, 'customer'>;

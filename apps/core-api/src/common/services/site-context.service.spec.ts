@@ -1,9 +1,9 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import { describe, expect, it, jest } from '@jest/globals';
-import { TenantContextService } from './tenant-context.service';
-import { TenantContextStorage } from './tenant-context.storage';
-import { SiteContextService } from './site-context.service';
-import type { SystemPrismaService } from '../../prisma/system-prisma.service';
+import { TenantContextService } from './tenant-context.service.js';
+import { TenantContextStorage } from './tenant-context.storage.js';
+import { SiteContextService } from './site-context.service.js';
+import type { SystemPrismaService } from '../../prisma/system-prisma.service.js';
 
 const TENANT_ID = 'tenant-1';
 const SITE_ID = 'site-1';

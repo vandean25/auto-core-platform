@@ -11,14 +11,14 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
-import { VehicleService } from './vehicle.service';
-import { VehicleIdentityService } from './vehicle-identity.service';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { VehicleService } from './vehicle.service.js';
+import { VehicleIdentityService } from './vehicle-identity.service.js';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
+import { CreateVehicleDto } from './dto/create-vehicle.dto.js';
 import {
   VehiclePaginatedResponseDto,
   VehicleResponseDto,
-} from './dto/vehicle-response.dto';
+} from './dto/vehicle-response.dto.js';
 
 @Controller('vehicles')
 export class VehicleController {

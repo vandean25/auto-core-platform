@@ -3,9 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { PurchaseInvoiceStatus } from '@prisma/client';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 
 @Injectable()
 export class PurchaseInvoiceLifecycleService {

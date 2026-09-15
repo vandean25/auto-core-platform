@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import {
   toDecimalNumber,
   rethrowAsConflict,
-} from './labor-shared.helpers';
+} from './labor-shared.helpers.js';
 
 // ── toDecimalNumber ───────────────────────────────────────────────────────────
 

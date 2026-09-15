@@ -7,11 +7,11 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { validate } from 'class-validator';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SiteService } from './site.service';
-import { UpdateLegalEntityDto } from './dto/site.dto';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteService } from './site.service.js';
+import { UpdateLegalEntityDto } from './dto/site.dto.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 

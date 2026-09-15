@@ -10,18 +10,18 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator';
+import { MechanicAccessible } from '../common/decorators/mechanic-accessible.decorator.js';
 import {
   CreateHrAttendanceDto,
   QueryHrAttendanceDto,
-} from './dto/hr-attendance.dto';
+} from './dto/hr-attendance.dto.js';
 import {
   AttendanceEventResponseDto,
   ClockResponseDto,
   HrMeResponseDto,
   PunchClockDto,
   PunchResponseDto,
-} from './dto/hr-clock.dto';
+} from './dto/hr-clock.dto.js';
 import {
   CreateEmployeeLeaveDto,
   CreateMyLeaveDto,
@@ -32,16 +32,16 @@ import {
   QueryHrLeaveDto,
   QueryMyLeaveDto,
   UpdateLeaveRequestDto,
-} from './dto/hr-leave.dto';
+} from './dto/hr-leave.dto.js';
 import {
   CreateEmployeeWorkScheduleDto,
   EmployeeWorkScheduleResponseDto,
   EmployeeWorkScheduleVersionResponseDto,
   UpdateEmployeeWorkScheduleDto,
-} from './dto/hr-work-schedule.dto';
-import { HrAttendanceService } from './hr-attendance.service';
-import { HrLeaveService } from './hr-leave.service';
-import { HrWorkScheduleService } from './hr-work-schedule.service';
+} from './dto/hr-work-schedule.dto.js';
+import { HrAttendanceService } from './hr-attendance.service.js';
+import { HrLeaveService } from './hr-leave.service.js';
+import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 
 @ApiTags('HR')
 @Controller('hr')

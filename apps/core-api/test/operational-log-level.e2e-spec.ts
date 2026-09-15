@@ -1,19 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { AuthService } from '../src/auth/auth.service';
-import { LogLevelService } from '../src/common/logging/log-level.service';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { LogLevelService } from '../src/common/logging/log-level.service.js';
 import {
   createTestAuthToken,
   createTestPlatformAdmin,
   createTestTenant,
   cleanupTestTenantGraph,
   cleanupTestUsers,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Operational Log-Level Controls (e2e)', () => {
   let app: INestApplication;

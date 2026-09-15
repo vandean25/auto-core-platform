@@ -1,19 +1,19 @@
 import { ConflictException, INestApplication } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { AtpService } from '../src/inventory/atp.service';
-import { processSaleInventoryDeduction } from '../src/sales/helpers/invoice-inventory.helpers';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AtpService } from '../src/inventory/atp.service.js';
+import { processSaleInventoryDeduction } from '../src/sales/helpers/invoice-inventory.helpers.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestTenant,
   runWithTenantContext,
   type TestTenantResult,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Sales multi-stock concurrency (e2e)', () => {
   let app: INestApplication;

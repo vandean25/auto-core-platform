@@ -2,12 +2,12 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { WorkshopPdfService } from './workshop-pdf.service';
-import type { CloudTasksService } from '../common/services/cloud-tasks.service';
-import type { TenantContextService } from '../common/services/tenant-context.service';
-import type { PrismaService } from '../prisma/prisma.service';
-import type { WorkshopPdfRenderer } from './workshop-pdf.renderer';
-import type { PdfStorage } from '../common/pdf/pdf-storage';
+import { WorkshopPdfService } from './workshop-pdf.service.js';
+import type { CloudTasksService } from '../common/services/cloud-tasks.service.js';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import type { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
+import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import { Readable } from 'node:stream';
 
 describe('WorkshopPdfService', () => {

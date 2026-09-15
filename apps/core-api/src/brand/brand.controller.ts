@@ -10,9 +10,9 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { BrandService } from './brand.service';
-import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
-import { BrandResponseDto } from './dto/brand-response.dto';
+import { BrandService } from './brand.service.js';
+import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto.js';
+import { BrandResponseDto } from './dto/brand-response.dto.js';
 
 @Controller('brands')
 export class BrandController {

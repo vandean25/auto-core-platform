@@ -2,12 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
-import { getFirebaseAdminAuth } from './firebase-admin';
-import { AuthSessionService } from './auth-session.service';
+import { getFirebaseAdminAuth } from './firebase-admin.js';
+import { AuthSessionService } from './auth-session.service.js';
 import type {
   AuthenticatedUser,
   TenantAuthenticatedUser,
-} from './types/authenticated-user';
+} from './types/authenticated-user.js';
 
 type AuthClaims = {
   sub: string;

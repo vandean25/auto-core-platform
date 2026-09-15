@@ -1,5 +1,5 @@
-import { InvoicePdfRenderer } from './invoice-pdf.renderer';
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 describe('InvoicePdfRenderer', () => {
   const createSnapshot = (): InvoiceSnapshot => ({

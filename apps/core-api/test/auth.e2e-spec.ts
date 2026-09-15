@@ -8,16 +8,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AuthModule } from '../src/auth/auth.module';
-import { AuthService } from '../src/auth/auth.service';
-import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
-import { SuperAdminGuard } from '../src/auth/super-admin.guard';
-import { AllowPlatformAdmin } from '../src/common/decorators/allow-platform-admin.decorator';
-import { createGlobalValidationPipe } from '../src/common';
-import type { AuthenticatedUser } from '../src/auth/types/authenticated-user';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { SystemPrismaService } from '../src/prisma/system-prisma.service';
-import { teardownTestApp } from './test-lifecycle';
+import type { AuthenticatedUser } from '../src/auth/types/authenticated-user.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 const firebaseAuthMock = {
   getUser: jest.fn(),
@@ -30,9 +22,22 @@ const firebaseAuthMock = {
 const TENANT_A_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_B_ID = '22222222-2222-4222-8222-222222222222';
 
-jest.mock('../src/auth/firebase-admin', () => ({
+jest.unstable_mockModule('../src/auth/firebase-admin.js', () => ({
   getFirebaseAdminAuth: () => firebaseAuthMock,
 }));
+
+const { AuthModule } = await import('../src/auth/auth.module.js');
+const { AuthService } = await import('../src/auth/auth.service.js');
+const { JwtAuthGuard } = await import('../src/auth/jwt-auth.guard.js');
+const { SuperAdminGuard } = await import('../src/auth/super-admin.guard.js');
+const { AllowPlatformAdmin } = await import(
+  '../src/common/decorators/allow-platform-admin.decorator.js'
+);
+const { createGlobalValidationPipe } = await import('../src/common/index.js');
+const { PrismaService } = await import('../src/prisma/prisma.service.js');
+const { SystemPrismaService } = await import(
+  '../src/prisma/system-prisma.service.js'
+);
 
 @Controller('protected')
 class ProtectedController {

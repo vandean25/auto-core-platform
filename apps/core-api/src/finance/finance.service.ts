@@ -1,9 +1,9 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceTaxMode, Prisma } from '@prisma/client';
-import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto';
-import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto.js';
+import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 @Injectable()
 export class FinanceService {

@@ -1,4 +1,4 @@
-import type { SeedPrismaClient } from './types';
+import type { SeedPrismaClient } from './types.js';
 
 export interface TableCleaner {
   table: string;

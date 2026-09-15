@@ -1,5 +1,5 @@
-import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder';
-import type { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto';
+import { PurchaseOrderQueryBuilder } from './purchase-order-query.builder.js';
+import type { FindPurchaseOrdersQueryDto } from './dto/find-purchase-orders-query.dto.js';
 
 describe('PurchaseOrderQueryBuilder', () => {
   describe('usesAdvancedQuery', () => {

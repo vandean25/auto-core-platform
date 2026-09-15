@@ -1,15 +1,15 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto';
-import { PurchaseOrderResponseDto } from '../purchase/dto/purchase-order-response.dto';
-import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto';
-import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto';
-import { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto';
-import { PartsRequisitionResponseDto } from './dto/parts-requisition-response.dto';
-import { PartsReservationResponseDto } from './dto/parts-reservation-response.dto';
-import { PartsShortageResponseDto } from './dto/parts-shortage-response.dto';
-import { PartsShortagesQueryDto } from './dto/parts-shortages-query.dto';
-import { PartsRequisitionService } from './parts-requisition.service';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import { PurchaseOrderResponseDto } from '../purchase/dto/purchase-order-response.dto.js';
+import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto.js';
+import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto.js';
+import { CreateRequisitionPurchaseOrderDto } from './dto/create-requisition-purchase-order.dto.js';
+import { PartsRequisitionResponseDto } from './dto/parts-requisition-response.dto.js';
+import { PartsReservationResponseDto } from './dto/parts-reservation-response.dto.js';
+import { PartsShortageResponseDto } from './dto/parts-shortage-response.dto.js';
+import { PartsShortagesQueryDto } from './dto/parts-shortages-query.dto.js';
+import { PartsRequisitionService } from './parts-requisition.service.js';
 
 @Controller()
 @ApiTags('parts-requisitions')

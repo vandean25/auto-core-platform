@@ -4,16 +4,19 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Prisma, WorkshopMediaUrlStrategy } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto';
-import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto';
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { CreateMediaDto, RequestMediaUploadDto } from './dto/media.dto.js';
+import type {
+  MediaUploadPolicyDto,
+  WorkshopMediaDto,
+} from './dto/media.dto.js';
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './dto/media.dto.js';
 import {
   IMAGE_MIME_TYPES,
   MechanicMediaStorage,
-} from './mechanic-media.storage';
-import { assertTaskAccessibleAndNotDone } from './mechanic-task-access';
+} from './mechanic-media.storage.js';
+import { assertTaskAccessibleAndNotDone } from './mechanic-task-access.js';
 
 @Injectable()
 export class MechanicMediaService {

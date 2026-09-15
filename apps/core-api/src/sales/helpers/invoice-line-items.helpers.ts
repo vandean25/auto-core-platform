@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, type CatalogItem, type RevenueGroup } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service.js';
 export const DEFAULT_INVOICE_DUE_DAYS = 14;
 
 export type InvoiceLineInput = {

@@ -15,12 +15,13 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import Redis from 'ioredis';
-import { Public } from '../common/decorators/public.decorator';
-import { resolveCorsOrigins } from '../common/http/cors-origins';
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
-import { AuthService } from '../auth/auth.service';
-import { SiteContextService } from '../site/site-context.service';
+import { Redis } from 'ioredis';
+import type { AuthService } from '../auth/auth.service.js';
+import { AUTH_SERVICE_TOKEN } from '../auth/auth.tokens.js';
+import { Public } from '../common/decorators/public.decorator.js';
+import { resolveCorsOrigins } from '../common/http/cors-origins.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   AuthClaimsUpdatedPayload,
@@ -30,9 +31,9 @@ import {
   SITE_CONTEXT_UPDATED_EVENT,
   SiteAccessScopeUpdatedPayload,
   SiteContextUpdatedPayload,
-} from './dashboard-events.types';
+} from './dashboard-events.types.js';
 
-export { resolveCorsOrigins } from '../common/http/cors-origins';
+export { resolveCorsOrigins } from '../common/http/cors-origins.js';
 
 export function resolveRedisUrl(
   redisUrl: string | undefined = process.env.REDIS_URL,
@@ -111,7 +112,7 @@ export class DashboardGateway
   private redisAdapterReady: Promise<void> = Promise.resolve();
 
   constructor(
-    @Inject(forwardRef(() => AuthService))
+    @Inject(AUTH_SERVICE_TOKEN)
     private readonly authService: AuthService,
     @Optional()
     @Inject(forwardRef(() => SiteContextService))

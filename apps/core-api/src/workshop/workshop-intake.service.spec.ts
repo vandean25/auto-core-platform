@@ -1,8 +1,8 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkshopIntakeService } from './workshop-intake.service';
-import { WorkshopScheduleService } from './workshop-schedule.service';
-import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopScheduleService } from './workshop-schedule.service.js';
+import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import {
   mockPrisma,
   resetWorkshopMocks,
@@ -14,7 +14,7 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
   workshopSiteProvider,
-} from './workshop.spec.support';
+} from './workshop.spec.support.js';
 
 describe('WorkshopIntakeService', () => {
   let service: WorkshopIntakeService;

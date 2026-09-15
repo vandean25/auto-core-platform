@@ -3,7 +3,7 @@ import {
   assertInvoiceHasItems,
   buildFormattedInvoiceItems,
   buildInvoiceDueDate,
-} from './invoice-line-items.helpers';
+} from './invoice-line-items.helpers.js';
 
 describe('invoice-line-items.helpers', () => {
   const prisma = {

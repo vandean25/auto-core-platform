@@ -8,16 +8,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopHolidaySource } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateWorkshopHolidayDto,
   ImportWorkshopHolidaysDto,
   ImportWorkshopHolidaysResponseDto,
   UpdateWorkshopHolidayDto,
   WorkshopHolidayDto,
-} from './dto/workshop-holiday.dto';
+} from './dto/workshop-holiday.dto.js';
 import {
   OPENHOLIDAYS_FETCH,
   OpenHolidaysTimeoutError,
@@ -25,9 +25,9 @@ import {
   fetchPublicHolidays,
   type OpenHolidaysFetch,
   type PublicHolidayDay,
-} from './openholidays.client';
-import { isOpenWindowValid } from './workshop-hours.defaults';
-import { WorkshopSettingsService } from './workshop-settings.service';
+} from './openholidays.client.js';
+import { isOpenWindowValid } from './workshop-hours.defaults.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
 
 type HolidayCollisionRow = {
   id: string;

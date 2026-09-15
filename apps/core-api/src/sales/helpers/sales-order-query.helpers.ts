@@ -1,6 +1,6 @@
 import { Prisma, SalesOrderStatus } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
-import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util';
+import type { PrismaService } from '../../prisma/prisma.service.js';
+import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
 
 export type SalesOrderWithRelations = Prisma.SalesOrderGetPayload<{
   include: { customer: true; vehicle: true; items: true };

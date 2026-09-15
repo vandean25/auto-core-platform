@@ -1,11 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/auth/auth.service';
-import { createGlobalValidationPipe } from '../src/common';
-import { DashboardRealtimeService } from '../src/dashboard-realtime/dashboard-realtime.service';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../src/app.module.js';
+import { AuthService } from '../src/auth/auth.service.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { DashboardRealtimeService } from '../src/dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTestAuthToken,
@@ -13,8 +13,8 @@ import {
   runWithTenantContext,
   seedTestEmployee,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
   weekday,

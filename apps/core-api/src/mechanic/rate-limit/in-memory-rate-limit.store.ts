@@ -6,7 +6,7 @@ import {
   type RateLimitEntry,
   type RateLimitScope,
   type RateLimitWindow,
-} from './rate-limit.store';
+} from './rate-limit.store.js';
 
 function rateLimitKey(scope: RateLimitScope): string {
   return `${scope.tenantId}:${scope.mechanicId}`;

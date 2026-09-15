@@ -12,23 +12,23 @@ import {
   VehiclePurchaseSellerType,
   VehiclePurchaseStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util';
-import { VehicleLedgerService } from './vehicle-ledger.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util.js';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import {
   ACTIVE_STOCK_STATUSES,
   buildLotStockPayload,
   prepareDraftUpdateData,
   resolveSellerValidationTarget,
-} from './vehicle-purchase.helpers';
+} from './vehicle-purchase.helpers.js';
 import {
   assertTenantCustomerExists,
   assertTenantStorageLocationExists,
   assertTenantVendorExists,
-} from './vehicle-stock-ref.validator';
-import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto';
-import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto';
+} from './vehicle-stock-ref.validator.js';
+import type { CreateVehiclePurchaseDto } from './dto/create-vehicle-purchase.dto.js';
+import type { PatchVehiclePurchaseDto } from './dto/patch-vehicle-purchase.dto.js';
 
 @Injectable()
 export class VehiclePurchaseService {

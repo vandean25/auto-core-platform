@@ -3,7 +3,7 @@ import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
   resetSharedRuntimePool,
-} from './shared-pg-pool';
+} from './shared-pg-pool.js';
 
 describe('getSharedRuntimePool', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;

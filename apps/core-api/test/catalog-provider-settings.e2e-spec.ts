@@ -1,12 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AuthService } from '../src/auth/auth.service';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { SANDBOX_CATALOG_ADAPTER_IDS } from '../src/catalog/catalog-adapter-ids';
-import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AuthService } from '../src/auth/auth.service.js';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../src/catalog/catalog-adapter-ids.js';
+import { seedVehicleCatalogProviders } from '../src/prisma/seed-vehicle-catalog-providers.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -14,8 +14,8 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Catalog provider settings (e2e)', () => {
   let app: INestApplication;

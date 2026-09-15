@@ -4,21 +4,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { HrWorkScheduleService } from '../hr/hr-work-schedule.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { HrWorkScheduleService } from '../hr/hr-work-schedule.service.js';
 import {
   CreateEmployeeDto,
   ListEmployeesQueryDto,
   UpdateEmployeeDto,
-} from './dto/employee.dto';
-import { EmployeeLifecycleService } from './employee-lifecycle.service';
-import { EmployeeLeaveService } from './employee-leave.service';
+} from './dto/employee.dto.js';
+import { EmployeeLifecycleService } from './employee-lifecycle.service.js';
+import { EmployeeLeaveService } from './employee-leave.service.js';
 import {
   buildEmployeeUpdateData,
   handleEmployeeConflict,
   toDateOnly,
-} from './employee.helpers';
+} from './employee.helpers.js';
 
 const TENANT_ADMIN_ROLES = new Set(['OWNER', 'ADMIN']);
 

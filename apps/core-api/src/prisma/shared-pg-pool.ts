@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { resolveRuntimeDatabaseUrl } from './runtime-database-url';
+import { resolveRuntimeDatabaseUrl } from './runtime-database-url.js';
 
 const DEFAULT_RUNTIME_POOL_MAX = 10;
 

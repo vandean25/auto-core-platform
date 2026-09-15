@@ -1,4 +1,4 @@
-import { seedCustomersAndVehicles } from './customer.fixture';
+import { seedCustomersAndVehicles } from './customer.fixture.js';
 
 describe('customer.fixture', () => {
   it('creates customers and batch creates vehicles', async () => {

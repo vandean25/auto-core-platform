@@ -10,19 +10,19 @@ import {
   Delete,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
-import { SalesOrderService } from './sales-order.service';
-import { CreateSalesOrderDto } from './dto/create-sales-order.dto';
-import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
+import { SalesOrderService } from './sales-order.service.js';
+import { CreateSalesOrderDto } from './dto/create-sales-order.dto.js';
+import { UpdateSalesOrderDto } from './dto/update-sales-order.dto.js';
 import {
   SalesOrderPaginatedResponseDto,
   SalesOrderResponseDto,
-} from './dto/sales-order-response.dto';
-import { InvoiceResponseDto } from '../dto/invoice-response.dto';
+} from './dto/sales-order-response.dto.js';
+import { InvoiceResponseDto } from '../dto/invoice-response.dto.js';
 import { SalesOrderStatus } from '@prisma/client';
 import {
   QueryBuilder,
   type QueryParams,
-} from '../../common/utils/query-builder';
+} from '../../common/utils/query-builder.js';
 
 @Controller('sales-orders')
 export class SalesOrderController {

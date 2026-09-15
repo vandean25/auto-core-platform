@@ -1,6 +1,6 @@
 import { LaborPauseReason } from '@prisma/client';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { MechanicSchedulerService } from './mechanic-scheduler.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { MechanicSchedulerService } from './mechanic-scheduler.service.js';
 
 const mockSystemPrisma = {
   laborEntry: {

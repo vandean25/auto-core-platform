@@ -1,7 +1,7 @@
 import {
   buildHistoryMeta,
   resolveHistoryPagination,
-} from './history-pagination.util';
+} from './history-pagination.util.js';
 
 describe('history-pagination.util', () => {
   describe('resolveHistoryPagination', () => {

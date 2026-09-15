@@ -1,4 +1,4 @@
-import type { InvoiceSnapshot } from './invoice-snapshot';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 

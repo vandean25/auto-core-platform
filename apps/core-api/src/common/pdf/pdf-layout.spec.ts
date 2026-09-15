@@ -3,7 +3,7 @@ import {
   buildBasePdfStyles,
   buildPdfTableStyles,
   buildPdfFooterTemplate,
-} from './pdf-layout';
+} from './pdf-layout.js';
 
 describe('pdf-layout helpers', () => {
   describe('escapeHtml', () => {

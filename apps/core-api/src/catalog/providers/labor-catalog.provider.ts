@@ -1,7 +1,7 @@
 import type {
   CatalogLaborHit,
   CatalogSearchContext,
-} from './catalog-provider.types';
+} from './catalog-provider.types.js';
 
 export const LABOR_CATALOG_PROVIDER = Symbol('LaborCatalogProvider');
 

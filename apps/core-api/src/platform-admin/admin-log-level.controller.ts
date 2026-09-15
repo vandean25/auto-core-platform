@@ -17,11 +17,11 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { SuperAdminGuard } from '../auth/super-admin.guard';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user';
-import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator';
-import { LogLevelService } from '../common/logging/log-level.service';
-import { LogLevelResponseDto, UpdateLogLevelDto } from './dto/log-level.dto';
+import { SuperAdminGuard } from '../auth/super-admin.guard.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
+import { AllowPlatformAdmin } from '../common/decorators/allow-platform-admin.decorator.js';
+import { LogLevelService } from '../common/logging/log-level.service.js';
+import { LogLevelResponseDto, UpdateLogLevelDto } from './dto/log-level.dto.js';
 
 @ApiTags('admin-settings')
 @ApiBearerAuth()

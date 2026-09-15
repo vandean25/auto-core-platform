@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { EmployeeRole, Prisma } from '@prisma/client';
-import { UpdateEmployeeDto } from './dto/employee.dto';
+import { UpdateEmployeeDto } from './dto/employee.dto.js';
 
 export type EmployeeLeaveSummary = {
   remainingLeaveMinutes: number;

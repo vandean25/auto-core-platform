@@ -14,13 +14,13 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { LaborService } from './labor.service';
-import { LaborCategoryService } from './labor-category.service';
+import { LaborService } from './labor.service.js';
+import { LaborCategoryService } from './labor-category.service.js';
 import {
   CreateLaborCategoryDto,
   LaborCategoriesResponseDto,
   UpdateLaborCategoryDto,
-} from './dto/labor-category.dto';
+} from './dto/labor-category.dto.js';
 import {
   CreateLaborOperationDto,
   LaborOperationResponseDto,
@@ -29,7 +29,7 @@ import {
   SoftDeleteResponseDto,
   UpdateLaborOperationDto,
   LaborOperationSearchResponseDto,
-} from './dto/labor-operation.dto';
+} from './dto/labor-operation.dto.js';
 
 @ApiTags('labor')
 @Controller('labor')

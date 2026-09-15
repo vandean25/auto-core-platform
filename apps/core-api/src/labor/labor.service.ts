@@ -5,14 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateLaborOperationDto,
   ListLaborOperationsQueryDto,
   UpdateLaborOperationDto,
-} from './dto/labor-operation.dto';
-import { rethrowAsConflict } from './labor-shared.helpers';
+} from './dto/labor-operation.dto.js';
+import { rethrowAsConflict } from './labor-shared.helpers.js';
 
 const SEARCH_LIMIT = 20;
 

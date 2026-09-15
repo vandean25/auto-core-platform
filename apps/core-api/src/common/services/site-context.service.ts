@@ -1,6 +1,6 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
-import { SystemPrismaService } from '../../prisma/system-prisma.service';
-import { TenantContextService } from './tenant-context.service';
+import { SystemPrismaService } from '../../prisma/system-prisma.service.js';
+import { TenantContextService } from './tenant-context.service.js';
 
 const ACTIVE_SITE_REQUIRED_CODE = 'ACTIVE_SITE_REQUIRED';
 

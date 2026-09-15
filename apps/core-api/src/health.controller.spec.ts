@@ -1,7 +1,7 @@
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { IS_PUBLIC_KEY } from './common/decorators/public.decorator';
-import { HealthController } from './health.controller';
+import { IS_PUBLIC_KEY } from './common/decorators/public.decorator.js';
+import { HealthController } from './health.controller.js';
 
 describe('HealthController', () => {
   const controller = new HealthController();

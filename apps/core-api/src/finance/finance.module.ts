@@ -1,7 +1,7 @@
 import { Module, Global } from '@nestjs/common';
-import { FinanceService } from './finance.service';
-import { FinanceController } from './finance.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+import { FinanceService } from './finance.service.js';
+import { FinanceController } from './finance.controller.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
 
 @Global()
 @Module({

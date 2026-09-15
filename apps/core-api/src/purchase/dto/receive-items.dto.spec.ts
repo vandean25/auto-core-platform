@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
-import { ReceivePurchaseOrderDto } from './receive-items.dto';
+import { ReceivePurchaseOrderDto } from './receive-items.dto.js';
 
 const collectConstraintMessages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [

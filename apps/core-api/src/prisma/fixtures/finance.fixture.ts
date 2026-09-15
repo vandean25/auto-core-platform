@@ -1,4 +1,4 @@
-import type { SeedPrismaClient, FinanceContext } from './types';
+import type { SeedPrismaClient, FinanceContext } from './types.js';
 
 export async function seedFinance(
   prisma: SeedPrismaClient,

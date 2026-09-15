@@ -1,23 +1,23 @@
 import { Module } from '@nestjs/common';
-import { CommonModule } from '../common';
-import { InventoryModule } from '../inventory/inventory.module';
-import { InvoicesModule } from '../invoices/invoices.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module';
-import { OPENHOLIDAYS_FETCH } from './openholidays.client';
-import { WorkshopBoardService } from './workshop-board.service';
-import { WorkshopHolidayService } from './workshop-holiday.service';
-import { WorkshopIntakeService } from './workshop-intake.service';
-import { WorkshopInvoiceService } from './workshop-invoice.service';
-import { WorkshopPdfRenderer } from './workshop-pdf.renderer';
-import { WorkshopPdfService } from './workshop-pdf.service';
-import { WorkshopPickPartsService } from './workshop-pick-parts.service';
-import { WorkshopPlannerService } from './workshop-planner.service';
-import { WorkshopScheduleService } from './workshop-schedule.service';
-import { WorkshopSettingsService } from './workshop-settings.service';
-import { WorkshopTaskService } from './workshop-task.service';
-import { WorkshopCatalogLineService } from './workshop-catalog-line.service';
-import { WorkshopController } from './workshop.controller';
+import { CommonModule } from '../common/index.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
+import { InvoicesModule } from '../invoices/invoices.module.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
+import { OPENHOLIDAYS_FETCH } from './openholidays.client.js';
+import { WorkshopBoardService } from './workshop-board.service.js';
+import { WorkshopHolidayService } from './workshop-holiday.service.js';
+import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopInvoiceService } from './workshop-invoice.service.js';
+import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
+import { WorkshopPdfService } from './workshop-pdf.service.js';
+import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
+import { WorkshopPlannerService } from './workshop-planner.service.js';
+import { WorkshopScheduleService } from './workshop-schedule.service.js';
+import { WorkshopSettingsService } from './workshop-settings.service.js';
+import { WorkshopTaskService } from './workshop-task.service.js';
+import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
+import { WorkshopController } from './workshop.controller.js';
 
 @Module({
   imports: [

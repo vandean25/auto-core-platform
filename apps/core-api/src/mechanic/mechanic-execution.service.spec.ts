@@ -11,8 +11,8 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { MechanicExecutionService } from './mechanic-execution.service';
-import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants';
+import { MechanicExecutionService } from './mechanic-execution.service.js';
+import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants.js';
 import {
   MECHANIC_ID,
   ORDER_ID,
@@ -23,7 +23,7 @@ import {
   mockRealtimeService,
   mockTenantContext,
   mockVehicleLedger,
-} from './mechanic.spec.support';
+} from './mechanic.spec.support.js';
 
 describe('MechanicExecutionService', () => {
   let service: MechanicExecutionService;

@@ -14,7 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { HH_MM, SLOT_MINUTES } from '../workshop-hours.defaults';
+import { HH_MM, SLOT_MINUTES } from '../workshop-hours.defaults.js';
 
 export class WorkshopOpeningHourDto {
   @ApiProperty({ minimum: 1, maximum: 7 })

@@ -6,17 +6,17 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import {
   VEHICLE_IDENTITY_PROVIDER,
   type VehicleIdentityProvider,
-} from './vehicle-identity.provider';
-import { VehicleIdentityService } from './vehicle-identity.service';
+} from './vehicle-identity.provider.js';
+import { VehicleIdentityService } from './vehicle-identity.service.js';
 import {
   VEHICLE_IDENTITY_RESET,
   createIdentityInputFingerprint,
-} from './vehicle-identity.util';
+} from './vehicle-identity.util.js';
 
 describe('VehicleIdentityService', () => {
   const tenantId = 'tenant-1';

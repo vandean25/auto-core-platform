@@ -5,13 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateLaborCategoryDto,
   UpdateLaborCategoryDto,
-} from './dto/labor-category.dto';
-import { toDecimalNumber, rethrowAsConflict } from './labor-shared.helpers';
+} from './dto/labor-category.dto.js';
+import { toDecimalNumber, rethrowAsConflict } from './labor-shared.helpers.js';
 
 // ── Private guard / helper types ──────────────────────────────────────────────
 

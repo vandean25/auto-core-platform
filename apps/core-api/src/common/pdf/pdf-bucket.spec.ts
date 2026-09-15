@@ -1,5 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { resolvePdfStorageBucket } from './pdf-bucket';
+import { resolvePdfStorageBucket } from './pdf-bucket.js';
 
 describe('resolvePdfStorageBucket', () => {
   it('returns INVOICE_PDF_BUCKET for invoice and workshop job-card storage', () => {

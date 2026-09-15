@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user';
-import { TenantContextStorage } from './tenant-context.storage';
+import type { AuthenticatedUser } from '../../auth/types/authenticated-user.js';
+import { TenantContextStorage } from './tenant-context.storage.js';
 
 @Injectable()
 export class TenantContextService {

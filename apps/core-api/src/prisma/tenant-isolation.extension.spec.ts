@@ -1,9 +1,11 @@
+import { fileURLToPath } from 'node:url';
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { applyTenantIsolation } from './tenant-isolation.extension';
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
+import { applyTenantIsolation } from './tenant-isolation.extension.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 
 const TENANT_ID = 'tenant-test-123';
 

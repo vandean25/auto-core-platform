@@ -8,12 +8,12 @@ import {
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
-} from '../common/utils/status-transition';
-import { SiteContextService } from '../common/services/site-context.service';
-import { AtpService } from '../inventory/atp.service';
-import { generateInvoiceNumber } from './helpers/invoice-number.helpers';
-import { processSaleInventoryDeduction } from './helpers/invoice-inventory.helpers';
-import { transitionLinkedSalesOrderToInvoiced } from './helpers/invoice-sales-order-transition.helpers';
+} from '../common/utils/status-transition.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { AtpService } from '../inventory/atp.service.js';
+import { generateInvoiceNumber } from './helpers/invoice-number.helpers.js';
+import { processSaleInventoryDeduction } from './helpers/invoice-inventory.helpers.js';
+import { transitionLinkedSalesOrderToInvoiced } from './helpers/invoice-sales-order-transition.helpers.js';
 
 type InvoiceWithItems = Invoice & { items: InvoiceItem[] };
 

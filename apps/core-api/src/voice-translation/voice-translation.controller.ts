@@ -9,9 +9,9 @@ import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   UpdateVoiceTranslationSettingsDto,
   VoiceTranslationSettingsResponseDto,
-} from './dto/voice-translation-settings.dto';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { VoiceTranslationService } from './voice-translation.service';
+} from './dto/voice-translation-settings.dto.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { VoiceTranslationService } from './voice-translation.service.js';
 
 @ApiTags('voice-translation')
 @Controller('voice-translation')

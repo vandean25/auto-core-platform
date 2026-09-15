@@ -4,11 +4,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { CatalogOemConcernCode } from '@prisma/client';
-import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { CatalogProviderSettingsController } from './catalog-provider-settings.controller';
-import { CatalogProviderSettingsService } from './catalog-provider-settings.service';
+import { SANDBOX_CATALOG_ADAPTER_IDS } from '../catalog/catalog-adapter-ids.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CatalogProviderSettingsController } from './catalog-provider-settings.controller.js';
+import { CatalogProviderSettingsService } from './catalog-provider-settings.service.js';
 
 const tenantId = 'tenant-1';
 

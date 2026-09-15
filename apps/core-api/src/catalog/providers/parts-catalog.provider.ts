@@ -3,7 +3,7 @@ import type {
   CatalogAssemblyGroupNode,
   CatalogPartsHit,
   CatalogSearchContext,
-} from './catalog-provider.types';
+} from './catalog-provider.types.js';
 
 export const PARTS_CATALOG_PROVIDER = Symbol('PartsCatalogProvider');
 

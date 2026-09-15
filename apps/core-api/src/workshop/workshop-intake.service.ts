@@ -5,30 +5,30 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto';
-import type { RegisterIntakeDto } from './dto/register-intake.dto';
-import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
+import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
+import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import {
   Prisma,
   VehicleStockStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
 } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { SiteContextService } from '../common/services/site-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import {
   normalizeWorkshopOrder,
   assertOrderEditable,
   type WorkshopOrderWithRelations,
-} from './workshop-order.helpers';
-import { WorkshopScheduleService } from './workshop-schedule.service';
+} from './workshop-order.helpers.js';
+import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import {
   VEHICLE_IDENTITY_RESET,
   normalizeVehicleIdentityValue,
   normalizeVehicleIdentityValueOrNull,
   stripVehicleIdentityResolutionState,
-} from '../vehicle/vehicle-identity.util';
+} from '../vehicle/vehicle-identity.util.js';
 import {
   buildCustomerSearchWhere,
   buildVehicleSearchWhere,
@@ -42,7 +42,7 @@ import {
   SEARCH_LIMIT,
   validateCreateOrderInput,
   validateStockPrepVehicle,
-} from './workshop-intake.helpers';
+} from './workshop-intake.helpers.js';
 
 @Injectable()
 export class WorkshopIntakeService {

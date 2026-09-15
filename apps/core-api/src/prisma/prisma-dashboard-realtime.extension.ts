@@ -1,11 +1,11 @@
 import { Prisma } from '@prisma/client';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextStorage } from '../common/services/tenant-context.storage';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import type {
   DashboardEntityAction,
   DashboardEntityType,
-} from '../dashboard-realtime/dashboard-events.types';
-import { toPrismaDelegateKey } from './prisma-delegate';
+} from '../dashboard-realtime/dashboard-events.types.js';
+import { toPrismaDelegateKey } from './prisma-delegate.js';
 
 const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,

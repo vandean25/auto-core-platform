@@ -3,8 +3,8 @@ import {
   invoicesHistorySlice,
   salesOrdersHistorySlice,
   workshopOrdersHistorySlice,
-} from '../common/queries/entity-history.query';
-import type { HistoryPagination } from '../common/utils/history-pagination.util';
+} from '../common/queries/entity-history.query.js';
+import type { HistoryPagination } from '../common/utils/history-pagination.util.js';
 
 export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
   include: {

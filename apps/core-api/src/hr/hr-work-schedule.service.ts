@@ -10,22 +10,22 @@ import {
   Prisma,
   WorkshopOpeningHour,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { formatLocalDate } from '../workshop/workshop-planner.time';
-import { WorkshopSettingsService } from '../workshop/workshop-settings.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { formatLocalDate } from '../workshop/workshop-planner.time.js';
+import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
 import {
   averageExpectedMinutesPerWorkday,
   daysToMinutes,
   FALLBACK_AVG_WORKDAY_MINUTES,
-} from './hr-work-schedule.time';
+} from './hr-work-schedule.time.js';
 import {
   CreateEmployeeWorkScheduleDto,
   EmployeeWorkScheduleResponseDto,
   EmployeeWorkScheduleVersionResponseDto,
   UpdateEmployeeWorkScheduleDto,
-} from './dto/hr-work-schedule.dto';
-import { HrIdentityService } from './hr-identity.service';
+} from './dto/hr-work-schedule.dto.js';
+import { HrIdentityService } from './hr-identity.service.js';
 
 export type ScheduleDayInput = Pick<
   EmployeeWorkScheduleDay,

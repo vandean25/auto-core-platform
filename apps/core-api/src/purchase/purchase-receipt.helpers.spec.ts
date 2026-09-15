@@ -9,7 +9,7 @@ import {
   determinePostReceiptStatus,
   determineReceivedReservationStatus,
   isAllocatedReservation,
-} from './purchase-receipt.helpers';
+} from './purchase-receipt.helpers.js';
 
 import Decimal = Prisma.Decimal;
 

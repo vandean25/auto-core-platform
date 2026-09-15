@@ -8,12 +8,12 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
-import { LedgerService } from '../inventory/ledger.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { InvoicesService } from '../invoices/invoices.service';
-import { SiteContextService } from '../common/services/site-context.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service';
+import { LedgerService } from '../inventory/ledger.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { InvoicesService } from '../invoices/invoices.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 
 export const mockPrisma = {
   financeSettings: {

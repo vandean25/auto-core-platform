@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LaborPauseReason } from '@prisma/client';
-import { SystemPrismaService } from '../prisma/system-prisma.service';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 
 /**
  * Nightly scheduled job that force-closes orphaned `LaborEntry` records.

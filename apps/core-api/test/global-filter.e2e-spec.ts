@@ -1,15 +1,15 @@
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService } from '../src/auth/auth.service.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils';
+import { AppModule } from '../src/app.module.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils.js';
 import {
   createGlobalValidationPipe,
   GlobalExceptionFilter,
-} from '../src/common';
-import { teardownTestApp } from './test-lifecycle';
+} from '../src/common/index.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('GlobalExceptionFilter (e2e)', () => {
   let app: INestApplication;

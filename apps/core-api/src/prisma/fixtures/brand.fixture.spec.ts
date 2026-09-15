@@ -1,6 +1,6 @@
-import { seedBrands, seedVendors } from './brand.fixture';
+import { jest } from '@jest/globals';
 
-jest.mock('../seed-vehicle-catalog-providers', () => ({
+jest.unstable_mockModule('../seed-vehicle-catalog-providers.js', () => ({
   seedVehicleCatalogProviders: jest.fn().mockResolvedValue({
     brandsCreated: 2,
     aliasesUpserted: 3,
@@ -8,6 +8,8 @@ jest.mock('../seed-vehicle-catalog-providers', () => ({
     concernMakesUpserted: 2,
   }),
 }));
+
+const { seedBrands, seedVendors } = await import('./brand.fixture.js');
 
 describe('brand.fixture', () => {
   it('creates dual, vehicle, and part brands with normalized names', async () => {

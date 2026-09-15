@@ -4,7 +4,7 @@ import {
   findPaginatedSalesOrders,
   isSalesOrderFindManyArgs,
   toPublicSalesOrder,
-} from './sales-order-query.helpers';
+} from './sales-order-query.helpers.js';
 
 describe('sales-order-query.helpers', () => {
   describe('isSalesOrderFindManyArgs', () => {

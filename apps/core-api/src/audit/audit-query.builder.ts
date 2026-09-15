@@ -1,11 +1,11 @@
 import { Prisma, type AuditLog } from '@prisma/client';
-import { redactAuditSecrets } from './audit-redaction.util';
-import type { AuditJsonValue } from './audit.types';
+import { redactAuditSecrets } from './audit-redaction.util.js';
+import type { AuditJsonValue } from './audit.types.js';
 import type {
   QueryAuditLogsDto,
   AuditLogListResponseDto,
   AuditLogResponseDto,
-} from './dto';
+} from './dto/index.js';
 
 export interface AuditPaginationParams {
   page: number;

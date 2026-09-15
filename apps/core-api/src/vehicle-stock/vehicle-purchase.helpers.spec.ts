@@ -5,13 +5,13 @@ import {
   VehicleStockStatus,
   VehicleTaxScheme,
 } from '@prisma/client';
-import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util';
+import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import {
   ACTIVE_STOCK_STATUSES,
   buildLotStockPayload,
   prepareDraftUpdateData,
   resolveSellerValidationTarget,
-} from './vehicle-purchase.helpers';
+} from './vehicle-purchase.helpers.js';
 
 describe('vehicle-purchase.helpers', () => {
   describe('ACTIVE_STOCK_STATUSES', () => {

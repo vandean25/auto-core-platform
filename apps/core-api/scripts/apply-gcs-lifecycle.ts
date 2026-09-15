@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * Applies the GCS lifecycle policy to the invoice PDF bucket.
  * Safe to run multiple times (idempotent — GCS replaces the full lifecycle config).
@@ -58,7 +59,7 @@ export async function applyGcsLifecycle(): Promise<void> {
 }
 
 // Only execute when run directly (not when imported in tests)
-if (require.main === module) {
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   applyGcsLifecycle()
     .then(() => process.exit(0))
     .catch((err: unknown) => {

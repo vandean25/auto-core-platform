@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PurchaseInvoiceService } from './purchase-invoice.service';
-import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { PurchaseInvoiceService } from './purchase-invoice.service.js';
+import { PurchaseInvoiceLifecycleService } from './purchase-invoice-lifecycle.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 

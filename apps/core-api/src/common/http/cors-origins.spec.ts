@@ -1,4 +1,4 @@
-import { resolveCorsOrigins } from './cors-origins';
+import { resolveCorsOrigins } from './cors-origins.js';
 
 describe('resolveCorsOrigins', () => {
   it('splits, trims, and removes empty configured origins', () => {

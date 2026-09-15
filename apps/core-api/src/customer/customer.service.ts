@@ -4,13 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Customer, Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { resolveHistoryPagination } from '../common/utils/history-pagination.util';
-import { PrismaService } from '../prisma/prisma.service';
-import { buildCustomerDetailInclude } from './customer-detail.query';
-import { projectCustomerDetail } from './customer-detail.projection';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { resolveHistoryPagination } from '../common/utils/history-pagination.util.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { buildCustomerDetailInclude } from './customer-detail.query.js';
+import { projectCustomerDetail } from './customer-detail.projection.js';
+import { CreateCustomerDto } from './dto/create-customer.dto.js';
+import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
 @Injectable()
 export class CustomerService {

@@ -3,9 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { Vendor, Prisma } from '@prisma/client';
-import { TenantContextService } from '../common/services/tenant-context.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 
 @Injectable()
 export class VendorService {

@@ -1,14 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '../src/app.module';
-import { createGlobalValidationPipe } from '../src/common';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util';
+import { AppModule } from '../src/app.module.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import { normalizeVehicleMakeAlias } from '../src/catalog/vehicle-make-alias.util.js';
 import {
   createTenantAwarePrisma,
   createTestTenant,
-} from './tenant-test-utils';
-import { teardownTestApp } from './test-lifecycle';
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Tenant Isolation Regression (e2e)', () => {
   let app: INestApplication;

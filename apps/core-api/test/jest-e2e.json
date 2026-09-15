@@ -4,9 +4,12 @@
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
   "setupFiles": ["dotenv/config"],
+  "setupFilesAfterEnv": ["<rootDir>/test/jest-esm-setup.ts"],
   "transform": {
-    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.e2e.json" }]
+    "^.+\\.(t|j)s$": ["ts-jest", { "useESM": true, "tsconfig": "tsconfig.e2e.json" }]
   },
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" },
   "transformIgnorePatterns": [
     "node_modules/(?!(jose)/)"
   ],

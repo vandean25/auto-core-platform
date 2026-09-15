@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { PrismaService } from '../src/prisma/prisma.service';
+import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 /**
  * Gracefully shuts down a NestJS test application and disconnects Prisma.
