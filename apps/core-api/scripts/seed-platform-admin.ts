@@ -104,11 +104,13 @@ export async function seedPlatformAdmin(
   const firebaseUser = await dependencies.firebaseAuth.getUserByEmail(email);
   const resolvedEmail = (firebaseUser.email ?? email).trim().toLowerCase();
 
-  const existingUser = await dependencies.prisma.user.findFirst({
-    where: {
-      OR: [{ firebaseUid: firebaseUser.uid }, { email: resolvedEmail }],
-    },
-  });
+  const existingUser =
+    (await dependencies.prisma.user.findFirst({
+      where: { firebaseUid: firebaseUser.uid },
+    })) ??
+    (await dependencies.prisma.user.findFirst({
+      where: { email: resolvedEmail, firebaseUid: null },
+    }));
 
   const user = existingUser
     ? await dependencies.prisma.user.update({

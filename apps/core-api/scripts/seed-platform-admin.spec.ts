@@ -48,12 +48,7 @@ describe('seedPlatformAdmin', () => {
     );
 
     expect(prisma.user.findFirst).toHaveBeenCalledWith({
-      where: {
-        OR: [
-          { firebaseUid: 'firebase-uid-1' },
-          { email: 'founder@autocore.com' },
-        ],
-      },
+      where: { firebaseUid: 'firebase-uid-1' },
     });
     expect(prisma.user.create).toHaveBeenCalledWith({
       data: {
