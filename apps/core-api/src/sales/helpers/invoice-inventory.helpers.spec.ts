@@ -117,16 +117,51 @@ describe('invoice-inventory.helpers', () => {
     expect(tx.inventoryTransaction.createMany).not.toHaveBeenCalled();
   });
 
-  it('filters stock selection to the tenant active site and non-tote locations', async () => {
-    tx.inventoryStock.findMany.mockResolvedValue([
+  it('filters stock selection to the tenant active site, staging totes, and in-transit locations', async () => {
+    const candidateStocks = [
       {
-        id: 'stock-1',
+        id: 'stock-in-transit',
         catalog_item_id: 'catalog-1',
-        location_id: 'loc-1',
+        location_id: 'loc-000-in-transit',
+        locationType: LocationType.in_transit,
         quantity_on_hand: new Prisma.Decimal(1),
         quantity_reserved: new Prisma.Decimal(0),
       },
-    ]);
+      {
+        id: 'stock-eligible',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-eligible',
+        locationType: LocationType.bin,
+        quantity_on_hand: new Prisma.Decimal(1),
+        quantity_reserved: new Prisma.Decimal(0),
+      },
+      {
+        id: 'stock-staging-tote',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-staging-tote',
+        locationType: LocationType.staging_tote,
+        quantity_on_hand: new Prisma.Decimal(1),
+        quantity_reserved: new Prisma.Decimal(0),
+      },
+    ];
+    tx.inventoryStock.findMany.mockImplementation(
+      (query: {
+        where: {
+          location: {
+            type: { not?: LocationType; notIn?: LocationType[] };
+          };
+        };
+      }) => {
+        const excludedTypes = query.where.location.type.notIn ?? [
+          query.where.location.type.not,
+        ];
+        return Promise.resolve(
+          candidateStocks
+            .filter((stock) => !excludedTypes.includes(stock.locationType))
+            .map(({ locationType: _locationType, ...stock }) => stock),
+        );
+      },
+    );
 
     await processSaleInventoryDeduction({
       ...baseParams,
@@ -139,6 +174,16 @@ describe('invoice-inventory.helpers', () => {
       ],
     });
 
+    expect(atpService.deductOnHandForSale).toHaveBeenCalledTimes(1);
+    expect(atpService.deductOnHandForSale).toHaveBeenCalledWith(
+      {
+        stockId: 'stock-eligible',
+        quantity: new Prisma.Decimal(1),
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+      },
+      tx,
+    );
     expect(tx.inventoryStock.findMany).toHaveBeenCalledWith({
       where: {
         tenant_id: 'tenant-1',

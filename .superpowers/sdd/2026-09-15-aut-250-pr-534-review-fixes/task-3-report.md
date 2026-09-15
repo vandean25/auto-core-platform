@@ -47,3 +47,25 @@ Result: clean.
 ## Concerns
 
 None identified within Task 3 scope.
+
+## Round 1 Review Fix
+
+Strengthened the focused helper test after review feedback:
+
+- Renamed the test to explicitly mention staging totes and in-transit locations.
+- Added representative eligible, staging-tote, and in-transit stock candidates.
+- Made the mocked candidate query emulate Prisma filtering based on the requested location predicate, so the old staging-only predicate lets the in-transit candidate reach allocation.
+- Asserted that only the eligible stock reaches `deductOnHandForSale`.
+- Preserved the exact query-shape assertion for `notIn: [LocationType.staging_tote, LocationType.in_transit]`.
+
+## Round 1 TDD Evidence
+
+With the old production predicate (`type: { not: LocationType.staging_tote }`), the focused spec failed because `stock-in-transit` reached `deductOnHandForSale` instead of `stock-eligible`.
+
+After restoring the existing exact `notIn` production filter, the focused spec passed:
+
+```text
+npm test --workspace=core-api -- --runInBand src/sales/helpers/invoice-inventory.helpers.spec.ts
+```
+
+Result: 1 test suite passed; 7 tests passed. `git diff --check` also passed.
