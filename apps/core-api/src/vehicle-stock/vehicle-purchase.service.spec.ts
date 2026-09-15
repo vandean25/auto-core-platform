@@ -366,6 +366,12 @@ describe('VehiclePurchaseService', () => {
     };
 
     beforeEach(() => {
+      prisma.storageLocation.findFirst.mockResolvedValue({
+        id: 'location-1',
+        site_id: 'site-1',
+        type: 'vehicle_lot',
+        deletedAt: null,
+      });
       prisma.vehiclePurchase.findFirst.mockImplementation(
         (args: { select?: { site_id?: boolean } }) => {
           if (args?.select?.site_id) {

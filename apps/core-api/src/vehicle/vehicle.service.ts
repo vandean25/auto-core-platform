@@ -22,6 +22,11 @@ import {
   stripVehicleIdentityResolutionState,
 } from './vehicle-identity.util.js';
 import { VehicleQueryBuilder } from './vehicle-query.builder.js';
+import { SiteContextService } from '../site/site-context.service.js';
+import {
+  projectVehicleOperationalFields,
+  projectVehicleListOperationalFields,
+} from '../common/projections/vehicle-entity.projection.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -37,6 +42,7 @@ export class VehicleService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async create(createVehicleDto: CreateVehicleDto) {
@@ -68,6 +74,8 @@ export class VehicleService {
     sortDirection?: 'asc' | 'desc';
   }) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds: string[] =
+      await this.siteContext.listAuthorizedSiteIds();
     const { page, pageSize, skip, take } =
       VehicleQueryBuilder.resolvePagination(params.page, params.pageSize);
     const sortDirection =
@@ -79,7 +87,11 @@ export class VehicleService {
     const [data, total] = await Promise.all([
       this.prisma.vehicle.findMany({
         where,
-        include: { customer: true },
+        include: {
+          customer: true,
+          location: true,
+          reserved_for_customer: true,
+        },
         skip,
         take,
         orderBy,
@@ -88,7 +100,10 @@ export class VehicleService {
     ]);
 
     return {
-      data: data.map(stripVehicleIdentityResolutionState),
+      data: projectVehicleListOperationalFields(
+        data.map(stripVehicleIdentityResolutionState),
+        authorizedSiteIds,
+      ),
       meta: {
         total,
         page,
@@ -100,16 +115,31 @@ export class VehicleService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds: string[] =
+      await this.siteContext.listAuthorizedSiteIds();
     const historySlice = { take: DEFAULT_HISTORY_LIMIT };
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
         customer: true,
-        sales_orders: salesOrdersHistorySlice(historySlice),
-        workshop_orders: workshopOrdersHistorySlice(
-          'vehicle-detail',
-          historySlice,
-        ),
+        location: true,
+        reserved_for_customer: true,
+        sales_orders: {
+          ...salesOrdersHistorySlice(historySlice),
+          where: { site_id: { in: authorizedSiteIds } },
+        },
+        workshop_orders: {
+          ...workshopOrdersHistorySlice('vehicle-detail', historySlice),
+          where: { site_id: { in: authorizedSiteIds } },
+        },
+        purchases: {
+          where: { site_id: { in: authorizedSiteIds } },
+          orderBy: { createdAt: 'desc' },
+        },
+        sales: {
+          where: { site_id: { in: authorizedSiteIds } },
+          orderBy: { createdAt: 'desc' },
+        },
         invoices: invoicesHistorySlice(historySlice),
       },
     });
@@ -118,7 +148,10 @@ export class VehicleService {
       throw new NotFoundException(`Vehicle with ID ${id} not found`);
     }
 
-    return stripVehicleIdentityResolutionState(vehicle);
+    return projectVehicleOperationalFields(
+      stripVehicleIdentityResolutionState(vehicle),
+      authorizedSiteIds,
+    );
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {

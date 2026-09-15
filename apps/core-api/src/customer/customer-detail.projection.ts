@@ -1,7 +1,8 @@
 import {
-  stripVehicleListIdentity,
+  projectVehicleListOperationalFields,
   stripWorkshopOrdersVehicleIdentity,
 } from '../common/projections/vehicle-entity.projection.js';
+import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import {
   buildHistoryMeta,
   type HistoryPagination,
@@ -29,12 +30,17 @@ export function projectCustomerDetail(
   customer: CustomerDetailProjectionInput,
   pagination: HistoryPagination,
   counts: CustomerDetailCounts,
+  authorizedSiteIds: readonly string[],
 ) {
   return {
     ...customer,
-    vehicles: stripVehicleListIdentity(customer.vehicles),
+    vehicles: projectVehicleListOperationalFields(
+      customer.vehicles?.map(stripVehicleIdentityResolutionState),
+      authorizedSiteIds,
+    ),
     workshop_orders: stripWorkshopOrdersVehicleIdentity(
       customer.workshop_orders,
+      authorizedSiteIds,
     ),
     workshop_orders_meta: buildHistoryMeta(pagination, counts.workshopOrders),
     invoices_meta: buildHistoryMeta(pagination, counts.invoices),
