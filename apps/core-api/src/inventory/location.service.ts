@@ -201,7 +201,10 @@ export class LocationService {
       where: {
         tenant_id: scope.tenantId,
         transfer: { status: { in: ['REQUESTED', 'APPROVED', 'SHIPPED'] } },
-        OR: [{ source_location_id: id }, { dest_location_id: id }],
+        OR: [
+          { from_site_id: scope.siteId, source_location_id: id },
+          { to_site_id: scope.siteId, dest_location_id: id },
+        ],
       },
       select: {
         source_location_id: true,
