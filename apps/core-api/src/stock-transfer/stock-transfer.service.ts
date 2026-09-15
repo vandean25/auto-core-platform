@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -71,6 +72,8 @@ interface StoredCommandReplay {
 
 @Injectable()
 export class StockTransferService {
+  private readonly logger = new Logger(StockTransferService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TenantContextService)
@@ -1560,7 +1563,14 @@ export class StockTransferService {
     ) => Promise<StockTransferWithSitesAndLines>,
   ): Promise<SerializedStockTransfer> {
     const transfer = await this.prisma.$transaction(mutation);
-    await this.emitTransferUpdated(access.tenantId, action, transfer);
+    try {
+      await this.emitTransferUpdated(access.tenantId, action, transfer);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to notify stock transfer ${transfer.id} in tenant ${access.tenantId} after commit: ${message}`,
+      );
+    }
     return serializeStockTransfer(transfer, {
       includeSourceBin: access.accessBySite.has(transfer.from_site_id),
     });

@@ -39,3 +39,14 @@ Implemented the approved Task 6 checklist directly in the existing isolated work
 - Realtime emission now occurs after commit; transport/recipient lookup failures can therefore occur after persistence. Durable event delivery/outbox behavior is outside this task.
 - Local tests emit the existing missing-`FRONTEND_URL` development CORS warning.
 - The TypeScript clean-code guidance led to a shared commit/emission boundary, removal of the per-line cost helper, and parameter objects for the ledger helpers.
+
+## Fix round 1 — preserve committed responses on notification failure
+
+- Confirmed the reviewer finding: `commitTransfer` awaited notification after persistence without handling failure, so recipient lookup or synchronous emission errors rejected an already committed mutation.
+- Wrapped only post-commit notification in `try/catch`. Transaction failures still propagate. Notification failures now use the existing NestJS `Logger.warn` convention with transfer ID, tenant ID, and normalized error message; the committed response is returned normally. No outbox or retry mechanism was added.
+- Added four focused regression cases covering recipient lookup and emission failures for both create and receive. They assert the committed response is returned, a warning is logged, and neither a new transaction nor conflict-recovery command lookup is triggered.
+- Red: `npm test --workspace=core-api -- --runInBand stock-transfer.service.spec.ts -t 'returns its committed response'` failed all four new cases with `Notification unavailable` before the production fix.
+- Green: `npm test --workspace=core-api -- --runInBand stock-transfer.service.spec.ts` passed all 81 tests, including the existing seven-action commit-order and rollback cases.
+- `npm run build --workspace=core-api`: passed. Both changed TypeScript files were formatted with Prettier.
+- Changed-file ESLint and `git diff --check`: passed.
+- This resolves the previous concern about a notification error rejecting a persisted mutation. Delivery remains best-effort: clients may need to refresh after a notification failure. Database-backed E2E remains with Task 7.

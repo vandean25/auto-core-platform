@@ -3,6 +3,7 @@ import { validate } from 'class-validator';
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -230,6 +231,10 @@ describe('StockTransferService', () => {
   });
 
   describe('commit boundary', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     function prepareAction(action: string) {
       prisma.siteMembership.findMany.mockResolvedValue([
         {
@@ -308,6 +313,51 @@ describe('StockTransferService', () => {
       };
       return actions[action as keyof typeof actions];
     }
+
+    it.each([
+      ['create', 'recipient lookup'],
+      ['create', 'emission'],
+      ['receive', 'recipient lookup'],
+      ['receive', 'emission'],
+    ])(
+      '%s returns its committed response when post-commit %s fails',
+      async (action, failurePoint) => {
+        const invoke = prepareAction(action);
+        const failure = new Error('Notification unavailable');
+        const warning = jest
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => undefined);
+        prisma.$transaction.mockImplementation(async (callback) => {
+          const committed = await callback(tx);
+          if (failurePoint === 'recipient lookup') {
+            prisma.siteMembership.findMany.mockRejectedValue(failure);
+          } else {
+            realtimeService.emitStockTransferUpdated.mockImplementation(() => {
+              throw failure;
+            });
+          }
+          return committed;
+        });
+
+        await expect(invoke()).resolves.toMatchObject({
+          id: transferId,
+          transferNumber: 'TR-2026-0001',
+          status:
+            action === 'create'
+              ? StockTransferStatus.REQUESTED
+              : StockTransferStatus.SHIPPED,
+          version: 1,
+        });
+
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+        expect(prisma.stockTransferCommand.findFirst).toHaveBeenCalledTimes(
+          action === 'create' ? 0 : 1,
+        );
+        expect(warning).toHaveBeenCalledWith(
+          expect.stringContaining('Notification unavailable'),
+        );
+      },
+    );
 
     it.each([
       'create',
