@@ -104,7 +104,7 @@ model Tenant {
 
 model User {
   id               String           @id @default(uuid())
-  firebaseUid      String           @unique @map("firebase_uid")
+  firebaseUid      String?          @unique @map("firebase_uid")
   email            String           @unique
   firstName        String?          @map("first_name")
   lastName         String?          @map("last_name")
