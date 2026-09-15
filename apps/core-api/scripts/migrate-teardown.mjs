@@ -6,12 +6,10 @@
  *   node scripts/migrate-teardown.mjs
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { readdirSync } from 'node:fs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const testDir = join(__dirname, '..', 'test');
+const testDir = join(import.meta.dirname, '..', 'test');
 
 // Specs already migrated or exempt (no INestApplication)
 const SKIP = new Set([

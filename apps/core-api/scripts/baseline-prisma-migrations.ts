@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import {
   interpretPrismaCliSpawn,
   spawnLocalPrisma,
@@ -54,7 +53,7 @@ function readCliOption(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.filename === process.argv[1]) {
   try {
     runBaselinePrismaMigrationsCli();
   } catch (error: unknown) {

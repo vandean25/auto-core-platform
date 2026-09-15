@@ -1,9 +1,7 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const CORE_API_ROOT = path.resolve(__dirname, '..');
+const CORE_API_ROOT = path.resolve(import.meta.dirname, '..');
 const REPO_ROOT = path.resolve(CORE_API_ROOT, '../..');
 
 function readRepoFile(relativePath: string): string {

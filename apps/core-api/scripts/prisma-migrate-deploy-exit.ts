@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import {
   interpretPrismaCliSpawn,
   spawnLocalPrisma,
@@ -60,7 +59,7 @@ function spawnPrismaMigrateDeploy(): PrismaCliSpawnResult {
   return spawnLocalPrisma(['migrate', 'deploy']);
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.filename === process.argv[1]) {
   const exitCode = runPrismaMigrateDeployCli(
     spawnPrismaMigrateDeploy,
     (text) => {

@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -7,7 +5,7 @@ import {
   REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
 } from './check-cloudrun-env-contract.js';
 
-const cloudBuildPath = join(__dirname, '../../../cloudbuild.yaml');
+const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
 
 describe('Cloud Run environment contract', () => {
   it('includes every required production key on core-api', () => {

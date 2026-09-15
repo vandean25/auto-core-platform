@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -46,7 +44,7 @@ describe('prismaBaselineResolveArgs', () => {
 describe('baseline-prisma-migrations spawn', () => {
   it('does not spawn npx', () => {
     const source = fs.readFileSync(
-      path.join(__dirname, 'baseline-prisma-migrations.ts'),
+      path.join(import.meta.dirname, 'baseline-prisma-migrations.ts'),
       'utf8',
     );
 

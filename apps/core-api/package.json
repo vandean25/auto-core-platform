@@ -27,6 +27,8 @@
     "lint:prisma-tenant": "tsx scripts/lint-prisma-tenant.ts prisma/schema.prisma",
     "openapi:generate": "node --loader ts-node/esm scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
+    "check:esm": "tsx scripts/check-esm-contract.ts",
+    "verify:esm-artifact": "npm run build && node scripts/verify-esm-artifact.mjs",
     "gcs:lifecycle": "tsx scripts/apply-gcs-lifecycle.ts",
     "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
     "db:seed:tenant-member": "tsx scripts/seed-tenant-member.ts",

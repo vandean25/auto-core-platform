@@ -44,6 +44,27 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Native ESM runtime contract
+
+The API is a native Node.js ESM application. It requires Node.js 22 or newer,
+uses `type: module` with TypeScript NodeNext resolution, and keeps explicit
+`.js` extensions on relative runtime imports. Production starts from the
+compiled `dist/main.js` entry point.
+
+Use the repository scripts for supported TypeScript entry points:
+
+- `npm run openapi:generate` uses the `ts-node/esm` loader because Nest
+  decorator metadata must be available while the application is inspected.
+- Operational scripts such as `check:cloudrun-env`, `db:baseline`, and the
+  seed commands use `tsx` and are safe ESM entry points.
+- `npm run verify:esm-artifact` builds the API and checks the emitted artifact
+  for a native ESM entry point, explicit relative extensions, and CommonJS
+  runtime syntax.
+
+Bundling/tree-shaking, artificial top-level await, and a public dual
+CommonJS/ESM package distribution are intentionally outside this private
+application's runtime contract.
+
 ## Run tests
 
 ```bash

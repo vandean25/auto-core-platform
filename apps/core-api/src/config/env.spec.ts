@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DOCUMENTED_ENV_KEYS, EnvValidationError, validateEnv } from './env.js';
@@ -179,7 +177,7 @@ describe('validateEnv', () => {
 
 describe('DOCUMENTED_ENV_KEYS', () => {
   it('matches keys documented in .env.example', () => {
-    const examplePath = join(__dirname, '../../.env.example');
+    const examplePath = join(import.meta.dirname, '../../.env.example');
     const example = readFileSync(examplePath, 'utf8');
     const exampleKeys = new Set(
       [...example.matchAll(/^#?\s*([A-Z][A-Z0-9_]+)=/gm)].map(

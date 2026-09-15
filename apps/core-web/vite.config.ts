@@ -11,7 +11,7 @@ const hasSentryUploadCredentials = Boolean(
 )
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, '')
+  const env = loadEnv(mode, import.meta.dirname, '')
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
 
   return {
@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
       },
     },
     test: {
