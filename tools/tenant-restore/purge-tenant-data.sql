@@ -56,11 +56,14 @@ VALUES
   ('parts_requisition_lines'),
   ('purchase_order_items'),
   ('site_memberships'),
+  ('stock_transfers'),
   ('storage_locations'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
   ('inventory_stocks'),
   ('purchase_invoice_lines'),
+  ('stock_transfer_commands'),
+  ('stock_transfer_lines'),
   ('vehicles'),
   ('sales_orders'),
   ('vehicle_purchases'),
@@ -148,6 +151,7 @@ VALUES
   ('inventory_stocks', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'catalog_items', 'item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'parts_reservations', 'parts_reservation_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_transactions', 'stock_transfers', 'tenant_id,stock_transfer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('invoice_items', 'catalog_items', 'catalog_item_id', 'id', 'SET NULL', 'CASCADE'),
@@ -206,6 +210,20 @@ VALUES
   ('site_memberships', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sites', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('sites', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfer_commands', 'stock_transfers', 'tenant_id,transfer_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('stock_transfer_commands', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfer_lines', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfer_lines', 'stock_transfers', 'tenant_id,transfer_id,from_site_id,to_site_id', 'tenant_id,id,from_site_id,to_site_id', 'CASCADE', 'CASCADE'),
+  ('stock_transfer_lines', 'storage_locations', 'tenant_id,from_site_id,source_location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfer_lines', 'storage_locations', 'tenant_id,to_site_id,dest_location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfer_lines', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfers', 'sites', 'tenant_id,from_site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfers', 'sites', 'tenant_id,to_site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfers', 'users', 'approved_by_user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('stock_transfers', 'users', 'received_by_user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('stock_transfers', 'users', 'requested_by_user_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('stock_transfers', 'users', 'shipped_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('storage_locations', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('storage_locations', 'storage_locations', 'tenant_id,site_id,parent_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('storage_locations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -484,6 +502,10 @@ DELETE FROM public."sales_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."stock_transfer_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."stock_transfer_commands"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoice_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
@@ -493,6 +515,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_holidays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."storage_locations"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."stock_transfers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."site_memberships"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
