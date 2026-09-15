@@ -577,9 +577,7 @@ export class StockTransferService {
           },
           data: {
             shipped_qty: line.approved_qty,
-            ...(sourceLocationId
-              ? { source_location_id: sourceLocationId }
-              : {}),
+            source_location_id: sourceLocationId,
           },
         });
         if (result.count !== 1) {
@@ -1579,7 +1577,9 @@ function assertUniqueLineIds(ids: string[]): void {
   const seen = new Set<string>();
   for (const id of ids) {
     if (seen.has(id)) {
-      throw new BadRequestException(`Duplicate line id ${id} in request.`);
+      throw new UnprocessableEntityException(
+        `Duplicate line id ${id} in request.`,
+      );
     }
     seen.add(id);
   }

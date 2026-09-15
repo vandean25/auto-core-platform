@@ -2,8 +2,8 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
-  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -14,7 +14,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { StockTransferCommandAction } from '@prisma/client';
 
 export class CreateStockTransferLineDto {
   @ApiProperty()
@@ -78,6 +77,7 @@ export class ApproveStockTransferDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
+  @ArrayUnique((line: ApproveStockTransferLineDto) => line.id)
   @ValidateNested({ each: true })
   @Type(() => ApproveStockTransferLineDto)
   lines?: ApproveStockTransferLineDto[];
@@ -130,6 +130,7 @@ export class ShipStockTransferDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
+  @ArrayUnique((line: ShipStockTransferLineDto) => line.id)
   @ValidateNested({ each: true })
   @Type(() => ShipStockTransferLineDto)
   lines!: ShipStockTransferLineDto[];
@@ -165,6 +166,7 @@ export class ReceiveStockTransferDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
+  @ArrayUnique((line: ReceiveStockTransferLineDto) => line.id)
   @ValidateNested({ each: true })
   @Type(() => ReceiveStockTransferLineDto)
   lines!: ReceiveStockTransferLineDto[];
@@ -196,23 +198,8 @@ export class ReturnStockTransferDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)
+  @ArrayUnique((line: ReturnStockTransferLineDto) => line.id)
   @ValidateNested({ each: true })
   @Type(() => ReturnStockTransferLineDto)
   lines!: ReturnStockTransferLineDto[];
-}
-
-export const STOCK_TRANSFER_COMMAND_ACTIONS: StockTransferCommandAction[] = [
-  'RECEIVE',
-  'RETURN',
-] as const;
-
-export class StockTransferCommandQueryDto {
-  @ApiProperty({ enum: STOCK_TRANSFER_COMMAND_ACTIONS })
-  @IsIn(STOCK_TRANSFER_COMMAND_ACTIONS)
-  action!: StockTransferCommandAction;
-
-  @ApiProperty()
-  @IsString()
-  @MaxLength(128)
-  idempotencyKey!: string;
 }

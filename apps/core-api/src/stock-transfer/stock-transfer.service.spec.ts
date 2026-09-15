@@ -1,5 +1,6 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -14,6 +15,12 @@ import {
   redactStoredCommandResponse,
   serializeStockTransfer,
 } from './stock-transfer-serializer';
+import {
+  ApproveStockTransferDto,
+  ReceiveStockTransferDto,
+  ReturnStockTransferDto,
+  ShipStockTransferDto,
+} from './dto/stock-transfer.dto';
 
 const tenantId = 'tenant-1';
 const userId = 'user-1';
@@ -25,6 +32,8 @@ const itemId = 'item-1';
 const sourceBinId = 'bin-1';
 const destBinId = 'bin-2';
 const transitLocationId = 'transit-1';
+const validationLineId = '550e8400-e29b-41d4-a716-446655440000';
+const validationLocationId = '550e8400-e29b-41d4-a716-446655440001';
 
 function decimal(value: string) {
   return new Prisma.Decimal(value);
@@ -461,6 +470,69 @@ describe('StockTransferService', () => {
       );
     });
 
+    it('ships zero-approved lines with zero quantity, no source bin, and no ledger pair', async () => {
+      const zeroApprovedItemId = 'item-zero-approved';
+      tx.stockTransfer.findFirst.mockReset();
+      tx.stockTransfer.findFirst
+        .mockResolvedValueOnce(
+          buildTransfer({
+            status: StockTransferStatus.APPROVED,
+            lines: [
+              buildLine({
+                approved_qty: decimal('5'),
+                source_location_id: null,
+              }),
+              buildLine({
+                id: 'line-zero-approved',
+                catalog_item_id: zeroApprovedItemId,
+                approved_qty: decimal('0'),
+                source_location_id: sourceBinId,
+              }),
+            ],
+          }),
+        )
+        .mockResolvedValue(
+          buildTransfer({
+            status: StockTransferStatus.SHIPPED,
+            version: 2,
+            lines: [
+              buildLine({
+                shipped_qty: decimal('5'),
+                approved_qty: decimal('5'),
+                source_location_id: sourceBinId,
+              }),
+              buildLine({
+                id: 'line-zero-approved',
+                catalog_item_id: zeroApprovedItemId,
+                approved_qty: decimal('0'),
+                shipped_qty: decimal('0'),
+                source_location_id: null,
+              }),
+            ],
+          }),
+        );
+
+      const result = await service.ship(transferId, shipDto);
+
+      expect(result.lines[1]).toMatchObject({
+        shippedQty: '0',
+        sourceLocationId: null,
+      });
+      expect(tx.stockTransferLine.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'line-zero-approved' }),
+          data: expect.objectContaining({
+            shipped_qty: decimal('0'),
+            source_location_id: null,
+          }),
+        }),
+      );
+      const recorded = (ledgerService.recordTransactions as jest.Mock).mock
+        .calls[0][0] as Array<{ itemId: string }>;
+      expect(recorded).toHaveLength(2);
+      expect(recorded.every((entry) => entry.itemId === itemId)).toBe(true);
+    });
+
     it('rejects shipping when on_hand - reserved is insufficient (ruling 33)', async () => {
       tx.$queryRaw.mockResolvedValue([
         {
@@ -504,13 +576,13 @@ describe('StockTransferService', () => {
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
     });
 
-    it('rejects duplicate line ids with 400 (ruling 27)', async () => {
+    it('rejects duplicate line ids with 422 (ruling 27)', async () => {
       await expect(
         service.ship(transferId, {
           expectedVersion: 1,
           lines: [{ id: 'line-1' }, { id: 'line-1' }],
         }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
     });
   });
 
@@ -1032,5 +1104,63 @@ describe('StockTransferService', () => {
       expect(result.lines[0].sourceLocationId).toBeNull();
       expect(result.fromSiteName).toBe('Wien');
     });
+  });
+});
+
+describe.each([
+  [
+    'approve',
+    ApproveStockTransferDto,
+    [{ id: validationLineId }, { id: validationLineId }],
+  ],
+  [
+    'ship',
+    ShipStockTransferDto,
+    [{ id: validationLineId }, { id: validationLineId }],
+  ],
+  [
+    'receive',
+    ReceiveStockTransferDto,
+    [
+      {
+        id: validationLineId,
+        receiveQty: 1,
+        destLocationId: validationLocationId,
+      },
+      {
+        id: validationLineId,
+        receiveQty: 1,
+        destLocationId: validationLocationId,
+      },
+    ],
+  ],
+  [
+    'return',
+    ReturnStockTransferDto,
+    [
+      { id: validationLineId, returnQty: 1 },
+      { id: validationLineId, returnQty: 1 },
+    ],
+  ],
+])('%s command DTO', (_command, DtoClass, lines) => {
+  it('rejects duplicate line ids at the validation boundary', async () => {
+    const dto = plainToInstance(DtoClass, {
+      expectedVersion: 1,
+      idempotencyKey: 'validation-key',
+      lines,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          property: 'lines',
+          constraints: expect.objectContaining({
+            arrayUnique: expect.any(String),
+          }),
+        }),
+      ]),
+    );
   });
 });
