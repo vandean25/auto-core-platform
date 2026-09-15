@@ -5,7 +5,7 @@ import {
   VehicleLedgerEntryType,
   WorkshopOrderPurpose,
 } from '@prisma/client';
-import { VehicleLedgerService } from './vehicle-ledger.service';
+import { VehicleLedgerService } from './vehicle-ledger.service.js';
 
 describe('VehicleLedgerService', () => {
   it('rejects STOCK_PREP when consumption cost basis is null before posting', async () => {
