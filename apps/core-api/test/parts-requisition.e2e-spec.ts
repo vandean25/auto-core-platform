@@ -699,6 +699,103 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       expect(ledger.location_id).toBe(fixture.stagingLocationId);
     });
 
+    it('consumes a staged slice and records WORKSHOP_CONSUMPTION', async () => {
+      const reservationId = await stageAllocatedReservation(fixture);
+
+      await request(app.getHttpServer())
+        .post(`/api/parts-reservations/${reservationId}/consume`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({ quantity: 1 })
+        .expect(200);
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      expect(reservation.status).toBe('FULFILLED');
+      expect(reservation.quantity_consumed).toEqual(new Prisma.Decimal(1));
+      expect(reservation.quantity_staged).toEqual(new Prisma.Decimal(0));
+
+      const consumption = await fixture.prisma.inventoryTransaction.findFirstOrThrow({
+        where: {
+          parts_reservation_id: reservationId,
+          type: 'WORKSHOP_CONSUMPTION',
+        },
+      });
+      expect(consumption.quantity).toEqual(new Prisma.Decimal(-1));
+      expect(consumption.cost_basis).toEqual(new Prisma.Decimal(10));
+    });
+
+    it('serializes concurrent consume vs release of last staged qty', async () => {
+      const reservationId = await stageAllocatedReservation(fixture);
+
+      const responses = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/api/parts-reservations/${reservationId}/consume`)
+          .set('Authorization', `Bearer ${fixture.authToken}`)
+          .send({ quantity: 1 }),
+        request(app.getHttpServer())
+          .post(`/api/parts-reservations/${reservationId}/release`)
+          .set('Authorization', `Bearer ${fixture.authToken}`)
+          .send({ returnLocationId: fixture.sourceLocationId }),
+      ]);
+
+      const statuses = responses.map((response) => response.status).sort();
+      expect(statuses[0]).toBe(200);
+      expect([409, 422]).toContain(statuses[1]);
+
+      const reservation = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: reservationId },
+      });
+      const toteStock = await fixture.prisma.inventoryStock.findFirstOrThrow({
+        where: {
+          catalog_item_id: fixture.catalogItemId,
+          location_id: fixture.stagingLocationId,
+        },
+      });
+      expect(toteStock.quantity_on_hand).toEqual(reservation.quantity_staged);
+    });
+
+    it('keeps line quantity when releasing one sibling slice', async () => {
+      await fixture.prisma.workshopTaskLineItem.update({
+        where: { id: fixture.lineId },
+        data: { quantity: 2 },
+      });
+      await fixture.prisma.inventoryStock.update({
+        where: { id: fixture.stockId },
+        data: { quantity_on_hand: 2 },
+      });
+
+      const first = await postReservation(
+        fixture.authToken,
+        fixture.lineId,
+        fixture.sourceLocationId,
+      );
+      const second = await postReservation(
+        fixture.authToken,
+        fixture.lineId,
+        fixture.sourceLocationId,
+      );
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+
+      await request(app.getHttpServer())
+        .post(`/api/parts-reservations/${first.body.id}/release`)
+        .set('Authorization', `Bearer ${fixture.authToken}`)
+        .send({})
+        .expect(200);
+
+      const line = await fixture.prisma.workshopTaskLineItem.findFirstOrThrow({
+        where: { id: fixture.lineId },
+      });
+      expect(line.quantity).toEqual(new Prisma.Decimal(2));
+      expect(line.part_execution_status).toBe('PENDING_PICK');
+
+      const sibling = await fixture.prisma.partsReservation.findFirstOrThrow({
+        where: { id: second.body.id },
+      });
+      expect(sibling.status).toBe('OPEN');
+    });
+
     it('keeps a partially received slice ORDERED until the receipt is complete', async () => {
       const sheet = await postRequisitionSheet(fixture, [
         { lineId: fixture.lineId, quantity: 1 },
@@ -1078,6 +1175,32 @@ describe('Parts requisition persistence and site authorization (e2e)', () => {
       throw new Error(`Requisition response did not include line ${lineId}.`);
     }
     return line.reservationId;
+  }
+
+  async function stageAllocatedReservation(
+    reservationFixture: ReservationFixture,
+  ): Promise<string> {
+    const sheet = await postRequisitionSheet(reservationFixture, [
+      { lineId: reservationFixture.lineId, quantity: 1 },
+    ]);
+    const reservationId = sheet.body.lines[0].reservationId;
+    const purchaseOrder = await postCreatePurchaseOrder(
+      reservationFixture,
+      sheet.body.id,
+      [{ reservationId, unitCost: 10 }],
+    );
+    await request(app.getHttpServer())
+      .post(`/api/purchase-orders/${purchaseOrder.body.id}/mark-as-sent`)
+      .set('Authorization', `Bearer ${reservationFixture.authToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/api/purchase-orders/${purchaseOrder.body.id}/receive`)
+      .set('Authorization', `Bearer ${reservationFixture.authToken}`)
+      .send({
+        items: [{ itemId: purchaseOrder.body.items[0].id, quantity: 1 }],
+      })
+      .expect(201);
+    return reservationId;
   }
 
   async function postCreatePurchaseOrder(

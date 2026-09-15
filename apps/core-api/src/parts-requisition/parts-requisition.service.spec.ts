@@ -343,6 +343,57 @@ describe('PartsRequisitionService', () => {
     expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
   });
 
+  it('does not shrink the line quantity while a sibling slice remains active', async () => {
+    const released = buildReservation({
+      status: PartsReservationStatus.OPEN,
+      quantity: new Prisma.Decimal('2'),
+      kind: PartsReservationKind.REQUISITION,
+    });
+    tx.partsReservation.findFirst
+      .mockResolvedValueOnce({
+        ...released,
+        workshop_task_line_item: {
+          id: lineId,
+          workshop_task_id: taskId,
+          catalog_item_id: 'catalog-1',
+          workshop_task: {
+            workshop_order: { staging_location_id: 'tote-1' },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        ...released,
+        status: PartsReservationStatus.CANCELLED,
+      });
+    tx.partsReservation.findMany.mockResolvedValue([
+      {
+        ...released,
+        status: PartsReservationStatus.CANCELLED,
+      },
+      {
+        status: PartsReservationStatus.STAGED,
+        quantity: new Prisma.Decimal('2'),
+        quantity_consumed: new Prisma.Decimal('0'),
+        quantity_returned: new Prisma.Decimal('0'),
+        quantity_staged: new Prisma.Decimal('2'),
+      },
+    ]);
+    tx.partsReservation.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.releaseReservation('reservation-1', {});
+
+    expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+        },
+      }),
+    );
+    expect(tx.workshopTaskLineItem.updateMany.mock.calls[0][0].data).not.toHaveProperty(
+      'quantity',
+    );
+  });
+
   it('requires a return location for staged release', async () => {
     tx.partsReservation.findFirst.mockResolvedValue({
       ...buildReservation({
