@@ -41,6 +41,7 @@ describe('AuthService Firebase verification', () => {
       verifyIdToken: jest.fn().mockResolvedValue({
         uid: 'firebase-user-id',
         email: 'testauto@auto.core.at',
+        email_verified: true,
       }),
     };
 
@@ -69,11 +70,62 @@ describe('AuthService Firebase verification', () => {
     expect(authSessionService.resolveTenantUser).toHaveBeenCalledWith({
       sub: 'firebase-user-id',
       email: 'testauto@auto.core.at',
+      emailVerified: true,
       tenantId: undefined,
       role: undefined,
       platformRole: undefined,
       iss: undefined,
     });
+  });
+
+  it('marks emailVerified as false when Firebase token has email_verified false or missing', async () => {
+    const firebaseAuth = {
+      verifyIdToken: jest.fn().mockResolvedValue({
+        uid: 'unverified-user-id',
+        email: 'unverified@auto.core.at',
+        email_verified: false,
+      }),
+    };
+
+    getFirebaseAdminAuth.mockReturnValue(firebaseAuth);
+
+    authSessionService.resolveTenantUser.mockResolvedValue(null);
+
+    const authService = createAuthService();
+
+    await expect(
+      authService.authenticateBearerToken('Bearer unverified-token'),
+    ).rejects.toThrow();
+
+    expect(authSessionService.resolveTenantUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: 'unverified-user-id',
+        email: 'unverified@auto.core.at',
+        emailVerified: false,
+      }),
+    );
+  });
+
+  it('defaults emailVerified to true in createTestToken and allows override', async () => {
+    const authService = createAuthService();
+    const defaultToken = authService.createTestToken();
+    const unverifiedToken = authService.createTestToken({ emailVerified: false });
+
+    authSessionService.resolveTenantUser.mockResolvedValue(null);
+
+    await expect(
+      authService.authenticateBearerToken(`Bearer ${defaultToken}`),
+    ).rejects.toThrow();
+    expect(authSessionService.resolveTenantUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({ emailVerified: true }),
+    );
+
+    await expect(
+      authService.authenticateBearerToken(`Bearer ${unverifiedToken}`),
+    ).rejects.toThrow();
+    expect(authSessionService.resolveTenantUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({ emailVerified: false }),
+    );
   });
 
   it('rejects a valid token with tenantId and role claims when membership is missing', async () => {

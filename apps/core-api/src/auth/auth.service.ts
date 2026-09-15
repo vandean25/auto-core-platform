@@ -12,6 +12,7 @@ import type {
 type AuthClaims = {
   sub: string;
   email: string;
+  emailVerified?: boolean;
   tenantId?: string;
   role?: string;
   platformRole?: string;
@@ -79,6 +80,7 @@ export class AuthService {
         tenantId: 'e2e-tenant-id',
         role: 'ADMIN',
         iss: 'local-test-fixture',
+        emailVerified: true,
         ...overrides,
       },
       { secret: this.testJwtSecret },
@@ -146,6 +148,7 @@ export class AuthService {
     return {
       sub: payload.sub,
       email: payload.email,
+      emailVerified: payload.emailVerified === true,
       tenantId:
         typeof payload.tenantId === 'string' ? payload.tenantId : undefined,
       role: typeof payload.role === 'string' ? payload.role : undefined,
@@ -182,6 +185,7 @@ export class AuthService {
     return {
       sub: decoded.uid,
       email: decoded.email,
+      emailVerified: decoded.email_verified === true,
       tenantId,
       role,
       platformRole,
