@@ -1,5 +1,5 @@
 import { TransactionType } from '@prisma/client';
-import type { RecordTransactionParams } from '../inventory/ledger.service';
+import type { RecordTransactionParams } from '../inventory/ledger.service.js';
 
 export interface TransferLedgerPairParams {
   itemId: string;

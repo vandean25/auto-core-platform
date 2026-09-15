@@ -15,14 +15,14 @@ import {
   StockTransferStatus,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { TenantContextService } from '../common/services/tenant-context.service';
-import { chunkedPromiseAll } from '../common/utils/promise.util';
-import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import {
   LedgerService,
   RecordTransactionParams,
-} from '../inventory/ledger.service';
-import { PrismaService } from '../prisma/prisma.service';
+} from '../inventory/ledger.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   ApproveStockTransferDto,
   ApproveStockTransferLineDto,
@@ -32,19 +32,19 @@ import type {
   RejectStockTransferDto,
   ReturnStockTransferDto,
   ShipStockTransferDto,
-} from './dto/stock-transfer.dto';
-import { buildTransferLedgerPair } from './stock-transfer-ledger.helpers';
+} from './dto/stock-transfer.dto.js';
+import { buildTransferLedgerPair } from './stock-transfer-ledger.helpers.js';
 import {
   hashCommandRequest,
   redactStoredCommandResponse,
   serializeStockTransfer,
   SerializedStockTransfer,
   StockTransferWithSitesAndLines,
-} from './stock-transfer-serializer';
+} from './stock-transfer-serializer.js';
 import {
   TENANT_ADMIN_ROLES,
   TRANSFER_ENABLED_LOCATION_TYPES,
-} from './stock-transfer.constants';
+} from './stock-transfer.constants.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -1542,9 +1542,16 @@ export class StockTransferService {
       { firebaseUid: string; includeSourceBin: boolean }
     >();
     for (const membership of memberships) {
+      const siteId = membership.site_id;
+      if (!siteId) {
+        continue;
+      }
       const firebaseUid = membership.user.firebaseUid;
+      if (!firebaseUid) {
+        continue;
+      }
       const existing = byFirebaseUid.get(firebaseUid);
-      const includeSourceBin = membership.site_id === fromSiteId;
+      const includeSourceBin = siteId === fromSiteId;
       if (existing) {
         existing.includeSourceBin =
           existing.includeSourceBin || includeSourceBin;

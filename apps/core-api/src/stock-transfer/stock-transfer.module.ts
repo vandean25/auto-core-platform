@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module';
-import { InventoryModule } from '../inventory/inventory.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { StockTransferController } from './stock-transfer.controller';
-import { StockTransferService } from './stock-transfer.service';
+import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { StockTransferController } from './stock-transfer.controller.js';
+import { StockTransferService } from './stock-transfer.service.js';
 
 @Module({
   imports: [PrismaModule, InventoryModule, DashboardRealtimeModule],

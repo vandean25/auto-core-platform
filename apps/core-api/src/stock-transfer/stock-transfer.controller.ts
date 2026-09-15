@@ -21,9 +21,9 @@ import {
   RejectStockTransferDto,
   ReturnStockTransferDto,
   ShipStockTransferDto,
-} from './dto/stock-transfer.dto';
-import { StockTransferResponseDto } from './dto/stock-transfer-response.dto';
-import { StockTransferService } from './stock-transfer.service';
+} from './dto/stock-transfer.dto.js';
+import { StockTransferResponseDto } from './dto/stock-transfer-response.dto.js';
+import { StockTransferService } from './stock-transfer.service.js';
 
 @ApiTags('stock-transfers')
 @Controller('stock-transfers')

@@ -32,7 +32,6 @@ import {
   SITE_CONTEXT_UPDATED_EVENT,
   SiteAccessScopeUpdatedPayload,
   SiteContextUpdatedPayload,
-} from './dashboard-events.types.js';
   STOCK_TRANSFER_UPDATED_EVENT,
   type StockTransferUpdatedPayload,
 } from './dashboard-events.types.js';
