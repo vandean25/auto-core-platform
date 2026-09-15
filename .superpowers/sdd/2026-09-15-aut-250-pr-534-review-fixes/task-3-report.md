@@ -69,3 +69,15 @@ npm test --workspace=core-api -- --runInBand src/sales/helpers/invoice-inventory
 ```
 
 Result: 1 test suite passed; 7 tests passed. `git diff --check` also passed.
+
+## Final Fix Round
+
+Renamed the focused helper test title to `excludes staging totes and in-transit locations from stock selection`, with no production or assertion changes.
+
+Verification:
+
+```text
+npm test --workspace=core-api -- --runInBand src/sales/helpers/invoice-inventory.helpers.spec.ts
+```
+
+Result: 1 test suite passed; 7 tests passed.

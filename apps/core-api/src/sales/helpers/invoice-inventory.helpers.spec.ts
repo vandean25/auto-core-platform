@@ -117,7 +117,7 @@ describe('invoice-inventory.helpers', () => {
     expect(tx.inventoryTransaction.createMany).not.toHaveBeenCalled();
   });
 
-  it('filters stock selection to the tenant active site, staging totes, and in-transit locations', async () => {
+  it('excludes staging totes and in-transit locations from stock selection', async () => {
     const candidateStocks = [
       {
         id: 'stock-in-transit',
