@@ -2,6 +2,7 @@ import {
   interpretPrismaCliSpawn,
   spawnLocalPrisma,
 } from './local-prisma-cli.js';
+import { isDirectRun } from './is-direct-run.mjs';
 
 export type BaselinePrismaOptions = {
   appliedMigration: string;
@@ -53,7 +54,13 @@ function readCliOption(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   try {
     runBaselinePrismaMigrationsCli();
   } catch (error: unknown) {
