@@ -25,6 +25,7 @@ import { AtpService } from '../inventory/atp.service.js';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { generatePurchaseOrderNumber } from '../purchase/purchase-order-number.util.js';
 import type { PurchaseOrderWithRelations } from '../purchase/purchase.service.js';
+import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePartsRequisitionDto } from './dto/create-parts-requisition.dto.js';
 import { CreatePartsReservationDto } from './dto/create-parts-reservation.dto.js';
@@ -934,6 +935,8 @@ export class PartsRequisitionService {
     this.assertUniqueSelections(dto.items.map((item) => item.reservationId));
 
     return this.prisma.$transaction(async (tx) => {
+      await lockSitesAndAssertActive(tx, tenantId, [siteId]);
+
       const requisition = await tx.partsRequisition.findFirst({
         where: { id: requisitionId, tenant_id: tenantId },
         select: { id: true, status: true },
@@ -1077,6 +1080,7 @@ export class PartsRequisitionService {
       const purchaseOrder = await tx.purchaseOrder.create({
         data: {
           tenant_id: tenantId,
+          site_id: siteId,
           vendor_id: dto.vendorId,
           order_number: generatePurchaseOrderNumber(),
           status: PurchaseOrderStatus.DRAFT,
