@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { PlatformAdminRole, PrismaClient, TenantMemberRole } from '@prisma/client';
+import { isDirectRun } from './is-direct-run.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
@@ -400,7 +401,13 @@ function getFirebaseErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   runSeedTenantMemberCli()
     .then(() => process.exit(0))
     .catch((error: unknown) => {

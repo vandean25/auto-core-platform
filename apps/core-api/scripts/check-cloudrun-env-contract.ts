@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isDirectRun } from './is-direct-run.mjs';
 
 export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'NODE_ENV',
@@ -108,6 +109,12 @@ function main(): void {
   console.log('Cloud Run core-api environment contract passed.');
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   main();
 }

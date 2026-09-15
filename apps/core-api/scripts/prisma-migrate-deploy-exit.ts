@@ -3,6 +3,7 @@ import {
   spawnLocalPrisma,
   type PrismaCliSpawnResult,
 } from './local-prisma-cli.js';
+import { isDirectRun } from './is-direct-run.mjs';
 
 export type CloudBuildMigrateExit = {
   exitCode: number;
@@ -59,7 +60,13 @@ function spawnPrismaMigrateDeploy(): PrismaCliSpawnResult {
   return spawnLocalPrisma(['migrate', 'deploy']);
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   const exitCode = runPrismaMigrateDeployCli(
     spawnPrismaMigrateDeploy,
     (text) => {

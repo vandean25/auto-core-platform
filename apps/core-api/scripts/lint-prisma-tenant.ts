@@ -2,6 +2,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDirectRun } from './is-direct-run.mjs';
 
 export function lintPrismaTenantSchema(schemaContent: string): void {
   const modelRegex = /model\s+([A-Z]\w+)\s*{([\s\S]*?)}/g;
@@ -53,7 +54,13 @@ function main() {
   console.log('[Success] Prisma schema passed tenant isolation linting.');
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   try {
     main();
   } catch (error) {

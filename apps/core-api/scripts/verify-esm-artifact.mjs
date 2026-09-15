@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import { isDirectRun } from './is-direct-run.mjs';
 
 const RUNTIME_EXTENSIONS = new Set(['.js', '.mjs']);
 const RELATIVE_IMPORT_PATTERN =
@@ -49,7 +50,13 @@ export function verifyEsmArtifact(distDirectory) {
   return violations;
 }
 
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   const violations = verifyEsmArtifact(join(import.meta.dirname, '..', 'dist'));
   if (violations.length > 0) {
     console.error(violations.join('\n'));

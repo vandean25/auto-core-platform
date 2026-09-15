@@ -11,6 +11,7 @@
  */
 
 import { Storage } from '@google-cloud/storage';
+import { isDirectRun } from './is-direct-run.mjs';
 
 export const LIFECYCLE_RULES = [
   {
@@ -58,7 +59,13 @@ export async function applyGcsLifecycle(): Promise<void> {
 }
 
 // Only execute when run directly (not when imported in tests)
-if (import.meta.filename === process.argv[1]) {
+if (
+  isDirectRun({
+    moduleUrl: import.meta.url,
+    moduleFilename: import.meta.filename,
+    argv1: process.argv[1],
+  })
+) {
   applyGcsLifecycle()
     .then(() => process.exit(0))
     .catch((err: unknown) => {

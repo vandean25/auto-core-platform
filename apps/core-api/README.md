@@ -57,9 +57,10 @@ Use the repository scripts for supported TypeScript entry points:
   decorator metadata must be available while the application is inspected.
 - Operational scripts such as `check:cloudrun-env`, `db:baseline`, and the
   seed commands use `tsx` and are safe ESM entry points.
-- `npm run verify:esm-artifact` builds the API and checks the emitted artifact
-  for a native ESM entry point, explicit relative extensions, and CommonJS
-  runtime syntax.
+- `npm run verify:esm-artifact` checks a previously built `dist/` artifact for a
+  native ESM entry point, explicit relative extensions, and CommonJS runtime
+  syntax. Run `npm run build` first. CI invokes this after the backend build
+  step so the compiler is not run twice.
 
 Bundling/tree-shaking, artificial top-level await, and a public dual
 CommonJS/ESM package distribution are intentionally outside this private
