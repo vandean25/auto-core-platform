@@ -597,7 +597,11 @@ export class WorkshopIntakeService {
     const isRetargeting =
       dto.siteId !== undefined && dto.siteId !== existing.site_id;
 
-    if (!isRetargeting && existing.site_id && existing.site_id !== activeSiteId) {
+    if (
+      !isRetargeting &&
+      existing.site_id &&
+      existing.site_id !== activeSiteId
+    ) {
       throw new NotFoundException(`Workshop order ${id} not found`);
     }
 

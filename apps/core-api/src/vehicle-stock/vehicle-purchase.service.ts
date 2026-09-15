@@ -387,10 +387,13 @@ export class VehiclePurchaseService {
   private async resolveReceiveLocationId(
     tx: Prisma.TransactionClient,
     tenantId: string,
-    purchase: { site_id: string; location_id: string | null },
+    purchase: { site_id: string | null; location_id: string | null },
   ): Promise<string | null> {
     if (purchase.location_id) {
       return purchase.location_id;
+    }
+    if (!purchase.site_id) {
+      return null;
     }
 
     const defaultLot = await tx.storageLocation.findFirst({
