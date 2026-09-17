@@ -13,6 +13,7 @@ export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'INVOICE_PDF_BUCKET',
   'WORKSHOP_MEDIA_BUCKET',
   'SECRET_ENCRYPTION_KEY',
+  'CATALOG_HIT_HMAC_SECRET',
   'CLOUD_TASKS_ENABLED',
   'CLOUD_TASKS_LOCATION',
   'CLOUD_TASKS_QUEUE',
@@ -20,6 +21,12 @@ export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'CLOUD_TASKS_INVOKER_SA',
   'CLOUD_TASKS_WORKER_SECRET',
   'REDIS_URL',
+] as const;
+
+export const REQUIRED_PDF_WORKER_BOOT_ENV_KEYS = [
+  'DATABASE_URL',
+  'SECRET_ENCRYPTION_KEY',
+  'CATALOG_HIT_HMAC_SECRET',
 ] as const;
 
 export type CloudRunDeployEnvironment = Map<string, string>;
@@ -84,29 +91,43 @@ function parseDeployEnvironment(deployStep: string): CloudRunDeployEnvironment {
   return environment;
 }
 
-function checkCoreApiProductionEnvironment(
+function missingEnvironmentKeys(
   environment: CloudRunDeployEnvironment,
+  requiredKeys: readonly string[],
 ): readonly string[] {
-  return REQUIRED_CORE_API_PRODUCTION_ENV_KEYS.filter(
-    (key) => !environment.has(key),
-  );
+  return requiredKeys.filter((key) => !environment.has(key));
 }
 
 function main(): void {
   const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
   const source = readFileSync(cloudBuildPath, 'utf8');
-  const { coreApi } = parseCloudBuildDeployContracts(source);
-  const missingKeys = checkCoreApiProductionEnvironment(coreApi);
+  const { coreApi, pdfWorker } = parseCloudBuildDeployContracts(source);
+  const missingCoreApiKeys = missingEnvironmentKeys(
+    coreApi,
+    REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
+  );
+  const missingPdfWorkerKeys = missingEnvironmentKeys(
+    pdfWorker,
+    REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
+  );
 
-  if (missingKeys.length > 0) {
+  if (missingCoreApiKeys.length > 0) {
     console.error(
-      `Cloud Run core-api environment contract is missing: ${missingKeys.join(', ')}`,
+      `Cloud Run core-api environment contract is missing: ${missingCoreApiKeys.join(', ')}`,
     );
     process.exitCode = 1;
     return;
   }
 
-  console.log('Cloud Run core-api environment contract passed.');
+  if (missingPdfWorkerKeys.length > 0) {
+    console.error(
+      `Cloud Run pdf-worker environment contract is missing: ${missingPdfWorkerKeys.join(', ')}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('Cloud Run environment contract passed.');
 }
 
 if (

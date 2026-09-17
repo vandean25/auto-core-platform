@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   parseCloudBuildDeployContracts,
   REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
+  REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
 } from './check-cloudrun-env-contract.js';
 
 const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
@@ -19,6 +20,21 @@ describe('Cloud Run environment contract', () => {
       'WORKSHOP_MEDIA_BUCKET:latest',
     );
     expect(coreApi.get('REDIS_URL')).toBe('REDIS_URL:latest');
+    expect(coreApi.get('CATALOG_HIT_HMAC_SECRET')).toBe(
+      'CATALOG_HIT_HMAC_SECRET:latest',
+    );
+  });
+
+  it('includes boot-required secrets on the PDF worker', () => {
+    const source = readFileSync(cloudBuildPath, 'utf8');
+    const { pdfWorker } = parseCloudBuildDeployContracts(source);
+
+    expect([...pdfWorker.keys()]).toEqual(
+      expect.arrayContaining([...REQUIRED_PDF_WORKER_BOOT_ENV_KEYS]),
+    );
+    expect(pdfWorker.get('CATALOG_HIT_HMAC_SECRET')).toBe(
+      'CATALOG_HIT_HMAC_SECRET:latest',
+    );
   });
 
   it('keeps mechanic media and enqueue settings off the PDF worker', () => {
