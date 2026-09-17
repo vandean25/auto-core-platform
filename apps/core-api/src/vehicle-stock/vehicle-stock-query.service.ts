@@ -273,7 +273,12 @@ export class VehicleStockQueryService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const vehicle = await this.prisma.vehicle.findFirst({
-      where: { id: vehicleId, tenant_id: tenantId },
+      where: {
+        id: vehicleId,
+        tenant_id: tenantId,
+        location: { site_id: siteId },
+        inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
+      },
       include: { location: true },
     });
     if (!vehicle) {
@@ -285,8 +290,15 @@ export class VehicleStockQueryService {
       );
     }
 
+    if (dto.location_id === null) {
+      throw new UnprocessableEntityException(
+        'A parked dealer vehicle must have a vehicle lot',
+      );
+    }
+
     const isLocationChange =
       dto.location_id !== undefined && dto.location_id !== vehicle.location_id;
+    let destinationLocationId: string | undefined;
     if (isLocationChange) {
       if (vehicle.stock_status === VehicleStockStatus.SOLD) {
         throw new ConflictException('SOLD vehicles cannot be moved');
@@ -322,6 +334,7 @@ export class VehicleStockQueryService {
           'Destination must be an active vehicle lot on the active site',
         );
       }
+      destinationLocationId = destination.id;
     }
     if (dto.reserved_for_customer_id) {
       await assertTenantCustomerExists(
@@ -333,7 +346,7 @@ export class VehicleStockQueryService {
 
     const data: Prisma.VehicleUncheckedUpdateManyInput = {
       site_id: isLocationChange ? siteId : undefined,
-      location_id: isLocationChange ? dto.location_id : undefined,
+      location_id: destinationLocationId,
       mileage: dto.mileage,
       color: dto.color,
       key_number: dto.key_number,
@@ -364,8 +377,22 @@ export class VehicleStockQueryService {
       ? await this.prisma.$transaction(async (tx) => {
           await lockSitesAndAssertActive(tx, tenantId, [siteId]);
           return tx.vehicle.updateMany({
-            where: { ...where, location_id: dto.expectedLocationId },
-            data,
+            where: {
+              ...where,
+              location_id: dto.expectedLocationId,
+              stock_status: {
+                in: [
+                  VehicleStockStatus.IN_STOCK,
+                  VehicleStockStatus.RESERVED,
+                  VehicleStockStatus.IN_PREP,
+                ],
+              },
+            },
+            data: {
+              ...data,
+              location_id: destinationLocationId,
+              site_id: siteId,
+            },
           });
         })
       : await this.prisma.vehicle.updateMany({ where, data });

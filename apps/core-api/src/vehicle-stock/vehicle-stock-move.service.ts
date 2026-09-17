@@ -67,6 +67,7 @@ export class VehicleStockMoveService {
 
       const vehicle = await this.lockVehicle(tx, tenantId, vehicleId);
       this.assertMovableVehicle(vehicle, sourceSiteId, dto.expectedLocationId);
+      await this.lockVehicleSales(tx, tenantId, vehicleId);
 
       const destination = await tx.storageLocation.findFirst({
         where: {
@@ -176,6 +177,21 @@ export class VehicleStockMoveService {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
     }
     return vehicles[0];
+  }
+
+  private async lockVehicleSales(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+  ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- sale rows share vehicle ownership
+    await tx.$queryRaw`
+      SELECT id
+      FROM vehicle_sales
+      WHERE tenant_id = ${tenantId} AND vehicle_id = ${vehicleId}
+      ORDER BY id
+      FOR UPDATE
+    `;
   }
 
   private assertMovableVehicle(

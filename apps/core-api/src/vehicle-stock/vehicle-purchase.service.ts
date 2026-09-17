@@ -436,6 +436,8 @@ export class VehiclePurchaseService {
         tenant_id: tenantId,
         site_id: purchase.site_id,
         type: LocationType.vehicle_lot,
+        is_system: false,
+        deletedAt: null,
       },
       select: { id: true },
       orderBy: [{ is_system: 'asc' }, { code: 'asc' }],

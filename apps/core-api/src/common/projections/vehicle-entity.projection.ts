@@ -33,6 +33,7 @@ export function projectVehicleOperationalFields<
 
   return {
     ...vehicle,
+    site_id: null,
     location_id: null,
     location: null,
     stock_status: null,

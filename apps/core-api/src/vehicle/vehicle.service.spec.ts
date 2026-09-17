@@ -163,6 +163,7 @@ describe('VehicleService', () => {
     const vehicle = result.data[0];
 
     expect(vehicle.location_id ?? null).toBeNull();
+    expect(vehicle.site_id ?? null).toBeNull();
     expect(vehicle.location ?? null).toBeNull();
     expect(vehicle.stock_status ?? null).toBeNull();
     expect(vehicle.inventory_role ?? null).toBeNull();

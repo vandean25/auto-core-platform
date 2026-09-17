@@ -18,6 +18,9 @@ describe('VehicleStockMoveService', () => {
   const targetLocationId = 'lot-2';
   let service: VehicleStockMoveService;
   let prisma: TestPrisma;
+  let transactionClient: {
+    $queryRaw: jest.Mock;
+  };
   let tenantContext: { getTenantId: jest.Mock };
   let siteContext: { listAuthorizedSiteIds: jest.Mock };
 
@@ -37,7 +40,8 @@ describe('VehicleStockMoveService', () => {
             inventory_role: VehicleInventoryRole.USED,
             stock_status: VehicleStockStatus.IN_STOCK,
           },
-        ]),
+        ])
+        .mockResolvedValueOnce([]),
       site: {
         findMany: jest.fn().mockResolvedValue([
           { id: sourceSiteId, legal_entity_id: 'entity-1' },
@@ -56,6 +60,7 @@ describe('VehicleStockMoveService', () => {
         }),
       },
     };
+    transactionClient = tx;
     prisma = {
       vehicle: {
         findFirst: jest.fn().mockResolvedValue({
@@ -91,6 +96,7 @@ describe('VehicleStockMoveService', () => {
     ).resolves.toEqual(
       expect.objectContaining({ location_id: targetLocationId }),
     );
+    expect(transactionClient.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('rejects a cross-legal-entity vehicle move', async () => {
