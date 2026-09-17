@@ -495,6 +495,7 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 |--------|----------|-------------|
 | `GET` | `/api/vehicle-stock` | List dealer-owned vehicles (status filter) |
 | `GET` | `/api/vehicle-stock/:vehicleId` | Get vehicle stock detail |
+| `POST` | `/api/vehicle-stock/:vehicleId/move-site` | Move a parked dealer vehicle to an authorized site-owned vehicle lot |
 | `POST` | `/api/vehicle-purchases` | Create a vehicle purchase (intake to stock) |
 | `POST` | `/api/vehicle-sales` | Create a vehicle sale |
 
