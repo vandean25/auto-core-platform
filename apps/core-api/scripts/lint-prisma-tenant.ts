@@ -60,35 +60,51 @@ function main() {
   const repoRoot = path.resolve(apiRoot, '..', '..');
   const sourceRoot = path.join(apiRoot, 'src');
   const sourceFiles: { path: string; content: string }[] = [];
+  const baseRef = (() => {
+    try {
+      execFileSync('git', ['rev-parse', '--verify', 'origin/main'], {
+        cwd: repoRoot,
+        stdio: 'ignore',
+      });
+      return 'origin/main';
+    } catch {
+      return 'HEAD~2';
+    }
+  })();
   const changedSourceFiles = new Set(
-    execFileSync(
-      'git',
-      ['diff', '--name-only', 'origin/main...HEAD'],
-      { cwd: repoRoot, encoding: 'utf8' },
-    )
+    execFileSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    })
       .split(/\r?\n/)
       .concat(
-        execFileSync(
-          'git',
-          ['diff', '--name-only'],
-          { cwd: repoRoot, encoding: 'utf8' },
-        ).split(/\r?\n/),
-        execFileSync(
-          'git',
-          ['ls-files', '--others', '--exclude-standard'],
-          { cwd: repoRoot, encoding: 'utf8' },
-        ).split(/\r?\n/),
+        execFileSync('git', ['diff', '--name-only'], {
+          cwd: repoRoot,
+          encoding: 'utf8',
+        }).split(/\r?\n/),
+        execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
+          cwd: repoRoot,
+          encoding: 'utf8',
+        }).split(/\r?\n/),
       )
-      .filter((filePath) => filePath.startsWith('apps/core-api/src/') && filePath.endsWith('.ts')),
+      .filter(
+        (filePath) =>
+          filePath.startsWith('apps/core-api/src/') && filePath.endsWith('.ts'),
+      ),
   );
   const visit = (directory: string) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) visit(entryPath);
       else if (entry.name.endsWith('.ts')) {
-        const relativePath = path.relative(repoRoot, entryPath).replaceAll('\\', '/');
+        const relativePath = path
+          .relative(repoRoot, entryPath)
+          .replaceAll('\\', '/');
         if (changedSourceFiles.has(relativePath)) {
-          sourceFiles.push({ path: entryPath, content: fs.readFileSync(entryPath, 'utf8') });
+          sourceFiles.push({
+            path: entryPath,
+            content: fs.readFileSync(entryPath, 'utf8'),
+          });
         }
       }
     }
