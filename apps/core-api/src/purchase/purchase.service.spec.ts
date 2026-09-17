@@ -109,7 +109,12 @@ describe('PurchaseService', () => {
         { provide: LedgerService, useValue: mockLedgerService },
         { provide: TenantContextService, useValue: mockTenantContextService },
         { provide: SiteContextService, useValue: mockSiteContextService },
-        { provide: SiteService, useValue: { resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1') } },
+        {
+          provide: SiteService,
+          useValue: {
+            resolveDefaultSiteId: jest.fn().mockResolvedValue('site-1'),
+          },
+        },
       ],
     }).compile();
 
@@ -310,8 +315,7 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrder.findFirst.mockImplementation(
         async (args: { include?: unknown }) => {
           const include = args?.include as
-            | { items?: { select?: unknown } }
-            | undefined;
+            { items?: { select?: unknown } } | undefined;
           if (include?.items?.select) {
             return {
               id: 'po-1',
@@ -349,8 +353,7 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrder.findFirst.mockImplementation(
         async (args: { include?: unknown }) => {
           const include = args?.include as
-            | { items?: { select?: unknown } }
-            | undefined;
+            { items?: { select?: unknown } } | undefined;
           if (include?.items?.select) {
             return {
               id: 'po-1',
@@ -398,7 +401,9 @@ describe('PurchaseService', () => {
 
       await service.markAsSent('po-1');
 
-      expect(mockPrismaService.partsReservation.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.partsReservation.updateMany,
+      ).toHaveBeenCalledWith({
         where: {
           tenant_id: 'tenant-1',
           id: { in: ['reservation-1'] },
@@ -516,7 +521,11 @@ describe('PurchaseService', () => {
         where: { purchase_order_id: 'po-1', tenant_id: 'tenant-1' },
       });
       expect(mockPrismaService.purchaseOrder.deleteMany).toHaveBeenCalledWith({
-        where: { id: 'po-1', tenant_id: 'tenant-1', status: PurchaseOrderStatus.DRAFT },
+        where: {
+          id: 'po-1',
+          tenant_id: 'tenant-1',
+          status: PurchaseOrderStatus.DRAFT,
+        },
       });
     });
 
@@ -578,7 +587,7 @@ describe('PurchaseService', () => {
       const result = await service.getPurchaseOrderItems('po-1');
 
       expect(mockPrismaService.purchaseOrder.findFirst).toHaveBeenCalledWith({
-        where: { id: 'po-1', tenant_id: 'tenant-1' },
+        where: { id: 'po-1', tenant_id: 'tenant-1', site_id: 'site-1' },
         include: {
           items: {
             include: { catalog_item: true },
@@ -731,16 +740,37 @@ describe('PurchaseService', () => {
         .mockResolvedValueOnce({
           id: 'po-1',
           status: PurchaseOrderStatus.DRAFT,
-          items: [{ id: 'item-1', quantity: 5, quantity_received: 0, parts_reservation: null }],
+          items: [
+            {
+              id: 'item-1',
+              quantity: 5,
+              quantity_received: 0,
+              parts_reservation: null,
+            },
+          ],
         })
         .mockResolvedValueOnce({
           id: 'po-1',
           status: PurchaseOrderStatus.DRAFT,
-          items: [{ id: 'item-1', quantity: 10, quantity_received: 0, parts_reservation: null }],
+          items: [
+            {
+              id: 'item-1',
+              quantity: 10,
+              quantity_received: 0,
+              parts_reservation: null,
+            },
+          ],
         })
         .mockResolvedValueOnce({
           id: 'po-1',
-          items: [{ id: 'item-1', quantity: 10, quantity_received: 0, parts_reservation: null }],
+          items: [
+            {
+              id: 'item-1',
+              quantity: 10,
+              quantity_received: 0,
+              parts_reservation: null,
+            },
+          ],
         });
 
       mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
@@ -756,7 +786,11 @@ describe('PurchaseService', () => {
       expect(
         mockPrismaService.purchaseOrderItem.updateMany,
       ).toHaveBeenCalledWith({
-        where: { id: 'item-1', tenant_id: 'tenant-1', quantity_received: new Decimal(0) },
+        where: {
+          id: 'item-1',
+          tenant_id: 'tenant-1',
+          quantity_received: new Decimal(0),
+        },
         data: { quantity: 10, unit_cost: 20 },
       });
     });
@@ -784,7 +818,14 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.PARTIAL,
-        items: [{ id: 'item-1', quantity: 10, quantity_received: 5, parts_reservation: null }],
+        items: [
+          {
+            id: 'item-1',
+            quantity: 10,
+            quantity_received: 5,
+            parts_reservation: null,
+          },
+        ],
       });
 
       mockPrismaService.purchaseOrderItem.updateMany.mockResolvedValue({
@@ -800,7 +841,14 @@ describe('PurchaseService', () => {
       mockPrismaService.purchaseOrder.findFirst.mockResolvedValue({
         id: 'po-1',
         status: PurchaseOrderStatus.PARTIAL,
-        items: [{ id: 'item-1', quantity: 10, quantity_received: 5, parts_reservation: null }],
+        items: [
+          {
+            id: 'item-1',
+            quantity: 10,
+            quantity_received: 5,
+            parts_reservation: null,
+          },
+        ],
       });
 
       await expect(
@@ -865,13 +913,19 @@ describe('PurchaseService', () => {
         items: [],
       });
       mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-1' });
-      mockPrismaService.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
-      mockPrismaService.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+      mockPrismaService.tenantMember.findFirst.mockResolvedValue({
+        id: 'tm-1',
+      });
+      mockPrismaService.siteMembership.findFirst.mockResolvedValue({
+        id: 'sm-2',
+      });
       mockPrismaService.$queryRaw.mockResolvedValue([
         { id: 'site-1', is_active: true },
         { id: 'site-2', is_active: true },
       ]);
-      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.purchaseOrder.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       const result = await service.updatePurchaseOrder('po-1', {
         siteId: 'site-2',
@@ -914,7 +968,9 @@ describe('PurchaseService', () => {
         items: [],
       });
       mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-1' });
-      mockPrismaService.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrismaService.tenantMember.findFirst.mockResolvedValue({
+        id: 'tm-1',
+      });
       mockPrismaService.siteMembership.findFirst.mockResolvedValue(null);
 
       await expect(

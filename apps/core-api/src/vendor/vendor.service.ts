@@ -6,12 +6,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Vendor, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 @Injectable()
 export class VendorService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async create(data: {
@@ -101,11 +103,13 @@ export class VendorService {
     };
   }> | null> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     return this.prisma.vendor.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
         supportedBrands: true,
         purchase_orders: {
+          where: { site_id: siteId },
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
@@ -173,6 +177,7 @@ export class VendorService {
 
   async remove(id: string): Promise<Vendor> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const vendor = await this.prisma.vendor.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -183,13 +188,13 @@ export class VendorService {
     const [purchaseOrdersCount, purchaseInvoicesCount, vehiclePurchasesCount] =
       await Promise.all([
         this.prisma.purchaseOrder.count({
-          where: { tenant_id: tenantId, vendor_id: id },
+          where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
         }),
         this.prisma.purchaseInvoice.count({
           where: { tenant_id: tenantId, vendor_id: id },
         }),
         this.prisma.vehiclePurchase.count({
-          where: { tenant_id: tenantId, vendor_id: id },
+          where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
         }),
       ]);
 

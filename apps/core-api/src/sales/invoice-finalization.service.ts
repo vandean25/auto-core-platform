@@ -63,6 +63,7 @@ export class InvoiceFinalizationService {
       await transitionLinkedSalesOrderToInvoiced(
         tx,
         tenantId,
+        siteId,
         invoice.sales_order_id,
       );
     }

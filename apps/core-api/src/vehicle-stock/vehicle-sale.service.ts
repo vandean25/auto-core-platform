@@ -85,8 +85,9 @@ export class VehicleSaleService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const sale = await this.prisma.vehicleSale.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: { vehicle: true, customer: true, invoice: true },
     });
     if (!sale) {
@@ -105,8 +106,9 @@ export class VehicleSaleService {
 
   async updateDraft(id: string, dto: PatchVehicleSaleDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const sale = await this.prisma.vehicleSale.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: { vehicle: { include: { location: true } } },
     });
     if (!sale) {
@@ -196,9 +198,10 @@ export class VehicleSaleService {
 
   async finalize(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     return this.prisma.$transaction(async (tx) => {
       const sale = await tx.vehicleSale.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         include: { vehicle: true, customer: true },
       });
       if (!sale) {
@@ -229,7 +232,7 @@ export class VehicleSaleService {
       });
 
       const posted = await tx.vehicleSale.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         include: { vehicle: true, customer: true },
       });
       if (!posted) {
@@ -340,10 +343,12 @@ export class VehicleSaleService {
     tx?: Prisma.TransactionClient,
   ): Promise<boolean> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const db = tx ?? this.prisma;
     const open = await db.workshopOrder.count({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         vehicle_id: vehicleId,
         purpose: WorkshopOrderPurpose.STOCK_PREP,
         status: {

@@ -10,7 +10,10 @@ describe('LedgerService', () => {
   let service: LedgerService;
   let mockPrisma: any;
   let mockTenantContext: { getTenantId: jest.Mock };
-  let mockSiteContext: { getSiteId: jest.Mock };
+  let mockSiteContext: {
+    getSiteId: jest.Mock;
+    listAuthorizedSiteIds: jest.Mock;
+  };
 
   const TENANT_ID = 'tenant-uuid-123';
   const ITEM_ID = 'item-uuid-1';
@@ -39,6 +42,7 @@ describe('LedgerService', () => {
     };
     mockSiteContext = {
       getSiteId: jest.fn().mockResolvedValue(SITE_ID),
+      listAuthorizedSiteIds: jest.fn().mockResolvedValue([SITE_ID]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -82,7 +86,11 @@ describe('LedgerService', () => {
         new BadRequestException(`Location ${LOCATION_ID} not found`),
       );
       expect(mockPrisma.storageLocation.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, id: { in: [LOCATION_ID] } },
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [LOCATION_ID] },
+          site_id: { in: ['site-vienna'] },
+        },
       });
     });
 
@@ -573,6 +581,7 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           item_id: ITEM_ID,
           location_id: LOCATION_ID,
+          site_id: 'site-vienna',
         },
       });
       expect(mockPrisma.inventoryStock.findFirst).toHaveBeenCalledWith({
@@ -580,6 +589,7 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           catalog_item_id: ITEM_ID,
           location_id: LOCATION_ID,
+          site_id: 'site-vienna',
         },
       });
       expect(result).toBe(true);

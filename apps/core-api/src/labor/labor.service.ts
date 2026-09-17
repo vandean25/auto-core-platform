@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   CreateLaborOperationDto,
   ListLaborOperationsQueryDto,
@@ -21,10 +22,12 @@ export class LaborService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async search(query: string, workshopOrderId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const trimmedQuery = query.trim();
     const trimmedWorkshopOrderId = workshopOrderId.trim();
     if (!trimmedQuery) {
@@ -36,7 +39,11 @@ export class LaborService {
     }
 
     const workshopOrder = await this.prisma.workshopOrder.findFirst({
-      where: { id: trimmedWorkshopOrderId, tenant_id: tenantId },
+      where: {
+        id: trimmedWorkshopOrderId,
+        tenant_id: tenantId,
+        site_id: siteId,
+      },
       select: {
         vehicle: {
           select: {

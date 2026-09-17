@@ -86,38 +86,145 @@ function lineNumber(content: string, index: number): number {
   return content.slice(0, index).split('\n').length;
 }
 
-export function lintPrismaSiteScopeQueries(sourceFiles: readonly SourceFile[]): void {
+function findNamedObject(content: string, key: string): string | undefined {
+  const match = new RegExp(`\\b${key}\\s*:\\s*{`).exec(content);
+  if (!match) return undefined;
+  const openingBraceIndex = match.index + match[0].lastIndexOf('{');
+  return findCallBody(content, openingBraceIndex);
+}
+
+function findVariableObject(
+  content: string,
+  variableName: string,
+): string | undefined {
+  const declaration = new RegExp(
+    `\\b(?:const|let|var)\\s+${variableName}(?:\\s*:[^=]+)?\\s*=\\s*{`,
+  ).exec(content);
+  if (!declaration) return undefined;
+  const openingBraceIndex = declaration.index + declaration[0].lastIndexOf('{');
+  return findCallBody(content, openingBraceIndex);
+}
+
+function hasScopedWhere(queryBody: string, sourceContent = queryBody): boolean {
+  const scopedHelper =
+    /(?:\.\.\.)?(?:this\.)?([A-Za-z_$][\w$]*Where)\s*\(/.exec(queryBody)?.[1];
+  if (
+    scopedHelper &&
+    new RegExp(
+      `${scopedHelper}[\\s\\S]{0,1200}\\b(?:site_id|from_site_id|to_site_id)\\b`,
+    ).test(sourceContent)
+  ) {
+    return true;
+  }
+
+  const whereObject = findNamedObject(queryBody, 'where');
+  if (whereObject) {
+    return (
+      /\b(?:site_id|from_site_id|to_site_id)\s*:/.test(whereObject) ||
+      /\b(?:authorizedSiteIds|siteIds|activeSiteId)\b/.test(whereObject)
+    );
+  }
+
+  const whereVariable =
+    /\bwhere\s*(?::\s*)?([A-Za-z_$][\w$]*)?\s*[,}]/.exec(queryBody)?.[1] ??
+    (/\bwhere\s*[,}]/.test(queryBody) ? 'where' : undefined);
+  if (whereVariable) {
+    const variableBody = findVariableObject(sourceContent, whereVariable);
+    if (variableBody) {
+      return (
+        /\b(?:site_id|from_site_id|to_site_id)\s*:/.test(variableBody) ||
+        /\b(?:authorizedSiteIds|siteIds|activeSiteId)\b/.test(variableBody)
+      );
+    }
+  }
+
+  const whereBuilder = /\bwhere\s*:\s*(?:this\.)?([A-Za-z_$][\w$]*)\s*\(/.exec(
+    queryBody,
+  )?.[1];
+  if (
+    whereBuilder &&
+    new RegExp(
+      `${whereBuilder}[\\s\\S]{0,1200}\\b(?:site_id|from_site_id|to_site_id)\\b`,
+    ).test(sourceContent)
+  ) {
+    return true;
+  }
+
+  return /\bwhere\s*:\s*\w*(?:site|authorized)\w*\b/.test(queryBody);
+}
+
+const siteOwnedRelations = [
+  'storage_locations',
+  'inventory_stock',
+  'inventory_transactions',
+  'stock_transfers',
+  'purchase_orders',
+  'vehicle_purchases',
+  'vehicle_sales',
+  'sales_orders',
+  'bays',
+  'workshop_opening_hours',
+  'workshop_holidays',
+  'workshop_orders',
+] as const;
+
+export function lintPrismaSiteScopeQueries(
+  sourceFiles: readonly SourceFile[],
+): void {
   const queryPattern =
     /(?:this\.)?(?:prisma|tx|db|input\.db)\.(\w+)\.(findMany|findFirst|findUnique|count|aggregate|groupBy)\s*\(\s*{/g;
 
   for (const sourceFile of sourceFiles) {
-    if (sourceFile.path.endsWith('.spec.ts') || sourceFile.path.endsWith('.test.ts')) {
+    if (
+      sourceFile.path.endsWith('.spec.ts') ||
+      sourceFile.path.endsWith('.test.ts')
+    ) {
       continue;
     }
 
     for (const match of sourceFile.content.matchAll(queryPattern)) {
       const delegate = match[1];
       const operation = match[2];
-      if (!siteOwnedDelegates.has(delegate) || !scopedPrismaOperations.has(operation)) {
+      if (!scopedPrismaOperations.has(operation)) {
         continue;
       }
 
       const openingBraceIndex = (match.index ?? 0) + match[0].lastIndexOf('{');
       const callBody = findCallBody(sourceFile.content, openingBraceIndex);
-      const hasSiteScope =
-        /\b(?:site_id|from_site_id|to_site_id)\s*:/.test(callBody) ||
-        /\b(?:authorizedSiteIds|listAuthorizedSiteIds|getSiteId)\b/.test(
-          callBody,
-        ) ||
-        /\b(?:siteContext|site_context)\.(?:getSiteId|listAuthorizedSiteIds)\b/.test(
-          sourceFile.content,
-        );
+      const hasSiteOwnedDelegate = siteOwnedDelegates.has(delegate);
+      const hasSiteOwnedRelation = siteOwnedRelations.some((relation) =>
+        new RegExp(`\\b${relation}\\s*:`).test(callBody),
+      );
+      if (!hasSiteOwnedDelegate && !hasSiteOwnedRelation) continue;
 
-      if (!hasSiteScope) {
+      const hasSiteScope = hasScopedWhere(callBody, sourceFile.content);
+
+      if (hasSiteOwnedDelegate && !hasSiteScope) {
         throw new Error(
           `[Lint Error] ${sourceFile.path}:${lineNumber(sourceFile.content, match.index ?? 0)} ` +
             `${delegate}.${operation} must include an active site or authorized-site scope.`,
         );
+      }
+
+      for (const relation of siteOwnedRelations) {
+        const relationMatch = new RegExp(`\\b${relation}\\s*:`).exec(callBody);
+        const relationPrefix = relationMatch
+          ? callBody.slice(0, relationMatch.index)
+          : '';
+        const isCountProjection =
+          relationPrefix.lastIndexOf('_count') >
+          relationPrefix.lastIndexOf('}');
+        const relationBody = findNamedObject(callBody, relation);
+        if (
+          relationMatch &&
+          !isCountProjection &&
+          (!relationBody || !hasScopedWhere(relationBody, sourceFile.content))
+        ) {
+          throw new Error(
+            `[Lint Error] ${sourceFile.path}:${lineNumber(sourceFile.content, match.index ?? 0)} ` +
+              `${delegate}.${operation} includes site-owned relation '${relation}' without site scope.`,
+          );
+        }
       }
     }
   }
@@ -138,8 +245,7 @@ export function lintPrismaSiteScopeSchema(schemaContent: string): void {
     if (!requiredFields) continue;
 
     const missingFields = requiredFields.filter(
-      (fieldName) =>
-        !new RegExp(`^\\s+${fieldName}\\s+`, 'm').test(model.body),
+      (fieldName) => !new RegExp(`^\\s+${fieldName}\\s+`, 'm').test(model.body),
     );
 
     if (missingFields.length > 0) {

@@ -2,7 +2,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { isDirectRun } from './is-direct-run.mjs';
 import { lintPrismaSiteScopeSchema } from './lint-prisma-site-scope.js';
 import { lintPrismaSiteScopeQueries } from './lint-prisma-site-scope.js';
@@ -57,66 +56,27 @@ function main() {
   lintPrismaSiteScopeSchema(schemaContent);
 
   const apiRoot = path.resolve(path.dirname(schemaPath), '..');
-  const repoRoot = path.resolve(apiRoot, '..', '..');
   const sourceRoot = path.join(apiRoot, 'src');
   const sourceFiles: { path: string; content: string }[] = [];
-  const baseRef = (() => {
-    try {
-      execFileSync('git', ['rev-parse', '--verify', 'origin/main'], {
-        cwd: repoRoot,
-        stdio: 'ignore',
-      });
-      return 'origin/main';
-    } catch {
-      return 'HEAD~2';
-    }
-  })();
-  const changedSourceFiles = new Set<string>();
-  try {
-    const changedFiles = execFileSync(
-      'git',
-      ['diff', '--name-only', `${baseRef}...HEAD`],
-      { cwd: repoRoot, encoding: 'utf8' },
-    )
-      .split(/\r?\n/)
-      .concat(
-        execFileSync('git', ['diff', '--name-only'], {
-          cwd: repoRoot,
-          encoding: 'utf8',
-        }).split(/\r?\n/),
-        execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
-          cwd: repoRoot,
-          encoding: 'utf8',
-        }).split(/\r?\n/),
-      );
-
-    for (const filePath of changedFiles) {
-      if (
-        filePath.startsWith('apps/core-api/src/') &&
-        filePath.endsWith('.ts')
-      ) {
-        changedSourceFiles.add(filePath);
-      }
-    }
-  } catch {
-    // Shallow CI checkouts may not contain the base commit. Fixture-level
-    // guard tests still run; changed-file scanning resumes when refs exist.
-  }
-  const visit = (directory: string) => {
+  const visit = (directory: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) visit(entryPath);
-      else if (entry.name.endsWith('.ts')) {
-        const relativePath = path
-          .relative(repoRoot, entryPath)
-          .replaceAll('\\', '/');
-        if (changedSourceFiles.has(relativePath)) {
-          sourceFiles.push({
-            path: entryPath,
-            content: fs.readFileSync(entryPath, 'utf8'),
-          });
-        }
+      if (entry.isDirectory()) {
+        visit(entryPath);
+        continue;
       }
+      if (
+        entry.name.endsWith('.spec.ts') ||
+        entry.name.endsWith('.test.ts') ||
+        entry.name.startsWith('seed-') ||
+        !entry.name.endsWith('.ts')
+      ) {
+        continue;
+      }
+      sourceFiles.push({
+        path: entryPath,
+        content: fs.readFileSync(entryPath, 'utf8'),
+      });
     }
   };
   if (fs.existsSync(sourceRoot)) visit(sourceRoot);

@@ -8,14 +8,16 @@ describe('InvoiceFinalizationService', () => {
   let service: InvoiceFinalizationService;
 
   const atpService = {
-    calculateAtp: jest.fn((stock: {
-      quantity_on_hand: Prisma.Decimal | number;
-      quantity_reserved: Prisma.Decimal | number;
-    }) => ({
-      quantityAvailable: new Prisma.Decimal(stock.quantity_on_hand).sub(
-        stock.quantity_reserved,
-      ),
-    })),
+    calculateAtp: jest.fn(
+      (stock: {
+        quantity_on_hand: Prisma.Decimal | number;
+        quantity_reserved: Prisma.Decimal | number;
+      }) => ({
+        quantityAvailable: new Prisma.Decimal(stock.quantity_on_hand).sub(
+          stock.quantity_reserved,
+        ),
+      }),
+    ),
     deductOnHandForSale: jest.fn(),
   } as unknown as AtpService;
   const siteContext = {
@@ -67,18 +69,23 @@ describe('InvoiceFinalizationService', () => {
     });
     tx.salesOrder.updateMany.mockResolvedValue({ count: 1 });
 
-    const result = await service.finalizeInTransaction(tx as never, 'tenant-1', {
-      id: 'inv-1',
-      sales_order_id: 'so-1',
-      status: InvoiceStatus.DRAFT,
-      items: [],
-    } as never);
+    const result = await service.finalizeInTransaction(
+      tx as never,
+      'tenant-1',
+      {
+        id: 'inv-1',
+        sales_order_id: 'so-1',
+        status: InvoiceStatus.DRAFT,
+        items: [],
+      } as never,
+    );
 
     expect(result.status).toBe(InvoiceStatus.FINALIZED);
     expect(tx.salesOrder.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'so-1',
         tenant_id: 'tenant-1',
+        site_id: 'site-1',
         status: SalesOrderStatus.COMPLETED,
       },
       data: { status: SalesOrderStatus.INVOICED },

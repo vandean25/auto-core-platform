@@ -51,11 +51,11 @@ export class VehiclePurchaseService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     this.assertSeller(dto);
-    await this.assertTenantRefs(tenantId, dto);
+    await this.assertTenantRefs(tenantId, dto, siteId);
 
     if (dto.location_id) {
       const loc = await this.prisma.storageLocation.findFirst({
-        where: { id: dto.location_id, tenant_id: tenantId },
+        where: { id: dto.location_id, tenant_id: tenantId, site_id: siteId },
         select: { site_id: true, type: true },
       });
       if (
@@ -147,8 +147,9 @@ export class VehiclePurchaseService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const purchase = await this.prisma.vehiclePurchase.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: { customer: true },
     });
     if (!purchase) {
@@ -159,6 +160,7 @@ export class VehiclePurchaseService {
 
   async updateDraft(id: string, dto: PatchVehiclePurchaseDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const purchase = await this.findOne(id);
     const targetSiteId = dto.siteId ?? dto.site_id;
     const isRetargeting =
@@ -198,7 +200,11 @@ export class VehiclePurchaseService {
       }
 
       const loc = await this.prisma.storageLocation.findFirst({
-        where: { id: dto.location_id, tenant_id: tenantId },
+        where: {
+          id: dto.location_id,
+          tenant_id: tenantId,
+          site_id: targetSiteId,
+        },
         select: { site_id: true, type: true },
       });
       if (
@@ -213,11 +219,15 @@ export class VehiclePurchaseService {
     }
 
     this.assertSeller(resolveSellerValidationTarget(dto, purchase));
-    await this.assertTenantRefs(tenantId, {
-      vendor_id: dto.vendor_id,
-      customer_id: dto.customer_id,
-      location_id: dto.location_id,
-    });
+    await this.assertTenantRefs(
+      tenantId,
+      {
+        vendor_id: dto.vendor_id,
+        customer_id: dto.customer_id,
+        location_id: dto.location_id,
+      },
+      targetSiteId ?? siteId,
+    );
 
     const data: Prisma.VehiclePurchaseUncheckedUpdateManyInput =
       prepareDraftUpdateData(dto);
@@ -242,9 +252,7 @@ export class VehiclePurchaseService {
           tenant_id: tenantId,
           status: VehiclePurchaseStatus.DRAFT,
           updatedAt: purchase.updatedAt,
-          ...(isRetargeting && purchase.site_id
-            ? { site_id: purchase.site_id }
-            : {}),
+          site_id: purchase.site_id,
           ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
         },
         data,
@@ -260,7 +268,11 @@ export class VehiclePurchaseService {
       }
 
       return tx.vehiclePurchase.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: dto.siteId ?? dto.site_id ?? purchase.site_id,
+        },
         include: { customer: true },
       });
     });
@@ -268,9 +280,10 @@ export class VehiclePurchaseService {
 
   async receive(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     return this.prisma.$transaction(async (tx) => {
       const draft = await tx.vehiclePurchase.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         select: { site_id: true },
       });
       if (!draft) {
@@ -290,14 +303,26 @@ export class VehiclePurchaseService {
       );
       const vehicleId = await this.upsertLotVehicle(tx, tenantId, purchase);
       await this.recordPurchaseLedgerEntry(tx, vehicleId, purchase);
-      return this.linkPurchaseToVehicle(tx, tenantId, purchase.id, vehicleId);
+      return this.linkPurchaseToVehicle(
+        tx,
+        tenantId,
+        persistedSiteId,
+        purchase.id,
+        vehicleId,
+      );
     });
   }
 
   async cancel(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const result = await this.prisma.vehiclePurchase.updateMany({
-      where: { id, tenant_id: tenantId, status: VehiclePurchaseStatus.DRAFT },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: siteId,
+        status: VehiclePurchaseStatus.DRAFT,
+      },
       data: { status: VehiclePurchaseStatus.CANCELLED },
     });
     if (result.count === 0) {
@@ -308,8 +333,9 @@ export class VehiclePurchaseService {
 
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const purchase = await this.prisma.vehiclePurchase.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       select: { id: true, status: true },
     });
     if (!purchase) {
@@ -360,7 +386,7 @@ export class VehiclePurchaseService {
     }
 
     const purchase = await tx.vehiclePurchase.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!purchase) {
       throw new NotFoundException(`Vehicle purchase ${id} not found`);
@@ -531,11 +557,12 @@ export class VehiclePurchaseService {
   private async linkPurchaseToVehicle(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     purchaseId: string,
     vehicleId: string,
   ) {
     const linkedPurchase = await tx.vehiclePurchase.updateMany({
-      where: { id: purchaseId, tenant_id: tenantId },
+      where: { id: purchaseId, tenant_id: tenantId, site_id: siteId },
       data: { vehicle_id: vehicleId },
     });
     if (linkedPurchase.count === 0) {
@@ -545,7 +572,7 @@ export class VehiclePurchaseService {
     }
 
     const receivedPurchase = await tx.vehiclePurchase.findFirst({
-      where: { id: purchaseId, tenant_id: tenantId },
+      where: { id: purchaseId, tenant_id: tenantId, site_id: siteId },
     });
     if (!receivedPurchase) {
       throw new NotFoundException(`Vehicle purchase ${purchaseId} not found`);
@@ -579,6 +606,7 @@ export class VehiclePurchaseService {
       customer_id?: string | null;
       location_id?: string | null;
     },
+    siteId: string,
   ) {
     if (refs.vendor_id) {
       await assertTenantVendorExists(this.prisma, tenantId, refs.vendor_id);
@@ -590,6 +618,7 @@ export class VehiclePurchaseService {
       await assertTenantStorageLocationExists(
         this.prisma,
         tenantId,
+        siteId,
         refs.location_id,
       );
     }

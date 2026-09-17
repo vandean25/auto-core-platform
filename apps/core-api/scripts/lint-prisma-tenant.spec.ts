@@ -17,7 +17,9 @@ describe('lintPrismaTenantSchema', () => {
       }
     `;
 
-    expect(() => lintPrismaTenantSchema(badSchema)).toThrow(/field-level @unique/);
+    expect(() => lintPrismaTenantSchema(badSchema)).toThrow(
+      /field-level @unique/,
+    );
   });
 
   it('fails when a tenant-scoped @@unique block does not start with tenant_id', () => {
@@ -32,7 +34,9 @@ describe('lintPrismaTenantSchema', () => {
       }
     `;
 
-    expect(() => lintPrismaTenantSchema(badSchema)).toThrow(/does not start with 'tenant_id'/);
+    expect(() => lintPrismaTenantSchema(badSchema)).toThrow(
+      /does not start with 'tenant_id'/,
+    );
   });
 
   it('passes when tenant-scoped uniqueness is composite and prefixed with tenant_id', () => {
@@ -106,6 +110,28 @@ describe('lintPrismaSiteScopeSchema', () => {
         },
       ]),
     ).toThrow(/workshopOrder\.findMany.*active site/);
+  });
+
+  it('does not accept a file-level site context call as query scope', () => {
+    expect(() =>
+      lintPrismaSiteScopeQueries([
+        {
+          path: 'workshop-order.service.ts',
+          content: `this.siteContext.getSiteId();\nprisma.workshopOrder.findMany({ where: { tenant_id: tenantId } })`,
+        },
+      ]),
+    ).toThrow(/workshopOrder\.findMany.*active site/);
+  });
+
+  it('fails nested site-owned includes without their own site scope', () => {
+    expect(() =>
+      lintPrismaSiteScopeQueries([
+        {
+          path: 'customer.service.ts',
+          content: `prisma.customer.findMany({ where: { tenant_id: tenantId }, include: { workshop_orders: true } })`,
+        },
+      ]),
+    ).toThrow(/workshop_orders.*without site scope/);
   });
 
   it('accepts a stock transfer query when both site dimensions are explicit', () => {

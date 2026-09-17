@@ -178,12 +178,12 @@ export class PurchaseReceiptService {
     tx: Prisma.TransactionClient,
     tenantId: string,
   ): Promise<{ warehouse: StorageLocation; generalBin: StorageLocation }> {
+    const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
     let warehouse = await tx.storageLocation.findFirst({
-      where: { tenant_id: tenantId, type: 'warehouse' },
+      where: { tenant_id: tenantId, site_id: siteId, type: 'warehouse' },
     });
 
     if (!warehouse) {
-      const siteId = await this.siteService.resolveDefaultSiteId(tenantId);
       warehouse = await tx.storageLocation.create({
         data: {
           tenant_id: tenantId,
@@ -198,6 +198,7 @@ export class PurchaseReceiptService {
     let generalBin = await tx.storageLocation.findFirst({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         parent_id: warehouse.id,
         type: 'bin',
         name: 'General Bin',
@@ -235,7 +236,12 @@ export class PurchaseReceiptService {
     const siteId = await this.siteContext.getSiteId();
 
     return this.prisma.$transaction(async (tx) => {
-      const snapshot = await this.loadReceiptOrder(tx, tenantId, orderId);
+      const snapshot = await this.loadReceiptOrder(
+        tx,
+        tenantId,
+        siteId,
+        orderId,
+      );
       this.assertReceivable(snapshot);
 
       const locks = collectReceiptLocks(snapshot);
@@ -245,7 +251,7 @@ export class PurchaseReceiptService {
       await lockPurchaseOrderHeader(tx, tenantId, orderId);
       await lockPurchaseOrderItems(tx, tenantId, locks.itemIds);
 
-      const po = await this.loadReceiptOrder(tx, tenantId, orderId);
+      const po = await this.loadReceiptOrder(tx, tenantId, siteId, orderId);
       this.assertReceivable(po);
 
       const poItemById = new Map(po.items.map((item) => [item.id, item]));
@@ -275,17 +281,24 @@ export class PurchaseReceiptService {
       await this.ledgerService.recordTransactions(ledgerEntries, tx);
       await this.incrementTaskVersions(tx, tenantId, affectedTaskIds);
 
-      return this.finalizePurchaseOrderStatus(tx, tenantId, orderId, po.status);
+      return this.finalizePurchaseOrderStatus(
+        tx,
+        tenantId,
+        siteId,
+        orderId,
+        po.status,
+      );
     });
   }
 
   private async loadReceiptOrder(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     orderId: string,
   ): Promise<ReceiptPurchaseOrder> {
     const order = await tx.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: RECEIPT_PO_INCLUDE,
     });
     if (!order) {
@@ -488,11 +501,12 @@ export class PurchaseReceiptService {
   private async finalizePurchaseOrderStatus(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     orderId: string,
     currentStatus: PurchaseOrderStatus,
   ): Promise<PurchaseOrderWithItems> {
     const updatedPO = await tx.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: { items: true },
     });
 
@@ -519,7 +533,7 @@ export class PurchaseReceiptService {
     });
 
     const refreshedPO = await tx.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: { items: true },
     });
 

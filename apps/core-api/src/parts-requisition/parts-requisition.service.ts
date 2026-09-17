@@ -237,8 +237,9 @@ export class PartsRequisitionService {
           tenant_id: tenantId,
           catalog_item_id: line.catalog_item_id,
           location_id: location.id,
+          site_id: location.site_id,
         },
-        select: { id: true },
+        select: { id: true, site_id: true },
       });
       if (!stock) {
         throw new UnprocessableEntityException(
@@ -685,6 +686,7 @@ export class PartsRequisitionService {
               tenant_id: tenantId,
               catalog_item_id: line.catalog_item_id,
               location_id: reservation.location_id,
+              site_id: siteId,
             },
             select: { id: true },
           });
@@ -1128,7 +1130,7 @@ export class PartsRequisitionService {
       await recomputeRequisitionStatus(tx, tenantId, requisitionId);
 
       const created = await tx.purchaseOrder.findFirst({
-        where: { id: purchaseOrder.id, tenant_id: tenantId },
+        where: { id: purchaseOrder.id, tenant_id: tenantId, site_id: siteId },
         include: {
           vendor: true,
           items: { include: { catalog_item: true } },
@@ -1337,7 +1339,7 @@ export class PartsRequisitionService {
         type: LocationType.bin,
         site: { is_active: true },
       },
-      select: { id: true },
+      select: { id: true, site_id: true },
     });
   }
 

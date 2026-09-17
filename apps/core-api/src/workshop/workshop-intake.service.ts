@@ -583,13 +583,13 @@ export class WorkshopIntakeService {
 
     const [data, total] = await Promise.all([
       this.prisma.workshopOrder.findMany({
-        where,
+        where: { ...where, site_id: siteId },
         include: ORDER_WITH_RELATIONS,
         skip,
         take: pageSize,
         orderBy,
       }),
-      this.prisma.workshopOrder.count({ where }),
+      this.prisma.workshopOrder.count({ where: { ...where, site_id: siteId } }),
     ]);
 
     return {
@@ -624,7 +624,7 @@ export class WorkshopIntakeService {
     const tenantId = await this.tenantContext.getTenantId();
     const activeSiteId = await this.siteContext.getSiteId();
     const existing = await this.prisma.workshopOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: activeSiteId },
       include: ORDER_WITH_INVOICE_RELATIONS,
     });
     if (!existing) {

@@ -389,9 +389,9 @@ describe('PartsRequisitionService', () => {
         },
       }),
     );
-    expect(tx.workshopTaskLineItem.updateMany.mock.calls[0][0].data).not.toHaveProperty(
-      'quantity',
-    );
+    expect(
+      tx.workshopTaskLineItem.updateMany.mock.calls[0][0].data,
+    ).not.toHaveProperty('quantity');
   });
 
   it('requires a return location for staged release', async () => {
@@ -528,7 +528,7 @@ describe('PartsRequisitionService', () => {
         type: LocationType.bin,
         site: { is_active: true },
       },
-      select: { id: true },
+      select: { id: true, site_id: true },
     });
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });

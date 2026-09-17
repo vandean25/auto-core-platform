@@ -161,8 +161,9 @@ export class SalesOrderService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const order = await this.prisma.salesOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: {
         items: {
           include: {
@@ -287,7 +288,7 @@ export class SalesOrderService {
       }
 
       const refreshed = await tx.salesOrder.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: persistedSiteId },
         include: { items: true },
       });
 

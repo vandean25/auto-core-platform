@@ -444,6 +444,7 @@ export class MechanicExecutionService {
           select: {
             mechanic_id: true,
             bay_id: true,
+            site_id: true,
             tasks: { select: { id: true, status: true } },
           },
         },
@@ -472,6 +473,7 @@ export class MechanicExecutionService {
     await this.prisma.$transaction(async (tx) => {
       await completeLaborAndTask(tx, this.vehicleLedger, {
         tenantId,
+        siteId: task.workshop_order.site_id ?? '',
         taskId,
         orderId,
         openEntryId: openEntry?.id ?? null,

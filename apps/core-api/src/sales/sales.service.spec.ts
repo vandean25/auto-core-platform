@@ -88,9 +88,7 @@ describe('SalesService', () => {
 
     const result = await service.findOne('invoice-1');
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
@@ -144,6 +142,7 @@ describe('SalesService', () => {
       where: {
         id: 'so-1',
         tenant_id: 'tenant-1',
+        site_id: 'site-1',
         status: SalesOrderStatus.COMPLETED,
       },
       data: { status: SalesOrderStatus.INVOICED },

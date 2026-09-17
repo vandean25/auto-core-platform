@@ -382,7 +382,7 @@ describe('HrWorkdayService', () => {
       expect(result.timezone).toBe('Europe/Vienna');
       expect(result.openingHours).toHaveLength(7);
       expect(mockPrisma.workshopHoliday.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: 't1' },
+        where: { tenant_id: 't1', site_id: { in: [] } },
       });
     });
   });

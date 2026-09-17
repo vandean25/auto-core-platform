@@ -166,6 +166,7 @@ export async function ensureOrderInProgress(
 
 export interface CompleteLaborAndTaskParams {
   tenantId: string;
+  siteId: string;
   taskId: string;
   orderId: string;
   openEntryId: string | null;
@@ -263,7 +264,12 @@ export async function completeLaborAndTask(
       data: { status: WorkshopOrderStatus.COMPLETED },
     });
     if (completed.count > 0) {
-      await vehicleLedger.completeStockPrep(tx, tenantId, orderId);
+      await vehicleLedger.completeStockPrep(
+        tx,
+        tenantId,
+        orderId,
+        params.siteId,
+      );
     }
   }
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { WorkshopHoliday, WorkshopOpeningHour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -9,6 +9,7 @@ import {
 import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
 import { expectedMinutesForScheduleDay } from './hr-work-schedule.time.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 export interface TenantCalendarData {
   timezone: string;
@@ -34,13 +35,20 @@ export class HrWorkdayService {
     private readonly prisma: PrismaService,
     private readonly settingsService: WorkshopSettingsService,
     private readonly scheduleService: HrWorkScheduleService,
+    @Optional() private readonly siteContext?: SiteContextService,
   ) {}
 
   async loadTenantCalendar(tenantId: string): Promise<TenantCalendarData> {
+    const authorizedSiteIds = this.siteContext
+      ? await this.siteContext.listAuthorizedSiteIds()
+      : [];
     const [settings, holidays] = await Promise.all([
       this.settingsService.getOrCreateSettings(tenantId),
       this.prisma.workshopHoliday.findMany({
-        where: { tenant_id: tenantId },
+        where: {
+          tenant_id: tenantId,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
     ]);
 

@@ -8,7 +8,9 @@ import {
   workshopInvoiceProvider,
   workshopPrismaProvider,
   workshopTenantProvider,
+  mockSiteContext,
 } from './workshop.spec.support.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 describe('WorkshopInvoiceService', () => {
   let service: WorkshopInvoiceService;
@@ -20,6 +22,7 @@ describe('WorkshopInvoiceService', () => {
         workshopPrismaProvider,
         workshopInvoiceProvider,
         workshopTenantProvider,
+        { provide: SiteContextService, useValue: mockSiteContext },
       ],
     }).compile();
 

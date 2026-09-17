@@ -139,6 +139,7 @@ export class CustomerService {
 
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     await this.ensureCustomerExists(id);
 
     const [
@@ -150,22 +151,38 @@ export class CustomerService {
       vehicleSalesCount,
     ] = await Promise.all([
       this.prisma.salesOrder.count({
-        where: { tenant_id: tenantId, customer_id: id },
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
       this.prisma.invoice.count({
         where: { tenant_id: tenantId, customer_id: id },
       }),
       this.prisma.workshopOrder.count({
-        where: { tenant_id: tenantId, customer_id: id },
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
       this.prisma.vehicle.count({
         where: { tenant_id: tenantId, customer_id: id },
       }),
       this.prisma.vehiclePurchase.count({
-        where: { tenant_id: tenantId, customer_id: id },
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
       this.prisma.vehicleSale.count({
-        where: { tenant_id: tenantId, customer_id: id },
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
     ]);
 

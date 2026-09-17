@@ -242,6 +242,7 @@ export function calculatePickAllocations(
 export async function findLatestInboundCosts(
   tx: Prisma.TransactionClient,
   tenantId: string,
+  siteId: string,
   plans: Array<{
     line: PickLine;
     reservation: ReservationSlice;
@@ -268,6 +269,7 @@ export async function findLatestInboundCosts(
   const inboundTransactions = await tx.inventoryTransaction.findMany({
     where: {
       tenant_id: tenantId,
+      site_id: siteId,
       OR: pairs.flatMap((pair) => [
         {
           item_id: pair.item_id,
@@ -516,6 +518,7 @@ export async function loadSourceStocksAndLocations(
   const stocks = await tx.inventoryStock.findMany({
     where: {
       tenant_id: tenantId,
+      site_id: siteId,
       OR: stockPairs,
     },
     select: {
@@ -613,6 +616,7 @@ export async function buildStagePlans(
   const inboundCosts = await findLatestInboundCosts(
     tx,
     tenantId,
+    siteId,
     preliminaryPlans,
   );
   return preliminaryPlans.map((plan) => {

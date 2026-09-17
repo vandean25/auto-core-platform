@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { resolveOemConcernForBrand } from '../prisma/seed-vehicle-catalog-providers.js';
 import { createIdentityInputFingerprint } from '../vehicle/vehicle-identity.util.js';
 import { signCatalogHitPayload } from './catalog-hit-payload.js';
@@ -36,6 +37,8 @@ export class CatalogExternalService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
     @Inject(CatalogRouterService)
     private readonly router: CatalogRouterService,
   ) {}
@@ -131,10 +134,12 @@ export class CatalogExternalService {
     taskId?: string;
     query: string;
   }) {
+    const siteId = await this.siteContext.getSiteId();
     const workshopOrder = await this.prisma.workshopOrder.findFirst({
       where: {
         id: params.workshopOrderId,
         tenant_id: params.tenantId,
+        site_id: siteId,
       },
       select: {
         id: true,

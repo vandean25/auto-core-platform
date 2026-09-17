@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VendorService } from './vendor.service.js';
 
@@ -33,6 +34,10 @@ describe('VendorService', () => {
         {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
       ],
     }).compile();

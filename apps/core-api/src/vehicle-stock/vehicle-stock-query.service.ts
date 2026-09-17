@@ -254,7 +254,7 @@ export class VehicleStockQueryService {
         sales: { orderBy: { createdAt: 'desc' } },
         ledger_entries: { orderBy: { createdAt: 'asc' } },
         workshop_orders: {
-          where: { purpose: 'STOCK_PREP' },
+          where: { site_id: siteId, purpose: 'STOCK_PREP' },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
