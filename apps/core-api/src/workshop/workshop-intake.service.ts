@@ -24,7 +24,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   normalizeWorkshopOrder,
   assertOrderEditable,
@@ -583,13 +583,13 @@ export class WorkshopIntakeService {
 
     const [data, total] = await Promise.all([
       this.prisma.workshopOrder.findMany({
-        where,
+        where: { ...where, site_id: siteId },
         include: ORDER_WITH_RELATIONS,
         skip,
         take: pageSize,
         orderBy,
       }),
-      this.prisma.workshopOrder.count({ where }),
+      this.prisma.workshopOrder.count({ where: { ...where, site_id: siteId } }),
     ]);
 
     return {
@@ -623,8 +623,9 @@ export class WorkshopIntakeService {
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const activeSiteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const existing = await this.prisma.workshopOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: ORDER_WITH_INVOICE_RELATIONS,
     });
     if (!existing) {

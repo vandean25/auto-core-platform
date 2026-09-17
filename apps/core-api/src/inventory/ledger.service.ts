@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -79,12 +79,14 @@ export class LedgerService {
 
     const tx = prismaVal || this.prisma;
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
 
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
     const locationSiteIds = await this.validateLocations(
       tx,
       tenantId,
       locationIds,
+      authorizedSiteIds,
       options?.allowedLocationTypes,
     );
 
@@ -106,11 +108,16 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     locationIds: string[],
+    authorizedSiteIds: readonly string[],
     allowedTypes?: ReadonlySet<LocationType>,
   ): Promise<LocationSiteIds> {
     const enabledTypes = allowedTypes ?? STOCK_ENABLED_LOCATION_TYPES;
     const locations = await tx.storageLocation.findMany({
-      where: { tenant_id: tenantId, id: { in: locationIds } },
+      where: {
+        tenant_id: tenantId,
+        id: { in: locationIds },
+        site_id: { in: [...authorizedSiteIds] },
+      },
     });
     const locationsMap = new Map(locations.map((loc) => [loc.id, loc]));
 
@@ -215,6 +222,7 @@ export class LedgerService {
         OR: deltas.map((d) => ({
           catalog_item_id: d.itemId,
           location_id: d.locationId,
+          site_id: locationSiteIds.get(d.locationId),
         })),
       },
     });
@@ -250,7 +258,11 @@ export class LedgerService {
         }
 
         const refreshedStock = await tx.inventoryStock.findFirst({
-          where: { id: existingStock.id, tenant_id: tenantId },
+          where: {
+            id: existingStock.id,
+            tenant_id: tenantId,
+            site_id: this.getLocationSiteId(locationSiteIds, delta.locationId),
+          },
         });
 
         if (!refreshedStock) {
@@ -343,12 +355,14 @@ export class LedgerService {
     locationId: string,
   ): Promise<boolean> {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const [transactions, stock] = await Promise.all([
       this.prisma.inventoryTransaction.findMany({
         where: {
           tenant_id: tenantId,
           item_id: itemId,
           location_id: locationId,
+          site_id: siteId,
         },
       }),
       this.prisma.inventoryStock.findFirst({
@@ -356,6 +370,7 @@ export class LedgerService {
           tenant_id: tenantId,
           catalog_item_id: itemId,
           location_id: locationId,
+          site_id: siteId,
         },
       }),
     ]);

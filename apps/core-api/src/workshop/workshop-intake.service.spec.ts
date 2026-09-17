@@ -10,6 +10,7 @@ import { PartsRequisitionService } from '../parts-requisition/parts-requisition.
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import {
   mockPrisma,
+  mockSiteContext,
   resetWorkshopMocks,
   workshopPrismaProvider,
   workshopTenantProvider,
@@ -19,6 +20,7 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
   workshopSiteProvider,
+  workshopAuthorizedSiteProvider,
 } from './workshop.spec.support.js';
 
 describe('WorkshopIntakeService', () => {
@@ -32,6 +34,7 @@ describe('WorkshopIntakeService', () => {
         workshopPrismaProvider,
         workshopTenantProvider,
         workshopSiteProvider,
+        workshopAuthorizedSiteProvider,
         {
           provide: WorkshopScheduleService,
           useValue: { assertCanBook: jest.fn(), rescheduleOrder },
@@ -917,6 +920,57 @@ describe('WorkshopIntakeService', () => {
       });
 
       expect(mockPrisma.partsReservation.findMany).toHaveBeenCalled();
+      expect(result.site_id).toBe('site-2');
+    });
+
+    it('loads a scheduled order from authorized sites when the active site differs', async () => {
+      mockSiteContext.getSiteId.mockResolvedValue('site-2');
+      mockSiteContext.listAuthorizedSiteIds.mockResolvedValue([
+        'site-1',
+        'site-2',
+      ]);
+      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-1',
+        status: WorkshopOrderStatus.SCHEDULED,
+        order_number: 'WO-2026-0001',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
+      mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
+      mockPrisma.bay.findFirst.mockResolvedValue({
+        id: 'bay-2',
+        site_id: 'site-2',
+      });
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { id: 'site-1', is_active: true },
+        { id: 'site-2', is_active: true },
+      ]);
+      mockPrisma.partsReservation.findMany.mockResolvedValue([]);
+      mockPrisma.workshopOrder.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopOrder.findFirstOrThrow.mockResolvedValue({
+        id: 'wo-1',
+        site_id: 'site-2',
+        bay_id: 'bay-2',
+        status: WorkshopOrderStatus.SCHEDULED,
+        order_number: 'WO-2026-0001',
+        tasks: [],
+      });
+
+      const result = await service.updateOrder('wo-1', {
+        siteId: 'site-2',
+        bayId: 'bay-2',
+      });
+
+      expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'wo-1',
+            tenant_id: '00000000-0000-0000-0000-000000000001',
+            site_id: { in: ['site-1', 'site-2'] },
+          },
+        }),
+      );
       expect(result.site_id).toBe('site-2');
     });
   });

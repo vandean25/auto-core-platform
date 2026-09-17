@@ -1,4 +1,4 @@
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   InvoiceTaxMode,
   Prisma,
@@ -6,7 +6,10 @@ import {
   VehicleSaleStatus,
   VehicleStockStatus,
 } from '@prisma/client';
-import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -37,8 +40,14 @@ describe('VehicleSaleService', () => {
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
-  let tenantContext: { getTenantId: jest.Mock; getAuthenticatedUser: jest.Mock };
-  let siteContext: { getSiteId: jest.Mock };
+  let tenantContext: {
+    getTenantId: jest.Mock;
+    getAuthenticatedUser: jest.Mock;
+  };
+  let siteContext: {
+    getSiteId: jest.Mock;
+    listAuthorizedSiteIds: jest.Mock;
+  };
   let ledger: { listForVehicle: jest.Mock; append: jest.Mock };
 
   beforeEach(() => {
@@ -58,7 +67,9 @@ describe('VehicleSaleService', () => {
       user: { findUnique: jest.fn() },
       tenantMember: { findFirst: jest.fn() },
       siteMembership: { findFirst: jest.fn() },
-      $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'site-1', is_active: true }]),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(
@@ -71,6 +82,7 @@ describe('VehicleSaleService', () => {
     };
     siteContext = {
       getSiteId: jest.fn().mockResolvedValue('site-1'),
+      listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
     };
     ledger = {
       listForVehicle: jest.fn().mockResolvedValue([]),

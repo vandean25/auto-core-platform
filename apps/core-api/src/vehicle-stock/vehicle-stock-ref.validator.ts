@@ -8,10 +8,11 @@ type VendorLookupClient = Pick<PrismaService, 'vendor'>;
 export async function assertTenantStorageLocationExists(
   prisma: StorageLocationLookupClient,
   tenantId: string,
+  siteId: string,
   locationId: string,
 ): Promise<void> {
   const location = await prisma.storageLocation.findFirst({
-    where: { id: locationId, tenant_id: tenantId },
+    where: { id: locationId, tenant_id: tenantId, site_id: siteId },
     select: { id: true },
   });
   if (!location) {

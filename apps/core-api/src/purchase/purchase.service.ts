@@ -12,7 +12,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
   assertPersistedSiteId,
@@ -148,10 +148,11 @@ export class PurchaseService {
     tx: Prisma.TransactionClient,
     orderId: string,
     tenantId: string,
+    siteId: string,
     previousStatus: PurchaseOrderStatus,
   ) {
     const updatedPO = await tx.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: { items: true },
     });
     if (!updatedPO) throw new NotFoundException('Purchase Order not found');
@@ -173,7 +174,7 @@ export class PurchaseService {
     }
 
     return tx.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: {
         vendor: true,
         items: {
@@ -244,8 +245,9 @@ export class PurchaseService {
     items: { catalogItemId: string; quantity: number; unitCost: number }[],
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: { vendor: { include: { supportedBrands: true } }, items: true },
     });
     if (!po) throw new NotFoundException('Purchase Order not found');
@@ -297,6 +299,7 @@ export class PurchaseService {
         tx,
         orderId,
         tenantId,
+        siteId,
         po.status,
       );
     });
@@ -310,13 +313,14 @@ export class PurchaseService {
     updates: { quantity?: number; unitCost?: number },
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
 
     return this.prisma.$transaction(async (tx) => {
       await lockPurchaseOrderHeader(tx, tenantId, orderId);
       await lockPurchaseOrderItems(tx, tenantId, [itemId]);
 
       const po = await tx.purchaseOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
+        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
         include: {
           items: {
             include: { parts_reservation: true },
@@ -380,6 +384,7 @@ export class PurchaseService {
         tx,
         orderId,
         tenantId,
+        siteId,
         po.status,
       );
     });
@@ -387,13 +392,14 @@ export class PurchaseService {
 
   async deleteItemFromPurchaseOrder(orderId: string, itemId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
 
     return this.prisma.$transaction(async (tx) => {
       await lockPurchaseOrderHeader(tx, tenantId, orderId);
       await lockPurchaseOrderItems(tx, tenantId, [itemId]);
 
       const po = await tx.purchaseOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
+        where: { id: orderId, tenant_id: tenantId, site_id: siteId },
         include: {
           items: {
             where: { id: itemId },
@@ -461,6 +467,7 @@ export class PurchaseService {
         tx,
         orderId,
         tenantId,
+        siteId,
         po.status,
       );
 
@@ -475,8 +482,9 @@ export class PurchaseService {
 
   async getPurchaseOrderItems(orderId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: {
         items: {
           include: { catalog_item: true },
@@ -564,8 +572,9 @@ export class PurchaseService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     return this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: {
         vendor: { include: { supportedBrands: true } },
         items: {
@@ -577,8 +586,13 @@ export class PurchaseService {
 
   async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const existing = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+      },
       include: { items: true },
     });
 
@@ -646,8 +660,9 @@ export class PurchaseService {
 
   async markAsSent(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const orderAtRequestStart = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       select: { id: true },
     });
 
@@ -655,7 +670,7 @@ export class PurchaseService {
       await lockPurchaseOrderHeader(tx, tenantId, id);
 
       const order = await tx.purchaseOrder.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         include: {
           items: {
             select: {
@@ -736,7 +751,7 @@ export class PurchaseService {
       }
 
       const updated = await tx.purchaseOrder.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         include: {
           vendor: true,
           items: {
@@ -755,11 +770,12 @@ export class PurchaseService {
 
   async remove(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const deletedOrder = await this.prisma.$transaction(async (tx) => {
       await lockPurchaseOrderHeader(tx, tenantId, id);
 
       const order = await tx.purchaseOrder.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteId },
         include: {
           items: {
             include: {

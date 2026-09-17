@@ -115,7 +115,14 @@ export class StockTransferService {
   async detail(id: string): Promise<SerializedStockTransfer> {
     const access = await this.loadCallerAccess();
     const transfer = await this.prisma.stockTransfer.findFirst({
-      where: { id, tenant_id: access.tenantId },
+      where: {
+        id,
+        tenant_id: access.tenantId,
+        OR: [
+          { from_site_id: { in: [...access.accessBySite.keys()] } },
+          { to_site_id: { in: [...access.accessBySite.keys()] } },
+        ],
+      },
       include: TRANSFER_INCLUDE,
     });
 
@@ -238,7 +245,9 @@ export class StockTransferService {
     assertUniqueLineIds(dto.lines?.map((line) => line.id) ?? []);
 
     return this.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.loadTransfer(tx, access.tenantId, id);
+      const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
       this.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -346,7 +355,9 @@ export class StockTransferService {
         );
       }
 
-      return this.loadTransfer(tx, access.tenantId, id);
+      return this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
     });
   }
 
@@ -357,7 +368,9 @@ export class StockTransferService {
     const access = await this.loadCallerAccess();
 
     return this.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.loadTransfer(tx, access.tenantId, id);
+      const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
       this.assertTransferAccess(access, transfer, {
         requireFrom: true,
         requireAdmin: true,
@@ -387,7 +400,9 @@ export class StockTransferService {
         );
       }
 
-      return this.loadTransfer(tx, access.tenantId, id);
+      return this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
     });
   }
 
@@ -398,7 +413,9 @@ export class StockTransferService {
     const access = await this.loadCallerAccess();
 
     return this.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.loadTransfer(tx, access.tenantId, id);
+      const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
       const { fromAccess } = this.assertTransferAccess(access, transfer, {});
       if (
         transfer.requested_by_user_id !== access.userId &&
@@ -436,7 +453,9 @@ export class StockTransferService {
         );
       }
 
-      return this.loadTransfer(tx, access.tenantId, id);
+      return this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
     });
   }
 
@@ -452,7 +471,9 @@ export class StockTransferService {
     assertUniqueLineIds(dto.lines.map((line) => line.id));
 
     return this.commitTransfer(access, 'UPDATED', async (tx) => {
-      const transfer = await this.loadTransfer(tx, access.tenantId, id);
+      const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
       this.assertTransferAccess(access, transfer, {
         requireFrom: true,
       });
@@ -533,6 +554,7 @@ export class StockTransferService {
       await this.assertShipAvailability(
         tx,
         access.tenantId,
+        transfer.from_site_id,
         [...frozenSourceByLine.entries()].map(([lineId, locationId]) => {
           const line = linesById.get(lineId)!;
           return {
@@ -588,7 +610,9 @@ export class StockTransferService {
         sourceByLine: [...frozenSourceByLine.entries()],
       });
 
-      return this.loadTransfer(tx, access.tenantId, id);
+      return this.loadTransfer(tx, access.tenantId, id, [
+        ...access.accessBySite.keys(),
+      ]);
     });
   }
 
@@ -617,7 +641,9 @@ export class StockTransferService {
 
     try {
       return await this.commitTransfer(access, 'UPDATED', async (tx) => {
-        const transfer = await this.loadTransfer(tx, access.tenantId, id);
+        const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+          ...access.accessBySite.keys(),
+        ]);
         this.assertTransferAccess(access, transfer, {
           requireTo: true,
         });
@@ -734,6 +760,7 @@ export class StockTransferService {
           tx,
           access.tenantId,
           id,
+          [...access.accessBySite.keys()],
           StockTransferCommandAction.RECEIVE,
           dto.idempotencyKey,
           dto,
@@ -772,7 +799,9 @@ export class StockTransferService {
 
     try {
       return await this.commitTransfer(access, 'UPDATED', async (tx) => {
-        const transfer = await this.loadTransfer(tx, access.tenantId, id);
+        const transfer = await this.loadTransfer(tx, access.tenantId, id, [
+          ...access.accessBySite.keys(),
+        ]);
         this.assertTransferAccess(access, transfer, {
           requireTo: true,
           allowFromAdmin: true,
@@ -877,6 +906,7 @@ export class StockTransferService {
           tx,
           access.tenantId,
           id,
+          [...access.accessBySite.keys()],
           StockTransferCommandAction.RETURN,
           dto.idempotencyKey,
           dto,
@@ -980,11 +1010,19 @@ export class StockTransferService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     id: string,
+    siteIds: string[],
   ): Promise<StockTransferWithSitesAndLines> {
     return tx.stockTransfer.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: {
+        id,
+        tenant_id: tenantId,
+        OR: [
+          { from_site_id: { in: siteIds } },
+          { to_site_id: { in: siteIds } },
+        ],
+      },
       include: TRANSFER_INCLUDE,
-    }) as Promise<StockTransferWithSitesAndLines>;
+    }) as unknown as Promise<StockTransferWithSitesAndLines>;
   }
 
   /**
@@ -1052,7 +1090,7 @@ export class StockTransferService {
     }
     const unique = [...new Set(locationIds)];
     const locations = await tx.storageLocation.findMany({
-      where: { tenant_id: tenantId, id: { in: unique } },
+      where: { tenant_id: tenantId, site_id: fromSiteId, id: { in: unique } },
       select: { id: true, site_id: true, type: true, deletedAt: true },
     });
     if (locations.length !== unique.length) {
@@ -1082,7 +1120,7 @@ export class StockTransferService {
     }
     const unique = [...new Set(locationIds)];
     const locations = await tx.storageLocation.findMany({
-      where: { tenant_id: tenantId, id: { in: unique } },
+      where: { tenant_id: tenantId, site_id: toSiteId, id: { in: unique } },
       select: { id: true, site_id: true, type: true, deletedAt: true },
     });
     if (locations.length !== unique.length) {
@@ -1108,6 +1146,7 @@ export class StockTransferService {
   private async assertShipAvailability(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteId: string,
     demands: Array<{ itemId: string; locationId: string; quantity: Decimal }>,
   ): Promise<void> {
     const demandsByStock = new Map<string, Decimal>();
@@ -1122,6 +1161,7 @@ export class StockTransferService {
     const candidateStocks = await tx.inventoryStock.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         OR: [...demandsByStock.keys()].map((key) => {
           const [itemId, locationId] = key.split(':');
           return { catalog_item_id: itemId, location_id: locationId };
@@ -1346,9 +1386,19 @@ export class StockTransferService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     transferId: string,
+    siteIds: readonly string[],
   ): Promise<StockTransferWithSitesAndLines> {
     const lines = await tx.stockTransferLine.findMany({
-      where: { tenant_id: tenantId, transfer_id: transferId },
+      where: {
+        tenant_id: tenantId,
+        transfer_id: transferId,
+        stock_transfer: {
+          OR: [
+            { from_site_id: { in: siteIds } },
+            { to_site_id: { in: siteIds } },
+          ],
+        },
+      },
       select: {
         shipped_qty: true,
         received_qty: true,
@@ -1368,18 +1418,24 @@ export class StockTransferService {
         data: { status: StockTransferStatus.COMPLETED },
       });
     }
-    return this.loadTransfer(tx, tenantId, transferId);
+    return this.loadTransfer(tx, tenantId, transferId, [...siteIds]);
   }
 
   private async settleAndStoreCommand(
     tx: Prisma.TransactionClient,
     tenantId: string,
     transferId: string,
+    siteIds: readonly string[],
     action: StockTransferCommandAction,
     idempotencyKey: string,
     requestBody: unknown,
   ): Promise<StockTransferWithSitesAndLines> {
-    const transfer = await this.settleTransfer(tx, tenantId, transferId);
+    const transfer = await this.settleTransfer(
+      tx,
+      tenantId,
+      transferId,
+      siteIds,
+    );
     const serialized = serializeStockTransfer(transfer, {
       includeSourceBin: true,
     });
@@ -1474,7 +1530,14 @@ export class StockTransferService {
 
   private async authorizeReplay(access: CallerAccess, transferId: string) {
     const transfer = await this.prisma.stockTransfer.findFirst({
-      where: { id: transferId, tenant_id: access.tenantId },
+      where: {
+        id: transferId,
+        tenant_id: access.tenantId,
+        OR: [
+          { from_site_id: { in: [...access.accessBySite.keys()] } },
+          { to_site_id: { in: [...access.accessBySite.keys()] } },
+        ],
+      },
       select: { from_site_id: true, to_site_id: true },
     });
     return this.assertTransferAccess(access, transfer, {});

@@ -12,7 +12,7 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto.js';
 import { SalesOrderStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { FinanceService } from '../../finance/finance.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
-import { SiteContextService } from '../../common/services/site-context.service.js';
+import { SiteContextService } from '../../site/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
   assertPersistedSiteId,
@@ -161,8 +161,9 @@ export class SalesOrderService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const order = await this.prisma.salesOrder.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: {
         items: {
           include: {
@@ -286,8 +287,14 @@ export class SalesOrderService {
         });
       }
 
+      const siteIdAfterWrite = isRetargeting
+        ? assertPersistedSiteId(
+            updateDto.siteId,
+            'Sales order target site is required',
+          )
+        : persistedSiteId;
       const refreshed = await tx.salesOrder.findFirst({
-        where: { id, tenant_id: tenantId },
+        where: { id, tenant_id: tenantId, site_id: siteIdAfterWrite },
         include: { items: true },
       });
 

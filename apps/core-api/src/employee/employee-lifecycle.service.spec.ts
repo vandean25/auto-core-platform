@@ -6,6 +6,9 @@ import { EmployeeLifecycleService } from './employee-lifecycle.service.js';
 describe('EmployeeLifecycleService', () => {
   let service: EmployeeLifecycleService;
   const mockPrisma = {
+    site: {
+      findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]),
+    },
     employee: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { WorkshopOrderPurpose } from '@prisma/client';
 import { InvoicesService } from '../invoices/invoices.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 
 @Injectable()
 export class WorkshopInvoiceService {
@@ -11,12 +12,14 @@ export class WorkshopInvoiceService {
     @Inject(InvoicesService) private invoicesService: InvoicesService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async createInvoiceFromOrder(orderId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       select: { purpose: true },
     });
     if (order?.purpose === WorkshopOrderPurpose.STOCK_PREP) {

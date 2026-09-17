@@ -7,6 +7,7 @@ import {
   DASHBOARD_ENTITY_UPDATED_EVENT,
   SITE_ACCESS_SCOPE_UPDATED_EVENT,
   SITE_CONTEXT_UPDATED_EVENT,
+  STOCK_TRANSFER_UPDATED_EVENT,
   type AuthClaimsUpdatedPayload,
   type DashboardEntityUpdatedPayload,
   type SiteAccessScopeUpdatedPayload,
@@ -307,6 +308,54 @@ describe('DashboardGateway', () => {
 
     expect(to).toHaveBeenCalledWith('user_user-1');
     expect(emit).toHaveBeenCalledWith(SITE_ACCESS_SCOPE_UPDATED_EVENT, payload);
+  });
+
+  it('redacts source locations per transfer recipient', () => {
+    const emit = jest.fn();
+    const to = jest.fn().mockReturnValue({ emit });
+    gateway.server = { to };
+
+    gateway.emitStockTransferUpdated('tenant-a', {
+      action: 'UPDATED',
+      fromSiteId: 'site-from',
+      toSiteId: 'site-to',
+      transfer: {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
+      },
+      recipients: [
+        { firebaseUid: 'from-user', includeSourceBin: true },
+        { firebaseUid: 'to-user', includeSourceBin: false },
+      ],
+    });
+
+    expect(to).toHaveBeenNthCalledWith(1, 'site_site-from');
+    expect(to).toHaveBeenNthCalledWith(2, 'site_site-to');
+    expect(to).toHaveBeenNthCalledWith(3, 'user_from-user');
+    expect(to).toHaveBeenNthCalledWith(4, 'user_to-user');
+    expect(
+      emit.mock.calls.map(([, eventPayload]) => eventPayload.transfer),
+    ).toEqual([
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: null }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: null }],
+      },
+    ]);
+    expect(
+      emit.mock.calls.every(([eventName]) => eventName === STOCK_TRANSFER_UPDATED_EVENT),
+    ).toBe(true);
   });
 
   it('moves every user-room socket to the new site room then emits site context updated', async () => {

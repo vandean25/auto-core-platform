@@ -4,13 +4,16 @@ import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { LedgerService, RecordTransactionParams } from './ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 describe('LedgerService', () => {
   let service: LedgerService;
   let mockPrisma: any;
   let mockTenantContext: { getTenantId: jest.Mock };
-  let mockSiteContext: { getSiteId: jest.Mock };
+  let mockSiteContext: {
+    getSiteId: jest.Mock;
+    listAuthorizedSiteIds: jest.Mock;
+  };
 
   const TENANT_ID = 'tenant-uuid-123';
   const ITEM_ID = 'item-uuid-1';
@@ -39,6 +42,7 @@ describe('LedgerService', () => {
     };
     mockSiteContext = {
       getSiteId: jest.fn().mockResolvedValue(SITE_ID),
+      listAuthorizedSiteIds: jest.fn().mockResolvedValue([SITE_ID]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -82,7 +86,38 @@ describe('LedgerService', () => {
         new BadRequestException(`Location ${LOCATION_ID} not found`),
       );
       expect(mockPrisma.storageLocation.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, id: { in: [LOCATION_ID] } },
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [LOCATION_ID] },
+          site_id: { in: ['site-vienna'] },
+        },
+      });
+    });
+
+    it('validates locations across authorized sites, not only the active site', async () => {
+      mockSiteContext.listAuthorizedSiteIds.mockResolvedValue([
+        'site-vienna',
+        'site-munich',
+      ]);
+      mockPrisma.storageLocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.recordTransactions([
+          {
+            itemId: ITEM_ID,
+            locationId: LOCATION_ID,
+            quantity: 5,
+            type: TransactionType.TRANSFER_IN,
+          },
+        ]),
+      ).rejects.toThrow(`Location ${LOCATION_ID} not found`);
+
+      expect(mockPrisma.storageLocation.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [LOCATION_ID] },
+          site_id: { in: ['site-vienna', 'site-munich'] },
+        },
       });
     });
 
@@ -573,6 +608,7 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           item_id: ITEM_ID,
           location_id: LOCATION_ID,
+          site_id: 'site-vienna',
         },
       });
       expect(mockPrisma.inventoryStock.findFirst).toHaveBeenCalledWith({
@@ -580,6 +616,7 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           catalog_item_id: ITEM_ID,
           location_id: LOCATION_ID,
+          site_id: 'site-vienna',
         },
       });
       expect(result).toBe(true);

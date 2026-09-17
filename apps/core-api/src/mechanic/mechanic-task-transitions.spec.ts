@@ -210,6 +210,7 @@ describe('mechanic-task-transitions', () => {
 
       await completeLaborAndTask(mockTx, mockVehicleLedger, {
         tenantId,
+        siteId: 'site-1',
         taskId,
         orderId: 'order-1',
         openEntryId: 'entry-1',
@@ -223,6 +224,7 @@ describe('mechanic-task-transitions', () => {
         mockTx,
         tenantId,
         'order-1',
+        'site-1',
       );
     });
   });

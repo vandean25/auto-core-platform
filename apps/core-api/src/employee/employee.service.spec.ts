@@ -43,6 +43,7 @@ const mockPrisma = {
   },
   site: {
     findFirst: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
   },
   workshopOrder: {
     count: jest.fn(),
@@ -636,7 +637,11 @@ describe('EmployeeService', () => {
     expect(mockPrisma.employee.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.employee.deleteMany).not.toHaveBeenCalled();
     expect(mockPrisma.workshopOrder.count).toHaveBeenCalledWith({
-      where: { tenant_id: 'tenant-1', mechanic_id: 'emp-1' },
+      where: {
+        tenant_id: 'tenant-1',
+        mechanic_id: 'emp-1',
+        site_id: { in: [] },
+      },
     });
   });
 

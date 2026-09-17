@@ -14,10 +14,11 @@ const INVOICEABLE_SALES_ORDER_STATUSES = new Set<SalesOrderStatus>([
 export async function transitionLinkedSalesOrderToInvoiced(
   tx: Prisma.TransactionClient,
   tenantId: string,
+  siteId: string,
   salesOrderId: string,
 ): Promise<void> {
   const salesOrder = await tx.salesOrder.findFirst({
-    where: { id: salesOrderId },
+    where: { id: salesOrderId, tenant_id: tenantId, site_id: siteId },
     select: { status: true },
   });
 
@@ -36,6 +37,7 @@ export async function transitionLinkedSalesOrderToInvoiced(
     tenantId,
     from: salesOrder.status,
     to: SalesOrderStatus.INVOICED,
+    extraWhere: { site_id: siteId },
     conflictMessage:
       'Sales order status changed concurrently. Please refresh and try again.',
   });

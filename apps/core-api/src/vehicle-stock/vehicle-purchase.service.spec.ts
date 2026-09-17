@@ -13,7 +13,7 @@ import {
   VehicleStockStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
@@ -77,7 +77,9 @@ describe('VehiclePurchaseService', () => {
       user: { findUnique: jest.fn() },
       tenantMember: { findFirst: jest.fn() },
       siteMembership: { findFirst: jest.fn() },
-      $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'site-1', is_active: true }]),
     };
     prisma.$transaction.mockImplementation(
       async (callback: (tx: typeof prisma) => Promise<unknown>) =>
@@ -96,7 +98,10 @@ describe('VehiclePurchaseService', () => {
         { provide: TenantContextService, useValue: tenantContext },
         {
           provide: SiteContextService,
-          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+          useValue: {
+            getSiteId: jest.fn().mockResolvedValue('site-1'),
+            listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+          },
         },
         { provide: VehicleLedgerService, useValue: ledger },
       ],
@@ -193,6 +198,7 @@ describe('VehiclePurchaseService', () => {
     it('canonicalizes a VIN when updating a draft vehicle purchase', async () => {
       const draftPurchase = {
         id: purchaseId,
+        site_id: 'site-1',
         status: VehiclePurchaseStatus.DRAFT,
         seller_type: VehiclePurchaseSellerType.VENDOR,
         vendor_id: 'vendor-1',
@@ -209,6 +215,7 @@ describe('VehiclePurchaseService', () => {
         where: {
           id: purchaseId,
           tenant_id: tenantId,
+          site_id: 'site-1',
           status: VehiclePurchaseStatus.DRAFT,
         },
         data: expect.objectContaining({ vin: 'VF1ABC123' }),
@@ -218,6 +225,7 @@ describe('VehiclePurchaseService', () => {
     it('persists a blank VIN as null when updating a draft vehicle purchase', async () => {
       const draftPurchase = {
         id: purchaseId,
+        site_id: 'site-1',
         status: VehiclePurchaseStatus.DRAFT,
         seller_type: VehiclePurchaseSellerType.VENDOR,
         vendor_id: 'vendor-1',
@@ -234,6 +242,7 @@ describe('VehiclePurchaseService', () => {
         where: {
           id: purchaseId,
           tenant_id: tenantId,
+          site_id: 'site-1',
           status: VehiclePurchaseStatus.DRAFT,
         },
         data: expect.objectContaining({ vin: null }),
@@ -291,6 +300,7 @@ describe('VehiclePurchaseService', () => {
       const readVersion = new Date('2026-08-29T12:00:00.000Z');
       let currentPurchase = {
         id: purchaseId,
+        site_id: 'site-1',
         status: VehiclePurchaseStatus.DRAFT,
         seller_type: VehiclePurchaseSellerType.VENDOR,
         vendor_id: 'vendor-1',
@@ -337,6 +347,7 @@ describe('VehiclePurchaseService', () => {
         where: {
           id: purchaseId,
           tenant_id: tenantId,
+          site_id: 'site-1',
           status: VehiclePurchaseStatus.DRAFT,
           updatedAt: readVersion,
         },
@@ -620,6 +631,7 @@ describe('VehiclePurchaseService', () => {
         where: {
           id: purchaseId,
           tenant_id: tenantId,
+          site_id: 'site-1',
           status: VehiclePurchaseStatus.DRAFT,
         },
         data: { status: VehiclePurchaseStatus.CANCELLED },

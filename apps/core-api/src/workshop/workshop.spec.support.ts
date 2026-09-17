@@ -12,6 +12,7 @@ import { LedgerService } from '../inventory/ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoicesService } from '../invoices/invoices.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService as AuthorizedSiteContextService } from '../site/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 
@@ -172,10 +173,13 @@ export const mockTenantContext = {
 
 export const mockSiteContext = {
   getSiteId: jest.fn().mockResolvedValue('site-1'),
+  listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
 };
 
 export function resetWorkshopMocks() {
   jest.clearAllMocks();
+  mockSiteContext.getSiteId.mockResolvedValue('site-1');
+  mockSiteContext.listAuthorizedSiteIds.mockResolvedValue(['site-1']);
   mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
     cb(mockPrisma),
   );
@@ -192,6 +196,10 @@ export const workshopTenantProvider = {
 };
 export const workshopSiteProvider = {
   provide: SiteContextService,
+  useValue: mockSiteContext,
+};
+export const workshopAuthorizedSiteProvider = {
+  provide: AuthorizedSiteContextService,
   useValue: mockSiteContext,
 };
 export const workshopInvoiceProvider = {

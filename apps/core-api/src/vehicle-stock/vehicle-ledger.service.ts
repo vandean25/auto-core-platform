@@ -77,9 +77,10 @@ export class VehicleLedgerService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     orderId: string,
+    siteId: string,
   ) {
     const order = await tx.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       include: {
         vehicle: true,
         tasks: { include: { line_items: true } },
@@ -104,6 +105,7 @@ export class VehicleLedgerService {
     const consumption = await tx.inventoryTransaction.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: siteId,
         type: TransactionType.WORKSHOP_CONSUMPTION,
         parts_reservation: {
           workshop_task_line_item: {

@@ -14,6 +14,7 @@ import {
   resetWorkshopMocks,
   workshopPrismaProvider,
   workshopSiteProvider,
+  workshopAuthorizedSiteProvider,
   workshopTenantProvider,
   workshopVehicleLedgerProvider,
   Prisma,
@@ -34,6 +35,7 @@ describe('WorkshopTaskService', () => {
         WorkshopIntakeService,
         workshopPrismaProvider,
         workshopSiteProvider,
+        workshopAuthorizedSiteProvider,
         workshopTenantProvider,
         workshopVehicleLedgerProvider,
         {

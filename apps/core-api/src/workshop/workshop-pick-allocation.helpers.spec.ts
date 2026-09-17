@@ -253,7 +253,12 @@ describe('workshop-pick-allocation.helpers', () => {
         },
       ];
 
-      const costs = await findLatestInboundCosts(mockTx, 'tenant-1', plans);
+      const costs = await findLatestInboundCosts(
+        mockTx,
+        'tenant-1',
+        'site-1',
+        plans,
+      );
       expect(costs.size).toBe(0);
       expect(mockPrisma.inventoryTransaction.findMany).not.toHaveBeenCalled();
     });
@@ -294,7 +299,12 @@ describe('workshop-pick-allocation.helpers', () => {
         },
       ]);
 
-      const costs = await findLatestInboundCosts(mockTx, 'tenant-1', plans);
+      const costs = await findLatestInboundCosts(
+        mockTx,
+        'tenant-1',
+        'site-1',
+        plans,
+      );
       expect(costs.get('item-1:loc-1')?.toString()).toBe('42');
       expect(mockPrisma.inventoryTransaction.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

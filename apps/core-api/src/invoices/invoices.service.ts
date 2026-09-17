@@ -16,6 +16,7 @@ import {
 import type { WorkshopTaskLineItem } from '@prisma/client';
 import { buildInvoiceSnapshot } from './invoice-snapshot.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
@@ -32,15 +33,17 @@ export class InvoicesService {
     private prisma: PrismaService,
     private financeService: FinanceService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async createDraftInvoice(workshopOrderId: string) {
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     await this.financeService.validateTransactionDate(new Date());
 
     return this.prisma.$transaction(async (tx) => {
       let order = await tx.workshopOrder.findFirst({
-        where: { id: workshopOrderId, tenant_id: tenantId },
+        where: { id: workshopOrderId, tenant_id: tenantId, site_id: siteId },
         include: {
           tasks: {
             include: {
@@ -92,7 +95,7 @@ export class InvoicesService {
         `;
 
         const lockedOrder = await tx.workshopOrder.findFirst({
-          where: { id: workshopOrderId, tenant_id: tenantId },
+          where: { id: workshopOrderId, tenant_id: tenantId, site_id: siteId },
           include: {
             tasks: {
               include: {

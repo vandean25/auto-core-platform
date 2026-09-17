@@ -6,7 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
-import { SiteContextService } from '../../common/services/site-context.service.js';
+import { SiteContextService } from '../../site/site-context.service.js';
 import { FinanceService } from '../../finance/finance.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SalesOrderService } from './sales-order.service.js';
@@ -70,6 +70,7 @@ describe('SalesOrderService', () => {
 
   const mockSiteContext = {
     getSiteId: jest.fn().mockResolvedValue('site-1'),
+    listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
   };
 
   const mockTenantContext = {
@@ -126,9 +127,7 @@ describe('SalesOrderService', () => {
       items: [],
     });
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
@@ -138,9 +137,7 @@ describe('SalesOrderService', () => {
       identity_resolution_generation: 'generation-1',
       identity_resolution_token: 'token-1',
     };
-    mockPrisma.salesOrder.findMany.mockResolvedValue([
-      { id: 'so-1', vehicle },
-    ]);
+    mockPrisma.salesOrder.findMany.mockResolvedValue([{ id: 'so-1', vehicle }]);
     mockPrisma.salesOrder.count.mockResolvedValue(1);
 
     const result = await service.findAll();
@@ -154,7 +151,9 @@ describe('SalesOrderService', () => {
   });
 
   it('findAll uses paginated query path when prisma args are provided', async () => {
-    mockPrisma.salesOrder.findMany.mockResolvedValue([{ id: 'so-1', vehicle: null }]);
+    mockPrisma.salesOrder.findMany.mockResolvedValue([
+      { id: 'so-1', vehicle: null },
+    ]);
     mockPrisma.salesOrder.count.mockResolvedValue(5);
 
     const result = await service.findAll({
@@ -185,7 +184,9 @@ describe('SalesOrderService', () => {
   });
 
   it('findAll filters by status when a status string is provided', async () => {
-    mockPrisma.salesOrder.findMany.mockResolvedValue([{ id: 'so-1', vehicle: null }]);
+    mockPrisma.salesOrder.findMany.mockResolvedValue([
+      { id: 'so-1', vehicle: null },
+    ]);
 
     await service.findAll(SalesOrderStatus.CONFIRMED);
 
@@ -214,9 +215,7 @@ describe('SalesOrderService', () => {
 
     const result = await service.findOne('so-1');
 
-    expect(result.vehicle).not.toHaveProperty(
-      'identity_resolution_generation',
-    );
+    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
@@ -452,6 +451,15 @@ describe('SalesOrderService', () => {
           data: expect.objectContaining({
             site_id: 'site-2',
           }),
+        }),
+      );
+      expect(transactionContext.salesOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'so-1',
+            tenant_id: 'tenant-1',
+            site_id: 'site-2',
+          },
         }),
       );
       expect(result.site_id).toBe('site-2');

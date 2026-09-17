@@ -5,6 +5,7 @@ import { authSessionKeys } from './auth-session'
 import { inventoryKeys } from './inventory'
 import { vehicleStockKeys } from './vehicle-stock'
 import { workshopKeys } from './workshop'
+import { stockTransferKeys } from './stock-transfers'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
@@ -19,6 +20,7 @@ const SITE_SCOPED_QUERY_KEYS = [
   workshopKeys.all,
   inventoryKeys.all,
   vehicleStockKeys.all,
+  stockTransferKeys.all,
 ] as const
 
 async function getErrorMessage(response: Response, fallbackMessage: string) {

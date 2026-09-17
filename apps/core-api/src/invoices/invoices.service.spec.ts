@@ -7,6 +7,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { FinanceService } from '../finance/finance.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoicesService } from './invoices.service.js';
@@ -48,6 +49,10 @@ describe('InvoicesService', () => {
         {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
       ],
     }).compile();

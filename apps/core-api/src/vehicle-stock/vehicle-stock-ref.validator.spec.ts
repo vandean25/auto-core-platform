@@ -17,11 +17,16 @@ describe('vehicle-stock-ref.validator', () => {
       };
 
       await expect(
-        assertTenantStorageLocationExists(prisma as any, tenantId, 'loc-1'),
+        assertTenantStorageLocationExists(
+          prisma as any,
+          tenantId,
+          'site-1',
+          'loc-1',
+        ),
       ).resolves.toBeUndefined();
 
       expect(prisma.storageLocation.findFirst).toHaveBeenCalledWith({
-        where: { id: 'loc-1', tenant_id: tenantId },
+        where: { id: 'loc-1', tenant_id: tenantId, site_id: 'site-1' },
         select: { id: true },
       });
     });
@@ -37,6 +42,7 @@ describe('vehicle-stock-ref.validator', () => {
         assertTenantStorageLocationExists(
           prisma as any,
           tenantId,
+          'site-1',
           'loc-missing',
         ),
       ).rejects.toThrow(

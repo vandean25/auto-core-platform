@@ -6,6 +6,7 @@ import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
 import { purchaseOrderKeys } from "@/api/purchase-orders";
 import { salesOrderKeys } from "@/api/sales-orders";
+import { stockTransferKeys } from "@/api/stock-transfers";
 import { vehicleKeys } from "@/api/vehicles";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { vendorKeys } from "@/api/vendors";
@@ -92,6 +93,16 @@ describe("dashboard realtime entity mapping", () => {
       customerKeys.all,
     ]);
     expect(getDomainQueryKeysForEntityType("VENDOR")).toEqual([vendorKeys.all]);
+  });
+
+  it("maps stock transfer events to transfer and inventory query keys", () => {
+    expect(getDashboardSourceKeysForEntityType("STOCK_TRANSFER")).toEqual([
+      "stock-transfers",
+    ]);
+    expect(getDomainQueryKeysForEntityType("STOCK_TRANSFER")).toEqual([
+      stockTransferKeys.all,
+      inventoryKeys.all,
+    ]);
   });
 
   it("preserves vehicle stock domain invalidation for vehicle events", () => {

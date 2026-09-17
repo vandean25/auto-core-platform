@@ -36,8 +36,16 @@ export class EmployeeLifecycleService {
     tenantId: string,
     id: string,
   ): Promise<void> {
+    const sites = await this.prisma.site.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true },
+    });
     const linkedOrders = await this.prisma.workshopOrder.count({
-      where: { tenant_id: tenantId, mechanic_id: id },
+      where: {
+        tenant_id: tenantId,
+        mechanic_id: id,
+        site_id: { in: sites.map((site) => site.id) },
+      },
     });
     if (linkedOrders > 0) {
       throw new ConflictException(

@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { LaborService } from './labor.service.js';
 
 const mockPrisma = {
@@ -37,6 +38,10 @@ const mockTenantContextService = {
   getTenantId: jest.fn().mockResolvedValue('tenant-1'),
 };
 
+const mockSiteContextService = {
+  getSiteId: jest.fn().mockResolvedValue('site-1'),
+};
+
 const baseOperation = {
   id: 'op-1',
   code: 'OP001',
@@ -64,6 +69,7 @@ describe('LaborService', () => {
     service = new LaborService(
       mockPrisma as unknown as PrismaService,
       mockTenantContextService as unknown as TenantContextService,
+      mockSiteContextService as unknown as SiteContextService,
     );
   });
 
@@ -301,9 +307,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        description: 'Updated Description',
-      });
+          ...baseOperation,
+          description: 'Updated Description',
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', {
@@ -335,9 +341,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        description: 'Updated',
-      });
+          ...baseOperation,
+          description: 'Updated',
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       await service.update('op-1', { code: 'OP001', description: 'Updated' });
@@ -349,18 +355,18 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        fitments: [
-          {
-            id: 'fit-2',
-            make: 'Honda',
-            model: 'Civic',
-            year_from: null,
-            year_to: null,
-            engine_code: null,
-          },
-        ],
-      });
+          ...baseOperation,
+          fitments: [
+            {
+              id: 'fit-2',
+              make: 'Honda',
+              model: 'Civic',
+              year_from: null,
+              year_to: null,
+              engine_code: null,
+            },
+          ],
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.laborFitment.deleteMany.mockResolvedValue({ count: 0 });
       mockPrisma.laborFitment.createMany.mockResolvedValue({ count: 1 });
@@ -376,9 +382,9 @@ describe('LaborService', () => {
       mockPrisma.laborOperation.findFirst
         .mockResolvedValueOnce(baseOperation)
         .mockResolvedValueOnce({
-        ...baseOperation,
-        is_active: false,
-      });
+          ...baseOperation,
+          is_active: false,
+        });
       mockPrisma.laborOperation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.update('op-1', { isActive: false });

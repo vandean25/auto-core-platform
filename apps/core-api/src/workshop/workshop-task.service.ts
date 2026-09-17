@@ -101,7 +101,7 @@ export class WorkshopTaskService {
     }
 
     if (nextOrderStatus === WorkshopOrderStatus.COMPLETED) {
-      await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId);
+      await this.vehicleLedger.completeStockPrep(tx, tenantId, orderId, siteId);
     }
     return true;
   }

@@ -3,6 +3,7 @@ import { CatalogService } from './catalog.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotFoundException } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 describe('CatalogService Search (Mocked)', () => {
   let service: CatalogService;
@@ -27,6 +28,10 @@ describe('CatalogService Search (Mocked)', () => {
     getTenantId: jest.fn().mockResolvedValue('test-tenant-id'),
   };
 
+  const mockSiteContext = {
+    getSiteId: jest.fn().mockResolvedValue('test-site-id'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -38,6 +43,10 @@ describe('CatalogService Search (Mocked)', () => {
         {
           provide: TenantContextService,
           useValue: mockTenantContext,
+        },
+        {
+          provide: SiteContextService,
+          useValue: mockSiteContext,
         },
       ],
     }).compile();
@@ -120,61 +129,58 @@ describe('CatalogService Search (Mocked)', () => {
     ['br', 'partial token'],
     ['Engine', 'category name'],
     ['BP-1015-MAH', 'catalog sku'],
-  ])(
-    'should search labor and catalog items by %s (%s)',
-    async (query) => {
-      mockPrisma.workshopOrder.findFirst.mockResolvedValue({
-        vehicle: {
-          make: 'Volkswagen',
-          model: 'Golf VII',
-          year: 2018,
-          engine_code: null,
-        },
-      });
-      mockPrisma.laborOperation.findMany.mockResolvedValue([]);
-      mockPrisma.masterPart.findMany.mockResolvedValue([]);
-      mockPrisma.catalogItem.findMany.mockResolvedValue([]);
+  ])('should search labor and catalog items by %s (%s)', async (query) => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      vehicle: {
+        make: 'Volkswagen',
+        model: 'Golf VII',
+        year: 2018,
+        engine_code: null,
+      },
+    });
+    mockPrisma.laborOperation.findMany.mockResolvedValue([]);
+    mockPrisma.masterPart.findMany.mockResolvedValue([]);
+    mockPrisma.catalogItem.findMany.mockResolvedValue([]);
 
-      await service.search(query, 'mock-order-id');
+    await service.search(query, 'mock-order-id');
 
-      expect(mockPrisma.laborOperation.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            AND: expect.arrayContaining([
-              expect.objectContaining({
-                OR: expect.arrayContaining([
-                  expect.objectContaining({
-                    description: expect.objectContaining({ contains: query }),
-                  }),
-                ]),
-              }),
-            ]),
-          }),
+    expect(mockPrisma.laborOperation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.arrayContaining([
+                expect.objectContaining({
+                  description: expect.objectContaining({ contains: query }),
+                }),
+              ]),
+            }),
+          ]),
         }),
-      );
+      }),
+    );
 
-      expect(mockPrisma.catalogItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: 'test-tenant-id',
-            OR: expect.arrayContaining([
-              expect.objectContaining({
-                sku: expect.objectContaining({ contains: query }),
-              }),
-              expect.objectContaining({
+    expect(mockPrisma.catalogItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: 'test-tenant-id',
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              sku: expect.objectContaining({ contains: query }),
+            }),
+            expect.objectContaining({
+              name: expect.objectContaining({ contains: query }),
+            }),
+            expect.objectContaining({
+              brand: {
                 name: expect.objectContaining({ contains: query }),
-              }),
-              expect.objectContaining({
-                brand: {
-                  name: expect.objectContaining({ contains: query }),
-                },
-              }),
-            ]),
-          }),
+              },
+            }),
+          ]),
         }),
-      );
-    },
-  );
+      }),
+    );
+  });
 
   it('should throw NotFoundException if workshop order vehicle is missing', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);

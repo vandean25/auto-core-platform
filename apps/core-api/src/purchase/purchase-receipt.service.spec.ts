@@ -15,7 +15,7 @@ import { PurchaseReceiptService } from './purchase-receipt.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LedgerService } from '../inventory/ledger.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { SiteService } from '../site/site.service.js';
 
 import Decimal = Prisma.Decimal;

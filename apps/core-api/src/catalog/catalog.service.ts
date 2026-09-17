@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 const SEARCH_LIMIT = 20;
 
@@ -76,6 +77,8 @@ export class CatalogService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
+    @Inject(SiteContextService)
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async search(query: string, workshopOrderId: string) {
@@ -129,8 +132,9 @@ export class CatalogService {
     tenantId: string,
     workshopOrderId: string,
   ) {
+    const siteId = await this.siteContext.getSiteId();
     const workshopOrder = await this.prisma.workshopOrder.findFirst({
-      where: { id: workshopOrderId, tenant_id: tenantId },
+      where: { id: workshopOrderId, tenant_id: tenantId, site_id: siteId },
       select: {
         vehicle: {
           select: {
