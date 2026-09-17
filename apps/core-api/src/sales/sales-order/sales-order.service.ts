@@ -161,9 +161,9 @@ export class SalesOrderService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const order = await this.prisma.salesOrder.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: {
         items: {
           include: {

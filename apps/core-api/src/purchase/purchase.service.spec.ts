@@ -98,6 +98,7 @@ describe('PurchaseService', () => {
 
   const mockSiteContextService = {
     getSiteId: jest.fn().mockResolvedValue('site-1'),
+    listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
   };
 
   beforeEach(async () => {

@@ -5,7 +5,11 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils.js';
+import {
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+} from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 type CatalogSearchLaborItem = { id: string; categoryName: string | null };
@@ -85,9 +89,13 @@ describe('Catalog Module (e2e)', () => {
         },
       });
       customerId = customer.id;
+      const mainSite = await prisma.site.findFirstOrThrow({
+        where: { code: 'MAIN' },
+      });
 
       const workshopOrder = await prisma.workshopOrder.create({
         data: {
+          site_id: mainSite.id,
           customer_id: customerId,
           vehicle_id: vehicleId,
           order_number: `WO-e2e-catalog-${ts}`,
@@ -149,7 +157,7 @@ describe('Catalog Module (e2e)', () => {
         .get(
           `/api/catalog/search?q=SearchTerm&workshopOrderId=${workshopOrderId}`,
         )
-          .set('Authorization', `Bearer ${authToken}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       const results = res.body.labor as CatalogSearchLaborItem[];
@@ -172,7 +180,9 @@ describe('Catalog Module (e2e)', () => {
         await prisma.laborCategory.deleteMany({ where: { id: categoryId } });
       }
       if (workshopOrderId) {
-        await prisma.workshopOrder.deleteMany({ where: { id: workshopOrderId } });
+        await prisma.workshopOrder.deleteMany({
+          where: { id: workshopOrderId },
+        });
       }
       if (vehicleId) {
         await prisma.vehicle.deleteMany({ where: { id: vehicleId } });

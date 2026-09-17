@@ -147,9 +147,9 @@ export class VehiclePurchaseService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const purchase = await this.prisma.vehiclePurchase.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: { customer: true },
     });
     if (!purchase) {

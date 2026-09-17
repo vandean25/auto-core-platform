@@ -572,9 +572,9 @@ export class PurchaseService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     return this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: {
         vendor: { include: { supportedBrands: true } },
         items: {

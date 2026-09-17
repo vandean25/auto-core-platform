@@ -98,7 +98,10 @@ describe('VehiclePurchaseService', () => {
         { provide: TenantContextService, useValue: tenantContext },
         {
           provide: SiteContextService,
-          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+          useValue: {
+            getSiteId: jest.fn().mockResolvedValue('site-1'),
+            listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+          },
         },
         { provide: VehicleLedgerService, useValue: ledger },
       ],

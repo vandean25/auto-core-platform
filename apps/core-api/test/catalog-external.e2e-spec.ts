@@ -153,6 +153,9 @@ describe('Catalog external search (e2e)', () => {
     const workshopOrder = await prisma.workshopOrder.create({
       data: {
         tenant_id: tenantId,
+        site_id: (
+          await prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } })
+        ).id,
         customer_id: customer.id,
         vehicle_id: vehicle.id,
         order_number: `WO-EXT-${ts}`,
@@ -210,6 +213,9 @@ describe('Catalog external search (e2e)', () => {
     const workshopOrder = await prisma.workshopOrder.create({
       data: {
         tenant_id: tenantId,
+        site_id: (
+          await prisma.site.findFirstOrThrow({ where: { code: 'MAIN' } })
+        ).id,
         customer_id: customer.id,
         vehicle_id: vehicle.id,
         order_number: `WO-STALE-${ts}`,
