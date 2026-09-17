@@ -91,37 +91,36 @@ function parseDeployEnvironment(deployStep: string): CloudRunDeployEnvironment {
   return environment;
 }
 
-function missingEnvironmentKeys(
+function hasMissingEnvironmentKeys(
   environment: CloudRunDeployEnvironment,
   requiredKeys: readonly string[],
-): readonly string[] {
-  return requiredKeys.filter((key) => !environment.has(key));
+): boolean {
+  return requiredKeys.some((key) => !environment.has(key));
 }
 
 function main(): void {
   const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
   const source = readFileSync(cloudBuildPath, 'utf8');
   const { coreApi, pdfWorker } = parseCloudBuildDeployContracts(source);
-  const missingCoreApiKeys = missingEnvironmentKeys(
-    coreApi,
-    REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
-  );
-  const missingPdfWorkerKeys = missingEnvironmentKeys(
-    pdfWorker,
-    REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
-  );
 
-  if (missingCoreApiKeys.length > 0) {
+  if (
+    hasMissingEnvironmentKeys(
+      coreApi,
+      REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
+    )
+  ) {
     console.error(
-      `Cloud Run core-api environment contract is missing ${missingCoreApiKeys.length} required key(s). See REQUIRED_CORE_API_PRODUCTION_ENV_KEYS in check-cloudrun-env-contract.ts.`,
+      'Cloud Run core-api environment contract is missing required keys. See REQUIRED_CORE_API_PRODUCTION_ENV_KEYS in check-cloudrun-env-contract.ts.',
     );
     process.exitCode = 1;
     return;
   }
 
-  if (missingPdfWorkerKeys.length > 0) {
+  if (
+    hasMissingEnvironmentKeys(pdfWorker, REQUIRED_PDF_WORKER_BOOT_ENV_KEYS)
+  ) {
     console.error(
-      `Cloud Run pdf-worker environment contract is missing ${missingPdfWorkerKeys.length} required key(s). See REQUIRED_PDF_WORKER_BOOT_ENV_KEYS in check-cloudrun-env-contract.ts.`,
+      'Cloud Run pdf-worker environment contract is missing required keys. See REQUIRED_PDF_WORKER_BOOT_ENV_KEYS in check-cloudrun-env-contract.ts.',
     );
     process.exitCode = 1;
     return;
