@@ -2,8 +2,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { isDirectRun } from './is-direct-run.mjs';
 import { lintPrismaSiteScopeSchema } from './lint-prisma-site-scope.js';
+import { lintPrismaSiteScopeQueries } from './lint-prisma-site-scope.js';
 
 export function lintPrismaTenantSchema(schemaContent: string): void {
   const modelRegex = /model\s+([A-Z]\w+)\s*{([\s\S]*?)}/g;
@@ -53,6 +55,46 @@ function main() {
   const schemaContent = fs.readFileSync(schemaPath, 'utf8');
   lintPrismaTenantSchema(schemaContent);
   lintPrismaSiteScopeSchema(schemaContent);
+
+  const apiRoot = path.resolve(path.dirname(schemaPath), '..');
+  const repoRoot = path.resolve(apiRoot, '..', '..');
+  const sourceRoot = path.join(apiRoot, 'src');
+  const sourceFiles: { path: string; content: string }[] = [];
+  const changedSourceFiles = new Set(
+    execFileSync(
+      'git',
+      ['diff', '--name-only', 'origin/main...HEAD'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    )
+      .split(/\r?\n/)
+      .concat(
+        execFileSync(
+          'git',
+          ['diff', '--name-only'],
+          { cwd: repoRoot, encoding: 'utf8' },
+        ).split(/\r?\n/),
+        execFileSync(
+          'git',
+          ['ls-files', '--others', '--exclude-standard'],
+          { cwd: repoRoot, encoding: 'utf8' },
+        ).split(/\r?\n/),
+      )
+      .filter((filePath) => filePath.startsWith('apps/core-api/src/') && filePath.endsWith('.ts')),
+  );
+  const visit = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(entryPath);
+      else if (entry.name.endsWith('.ts')) {
+        const relativePath = path.relative(repoRoot, entryPath).replaceAll('\\', '/');
+        if (changedSourceFiles.has(relativePath)) {
+          sourceFiles.push({ path: entryPath, content: fs.readFileSync(entryPath, 'utf8') });
+        }
+      }
+    }
+  };
+  if (fs.existsSync(sourceRoot)) visit(sourceRoot);
+  lintPrismaSiteScopeQueries(sourceFiles);
   console.log('[Success] Prisma schema passed tenant isolation linting.');
 }
 

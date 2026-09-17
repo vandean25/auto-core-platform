@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { inventoryKeys } from '@/api/inventory'
+import { stockTransferKeys } from '@/api/stock-transfers'
 import { vehicleStockKeys } from '@/api/vehicle-stock'
 import { workshopKeys } from '@/api/workshop'
 import { fetchWithAuth } from './client'
@@ -63,6 +64,10 @@ describe('useSetActiveSite', () => {
       })
       expect(invalidateQueries).toHaveBeenCalledWith({
         queryKey: inventoryKeys.all,
+        refetchType: 'active',
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: stockTransferKeys.all,
         refetchType: 'active',
       })
       expect(invalidateQueries).toHaveBeenCalledWith({

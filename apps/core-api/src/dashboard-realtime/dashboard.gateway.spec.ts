@@ -333,23 +333,29 @@ describe('DashboardGateway', () => {
     expect(to).toHaveBeenNthCalledWith(2, 'site_site-to');
     expect(to).toHaveBeenNthCalledWith(3, 'user_from-user');
     expect(to).toHaveBeenNthCalledWith(4, 'user_to-user');
-    expect(emit).toHaveBeenCalledWith(
-      STOCK_TRANSFER_UPDATED_EVENT,
-      expect.objectContaining({
-        transfer: expect.objectContaining({
-          lines: [{ id: 'line-1', sourceLocationId: null }],
-        }),
-      }),
-    );
-    expect(emit).toHaveBeenCalledWith(
-      STOCK_TRANSFER_UPDATED_EVENT,
-      expect.objectContaining({
-        transfer: {
-          id: 'transfer-1',
-          lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
-        },
-      }),
-    );
+    expect(
+      emit.mock.calls.map(([, eventPayload]) => eventPayload.transfer),
+    ).toEqual([
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: null }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: 'bin-from' }],
+      },
+      {
+        id: 'transfer-1',
+        lines: [{ id: 'line-1', sourceLocationId: null }],
+      },
+    ]);
+    expect(
+      emit.mock.calls.every(([eventName]) => eventName === STOCK_TRANSFER_UPDATED_EVENT),
+    ).toBe(true);
   });
 
   it('moves every user-room socket to the new site room then emits site context updated', async () => {

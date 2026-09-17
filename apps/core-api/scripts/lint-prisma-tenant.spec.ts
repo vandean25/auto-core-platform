@@ -1,5 +1,8 @@
 import { lintPrismaTenantSchema } from './lint-prisma-tenant.js';
-import { lintPrismaSiteScopeSchema } from './lint-prisma-site-scope.js';
+import {
+  lintPrismaSiteScopeQueries,
+  lintPrismaSiteScopeSchema,
+} from './lint-prisma-site-scope.js';
 
 describe('lintPrismaTenantSchema', () => {
   it('fails when a tenant model uses field-level @unique', () => {
@@ -78,5 +81,41 @@ describe('lintPrismaSiteScopeSchema', () => {
     `;
 
     expect(() => lintPrismaSiteScopeSchema(goodSchema)).not.toThrow();
+  });
+
+  it('fails when a stock transfer omits either site dimension', () => {
+    const badSchema = `
+      model StockTransfer {
+        id String @id
+        tenant_id String
+        from_site_id String
+      }
+    `;
+
+    expect(() => lintPrismaSiteScopeSchema(badSchema)).toThrow(
+      /StockTransfer.*to_site_id/,
+    );
+  });
+
+  it('fails tenant-only operational queries', () => {
+    expect(() =>
+      lintPrismaSiteScopeQueries([
+        {
+          path: 'workshop-order.service.ts',
+          content: `prisma.workshopOrder.findMany({ where: { tenant_id: tenantId } })`,
+        },
+      ]),
+    ).toThrow(/workshopOrder\.findMany.*active site/);
+  });
+
+  it('accepts a stock transfer query when both site dimensions are explicit', () => {
+    expect(() =>
+      lintPrismaSiteScopeQueries([
+        {
+          path: 'stock-transfer.service.ts',
+          content: `prisma.stockTransfer.findFirst({ where: { tenant_id: tenantId, from_site_id: fromSiteId, to_site_id: toSiteId } })`,
+        },
+      ]),
+    ).not.toThrow();
   });
 });

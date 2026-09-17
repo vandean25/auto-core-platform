@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authSessionKeys } from "@/api/auth-session";
+import { customerKeys } from "@/api/customers";
+import { inventoryKeys } from "@/api/inventory";
 import { hrKeys } from "@/api/hr";
 import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
@@ -237,6 +239,14 @@ describe("RealtimeDashboardSyncProvider", () => {
 
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: stockTransferKeys.all,
+      refetchType: "active",
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: inventoryKeys.all,
+      refetchType: "active",
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: customerKeys.all,
       refetchType: "active",
     });
   });
