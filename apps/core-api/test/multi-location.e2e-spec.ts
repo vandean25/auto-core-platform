@@ -271,6 +271,7 @@ describe('Multi-Location guards (e2e)', () => {
           year: 2020,
           inventory_role: 'USED',
           stock_status: 'IN_STOCK',
+          site_id: siteA.id,
           location_id: lot.id,
         },
       });
@@ -297,6 +298,7 @@ describe('Multi-Location guards (e2e)', () => {
           year: 2020,
           inventory_role: 'USED',
           stock_status: 'SOLD',
+          site_id: siteA.id,
           location_id: lot.id,
         },
       });
@@ -324,6 +326,7 @@ describe('Multi-Location guards (e2e)', () => {
           year: 2021,
           inventory_role: 'NEW',
           stock_status: 'IN_PREP',
+          site_id: siteA.id,
           location_id: lot.id,
         },
       });

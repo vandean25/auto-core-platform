@@ -404,11 +404,31 @@ export class VehiclePurchaseService {
     tenantId: string,
     purchase: { site_id: string | null; location_id: string | null },
   ): Promise<string | null> {
-    if (purchase.location_id) {
-      return purchase.location_id;
-    }
     if (!purchase.site_id) {
-      return null;
+      throw new UnprocessableEntityException(
+        'Vehicle purchase site ownership is required before receipt',
+      );
+    }
+
+    const requestedLot = purchase.location_id
+      ? await tx.storageLocation.findFirst({
+          where: {
+            id: purchase.location_id,
+            tenant_id: tenantId,
+            site_id: purchase.site_id,
+            type: LocationType.vehicle_lot,
+            deletedAt: null,
+          },
+          select: { id: true },
+        })
+      : null;
+    if (purchase.location_id && !requestedLot) {
+      throw new UnprocessableEntityException(
+        'Vehicle purchase location must be a vehicle lot on its site',
+      );
+    }
+    if (requestedLot) {
+      return requestedLot.id;
     }
 
     const defaultLot = await tx.storageLocation.findFirst({
@@ -416,11 +436,18 @@ export class VehiclePurchaseService {
         tenant_id: tenantId,
         site_id: purchase.site_id,
         type: LocationType.vehicle_lot,
+        is_system: false,
+        deletedAt: null,
       },
       select: { id: true },
       orderBy: [{ is_system: 'asc' }, { code: 'asc' }],
     });
-    return defaultLot?.id ?? null;
+    if (!defaultLot) {
+      throw new UnprocessableEntityException(
+        'A vehicle lot is required before receiving the purchase',
+      );
+    }
+    return defaultLot.id;
   }
 
   private async updateExistingStockVehicle(

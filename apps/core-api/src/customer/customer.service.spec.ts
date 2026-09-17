@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CustomerService } from './customer.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 describe('CustomerService', () => {
   let service: CustomerService;
@@ -30,6 +31,12 @@ describe('CustomerService', () => {
         {
           provide: TenantContextService,
           useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: SiteContextService,
+          useValue: {
+            listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+          },
         },
       ],
     }).compile();
@@ -105,6 +112,76 @@ describe('CustomerService', () => {
       totalCount: 12,
       pageCount: 2,
       hasMore: false,
+    });
+  });
+
+  it('redacts unauthorized dealer operational fields from customer vehicles', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'customer-1',
+      vehicles: [
+        {
+          id: 'vehicle-1',
+          make: 'Volkswagen',
+          model: 'Golf',
+          year: 2020,
+          inventory_role: 'USED',
+          stock_status: 'IN_STOCK',
+          location_id: 'lot-site-2',
+          location: { id: 'lot-site-2', site_id: 'site-2' },
+          reserved_for_customer_id: 'customer-2',
+          reserved_for_customer: { id: 'customer-2' },
+        },
+      ],
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+
+    const result = await service.findOne('customer-1');
+    const vehicle = result.vehicles[0];
+
+    expect(vehicle.location_id ?? null).toBeNull();
+    expect(vehicle.site_id ?? null).toBeNull();
+    expect(vehicle.location ?? null).toBeNull();
+    expect(vehicle.stock_status ?? null).toBeNull();
+    expect(vehicle.inventory_role ?? null).toBeNull();
+    expect(vehicle.reserved_for_customer_id ?? null).toBeNull();
+    expect(vehicle.reserved_for_customer ?? null).toBeNull();
+  });
+
+  it('scopes customer detail histories and counts to authorized sites', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'customer-1',
+      vehicles: [],
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+    });
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+
+    await service.findOne('customer-1');
+
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          sales_orders: expect.objectContaining({
+            where: { site_id: { in: ['site-1'] } },
+          }),
+          workshop_orders: expect.objectContaining({
+            where: { site_id: { in: ['site-1'] } },
+          }),
+        }),
+      }),
+    );
+    expect(mockPrisma.workshopOrder.count).toHaveBeenCalledWith({
+      where: {
+        tenant_id: 'tenant-1',
+        customer_id: 'customer-1',
+        site_id: { in: ['site-1'] },
+      },
     });
   });
 

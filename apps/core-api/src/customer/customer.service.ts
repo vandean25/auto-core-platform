@@ -11,12 +11,14 @@ import { buildCustomerDetailInclude } from './customer-detail.query.js';
 import { projectCustomerDetail } from './customer-detail.projection.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 @Injectable()
 export class CustomerService {
   constructor(
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto) {
@@ -87,6 +89,7 @@ export class CustomerService {
     options?: { historyPage?: number; historyLimit?: number },
   ) {
     const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const pagination = resolveHistoryPagination({
       page: options?.historyPage,
       limit: options?.historyLimit,
@@ -95,10 +98,14 @@ export class CustomerService {
     const [customer, workshopOrdersTotal, invoicesTotal] = await Promise.all([
       this.prisma.customer.findFirst({
         where: { id, tenant_id: tenantId },
-        include: buildCustomerDetailInclude(pagination),
+        include: buildCustomerDetailInclude(pagination, authorizedSiteIds),
       }),
       this.prisma.workshopOrder.count({
-        where: { tenant_id: tenantId, customer_id: id },
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          site_id: { in: authorizedSiteIds },
+        },
       }),
       this.prisma.invoice.count({
         where: { tenant_id: tenantId, customer_id: id },
@@ -109,10 +116,15 @@ export class CustomerService {
       throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
-    return projectCustomerDetail(customer, pagination, {
-      workshopOrders: workshopOrdersTotal,
-      invoices: invoicesTotal,
-    });
+    return projectCustomerDetail(
+      customer,
+      pagination,
+      {
+        workshopOrders: workshopOrdersTotal,
+        invoices: invoicesTotal,
+      },
+      authorizedSiteIds,
+    );
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {

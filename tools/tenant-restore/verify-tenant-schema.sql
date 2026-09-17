@@ -251,7 +251,7 @@ VALUES
   ('vehicles', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'customers', 'reserved_for_customer_id', 'id', 'SET NULL', 'CASCADE'),
-  ('vehicles', 'storage_locations', 'location_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicles', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vendors', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('voice_note_rate_limits', 'employees', 'tenant_id,mechanic_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),

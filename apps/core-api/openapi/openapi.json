@@ -3911,6 +3911,39 @@
         ]
       }
     },
+    "/api/vehicle-stock/{vehicleId}/move-site": {
+      "post": {
+        "operationId": "VehicleStockController_moveSite",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveVehicleSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/parts-reservations": {
       "post": {
         "operationId": "PartsRequisitionController_createReservation",
@@ -12036,6 +12069,9 @@
             "type": "object",
             "nullable": true
           },
+          "expectedLocationId": {
+            "type": "string"
+          },
           "reserved_for_customer_id": {
             "type": "object",
             "nullable": true
@@ -12053,6 +12089,25 @@
             "type": "string"
           }
         }
+      },
+      "MoveVehicleSiteDto": {
+        "type": "object",
+        "properties": {
+          "toSiteId": {
+            "type": "string"
+          },
+          "toLocationId": {
+            "type": "string"
+          },
+          "expectedLocationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "toSiteId",
+          "toLocationId",
+          "expectedLocationId"
+        ]
       },
       "CreatePartsReservationDto": {
         "type": "object",

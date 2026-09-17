@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { Prisma } from '@prisma/client';
 import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
 import { VehicleService } from './vehicle.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 describe('VehicleService', () => {
   const tenantId = 'tenant-1';
@@ -42,6 +43,12 @@ describe('VehicleService', () => {
         VehicleService,
         { provide: PrismaService, useValue: prisma },
         { provide: TenantContextService, useValue: tenantContext },
+        {
+          provide: SiteContextService,
+          useValue: {
+            listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+          },
+        },
       ],
     }).compile();
 
@@ -132,6 +139,61 @@ describe('VehicleService', () => {
         pageCount: 1,
       },
     });
+  });
+
+  it('redacts dealer operational fields outside the authorized lot sites', async () => {
+    prisma.vehicle.findMany.mockResolvedValue([
+      {
+        id: vehicleId,
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2020,
+        inventory_role: 'USED',
+        stock_status: 'RESERVED',
+        location_id: 'lot-site-2',
+        location: { id: 'lot-site-2', site_id: 'site-2' },
+        reserved_for_customer_id: 'customer-2',
+        reserved_for_customer: { id: 'customer-2' },
+        customer: null,
+      },
+    ]);
+    prisma.vehicle.count.mockResolvedValue(1);
+
+    const result = await service.findAll({});
+    const vehicle = result.data[0];
+
+    expect(vehicle.location_id ?? null).toBeNull();
+    expect(vehicle.site_id ?? null).toBeNull();
+    expect(vehicle.location ?? null).toBeNull();
+    expect(vehicle.stock_status ?? null).toBeNull();
+    expect(vehicle.inventory_role ?? null).toBeNull();
+    expect(vehicle.reserved_for_customer_id ?? null).toBeNull();
+    expect(vehicle.reserved_for_customer ?? null).toBeNull();
+  });
+
+  it('scopes vehicle detail site-owned histories to authorized sites', async () => {
+    prisma.vehicle.findFirst.mockResolvedValue({
+      id: vehicleId,
+      customer: null,
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+    });
+
+    await service.findOne(vehicleId);
+
+    expect(prisma.vehicle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          sales_orders: expect.objectContaining({
+            where: { site_id: { in: ['site-1'] } },
+          }),
+          workshop_orders: expect.objectContaining({
+            where: { site_id: { in: ['site-1'] } },
+          }),
+        }),
+      }),
+    );
   });
 
   it('throws NotFoundException when the tenant-scoped update affects no rows', async () => {
@@ -523,7 +585,11 @@ describe('VehicleService', () => {
             { make: { contains: 'BMW', mode: 'insensitive' } },
           ]),
         }),
-        include: { customer: true },
+        include: {
+          customer: true,
+          location: true,
+          reserved_for_customer: true,
+        },
         skip: 10,
         take: 10,
         orderBy: { make: 'asc' },

@@ -801,6 +801,7 @@ describe('Operational Document Retarget (e2e)', () => {
           year: 2023,
           inventory_role: 'USED',
           stock_status: 'IN_STOCK',
+          site_id: siteA.id,
           location_id: lotSiteA.id,
         },
       });
@@ -828,7 +829,7 @@ describe('Operational Document Retarget (e2e)', () => {
 
       await tenantPrisma.vehicle.update({
         where: { id: dealerVehicleA.id },
-        data: { location_id: lotSiteB.id },
+        data: { site_id: siteB.id, location_id: lotSiteB.id },
       });
 
       const retargetRes = await request(app.getHttpServer())

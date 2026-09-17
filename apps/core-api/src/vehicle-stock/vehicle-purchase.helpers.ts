@@ -91,6 +91,7 @@ export function buildLotStockPayload(
     mileage?: number | null;
     key_number?: string | null;
     registration_certificate_no?: string | null;
+    site_id?: string | null;
     location_id?: string | null;
   },
   existingVehicle?: { plate: string | null } | null,
@@ -110,6 +111,7 @@ export function buildLotStockPayload(
     mileage: purchase.mileage,
     key_number: purchase.key_number,
     registration_certificate_no: purchase.registration_certificate_no,
+    site_id: purchase.site_id,
     location_id: purchase.location_id,
     customer_id: null,
     inventory_role: VehicleInventoryRole.USED,

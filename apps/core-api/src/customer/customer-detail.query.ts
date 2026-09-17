@@ -31,13 +31,25 @@ export type CustomerDetailRecord = Prisma.CustomerGetPayload<{
 
 export function buildCustomerDetailInclude(
   pagination: HistoryPagination,
+  authorizedSiteIds: readonly string[],
 ): Prisma.CustomerInclude {
   const slice = { skip: pagination.skip, take: pagination.limit };
 
   return {
-    vehicles: true,
-    sales_orders: salesOrdersHistorySlice(slice),
-    workshop_orders: workshopOrdersHistorySlice('customer-detail', slice),
+    vehicles: {
+      include: {
+        location: true,
+        reserved_for_customer: true,
+      },
+    },
+    sales_orders: {
+      ...salesOrdersHistorySlice(slice),
+      where: { site_id: { in: [...authorizedSiteIds] } },
+    },
+    workshop_orders: {
+      ...workshopOrdersHistorySlice('customer-detail', slice),
+      where: { site_id: { in: [...authorizedSiteIds] } },
+    },
     invoices: invoicesHistorySlice(slice),
   };
 }

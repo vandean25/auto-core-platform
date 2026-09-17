@@ -842,8 +842,9 @@ model Vehicle {
   color                          String?
   key_number                     String?
   registration_certificate_no    String?
+  site_id                        String?
   location_id                    String?
-  location                       StorageLocation?     @relation("VehicleLot", fields: [location_id], references: [id], onDelete: Restrict)
+  location                       StorageLocation?     @relation("VehicleLot", fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: Restrict)
   reserved_for_customer_id       String?
   reserved_for_customer          Customer?            @relation("VehicleStockReservation", fields: [reserved_for_customer_id], references: [id], onDelete: SetNull)
   invoices                       Invoice[]
@@ -859,6 +860,7 @@ model Vehicle {
   @@index([tenant_id])
   @@index([tenant_id, inventory_role, stock_status])
   @@index([tenant_id, hsn, tsn])
+  @@index([tenant_id, site_id])
   @@index([make_brand_id])
   @@index([tenant_id, vin])
   @@map("vehicles")
