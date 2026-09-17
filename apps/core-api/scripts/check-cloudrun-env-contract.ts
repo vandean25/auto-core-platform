@@ -113,7 +113,7 @@ function main(): void {
 
   if (missingCoreApiKeys.length > 0) {
     console.error(
-      `Cloud Run core-api environment contract is missing: ${missingCoreApiKeys.join(', ')}`,
+      `Cloud Run core-api environment contract is missing ${missingCoreApiKeys.length} required key(s). See REQUIRED_CORE_API_PRODUCTION_ENV_KEYS in check-cloudrun-env-contract.ts.`,
     );
     process.exitCode = 1;
     return;
@@ -121,7 +121,7 @@ function main(): void {
 
   if (missingPdfWorkerKeys.length > 0) {
     console.error(
-      `Cloud Run pdf-worker environment contract is missing: ${missingPdfWorkerKeys.join(', ')}`,
+      `Cloud Run pdf-worker environment contract is missing ${missingPdfWorkerKeys.length} required key(s). See REQUIRED_PDF_WORKER_BOOT_ENV_KEYS in check-cloudrun-env-contract.ts.`,
     );
     process.exitCode = 1;
     return;
