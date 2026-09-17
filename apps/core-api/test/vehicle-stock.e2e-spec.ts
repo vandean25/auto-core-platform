@@ -1099,7 +1099,7 @@ describe('Vehicle stock trading (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/api/vehicle-stock/${vehicle.id}`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ location_id: sameSiteLot.id, expectedLocationId: 'stale-lot' })
+      .send({ location_id: sameSiteLot.id, expectedLocationId: vehicle.id })
       .expect(409);
 
     const target = await createAdditionalLotSite({
@@ -1112,7 +1112,7 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({
         toSiteId: target.site.id,
         toLocationId: target.lot.id,
-        expectedLocationId: 'stale-lot',
+        expectedLocationId: vehicle.id,
       })
       .expect(409);
   });
