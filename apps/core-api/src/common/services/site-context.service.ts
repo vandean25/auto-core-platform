@@ -62,13 +62,6 @@ export class SiteContextService {
     const authenticatedUser = await this.systemPrisma.user.findFirst({
       where: {
         firebaseUid: user.userId,
-        active_tenant_id: user.tenantId,
-        memberships: {
-          some: {
-            tenant_id: user.tenantId,
-            is_active: true,
-          },
-        },
       },
       select: {
         siteMemberships: {
