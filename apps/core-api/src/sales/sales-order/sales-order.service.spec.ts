@@ -6,7 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma, SalesOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
-import { SiteContextService } from '../../common/services/site-context.service.js';
+import { SiteContextService } from '../../site/site-context.service.js';
 import { FinanceService } from '../../finance/finance.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SalesOrderService } from './sales-order.service.js';
@@ -451,6 +451,15 @@ describe('SalesOrderService', () => {
           data: expect.objectContaining({
             site_id: 'site-2',
           }),
+        }),
+      );
+      expect(transactionContext.salesOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'so-1',
+            tenant_id: 'tenant-1',
+            site_id: 'site-2',
+          },
         }),
       );
       expect(result.site_id).toBe('site-2');

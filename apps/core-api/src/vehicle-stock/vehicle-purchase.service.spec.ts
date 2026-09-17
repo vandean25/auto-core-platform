@@ -13,7 +13,7 @@ import {
   VehicleStockStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VEHICLE_IDENTITY_RESET } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';

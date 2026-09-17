@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -79,7 +79,7 @@ export class LedgerService {
 
     const tx = prismaVal || this.prisma;
     const tenantId = await this.tenantContext.getTenantId();
-    const authorizedSiteIds = [await this.siteContext.getSiteId()];
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
 
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
     const locationSiteIds = await this.validateLocations(

@@ -12,7 +12,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
   assertPersistedSiteId,
@@ -586,9 +586,13 @@ export class PurchaseService {
 
   async updatePurchaseOrder(id: string, dto: UpdatePurchaseOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const existing = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+      },
       include: { items: true },
     });
 

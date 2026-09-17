@@ -42,24 +42,6 @@ function runWithAuthenticatedUser(
 }
 
 describe('SiteContextService', () => {
-  it("lists active sites from the caller's active tenant memberships", async () => {
-    const { service, findFirst, tenantContext } = createContext();
-    findFirst.mockResolvedValue({
-      siteMemberships: [
-        { site_id: 'site-a' },
-        { site_id: 'site-b' },
-        { site_id: 'site-a' },
-      ],
-    });
-
-    await runWithAuthenticatedUser(tenantContext, SITE_ID, async () => {
-      await expect(service.listAuthorizedSiteIds()).resolves.toEqual([
-        'site-a',
-        'site-b',
-      ]);
-    });
-  });
-
   it('returns the session active site after validating current memberships', async () => {
     const { service, findFirst, tenantContext } = createContext();
     findFirst.mockResolvedValue({ active_site_id: SITE_ID });

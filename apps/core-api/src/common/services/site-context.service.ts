@@ -53,36 +53,6 @@ export class SiteContextService {
     return activeSite.active_site_id;
   }
 
-  async listAuthorizedSiteIds(): Promise<string[]> {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.tenantId || !user.userId) {
-      return [];
-    }
-
-    const authenticatedUser = await this.systemPrisma.user.findFirst({
-      where: {
-        firebaseUid: user.userId,
-      },
-      select: {
-        siteMemberships: {
-          where: {
-            tenant_id: user.tenantId,
-            is_active: true,
-            site: { is_active: true },
-            tenantMember: { is_active: true },
-          },
-          select: { site_id: true },
-        },
-      },
-    });
-
-    return [
-      ...new Set(
-        authenticatedUser?.siteMemberships.map(({ site_id }) => site_id) ?? [],
-      ),
-    ];
-  }
-
   private createActiveSiteRequiredException(): UnprocessableEntityException {
     return new UnprocessableEntityException({
       message: ACTIVE_SITE_REQUIRED_MESSAGE,

@@ -19,7 +19,7 @@ import {
   RecordTransactionParams,
 } from '../inventory/ledger.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { SiteService } from '../site/site.service.js';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import {

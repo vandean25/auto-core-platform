@@ -1,4 +1,4 @@
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   InvoiceTaxMode,
   Prisma,

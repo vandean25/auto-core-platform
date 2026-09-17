@@ -17,7 +17,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   assertActiveTargetSiteMembership,
   assertPersistedSiteId,
@@ -106,9 +106,13 @@ export class VehicleSaleService {
 
   async updateDraft(id: string, dto: PatchVehicleSaleDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const sale = await this.prisma.vehicleSale.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+      },
       include: { vehicle: { include: { location: true } } },
     });
     if (!sale) {

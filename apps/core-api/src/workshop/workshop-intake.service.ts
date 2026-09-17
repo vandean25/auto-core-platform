@@ -24,7 +24,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   normalizeWorkshopOrder,
   assertOrderEditable,
@@ -623,8 +623,9 @@ export class WorkshopIntakeService {
   async updateOrder(id: string, dto: UpdateWorkshopOrderDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const activeSiteId = await this.siteContext.getSiteId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const existing = await this.prisma.workshopOrder.findFirst({
-      where: { id, tenant_id: tenantId, site_id: activeSiteId },
+      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
       include: ORDER_WITH_INVOICE_RELATIONS,
     });
     if (!existing) {

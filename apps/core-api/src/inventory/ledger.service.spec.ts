@@ -4,7 +4,7 @@ import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { LedgerService, RecordTransactionParams } from './ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 
 describe('LedgerService', () => {
   let service: LedgerService;
@@ -90,6 +90,33 @@ describe('LedgerService', () => {
           tenant_id: TENANT_ID,
           id: { in: [LOCATION_ID] },
           site_id: { in: ['site-vienna'] },
+        },
+      });
+    });
+
+    it('validates locations across authorized sites, not only the active site', async () => {
+      mockSiteContext.listAuthorizedSiteIds.mockResolvedValue([
+        'site-vienna',
+        'site-munich',
+      ]);
+      mockPrisma.storageLocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.recordTransactions([
+          {
+            itemId: ITEM_ID,
+            locationId: LOCATION_ID,
+            quantity: 5,
+            type: TransactionType.TRANSFER_IN,
+          },
+        ]),
+      ).rejects.toThrow(`Location ${LOCATION_ID} not found`);
+
+      expect(mockPrisma.storageLocation.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [LOCATION_ID] },
+          site_id: { in: ['site-vienna', 'site-munich'] },
         },
       });
     });
