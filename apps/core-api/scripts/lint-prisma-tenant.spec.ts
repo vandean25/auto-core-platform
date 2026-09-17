@@ -1,4 +1,5 @@
 import { lintPrismaTenantSchema } from './lint-prisma-tenant.js';
+import { lintPrismaSiteScopeSchema } from './lint-prisma-site-scope.js';
 
 describe('lintPrismaTenantSchema', () => {
   it('fails when a tenant model uses field-level @unique', () => {
@@ -45,5 +46,37 @@ describe('lintPrismaTenantSchema', () => {
     `;
 
     expect(() => lintPrismaTenantSchema(goodSchema)).not.toThrow();
+  });
+});
+
+describe('lintPrismaSiteScopeSchema', () => {
+  it('fails when a site-owned model does not declare site_id', () => {
+    const badSchema = `
+      model WorkshopOrder {
+        id String @id
+        tenant_id String
+      }
+    `;
+
+    expect(() => lintPrismaSiteScopeSchema(badSchema)).toThrow(
+      /WorkshopOrder.*site_id/,
+    );
+  });
+
+  it('passes tenant-wide models and site-owned models with site_id', () => {
+    const goodSchema = `
+      model Customer {
+        id String @id
+        tenant_id String
+      }
+
+      model WorkshopOrder {
+        id String @id
+        tenant_id String
+        site_id String
+      }
+    `;
+
+    expect(() => lintPrismaSiteScopeSchema(goodSchema)).not.toThrow();
   });
 });

@@ -6,6 +6,7 @@ import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
 import { purchaseOrderKeys } from "@/api/purchase-orders";
 import { salesOrderKeys } from "@/api/sales-orders";
+import { stockTransferKeys } from "@/api/stock-transfers";
 import { vehicleKeys } from "@/api/vehicles";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { vendorKeys } from "@/api/vendors";
@@ -62,6 +63,10 @@ const entityInvalidationMap: Record<
   SALES_ORDER: {
     dashboardSourceKeys: ["sales-orders"],
     domainQueryKeys: [salesOrderKeys.all],
+  },
+  STOCK_TRANSFER: {
+    dashboardSourceKeys: ["stock-transfers"],
+    domainQueryKeys: [stockTransferKeys.all, inventoryKeys.all],
   },
   CATALOG_ITEM: {
     dashboardSourceKeys: ["inventory"],

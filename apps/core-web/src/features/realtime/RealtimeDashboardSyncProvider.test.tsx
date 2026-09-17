@@ -7,6 +7,7 @@ import { hrKeys } from "@/api/hr";
 import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
 import { siteKeys } from "@/api/sites";
+import { stockTransferKeys } from "@/api/stock-transfers";
 import { vehicleStockKeys } from "@/api/vehicle-stock";
 import { workshopKeys } from "@/api/workshop";
 import {
@@ -18,6 +19,7 @@ import {
   ENTITY_UPDATED_EVENT,
   SITE_ACCESS_SCOPE_UPDATED_EVENT,
   SITE_CONTEXT_UPDATED_EVENT,
+  STOCK_TRANSFER_UPDATED_EVENT,
 } from "./types";
 
 const mocks = vi.hoisted(() => {
@@ -204,6 +206,38 @@ describe("RealtimeDashboardSyncProvider", () => {
         refetchType: "active",
       });
       expect(invalidateQueries).toHaveBeenCalledWith({ refetchType: "active" });
+    });
+  });
+
+  it("invalidates transfer queries when a stock transfer event arrives", async () => {
+    const queryClient = createQueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.io).toHaveBeenCalled();
+    });
+
+    const transferHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === STOCK_TRANSFER_UPDATED_EVENT,
+    )?.[1];
+
+    expect(transferHandler).toEqual(expect.any(Function));
+
+    await act(async () => {
+      transferHandler({
+        action: "UPDATED",
+        transfer: { id: "transfer-1" },
+        timestamp: "2026-09-17T10:00:00.000Z",
+      });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: stockTransferKeys.all,
+      refetchType: "active",
     });
   });
 

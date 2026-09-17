@@ -5,6 +5,7 @@ import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
 import { authSessionKeys } from '@/api/auth-session'
 import { siteKeys } from '@/api/sites'
+import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
 import { vehicleStockKeys } from '@/api/vehicle-stock'
 import { workshopKeys } from '@/api/workshop'
@@ -16,9 +17,11 @@ import {
   ENTITY_UPDATED_EVENT,
   SITE_ACCESS_SCOPE_UPDATED_EVENT,
   SITE_CONTEXT_UPDATED_EVENT,
+  STOCK_TRANSFER_UPDATED_EVENT,
   isClaimsUpdatedPayload,
   isSiteAccessScopeUpdatedPayload,
   isSiteContextUpdatedPayload,
+  isStockTransferUpdatedPayload,
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
@@ -32,6 +35,7 @@ const SITE_SCOPED_QUERY_KEYS: QueryKey[] = [
   workshopKeys.all,
   vehicleStockKeys.all,
   inventoryKeys.all,
+  stockTransferKeys.all,
 ]
 
 type RealtimeConnection = {
@@ -136,6 +140,19 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       }
     }
 
+    const onStockTransferUpdated = (payload: unknown) => {
+      if (!isStockTransferUpdatedPayload(payload)) return
+
+      void queryClient.invalidateQueries({
+        queryKey: stockTransferKeys.all,
+        refetchType: 'active',
+      })
+      void queryClient.invalidateQueries({
+        queryKey: inventoryKeys.all,
+        refetchType: 'active',
+      })
+    }
+
     const onClaimsUpdated = (payload: unknown) => {
       if (!isClaimsUpdatedPayload(payload)) return
 
@@ -200,12 +217,14 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     }
 
     socket.on(ENTITY_UPDATED_EVENT, onEntityUpdated)
+    socket.on(STOCK_TRANSFER_UPDATED_EVENT, onStockTransferUpdated)
     socket.on(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
     socket.on(SITE_CONTEXT_UPDATED_EVENT, onSiteContextUpdated)
     socket.on(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
 
     return () => {
       socket.off(ENTITY_UPDATED_EVENT, onEntityUpdated)
+      socket.off(STOCK_TRANSFER_UPDATED_EVENT, onStockTransferUpdated)
       socket.off(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
       socket.off(SITE_CONTEXT_UPDATED_EVENT, onSiteContextUpdated)
       socket.off(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)

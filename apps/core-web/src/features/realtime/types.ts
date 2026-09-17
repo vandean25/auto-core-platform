@@ -2,6 +2,7 @@ export const ENTITY_UPDATED_EVENT = "entity_updated";
 export const AUTH_CLAIMS_UPDATED_EVENT = "auth:claims_updated";
 export const SITE_CONTEXT_UPDATED_EVENT = "site:context_updated";
 export const SITE_ACCESS_SCOPE_UPDATED_EVENT = "site:access_scope_updated";
+export const STOCK_TRANSFER_UPDATED_EVENT = "stock_transfer_updated";
 
 export type RealtimeEntityType =
   | "PURCHASE_ORDER"
@@ -12,6 +13,7 @@ export type RealtimeEntityType =
   | "WORKSHOP_MEDIA"
   | "LABOR_ENTRY"
   | "SALES_ORDER"
+  | "STOCK_TRANSFER"
   | "CATALOG_ITEM"
   | "CUSTOMER"
   | "VENDOR"
@@ -44,6 +46,12 @@ export interface SiteContextUpdatedPayload {
 }
 
 export interface SiteAccessScopeUpdatedPayload {
+  timestamp: string;
+}
+
+export interface StockTransferUpdatedPayload {
+  action: "CREATED" | "UPDATED";
+  transfer: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -80,4 +88,19 @@ export function isSiteAccessScopeUpdatedPayload(
   const value = payload as Partial<SiteAccessScopeUpdatedPayload>;
 
   return typeof value.timestamp === "string";
+}
+
+export function isStockTransferUpdatedPayload(
+  payload: unknown,
+): payload is StockTransferUpdatedPayload {
+  if (!payload || typeof payload !== "object") return false;
+
+  const value = payload as Partial<StockTransferUpdatedPayload>;
+
+  return (
+    (value.action === "CREATED" || value.action === "UPDATED") &&
+    typeof value.transfer === "object" &&
+    value.transfer !== null &&
+    typeof value.timestamp === "string"
+  );
 }

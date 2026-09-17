@@ -3,6 +3,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isDirectRun } from './is-direct-run.mjs';
+import { lintPrismaSiteScopeSchema } from './lint-prisma-site-scope.js';
 
 export function lintPrismaTenantSchema(schemaContent: string): void {
   const modelRegex = /model\s+([A-Z]\w+)\s*{([\s\S]*?)}/g;
@@ -51,6 +52,7 @@ function main() {
 
   const schemaContent = fs.readFileSync(schemaPath, 'utf8');
   lintPrismaTenantSchema(schemaContent);
+  lintPrismaSiteScopeSchema(schemaContent);
   console.log('[Success] Prisma schema passed tenant isolation linting.');
 }
 
