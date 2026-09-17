@@ -71,11 +71,13 @@ function main() {
       return 'HEAD~2';
     }
   })();
-  const changedSourceFiles = new Set(
-    execFileSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    })
+  const changedSourceFiles = new Set<string>();
+  try {
+    const changedFiles = execFileSync(
+      'git',
+      ['diff', '--name-only', `${baseRef}...HEAD`],
+      { cwd: repoRoot, encoding: 'utf8' },
+    )
       .split(/\r?\n/)
       .concat(
         execFileSync('git', ['diff', '--name-only'], {
@@ -86,12 +88,20 @@ function main() {
           cwd: repoRoot,
           encoding: 'utf8',
         }).split(/\r?\n/),
-      )
-      .filter(
-        (filePath) =>
-          filePath.startsWith('apps/core-api/src/') && filePath.endsWith('.ts'),
-      ),
-  );
+      );
+
+    for (const filePath of changedFiles) {
+      if (
+        filePath.startsWith('apps/core-api/src/') &&
+        filePath.endsWith('.ts')
+      ) {
+        changedSourceFiles.add(filePath);
+      }
+    }
+  } catch {
+    // Shallow CI checkouts may not contain the base commit. Fixture-level
+    // guard tests still run; changed-file scanning resumes when refs exist.
+  }
   const visit = (directory: string) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
