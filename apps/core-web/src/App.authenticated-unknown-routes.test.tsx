@@ -33,6 +33,10 @@ vi.mock('./pages/workshop/WorkshopPickList', () => ({
   default: () => <div>Workshop Pick Queue</div>,
 }))
 
+vi.mock('./pages/vehicle-stock/VehicleStockList', () => ({
+  default: () => <div>Vehicle Stock List</div>,
+}))
+
 function renderAtPath(pathname: string) {
   window.history.pushState({}, '', pathname)
 
@@ -92,6 +96,13 @@ describe('App authenticated unknown routes (AUT-222)', () => {
 
     expect(await screen.findByText('Workshop Pick Queue')).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.workshopPickList)
+  })
+
+  it('redirects /vehicles/stock to vehicle stock (AUT-289)', async () => {
+    renderAtPath('/vehicles/stock')
+
+    expect(await screen.findByText('Vehicle Stock List')).toBeInTheDocument()
+    expect(window.location.pathname).toBe(APP_ROUTE_PATHS.vehicleStock)
   })
 
   it('loads the HR module at /hr', async () => {
