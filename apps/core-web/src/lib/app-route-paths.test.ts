@@ -10,6 +10,7 @@ describe('isKnownAppPath', () => {
     expect(isKnownAppPath('/workshop/orders/abc-123')).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPick)).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPickList)).toBe(true)
+    expect(isKnownAppPath(APP_ROUTE_PATHS.vehicleStockAlias)).toBe(true)
   })
 
   it('rejects unknown routes', () => {

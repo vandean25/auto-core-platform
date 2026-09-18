@@ -94,6 +94,10 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.customers} element={<CustomerList />} />
               <Route path={APP_ROUTE_PATHS.customerDetail} element={<CustomerDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicles} element={<VehicleList />} />
+              <Route
+                path={APP_ROUTE_PATHS.vehicleStockAlias}
+                element={<Navigate to={APP_ROUTE_PATHS.vehicleStock} replace />}
+              />
               <Route path={APP_ROUTE_PATHS.vehicleDetail} element={<VehicleDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicleStock} element={<VehicleStockList />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseNew} element={<VehiclePurchasePage />} />
