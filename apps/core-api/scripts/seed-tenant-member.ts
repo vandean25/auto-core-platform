@@ -321,6 +321,16 @@ export async function runSeedTenantMemberCli(
   }
 }
 
+export function pickPreferredActiveSite<
+  T extends { id: string; code: string },
+>(sites: T[]): T | undefined {
+  return (
+    sites.find((site) => site.code === 'MAIN') ??
+    sites.find((site) => site.code === 'WIEN') ??
+    sites[0]
+  );
+}
+
 export async function grantTenantSiteMemberships(
   tenantId: string,
   userId: string,
@@ -328,7 +338,7 @@ export async function grantTenantSiteMemberships(
 ): Promise<void> {
   const sites = await prisma.site.findMany({
     where: { tenant_id: tenantId, is_active: true },
-    select: { id: true },
+    select: { id: true, code: true },
     orderBy: { code: 'asc' },
   });
 
@@ -365,14 +375,16 @@ export async function grantTenantSiteMemberships(
     select: { active_tenant_id: true, active_site_id: true },
   });
 
+  const preferredSite = pickPreferredActiveSite(sites);
+
   if (
     user?.active_tenant_id === tenantId &&
     user.active_site_id === null &&
-    sites[0]
+    preferredSite
   ) {
     await prisma.user.update({
       where: { id: userId },
-      data: { active_site_id: sites[0].id },
+      data: { active_site_id: preferredSite.id },
     });
   }
 }

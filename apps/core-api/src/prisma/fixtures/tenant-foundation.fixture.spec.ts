@@ -1,7 +1,7 @@
 import { seedTenantFoundation } from './tenant-foundation.fixture.js';
 
 describe('tenant-foundation.fixture', () => {
-  it('creates tenant, legal entity, WIEN/GRZ sites, and system storage locations', async () => {
+  it('creates tenant, legal entity, MAIN/GRZ sites, and system storage locations', async () => {
     const mockPrisma: any = {
       tenant: {
         upsert: jest.fn().mockResolvedValue({
@@ -24,10 +24,10 @@ describe('tenant-foundation.fixture', () => {
         create: jest
           .fn()
           .mockResolvedValueOnce({
-            id: 'site-wien',
+            id: 'site-main',
             tenant_id: 'tenant-1',
             legal_entity_id: 'le-1',
-            code: 'WIEN',
+            code: 'MAIN',
             name: 'Vienna Workshop',
             timezone: 'Europe/Vienna',
             slot_minutes: 30,
@@ -59,9 +59,8 @@ describe('tenant-foundation.fixture', () => {
 
     expect(result.defaultTenant.slug).toBe('default-workshop');
     expect(result.defaultLegalEntity.country_iso).toBe('AT');
-    expect(result.wienSite.code).toBe('WIEN');
+    expect(result.mainSite.code).toBe('MAIN');
     expect(result.grzSite.code).toBe('GRZ');
-    expect(result.mainSite.id).toBe(result.wienSite.id);
     expect(result.systemLocations).toHaveLength(2);
     expect(mockPrisma.storageLocation.createMany).toHaveBeenCalledTimes(2);
   });

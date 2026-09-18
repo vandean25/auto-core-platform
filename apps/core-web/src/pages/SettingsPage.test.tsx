@@ -208,6 +208,14 @@ vi.mock('@/components/settings/AuditLogsTab', () => ({
   AuditLogsTab: () => <div>Audit logs tab content</div>,
 }))
 
+vi.mock('@/components/settings/LegalEntitiesSettingsTab', () => ({
+  LegalEntitiesSettingsTab: () => <div>Legal entities tab content</div>,
+}))
+
+vi.mock('@/components/settings/SitesSettingsTab', () => ({
+  SitesSettingsTab: () => <div>Sites tab content</div>,
+}))
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid='location-search'>{location.search}</div>
@@ -249,6 +257,8 @@ describe('SettingsPage tab integration', () => {
     expect(screen.getByRole('tab', { name: 'Bays' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Hours' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Vehicle data' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Legal Entities' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Sites' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()

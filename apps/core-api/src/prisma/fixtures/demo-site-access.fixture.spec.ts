@@ -4,7 +4,7 @@ describe('seedDemoSiteAccess', () => {
   it('creates site memberships for active tenant members on all demo sites', async () => {
     const foundation = {
       defaultTenant: { id: 'tenant-1' },
-      wienSite: { id: 'site-wien' },
+      mainSite: { id: 'site-main' },
       grzSite: { id: 'site-grz' },
     } as any;
 
@@ -39,7 +39,7 @@ describe('seedDemoSiteAccess', () => {
     expect(mockPrisma.siteMembership.create).toHaveBeenCalledTimes(2);
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { active_site_id: 'site-wien' },
+      data: { active_site_id: 'site-main' },
     });
   });
 });

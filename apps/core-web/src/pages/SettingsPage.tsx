@@ -37,6 +37,8 @@ import { WorkshopHoursSettingsTab } from "@/components/settings/WorkshopHoursSet
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
+import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
+import { SitesSettingsTab } from "@/components/settings/SitesSettingsTab"
 import { VehicleDataSettingsTab } from "@/components/settings/VehicleDataSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
@@ -274,7 +276,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -287,6 +289,7 @@ export default function SettingsPage() {
     const activeTab: SettingsTab =
         requestedTab === 'team' && !canManageTeam ? 'finance'
         : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
+        : (requestedTab === 'legal-entities' || requestedTab === 'sites') && !canManageTeam ? 'finance'
         : requestedTab
 
     // ── Finance state ──
@@ -367,6 +370,8 @@ export default function SettingsPage() {
                     <TabsTrigger className="shrink-0" value="voice-translation">Voice Translation</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="revenue-groups">Revenue Groups</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="brands">Brands</TabsTrigger>
+                    {canManageTeam ? <TabsTrigger className="shrink-0" value="legal-entities">Legal Entities</TabsTrigger> : null}
+                    {canManageTeam ? <TabsTrigger className="shrink-0" value="sites">Sites</TabsTrigger> : null}
                     <TabsTrigger className="shrink-0" value="locations">Storage Locations</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="employees">Employees</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="bays">Bays</TabsTrigger>
@@ -479,6 +484,18 @@ export default function SettingsPage() {
                         )}
                     </div>
                 </TabsContent>
+
+                {canManageTeam ? (
+                    <TabsContent value="legal-entities" className="space-y-6">
+                        <LegalEntitiesSettingsTab />
+                    </TabsContent>
+                ) : null}
+
+                {canManageTeam ? (
+                    <TabsContent value="sites" className="space-y-6">
+                        <SitesSettingsTab />
+                    </TabsContent>
+                ) : null}
 
                 {/* ── Storage Locations Tab ── */}
                 <TabsContent value="locations" className="space-y-6">

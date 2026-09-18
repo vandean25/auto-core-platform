@@ -43,7 +43,7 @@ export async function seedTenantFoundation(
   });
 
   console.log(
-    'Seeding multi-location foundation (legal entity + WIEN/GRZ sites)...',
+    'Seeding multi-location foundation (legal entity + MAIN/GRZ sites)...',
   );
   const defaultLegalEntity = await prisma.legalEntity.create({
     data: {
@@ -54,11 +54,11 @@ export async function seedTenantFoundation(
     },
   });
 
-  const wienSite = await prisma.site.create({
+  const mainSite = await prisma.site.create({
     data: {
       tenant_id: defaultTenant.id,
       legal_entity_id: defaultLegalEntity.id,
-      code: 'WIEN',
+      code: 'MAIN',
       name: 'Vienna Workshop',
       timezone: 'Europe/Vienna',
       slot_minutes: 30,
@@ -80,13 +80,13 @@ export async function seedTenantFoundation(
     },
   });
 
-  await seedSiteSystemLocations(prisma, defaultTenant.id, wienSite.id);
+  await seedSiteSystemLocations(prisma, defaultTenant.id, mainSite.id);
   await seedSiteSystemLocations(prisma, defaultTenant.id, grzSite.id);
 
   const systemLocations = await prisma.storageLocation.findMany({
     where: {
       tenant_id: defaultTenant.id,
-      site_id: wienSite.id,
+      site_id: mainSite.id,
       code: { in: ['TRANSIT', 'LOT'] },
     },
   });
@@ -94,10 +94,8 @@ export async function seedTenantFoundation(
   return {
     defaultTenant,
     defaultLegalEntity,
-    wienSite,
+    mainSite,
     grzSite,
-    // Backward-compatible alias for fixtures that still reference mainSite.
-    mainSite: wienSite,
     systemLocations,
   };
 }

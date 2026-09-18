@@ -18,8 +18,10 @@ The `default-workshop` demo tenant seeds **two sites**:
 
 | Code | Name | Storage tree |
 | --- | --- | --- |
-| `WIEN` | Vienna Workshop | Main Showroom, Tire Hotel (+ system TRANSIT/LOT) |
+| `MAIN` | Vienna Workshop | Main Showroom, Tire Hotel (+ system TRANSIT/LOT) |
 | `GRZ` | Graz Workshop | Workshop Storage, staging totes (+ system TRANSIT/LOT) |
+
+`MAIN` is intentional: workshop settings and other legacy lookups still resolve the Vienna site by `code: 'MAIN'`.
 
 QA users (`grok-bot@auto.core.at`, `grok-bot-tech@auto.core.at`, `testauto@auto.core.at`) receive `SiteMembership` on both sites when:
 
@@ -36,13 +38,17 @@ With two site grants, the sidebar shows an interactive **Current Site** dropdown
 ## Common QA mistakes
 
 1. **"I see Vienna and Graz in Settings → Storage Locations, so we must be multi-site."**  
-   Before AUT-290 those names were warehouses under a single `MAIN` site. After AUT-290 they belong to `WIEN` and `GRZ` respectively — check the sidebar **Current Site** block, not Storage Locations alone.
+   Before AUT-290 those names were warehouses under a single `MAIN` site. After AUT-290 Vienna warehouses live under `MAIN` and Graz warehouses under `GRZ` — check the sidebar **Current Site** block, not Storage Locations alone.
 
 2. **"Tenant still says Default Workshop."**  
    Correct. Tenant name does not change when you switch sites.
 
 3. **"No site dropdown on Inventory."**  
    Site context is global in the sidebar. Inventory exposes **storage location** filtering within the active site, not site switching.
+
+## Admin UI
+
+OWNER/ADMIN can manage legal entities and site memberships under **Settings → Legal Entities** and **Settings → Sites** (wired to `/api/legal-entities` and `/api/sites`).
 
 ## Related specs
 

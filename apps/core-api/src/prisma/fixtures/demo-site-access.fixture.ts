@@ -15,7 +15,7 @@ export async function seedDemoSiteAccess(
   foundation: TenantFoundationContext,
 ): Promise<void> {
   const tenantId = foundation.defaultTenant.id;
-  const siteIds = [foundation.wienSite.id, foundation.grzSite.id];
+  const siteIds = [foundation.mainSite.id, foundation.grzSite.id];
 
   console.log('Seeding demo site memberships for tenant members...');
 
@@ -98,7 +98,7 @@ export async function seedDemoSiteAccess(
     ) {
       await prisma.user.update({
         where: { id: userId },
-        data: { active_site_id: foundation.wienSite.id },
+        data: { active_site_id: foundation.mainSite.id },
       });
     }
   }

@@ -24,7 +24,7 @@ export async function seedInventory(
   allBrands: BrandContext['allBrands'],
 ): Promise<InventoryContext> {
   const tenantId = foundation.defaultTenant.id;
-  const wienSiteId = foundation.wienSite.id;
+  const mainSiteId = foundation.mainSite.id;
   const grzSiteId = foundation.grzSite.id;
   const defaultRevenueGroup = finance.defaultRevenueGroup;
 
@@ -33,7 +33,7 @@ export async function seedInventory(
     prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
-        site_id: wienSiteId,
+        site_id: mainSiteId,
         name: 'Main Showroom (Vienna)',
         code: 'WH-VIE-01',
         type: LocationType.warehouse,
@@ -42,7 +42,7 @@ export async function seedInventory(
     prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
-        site_id: wienSiteId,
+        site_id: mainSiteId,
         name: 'Tire Hotel (Basement)',
         code: 'WH-TIRE-01',
         type: LocationType.warehouse,
@@ -174,7 +174,7 @@ export async function seedInventory(
   initialStockEntries.push({
     itemId: partC.id,
     locationId: showroom.id,
-    siteId: wienSiteId,
+    siteId: mainSiteId,
     quantity: 25,
     costBasis: Number(partC.cost_price),
     reserved: 2,

@@ -44,7 +44,10 @@ describe('InventoryList row actions', () => {
       isLoading: false,
     })
     asMock(locationsApi.useLocations).mockReturnValue({
-      data: [{ id: 'loc-1', name: 'A-1', code: 'A-1', type: 'warehouse' }],
+      data: [
+        { id: 'loc-1', name: 'A-1', code: 'A-1', type: 'warehouse' },
+        { id: 'loc-2', name: 'Transit Bin', code: 'TRANSIT-1', type: 'staging_tote' },
+      ],
       isLoading: false,
     })
   })
@@ -73,6 +76,34 @@ describe('InventoryList row actions', () => {
     fireEvent.contextMenu(screen.getByText('BRK-001'))
 
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('filters inventory by storage location name and hides non-warehouse locations', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SavedViewsProvider userKey="test-user">
+          <DashboardWidgetsProvider userKey="test-user">
+            <MemoryRouter>
+              <InventoryList />
+            </MemoryRouter>
+          </DashboardWidgetsProvider>
+        </SavedViewsProvider>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('option', { name: 'A-1' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Transit Bin' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('option', { name: 'A-1' }))
+
+    expect(asMock(inventoryApi.useInventory)).toHaveBeenCalledWith(
+      expect.objectContaining({ location: 'A-1' }),
+    )
   })
 
   it('renders the storage location column', () => {

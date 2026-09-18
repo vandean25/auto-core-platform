@@ -16,10 +16,8 @@ export type SeedPrismaClient = PrismaClient;
 export interface TenantFoundationContext {
   defaultTenant: Tenant;
   defaultLegalEntity: LegalEntity;
-  wienSite: Site;
-  grzSite: Site;
-  /** @deprecated Use wienSite — kept for fixtures that still reference mainSite. */
   mainSite: Site;
+  grzSite: Site;
   systemLocations: StorageLocation[];
 }
 
