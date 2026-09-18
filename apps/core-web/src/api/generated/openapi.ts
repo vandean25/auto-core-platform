@@ -3766,6 +3766,8 @@ export interface components {
             taskTitle: string;
             /** @enum {string} */
             taskStatus: "NOT_STARTED" | "IN_PROGRESS" | "WAITING_PARTS" | "WAITING_CUSTOMER" | "PAUSED" | "DONE";
+            /** @description Whether the signed-in mechanic has an open LaborEntry (ended_at IS NULL) on this task. */
+            hasOpenLaborEntry: boolean;
             mechanicNotes?: string | null;
             orderId: string;
             orderNumber: string;

@@ -126,11 +126,12 @@ describe('mechanic-queue.mapper', () => {
       ],
     };
 
-    const mapped = mapToMechanicTaskDetail(raw);
+    const mapped = mapToMechanicTaskDetail(raw, true);
     expect(mapped).toEqual({
       taskId: 'task-1',
       taskTitle: 'Oil service',
       taskStatus: WorkshopTaskStatus.IN_PROGRESS,
+      hasOpenLaborEntry: true,
       mechanicNotes: 'Done oil filter replacement',
       orderId: 'order-1',
       orderNumber: 'WO-102',

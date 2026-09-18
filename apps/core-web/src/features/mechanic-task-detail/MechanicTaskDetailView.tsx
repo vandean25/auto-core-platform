@@ -26,7 +26,10 @@ type MechanicTaskDetailViewProps = {
 
 export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailViewProps) {
   const navigate = useNavigate()
-  const capabilities = getTaskCapabilities(task.taskStatus)
+  const capabilities = getTaskCapabilities({
+    taskStatus: task.taskStatus,
+    hasOpenLaborEntry: task.hasOpenLaborEntry,
+  })
   const diagnostics = useDiagnosticsAutosave({
     taskId: task.taskId,
     initialNotes: task.mechanicNotes,

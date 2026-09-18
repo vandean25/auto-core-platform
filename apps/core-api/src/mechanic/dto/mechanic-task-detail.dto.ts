@@ -67,6 +67,12 @@ export class MechanicTaskDetailDto {
   @ApiProperty({ enum: WorkshopTaskStatus })
   taskStatus!: WorkshopTaskStatus;
 
+  @ApiProperty({
+    description:
+      'Whether the signed-in mechanic has an open LaborEntry (ended_at IS NULL) on this task.',
+  })
+  hasOpenLaborEntry!: boolean;
+
   @ApiProperty({ type: String, required: false, nullable: true })
   mechanicNotes?: string | null;
 

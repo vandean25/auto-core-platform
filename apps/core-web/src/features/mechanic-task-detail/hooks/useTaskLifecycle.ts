@@ -50,6 +50,7 @@ export async function executeTaskPause({
     onSuccess()
   } catch (error: unknown) {
     toast.error(getErrorMessage(error, 'Failed to pause task'))
+    onSuccess()
   }
 }
 

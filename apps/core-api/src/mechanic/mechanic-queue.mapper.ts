@@ -160,6 +160,7 @@ export function mapToMechanicQueueItem(
  */
 export function mapToMechanicTaskDetail(
   task: RawTaskDetailRecord,
+  hasOpenLaborEntry: boolean,
 ): MechanicTaskDetailDto {
   const order = task.workshop_order;
   const vehicle = order.vehicle;
@@ -169,6 +170,7 @@ export function mapToMechanicTaskDetail(
     taskId: task.id,
     taskTitle: task.title,
     taskStatus: task.status,
+    hasOpenLaborEntry,
     mechanicNotes: task.mechanic_notes ?? null,
     orderId: order.id,
     orderNumber: order.order_number,

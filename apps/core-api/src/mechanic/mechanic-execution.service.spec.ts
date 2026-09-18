@@ -264,14 +264,38 @@ describe('MechanicExecutionService', () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeFullTask(),
       );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue({
+        id: 'open-entry-1',
+      });
 
       const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
 
       expect(result.taskId).toBe(TASK_ID);
       expect(result.taskTitle).toBe('Brake service');
       expect(result.taskStatus).toBe(WorkshopTaskStatus.IN_PROGRESS);
+      expect(result.hasOpenLaborEntry).toBe(true);
       expect(result.mechanicNotes).toBe('Front pads worn');
       expect(result.odometer).toBe(75000);
+    });
+
+    it('exposes hasOpenLaborEntry=false when mechanic has no open labor on IN_PROGRESS task', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
+        makeFullTask(),
+      );
+      (mockPrisma.laborEntry.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.getMechanicTaskDetail(MECHANIC_ID, TASK_ID);
+
+      expect(result.hasOpenLaborEntry).toBe(false);
+      expect(mockPrisma.laborEntry.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          workshop_task_id: TASK_ID,
+          employee_id: MECHANIC_ID,
+          ended_at: null,
+        },
+        select: { id: true },
+      });
     });
 
     it('returns task detail when task is inherited from order assignment', async () => {

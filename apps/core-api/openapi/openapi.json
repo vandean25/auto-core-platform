@@ -12765,6 +12765,10 @@
               "DONE"
             ]
           },
+          "hasOpenLaborEntry": {
+            "type": "boolean",
+            "description": "Whether the signed-in mechanic has an open LaborEntry (ended_at IS NULL) on this task."
+          },
           "mechanicNotes": {
             "type": "string",
             "nullable": true
@@ -12820,6 +12824,7 @@
           "taskId",
           "taskTitle",
           "taskStatus",
+          "hasOpenLaborEntry",
           "orderId",
           "orderNumber",
           "odometer",
