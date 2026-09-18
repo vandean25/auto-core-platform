@@ -25,6 +25,7 @@ const baseTask: MechanicTaskDetail = {
   taskId: TASK_ID,
   taskTitle: 'Oil Change',
   taskStatus: 'NOT_STARTED',
+  hasOpenLaborEntry: false,
   mechanicNotes: null as string | null,
   orderId: ORDER_ID,
   orderNumber: 'WO-2026-0001',
@@ -205,12 +206,25 @@ describe('MechanicTaskDetailPage', () => {
       expect(screen.getByRole('button', { name: /^Resume$/i })).toBeInTheDocument()
     })
 
-    it('renders "Pause" button for IN_PROGRESS task', () => {
-      setupDefaultMocks(makeTask({ taskStatus: 'IN_PROGRESS' }))
+    it('renders "Pause" button for IN_PROGRESS task with open labor', () => {
+      setupDefaultMocks(
+        makeTask({ taskStatus: 'IN_PROGRESS', hasOpenLaborEntry: true }),
+      )
 
       renderDetailPage()
 
       expect(screen.getByRole('button', { name: /^Pause$/i })).toBeInTheDocument()
+    })
+
+    it('renders "Resume" instead of "Pause" for clocked-out IN_PROGRESS task', () => {
+      setupDefaultMocks(
+        makeTask({ taskStatus: 'IN_PROGRESS', hasOpenLaborEntry: false }),
+      )
+
+      renderDetailPage()
+
+      expect(screen.getByRole('button', { name: /^Resume$/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Pause$/i })).not.toBeInTheDocument()
     })
 
     it('renders "Complete" button for IN_PROGRESS task', () => {

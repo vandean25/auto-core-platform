@@ -60,6 +60,7 @@ const baseTaskDetail = {
   taskId: TASK_ID,
   taskTitle: 'Oil Change',
   taskStatus: 'NOT_STARTED',
+  hasOpenLaborEntry: false,
   mechanicNotes: null,
   orderId: 'order-1',
   orderNumber: 'WO-2026-0001',

@@ -123,9 +123,13 @@ describe('useTaskLifecycle', () => {
       expect(result.current.pauseDialogOpen).toBe(false)
     })
 
-    it('displays error toast when pause fails', async () => {
+    it('displays error toast and closes dialog when pause fails', async () => {
       mockPauseMutateAsync.mockRejectedValueOnce(new Error('Pause failed'))
       const { result } = setupHook()
+
+      act(() => {
+        result.current.setPauseDialogOpen(true)
+      })
 
       await act(async () => {
         await result.current.handlePauseConfirm()
@@ -133,6 +137,26 @@ describe('useTaskLifecycle', () => {
 
       expect(mockCancelPendingSave).toHaveBeenCalled()
       expect(toast.error).toHaveBeenCalledWith('Pause failed')
+      expect(result.current.pauseDialogOpen).toBe(false)
+    })
+
+    it('closes dialog when pause returns 409 conflict', async () => {
+      const conflictError = Object.assign(new Error('No open labor entry found'), {
+        status: 409,
+      })
+      mockPauseMutateAsync.mockRejectedValueOnce(conflictError)
+      const { result } = setupHook()
+
+      act(() => {
+        result.current.setPauseDialogOpen(true)
+      })
+
+      await act(async () => {
+        await result.current.handlePauseConfirm()
+      })
+
+      expect(toast.error).toHaveBeenCalledWith('No open labor entry found')
+      expect(result.current.pauseDialogOpen).toBe(false)
     })
   })
 

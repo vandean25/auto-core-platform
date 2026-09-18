@@ -40,6 +40,7 @@ describe('MechanicController', () => {
     taskId: TASK_ID,
     taskTitle: 'Oil change',
     taskStatus: WorkshopTaskStatus.IN_PROGRESS,
+    hasOpenLaborEntry: true,
     mechanicNotes: null,
     orderId: 'order-1',
     orderNumber: 'WO-2026-0001',

@@ -167,7 +167,17 @@ export class MechanicExecutionService {
 
     assertTaskAccessible(task, taskId, mechanicId);
 
-    return mapToMechanicTaskDetail(task);
+    const openLaborEntry = await this.prisma.laborEntry.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_id: taskId,
+        employee_id: mechanicId,
+        ended_at: null,
+      },
+      select: { id: true },
+    });
+
+    return mapToMechanicTaskDetail(task, openLaborEntry !== null);
   }
 
   // ─── Execution Engine ──────────────────────────────────────────────────────
