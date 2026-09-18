@@ -118,6 +118,10 @@ type SeedTenantMemberDependencies = {
     userAccessProjection: (userId: string) => Promise<UserAccessProjection | null>;
     $disconnect?: () => Promise<void>;
   };
+  grantSiteMemberships?: (
+    tenantId: string,
+    userId: string,
+  ) => Promise<void>;
   firebaseAuth: {
     getUserByEmail: (email: string) => Promise<FirebaseUserRecord>;
     createUser: (data: { email: string }) => Promise<FirebaseUserRecord>;
@@ -239,6 +243,10 @@ export async function seedTenantMember(
     },
   });
 
+  if (dependencies.grantSiteMemberships) {
+    await dependencies.grantSiteMemberships(tenant.id, user.id);
+  }
+
   await syncUserClaims(user.id, dependencies);
 
   const refreshedUser = await dependencies.prisma.userAccessProjection(user.id);
@@ -296,6 +304,8 @@ export async function runSeedTenantMemberCli(
         }) as never,
       $disconnect: () => prisma.$disconnect(),
     },
+    grantSiteMemberships: (tenantId, userId) =>
+      grantTenantSiteMemberships(tenantId, userId, prisma),
     firebaseAuth: getFirebaseAdminAuth(),
   };
 
@@ -308,6 +318,74 @@ export async function runSeedTenantMemberCli(
   } finally {
     await prisma.$disconnect();
     await pool.end();
+  }
+}
+
+export function pickPreferredActiveSite<
+  T extends { id: string; code: string },
+>(sites: T[]): T | undefined {
+  return (
+    sites.find((site) => site.code === 'MAIN') ??
+    sites.find((site) => site.code === 'WIEN') ??
+    sites[0]
+  );
+}
+
+export async function grantTenantSiteMemberships(
+  tenantId: string,
+  userId: string,
+  prisma: Pick<PrismaClient, 'site' | 'siteMembership' | 'user'>,
+): Promise<void> {
+  const sites = await prisma.site.findMany({
+    where: { tenant_id: tenantId, is_active: true },
+    select: { id: true, code: true },
+    orderBy: { code: 'asc' },
+  });
+
+  for (const site of sites) {
+    const existing = await prisma.siteMembership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        user_id: userId,
+        site_id: site.id,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.siteMembership.update({
+        where: { id: existing.id },
+        data: { is_active: true },
+      });
+      continue;
+    }
+
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: userId,
+        site_id: site.id,
+        is_active: true,
+      },
+    });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId },
+    select: { active_tenant_id: true, active_site_id: true },
+  });
+
+  const preferredSite = pickPreferredActiveSite(sites);
+
+  if (
+    user?.active_tenant_id === tenantId &&
+    user.active_site_id === null &&
+    preferredSite
+  ) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { active_site_id: preferredSite.id },
+    });
   }
 }
 

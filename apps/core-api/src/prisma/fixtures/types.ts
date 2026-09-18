@@ -17,6 +17,7 @@ export interface TenantFoundationContext {
   defaultTenant: Tenant;
   defaultLegalEntity: LegalEntity;
   mainSite: Site;
+  grzSite: Site;
   systemLocations: StorageLocation[];
 }
 

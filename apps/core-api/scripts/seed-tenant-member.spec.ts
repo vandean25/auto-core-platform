@@ -1,6 +1,8 @@
 import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import {
+  grantTenantSiteMemberships,
   parseSeedTenantMemberArgs,
+  pickPreferredActiveSite,
   seedTenantMember,
 } from './seed-tenant-member.js';
 
@@ -44,6 +46,49 @@ describe('parseSeedTenantMemberArgs', () => {
       tenantSlug: 'uitz',
       role: 'ADMIN',
       makeActive: false,
+    });
+  });
+});
+
+describe('pickPreferredActiveSite', () => {
+  it('prefers MAIN over GRZ when setting the default active site', () => {
+    const sites = [
+      { id: 'site-grz', code: 'GRZ' },
+      { id: 'site-main', code: 'MAIN' },
+    ];
+
+    expect(pickPreferredActiveSite(sites)?.id).toBe('site-main');
+  });
+});
+
+describe('grantTenantSiteMemberships', () => {
+  it('sets active_site_id to MAIN when the user has no active site', async () => {
+    const prisma = {
+      site: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'site-grz', code: 'GRZ' },
+          { id: 'site-main', code: 'MAIN' },
+        ]),
+      },
+      siteMembership: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+        update: jest.fn(),
+      },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({
+          active_tenant_id: 'tenant-1',
+          active_site_id: null,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    await grantTenantSiteMemberships('tenant-1', 'user-1', prisma as never);
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { active_site_id: 'site-main' },
     });
   });
 });

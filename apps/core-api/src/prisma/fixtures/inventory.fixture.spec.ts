@@ -37,7 +37,8 @@ describe('seedInventory', () => {
   const foundation = {
     defaultTenant: { id: 'tenant-1' } as any,
     defaultLegalEntity: { id: 'le-1' } as any,
-    mainSite: { id: 'site-1' } as any,
+    mainSite: { id: 'site-main' } as any,
+    grzSite: { id: 'site-grz' } as any,
     systemLocations: [],
   };
 

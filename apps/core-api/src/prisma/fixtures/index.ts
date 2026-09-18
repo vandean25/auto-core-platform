@@ -6,3 +6,4 @@ export * from './brand.fixture.js';
 export * from './inventory.fixture.js';
 export * from './labor.fixture.js';
 export * from './customer.fixture.js';
+export * from './demo-site-access.fixture.js';

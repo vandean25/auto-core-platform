@@ -27,8 +27,8 @@ const munich: MeSite = {
 }
 
 describe('SiteSwitcher', () => {
-  it('hides the normal chrome when the single active grant is already active', () => {
-    const { container } = render(
+  it('shows a read-only current site when the single active grant is already active', () => {
+    render(
       <SiteSwitcher
         activeSiteId={vienna.id}
         sites={[vienna]}
@@ -38,7 +38,9 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    expect(container).toBeEmptyDOMElement()
+    expect(screen.getByText('Current Site')).toBeInTheDocument()
+    expect(screen.getByText('Vienna')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Switch site' })).not.toBeInTheDocument()
   })
 
   it('shows a recovery prompt when active_site_id is null despite one grant', () => {
