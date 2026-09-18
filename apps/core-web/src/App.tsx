@@ -37,6 +37,8 @@ const VendorDetail = React.lazy(() => import('./pages/vendors/VendorDetail'))
 const PurchaseOrderList = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderList'))
 const PurchaseOrderCreate = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderCreate'))
 const PurchaseOrderDetail = React.lazy(() => import('./pages/purchase-orders/PurchaseOrderDetail'))
+const StockTransferList = React.lazy(() => import('./pages/stock-transfers/StockTransferList'))
+const StockTransferDetail = React.lazy(() => import('./pages/stock-transfers/StockTransferDetail'))
 const InvoiceCreatePage = React.lazy(() => import('./pages/sales/InvoiceCreatePage'))
 const InvoiceDetailPage = React.lazy(() => import('./pages/sales/InvoiceDetailPage'))
 const PurchaseInvoiceCreatePage = React.lazy(() => import('./pages/purchase-invoices/PurchaseInvoiceCreatePage'))
@@ -113,6 +115,8 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.purchaseOrders} element={<PurchaseOrderList />} />
               <Route path={APP_ROUTE_PATHS.purchaseOrderNew} element={<PurchaseOrderCreate />} />
               <Route path={APP_ROUTE_PATHS.purchaseOrderDetail} element={<PurchaseOrderDetail />} />
+              <Route path={APP_ROUTE_PATHS.stockTransfers} element={<StockTransferList />} />
+              <Route path={APP_ROUTE_PATHS.stockTransferDetail} element={<StockTransferDetail />} />
               <Route path={APP_ROUTE_PATHS.purchaseBills} element={<PurchaseBillsPage />} />
               <Route path={APP_ROUTE_PATHS.purchaseBillNew} element={<PurchaseBillCreatePage />} />
               <Route path={APP_ROUTE_PATHS.purchaseBillDetail} element={<PurchaseBillDetailPage />} />

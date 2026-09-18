@@ -26,6 +26,8 @@ export const APP_ROUTE_PATHS = {
   purchaseOrders: '/purchase-orders',
   purchaseOrderNew: '/purchase-orders/new',
   purchaseOrderDetail: '/purchase-orders/:id',
+  stockTransfers: '/stock-transfers',
+  stockTransferDetail: '/stock-transfers/:id',
   purchaseBills: '/purchase-bills',
   purchaseBillNew: '/purchase-bills/new',
   purchaseBillDetail: '/purchase-bills/:id',

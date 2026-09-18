@@ -50,6 +50,10 @@ const statusClassMap: Record<string, string> = {
   SHORTAGE: 'border-rose-200 bg-rose-100 text-rose-700',
   WAITING: 'border-amber-200 bg-amber-100 text-amber-700',
   NO_PARTS: 'border-slate-200 bg-slate-100 text-slate-500',
+  REQUESTED: 'border-sky-200 bg-sky-100 text-sky-700',
+  APPROVED: 'border-indigo-200 bg-indigo-100 text-indigo-700',
+  SHIPPED: 'border-amber-200 bg-amber-100 text-amber-700',
+  REJECTED: 'border-rose-200 bg-rose-100 text-rose-700',
 }
 
 export function formatStatusLabel(status: string) {
