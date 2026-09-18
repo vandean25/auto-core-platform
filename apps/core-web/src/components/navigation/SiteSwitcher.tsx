@@ -69,11 +69,47 @@ function SitePicker({
   )
 }
 
+function ReadOnlyCurrentSite({
+  siteName,
+  collapsed = false,
+}: {
+  siteName: string
+  collapsed?: boolean
+}) {
+  if (collapsed) {
+    return (
+      <div className="px-2 pt-3">
+        <div
+          className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
+          title={`Current Site: ${siteName}`}
+          aria-label={`Current Site: ${siteName}`}
+        >
+          <MapPin className="h-4 w-4" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <section className="px-3 pt-3">
+      <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          Current Site
+        </p>
+        <div className="mt-2 flex items-center gap-2 text-sm text-slate-200">
+          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{siteName}</span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /**
  * Current-site switcher (UX Compliance / Site switcher).
  *
- * - Hidden entirely when the user has exactly one active grant AND that site
- *   is already the session's active site.
+ * - Read-only "Current Site" when the user has exactly one active grant and it
+ *   is already the session's active site (AUT-290 QA clarity).
  * - Shown as a recovery prompt/action when `active_site_id` is null (tenant
  *   switch, membership revoke, site deactivation) even with a single remaining
  *   grant — operational APIs return `ACTIVE_SITE_REQUIRED` until the PATCH.
@@ -93,9 +129,8 @@ export function SiteSwitcher({
     return null
   }
 
-  // Exactly one grant and it is already active: hide the normal chrome.
   if (sites.length === 1 && activeSite) {
-    return null
+    return <ReadOnlyCurrentSite siteName={activeSite.name} collapsed={collapsed} />
   }
 
   const recoverySite = sites.length === 1 ? sites[0] : null

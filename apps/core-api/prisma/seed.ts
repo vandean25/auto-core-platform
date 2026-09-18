@@ -11,6 +11,7 @@ import {
   seedInventory,
   seedLabor,
   seedCustomersAndVehicles,
+  seedDemoSiteAccess,
 } from '../src/prisma/fixtures/index.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -28,6 +29,7 @@ async function main() {
   const labor = await seedLabor(prisma, foundation.defaultTenant.id);
   const vendors = await seedVendors(prisma, foundation.defaultTenant.id, brands.allBrands);
   const customers = await seedCustomersAndVehicles(prisma, foundation.defaultTenant.id);
+  await seedDemoSiteAccess(prisma, foundation);
 
   console.log('Seed completed successfully!');
   console.log('✓ All inventory movements recorded as transactions');

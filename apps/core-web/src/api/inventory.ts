@@ -17,7 +17,7 @@ type InventoryApiResponse = {
 
 export const inventoryKeys = {
     all: ['inventory'] as const,
-    list: (params: { page?: number; pageSize?: number; search?: string; brand?: string }) => [...inventoryKeys.all, 'list', params] as const,
+    list: (params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string }) => [...inventoryKeys.all, 'list', params] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
 }
@@ -38,7 +38,7 @@ function normalizeInventoryResponse(payload: InventoryApiResponse): InventoryRes
 }
 
 export function useInventory(
-    params: { page?: number; pageSize?: number; search?: string; brand?: string } = {},
+    params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string } = {},
     options?: { enabled?: boolean },
 ) {
     return useQuery<InventoryResponse>({
@@ -50,6 +50,7 @@ export function useInventory(
             if (params.pageSize) searchParams.append('pageSize', params.pageSize.toString())
             if (params.search) searchParams.append('search', params.search)
             if (params.brand) searchParams.append('brand', params.brand)
+            if (params.location) searchParams.append('location', params.location)
 
             const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
             if (!response.ok) {

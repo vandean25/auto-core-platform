@@ -24,15 +24,16 @@ export async function seedInventory(
   allBrands: BrandContext['allBrands'],
 ): Promise<InventoryContext> {
   const tenantId = foundation.defaultTenant.id;
-  const siteId = foundation.mainSite.id;
+  const wienSiteId = foundation.wienSite.id;
+  const grzSiteId = foundation.grzSite.id;
   const defaultRevenueGroup = finance.defaultRevenueGroup;
 
-  console.log('Seeding warehouses...');
-  const [showroom, storage, tireHotel] = await Promise.all([
+  console.log('Seeding warehouses (per-site storage trees)...');
+  const [showroom, tireHotel, storage] = await Promise.all([
     prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
-        site_id: siteId,
+        site_id: wienSiteId,
         name: 'Main Showroom (Vienna)',
         code: 'WH-VIE-01',
         type: LocationType.warehouse,
@@ -41,30 +42,30 @@ export async function seedInventory(
     prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
-        site_id: siteId,
-        name: 'Workshop Storage (Graz)',
-        code: 'WH-GRZ-01',
+        site_id: wienSiteId,
+        name: 'Tire Hotel (Basement)',
+        code: 'WH-TIRE-01',
         type: LocationType.warehouse,
       },
     }),
     prisma.storageLocation.create({
       data: {
         tenant_id: tenantId,
-        site_id: siteId,
-        name: 'Tire Hotel (Basement)',
-        code: 'WH-TIRE-01',
+        site_id: grzSiteId,
+        name: 'Workshop Storage (Graz)',
+        code: 'WH-GRZ-01',
         type: LocationType.warehouse,
       },
     }),
   ]);
 
-  const locations = [showroom, storage, tireHotel];
+  const locations = [showroom, tireHotel, storage];
 
   console.log('Seeding fixed staging totes...');
   const stagingToteSummary = await seedFixedStagingTotes(prisma, {
     parentLocationId: storage.id,
     tenantId,
-    siteId,
+    siteId: grzSiteId,
   });
   console.log(
     `Staging totes summary: created=${stagingToteSummary.created}, updated=${stagingToteSummary.updated}, unchanged=${stagingToteSummary.unchanged}`,
@@ -163,15 +164,17 @@ export async function seedInventory(
   const initialStockEntries: Array<{
     itemId: string;
     locationId: string;
+    siteId: string;
     quantity: number;
     costBasis: number;
     reserved: number;
   }> = [];
 
-  // Part C initial stock
+  // Part C initial stock (Vienna showroom)
   initialStockEntries.push({
     itemId: partC.id,
     locationId: showroom.id,
+    siteId: wienSiteId,
     quantity: 25,
     costBasis: Number(partC.cost_price),
     reserved: 2,
@@ -187,6 +190,7 @@ export async function seedInventory(
       initialStockEntries.push({
         itemId: part.id,
         locationId: location.id,
+        siteId: location.site_id,
         quantity,
         costBasis: Number(part.cost_price),
         reserved,
@@ -197,7 +201,7 @@ export async function seedInventory(
   // Batch insert ledger transactions
   const transactionsData = initialStockEntries.map((entry) => ({
     tenant_id: tenantId,
-    site_id: siteId,
+    site_id: entry.siteId,
     item_id: entry.itemId,
     location_id: entry.locationId,
     quantity: entry.quantity,
@@ -215,7 +219,7 @@ export async function seedInventory(
   // Batch insert cached stocks
   const stocksData = initialStockEntries.map((entry) => ({
     tenant_id: tenantId,
-    site_id: siteId,
+    site_id: entry.siteId,
     catalog_item_id: entry.itemId,
     location_id: entry.locationId,
     quantity_on_hand: entry.quantity,
