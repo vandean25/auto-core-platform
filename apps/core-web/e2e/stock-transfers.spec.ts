@@ -22,6 +22,7 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
       toSiteName: 'München',
       status: 'REQUESTED',
       version: 1,
+      requestedByUserId: 'e2e-test-user',
       lines: [
         {
           id: 'line-1',

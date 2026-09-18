@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthSession } from '@/api/auth-session'
+import { useAuth } from '@/auth/AuthProvider'
 import { useInventory } from '@/api/inventory'
 import { useLocations } from '@/api/locations'
 import { useMySites } from '@/api/sites'
@@ -56,6 +57,11 @@ import {
   canReceiveTransfer,
   canReturnTransfer,
   canShipTransfer,
+  canSubmitShip,
+  getLinesMissingShipSourceBins,
+  hasReceiveMembership,
+  hasShipMembership,
+  resolveShipSourceLocationId,
   shouldShowSourceBinDetails,
 } from './stock-transfer-permissions'
 
@@ -66,11 +72,11 @@ function formatQty(value: string) {
 
 export default function StockTransferDetail() {
   const { id = '' } = useParams<{ id: string }>()
-  const sessionQuery = useAuthSession()
+  const { user } = useAuth()
+  const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const { data: mySites = [] } = useMySites(Boolean(id))
   const { data: transfer, isLoading, error } = useStockTransfer(id)
   const { data: inventoryResponse } = useInventory({ pageSize: 200 })
-  const { data: locations = [] } = useLocations({ enabled: Boolean(transfer) })
 
   const approveMutation = useApproveStockTransfer(id)
   const rejectMutation = useRejectStockTransfer(id)
@@ -90,6 +96,27 @@ export default function StockTransferDetail() {
     () => buildMemberSiteIdSet(mySites.map((site) => site.id)),
     [mySites],
   )
+
+  const activeSiteId = sessionQuery.data?.activeSiteId ?? null
+  const currentUserId = sessionQuery.data?.userId ?? user?.uid ?? null
+  const activeRole = sessionQuery.data?.activeRole ?? null
+
+  const canShipOnActiveSite = Boolean(
+    transfer && canShipTransfer(transfer, memberSiteIds, activeSiteId),
+  )
+  const canReceiveOnActiveSite = Boolean(
+    transfer && canReceiveTransfer(transfer, memberSiteIds, activeSiteId),
+  )
+  const showShipControls = Boolean(
+    transfer && hasShipMembership(transfer, memberSiteIds) && canShipOnActiveSite,
+  )
+  const showReceiveControls = Boolean(
+    transfer && hasReceiveMembership(transfer, memberSiteIds) && canReceiveOnActiveSite,
+  )
+
+  const { data: locations = [] } = useLocations({
+    enabled: Boolean(transfer && (showShipControls || showReceiveControls)),
+  })
 
   const catalogLabelById = useMemo(() => {
     const map = new Map<string, { sku: string; name: string }>()
@@ -118,13 +145,22 @@ export default function StockTransferDetail() {
     return <div className="p-8 text-center">Transfer not found</div>
   }
 
-  const activeRole = sessionQuery.data?.activeRole ?? null
   const canApprove = canApproveOrRejectTransfer(transfer, memberSiteIds, activeRole)
   const canReject = canApprove
-  const canCancel = canCancelTransfer(transfer, memberSiteIds)
-  const canShip = canShipTransfer(transfer, memberSiteIds)
-  const canReceive = canReceiveTransfer(transfer, memberSiteIds)
+  const canCancel = canCancelTransfer(
+    transfer,
+    memberSiteIds,
+    currentUserId,
+    activeRole,
+  )
+  const canShip = canShipOnActiveSite
+  const canReceive = canReceiveOnActiveSite
   const canReturn = canReturnTransfer(transfer, memberSiteIds, activeRole)
+  const shipReady = canSubmitShip(transfer, sourceLocationByLine)
+  const needsFromSiteForShip =
+    hasShipMembership(transfer, memberSiteIds) && activeSiteId !== transfer.fromSiteId
+  const needsToSiteForReceive =
+    hasReceiveMembership(transfer, memberSiteIds) && activeSiteId !== transfer.toSiteId
 
   const runAction = async (
     label: string,
@@ -162,15 +198,22 @@ export default function StockTransferDetail() {
     )
 
   const handleShip = () => {
+    if (!canShipOnActiveSite) {
+      toast.error('Switch your active site to the source site before shipping')
+      return
+    }
+
+    const missingSourceBins = getLinesMissingShipSourceBins(transfer, sourceLocationByLine)
+    if (missingSourceBins.length > 0) {
+      toast.error('Select a source bin for every approved line before shipping')
+      return
+    }
+
     const lines = transfer.lines
       .filter((line) => Number(line.approvedQty) > 0)
       .map((line) => ({
         id: line.id,
-        ...(sourceLocationByLine[line.id]
-          ? { sourceLocationId: sourceLocationByLine[line.id] }
-          : line.sourceLocationId
-            ? { sourceLocationId: line.sourceLocationId }
-            : {}),
+        sourceLocationId: resolveShipSourceLocationId(line, sourceLocationByLine)!,
       }))
 
     return runAction('Transfer shipped', () =>
@@ -182,6 +225,11 @@ export default function StockTransferDetail() {
   }
 
   const handleReceive = () => {
+    if (!canReceiveOnActiveSite) {
+      toast.error('Switch your active site to the destination site before receiving')
+      return
+    }
+
     const lines = transfer.lines
       .map((line) => {
         const receiveQty = Number(receiveQtyByLine[line.id] ?? '0')
@@ -320,7 +368,10 @@ export default function StockTransferDetail() {
           ) : null}
 
           {canShip ? (
-            <Button onClick={() => void handleShip()} disabled={shipMutation.isPending}>
+            <Button
+              onClick={() => void handleShip()}
+              disabled={shipMutation.isPending || !shipReady}
+            >
               Ship
             </Button>
           ) : null}
@@ -342,6 +393,19 @@ export default function StockTransferDetail() {
           ) : null}
         </div>
       </div>
+
+      {needsFromSiteForShip ? (
+        <p className="text-sm text-amber-700">
+          Switch your active site to {transfer.fromSiteName ?? 'the source site'} to pick source
+          bins and ship.
+        </p>
+      ) : null}
+      {needsToSiteForReceive ? (
+        <p className="text-sm text-amber-700">
+          Switch your active site to {transfer.toSiteName ?? 'the destination site'} to receive
+          stock.
+        </p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
@@ -436,9 +500,13 @@ export default function StockTransferDetail() {
                             line.sourceLocationId ??
                             '—'
                           : '—'}
-                        {canShip && Number(line.approvedQty) > 0 ? (
+                        {showShipControls && Number(line.approvedQty) > 0 ? (
                           <Select
-                            value={sourceLocationByLine[line.id] ?? line.sourceLocationId ?? ''}
+                            value={
+                              sourceLocationByLine[line.id] ??
+                              line.sourceLocationId ??
+                              undefined
+                            }
                             onValueChange={(value) =>
                               setSourceLocationByLine((current) => ({
                                 ...current,
@@ -463,7 +531,7 @@ export default function StockTransferDetail() {
                         {line.destLocationId
                           ? locationLabelById.get(line.destLocationId) ?? line.destLocationId
                           : '—'}
-                        {canReceive && outstandingReceive > 0 ? (
+                        {showReceiveControls && outstandingReceive > 0 ? (
                           <div className="mt-2 space-y-2">
                             <Input
                               type="number"
@@ -479,7 +547,11 @@ export default function StockTransferDetail() {
                               }
                             />
                             <Select
-                              value={destLocationByLine[line.id] ?? line.destLocationId ?? ''}
+                              value={
+                                destLocationByLine[line.id] ??
+                                line.destLocationId ??
+                                undefined
+                              }
                               onValueChange={(value) =>
                                 setDestLocationByLine((current) => ({
                                   ...current,

@@ -19,12 +19,16 @@ export function canSuggestSourceBin(fromSiteId: string, memberSiteIds: Set<strin
   return hasSiteMembership(fromSiteId, memberSiteIds)
 }
 
-export function canCancelTransfer(transfer: StockTransfer, memberSiteIds: Set<string>) {
+export function canCancelTransfer(
+  transfer: StockTransfer,
+  memberSiteIds: Set<string>,
+  currentUserId: string | null,
+  activeRole: TenantRole | null,
+) {
   if (transfer.status !== 'REQUESTED' && transfer.status !== 'APPROVED') return false
-  return (
-    hasSiteMembership(transfer.fromSiteId, memberSiteIds) ||
-    hasSiteMembership(transfer.toSiteId, memberSiteIds)
-  )
+  if (currentUserId && transfer.requestedByUserId === currentUserId) return true
+  const isAdmin = activeRole === 'OWNER' || activeRole === 'ADMIN'
+  return isAdmin && hasSiteMembership(transfer.fromSiteId, memberSiteIds)
 }
 
 export function canApproveOrRejectTransfer(
@@ -37,14 +41,64 @@ export function canApproveOrRejectTransfer(
   return isAdmin && hasSiteMembership(transfer.fromSiteId, memberSiteIds)
 }
 
-export function canShipTransfer(transfer: StockTransfer, memberSiteIds: Set<string>) {
+export function canShipTransfer(
+  transfer: StockTransfer,
+  memberSiteIds: Set<string>,
+  activeSiteId: string | null,
+) {
   if (transfer.status !== 'APPROVED') return false
-  return hasSiteMembership(transfer.fromSiteId, memberSiteIds)
+  if (!hasSiteMembership(transfer.fromSiteId, memberSiteIds)) return false
+  return activeSiteId === transfer.fromSiteId
 }
 
-export function canReceiveTransfer(transfer: StockTransfer, memberSiteIds: Set<string>) {
+export function hasShipMembership(
+  transfer: StockTransfer,
+  memberSiteIds: Set<string>,
+) {
+  return transfer.status === 'APPROVED' && hasSiteMembership(transfer.fromSiteId, memberSiteIds)
+}
+
+export function canReceiveTransfer(
+  transfer: StockTransfer,
+  memberSiteIds: Set<string>,
+  activeSiteId: string | null,
+) {
   if (transfer.status !== 'SHIPPED') return false
-  return hasSiteMembership(transfer.toSiteId, memberSiteIds)
+  if (!hasSiteMembership(transfer.toSiteId, memberSiteIds)) return false
+  return activeSiteId === transfer.toSiteId
+}
+
+export function hasReceiveMembership(
+  transfer: StockTransfer,
+  memberSiteIds: Set<string>,
+) {
+  return transfer.status === 'SHIPPED' && hasSiteMembership(transfer.toSiteId, memberSiteIds)
+}
+
+export function resolveShipSourceLocationId(
+  line: StockTransfer['lines'][number],
+  sourceLocationByLine: Record<string, string>,
+) {
+  return sourceLocationByLine[line.id] ?? line.sourceLocationId ?? null
+}
+
+export function getLinesMissingShipSourceBins(
+  transfer: StockTransfer,
+  sourceLocationByLine: Record<string, string>,
+) {
+  return transfer.lines.filter((line) => {
+    if (Number(line.approvedQty) <= 0) return false
+    return !resolveShipSourceLocationId(line, sourceLocationByLine)
+  })
+}
+
+export function canSubmitShip(
+  transfer: StockTransfer,
+  sourceLocationByLine: Record<string, string>,
+) {
+  const shippableLines = transfer.lines.filter((line) => Number(line.approvedQty) > 0)
+  if (shippableLines.length === 0) return false
+  return getLinesMissingShipSourceBins(transfer, sourceLocationByLine).length === 0
 }
 
 export function canReturnTransfer(

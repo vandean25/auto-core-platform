@@ -131,22 +131,22 @@ export function StockTransferCreateDialog({
       return
     }
 
-    const payloadLines = lines.map((line) => {
-      const requestedQty = Number(line.requestedQty)
-      if (!Number.isFinite(requestedQty) || requestedQty <= 0) {
-        throw new Error(`Invalid quantity for ${line.sku}`)
-      }
-
-      return {
-        catalogItemId: line.catalogItemId,
-        requestedQty,
-        ...(showSourceBin && line.sourceLocationId
-          ? { sourceLocationId: line.sourceLocationId }
-          : {}),
-      }
-    })
-
     try {
+      const payloadLines = lines.map((line) => {
+        const requestedQty = Number(line.requestedQty)
+        if (!Number.isFinite(requestedQty) || requestedQty <= 0) {
+          throw new Error(`Invalid quantity for ${line.sku}`)
+        }
+
+        return {
+          catalogItemId: line.catalogItemId,
+          requestedQty,
+          ...(showSourceBin && line.sourceLocationId
+            ? { sourceLocationId: line.sourceLocationId }
+            : {}),
+        }
+      })
+
       const transfer = await createTransfer.mutateAsync({
         fromSiteId,
         toSiteId,
@@ -261,7 +261,7 @@ export function StockTransferCreateDialog({
                   />
                   {showSourceBin ? (
                     <Select
-                      value={line.sourceLocationId ?? ''}
+                      value={line.sourceLocationId ?? undefined}
                       onValueChange={(value) =>
                         setLines((current) =>
                           current.map((entry) =>

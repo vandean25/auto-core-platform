@@ -7,7 +7,11 @@ import {
   canReceiveTransfer,
   canReturnTransfer,
   canShipTransfer,
+  canSubmitShip,
   canSuggestSourceBin,
+  getLinesMissingShipSourceBins,
+  hasReceiveMembership,
+  hasShipMembership,
   shouldShowSourceBinDetails,
 } from './stock-transfer-permissions'
 
@@ -28,28 +32,60 @@ const baseTransfer: StockTransfer = {
   cancelReason: null,
   createdAt: '2026-09-17T10:00:00.000Z',
   updatedAt: '2026-09-17T10:00:00.000Z',
-  lines: [],
+  lines: [
+    {
+      id: 'line-1',
+      catalogItemId: 'item-1',
+      requestedQty: '2.000',
+      approvedQty: '2.000',
+      shippedQty: '0.000',
+      receivedQty: '0.000',
+      returnedQty: '0.000',
+      sourceLocationId: null,
+      destLocationId: null,
+    },
+  ],
 }
 
 describe('stock-transfer-permissions', () => {
   it('hides source-bin suggestion for destination-only members', () => {
     const memberSiteIds = buildMemberSiteIdSet(['site-to'])
     expect(canSuggestSourceBin('site-from', memberSiteIds)).toBe(false)
-    expect(canCancelTransfer(baseTransfer, memberSiteIds)).toBe(true)
     expect(canApproveOrRejectTransfer(baseTransfer, memberSiteIds, 'ADMIN')).toBe(false)
   })
 
-  it('allows from-site admins to approve and ship', () => {
-    const memberSiteIds = buildMemberSiteIdSet(['site-from'])
-    expect(canApproveOrRejectTransfer(baseTransfer, memberSiteIds, 'ADMIN')).toBe(true)
-    expect(canShipTransfer({ ...baseTransfer, status: 'APPROVED' }, memberSiteIds)).toBe(true)
+  it('allows destination-only requester to cancel', () => {
+    const memberSiteIds = buildMemberSiteIdSet(['site-to'])
+    expect(canCancelTransfer(baseTransfer, memberSiteIds, 'user-1', 'TECH')).toBe(true)
   })
 
-  it('allows destination members to receive shipped stock', () => {
+  it('blocks destination-only non-requester cancel', () => {
     const memberSiteIds = buildMemberSiteIdSet(['site-to'])
-    expect(
-      canReceiveTransfer({ ...baseTransfer, status: 'SHIPPED' }, memberSiteIds),
-    ).toBe(true)
+    expect(canCancelTransfer(baseTransfer, memberSiteIds, 'user-2', 'TECH')).toBe(false)
+    expect(canCancelTransfer(baseTransfer, memberSiteIds, 'user-2', 'ADMIN')).toBe(false)
+  })
+
+  it('allows from-site admin to cancel even when not the requester', () => {
+    const memberSiteIds = buildMemberSiteIdSet(['site-from'])
+    expect(canCancelTransfer(baseTransfer, memberSiteIds, 'user-2', 'ADMIN')).toBe(true)
+    expect(canCancelTransfer(baseTransfer, memberSiteIds, 'user-2', 'TECH')).toBe(false)
+  })
+
+  it('allows from-site admins to approve and ship on the active from site', () => {
+    const memberSiteIds = buildMemberSiteIdSet(['site-from'])
+    const approvedTransfer = { ...baseTransfer, status: 'APPROVED' as const }
+    expect(canApproveOrRejectTransfer(baseTransfer, memberSiteIds, 'ADMIN')).toBe(true)
+    expect(hasShipMembership(approvedTransfer, memberSiteIds)).toBe(true)
+    expect(canShipTransfer(approvedTransfer, memberSiteIds, 'site-from')).toBe(true)
+    expect(canShipTransfer(approvedTransfer, memberSiteIds, 'site-to')).toBe(false)
+  })
+
+  it('allows destination members to receive only on the active to site', () => {
+    const memberSiteIds = buildMemberSiteIdSet(['site-to'])
+    const shippedTransfer = { ...baseTransfer, status: 'SHIPPED' as const }
+    expect(hasReceiveMembership(shippedTransfer, memberSiteIds)).toBe(true)
+    expect(canReceiveTransfer(shippedTransfer, memberSiteIds, 'site-to')).toBe(true)
+    expect(canReceiveTransfer(shippedTransfer, memberSiteIds, 'site-from')).toBe(false)
   })
 
   it('redacts source-bin details for destination-only viewers', () => {
@@ -70,5 +106,12 @@ describe('stock-transfer-permissions', () => {
     expect(
       canReturnTransfer({ ...baseTransfer, status: 'SHIPPED' }, memberSiteIds, 'TECH'),
     ).toBe(false)
+  })
+
+  it('requires a source bin for every positive-approved line before ship', () => {
+    const approvedTransfer = { ...baseTransfer, status: 'APPROVED' as const }
+    expect(getLinesMissingShipSourceBins(approvedTransfer, {})).toHaveLength(1)
+    expect(canSubmitShip(approvedTransfer, {})).toBe(false)
+    expect(canSubmitShip(approvedTransfer, { 'line-1': 'bin-from' })).toBe(true)
   })
 })
