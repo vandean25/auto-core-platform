@@ -12,6 +12,7 @@ import {
   Truck,
   UserRound,
   Wrench,
+  ArrowLeftRight,
 } from 'lucide-react'
 
 import { useGlobalSearch } from '@/hooks/useGlobalSearch'
@@ -55,6 +56,12 @@ const quickActions: { heading: string; items: QuickAction[] }[] = [
         icon: Package,
         label: 'Open Inventory',
         description: 'Browse parts and stock levels.',
+      },
+      {
+        href: '/stock-transfers',
+        icon: ArrowLeftRight,
+        label: 'Open Transfers',
+        description: 'Request and track cross-site stock moves.',
       },
       {
         href: '/workshop/intake',

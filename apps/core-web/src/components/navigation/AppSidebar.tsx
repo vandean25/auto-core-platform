@@ -24,6 +24,7 @@ import {
   Wrench,
   LayoutGrid,
   Calendar,
+  ArrowLeftRight,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -133,6 +134,14 @@ const coreModules: SidebarModule[] = [
     icon: Package,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/inventory'),
+  },
+  {
+    id: 'stock-transfers',
+    label: 'Transfers',
+    to: '/stock-transfers',
+    icon: ArrowLeftRight,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/stock-transfers'),
   },
   {
     id: 'vendors',

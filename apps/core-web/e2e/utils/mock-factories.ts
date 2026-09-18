@@ -626,6 +626,71 @@ export const createMockLaborCategory = (
  * Some endpoints expose pagination as `pageCount` while others use
  * `totalPages`, so mocks include both keys.
  */
+type MockStockTransfer = {
+  id: string;
+  transferNumber: string;
+  fromSiteId: string;
+  fromSiteName: string | null;
+  toSiteId: string;
+  toSiteName: string | null;
+  status: string;
+  version: number;
+  requestedByUserId: string;
+  approvedByUserId: string | null;
+  shippedByUserId: string | null;
+  receivedByUserId: string | null;
+  rejectReason: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: Array<{
+    id: string;
+    catalogItemId: string;
+    requestedQty: string;
+    approvedQty: string;
+    shippedQty: string;
+    receivedQty: string;
+    returnedQty: string;
+    sourceLocationId: string | null;
+    destLocationId: string | null;
+  }>;
+};
+
+export const createMockStockTransfer = (
+  overrides: Partial<MockStockTransfer> = {},
+): MockStockTransfer => ({
+  id: 'transfer-1',
+  transferNumber: 'TR-2026-0001',
+  fromSiteId: 'site-from',
+  fromSiteName: 'Wien',
+  toSiteId: 'site-to',
+  toSiteName: 'München',
+  status: 'REQUESTED',
+  version: 1,
+  requestedByUserId: 'user-1',
+  approvedByUserId: null,
+  shippedByUserId: null,
+  receivedByUserId: null,
+  rejectReason: null,
+  cancelReason: null,
+  createdAt: '2026-09-17T10:00:00.000Z',
+  updatedAt: '2026-09-17T10:00:00.000Z',
+  lines: [
+    {
+      id: 'line-1',
+      catalogItemId: 'catalog-1',
+      requestedQty: '2.000',
+      approvedQty: '0.000',
+      shippedQty: '0.000',
+      receivedQty: '0.000',
+      returnedQty: '0.000',
+      sourceLocationId: null,
+      destLocationId: null,
+    },
+  ],
+  ...overrides,
+});
+
 export const createMockListResponse = <T>(items: T[], total = items.length) => {
   const totalPages = Math.ceil(total / 10);
 

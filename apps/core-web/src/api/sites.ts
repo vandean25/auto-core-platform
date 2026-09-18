@@ -11,9 +11,19 @@ export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
 export type ActiveSiteResponse = components['schemas']['ActiveSiteResponseDto']
 
+/** Names-only active site directory entry from GET /api/sites */
+export type SiteDirectoryEntry = {
+  id: string
+  code: string
+  name: string
+  legalEntityId: string
+  legalEntityName?: string
+}
+
 export const siteKeys = {
   all: ['sites'] as const,
   me: () => [...siteKeys.all, 'me'] as const,
+  directory: () => [...siteKeys.all, 'directory'] as const,
 }
 
 const SITE_SCOPED_QUERY_KEYS = [
@@ -43,6 +53,23 @@ export function useMySites(enabled = true) {
         throw new Error(await getErrorMessage(response, 'Failed to load sites'))
       }
       return response.json() as Promise<MeSite[]>
+    },
+  })
+}
+
+/**
+ * GET /api/sites — active names-only directory for transfer from/to pickers.
+ */
+export function useSiteDirectory(enabled = true) {
+  return useQuery<SiteDirectoryEntry[]>({
+    queryKey: siteKeys.directory(),
+    enabled,
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/sites')
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to load sites'))
+      }
+      return response.json() as Promise<SiteDirectoryEntry[]>
     },
   })
 }
