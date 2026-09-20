@@ -691,6 +691,65 @@ export const createMockStockTransfer = (
   ...overrides,
 });
 
+type MockLegalEntity = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  country_iso: 'AT' | 'DE';
+  is_active: boolean;
+  address_street: string | null;
+  address_line2: string | null;
+  address_zip: string | null;
+  address_city: string | null;
+  tax_number: string | null;
+  vat_id: string | null;
+  iban: string | null;
+  bic: string | null;
+  bank_name: string | null;
+  email: string | null;
+  phone: string | null;
+  registration_number: string | null;
+  registration_court: string | null;
+  representatives: string | null;
+  payment_terms_days: number | null;
+  payment_terms_text: string | null;
+  seller_readiness: {
+    is_ready: boolean;
+    missing_fields: string[];
+  };
+};
+
+export const createMockLegalEntity = (
+  overrides: Partial<MockLegalEntity> = {},
+): MockLegalEntity => ({
+  id: 'legal-entity-1',
+  tenant_id: 'tenant-1',
+  name: 'Example GmbH',
+  country_iso: 'AT',
+  is_active: true,
+  address_street: 'Hauptstraße 1',
+  address_line2: null,
+  address_zip: '1010',
+  address_city: 'Wien',
+  tax_number: null,
+  vat_id: null,
+  iban: null,
+  bic: null,
+  bank_name: null,
+  email: null,
+  phone: null,
+  registration_number: null,
+  registration_court: null,
+  representatives: null,
+  payment_terms_days: null,
+  payment_terms_text: null,
+  seller_readiness: {
+    is_ready: false,
+    missing_fields: ['vat_id', 'payment_terms'],
+  },
+  ...overrides,
+});
+
 export const createMockListResponse = <T>(items: T[], total = items.length) => {
   const totalPages = Math.ceil(total / 10);
 

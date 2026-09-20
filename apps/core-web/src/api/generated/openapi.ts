@@ -1913,7 +1913,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get a legal entity (OWNER/ADMIN) */
+        get: operations["LegalEntityController_getLegalEntity"];
         put?: never;
         post?: never;
         /** Hard-delete an unused legal entity (OWNER/ADMIN) */
@@ -4624,6 +4625,35 @@ export interface components {
             isActive?: boolean;
             deleted?: boolean;
         };
+        LegalEntitySellerReadinessDto: {
+            is_ready: boolean;
+            missing_fields: string[];
+        };
+        LegalEntityResponseDto: {
+            id: string;
+            tenant_id: string;
+            name: string;
+            /** @enum {string} */
+            country_iso: "AT" | "DE";
+            is_active: boolean;
+            address_street?: string | null;
+            address_line2?: string | null;
+            address_zip?: string | null;
+            address_city?: string | null;
+            tax_number?: string | null;
+            vat_id?: string | null;
+            iban?: string | null;
+            bic?: string | null;
+            bank_name?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            registration_number?: string | null;
+            registration_court?: string | null;
+            representatives?: string | null;
+            payment_terms_days?: number | null;
+            payment_terms_text?: string | null;
+            seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
+        };
         CreateLegalEntityDto: {
             name: string;
             /** @enum {string} */
@@ -4632,6 +4662,22 @@ export interface components {
         UpdateLegalEntityDto: {
             name?: string;
             isActive?: boolean;
+            addressStreet?: string;
+            addressLine2?: string;
+            addressZip?: string;
+            addressCity?: string;
+            taxNumber?: string;
+            vatId?: string;
+            iban?: string;
+            bic?: string;
+            bankName?: string;
+            email?: string;
+            phone?: string;
+            registrationNumber?: string;
+            registrationCourt?: string;
+            representatives?: string;
+            paymentTermsDays?: number;
+            paymentTermsText?: string;
         };
         CreateSiteOpeningHourDto: {
             weekday: number;
@@ -9190,7 +9236,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"][];
+                };
             };
         };
     };
@@ -9207,11 +9255,34 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_getLegalEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
             };
         };
     };
@@ -9253,7 +9324,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
             };
         };
     };

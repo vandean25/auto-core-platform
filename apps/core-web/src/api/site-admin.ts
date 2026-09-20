@@ -2,12 +2,56 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import { siteKeys } from './sites'
 
+export type LegalEntitySellerReadiness = {
+  is_ready: boolean
+  missing_fields: string[]
+}
+
 export type LegalEntityRecord = {
   id: string
   tenant_id: string
   name: string
   country_iso: 'AT' | 'DE'
   is_active: boolean
+  address_street: string | null
+  address_line2: string | null
+  address_zip: string | null
+  address_city: string | null
+  tax_number: string | null
+  vat_id: string | null
+  iban: string | null
+  bic: string | null
+  bank_name: string | null
+  email: string | null
+  phone: string | null
+  registration_number: string | null
+  registration_court: string | null
+  representatives: string | null
+  payment_terms_days: number | null
+  payment_terms_text: string | null
+  seller_readiness: LegalEntitySellerReadiness
+}
+
+export type UpdateLegalEntityPayload = {
+  id: string
+  name?: string
+  isActive?: boolean
+  addressStreet?: string
+  addressLine2?: string
+  addressZip?: string
+  addressCity?: string
+  taxNumber?: string
+  vatId?: string
+  iban?: string
+  bic?: string
+  bankName?: string
+  email?: string
+  phone?: string
+  registrationNumber?: string
+  registrationCourt?: string
+  representatives?: string
+  paymentTermsDays?: number | null
+  paymentTermsText?: string
 }
 
 export type AdminSiteRecord = {
@@ -50,6 +94,7 @@ export type SiteMembershipRecord = {
 export const siteAdminKeys = {
   all: ['site-admin'] as const,
   legalEntities: () => [...siteAdminKeys.all, 'legal-entities'] as const,
+  legalEntity: (id: string) => [...siteAdminKeys.all, 'legal-entity', id] as const,
   sites: (includeInactive = true) =>
     [...siteAdminKeys.all, 'sites', { includeInactive }] as const,
   memberships: (siteId: string) =>
@@ -70,6 +115,20 @@ export function useLegalEntities() {
       const response = await fetchWithAuth('/api/legal-entities')
       if (!response.ok) {
         throw new Error(await getErrorMessage(response, 'Failed to load legal entities'))
+      }
+      return response.json()
+    },
+  })
+}
+
+export function useLegalEntity(id: string | null) {
+  return useQuery<LegalEntityRecord>({
+    queryKey: siteAdminKeys.legalEntity(id ?? ''),
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/legal-entities/${id}`)
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to load legal entity'))
       }
       return response.json()
     },
@@ -101,21 +160,20 @@ export function useUpdateLegalEntity() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (payload: { id: string; name?: string; isActive?: boolean }) => {
-      const response = await fetchWithAuth(`/api/legal-entities/${payload.id}`, {
+    mutationFn: async (payload: UpdateLegalEntityPayload) => {
+      const { id, ...body } = payload
+      const response = await fetchWithAuth(`/api/legal-entities/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(payload.name !== undefined ? { name: payload.name } : {}),
-          ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
-        }),
+        body: JSON.stringify(body),
       })
       if (!response.ok) {
         throw new Error(await getErrorMessage(response, 'Failed to update legal entity'))
       }
       return response.json() as Promise<LegalEntityRecord>
     },
-    onSuccess: () => {
+    onSuccess: (entity) => {
+      queryClient.setQueryData(siteAdminKeys.legalEntity(entity.id), entity)
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.legalEntities() })
       queryClient.invalidateQueries({ queryKey: siteAdminKeys.all })
     },

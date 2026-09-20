@@ -40,6 +40,10 @@ function getCurrentUserKey(explicitUserKey?: string | null) {
     return explicitUserKey
   }
 
+  if (isE2EAuthBypassEnabled()) {
+    return 'e2e-test-user'
+  }
+
   return firebaseAuth?.currentUser?.uid ?? firebaseAuth?.currentUser?.email ?? null
 }
 
