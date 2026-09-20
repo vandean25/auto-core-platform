@@ -15,11 +15,11 @@ Framework-meta items from 2025 (Phase 2B / 3B / 4B examples, README documentatio
 
 ## Deferred Decisions
 
-Existing active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Proposed Legal Invoicing deferrals are tracked separately below pending ADR-0023 acceptance. Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+Existing active items: single-tenant restore (ADR-0013 / AUT-154), vehicle stock B/C/D (ADR-0016), plus Legal Invoicing follow-ons below (accepted ADR-0023 baseline). Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
 
-### Legal invoicing follow-ons (AUT-296 / proposed ADR-0023)
+### Legal invoicing follow-ons (AUT-296 / ADR-0023)
 
-**Status:** Proposed deferrals — 2026-09-20; product-owner acceptance pending.
+**Status:** Deferred — 2026-09-20; ADR-0023 and linked specs accepted by Product Owner on 2026-09-20.
 
 Baseline: [ADR-0023](../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md) and the two Finance feature specs. Owner: Product Owner with accountant input.
 
