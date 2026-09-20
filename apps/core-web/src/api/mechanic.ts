@@ -65,7 +65,7 @@ export function useMechanicQueue() {
     queryFn: async () => {
       const response = await fetchWithAuth('/api/mechanic/queue')
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load mechanic queue'))
+        await throwHttpError(response, 'Failed to load mechanic queue')
       }
       return response.json() as Promise<MechanicQueueResponse>
     },

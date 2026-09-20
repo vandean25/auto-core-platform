@@ -57,7 +57,28 @@ What it does:
 - resolves/creates Firebase user by email
 - ensures/updates relational `users` row
 - upserts active `tenant_members` row for `(tenant_id, user_id)`
+- for `TECH` role: links or creates an active `MECHANIC` employee with `user_id` set (required for `/mechanic/queue` identity resolution per ADR-0014)
+- grants active `site_memberships` on every active tenant site (same as AUT-290 demo QA access)
 - refreshes Firebase claims (`tenantId`, `role`, and keeps `platformRole` if present)
+
+### UAT mechanic login (`grok-bot-tech`)
+
+Mechanic tablet sessions need **both** a `TECH` tenant membership and a linked `Employee` row (`role = MECHANIC`, `user_id` pointing at the same `users.id`). Workshop board assignment uses `Employee.id` only; the tablet queue resolves the mechanic from the login.
+
+After a full UAT re-seed:
+
+```bash
+npm --prefix apps/core-api run db:seed
+npm --prefix apps/core-api run db:seed:tenant-member -- --email=grok-bot-tech@auto.core.at --tenant-slug=default-workshop --role=TECH --make-active
+```
+
+The tenant-member script will:
+
+1. create/update the Firebase + `users` row for `grok-bot-tech@auto.core.at`
+2. upsert `tenant_members` with role `TECH`
+3. link an existing unlinked `Grok Bot` mechanic employee when present, otherwise create one with a default work schedule
+
+Verify in HR (`/hr/employees`): **Grok Bot** should show **Login: linked**. Sign in as the mechanic and open `/mechanic/queue`; assigned tasks appear after workshop board assignment.
 
 ## 3) Apply Changes in UI
 

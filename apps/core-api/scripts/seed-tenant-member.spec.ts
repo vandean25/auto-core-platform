@@ -1,8 +1,11 @@
-import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
+import { PlatformAdminRole } from '@prisma/client';
+import { EmployeeRole, TenantMemberRole } from '@prisma/client';
 import {
+  grantTechnicianEmployeeLink,
   grantTenantSiteMemberships,
   parseSeedTenantMemberArgs,
   pickPreferredActiveSite,
+  resolveTechnicianEmployeeName,
   seedTenantMember,
 } from './seed-tenant-member.js';
 
@@ -89,6 +92,90 @@ describe('grantTenantSiteMemberships', () => {
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { active_site_id: 'site-main' },
+    });
+  });
+});
+
+describe('resolveTechnicianEmployeeName', () => {
+  it('maps grok-bot-tech to Grok Bot', () => {
+    expect(resolveTechnicianEmployeeName('grok-bot-tech@auto.core.at')).toBe(
+      'Grok Bot',
+    );
+  });
+
+  it('title-cases unknown technician emails', () => {
+    expect(resolveTechnicianEmployeeName('qa.tech@auto.core.at')).toBe('Qa Tech');
+  });
+});
+
+describe('grantTechnicianEmployeeLink', () => {
+  it('links an existing unlinked Grok Bot mechanic employee', async () => {
+    const prisma = {
+      employee: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ id: 'employee-grok' }),
+        update: jest.fn().mockResolvedValue({ id: 'employee-grok' }),
+        create: jest.fn(),
+      },
+      employeeWorkSchedule: { create: jest.fn() },
+      employeeWorkScheduleDay: {},
+    };
+
+    const result = await grantTechnicianEmployeeLink(
+      'tenant-1',
+      'user-tech',
+      'grok-bot-tech@auto.core.at',
+      prisma as never,
+    );
+
+    expect(prisma.employee.update).toHaveBeenCalledWith({
+      where: { id: 'employee-grok' },
+      data: { user_id: 'user-tech' },
+    });
+    expect(result).toEqual({
+      employeeId: 'employee-grok',
+      created: false,
+      linkedExisting: true,
+    });
+  });
+
+  it('creates a mechanic employee with a default work schedule when none exists', async () => {
+    const prisma = {
+      employee: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'employee-new' }),
+      },
+      employeeWorkSchedule: {
+        create: jest.fn().mockResolvedValue({ id: 'schedule-1' }),
+      },
+      employeeWorkScheduleDay: {},
+    };
+
+    const result = await grantTechnicianEmployeeLink(
+      'tenant-1',
+      'user-tech',
+      'grok-bot-tech@auto.core.at',
+      prisma as never,
+    );
+
+    expect(prisma.employee.create).toHaveBeenCalledWith({
+      data: {
+        tenant_id: 'tenant-1',
+        user_id: 'user-tech',
+        name: 'Grok Bot',
+        role: EmployeeRole.MECHANIC,
+        is_active: true,
+      },
+      select: { id: true },
+    });
+    expect(prisma.employeeWorkSchedule.create).toHaveBeenCalled();
+    expect(result).toEqual({
+      employeeId: 'employee-new',
+      created: true,
+      linkedExisting: false,
     });
   });
 });
@@ -225,6 +312,102 @@ describe('seedTenantMember', () => {
       membershipId: 'membership-1',
       role: TenantMemberRole.OWNER,
       activeTenantId: 'tenant-1',
+      mechanicEmployeeId: null,
     });
+  });
+
+  it('links a mechanic employee when seeding a TECH tenant member', async () => {
+    const prisma = {
+      tenant: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'tenant-1',
+          slug: 'default-workshop',
+          is_active: true,
+        }),
+      },
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({
+          id: 'user-tech',
+          active_tenant_id: 'tenant-1',
+        }),
+        update: jest.fn(),
+      },
+      tenantMember: {
+        upsert: jest.fn().mockResolvedValue({
+          id: 'membership-tech',
+          tenant_id: 'tenant-1',
+          user_id: 'user-tech',
+          role: TenantMemberRole.TECH,
+          is_active: true,
+        }),
+      },
+      userAccessProjection: jest
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'user-tech',
+          firebaseUid: 'firebase-tech',
+          email: 'grok-bot-tech@auto.core.at',
+          active_tenant_id: 'tenant-1',
+          platformAdmin: null,
+          memberships: [
+            {
+              tenant_id: 'tenant-1',
+              role: TenantMemberRole.TECH,
+              is_active: true,
+              tenant: { is_active: true },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'user-tech',
+          firebaseUid: 'firebase-tech',
+          email: 'grok-bot-tech@auto.core.at',
+          active_tenant_id: 'tenant-1',
+          platformAdmin: null,
+          memberships: [
+            {
+              tenant_id: 'tenant-1',
+              role: TenantMemberRole.TECH,
+              is_active: true,
+              tenant: { is_active: true },
+            },
+          ],
+        }),
+    };
+    const firebaseAuth = {
+      getUserByEmail: jest.fn().mockResolvedValue({
+        uid: 'firebase-tech',
+        email: 'grok-bot-tech@auto.core.at',
+      }),
+      createUser: jest.fn(),
+      getUser: jest.fn().mockResolvedValue({
+        uid: 'firebase-tech',
+        customClaims: {},
+      }),
+      setCustomUserClaims: jest.fn().mockResolvedValue(undefined),
+    };
+    const grantTechnicianEmployeeLink = jest.fn().mockResolvedValue({
+      employeeId: 'employee-grok',
+      created: true,
+      linkedExisting: false,
+    });
+
+    const result = await seedTenantMember(
+      {
+        email: 'grok-bot-tech@auto.core.at',
+        tenantSlug: 'default-workshop',
+        role: TenantMemberRole.TECH,
+        makeActive: true,
+      },
+      { prisma, firebaseAuth, grantTechnicianEmployeeLink },
+    );
+
+    expect(grantTechnicianEmployeeLink).toHaveBeenCalledWith(
+      'tenant-1',
+      'user-tech',
+      'grok-bot-tech@auto.core.at',
+    );
+    expect(result.mechanicEmployeeId).toBe('employee-grok');
   });
 });

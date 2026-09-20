@@ -30,6 +30,26 @@ QA users (`grok-bot@auto.core.at`, `grok-bot-tech@auto.core.at`, `testauto@auto.
 
 With two site grants, the sidebar shows an interactive **Current Site** dropdown. With exactly one grant, the sidebar shows a read-only **Current Site: …** label (AUT-290).
 
+## Mechanic tablet identity (AUT-294)
+
+`grok-bot-tech@auto.core.at` is the mechanic/tablet QA login. After UAT re-seed it needs a linked HR employee, not only a `TECH` tenant membership.
+
+| Check | Expected |
+| --- | --- |
+| `db:seed:tenant-member` with `--role=TECH` for `grok-bot-tech@auto.core.at` | Creates/links `Grok Bot` employee (`MECHANIC`, `user_id` set) |
+| HR → Employees → Grok Bot | **Login: linked** |
+| Workshop board assign to Grok Bot | Succeeds using `Employee.id` (no login link required on assign) |
+| `/mechanic/queue` as `grok-bot-tech` | Resolves identity and shows assigned tasks (not the “Mechanic profile not linked” empty state) |
+
+Standard UAT commands:
+
+```bash
+npm --prefix apps/core-api run db:seed
+npm --prefix apps/core-api run db:seed:tenant-member -- --email=grok-bot-tech@auto.core.at --tenant-slug=default-workshop --role=TECH --make-active
+```
+
+If the queue page shows **Mechanic profile not linked**, re-run the tenant-member seed above or link the employee manually in HR.
+
 ## Within-site filtering
 
 - **Inventory** (`/inventory`): optional **Storage Location** filter and **Storage Location** column filter stock within the active site only.

@@ -1,5 +1,10 @@
 import 'dotenv/config';
-import { PlatformAdminRole, PrismaClient, TenantMemberRole } from '@prisma/client';
+import {
+  EmployeeRole,
+  PlatformAdminRole,
+  PrismaClient,
+  TenantMemberRole,
+} from '@prisma/client';
 import { isDirectRun } from './is-direct-run.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -27,6 +32,13 @@ type SeedTenantMemberResult = {
   membershipId: string;
   role: TenantMemberRole;
   activeTenantId: string | null;
+  mechanicEmployeeId: string | null;
+};
+
+type GrantTechnicianEmployeeLinkResult = {
+  employeeId: string;
+  created: boolean;
+  linkedExisting: boolean;
 };
 
 type UserAccessProjection = {
@@ -122,6 +134,11 @@ type SeedTenantMemberDependencies = {
     tenantId: string,
     userId: string,
   ) => Promise<void>;
+  grantTechnicianEmployeeLink?: (
+    tenantId: string,
+    userId: string,
+    email: string,
+  ) => Promise<GrantTechnicianEmployeeLinkResult>;
   firebaseAuth: {
     getUserByEmail: (email: string) => Promise<FirebaseUserRecord>;
     createUser: (data: { email: string }) => Promise<FirebaseUserRecord>;
@@ -134,6 +151,21 @@ type SeedTenantMemberDependencies = {
 };
 
 const TENANT_MEMBER_ROLES = ['OWNER', 'ADMIN', 'TECH', 'SALES'] as const;
+
+const KNOWN_TECH_EMPLOYEE_NAMES: Record<string, string> = {
+  'grok-bot-tech@auto.core.at': 'Grok Bot',
+  'tablet-mechanic@auto.core.at': 'Tablet Mechanic',
+};
+
+const DEFAULT_WORK_SCHEDULE_DAYS = [
+  { weekday: 1, is_working: true, start_time: '08:00', end_time: '17:00', break_minutes: 60 },
+  { weekday: 2, is_working: true, start_time: '08:00', end_time: '17:00', break_minutes: 60 },
+  { weekday: 3, is_working: true, start_time: '08:00', end_time: '17:00', break_minutes: 60 },
+  { weekday: 4, is_working: true, start_time: '08:00', end_time: '17:00', break_minutes: 60 },
+  { weekday: 5, is_working: true, start_time: '08:00', end_time: '17:00', break_minutes: 60 },
+  { weekday: 6, is_working: false, start_time: null, end_time: null, break_minutes: 0 },
+  { weekday: 7, is_working: false, start_time: null, end_time: null, break_minutes: 0 },
+] as const;
 
 export function parseSeedTenantMemberArgs(
   argv: string[],
@@ -247,6 +279,16 @@ export async function seedTenantMember(
     await dependencies.grantSiteMemberships(tenant.id, user.id);
   }
 
+  let mechanicEmployeeId: string | null = null;
+  if (options.role === TenantMemberRole.TECH && dependencies.grantTechnicianEmployeeLink) {
+    const linkResult = await dependencies.grantTechnicianEmployeeLink(
+      tenant.id,
+      user.id,
+      resolvedEmail,
+    );
+    mechanicEmployeeId = linkResult.employeeId;
+  }
+
   await syncUserClaims(user.id, dependencies);
 
   const refreshedUser = await dependencies.prisma.userAccessProjection(user.id);
@@ -261,6 +303,105 @@ export async function seedTenantMember(
     membershipId: membership.id,
     role: membership.role,
     activeTenantId: nextActiveTenantId,
+    mechanicEmployeeId,
+  };
+}
+
+export function resolveTechnicianEmployeeName(email: string): string {
+  const normalizedEmail = email.trim().toLowerCase();
+  const knownName = KNOWN_TECH_EMPLOYEE_NAMES[normalizedEmail];
+  if (knownName) {
+    return knownName;
+  }
+
+  const localPart = normalizedEmail.split('@')[0] ?? normalizedEmail;
+  return localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+export async function grantTechnicianEmployeeLink(
+  tenantId: string,
+  userId: string,
+  email: string,
+  prisma: Pick<
+    PrismaClient,
+    'employee' | 'employeeWorkSchedule' | 'employeeWorkScheduleDay'
+  >,
+): Promise<GrantTechnicianEmployeeLinkResult> {
+  const employeeName = resolveTechnicianEmployeeName(email);
+
+  const existingLinked = await prisma.employee.findFirst({
+    where: { tenant_id: tenantId, user_id: userId },
+    select: { id: true },
+  });
+  if (existingLinked) {
+    return {
+      employeeId: existingLinked.id,
+      created: false,
+      linkedExisting: true,
+    };
+  }
+
+  const unlinkedCandidate = await prisma.employee.findFirst({
+    where: {
+      tenant_id: tenantId,
+      role: EmployeeRole.MECHANIC,
+      is_active: true,
+      user_id: null,
+      name: employeeName,
+    },
+    select: { id: true },
+  });
+
+  if (unlinkedCandidate) {
+    await prisma.employee.update({
+      where: { id: unlinkedCandidate.id },
+      data: { user_id: userId },
+    });
+
+    return {
+      employeeId: unlinkedCandidate.id,
+      created: false,
+      linkedExisting: true,
+    };
+  }
+
+  const created = await prisma.employee.create({
+    data: {
+      tenant_id: tenantId,
+      user_id: userId,
+      name: employeeName,
+      role: EmployeeRole.MECHANIC,
+      is_active: true,
+    },
+    select: { id: true },
+  });
+
+  const effectiveFrom = new Date();
+  await prisma.employeeWorkSchedule.create({
+    data: {
+      tenant_id: tenantId,
+      employee_id: created.id,
+      effective_from: effectiveFrom,
+      days: {
+        create: DEFAULT_WORK_SCHEDULE_DAYS.map((day) => ({
+          weekday: day.weekday,
+          is_working: day.is_working,
+          start_time: day.start_time,
+          end_time: day.end_time,
+          break_minutes: day.break_minutes,
+        })),
+      },
+    },
+  });
+
+  return {
+    employeeId: created.id,
+    created: true,
+    linkedExisting: false,
   };
 }
 
@@ -306,14 +447,21 @@ export async function runSeedTenantMemberCli(
     },
     grantSiteMemberships: (tenantId, userId) =>
       grantTenantSiteMemberships(tenantId, userId, prisma),
+    grantTechnicianEmployeeLink: (tenantId, userId, email) =>
+      grantTechnicianEmployeeLink(tenantId, userId, email, prisma),
     firebaseAuth: getFirebaseAdminAuth(),
   };
 
   try {
     const result = await seedTenantMember(options, dependencies);
 
+    const mechanicSuffix =
+      result.mechanicEmployeeId !== null
+        ? `, mechanicEmployeeId=${result.mechanicEmployeeId}`
+        : '';
+
     console.log(
-      `Tenant member seeded for ${result.email} (tenant=${result.tenantSlug}, role=${result.role}, userId=${result.userId}, membershipId=${result.membershipId}, activeTenantId=${result.activeTenantId ?? 'null'}).`,
+      `Tenant member seeded for ${result.email} (tenant=${result.tenantSlug}, role=${result.role}, userId=${result.userId}, membershipId=${result.membershipId}, activeTenantId=${result.activeTenantId ?? 'null'}${mechanicSuffix}).`,
     );
   } finally {
     await prisma.$disconnect();
