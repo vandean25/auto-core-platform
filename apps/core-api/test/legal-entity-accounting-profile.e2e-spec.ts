@@ -98,10 +98,50 @@ describe('Legal entity accounting profile (e2e)', () => {
     expect(response.body.mapping_readiness.is_ready).toBe(false);
   });
 
-  it('rejects malformed mapping rules', async () => {
+  it('drops incomplete mapping rules while saving other profile fields', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
       where: { tenant_id: tenantA.tenantId },
+    });
+
+    const initial = await request(app.getHttpServer())
+      .get(`/legal-entities/${entity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        expectedVersion: initial.body.version,
+        advisorNumber: '12345',
+        mappingRules: [
+          {
+            sourceCategoryKey: 'labor',
+            sourceCategoryLabel: 'Labor',
+            taxMode: 'STANDARD',
+            taxRate: '20.00',
+            revenueAccount: '',
+            taxTreatment: 'automatic',
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(response.body.advisor_number).toBe('12345');
+    expect(response.body.mapping_rules).toEqual([]);
+    expect(response.body.mapping_readiness.is_ready).toBe(false);
+  });
+
+  it('rejects enabling DATEV export before mapping readiness is complete', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: 'Berlin Motors GmbH',
+        country_iso: 'DE',
+        is_active: true,
+      },
     });
 
     const initial = await request(app.getHttpServer())
@@ -114,16 +154,7 @@ describe('Legal entity accounting profile (e2e)', () => {
       .set('Authorization', authHeader(tenantA))
       .send({
         expectedVersion: initial.body.version,
-        mappingRules: [
-          {
-            sourceCategoryKey: 'labor',
-            sourceCategoryLabel: 'Labor',
-            taxMode: 'STANDARD',
-            taxRate: '20.00',
-            revenueAccount: '',
-            taxTreatment: 'automatic',
-          },
-        ],
+        isEnabled: true,
       })
       .expect(400);
   });

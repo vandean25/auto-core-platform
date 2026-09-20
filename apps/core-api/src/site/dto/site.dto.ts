@@ -12,6 +12,7 @@ import {
   Min,
   Max,
   Matches,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -97,11 +98,12 @@ export class UpdateLegalEntityDto {
   @MaxLength(120)
   bankName?: string;
 
-  @ApiPropertyOptional({ maxLength: 254 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 254 })
   @IsOptional()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
   @IsEmail()
   @MaxLength(254)
-  email?: string;
+  email?: string | null;
 
   @ApiPropertyOptional({ maxLength: 40 })
   @IsOptional()

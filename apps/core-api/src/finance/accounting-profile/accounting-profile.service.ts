@@ -1,19 +1,34 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { LegalEntityAccountingProfile } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { assertTenantAdmin } from '../../site/site.authorization.js';
+import {
+  buildRequiredSourceCategories,
+  computeAccountingProfileReadiness,
+} from './accounting-profile-readiness.js';
 import { toAccountingProfileResponse } from './accounting-profile.mapper.js';
 import { UpdateAccountingProfileDto } from './dto/accounting-profile.dto.js';
+import type { AccountingMappingRule } from './accounting-profile.types.js';
 import {
+  type AccountingProfilePatchInput,
   defaultFormatVersionForCountry,
   defaultProfileCodeForCountry,
   validateAccountingProfilePatch,
 } from './accounting-profile.validation.js';
+
+function parseStoredMappingRules(value: unknown): AccountingMappingRule[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value as AccountingMappingRule[];
+}
 
 @Injectable()
 export class AccountingProfileService {
@@ -53,12 +68,6 @@ export class AccountingProfileService {
       entity.country_iso,
     );
 
-    if (existing.version !== dto.expectedVersion) {
-      throw new ConflictException(
-        `Version conflict: expected ${dto.expectedVersion}, current ${existing.version}.`,
-      );
-    }
-
     const patch = validateAccountingProfilePatch(
       {
         profileCode: dto.profileCode,
@@ -75,9 +84,20 @@ export class AccountingProfileService {
       entity.country_iso,
     );
 
-    const updateData: Prisma.LegalEntityAccountingProfileUpdateInput = {
-      version: { increment: 1 },
-    };
+    const revenueGroups = await this.loadRevenueGroups(tenantId);
+    if (patch.isEnabled === true) {
+      this.assertProfileReadyForEnablement(
+        existing,
+        patch,
+        entity.country_iso,
+        revenueGroups,
+      );
+    }
+
+    const updateData: Prisma.LegalEntityAccountingProfileUpdateManyMutationInput =
+      {
+        version: { increment: 1 },
+      };
 
     if (patch.profileCode !== undefined) {
       updateData.profile_code = patch.profileCode;
@@ -110,17 +130,74 @@ export class AccountingProfileService {
       updateData.is_enabled = patch.isEnabled;
     }
 
-    const updated = await this.prisma.legalEntityAccountingProfile.update({
-      where: { id: existing.id },
-      data: updateData,
-    });
+    const updateResult =
+      await this.prisma.legalEntityAccountingProfile.updateMany({
+        where: {
+          id: existing.id,
+          tenant_id: tenantId,
+          version: dto.expectedVersion,
+        },
+        data: updateData,
+      });
 
-    const revenueGroups = await this.loadRevenueGroups(tenantId);
+    if (updateResult.count !== 1) {
+      throw new ConflictException(
+        `Version conflict: expected ${dto.expectedVersion}, current ${existing.version}.`,
+      );
+    }
+
+    const updated =
+      await this.prisma.legalEntityAccountingProfile.findFirstOrThrow({
+        where: { id: existing.id, tenant_id: tenantId },
+      });
+
     return toAccountingProfileResponse(
       updated,
       entity.country_iso,
       revenueGroups,
     );
+  }
+
+  private assertProfileReadyForEnablement(
+    existing: LegalEntityAccountingProfile,
+    patch: AccountingProfilePatchInput,
+    countryIso: 'AT' | 'DE',
+    revenueGroups: {
+      id: number;
+      name: string;
+      tax_rate: { toString(): string };
+      account_number: string;
+    }[],
+  ): void {
+    const mergedMappingRules =
+      patch.mappingRules ?? parseStoredMappingRules(existing.mapping_rules);
+    const readiness = computeAccountingProfileReadiness({
+      countryIso,
+      advisorNumber:
+        patch.advisorNumber !== undefined
+          ? patch.advisorNumber
+          : existing.advisor_number,
+      clientNumber:
+        patch.clientNumber !== undefined
+          ? patch.clientNumber
+          : existing.client_number,
+      accountLength:
+        patch.accountLength !== undefined
+          ? patch.accountLength
+          : existing.account_length,
+      defaultDebtorAccount:
+        patch.defaultDebtorAccount !== undefined
+          ? patch.defaultDebtorAccount
+          : existing.default_debtor_account,
+      mappingRules: mergedMappingRules,
+      requiredSourceCategories: buildRequiredSourceCategories(revenueGroups),
+    });
+
+    if (!readiness.isReady) {
+      throw new BadRequestException(
+        'Accounting profile mapping must be complete before enabling DATEV export',
+      );
+    }
   }
 
   private async findLegalEntity(tenantId: string, legalEntityId: string) {

@@ -4746,7 +4746,7 @@ export interface components {
             iban?: string;
             bic?: string;
             bankName?: string;
-            email?: string;
+            email?: string | null;
             phone?: string;
             registrationNumber?: string;
             registrationCourt?: string;

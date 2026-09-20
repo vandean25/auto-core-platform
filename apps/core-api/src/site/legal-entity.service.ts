@@ -116,6 +116,23 @@ export class LegalEntityService {
       return toLegalEntityResponse(updated);
     }
 
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const duplicate = await this.prisma.legalEntity.findFirst({
+        where: {
+          tenant_id: tenantId,
+          name: trimmedName,
+          id: { not: existing.id },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          'A legal entity with that name already exists in this tenant.',
+        );
+      }
+    }
+
     const sellerUpdate = buildLegalEntitySellerUpdateData(existing, dto);
 
     const updated = await this.prisma.legalEntity.update({

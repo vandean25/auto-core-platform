@@ -45,7 +45,9 @@ function parseMappingRules(value: unknown): AccountingMappingRule[] {
     throw new BadRequestException('mappingRules must be an array');
   }
 
-  return value.map((entry, index) => {
+  const parsedRules: AccountingMappingRule[] = [];
+
+  for (const [index, entry] of value.entries()) {
     if (typeof entry !== 'object' || entry === null) {
       throw new BadRequestException(`mappingRules[${index}] must be an object`);
     }
@@ -69,9 +71,7 @@ function parseMappingRules(value: unknown): AccountingMappingRule[] {
       typeof rule.revenueAccount === 'string' ? rule.revenueAccount : null,
     );
     if (!revenueAccount) {
-      throw new BadRequestException(
-        `mappingRules[${index}].revenueAccount is required when a rule is present`,
-      );
+      continue;
     }
 
     const buKey = normalizeOptionalString(
@@ -88,7 +88,7 @@ function parseMappingRules(value: unknown): AccountingMappingRule[] {
       );
     }
 
-    return {
+    parsedRules.push({
       sourceCategoryKey: requireStringField(
         rule.sourceCategoryKey,
         'sourceCategoryKey',
@@ -104,8 +104,10 @@ function parseMappingRules(value: unknown): AccountingMappingRule[] {
       revenueAccount,
       taxTreatment,
       buKey: taxTreatment === 'manual_bu' ? buKey : null,
-    };
-  });
+    });
+  }
+
+  return parsedRules;
 }
 
 export type AccountingProfilePatchInput = {

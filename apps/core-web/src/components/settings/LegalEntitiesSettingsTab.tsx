@@ -81,6 +81,11 @@ function toFormState(entity: LegalEntityRecord): SellerFormState {
   }
 }
 
+function normalizeOptionalFormString(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed.length === 0 ? null : trimmed
+}
+
 function buildUpdatePayload(
   entityId: string,
   form: SellerFormState,
@@ -93,22 +98,22 @@ function buildUpdatePayload(
   return {
     id: entityId,
     name: form.name.trim(),
-    addressStreet: form.addressStreet,
-    addressLine2: form.addressLine2,
-    addressZip: form.addressZip,
-    addressCity: form.addressCity,
-    taxNumber: form.taxNumber,
-    vatId: form.vatId,
-    iban: form.iban,
-    bic: form.bic,
-    bankName: form.bankName,
-    email: form.email,
-    phone: form.phone,
-    registrationNumber: form.registrationNumber,
-    registrationCourt: form.registrationCourt,
-    representatives: form.representatives,
+    addressStreet: normalizeOptionalFormString(form.addressStreet),
+    addressLine2: normalizeOptionalFormString(form.addressLine2),
+    addressZip: normalizeOptionalFormString(form.addressZip),
+    addressCity: normalizeOptionalFormString(form.addressCity),
+    taxNumber: normalizeOptionalFormString(form.taxNumber),
+    vatId: normalizeOptionalFormString(form.vatId),
+    iban: normalizeOptionalFormString(form.iban),
+    bic: normalizeOptionalFormString(form.bic),
+    bankName: normalizeOptionalFormString(form.bankName),
+    email: normalizeOptionalFormString(form.email),
+    phone: normalizeOptionalFormString(form.phone),
+    registrationNumber: normalizeOptionalFormString(form.registrationNumber),
+    registrationCourt: normalizeOptionalFormString(form.registrationCourt),
+    representatives: normalizeOptionalFormString(form.representatives),
     paymentTermsDays,
-    paymentTermsText: form.paymentTermsText,
+    paymentTermsText: normalizeOptionalFormString(form.paymentTermsText),
   }
 }
 
@@ -118,8 +123,10 @@ function formatMissingField(field: string, countryIso: 'AT' | 'DE') {
       return countryIso === 'DE' ? 'Tax number or VAT ID' : 'Tax number or VAT ID'
     case 'vat_id':
       return countryIso === 'AT' ? 'UID (VAT ID)' : 'VAT ID'
-    case 'payment_terms':
-      return 'Payment terms'
+    case 'payment_terms_days':
+      return 'Payment terms (days)'
+    case 'payment_terms_text':
+      return 'Payment terms text'
     case 'address_street':
       return 'Street address'
     case 'address_zip':
@@ -228,7 +235,9 @@ function buildProfileUpdatePayload(
     profileCode: form.profileCode,
     formatVersion: form.formatVersion,
     isEnabled: form.isEnabled,
-    mappingRules: form.mappingRules,
+    mappingRules: form.mappingRules.filter(
+      (rule) => rule.revenueAccount.trim().length > 0,
+    ),
   }
 }
 

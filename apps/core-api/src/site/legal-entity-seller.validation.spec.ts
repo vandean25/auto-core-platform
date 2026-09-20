@@ -47,6 +47,12 @@ describe('legal-entity-seller.validation', () => {
       expect(isValidIban('AT611904300234573201')).toBe(true);
     });
 
+    it('rejects IBANs with the wrong country length', () => {
+      expect(isValidIban('AT6119043002345732011')).toBe(false);
+      expect(isValidIban('DE89370400440532013000')).toBe(true);
+      expect(isValidIban('DE8937040044053201300')).toBe(false);
+    });
+
     it('rejects an invalid IBAN checksum', () => {
       expect(isValidIban('AT611904300234573202')).toBe(false);
     });

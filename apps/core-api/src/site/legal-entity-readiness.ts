@@ -31,14 +31,14 @@ export function computeSellerReadiness(
     missingFields.push('vat_id');
   }
 
-  const hasPaymentTerms =
-    entity.payment_terms_days !== null &&
-    entity.payment_terms_days !== undefined
-      ? true
-      : Boolean(entity.payment_terms_text?.trim());
-
-  if (!hasPaymentTerms) {
-    missingFields.push('payment_terms');
+  if (
+    entity.payment_terms_days === null ||
+    entity.payment_terms_days === undefined
+  ) {
+    missingFields.push('payment_terms_days');
+  }
+  if (!entity.payment_terms_text?.trim()) {
+    missingFields.push('payment_terms_text');
   }
 
   return {

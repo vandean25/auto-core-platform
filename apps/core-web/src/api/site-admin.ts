@@ -36,22 +36,22 @@ export type UpdateLegalEntityPayload = {
   id: string
   name?: string
   isActive?: boolean
-  addressStreet?: string
-  addressLine2?: string
-  addressZip?: string
-  addressCity?: string
-  taxNumber?: string
-  vatId?: string
-  iban?: string
-  bic?: string
-  bankName?: string
-  email?: string
-  phone?: string
-  registrationNumber?: string
-  registrationCourt?: string
-  representatives?: string
+  addressStreet?: string | null
+  addressLine2?: string | null
+  addressZip?: string | null
+  addressCity?: string | null
+  taxNumber?: string | null
+  vatId?: string | null
+  iban?: string | null
+  bic?: string | null
+  bankName?: string | null
+  email?: string | null
+  phone?: string | null
+  registrationNumber?: string | null
+  registrationCourt?: string | null
+  representatives?: string | null
   paymentTermsDays?: number | null
-  paymentTermsText?: string
+  paymentTermsText?: string | null
 }
 
 export type AdminSiteRecord = {

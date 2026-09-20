@@ -40,9 +40,19 @@ export function normalizeUppercaseOptionalString(
   return normalized ? normalized.toUpperCase() : null;
 }
 
+const IBAN_LENGTH_BY_COUNTRY: Record<string, number> = {
+  AT: 20,
+  DE: 22,
+};
+
 export function isValidIban(value: string): boolean {
   const normalized = value.replace(/\s+/g, '').toUpperCase();
   if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(normalized)) {
+    return false;
+  }
+
+  const expectedLength = IBAN_LENGTH_BY_COUNTRY[normalized.slice(0, 2)];
+  if (expectedLength !== undefined && normalized.length !== expectedLength) {
     return false;
   }
 
@@ -155,7 +165,8 @@ export function buildLegalEntitySellerUpdateData(
     data.vat_id = normalizeUppercaseOptionalString(dto.vatId);
   }
   if (dto.iban !== undefined) {
-    data.iban = normalizeUppercaseOptionalString(dto.iban);
+    const compacted = normalizeOptionalString(dto.iban)?.replace(/\s+/g, '');
+    data.iban = compacted ? compacted.toUpperCase() : null;
   }
   if (dto.bic !== undefined) {
     data.bic = normalizeUppercaseOptionalString(dto.bic);

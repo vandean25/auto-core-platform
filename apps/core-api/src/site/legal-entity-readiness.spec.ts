@@ -21,7 +21,7 @@ const baseEntity = (
   registration_court: null,
   representatives: null,
   payment_terms_days: 14,
-  payment_terms_text: null,
+  payment_terms_text: 'Payable within 14 days',
   ...overrides,
 });
 
@@ -58,7 +58,7 @@ describe('legal-entity-readiness', () => {
     expect(readiness.isReady).toBe(true);
   });
 
-  it('requires payment terms', () => {
+  it('requires both payment term fields', () => {
     const readiness = computeSellerReadiness(
       baseEntity({
         payment_terms_days: null,
@@ -66,6 +66,19 @@ describe('legal-entity-readiness', () => {
       }),
     );
 
-    expect(readiness.missingFields).toContain('payment_terms');
+    expect(readiness.missingFields).toContain('payment_terms_days');
+    expect(readiness.missingFields).toContain('payment_terms_text');
+  });
+
+  it('requires payment terms text even when days are set', () => {
+    const readiness = computeSellerReadiness(
+      baseEntity({
+        payment_terms_days: 14,
+        payment_terms_text: null,
+      }),
+    );
+
+    expect(readiness.isReady).toBe(false);
+    expect(readiness.missingFields).toContain('payment_terms_text');
   });
 });

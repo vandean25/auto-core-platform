@@ -52,6 +52,25 @@ describe('Legal entity seller identity (e2e)', () => {
     return `Bearer ${createTestAuthToken(authService, tenant)}`;
   }
 
+  it('allows blank email on incomplete seller settings', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        email: '',
+        addressStreet: 'Hauptstraße 1',
+      })
+      .expect(200);
+
+    expect(response.body.email).toBeNull();
+    expect(response.body.address_street).toBe('Hauptstraße 1');
+  });
+
   it('allows OWNER/ADMIN to save incomplete seller settings', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
@@ -159,6 +178,7 @@ describe('Legal entity seller identity (e2e)', () => {
         addressCity: 'Berlin',
         taxNumber: '12/345/67890',
         paymentTermsDays: 14,
+        paymentTermsText: 'Payable within 14 days',
       })
       .expect(200);
 

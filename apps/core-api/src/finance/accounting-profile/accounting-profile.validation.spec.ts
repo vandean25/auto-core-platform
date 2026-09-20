@@ -16,24 +16,24 @@ describe('accounting-profile.validation', () => {
     expect(patch.advisorNumber).toBe('12345');
   });
 
-  it('rejects malformed mapping rules', () => {
-    expect(() =>
-      validateAccountingProfilePatch(
-        {
-          mappingRules: [
-            {
-              sourceCategoryKey: 'labor',
-              sourceCategoryLabel: 'Labor',
-              taxMode: 'STANDARD',
-              taxRate: '20.00',
-              revenueAccount: '',
-              taxTreatment: 'automatic',
-            },
-          ],
-        },
-        'DE',
-      ),
-    ).toThrow(BadRequestException);
+  it('drops incomplete mapping rules instead of rejecting the patch', () => {
+    const patch = validateAccountingProfilePatch(
+      {
+        mappingRules: [
+          {
+            sourceCategoryKey: 'labor',
+            sourceCategoryLabel: 'Labor',
+            taxMode: 'STANDARD',
+            taxRate: '20.00',
+            revenueAccount: '',
+            taxTreatment: 'automatic',
+          },
+        ],
+      },
+      'DE',
+    );
+
+    expect(patch.mappingRules).toEqual([]);
   });
 
   it('rejects manual_bu without buKey', () => {
